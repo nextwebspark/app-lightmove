@@ -2,9 +2,34 @@
 
 A chat inside a project. You ask for companies ("top 10 retail companies in the UAE"). The assistant
 searches the company universe (`app_lm_apollo_companies`) and answers with a **card** of companies
-that you tick and file into the mandate as In universe, Shortlisted or Declined.
+that you tick and file into the mandate as In universe, Shortlisted or Declined. You can also ask about
+the executives the mandate has mapped ("who have we mapped at Aldar?"); that answer is text only.
 
-v1 does only this. New abilities are added one tool at a time, each one tested before the next.
+## Supervisor and specialists ("agent as a tool")
+
+Each domain is a **specialist** (`AssistantSpecialist`): its own system prompt and its own few tools,
+run as a nested model call by `AssistantModelCall.askSpecialist`. `AssistantSupervisor` picks who answers:
+
+- **One specialist available** → it answers directly. There is no supervisor round, so one domain costs
+  what it did before specialists existed.
+- **Several** → one supervisor call (`prompts/assistant-supervisor.st`, no thinking budget) whose tools
+  are the specialists, each wrapped per ask as a `SpecialistToolCallback` taking `{task}`. The callback
+  reads whom it acts for from the server's `ToolContext`, never from the model's input. It re-checks
+  `availableTo`, runs each specialist once per ask (asked again, it hands back its first answer with no
+  second nested call), refuses past `max-specialist-calls-per-ask` (3) distinct specialists, keeps only
+  the first 300 characters of `task` (and ignores one that is not JSON), and records an "Asking the …
+  specialist" step. The supervisor passes one specialist's answer back unchanged.
+- Every model call is sent the earlier cards (`CardMemory`), so `AssistantModelCall` strips a card block
+  from every answer it returns, whoever wrote it.
+
+| Specialist | Prompt id | Tools | Available |
+|---|---|---|---|
+| `CompanySpecialist` | `assistant-turn` (kept, so existing dashboards still match) | the company tools below | on a project |
+| `CandidateSpecialist` | `assistant-candidates` | `CandidateTools`: `listMappedExecutives`, `readExecutiveProfile`, `companiesWithoutExecutives` — read-only | on a project |
+
+The supervisor's prompt id is `assistant-supervisor`. The whole ask is still one `LlmBudget.ASSISTANT`
+unit, and `ASSISTANT_ASKED` records the `specialists` consulted. Spring AI runs a response's tool calls
+one after another, so a question needing two specialists waits for both.
 
 ## One question, one request
 
@@ -25,7 +50,9 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │  the workspace's company (V68) and the persona its admins wrote in Settings → General (V69);
         │  at an agency (V84), the mandate's client and the persona recorded in its drawer (V85), with
         │  the agency named in one line. Framed as data, never instructions
-        ├─ ChatClient.call() with the tools + ToolContext {workspaceId, projectId, TurnRecorder}
+        ├─ AssistantSupervisor → the company specialist's ChatClient.call() with the tools +
+        │  ToolContext {workspaceId, projectId, TurnRecorder} (through the supervisor when several
+        │  specialists are available)
         │     readMandateBrief       → the position only (never compensation or internal notes)
         │     describeMarket         → exact country / industry spellings
         │     searchCompanyUniverse  → top 25 by headcount, with the total matched; up to five
@@ -81,6 +108,10 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   account ids and reads every name and figure from the universe row. Accept files only ids that the
   stored card holds.
 - A chat that is not yours answers 404.
+- **What a model may read about a person is an allowlist.** The candidates specialist's tools return
+  `MappedExecutiveSummary` (name, title, company, seniority, status, location, years) and
+  `CandidateDossier`. Contacts, compensation, notes, custom fields, nationality and gender never reach
+  its prompt.
 - Tool output is data. The system prompt (`prompts/assistant-system.st`) says so. The real guard is
   the rule above, not the sentence.
 
@@ -90,9 +121,19 @@ by account id, else by name — the rule a capture uses), stored on the turn and
    `AssistantToolContext.from(toolContext)`, never from an argument. Report what it does with
    `recorder().startStep("Searching …")` and `finishStep(index, "342 matched")`, so the person
    waiting sees it.
-2. Pass the bean to `.tools(...)` in `AssistantService.callModel`.
-3. Tell the model when to use it in `prompts/assistant-system.st`.
+2. Return it from the owning specialist's `tools()`.
+3. Tell the model when to use it in that specialist's prompt.
 4. If it writes anything, it must propose rather than write. A person confirms every change.
+
+## Adding a specialist
+
+1. Implement `AssistantSpecialist` as a `@Service` in `assistant/service/`. Give it a `toolName`, a
+   `description` the supervisor decides by, a `promptId` of its own, and an `availableTo` that checks
+   the action its data needs. The check is the server's; the model only ever sees specialists that
+   pass it.
+2. Its tools return an allowlisted record, never a DTO a screen reads.
+3. Give its prompt a marker sentence. Integration tests route to it with
+   `StubChatModel.callToolWhenSystemContains(supervisor marker, toolName, …)`.
 
 ## Code map
 
@@ -100,9 +141,11 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   - `controller/AssistantController` has the four endpoints.
   - `service/AssistantAskStream` streams an ask's steps and result.
   - `service/AssistantService` handles ask, the history list and reading a chat.
+  - `service/AssistantSupervisor`, `AssistantModelCall`, `SpecialistToolCallback` and the specialists
+    (`CompanySpecialist`, `CandidateSpecialist`) choose and run who answers.
   - `service/CardMemory` writes an earlier card back into the chat the model reads.
   - `service/AssistantProposalService` handles accept.
-  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
 - Frontend `apps/web/src/features/assistant`:
   - `AssistantProvider` holds whether the panel is open and the chat shown per project.
   - `components/AssistantPanel` has the history list, New chat, the transcript and the composer.
