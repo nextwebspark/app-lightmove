@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 /** The executives a position has mapped. */
 @Component
 @RequiredArgsConstructor
-public class CandidateTools {
+public class McpCandidateTools {
 
     static final String LIST = "uncava_list_candidates";
     static final String SEARCH = "uncava_search_candidates";

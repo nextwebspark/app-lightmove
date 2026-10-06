@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /** The tool a client calls first, as the public API's {@code /me}: which workspace it reaches, and what it may read. */
 @Component
 @RequiredArgsConstructor
-public class WhoAmITool {
+public class McpWhoAmITool {
 
     static final String NAME = "uncava_whoami";
 
