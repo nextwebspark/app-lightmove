@@ -589,6 +589,16 @@ token in it stored as SHA-256 only (`HashingAuthorizationService`), consent aske
 rotated one replayed deletes the grant. Settings → Connected AI apps reads `/api/v1/workspace/oauth-grants`
 (`API_KEY_MANAGE`, `?all=true` under `WORKSPACE_MANAGE`, as API keys), and a grant ends with its membership or
 workspace, as a personal key does, and every grant of an account ends with a password change or reset.
+A client is never signed up by hand (#702): it registers itself through Spring's RFC 7591 endpoint
+(`POST /api/v1/oauth/register`, open, 10 an hour per address, public clients only, pruned after 30 days unconnected), or
+its `client_id` is the https URL of its own **metadata document** (CIMD), fetched by `HttpClientMetadataFetcher` — a
+public address only, checked on the addresses the connection dials, no redirect, 5 KB, 5 s — and kept as a row for its
+`Cache-Control` lifetime (`ClientMetadataDocumentClients`: one fetch at a time per document, a failed one not retried
+for 5 minutes, a stale copy serving meanwhile). A redirect URI matches exactly, except a listener on this machine
+(`127.0.0.1`, `[::1]`, `localhost`) whose port may change; a private-use scheme is refused. The consent screen calls only
+a document under a listed URL prefix (`lightmove.mcp.verified-client-id-prefixes`) verified — a registration never is.
+A client revokes its own grant at `/api/v1/oauth/revoke` (RFC 7009) with its id alone, budgeted per address, and that
+path never fetches a document.
 
 ## Commands
 
@@ -847,6 +857,8 @@ it may ask for, held to the five scopes by CHECK; `source` `SEEDED | DCR | CIMD`
 grant: client, user, workspace — null only while waiting for consent — and the state, code, access and refresh
 token as SHA-256 hashes, unique each) and `app_lm_oauth_retired_refresh_token` (rotated-away refresh hashes, the
 replay check). Deleting a grant row is revoking it.
+V116 gives `app_lm_oauth_client` `last_authorized_at` (stamped at consent; the purge's clock for an unused registration)
+and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `metadata_expires_at`.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

@@ -9,6 +9,8 @@ public record OAuthGrantResponse(
         UUID id,
         String clientId,
         String clientName,
+        /** As on the consent screen: the app is the one it says it is. */
+        boolean verified,
         /** The host the client's redirect goes to, which is what the consent screen showed. */
         String redirectHost,
         String logoUri,

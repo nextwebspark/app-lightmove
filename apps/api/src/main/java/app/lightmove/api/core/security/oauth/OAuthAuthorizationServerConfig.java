@@ -16,6 +16,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProp
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
@@ -27,8 +28,9 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
-import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationValidator;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationConsentAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.PublicClientAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
@@ -66,6 +68,7 @@ public class OAuthAuthorizationServerConfig {
     public static final String TOKEN = OAUTH_BASE + "/token";
     public static final String JWKS = OAUTH_BASE + "/jwks";
     public static final String REVOKE = OAUTH_BASE + "/revoke";
+    public static final String REGISTER = OAUTH_BASE + "/register";
     public static final String CONSENT = OAUTH_BASE + "/consent";
     public static final String METADATA = "/.well-known/oauth-authorization-server";
 
@@ -81,7 +84,7 @@ public class OAuthAuthorizationServerConfig {
                 .pushedAuthorizationRequestEndpoint(OAUTH_BASE + "/par")
                 .deviceAuthorizationEndpoint(OAUTH_BASE + "/device_authorization")
                 .deviceVerificationEndpoint(OAUTH_BASE + "/device_verification")
-                .clientRegistrationEndpoint(OAUTH_BASE + "/register")
+                .clientRegistrationEndpoint(REGISTER)
                 .oidcClientRegistrationEndpoint(OAUTH_BASE + "/connect/register")
                 .oidcUserInfoEndpoint(OAUTH_BASE + "/userinfo")
                 .oidcLogoutEndpoint(OAUTH_BASE + "/connect/logout")
@@ -94,6 +97,7 @@ public class OAuthAuthorizationServerConfig {
     SecurityFilterChain authorizationServerChain(HttpSecurity http, McpServerIdentity identity,
                                                  JWKSource<SecurityContext> mcpJwkSource,
                                                  RegisteredClientRepository clients,
+                                                 ClientMetadataDocumentClients documentClients,
                                                  HashingAuthorizationService authorizations,
                                                  PerGrantConsentService consents,
                                                  AuthorizationServerSettings settings,
@@ -120,17 +124,33 @@ public class OAuthAuthorizationServerConfig {
                         .tokenGenerator(new DelegatingOAuth2TokenGenerator(
                                 accessTokens, new RotatingRefreshTokenGenerator(clock)))
                         .clientAuthentication(clientAuthentication -> clientAuthentication
-                                .authenticationConverter(new PublicClientRefreshAuthentication.Converter(TOKEN))
-                                .authenticationProvider(new PublicClientRefreshAuthentication.Provider(clients)))
+                                .authenticationConverter(new PublicClientAuthentication.Converter(TOKEN, REVOKE))
+                                .authenticationProvider(new PublicClientAuthentication.Provider(documentClients))
+                                .authenticationProviders(providers -> providers.replaceAll(provider ->
+                                        provider instanceof PublicClientAuthenticationProvider framework
+                                                ? new PublicClientAuthentication.CodeGrantOnly(framework)
+                                                : provider)))
+                        .clientRegistrationEndpoint(registration -> registration
+                                .openRegistrationAllowed(true)
+                                .authenticationProviders(providers -> providers.forEach(provider -> {
+                                    if (provider instanceof OAuth2ClientRegistrationAuthenticationProvider register) {
+                                        register.setAuthenticationValidator(DynamicClientRegistrations::validate);
+                                        register.setRegisteredClientConverter(registered ->
+                                                DynamicClientRegistrations.toRegisteredClient(registered, clock));
+                                    }
+                                })))
+                        .tokenRevocationEndpoint(revocation -> revocation
+                                .authenticationProviders(providers -> {
+                                    providers.clear();
+                                    providers.add(new PublicClientRevocation(authorizations));
+                                }))
                         .authorizationEndpoint(authorize -> authorize
                                 .consentPage(CONSENT)
                                 .authorizationResponseHandler(replies)
                                 .errorResponseHandler(replies)
                                 .authenticationProviders(providers -> providers.forEach(provider -> {
                                     if (provider instanceof OAuth2AuthorizationCodeRequestAuthenticationProvider request) {
-                                        request.setAuthenticationValidator(
-                                                new OAuth2AuthorizationCodeRequestAuthenticationValidator()
-                                                        .andThen(rules::validateRequest));
+                                        request.setAuthenticationValidator(rules.requestValidator());
                                         // The workspace is chosen per grant, so every grant is asked for.
                                         request.setAuthorizationConsentRequired(context -> true);
                                     }
@@ -159,23 +179,33 @@ public class OAuthAuthorizationServerConfig {
                                         })
                                         .scopes(scopes -> scopes.addAll(
                                                 Arrays.stream(ApiKeyScope.values()).map(ApiKeyScope::value).toList()))
+                                        .tokenRevocationEndpointAuthenticationMethods(methods -> {
+                                            methods.clear();
+                                            methods.add(ClientAuthenticationMethod.NONE.getValue());
+                                        })
                                         .claim("authorization_response_iss_parameter_supported", true)
-                                        // Revocation needs client authentication a public client cannot give,
-                                        // so it is not advertised: a client must not believe a revoke worked.
+                                        .claim("client_id_metadata_document_supported", true)
                                         .claims(claims -> List.of("device_authorization_endpoint",
                                                         "introspection_endpoint",
                                                         "introspection_endpoint_auth_methods_supported",
-                                                        "revocation_endpoint",
-                                                        "revocation_endpoint_auth_methods_supported",
                                                         "tls_client_certificate_bound_access_tokens",
                                                         "dpop_signing_alg_values_supported")
                                                 .forEach(claims::remove)))))
-                .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+                .authorizeHttpRequests(authorize -> authorize
+                        // Registration needs no one signed in: an MCP client registers before anyone has.
+                        .requestMatchers(PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, REGISTER))
+                        .permitAll()
+                        .anyRequest().authenticated())
+                // Turning registration on makes the framework add a resource server for initial access tokens; it is
+                // pinned to the session decoder and principal here, so it reads the bearer exactly as ours does.
+                .oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt
+                        .decoder(sessionDecoder)
+                        .jwtAuthenticationConverter(SessionUserAuthentication::of)))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(replies,
                         PathPatternRequestMatcher.withDefaults().matcher(AUTHORIZE)))
-                .addFilterBefore(new OAuthRateLimitFilter(AUTHORIZE, TOKEN, properties.mcp(),
+                .addFilterBefore(new OAuthRateLimitFilter(AUTHORIZE, TOKEN, REGISTER, REVOKE, properties.mcp(),
                         properties.auth().rateLimit(), limiter, clientIps, audit), CsrfFilter.class)
                 .addFilterBefore(sessionBearerFilter(sessionDecoder), X509AuthenticationFilter.class);
 

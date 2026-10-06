@@ -8,7 +8,6 @@ import app.lightmove.api.core.security.dto.OAuthGrantResponse;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -47,6 +46,7 @@ public class OAuthGrantService {
     private final AuditService audit;
     private final JsonMapper json;
     private final Clock clock;
+    private final ClientVerification verification;
 
     @Transactional(readOnly = true)
     public List<OAuthGrantResponse> list(UUID actorId, UUID workspaceId, boolean all) {
@@ -62,7 +62,7 @@ public class OAuthGrantService {
         return jdbc.query("""
                 SELECT g.id, g.user_id, g.authorized_scopes::text AS scopes, g.consented_at, g.last_used_at,
                        GREATEST(g.code_expires_at, g.access_token_expires_at, g.refresh_token_expires_at) AS expires_at,
-                       c.client_id, c.client_name, c.logo_uri, c.redirect_uris::text AS redirect_uris,
+                       c.client_id, c.client_name, c.source, c.logo_uri, c.redirect_uris::text AS redirect_uris,
                        COALESCE(u.full_name, u.email) AS owner_name
                 FROM app_lm_oauth_authorization g
                 JOIN app_lm_oauth_client c ON c.id = g.client_id
@@ -148,7 +148,8 @@ public class OAuthGrantService {
                 rs.getObject("id", UUID.class),
                 rs.getString("client_id"),
                 rs.getString("client_name"),
-                redirects.isEmpty() ? null : hostOf(redirects.getFirst()),
+                verification.isVerified(OAuthClientSource.valueOf(rs.getString("source")), rs.getString("client_id")),
+                redirects.isEmpty() ? null : OAuthUris.hostOf(redirects.getFirst()),
                 rs.getString("logo_uri"),
                 json.readValue(rs.getString("scopes"), STRINGS),
                 rs.getObject("user_id", UUID.class),
@@ -156,14 +157,6 @@ public class OAuthGrantService {
                 instant(rs, "consented_at"),
                 instant(rs, "last_used_at"),
                 instant(rs, "expires_at"));
-    }
-
-    static String hostOf(String uri) {
-        try {
-            return URI.create(uri).getHost();
-        } catch (IllegalArgumentException malformed) {
-            return null;
-        }
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

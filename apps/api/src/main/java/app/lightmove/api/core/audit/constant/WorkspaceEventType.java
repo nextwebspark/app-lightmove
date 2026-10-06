@@ -37,7 +37,8 @@ public enum WorkspaceEventType implements AuditEventType {
 
     OAUTH_GRANT_CREATED,
     OAUTH_GRANT_REVOKED,
-    OAUTH_TOKEN_REFRESHED;
+    OAUTH_TOKEN_REFRESHED,
+    OAUTH_CLIENT_REGISTERED;
 
     @Override
     public String code() {

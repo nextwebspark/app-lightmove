@@ -561,6 +561,15 @@ lightmove:
     authorize-per-minute-per-ip: ${MCP_AUTHORIZE_PER_MINUTE_PER_IP:30}
     token-per-minute-per-ip: ${MCP_TOKEN_PER_MINUTE_PER_IP:60}
     token-per-minute-per-client: ${MCP_TOKEN_PER_MINUTE_PER_CLIENT:30}
+    register-per-hour-per-ip: ${MCP_REGISTER_PER_HOUR_PER_IP:10}
+    revoke-per-minute-per-ip: ${MCP_REVOKE_PER_MINUTE_PER_IP:30}
+    unused-client-ttl: ${MCP_UNUSED_CLIENT_TTL:30d}
+    cimd-max-bytes: ${MCP_CIMD_MAX_BYTES:5120}
+    cimd-timeout: ${MCP_CIMD_TIMEOUT:5s}
+    cimd-min-ttl: ${MCP_CIMD_MIN_TTL:5m}
+    cimd-max-ttl: ${MCP_CIMD_MAX_TTL:24h}
+    cimd-stale-if-error: ${MCP_CIMD_STALE_IF_ERROR:24h}
+    verified-client-id-prefixes: ${MCP_VERIFIED_CLIENT_ID_PREFIXES:https://claude.ai/oauth/,https://chatgpt.com/oauth/}
     # Read by @Scheduled, which never sees a binding default, so it is spelled out here.
     purge-interval: ${MCP_PURGE_INTERVAL:PT1H}
 
