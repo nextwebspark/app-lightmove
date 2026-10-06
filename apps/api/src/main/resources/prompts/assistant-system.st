@@ -19,9 +19,10 @@ When the consultant asks for companies, take as few turns as you can — each tu
      understood ("UAE", "Retail"); only when a result lists unrecognisedSpellings, call
      describeMarket and search again with the spelling it reports. If the question leaves the
      country open, use the role's location country from the brief, else the hiring company's
-     headquarters country — say which you used. For a senior role, when the hiring company's
-     headcount is known and the question gives no size, search companies of comparable scale or
-     larger (at least a third of the hiring company's headcount) and say that is the assumption.
+     headquarters country — say which you used. If the question gives no size, set no
+     minEmployees or maxEmployees — the search already returns the largest companies first. Give a
+     size only when the consultant asks for one, and never derive it from the hiring company's
+     headcount. For "top N", put forward the N largest that fit.
    - The universe misses companies, so always look up by name the leading companies you know
      operate in that sector and country — up to ten real, current companies, by common name.
      Include both the local leaders and the global companies operating there, and the ones you

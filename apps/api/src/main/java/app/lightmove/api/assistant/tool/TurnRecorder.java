@@ -33,6 +33,7 @@ public class TurnRecorder {
     private final Map<String, CapturedCompanyDetails> researched = new LinkedHashMap<>();
     private final Map<String, CapturedCompanyDetails> remembered = new LinkedHashMap<>();
     private final Map<String, String> operatedBrands = new LinkedHashMap<>();
+    private final List<String> consultedSpecialists = new ArrayList<>();
     private boolean namesLookedUp;
     private int vendorSearches;
     private AssistantProposal proposal;
@@ -87,6 +88,15 @@ public class TurnRecorder {
     /** Billed Bright Data searches this answer made — what its audit event records. */
     public int vendorSearches() {
         return vendorSearches;
+    }
+
+    public void consulted(String specialist) {
+        consultedSpecialists.add(specialist);
+    }
+
+    /** Every specialist this answer asked, in order and once per ask — what its audit event records. */
+    public List<String> consultedSpecialists() {
+        return List.copyOf(consultedSpecialists);
     }
 
     public void researched(String linkedinSlug, CapturedCompanyDetails details) {

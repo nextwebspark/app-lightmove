@@ -15,7 +15,7 @@ CREATE TABLE app_lm_api_key (
     name            varchar(80)   NOT NULL,
     token_hash      varchar(64)   NOT NULL
         CONSTRAINT app_lm_api_key_token_hash_uk UNIQUE,
-    -- The prefix and a few characters from each end, so a key can be recognised in a list without being usable.
+    -- The prefix and the checksum's last four characters, so a key can be recognised in a list without being usable.
     token_hint      varchar(32)   NOT NULL,
     scopes          jsonb         NOT NULL
         CONSTRAINT app_lm_api_key_scopes_chk CHECK (

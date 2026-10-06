@@ -129,6 +129,8 @@ rather than cutting it short. Use the paged routes for a stage that large.
 Each key may make 60 requests a minute, and each IP address 300. Past either limit, the answer is
 `429 RATE_LIMITED` with a `Retry-After` header in seconds: wait that long, then retry. The limits are counted
 on each server separately, so the real ceiling is somewhat higher, but build to the stated one.
+The per-IP budget counts every request, refused ones included, so callers behind one shared egress address
+(a corporate NAT, a cloud function pool) share its 300.
 
 ## Errors
 

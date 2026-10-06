@@ -30,7 +30,9 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +53,9 @@ public class MailboxService {
     public static final String CALLBACK_PATH = "/api/v1/outreach/mailbox/callback";
 
     private static final String TARGET = "mailbox_connection";
+
+    private static final Pattern REGION_ZONE = Pattern.compile(
+            "UTC|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z0-9_+\\-/]+");
 
     private static final String TEST_SUBJECT = "Your mailbox is connected to Uncava";
     private static final String TEST_BODY = "<p>This is a test from Uncava.</p>"
@@ -83,6 +88,33 @@ public class MailboxService {
         int runsStopped = movesOffNylas
                 ? (int) enrollments.countRunningThreadsOf(workspaceId, userId, MailboxGatewayKind.NYLAS) : 0;
         return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped);
+    }
+
+    /**
+     * Sends already due keep their time; the window and the cap read the new zone from the next one. Only a
+     * region's own zone is taken ({@code Europe/London}, or {@code UTC}), never a legacy alias like {@code EST}.
+     */
+    @Transactional
+    public MailboxResponse changeTimeZone(UUID userId, UUID workspaceId, String timeZone, HttpServletRequest request) {
+        if (!isRegionZone(timeZone)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timeZone", "Choose a time zone from the list");
+        }
+        MailboxConnection connection = requireConnection(userId, workspaceId);
+        String previous = connection.getTimeZone();
+        connection.changeTimeZone(ZoneId.of(timeZone));
+        audit.event(WorkspaceEventType.MAILBOX_TIME_ZONE_CHANGED)
+                .actor(userId)
+                .workspace(workspaceId)
+                .target(TARGET, userId)
+                .from(request)
+                .detail("from", previous)
+                .detail("to", timeZone)
+                .record();
+        return view(userId, workspaceId);
+    }
+
+    private static boolean isRegionZone(String timeZone) {
+        return REGION_ZONE.matcher(timeZone).matches() && ZoneId.getAvailableZoneIds().contains(timeZone);
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
