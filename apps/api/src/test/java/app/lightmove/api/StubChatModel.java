@@ -5,10 +5,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 
@@ -27,12 +31,33 @@ public class StubChatModel implements ChatModel {
     private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
     private volatile String reply = REPLY;
     private final Map<String, String> repliesBySystemText = new ConcurrentHashMap<>();
+    private final Map<String, AssistantMessage.ToolCall> toolCallsBySystemText = new ConcurrentHashMap<>();
+
+    /**
+     * ChatClient builds every call's options from these, and only tool-calling options carry a call's tools —
+     * so ChatClient's own tool loop runs a tool this stub asks for.
+     */
+    @Override
+    public ChatOptions getOptions() {
+        return ToolCallingChatOptions.builder().build();
+    }
 
     @Override
     public ChatResponse call(Prompt prompt) {
         lastPrompt = prompt;
         prompts.add(prompt);
         String system = prompt.getSystemMessage().getText();
+        if (!answersToolResults(prompt)) {
+            AssistantMessage.ToolCall toolCall = toolCallsBySystemText.entrySet().stream()
+                    .filter(marked -> system != null && system.contains(marked.getKey()))
+                    .map(Map.Entry::getValue)
+                    .findFirst()
+                    .orElse(null);
+            if (toolCall != null) {
+                return new ChatResponse(List.of(new Generation(
+                        AssistantMessage.builder().content("").toolCalls(List.of(toolCall)).build())));
+            }
+        }
         return chunk(repliesBySystemText.entrySet().stream()
                 .filter(marked -> system != null && system.contains(marked.getKey()))
                 .map(Map.Entry::getValue)
@@ -45,6 +70,15 @@ public class StubChatModel implements ChatModel {
         repliesBySystemText.put(marker, text);
     }
 
+    /**
+     * Calls {@code toolName} with {@code arguments} for a prompt whose system text contains {@code marker},
+     * then answers as usual once the tool's result comes back — so the real tool runs, with its context.
+     */
+    public void callToolWhenSystemContains(String marker, String toolName, String arguments) {
+        toolCallsBySystemText.put(marker, new AssistantMessage.ToolCall("stub-" + toolName, "function", toolName,
+                arguments));
+    }
+
     /** Answers every prompt with {@code text} until {@link #reset}; the context is shared, so reset it. */
     public void answerWith(String text) {
         reply = text;
@@ -53,6 +87,7 @@ public class StubChatModel implements ChatModel {
     public void reset() {
         reply = REPLY;
         repliesBySystemText.clear();
+        toolCallsBySystemText.clear();
         lastPrompt = null;
         prompts.clear();
     }
@@ -65,6 +100,11 @@ public class StubChatModel implements ChatModel {
     /** Every prompt sent since the last {@link #reset}, in order. */
     public List<Prompt> prompts() {
         return List.copyOf(prompts);
+    }
+
+    private static boolean answersToolResults(Prompt prompt) {
+        List<Message> instructions = prompt.getInstructions();
+        return !instructions.isEmpty() && instructions.getLast() instanceof ToolResponseMessage;
     }
 
     private static ChatResponse chunk(String text) {
