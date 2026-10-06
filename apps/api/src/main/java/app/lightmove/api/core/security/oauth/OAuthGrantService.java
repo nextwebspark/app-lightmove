@@ -48,6 +48,20 @@ public class OAuthGrantService {
     private final Clock clock;
     private final ClientVerification verification;
 
+    /**
+     * Whether an access token's grant still stands, for the MCP server to ask on every call: a revoked or ended grant
+     * stops its access token at once rather than when the token expires.
+     */
+    @Transactional(readOnly = true)
+    public boolean isLive(UUID grantId, UUID userId, UUID workspaceId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (SELECT 1 FROM app_lm_oauth_authorization g
+                               WHERE g.id = :grantId AND g.user_id = :userId
+                               AND
+                """ + LIVE + ")", new MapSqlParameterSource("grantId", grantId).addValue("userId", userId)
+                .addValue("workspaceId", workspaceId).addValue("now", Timestamp.from(clock.instant())), Boolean.class));
+    }
+
     @Transactional(readOnly = true)
     public List<OAuthGrantResponse> list(UUID actorId, UUID workspaceId, boolean all) {
         MapSqlParameterSource parameters = new MapSqlParameterSource("workspaceId", workspaceId)

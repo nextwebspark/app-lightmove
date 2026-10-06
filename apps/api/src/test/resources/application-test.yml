@@ -102,6 +102,8 @@ lightmove:
     enabled: true
     private-key-location: file:target/test-keys/mcp-private.pem
     public-key-location: file:target/test-keys/mcp-public.pem
+    # The MCP Inspector's page, as a browser origin the endpoint answers.
+    allowed-origins: http://localhost:6274
 
   # A configured account, so the map view is offered and the config endpoint has something to say.
   # The geocoder itself is StubGeocoder (a @Primary test double); no request reaches Mapbox.

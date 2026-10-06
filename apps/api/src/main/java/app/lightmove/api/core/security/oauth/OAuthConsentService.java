@@ -95,7 +95,7 @@ public class OAuthConsentService {
 
         // Set.copyOf, not Set.of: a repeated scope is a legal request, and Set.of throws on it.
         Set<String> asked = scope == null ? Set.of() : Set.copyOf(Arrays.asList(scope.trim().split("\\s+")));
-        List<String> requested = Arrays.stream(ApiKeyScope.values()).map(ApiKeyScope::value)
+        List<String> requested = ApiKeyScope.dataScopes().stream().map(ApiKeyScope::value)
                 .filter(asked::contains)
                 .filter(client.getScopes()::contains)
                 .toList();
@@ -128,7 +128,7 @@ public class OAuthConsentService {
             throw ApiException.of(ErrorCode.OAUTH_REQUEST_NOT_FOUND);
         }
         OAuth2AuthorizationRequest request = authorization.getAttribute(OAuth2AuthorizationRequest.class.getName());
-        List<String> requested = Arrays.stream(ApiKeyScope.values()).map(ApiKeyScope::value)
+        List<String> requested = ApiKeyScope.dataScopes().stream().map(ApiKeyScope::value)
                 .filter(request.getScopes()::contains)
                 .toList();
         return new OAuthPendingConsentResponse(client.getClientId(), state, requested,
