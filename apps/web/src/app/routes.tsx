@@ -21,6 +21,7 @@ import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
 import { CandidatesPage } from "../features/candidates/pages/CandidatesPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
+import { McpGuidePage } from "../features/docs/pages/McpGuidePage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
 import { OAuthConsentPage } from "../features/oauth/pages/OAuthConsentPage";
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
@@ -77,6 +78,8 @@ export function AppRoutes() {
       {/* Where an AI app's authorize request lands. Unguarded: it shows the authorization server's error to anyone,
           and sends a signed-out visitor to sign in with the request as the return-to. */}
       <Route path="/oauth/consent" element={<OAuthConsentPage />} />
+      {/* Public: the guide to connecting an AI app, read before or without a session. */}
+      <Route path="/docs/mcp" element={<McpGuidePage />} />
 
       {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be
           signed in as somebody else entirely. The page reads its own state and says which. Guarding it

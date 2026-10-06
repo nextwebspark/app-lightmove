@@ -34,6 +34,8 @@ RUNTIME_SECRETS=(
     lightmove-db-password
     lightmove-jwt-private-key
     lightmove-jwt-public-key
+    lightmove-mcp-jwt-private-key
+    lightmove-mcp-jwt-public-key
     lightmove-resend-api-key
     lightmove-google-oauth-client-secret
     lightmove-contactout-api-key
@@ -242,6 +244,16 @@ Done. Three things remain, and all three are deliberately manual.
 
    Losing the private key signs everyone out — access tokens live 15 minutes and refresh tokens are in
    the database, so nothing is lost but sessions. Leaking it lets anyone mint tokens for any user.
+
+   The MCP server's access tokens are signed by a keypair of their own, so a session key can never mint
+   one and an MCP token can never open the app. Made the same way, and needed only once MCP_ENABLED=true:
+
+     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out mcp-private.pem
+     openssl rsa -pubout -in mcp-private.pem -out mcp-public.pem
+
+     gcloud secrets versions add lightmove-mcp-jwt-private-key --data-file=mcp-private.pem
+     gcloud secrets versions add lightmove-mcp-jwt-public-key  --data-file=mcp-public.pem
+     shred -u mcp-private.pem mcp-public.pem
 
 3. The database roles, if you have not already:
 

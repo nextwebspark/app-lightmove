@@ -377,6 +377,23 @@ jobs:
             RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
           fi
 
+          # The MCP server and its OAuth authorization server (docs/mcp.md). Off unless MCP_ENABLED=true, for the
+          # secret-must-exist reason above: its access tokens are signed by their own keypair, never the session's.
+          # Prerequisites (ops/gcp/bootstrap.sh, step 2):
+          #   gcloud secrets versions add lightmove-mcp-jwt-private-key --data-file=mcp-private.pem
+          #   gcloud secrets versions add lightmove-mcp-jwt-public-key  --data-file=mcp-public.pem
+          # MCP_ALLOWED_ORIGINS adds browser origins beyond the deployment's own, which is always allowed; leave it
+          # unset in production, where every supported client calls from a server or a desktop app.
+          MCP_ENV=""
+          MCP_SECRETS=""
+          if [ "${{ vars.MCP_ENABLED }}" = "true" ]; then
+            MCP_ENV="|MCP_ENABLED=true|MCP_JWT_PRIVATE_KEY_LOCATION=file:/secrets/mcp-jwt-private/private.pem"
+            MCP_ENV="${MCP_ENV}|MCP_JWT_PUBLIC_KEY_LOCATION=file:/secrets/mcp-jwt-public/public.pem"
+            MCP_ENV="${MCP_ENV}|MCP_ALLOWED_ORIGINS=${{ vars.MCP_ALLOWED_ORIGINS }}"
+            MCP_SECRETS=",/secrets/mcp-jwt-private/private.pem=lightmove-mcp-jwt-private-key:latest"
+            MCP_SECRETS="${MCP_SECRETS},/secrets/mcp-jwt-public/public.pem=lightmove-mcp-jwt-public-key:latest"
+          fi
+
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
@@ -401,8 +418,8 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}"
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${MCP_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${MCP_SECRETS}"
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not
       # the placeholder we booted with. Verification emails and the OAuth redirect are built from
@@ -442,6 +459,13 @@ jobs:
 
           echo "the API is still shut to anonymous callers"
           [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/v1/onboarding/workspaces")" = "401" ]
+
+          if [ "${{ vars.MCP_ENABLED }}" = "true" ]; then
+            echo "the MCP server is up and refuses a caller without a token, pointing at its metadata"
+            [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/api/v1/mcp")" = "401" ]
+            curl -fsS "$URL/.well-known/oauth-protected-resource/api/v1/mcp" | grep -q '"authorization_servers"'
+            curl -fsS "$URL/.well-known/oauth-authorization-server" | grep -q '"client_id_metadata_document_supported":true'
+          fi
 
           if [ "$URL" != "$SERVICE_URL" ]; then
             echo "the service's own URL sends pages to the public origin"

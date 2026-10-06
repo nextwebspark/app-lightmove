@@ -314,6 +314,12 @@ sentence whether it is another workspace's or one the caller has no seat on, so 
 deployment origin as `iss`; the session decoder checks `iss=lightmove` and refuses any `aud`. Either check alone
 would do; both are there so that a key ever shared by mistake still opens nothing.
 
+**The MCP keypair is its own secret, and a deployment turns the server on deliberately.** `MCP_ENABLED` defaults to
+off everywhere but `npm run dev`; turned on in `deploy.yml` it mounts `lightmove-mcp-jwt-*` beside the session's pair,
+never instead of it. Replacing the MCP key refuses every access token at once and costs nothing else (refresh tokens
+are hashes, not signatures); replacing the session key would sign everyone out. The guide users read is
+`docs/mcp.md`, drawn at `/docs/mcp`: a change to what a client must do to connect belongs in it, in the same PR.
+
 ## An identity provider is configuration, not code
 
 Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`

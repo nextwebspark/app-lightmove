@@ -10,7 +10,7 @@ import type { OAuthGrant } from "../api/types";
 import { CopyableValue } from "../components/CopyableValue";
 import { DisconnectAiAppModal } from "../components/DisconnectAiAppModal";
 import { OAuthGrantRow } from "../components/OAuthGrantRow";
-import { mcpServerUrl } from "../lib/oauthGrants";
+import { MCP_GUIDE_PATH, mcpServerUrl } from "../lib/oauthGrants";
 
 type GrantsView = "mine" | "all";
 
@@ -49,13 +49,14 @@ export function SettingsAiAppsPage() {
     <>
       <PageHeader
         title="Connected AI apps"
-        subtitle="Claude, ChatGPT, Cursor and other AI apps that read Uncava over MCP. Each one asked you first, reads only what you ticked, and never changes anything."
+        subtitle="Claude, ChatGPT and other AI apps that read Uncava over MCP. Each one asked you first, reads only what you ticked, and never changes anything."
       />
 
       <div className="mb-4 rounded-[10px] border border-u-border bg-u-raised px-3.5 py-3">
         <CopyableValue label="MCP server URL" value={mcpServerUrl()} />
         <span className="mt-1.5 block font-mono text-[11px]/[1.5] text-u-text3">
-          Add it as a connector in your AI app. It sends you to Uncava to sign in and choose what it may read.
+          Add it as a connector in your AI app. It sends you to Uncava to sign in and choose what it may read.{" "}
+          <GuideLink>How to connect each app</GuideLink>
         </span>
       </div>
 
@@ -86,8 +87,11 @@ export function SettingsAiAppsPage() {
           </div>
           <div className="mx-auto mt-1.5 max-w-[440px] font-mono text-[12px]/[1.55] text-u-text3">
             {all || !isAdmin
-              ? "Add the MCP server URL above as a connector in Claude, ChatGPT or Cursor. The app sends you here to sign in and choose what it may read; whatever you allow is listed on this page."
+              ? "Add the MCP server URL above as a connector in Claude or ChatGPT. The app sends you here to sign in and choose what it may read; whatever you allow is listed on this page."
               : `Add the MCP server URL above as a connector in your AI app. Your colleagues' connections are under All in ${workspaceName}.`}
+          </div>
+          <div className="mt-3 font-mono text-[12px]">
+            <GuideLink>Read the connection guide</GuideLink>
           </div>
         </div>
       ) : (
@@ -120,5 +124,19 @@ export function SettingsAiAppsPage() {
         />
       )}
     </>
+  );
+}
+
+/** The guide opens beside Settings, so the URL to copy stays on screen. */
+function GuideLink({ children }: { children: string }) {
+  return (
+    <a
+      href={MCP_GUIDE_PATH}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-medium text-u-accent hover:underline"
+    >
+      {children}
+    </a>
   );
 }

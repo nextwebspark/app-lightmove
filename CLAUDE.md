@@ -633,6 +633,13 @@ nullable enum is given null by `McpToolRegistry`, since the generator leaves it 
 whole public record as `detail` under `response_format=detailed`; lists page by an opaque offset `cursor`, and a page
 past `lightmove.mcp.max-result-chars` (about 25k tokens) is cut with a `notice` and reads on from its first left-out
 row. What clients are told is `docs/mcp/tools.json`, which `McpToolContractTest` regenerates and diffs.
+**Shipping it (#708)**: `docs/mcp.md` is the user's guide — connecting Claude, ChatGPT, Cursor and the APIs, the tools,
+scopes, limits and errors — and the SPA draws it, public, at `/docs/mcp` (`features/docs`, its maintainers' section cut
+and its URLs put on the page's own origin; the Dockerfile copies that one file in), linked from Settings → Connected AI
+apps. Cursor connects by key: its OAuth return is a `cursor://` link, which is refused. `deploy.yml`'s `MCP_ENABLED`
+mounts the MCP keypair (`lightmove-mcp-jwt-private-key` / `-public-key`, made by hand as `ops/gcp/bootstrap.sh` says)
+and smoke-tests the 401 and both metadata documents. `ops/eval/mcp` asks Claude Code the questions in its
+`cases.json` against a local stack and reports the tools it chose (`docs/eval/mcp-eval.md`); it never gates a build.
 
 ## Commands
 
