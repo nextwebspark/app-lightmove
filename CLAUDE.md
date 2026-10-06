@@ -586,9 +586,11 @@ RFC 9207 `iss`). A **grant** (V115 `app_lm_oauth_authorization`) is one user × 
 token in it stored as SHA-256 only (`HashingAuthorizationService`), consent asked every time and never remembered
 (`PerGrantConsentService`), the access token an RS256 JWT on its **own key** (`McpTokenKeys`, `kid` `mcp-…`) with
 `sub`, `wsId`, `scope`, `client_id` and `grant_id` and no roles, and the refresh token rotated on every use — a
-rotated one replayed deletes the grant. Settings → Connected AI apps reads `/api/v1/workspace/oauth-grants`
-(`API_KEY_MANAGE`, `?all=true` under `WORKSPACE_MANAGE`, as API keys), and a grant ends with its membership or
-workspace, as a personal key does, and every grant of an account ends with a password change or reset.
+rotated one replayed deletes the grant. Settings → Connected AI apps (`/settings/ai-apps`, staff, #707) reads
+`/api/v1/workspace/oauth-grants` (`API_KEY_MANAGE`, `?all=true` under `WORKSPACE_MANAGE`, as API keys): the MCP server
+URL to copy, one row per grant drawn with the consent screen's `ClientMark`, its last use stamped by every MCP call at
+most once a minute, and Disconnect. API keys offer the `mcp:use` tick, off by default and never alone. A grant ends with
+its membership or workspace, as a personal key does, and every grant of an account ends with a password change or reset.
 A client is never signed up by hand (#702): it registers itself through Spring's RFC 7591 endpoint
 (`POST /api/v1/oauth/register`, open, 10 an hour per address, public clients only, pruned after 30 days unconnected), or
 its `client_id` is the https URL of its own **metadata document** (CIMD), fetched by `HttpClientMetadataFetcher` — a
