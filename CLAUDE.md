@@ -612,7 +612,22 @@ by the transport; bodies are capped (read and replayed, so a body with no declar
 budgeted per grant or key, and an address only on its refused credentials — hosted clients call from shared egress, so
 an address budget on calls would let one tenant refuse the rest. Only `@McpTool` beans are served: Spring AI's
 `StatelessToolCallbackConverterAutoConfiguration`, which would publish every `ToolCallback` bean, is excluded on
-`LightMoveApplication`. So far one tool, `uncava_whoami`; the parity tools are #704.
+`LightMoveApplication`, and so is Spring AI's own tool list: `McpServerConfig` builds it from the same `@McpTool` beans
+with every tool behind `McpToolGuard`. The parity tools (#704) are `uncava_whoami`, `uncava_search_positions`,
+`uncava_get_position`, `uncava_list_companies`, `uncava_list_candidates` and `uncava_get_universe`, each reading through
+`PublicReadService` and the public DTOs — so REST's field rules hold, contacts and compensation with their own scopes —
+as a `PublicReader` (`core/security/apikey`, a key or a connection alike; a personal one reads only positions its user
+holds `WORK_VIEW` on, through `PublicApiAuthorizer.requireProjectRead`). A tool's scopes are its `@McpToolScopes`,
+required on every tool (`{}` for none) and read at boot under the name the SDK gives it, so a tool without one, or two
+under one name, fails the start rather than being served unchecked (`McpToolRegistry`): an OAuth token lacking one is answered 403 `insufficient_scope` naming them (`McpScopeStepUpFilter`, the spec's step-up)
+and a key, which cannot step up, with an `isError` result naming them. Every failure leaves as a `McpToolRefusal` — an
+`McpError`, the one exception Spring AI's callback does not turn into a result quoting its message, which for an
+`ApiException` is the internal detail — carrying a fixed sentence; a foreign position and one without a seat read alike.
+Each tool declares an output schema and answers `structuredContent`, which the SDK validates and copies as text (a
+nullable enum is given null by `McpToolRegistry`, since the generator leaves it out). Rows are concise, or carry the
+whole public record as `detail` under `response_format=detailed`; lists page by an opaque offset `cursor`, and a page
+past `lightmove.mcp.max-result-chars` (about 25k tokens) is cut with a `notice` and reads on from its first left-out
+row. What clients are told is `docs/mcp/tools.json`, which `McpToolContractTest` regenerates and diffs.
 
 ## Commands
 

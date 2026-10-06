@@ -3,21 +3,17 @@ package app.lightmove.api.mcp;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.core.security.oauth.OAuthFlowSupport;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import java.time.Instant;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.mcp.server.common.autoconfigure.StatelessToolCallbackConverterAutoConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
-import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -30,15 +26,11 @@ import tools.jackson.databind.JsonNode;
 
 /** The MCP endpoint: who it lets in, what it publishes about itself, and what it refuses before reading a call. */
 @IntegrationTest
-class McpEndpointIntegrationTest extends OAuthFlowSupport {
+class McpEndpointIntegrationTest extends McpFlowSupport {
 
-    private static final String MCP = "/api/v1/mcp";
-    private static final String METADATA = "/.well-known/oauth-protected-resource";
     private static final String INITIALIZE = """
             {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18",
              "capabilities":{},"clientInfo":{"name":"test","version":"1"}}}""";
-    private static final String LIST_TOOLS = """
-            {"jsonrpc":"2.0","id":2,"method":"tools/list"}""";
     private static final String WHOAMI = """
             {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"uncava_whoami","arguments":{}}}""";
 
@@ -58,8 +50,11 @@ class McpEndpointIntegrationTest extends OAuthFlowSupport {
 
         JsonNode tools = rpc(token, LIST_TOOLS).at("/result/tools");
         assertThat(tools.valueStream().map(tool -> tool.get("name").asText()))
-                .as("nothing but our own tools: the assistant's are never published").containsExactly("uncava_whoami");
-        assertThat(tools.get(0).at("/annotations/readOnlyHint").asBoolean()).isTrue();
+                .as("nothing but our own tools: the assistant's are never published")
+                .containsExactlyInAnyOrder("uncava_whoami", "uncava_search_positions", "uncava_get_position",
+                        "uncava_list_companies", "uncava_list_candidates", "uncava_get_universe");
+        assertThat(tools.valueStream().map(tool -> tool.at("/annotations/readOnlyHint").asBoolean()))
+                .as("every tool reads and changes nothing").containsOnly(true);
         assertThat(context.getBeanNamesForType(StatelessToolCallbackConverterAutoConfiguration.class))
                 .as("no ToolCallback bean is ever converted into a tool").isEmpty();
 
@@ -129,10 +124,10 @@ class McpEndpointIntegrationTest extends OAuthFlowSupport {
     void originAllowlist() throws Exception {
         String key = keyOf(adminOf(domain), "projects:read", "mcp:use");
 
-        assertThat(status(call(key, LIST_TOOLS).header("Origin", "https://evil.example"))).isEqualTo(403);
-        assertThat(status(call(key, LIST_TOOLS).header("Origin", "http://localhost:6274"))).isEqualTo(200);
-        assertThat(status(call(key, LIST_TOOLS).header("Origin", originOf(identity.issuer())))).isEqualTo(200);
-        assertThat(status(call(key, LIST_TOOLS))).isEqualTo(200);
+        assertThat(statusOf(call(key, LIST_TOOLS).header("Origin", "https://evil.example"))).isEqualTo(403);
+        assertThat(statusOf(call(key, LIST_TOOLS).header("Origin", "http://localhost:6274"))).isEqualTo(200);
+        assertThat(statusOf(call(key, LIST_TOOLS).header("Origin", originOf(identity.issuer())))).isEqualTo(200);
+        assertThat(statusOf(call(key, LIST_TOOLS))).isEqualTo(200);
 
         MvcResult preflight = mvc.perform(options(MCP).header("Origin", "http://localhost:6274")
                 .header("Access-Control-Request-Method", "POST")
@@ -149,7 +144,7 @@ class McpEndpointIntegrationTest extends OAuthFlowSupport {
 
         String oversized = "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/list\",\"padding\":\""
                 + "x".repeat(70_000) + "\"}";
-        assertThat(status(call(key, oversized))).isEqualTo(413);
+        assertThat(statusOf(call(key, oversized))).isEqualTo(413);
         assertThat(mvc.perform(get(MCP).header("Authorization", "Bearer " + key)).andReturn().getResponse()
                 .getStatus()).isEqualTo(405);
     }
@@ -179,49 +174,14 @@ class McpEndpointIntegrationTest extends OAuthFlowSupport {
                 JwsHeader.with(SignatureAlgorithm.RS256).build(), claims)).getTokenValue();
     }
 
-    private String keyOf(String admin, String... scopes) throws Exception {
-        String request = """
-                {"name":"MCP test","kind":"PERSONAL","scopes":[%s]}""".formatted(
-                String.join(",", List.of(scopes).stream().map(scope -> "\"" + scope + "\"").toList()));
-        MvcResult created = mvc.perform(post("/api/v1/workspace/api-keys").header("Authorization", "Bearer " + admin)
-                .contentType(MediaType.APPLICATION_JSON).content(request)).andReturn();
-        assertThat(created.getResponse().getStatus()).as(created.getResponse().getContentAsString()).isEqualTo(201);
-        return body(created).get("secret").asText();
-    }
 
-    private MockHttpServletRequestBuilder call(String bearer, String jsonRpc) {
-        MockHttpServletRequestBuilder request = post(MCP)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
-                .content(jsonRpc);
-        return bearer == null ? request : request.header("Authorization", "Bearer " + bearer);
-    }
 
-    private int status(MockHttpServletRequestBuilder request) throws Exception {
-        return mvc.perform(request).andReturn().getResponse().getStatus();
-    }
 
-    private JsonNode rpc(String bearer, String jsonRpc) throws Exception {
-        MvcResult answered = mvc.perform(call(bearer, jsonRpc)).andReturn();
-        assertThat(answered.getResponse().getStatus()).as(answered.getResponse().getContentAsString()).isEqualTo(200);
-        return body(answered);
-    }
 
-    private JsonNode resultOf(JsonNode response) throws Exception {
-        JsonNode structured = response.at("/result/structuredContent");
-        return structured.isMissingNode() || structured.isNull()
-                ? json.readTree(response.at("/result/content/0/text").asText())
-                : structured;
-    }
 
     private static String originOf(String url) {
         java.net.URI uri = java.net.URI.create(url);
         return uri.getScheme() + "://" + uri.getRawAuthority();
     }
 
-    private String adminOf(String emailDomain) throws Exception {
-        String alok = "alok@" + emailDomain;
-        createWorkspace(verifiedUser("Alok Kumar", alok), "MCP Firm");
-        return login(alok);
-    }
 }

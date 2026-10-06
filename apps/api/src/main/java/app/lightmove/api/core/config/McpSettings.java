@@ -49,7 +49,9 @@ public record McpSettings(
         /** Per grant or key, counted per instance like every budget the in-memory limiter keeps. */
         @DefaultValue("120") int callsPerMinutePerCredential,
         /** Refused credentials per address: the one budget an address gets, since a hosted client's is shared. */
-        @DefaultValue("30") int refusalsPerMinutePerIp
+        @DefaultValue("30") int refusalsPerMinutePerIp,
+        /** The most characters of JSON one tool result carries, about 25k tokens; past it a page is cut, never sent. */
+        @DefaultValue("90000") int maxResultChars
 ) {
 
     /** Where the MCP server is mounted, and the default resource every token is minted for. */

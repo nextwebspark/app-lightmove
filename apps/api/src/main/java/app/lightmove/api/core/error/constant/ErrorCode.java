@@ -366,6 +366,9 @@ public enum ErrorCode {
     MCP_CREDENTIAL_INVALID(HttpStatus.UNAUTHORIZED,
             "The access token or API key is missing, invalid or no longer active"),
 
+    /** An OAuth token calling an MCP tool it lacks a scope for; {@code WWW-Authenticate} names the scopes to ask for. */
+    MCP_SCOPE_INSUFFICIENT(HttpStatus.FORBIDDEN, "This connection was not granted the access this tool needs"),
+
     /** A live key asking a route outside its scopes; the body names the scope as {@code requiredScope}. */
     API_KEY_SCOPE_MISSING(HttpStatus.FORBIDDEN, "This API key does not carry the scope this request needs"),
 

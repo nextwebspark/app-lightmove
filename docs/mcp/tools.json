@@ -1,0 +1,1326 @@
+[ {
+  "name" : "uncava_get_position",
+  "title" : "Get a position",
+  "description" : "Read one position by its id: role, client, type, stage, dates and how many companies and executives it holds. Use uncava_search_positions to find the id.",
+  "inputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "positionId" : {
+        "type" : "string",
+        "format" : "uuid",
+        "description" : "The position's id, from uncava_search_positions"
+      },
+      "response_format" : {
+        "type" : "string",
+        "description" : "concise (the default) or detailed: every field"
+      }
+    },
+    "required" : [ "positionId" ]
+  },
+  "outputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "$defs" : {
+      "ProjectStage" : {
+        "type" : "string",
+        "enum" : [ "BRIEF", "UNIVERSE", "LOCKED", "MAPPING", "OUTREACH", "DELIVERED", "CLOSED" ]
+      },
+      "ProjectType" : {
+        "type" : "string",
+        "enum" : [ "MAPPING", "SEARCH" ]
+      }
+    },
+    "type" : "object",
+    "properties" : {
+      "clientName" : {
+        "type" : "string",
+        "description" : "The client or business unit hiring"
+      },
+      "detail" : {
+        "allOf" : [ {
+          "type" : [ "object", "null" ],
+          "properties" : {
+            "candidates" : {
+              "type" : "integer",
+              "format" : "int64",
+              "description" : "Executives still in the running"
+            },
+            "clientId" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The client or business unit's id"
+            },
+            "clientName" : {
+              "type" : "string",
+              "description" : "The client or business unit hiring"
+            },
+            "companies" : {
+              "type" : "integer",
+              "format" : "int64",
+              "description" : "Companies in the universe or shortlisted, declined ones left out"
+            },
+            "createdAt" : {
+              "type" : "string",
+              "format" : "date-time",
+              "description" : "When the position was created"
+            },
+            "deliveryDate" : {
+              "type" : [ "string", "null" ],
+              "format" : "date",
+              "description" : "When the map or shortlist is due"
+            },
+            "id" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The position's id"
+            },
+            "stage" : {
+              "$ref" : "#/$defs/ProjectStage",
+              "description" : "The furthest stage the position has reached"
+            },
+            "startDate" : {
+              "type" : [ "string", "null" ],
+              "format" : "date",
+              "description" : "When the work started"
+            },
+            "targetDate" : {
+              "type" : [ "string", "null" ],
+              "format" : "date",
+              "description" : "When the hire is wanted"
+            },
+            "title" : {
+              "type" : "string",
+              "description" : "The role being filled"
+            },
+            "type" : {
+              "$ref" : "#/$defs/ProjectType",
+              "description" : "MAPPING delivers a mapped universe; SEARCH runs through to a shortlist"
+            }
+          },
+          "required" : [ "candidates", "clientId", "clientName", "companies", "createdAt", "deliveryDate", "id", "stage", "startDate", "targetDate", "title", "type" ],
+          "description" : "A position: one search or mapping mandate"
+        }, {
+          "description" : "Every field of the position; present only with response_format=detailed"
+        } ]
+      },
+      "id" : {
+        "type" : "string",
+        "format" : "uuid",
+        "description" : "The position's id, which every other tool takes as positionId"
+      },
+      "stage" : {
+        "$ref" : "#/$defs/ProjectStage",
+        "description" : "The furthest stage the position has reached"
+      },
+      "title" : {
+        "type" : "string",
+        "description" : "The role being filled"
+      },
+      "type" : {
+        "$ref" : "#/$defs/ProjectType",
+        "description" : "MAPPING delivers a mapped universe; SEARCH runs through to a shortlist"
+      }
+    },
+    "required" : [ "clientName", "detail", "id", "stage", "title", "type" ]
+  },
+  "annotations" : {
+    "title" : "",
+    "readOnlyHint" : true,
+    "destructiveHint" : false,
+    "idempotentHint" : true,
+    "openWorldHint" : false
+  }
+}, {
+  "name" : "uncava_get_universe",
+  "title" : "Read a stage with its executives",
+  "description" : "Read one stage of a position — inUniverse (the default), shortlisted or declined — as its companies, each with the executives mapped at it, in one call; on inUniverse, executives at no company come back as unassigned. Use it to summarise or compare a whole market at once; for a stage too large for one answer, page through uncava_list_companies and uncava_list_candidates instead. Example: stage \"shortlisted\" with response_format \"detailed\" for a shortlist briefing.",
+  "inputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "positionId" : {
+        "type" : "string",
+        "format" : "uuid",
+        "description" : "The position's id, from uncava_search_positions"
+      },
+      "stage" : {
+        "type" : "string",
+        "description" : "inUniverse (the default), shortlisted or declined"
+      },
+      "response_format" : {
+        "type" : "string",
+        "description" : "concise (the default) or detailed: every field of each company and executive"
+      }
+    },
+    "required" : [ "positionId" ]
+  },
+  "outputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "$defs" : {
+      "McpCandidateRow" : {
+        "type" : "object",
+        "properties" : {
+          "companyId" : {
+            "type" : [ "string", "null" ],
+            "format" : "uuid",
+            "description" : "The position's company they are mapped at, as uncava_list_companies names it"
+          },
+          "companyName" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their employer's name"
+          },
+          "detail" : {
+            "allOf" : [ {
+              "type" : [ "object", "null" ],
+              "properties" : {
+                "addedAt" : {
+                  "type" : "string",
+                  "format" : "date-time",
+                  "description" : "When the position mapped them"
+                },
+                "career" : {
+                  "description" : "Their career, latest first",
+                  "type" : "array",
+                  "items" : {
+                    "type" : "object",
+                    "properties" : {
+                      "company" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "The employer"
+                      },
+                      "location" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Where the post was held"
+                      },
+                      "period" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "When, as the source wrote it"
+                      },
+                      "title" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "The title held"
+                      }
+                    },
+                    "required" : [ "company", "location", "period", "title" ],
+                    "description" : "One post in an executive's career"
+                  }
+                },
+                "city" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "The city they live in"
+                },
+                "companyId" : {
+                  "type" : [ "string", "null" ],
+                  "format" : "uuid",
+                  "description" : "The position's company they are mapped at; null where their employer is not in its universe"
+                },
+                "companyName" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Their employer's name"
+                },
+                "compensation" : {
+                  "allOf" : [ {
+                    "type" : [ "object", "null" ],
+                    "properties" : {
+                      "allowances" : {
+                        "type" : [ "integer", "null" ],
+                        "format" : "int64",
+                        "description" : "Allowances, summed"
+                      },
+                      "baseSalary" : {
+                        "type" : [ "integer", "null" ],
+                        "format" : "int64",
+                        "description" : "Base salary"
+                      },
+                      "bonus" : {
+                        "type" : [ "integer", "null" ],
+                        "format" : "int64",
+                        "description" : "Bonus"
+                      },
+                      "currency" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "ISO 4217 currency of every figure"
+                      },
+                      "longTermIncentive" : {
+                        "type" : [ "integer", "null" ],
+                        "format" : "int64",
+                        "description" : "Long-term incentive"
+                      },
+                      "noticePeriod" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Notice period"
+                      }
+                    },
+                    "required" : [ "allowances", "baseSalary", "bonus", "currency", "longTermIncentive", "noticePeriod" ],
+                    "description" : "An executive's current package, as recorded; each figure annual"
+                  }, {
+                    "description" : "Their current package. Null unless the key holds candidates.compensation:read"
+                  } ]
+                },
+                "contacts" : {
+                  "allOf" : [ {
+                    "type" : [ "object", "null" ],
+                    "properties" : {
+                      "emails" : {
+                        "description" : "Email addresses",
+                        "type" : "array",
+                        "items" : {
+                          "type" : "object",
+                          "properties" : {
+                            "address" : {
+                              "type" : "string",
+                              "description" : "The address"
+                            },
+                            "kind" : {
+                              "type" : [ "string", "null" ],
+                              "description" : "work or personal, where known",
+                              "enum" : [ "work", "personal", null ]
+                            },
+                            "verified" : {
+                              "type" : "boolean",
+                              "description" : "A provider or a researcher verified it"
+                            }
+                          },
+                          "required" : [ "address", "kind", "verified" ],
+                          "description" : "One email address known for an executive"
+                        }
+                      },
+                      "phones" : {
+                        "description" : "Phone numbers",
+                        "type" : "array",
+                        "items" : {
+                          "type" : "object",
+                          "properties" : {
+                            "kind" : {
+                              "type" : [ "string", "null" ],
+                              "description" : "work or personal, where a researcher tagged it",
+                              "enum" : [ "work", "personal", null ]
+                            },
+                            "number" : {
+                              "type" : "string",
+                              "description" : "The number, as it arrived"
+                            },
+                            "verified" : {
+                              "type" : "boolean",
+                              "description" : "A provider or a researcher verified it"
+                            }
+                          },
+                          "required" : [ "kind", "number", "verified" ],
+                          "description" : "One phone number known for an executive"
+                        }
+                      }
+                    },
+                    "required" : [ "emails", "phones" ],
+                    "description" : "Every email and phone known for an executive"
+                  }, {
+                    "description" : "Every email and phone known for them. Null unless the key holds candidates.contacts:read"
+                  } ]
+                },
+                "country" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "The country they live in"
+                },
+                "education" : {
+                  "description" : "Their education",
+                  "type" : "array",
+                  "items" : {
+                    "type" : "object",
+                    "properties" : {
+                      "degree" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "The degree"
+                      },
+                      "period" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "When, as the source wrote it"
+                      },
+                      "school" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "The school"
+                      }
+                    },
+                    "required" : [ "degree", "period", "school" ],
+                    "description" : "One school in an executive's education"
+                  }
+                },
+                "fullName" : {
+                  "type" : "string",
+                  "description" : "Their full name"
+                },
+                "gender" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Their gender, where recorded",
+                  "enum" : [ "female", "male", "other", null ]
+                },
+                "id" : {
+                  "type" : "string",
+                  "format" : "uuid",
+                  "description" : "This executive's id within the position"
+                },
+                "languages" : {
+                  "description" : "Languages they speak",
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                },
+                "linkedinUrl" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Their LinkedIn profile"
+                },
+                "nationality" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Their nationality group"
+                },
+                "personId" : {
+                  "type" : "string",
+                  "format" : "uuid",
+                  "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
+                },
+                "seniority" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Their level against the role",
+                  "enum" : [ "Board", "C-Suite", "N-1", "N-2", "N-3", null ]
+                },
+                "skills" : {
+                  "description" : "Skills from their profile",
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                },
+                "status" : {
+                  "type" : "string",
+                  "description" : "Where they stand on this position",
+                  "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+                },
+                "summary" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "A short profile summary"
+                },
+                "title" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Their current title"
+                },
+                "yearsExperience" : {
+                  "type" : [ "integer", "null" ],
+                  "format" : "int32",
+                  "description" : "Years of experience"
+                }
+              },
+              "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "seniority", "skills", "status", "summary", "title", "yearsExperience" ],
+              "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
+            }, {
+              "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
+            } ]
+          },
+          "fullName" : {
+            "type" : "string",
+            "description" : "Their full name"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "This executive's id within the position"
+          },
+          "personId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "The person's id, the same on every position that maps them"
+          },
+          "status" : {
+            "type" : "string",
+            "description" : "Where they stand on this position: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+          },
+          "title" : {
+            "type" : [ "string", "null" ],
+            "description" : "Their current title"
+          }
+        },
+        "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "status", "title" ]
+      }
+    },
+    "type" : "object",
+    "properties" : {
+      "companies" : {
+        "description" : "The stage's companies, by name",
+        "type" : "array",
+        "items" : {
+          "type" : "object",
+          "properties" : {
+            "company" : {
+              "type" : "object",
+              "properties" : {
+                "country" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Its headquarters country"
+                },
+                "detail" : {
+                  "allOf" : [ {
+                    "type" : [ "object", "null" ],
+                    "properties" : {
+                      "addedAt" : {
+                        "type" : "string",
+                        "format" : "date-time",
+                        "description" : "When the position took it in"
+                      },
+                      "annualRevenue" : {
+                        "type" : [ "integer", "null" ],
+                        "format" : "int64",
+                        "description" : "Annual revenue in USD"
+                      },
+                      "city" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Its headquarters city"
+                      },
+                      "country" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Its headquarters country"
+                      },
+                      "description" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "A short description"
+                      },
+                      "employees" : {
+                        "type" : [ "integer", "null" ],
+                        "format" : "int32",
+                        "description" : "Headcount"
+                      },
+                      "foundedYear" : {
+                        "type" : [ "integer", "null" ],
+                        "format" : "int32",
+                        "description" : "The year it was founded"
+                      },
+                      "id" : {
+                        "type" : "string",
+                        "format" : "uuid",
+                        "description" : "This company's id within the position; an executive's companyId names it"
+                      },
+                      "industry" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Its industry"
+                      },
+                      "linkedinUrl" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Its LinkedIn page"
+                      },
+                      "logoUrl" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Its logo"
+                      },
+                      "name" : {
+                        "type" : "string",
+                        "description" : "The company's name"
+                      },
+                      "noExecutiveFound" : {
+                        "type" : "boolean",
+                        "description" : "The team searched it and found no executive to map"
+                      },
+                      "stage" : {
+                        "type" : "string",
+                        "description" : "Where the position has filed it",
+                        "enum" : [ "inUniverse", "shortlisted", "declined" ]
+                      },
+                      "website" : {
+                        "type" : [ "string", "null" ],
+                        "description" : "Its website"
+                      }
+                    },
+                    "required" : [ "addedAt", "annualRevenue", "city", "country", "description", "employees", "foundedYear", "id", "industry", "linkedinUrl", "logoUrl", "name", "noExecutiveFound", "stage", "website" ],
+                    "description" : "A company a position has taken into its universe, as it was filed"
+                  }, {
+                    "description" : "Every field of the company; present only with response_format=detailed"
+                  } ]
+                },
+                "id" : {
+                  "type" : "string",
+                  "format" : "uuid",
+                  "description" : "This company's id within the position; uncava_list_candidates takes it as companyId"
+                },
+                "industry" : {
+                  "type" : [ "string", "null" ],
+                  "description" : "Its industry"
+                },
+                "name" : {
+                  "type" : "string",
+                  "description" : "The company's name"
+                },
+                "stage" : {
+                  "type" : "string",
+                  "description" : "Where the position has filed it: inUniverse, shortlisted or declined"
+                }
+              },
+              "required" : [ "country", "detail", "id", "industry", "name", "stage" ],
+              "description" : "The company"
+            },
+            "executives" : {
+              "description" : "Its executives, first mapped first; empty where none is mapped",
+              "type" : "array",
+              "items" : {
+                "$ref" : "#/$defs/McpCandidateRow"
+              }
+            }
+          },
+          "required" : [ "company", "executives" ]
+        }
+      },
+      "notice" : {
+        "type" : [ "string", "null" ],
+        "description" : "Why companies or executives were left out, and how to read them"
+      },
+      "stage" : {
+        "type" : "string",
+        "description" : "The stage read: inUniverse, shortlisted or declined"
+      },
+      "totalCompanies" : {
+        "type" : "integer",
+        "format" : "int32",
+        "description" : "Every company of the stage, including any this answer was cut short of"
+      },
+      "totalUnassigned" : {
+        "type" : "integer",
+        "format" : "int32",
+        "description" : "Every executive at no company, including any this answer was cut short of"
+      },
+      "unassigned" : {
+        "description" : "Executives at no company of the position; filled on inUniverse only",
+        "type" : "array",
+        "items" : {
+          "$ref" : "#/$defs/McpCandidateRow"
+        }
+      }
+    },
+    "required" : [ "companies", "notice", "stage", "totalCompanies", "totalUnassigned", "unassigned" ]
+  },
+  "annotations" : {
+    "title" : "",
+    "readOnlyHint" : true,
+    "destructiveHint" : false,
+    "idempotentHint" : true,
+    "openWorldHint" : false
+  }
+}, {
+  "name" : "uncava_list_candidates",
+  "title" : "List a position's executives",
+  "description" : "List the executives a position has mapped, first mapped first, a page at a time, optionally only those at one status or at one of its companies. Detailed rows carry career, education and background; contacts and compensation only where this connection was granted them. Example: status \"interested\" lists who said yes.",
+  "inputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "positionId" : {
+        "type" : "string",
+        "format" : "uuid",
+        "description" : "The position's id, from uncava_search_positions"
+      },
+      "status" : {
+        "type" : "string",
+        "description" : "Only executives at this status: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+      },
+      "companyId" : {
+        "type" : "string",
+        "format" : "uuid",
+        "description" : "Only executives mapped at this company: an id from uncava_list_companies"
+      },
+      "cursor" : {
+        "type" : "string",
+        "description" : "The nextCursor of the previous page; omit for the first"
+      },
+      "limit" : {
+        "type" : "integer",
+        "format" : "int32",
+        "description" : "Rows per page, 1 to 100; 25 when omitted"
+      },
+      "response_format" : {
+        "type" : "string",
+        "description" : "concise (the default): names, titles, employers and status; detailed: every field"
+      }
+    },
+    "required" : [ "positionId" ]
+  },
+  "outputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "candidates" : {
+        "description" : "The executives of this page",
+        "type" : "array",
+        "items" : {
+          "type" : "object",
+          "properties" : {
+            "companyId" : {
+              "type" : [ "string", "null" ],
+              "format" : "uuid",
+              "description" : "The position's company they are mapped at, as uncava_list_companies names it"
+            },
+            "companyName" : {
+              "type" : [ "string", "null" ],
+              "description" : "Their employer's name"
+            },
+            "detail" : {
+              "allOf" : [ {
+                "type" : [ "object", "null" ],
+                "properties" : {
+                  "addedAt" : {
+                    "type" : "string",
+                    "format" : "date-time",
+                    "description" : "When the position mapped them"
+                  },
+                  "career" : {
+                    "description" : "Their career, latest first",
+                    "type" : "array",
+                    "items" : {
+                      "type" : "object",
+                      "properties" : {
+                        "company" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "The employer"
+                        },
+                        "location" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "Where the post was held"
+                        },
+                        "period" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "When, as the source wrote it"
+                        },
+                        "title" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "The title held"
+                        }
+                      },
+                      "required" : [ "company", "location", "period", "title" ],
+                      "description" : "One post in an executive's career"
+                    }
+                  },
+                  "city" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "The city they live in"
+                  },
+                  "companyId" : {
+                    "type" : [ "string", "null" ],
+                    "format" : "uuid",
+                    "description" : "The position's company they are mapped at; null where their employer is not in its universe"
+                  },
+                  "companyName" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Their employer's name"
+                  },
+                  "compensation" : {
+                    "allOf" : [ {
+                      "type" : [ "object", "null" ],
+                      "properties" : {
+                        "allowances" : {
+                          "type" : [ "integer", "null" ],
+                          "format" : "int64",
+                          "description" : "Allowances, summed"
+                        },
+                        "baseSalary" : {
+                          "type" : [ "integer", "null" ],
+                          "format" : "int64",
+                          "description" : "Base salary"
+                        },
+                        "bonus" : {
+                          "type" : [ "integer", "null" ],
+                          "format" : "int64",
+                          "description" : "Bonus"
+                        },
+                        "currency" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "ISO 4217 currency of every figure"
+                        },
+                        "longTermIncentive" : {
+                          "type" : [ "integer", "null" ],
+                          "format" : "int64",
+                          "description" : "Long-term incentive"
+                        },
+                        "noticePeriod" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "Notice period"
+                        }
+                      },
+                      "required" : [ "allowances", "baseSalary", "bonus", "currency", "longTermIncentive", "noticePeriod" ],
+                      "description" : "An executive's current package, as recorded; each figure annual"
+                    }, {
+                      "description" : "Their current package. Null unless the key holds candidates.compensation:read"
+                    } ]
+                  },
+                  "contacts" : {
+                    "allOf" : [ {
+                      "type" : [ "object", "null" ],
+                      "properties" : {
+                        "emails" : {
+                          "description" : "Email addresses",
+                          "type" : "array",
+                          "items" : {
+                            "type" : "object",
+                            "properties" : {
+                              "address" : {
+                                "type" : "string",
+                                "description" : "The address"
+                              },
+                              "kind" : {
+                                "type" : [ "string", "null" ],
+                                "description" : "work or personal, where known",
+                                "enum" : [ "work", "personal", null ]
+                              },
+                              "verified" : {
+                                "type" : "boolean",
+                                "description" : "A provider or a researcher verified it"
+                              }
+                            },
+                            "required" : [ "address", "kind", "verified" ],
+                            "description" : "One email address known for an executive"
+                          }
+                        },
+                        "phones" : {
+                          "description" : "Phone numbers",
+                          "type" : "array",
+                          "items" : {
+                            "type" : "object",
+                            "properties" : {
+                              "kind" : {
+                                "type" : [ "string", "null" ],
+                                "description" : "work or personal, where a researcher tagged it",
+                                "enum" : [ "work", "personal", null ]
+                              },
+                              "number" : {
+                                "type" : "string",
+                                "description" : "The number, as it arrived"
+                              },
+                              "verified" : {
+                                "type" : "boolean",
+                                "description" : "A provider or a researcher verified it"
+                              }
+                            },
+                            "required" : [ "kind", "number", "verified" ],
+                            "description" : "One phone number known for an executive"
+                          }
+                        }
+                      },
+                      "required" : [ "emails", "phones" ],
+                      "description" : "Every email and phone known for an executive"
+                    }, {
+                      "description" : "Every email and phone known for them. Null unless the key holds candidates.contacts:read"
+                    } ]
+                  },
+                  "country" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "The country they live in"
+                  },
+                  "education" : {
+                    "description" : "Their education",
+                    "type" : "array",
+                    "items" : {
+                      "type" : "object",
+                      "properties" : {
+                        "degree" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "The degree"
+                        },
+                        "period" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "When, as the source wrote it"
+                        },
+                        "school" : {
+                          "type" : [ "string", "null" ],
+                          "description" : "The school"
+                        }
+                      },
+                      "required" : [ "degree", "period", "school" ],
+                      "description" : "One school in an executive's education"
+                    }
+                  },
+                  "fullName" : {
+                    "type" : "string",
+                    "description" : "Their full name"
+                  },
+                  "gender" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Their gender, where recorded",
+                    "enum" : [ "female", "male", "other", null ]
+                  },
+                  "id" : {
+                    "type" : "string",
+                    "format" : "uuid",
+                    "description" : "This executive's id within the position"
+                  },
+                  "languages" : {
+                    "description" : "Languages they speak",
+                    "type" : "array",
+                    "items" : {
+                      "type" : "string"
+                    }
+                  },
+                  "linkedinUrl" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Their LinkedIn profile"
+                  },
+                  "nationality" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Their nationality group"
+                  },
+                  "personId" : {
+                    "type" : "string",
+                    "format" : "uuid",
+                    "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
+                  },
+                  "seniority" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Their level against the role",
+                    "enum" : [ "Board", "C-Suite", "N-1", "N-2", "N-3", null ]
+                  },
+                  "skills" : {
+                    "description" : "Skills from their profile",
+                    "type" : "array",
+                    "items" : {
+                      "type" : "string"
+                    }
+                  },
+                  "status" : {
+                    "type" : "string",
+                    "description" : "Where they stand on this position",
+                    "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+                  },
+                  "summary" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "A short profile summary"
+                  },
+                  "title" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Their current title"
+                  },
+                  "yearsExperience" : {
+                    "type" : [ "integer", "null" ],
+                    "format" : "int32",
+                    "description" : "Years of experience"
+                  }
+                },
+                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "seniority", "skills", "status", "summary", "title", "yearsExperience" ],
+                "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
+              }, {
+                "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
+              } ]
+            },
+            "fullName" : {
+              "type" : "string",
+              "description" : "Their full name"
+            },
+            "id" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "This executive's id within the position"
+            },
+            "personId" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The person's id, the same on every position that maps them"
+            },
+            "status" : {
+              "type" : "string",
+              "description" : "Where they stand on this position: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+            },
+            "title" : {
+              "type" : [ "string", "null" ],
+              "description" : "Their current title"
+            }
+          },
+          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "status", "title" ]
+        }
+      },
+      "nextCursor" : {
+        "type" : [ "string", "null" ],
+        "description" : "Pass as cursor for the next page; absent on the last"
+      },
+      "notice" : {
+        "type" : [ "string", "null" ],
+        "description" : "Why this page is shorter than asked, and how to read on"
+      },
+      "totalCount" : {
+        "type" : "integer",
+        "format" : "int64",
+        "description" : "Executives matching across every page"
+      }
+    },
+    "required" : [ "candidates", "nextCursor", "notice", "totalCount" ]
+  },
+  "annotations" : {
+    "title" : "",
+    "readOnlyHint" : true,
+    "destructiveHint" : false,
+    "idempotentHint" : true,
+    "openWorldHint" : false
+  }
+}, {
+  "name" : "uncava_list_companies",
+  "title" : "List a position's companies",
+  "description" : "List the companies a position has filed at one stage — inUniverse (the default), shortlisted or declined — newest first, a page at a time. Use it to see a market or a shortlist; to see the executives at those companies too, in one call, use uncava_get_universe. Example: stage \"shortlisted\" lists the shortlist.",
+  "inputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "positionId" : {
+        "type" : "string",
+        "format" : "uuid",
+        "description" : "The position's id, from uncava_search_positions"
+      },
+      "stage" : {
+        "type" : "string",
+        "description" : "inUniverse (the default), shortlisted or declined"
+      },
+      "cursor" : {
+        "type" : "string",
+        "description" : "The nextCursor of the previous page; omit for the first"
+      },
+      "limit" : {
+        "type" : "integer",
+        "format" : "int32",
+        "description" : "Rows per page, 1 to 100; 25 when omitted"
+      },
+      "response_format" : {
+        "type" : "string",
+        "description" : "concise (the default): names, stages, industry and country; detailed: every field"
+      }
+    },
+    "required" : [ "positionId" ]
+  },
+  "outputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "companies" : {
+        "description" : "The companies of this page",
+        "type" : "array",
+        "items" : {
+          "type" : "object",
+          "properties" : {
+            "country" : {
+              "type" : [ "string", "null" ],
+              "description" : "Its headquarters country"
+            },
+            "detail" : {
+              "allOf" : [ {
+                "type" : [ "object", "null" ],
+                "properties" : {
+                  "addedAt" : {
+                    "type" : "string",
+                    "format" : "date-time",
+                    "description" : "When the position took it in"
+                  },
+                  "annualRevenue" : {
+                    "type" : [ "integer", "null" ],
+                    "format" : "int64",
+                    "description" : "Annual revenue in USD"
+                  },
+                  "city" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Its headquarters city"
+                  },
+                  "country" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Its headquarters country"
+                  },
+                  "description" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "A short description"
+                  },
+                  "employees" : {
+                    "type" : [ "integer", "null" ],
+                    "format" : "int32",
+                    "description" : "Headcount"
+                  },
+                  "foundedYear" : {
+                    "type" : [ "integer", "null" ],
+                    "format" : "int32",
+                    "description" : "The year it was founded"
+                  },
+                  "id" : {
+                    "type" : "string",
+                    "format" : "uuid",
+                    "description" : "This company's id within the position; an executive's companyId names it"
+                  },
+                  "industry" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Its industry"
+                  },
+                  "linkedinUrl" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Its LinkedIn page"
+                  },
+                  "logoUrl" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Its logo"
+                  },
+                  "name" : {
+                    "type" : "string",
+                    "description" : "The company's name"
+                  },
+                  "noExecutiveFound" : {
+                    "type" : "boolean",
+                    "description" : "The team searched it and found no executive to map"
+                  },
+                  "stage" : {
+                    "type" : "string",
+                    "description" : "Where the position has filed it",
+                    "enum" : [ "inUniverse", "shortlisted", "declined" ]
+                  },
+                  "website" : {
+                    "type" : [ "string", "null" ],
+                    "description" : "Its website"
+                  }
+                },
+                "required" : [ "addedAt", "annualRevenue", "city", "country", "description", "employees", "foundedYear", "id", "industry", "linkedinUrl", "logoUrl", "name", "noExecutiveFound", "stage", "website" ],
+                "description" : "A company a position has taken into its universe, as it was filed"
+              }, {
+                "description" : "Every field of the company; present only with response_format=detailed"
+              } ]
+            },
+            "id" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "This company's id within the position; uncava_list_candidates takes it as companyId"
+            },
+            "industry" : {
+              "type" : [ "string", "null" ],
+              "description" : "Its industry"
+            },
+            "name" : {
+              "type" : "string",
+              "description" : "The company's name"
+            },
+            "stage" : {
+              "type" : "string",
+              "description" : "Where the position has filed it: inUniverse, shortlisted or declined"
+            }
+          },
+          "required" : [ "country", "detail", "id", "industry", "name", "stage" ]
+        }
+      },
+      "nextCursor" : {
+        "type" : [ "string", "null" ],
+        "description" : "Pass as cursor for the next page; absent on the last"
+      },
+      "notice" : {
+        "type" : [ "string", "null" ],
+        "description" : "Why this page is shorter than asked, and how to read on"
+      },
+      "totalCount" : {
+        "type" : "integer",
+        "format" : "int64",
+        "description" : "Companies at this stage across every page"
+      }
+    },
+    "required" : [ "companies", "nextCursor", "notice", "totalCount" ]
+  },
+  "annotations" : {
+    "title" : "",
+    "readOnlyHint" : true,
+    "destructiveHint" : false,
+    "idempotentHint" : true,
+    "openWorldHint" : false
+  }
+}, {
+  "name" : "uncava_search_positions",
+  "title" : "Search positions",
+  "description" : "List the positions (search and mapping mandates) this connection can read, newest first, optionally only those whose role title contains some text. Start here: every other tool takes a positionId from this list. Example: title \"CFO\" finds \"Group CFO – Energy\".",
+  "inputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "title" : {
+        "type" : "string",
+        "description" : "Only positions whose role title contains this, ignoring case"
+      },
+      "cursor" : {
+        "type" : "string",
+        "description" : "The nextCursor of the previous page; omit for the first"
+      },
+      "limit" : {
+        "type" : "integer",
+        "format" : "int32",
+        "description" : "Rows per page, 1 to 100; 25 when omitted"
+      },
+      "response_format" : {
+        "type" : "string",
+        "description" : "concise (the default): ids, titles and stages; detailed: every field"
+      }
+    },
+    "required" : [ ]
+  },
+  "outputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "$defs" : {
+      "ProjectStage" : {
+        "type" : "string",
+        "enum" : [ "BRIEF", "UNIVERSE", "LOCKED", "MAPPING", "OUTREACH", "DELIVERED", "CLOSED" ]
+      },
+      "ProjectType" : {
+        "type" : "string",
+        "enum" : [ "MAPPING", "SEARCH" ]
+      }
+    },
+    "type" : "object",
+    "properties" : {
+      "nextCursor" : {
+        "type" : [ "string", "null" ],
+        "description" : "Pass as cursor for the next page; absent on the last"
+      },
+      "notice" : {
+        "type" : [ "string", "null" ],
+        "description" : "Why this page is shorter than asked, and how to read on"
+      },
+      "positions" : {
+        "description" : "The positions of this page",
+        "type" : "array",
+        "items" : {
+          "type" : "object",
+          "properties" : {
+            "clientName" : {
+              "type" : "string",
+              "description" : "The client or business unit hiring"
+            },
+            "detail" : {
+              "allOf" : [ {
+                "type" : [ "object", "null" ],
+                "properties" : {
+                  "candidates" : {
+                    "type" : "integer",
+                    "format" : "int64",
+                    "description" : "Executives still in the running"
+                  },
+                  "clientId" : {
+                    "type" : "string",
+                    "format" : "uuid",
+                    "description" : "The client or business unit's id"
+                  },
+                  "clientName" : {
+                    "type" : "string",
+                    "description" : "The client or business unit hiring"
+                  },
+                  "companies" : {
+                    "type" : "integer",
+                    "format" : "int64",
+                    "description" : "Companies in the universe or shortlisted, declined ones left out"
+                  },
+                  "createdAt" : {
+                    "type" : "string",
+                    "format" : "date-time",
+                    "description" : "When the position was created"
+                  },
+                  "deliveryDate" : {
+                    "type" : [ "string", "null" ],
+                    "format" : "date",
+                    "description" : "When the map or shortlist is due"
+                  },
+                  "id" : {
+                    "type" : "string",
+                    "format" : "uuid",
+                    "description" : "The position's id"
+                  },
+                  "stage" : {
+                    "$ref" : "#/$defs/ProjectStage",
+                    "description" : "The furthest stage the position has reached"
+                  },
+                  "startDate" : {
+                    "type" : [ "string", "null" ],
+                    "format" : "date",
+                    "description" : "When the work started"
+                  },
+                  "targetDate" : {
+                    "type" : [ "string", "null" ],
+                    "format" : "date",
+                    "description" : "When the hire is wanted"
+                  },
+                  "title" : {
+                    "type" : "string",
+                    "description" : "The role being filled"
+                  },
+                  "type" : {
+                    "$ref" : "#/$defs/ProjectType",
+                    "description" : "MAPPING delivers a mapped universe; SEARCH runs through to a shortlist"
+                  }
+                },
+                "required" : [ "candidates", "clientId", "clientName", "companies", "createdAt", "deliveryDate", "id", "stage", "startDate", "targetDate", "title", "type" ],
+                "description" : "A position: one search or mapping mandate"
+              }, {
+                "description" : "Every field of the position; present only with response_format=detailed"
+              } ]
+            },
+            "id" : {
+              "type" : "string",
+              "format" : "uuid",
+              "description" : "The position's id, which every other tool takes as positionId"
+            },
+            "stage" : {
+              "$ref" : "#/$defs/ProjectStage",
+              "description" : "The furthest stage the position has reached"
+            },
+            "title" : {
+              "type" : "string",
+              "description" : "The role being filled"
+            },
+            "type" : {
+              "$ref" : "#/$defs/ProjectType",
+              "description" : "MAPPING delivers a mapped universe; SEARCH runs through to a shortlist"
+            }
+          },
+          "required" : [ "clientName", "detail", "id", "stage", "title", "type" ]
+        }
+      },
+      "totalCount" : {
+        "type" : "integer",
+        "format" : "int64",
+        "description" : "Positions matching across every page"
+      }
+    },
+    "required" : [ "nextCursor", "notice", "positions", "totalCount" ]
+  },
+  "annotations" : {
+    "title" : "",
+    "readOnlyHint" : true,
+    "destructiveHint" : false,
+    "idempotentHint" : true,
+    "openWorldHint" : false
+  }
+}, {
+  "name" : "uncava_whoami",
+  "title" : "Who am I",
+  "description" : "Describe this connection: the Uncava workspace it reads and the scopes it was granted. Needs no scope; call it to check a connection works before reading anything.",
+  "inputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : { },
+    "required" : [ ]
+  },
+  "outputSchema" : {
+    "$schema" : "https://json-schema.org/draft/2020-12/schema",
+    "type" : "object",
+    "properties" : {
+      "clientId" : {
+        "type" : [ "string", "null" ],
+        "description" : "The OAuth client this connection was granted to; none for an API key"
+      },
+      "credentialKind" : {
+        "type" : "string",
+        "enum" : [ "OAUTH", "API_KEY" ]
+      },
+      "scopes" : {
+        "type" : "array",
+        "items" : {
+          "type" : "string"
+        }
+      },
+      "workspaceId" : {
+        "type" : "string",
+        "format" : "uuid"
+      }
+    },
+    "required" : [ "clientId", "credentialKind", "scopes", "workspaceId" ]
+  },
+  "annotations" : {
+    "title" : "",
+    "readOnlyHint" : true,
+    "destructiveHint" : false,
+    "idempotentHint" : true,
+    "openWorldHint" : false
+  }
+} ]

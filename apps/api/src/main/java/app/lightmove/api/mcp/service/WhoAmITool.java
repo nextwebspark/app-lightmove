@@ -2,6 +2,7 @@ package app.lightmove.api.mcp.service;
 
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.mcp.dto.McpWhoAmI;
+import app.lightmove.api.mcp.model.McpToolScopes;
 import io.modelcontextprotocol.common.McpTransportContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -16,11 +17,12 @@ public class WhoAmITool {
 
     private final McpToolCalls calls;
 
-    @McpTool(name = NAME, title = "Who am I",
+    @McpTool(name = NAME, generateOutputSchema = true, title = "Who am I",
             description = "Describe this connection: the Uncava workspace it reads and the scopes it was granted."
                     + " Needs no scope; call it to check a connection works before reading anything.",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
                     openWorldHint = false))
+    @McpToolScopes({})
     public McpWhoAmI whoami(McpTransportContext context) {
         return calls.call(context, NAME, null, caller -> new McpWhoAmI(caller.credentialKind(), caller.workspaceId(),
                 caller.clientId(), ApiKeyScope.dataScopes().stream().filter(caller::holds).map(ApiKeyScope::value)
