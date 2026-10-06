@@ -313,8 +313,13 @@ function TriageStage() {
 
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
 
+  /** The companies a running Find executives was sent, ticked until its executives land. */
+  const sourcingCompanyIds = useRef<string[]>([]);
   /** Offered on the universe's table view only, and only where the deployment has a people search. */
-  const sourcing = useExecutiveSourcing(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
+  const sourcing = useExecutiveSourcing(project.id, canWrite && stage.status === "inUniverse", streamIsLive, () => {
+    companySelection.deselect(sourcingCompanyIds.current);
+    sourcingCompanyIds.current = [];
+  });
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && view === "table" && sourcing.offered;
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
   const mailbox = useMailbox(canWrite);
@@ -333,11 +338,13 @@ function TriageStage() {
     setConfirmingFindExecutives(true);
   };
 
-  const handleStartFindExecutives = () =>
-    sourcing.start([...companySelection.selectedIds], () => {
-      companySelection.clear();
+  const handleStartFindExecutives = () => {
+    const companyIds = [...companySelection.selectedIds];
+    sourcing.start(companyIds, () => {
+      sourcingCompanyIds.current = companyIds;
       setConfirmingFindExecutives(false);
     });
+  };
 
   /**
    * The screen's ordinary freshness is the project stream above: the server says when something

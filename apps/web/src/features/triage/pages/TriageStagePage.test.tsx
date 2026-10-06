@@ -143,9 +143,6 @@ const lead = {
     emailDomain: "firm.example",
     joinedAt: null,
     company: null,
-    companySize: null,
-    primaryRegion: null,
-    teamFocus: null,
     roles: ["MEMBER" as const],
   },
 };
@@ -427,7 +424,7 @@ describe("TriageStagePage", () => {
       expect(screen.getByRole("button", { name: /Finding executives… 1\/2/i })).toBeDisabled();
     });
 
-    it("with companies ticked, runs over exactly those and caps the ticks at the server's number", async () => {
+    it("with companies ticked, runs over exactly those, caps the ticks and keeps them until the run lands", async () => {
       offered();
       vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue({ ...SOURCING_OFF, enabled: true, maxCompaniesPerRun: 1 });
       const second = { ...acwa, id: "u2", apolloAccountId: "a2", companyName: "Emirates NBD" };
@@ -447,7 +444,15 @@ describe("TriageStagePage", () => {
       await userEvent.click(within(dialog).getByRole("button", { name: /^Find executives$/i }));
 
       await waitFor(() => expect(sourcingApi.startSourcing).toHaveBeenCalledWith("p1", ["u1"]));
+      await screen.findByText("Finding executives");
+      expect(screen.getByRole("checkbox", { name: "Select ACWA Power" })).toBeChecked();
+
+      vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(runOf({ status: "COMPLETED", companiesDone: 1, companiesTotal: 1 }));
+      act(() => {
+        for (const listener of streamListeners) listener({ name: "change", data: '{"kind":"executive-sourcing"}' });
+      });
       await waitFor(() => expect(screen.queryByRole("region", { name: /selected/ })).not.toBeInTheDocument());
+      expect(screen.getByRole("checkbox", { name: "Select ACWA Power" })).not.toBeChecked();
     });
 
     it("reads a finished run back after a reload, summarised, with its details behind a fold and a dismiss", async () => {
