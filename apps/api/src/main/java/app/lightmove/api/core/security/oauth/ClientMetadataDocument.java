@@ -11,9 +11,8 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * A client id metadata document: the client describing itself at the https URL that is its {@code client_id}, so it
- * connects with no registration. Held to what a registration may say ({@link ClientMetadataRules}), and to naming
- * itself — a document whose {@code client_id} is not the URL it was read from is someone else's, and refused.
+ * A client describing itself at the https URL that is its {@code client_id}; one whose {@code client_id} is not the URL
+ * it was read from is someone else's, and refused.
  */
 record ClientMetadataDocument(String clientId, String clientName, String clientUri, String logoUri,
                               List<String> redirectUris, List<String> scopes) {

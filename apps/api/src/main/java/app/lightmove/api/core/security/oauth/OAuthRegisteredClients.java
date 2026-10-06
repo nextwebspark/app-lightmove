@@ -16,8 +16,6 @@ import org.springframework.security.oauth2.server.authorization.settings.OAuth2T
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 /**
  * The authorization server's view of {@link OAuthClient}, beneath {@link ClientMetadataDocumentClients}. Whatever a row says, the client it yields is public, needs
@@ -39,25 +37,29 @@ public class OAuthRegisteredClients implements RegisteredClientRepository {
         this.audit = audit;
     }
 
-    /** Only dynamic registration saves through here; a metadata document's client is written by its own upsert. */
+    /**
+     * Dynamic registration's write, and nothing else's: a metadata document's client is written by its own upsert, and
+     * a seeded one by hand.
+     */
     @Override
     @Transactional
     public void save(RegisteredClient registeredClient) {
         ClientSettings registered = registeredClient.getClientSettings();
-        String source = registered.getSetting(DynamicClientRegistrations.SOURCE_SETTING);
+        if (!OAuthClientSource.DCR.name().equals(registered.getSetting(DynamicClientRegistrations.SOURCE_SETTING))) {
+            throw new IllegalArgumentException("Only a dynamic registration is saved through the repository");
+        }
         OAuthClient client = clients.save(OAuthClient.registered(registeredClient.getClientId(),
                 registeredClient.getClientName(),
                 registered.getSetting(DynamicClientRegistrations.CLIENT_URI_SETTING),
                 registered.getSetting(DynamicClientRegistrations.LOGO_URI_SETTING),
                 List.copyOf(registeredClient.getRedirectUris()), List.copyOf(registeredClient.getScopes()),
-                source == null ? OAuthClientSource.SEEDED : OAuthClientSource.valueOf(source)));
+                OAuthClientSource.DCR));
         audit.event(WorkspaceEventType.OAUTH_CLIENT_REGISTERED)
                 .target(CLIENT_TARGET, client.getId().toString())
                 .detail("clientId", client.getClientId())
                 .detail("clientName", client.getClientName())
                 .detail("redirectUris", client.getRedirectUris())
-                .from(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes
-                        ? attributes.getRequest() : null)
+                .from(HashingAuthorizationService.currentRequest())
                 .record();
     }
 

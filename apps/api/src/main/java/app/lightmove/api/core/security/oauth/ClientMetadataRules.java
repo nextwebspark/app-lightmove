@@ -11,11 +11,7 @@ import java.util.Set;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 
-/**
- * What a client may say about itself, read the same way whether it registered (RFC 7591) or published a metadata
- * document. A client is always public and uses the code and refresh grants: anything else it asks for is refused, not
- * quietly granted something less.
- */
+/** What a client may say about itself, read alike from a registration and a metadata document. */
 final class ClientMetadataRules {
 
     static final String INVALID_CLIENT_METADATA = "invalid_client_metadata";
@@ -60,14 +56,11 @@ final class ClientMetadataRules {
             String trimmed = clientName.strip();
             return trimmed.length() > MAX_NAME_LENGTH ? trimmed.substring(0, MAX_NAME_LENGTH) : trimmed;
         }
-        String host = OAuthGrantService.hostOf(redirectUris.getFirst());
+        String host = OAuthUris.hostOf(redirectUris.getFirst());
         return host == null ? "Unnamed app" : host;
     }
 
-    /**
-     * A logo or home page every consent screen and grants list fetches or links to, so only an https address of
-     * reasonable length is kept, as a provider's picture is; anything else is dropped rather than refused.
-     */
+    /** A logo or home page the screens fetch or link to: https only, as a provider's picture is, else dropped. */
     static String httpsUriOrNull(Object value) {
         if (!(value instanceof String uri) || uri.isBlank() || uri.length() > MAX_URI_LENGTH) {
             return null;

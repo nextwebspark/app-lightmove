@@ -12,16 +12,14 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
+import org.springframework.security.oauth2.core.endpoint.PkceParameterNames;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientAuthenticationToken;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
-import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.web.authentication.AuthenticationConverter;
 
 /**
- * Client authentication for a public client's refresh and revocation requests, which carry only its {@code client_id}.
- * The framework authenticates a public client solely on the code grant, by its PKCE verifier; without this a public
- * client's refresh token could never be spent, nor any of its tokens revoked (RFC 7009 §2.1). The token presented is
- * the proof: a refresh token single-use and rotated, and a revocation only ever ends the presenting client's own grant.
+ * Authenticates a public client's refresh and revocation requests by {@code client_id} alone, which the framework does
+ * only for the code grant; the token presented is the proof, and a revocation ends only the client's own grant.
  */
 public final class PublicClientAuthentication {
 
@@ -79,9 +77,9 @@ public final class PublicClientAuthentication {
 
     public static final class Provider implements AuthenticationProvider {
 
-        private final RegisteredClientRepository clients;
+        private final ClientMetadataDocumentClients clients;
 
-        public Provider(RegisteredClientRepository clients) {
+        public Provider(ClientMetadataDocumentClients clients) {
             this.clients = clients;
         }
 
@@ -95,7 +93,9 @@ public final class PublicClientAuthentication {
                     || client.getCredentials() != null || !(refresh || revocation)) {
                 return null;
             }
-            RegisteredClient registered = clients.findByClientId((String) client.getPrincipal());
+            String clientId = (String) client.getPrincipal();
+            RegisteredClient registered = refresh ? clients.findByClientId(clientId)
+                    : clients.findStoredByClientId(clientId);
             if (registered == null
                     || !registered.getClientAuthenticationMethods().contains(ClientAuthenticationMethod.NONE)
                     || !registered.getAuthorizationGrantTypes().contains(AuthorizationGrantType.REFRESH_TOKEN)) {
@@ -107,6 +107,32 @@ public final class PublicClientAuthentication {
         @Override
         public boolean supports(Class<?> authentication) {
             return OAuth2ClientAuthenticationToken.class.isAssignableFrom(authentication);
+        }
+    }
+
+    /**
+     * Spring's public client authentication, held to the code grant it exists for. Left to see every secretless request,
+     * it looked up the client of a revocation too — fetching a metadata document the revocation path must never fetch.
+     */
+    public static final class CodeGrantOnly implements AuthenticationProvider {
+
+        private final AuthenticationProvider framework;
+
+        public CodeGrantOnly(AuthenticationProvider framework) {
+            this.framework = framework;
+        }
+
+        @Override
+        public Authentication authenticate(Authentication authentication) {
+            return authentication instanceof OAuth2ClientAuthenticationToken client
+                    && client.getAdditionalParameters().containsKey(PkceParameterNames.CODE_VERIFIER)
+                    ? framework.authenticate(authentication)
+                    : null;
+        }
+
+        @Override
+        public boolean supports(Class<?> authentication) {
+            return framework.supports(authentication);
         }
     }
 }

@@ -10,15 +10,12 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
- * Where a client may ask for its code to be sent. A website's https address matches exactly; a native app's listener on
- * this machine — {@code 127.0.0.1}, {@code [::1]} or {@code localhost} over http — may differ in port alone, since it
- * takes whatever port the system hands it (RFC 8252 §7.3). {@code localhost} is allowed beside the IP literals because
- * the command-line clients register it; a private-use scheme ({@code cursor://}) is not, since any installed app can
- * claim one.
+ * Where a code may be sent: an https address exactly, or a listener on this machine (127.0.0.1, [::1], localhost) on any
+ * port (RFC 8252). Never a private-use scheme such as {@code cursor://}, which any installed app can claim.
  */
 final class RedirectUriRules {
 
-    static final int MAX_URIS = 10;
+    private static final int MAX_URIS = 10;
     private static final int MAX_LENGTH = 2048;
     private static final Set<String> LOOPBACK_HOSTS = Set.of("127.0.0.1", "[::1]", "::1", "localhost");
 

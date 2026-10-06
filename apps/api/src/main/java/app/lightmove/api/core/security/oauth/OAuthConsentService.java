@@ -12,6 +12,7 @@ import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -47,11 +48,12 @@ public class OAuthConsentService {
     private final RegisteredClientRepository registeredClients;
     private final ClientVerification verification;
     private final TransactionTemplate readOnly;
+    private final Clock clock;
 
     public OAuthConsentService(OAuthClientJpaRepository clients, HashingAuthorizationService authorizations,
                                WorkspaceSelection selection, WorkspaceRepository workspaces, WorkspaceAccess access,
                                RegisteredClientRepository registeredClients, ClientVerification verification,
-                               PlatformTransactionManager transactions) {
+                               PlatformTransactionManager transactions, Clock clock) {
         this.clients = clients;
         this.authorizations = authorizations;
         this.selection = selection;
@@ -61,24 +63,30 @@ public class OAuthConsentService {
         this.verification = verification;
         this.readOnly = new TransactionTemplate(transactions);
         this.readOnly.setReadOnly(true);
+        this.clock = clock;
     }
 
     /**
-     * Only a client already on file: the screen opens after the authorize request loaded it, so this read never makes
-     * the server fetch a URL a signed-in caller typed. A metadata document's copy that expired meanwhile is fetched
-     * again first, outside any transaction, so its host's wait never holds a connection.
+     * Only a client already on file, so this read never makes the server fetch a URL a caller typed; a metadata
+     * document's copy that expired since is refreshed first, outside the transaction.
      */
     public OAuthConsentContextResponse context(UUID userId, String clientId, String redirectUri, String scope) {
-        if (clientId == null || clients.findByClientId(clientId).isEmpty()
-                || registeredClients.findByClientId(clientId) == null) {
+        OAuthClient onFile = clientId == null ? null : clients.findByClientId(clientId).orElse(null);
+        if (onFile == null) {
             throw ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND);
         }
-        return readOnly.execute(status -> contextOf(userId, clientId, redirectUri, scope));
+        if (onFile.getSource() == OAuthClientSource.CIMD && !onFile.getMetadataExpiresAt().isAfter(clock.instant())) {
+            if (registeredClients.findByClientId(clientId) == null) {
+                throw ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND);
+            }
+            onFile = clients.findByClientId(clientId)
+                    .orElseThrow(() -> ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND));
+        }
+        OAuthClient client = onFile;
+        return readOnly.execute(status -> contextOf(userId, client, redirectUri, scope));
     }
 
-    private OAuthConsentContextResponse contextOf(UUID userId, String clientId, String redirectUri, String scope) {
-        OAuthClient client = clients.findByClientId(clientId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND));
+    private OAuthConsentContextResponse contextOf(UUID userId, OAuthClient client, String redirectUri, String scope) {
         String redirect = redirectUri != null ? redirectUri
                 : client.getRedirectUris().size() == 1 ? client.getRedirectUris().getFirst() : null;
         if (redirect == null || !RedirectUriRules.matches(client.getRedirectUris(), redirect)) {
@@ -106,7 +114,7 @@ public class OAuthConsentService {
         return new OAuthConsentContextResponse(client.getClientId(), client.getClientName(), client.getSource(),
                 ClientVerification.documentHostOf(client.getSource(), client.getClientId()),
                 verification.isVerified(client.getSource(), client.getClientId()), client.getClientUri(),
-                client.getLogoUri(), OAuthGrantService.hostOf(redirect), requested, offered);
+                client.getLogoUri(), OAuthUris.hostOf(redirect), requested, offered);
     }
 
     /** Only the caller's own request, for the client it names: a state is not a capability to read another's. */

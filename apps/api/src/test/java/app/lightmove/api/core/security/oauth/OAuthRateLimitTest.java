@@ -12,13 +12,14 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.ResultActions;
 
-/** The authorize and token budgets. Its own class because the suite runs with rate limiting off. */
+/** The authorization server's budgets. Its own class because the suite runs with rate limiting off. */
 @IntegrationTest
 @TestPropertySource(properties = {
         "lightmove.auth.rate-limit.enabled=true",
         "lightmove.mcp.authorize-per-minute-per-ip=2",
         "lightmove.mcp.token-per-minute-per-client=2",
-        "lightmove.mcp.register-per-hour-per-ip=2"
+        "lightmove.mcp.register-per-hour-per-ip=2",
+        "lightmove.mcp.revoke-per-minute-per-ip=2"
 })
 class OAuthRateLimitTest extends OAuthFlowSupport {
 
@@ -78,6 +79,19 @@ class OAuthRateLimitTest extends OAuthFlowSupport {
         mvc.perform(post(REGISTER).contentType(MediaType.APPLICATION_JSON).content(metadata))
                 .andExpect(status().isTooManyRequests())
                 .andExpect(header().string("Retry-After", "3600"));
+    }
+
+    @Test
+    @DisplayName("revocations from one address are refused once its budget is spent")
+    void revocationBudget() throws Exception {
+        String clientId = registerClient();
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(post(REVOKE).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .param("client_id", clientId).param("token", Tokens.generate())).andExpect(status().isOk());
+        }
+        mvc.perform(post(REVOKE).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .param("client_id", clientId).param("token", Tokens.generate()))
+                .andExpect(status().isTooManyRequests());
     }
 
     private ResultActions exchangeGuess(String clientId) throws Exception {

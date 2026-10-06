@@ -8,11 +8,18 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubClientMetadataFetcher;
 import app.lightmove.api.core.security.token.Tokens;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
@@ -25,6 +32,7 @@ class OAuthCimdIntegrationTest extends OAuthFlowSupport {
 
     @Autowired StubClientMetadataFetcher documents;
     @Autowired JdbcTemplate db;
+    @Autowired ClientMetadataDocumentClients documentClients;
 
     @Test
     @DisplayName("a metadata document's client completes the flow with no registration, and is shown as verified")
@@ -129,6 +137,80 @@ class OAuthCimdIntegrationTest extends OAuthFlowSupport {
         expire(clientId, Duration.ofHours(25));
         MvcResult refused = refresh(clientId, body(refreshed).get("refresh_token").asText());
         assertThat(body(refused).get("error").asText()).isEqualTo("invalid_client");
+    }
+
+    @Test
+    @DisplayName("while the host is down, the stale copy serves at once until the back-off lapses — one fetch, not one per call")
+    void outageBacksOff() throws Exception {
+        String clientId = documentAt("claude.ai");
+        documents.serve(clientId, documentFor(clientId), Duration.ofHours(1));
+        JsonNode tokens = connect(clientId, adminOf(domain), "projects:read");
+
+        expire(clientId, Duration.ofHours(2));
+        documents.takeDown(clientId);
+        MvcResult first = refresh(clientId, tokens.get("refresh_token").asText());
+        MvcResult second = refresh(clientId, body(first).get("refresh_token").asText());
+        assertThat(second.getResponse().getStatus()).isEqualTo(200);
+        assertThat(documents.fetched()).filteredOn(clientId::equals).as("the first fetch, then the outage once")
+                .hasSize(2);
+    }
+
+    @Test
+    @DisplayName("a refused document is not asked for again on the next request")
+    void refusalRemembered() throws Exception {
+        String clientId = documentAt("claude.ai");
+        documents.serve(clientId, documentFor("https://claude.ai/someone-else"), Duration.ofHours(1));
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            assertRefusedOnOurPage(mvc.perform(request(clientId, Tokens.generate(), "projects:read").asGet())
+                    .andReturn());
+        }
+        assertThat(documents.fetched()).filteredOn(clientId::equals).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("callers asking for the same document at once share one fetch")
+    void concurrentCallersShareOneFetch() throws Exception {
+        String clientId = documentAt("claude.ai");
+        documents.serve(clientId, documentFor(clientId), Duration.ofHours(1));
+        documents.slowDown(clientId, Duration.ofMillis(500));
+
+        ExecutorService callers = Executors.newFixedThreadPool(5);
+        try {
+            List<Future<RegisteredClient>> answers = new ArrayList<>();
+            for (int caller = 0; caller < 5; caller++) {
+                answers.add(callers.submit(() -> documentClients.findByClientId(clientId)));
+            }
+            for (Future<RegisteredClient> answer : answers) {
+                assertThat(answer.get(10, TimeUnit.SECONDS).getClientId()).isEqualTo(clientId);
+            }
+        } finally {
+            callers.shutdownNow();
+        }
+        assertThat(documents.fetched()).filteredOn(clientId::equals).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("revocation never fetches a document: a client nobody has loaded owns no grant to revoke")
+    void revocationFetchesNothing() throws Exception {
+        String clientId = documentAt("claude.ai");
+        documents.serve(clientId, documentFor(clientId), Duration.ofHours(1));
+
+        assertThat(body(revoke(clientId, Tokens.generate())).get("error").asText()).isEqualTo("invalid_client");
+        assertThat(documents.fetched()).doesNotContain(clientId);
+    }
+
+    @Test
+    @DisplayName("a document on a listed host but outside the listed path is not verified")
+    void verificationIsByDocumentPrefix() throws Exception {
+        String clientId = "https://claude.ai/share/" + UUID.randomUUID() + ".json";
+        documents.serve(clientId, documentFor(clientId), Duration.ofHours(1));
+        mvc.perform(request(clientId, Tokens.generate(), "projects:read").asGet());
+
+        JsonNode context = body(mvc.perform(get("/api/v1/oauth/consent-context").param("client_id", clientId)
+                .header("Authorization", "Bearer " + adminOf(domain))).andReturn());
+        assertThat(context.get("clientHost").asText()).isEqualTo("claude.ai");
+        assertThat(context.get("verified").asBoolean()).isFalse();
     }
 
     @Test

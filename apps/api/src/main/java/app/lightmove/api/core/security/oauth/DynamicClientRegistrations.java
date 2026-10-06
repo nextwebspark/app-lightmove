@@ -1,6 +1,6 @@
 package app.lightmove.api.core.security.oauth;
 
-import java.time.Instant;
+import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -14,9 +14,8 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 
 /**
- * Spring's RFC 7591 endpoint, narrowed by the two hooks its provider offers: what a registration may ask for, and the
- * client it becomes. Anyone may register — that is the point of it for MCP clients — so the client is public, holds no
- * secret, and is shown as unverified whatever name it gives itself.
+ * Spring's RFC 7591 endpoint narrowed through its provider's two hooks. Anyone may register, so the client is public,
+ * holds no secret, and is never shown as verified.
  */
 final class DynamicClientRegistrations {
 
@@ -54,7 +53,7 @@ final class DynamicClientRegistrations {
         }
     }
 
-    static RegisteredClient toRegisteredClient(OAuth2ClientRegistration registration) {
+    static RegisteredClient toRegisteredClient(OAuth2ClientRegistration registration, Clock clock) {
         List<String> redirectUris = List.copyOf(registration.getRedirectUris());
         ClientSettings.Builder settings = ClientSettings.builder()
                 .requireProofKey(true)
@@ -70,7 +69,7 @@ final class DynamicClientRegistrations {
         }
         return RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId(UUID.randomUUID().toString())
-                .clientIdIssuedAt(Instant.now())
+                .clientIdIssuedAt(clock.instant())
                 .clientName(ClientMetadataRules.displayNameOf(registration.getClientName(), redirectUris))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)

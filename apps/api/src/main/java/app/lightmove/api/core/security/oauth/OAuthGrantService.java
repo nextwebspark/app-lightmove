@@ -8,7 +8,6 @@ import app.lightmove.api.core.security.dto.OAuthGrantResponse;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import jakarta.servlet.http.HttpServletRequest;
-import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -150,7 +149,7 @@ public class OAuthGrantService {
                 rs.getString("client_id"),
                 rs.getString("client_name"),
                 verification.isVerified(OAuthClientSource.valueOf(rs.getString("source")), rs.getString("client_id")),
-                redirects.isEmpty() ? null : hostOf(redirects.getFirst()),
+                redirects.isEmpty() ? null : OAuthUris.hostOf(redirects.getFirst()),
                 rs.getString("logo_uri"),
                 json.readValue(rs.getString("scopes"), STRINGS),
                 rs.getObject("user_id", UUID.class),
@@ -158,14 +157,6 @@ public class OAuthGrantService {
                 instant(rs, "consented_at"),
                 instant(rs, "last_used_at"),
                 instant(rs, "expires_at"));
-    }
-
-    static String hostOf(String uri) {
-        try {
-            return URI.create(uri).getHost();
-        } catch (IllegalArgumentException malformed) {
-            return null;
-        }
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

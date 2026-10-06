@@ -387,7 +387,7 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
         return value.startsWith(HASH_MARKER) ? value.substring(HASH_MARKER.length()) : Tokens.hash(value);
     }
 
-    private static HttpServletRequest currentRequest() {
+    static HttpServletRequest currentRequest() {
         return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes
                 ? attributes.getRequest()
                 : null;

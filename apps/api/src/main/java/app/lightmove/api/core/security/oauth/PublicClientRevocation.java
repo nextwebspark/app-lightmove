@@ -9,9 +9,8 @@ import org.springframework.security.oauth2.server.authorization.authentication.O
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2TokenRevocationAuthenticationToken;
 
 /**
- * Token revocation (RFC 7009) in place of the framework's, which reads the presented token back out of the grant by its
- * value — never there, since only its hash is stored. Revoking either token ends the whole grant: a client revokes when
- * someone disconnects it, and a grant with its refresh token gone has nothing left to do.
+ * Token revocation (RFC 7009) in place of the framework's, which reads tokens back by value from a store that holds
+ * only hashes. Revoking either token ends the whole grant.
  */
 public class PublicClientRevocation implements AuthenticationProvider {
 

@@ -8,11 +8,8 @@ import org.apache.hc.client5.http.DnsResolver;
 import org.apache.hc.client5.http.SystemDefaultDnsResolver;
 
 /**
- * Resolves a metadata document's host and refuses it when any of its addresses is not on the public internet — this
- * machine, the private ranges, link-local (the cloud's metadata server among them), carrier-grade NAT, unique-local.
- * The connection then dials exactly the addresses checked here, so a host that answers differently a second later
- * (DNS rebinding) cannot slip one past. A client id is a URL anyone may type, and this request runs from inside our
- * network.
+ * Refuses a host when any of its addresses is not public. The connection dials exactly the addresses checked here, so a
+ * DNS answer that changes a second later cannot slip a private one past.
  */
 public class PublicAddressResolver implements DnsResolver {
 

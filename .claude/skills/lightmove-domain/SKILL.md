@@ -274,14 +274,18 @@ can be made in one click by whoever held the session, so a takeover's grant must
 ways. A dynamic registration (RFC 7591, Spring's endpoint with its validator and converter replaced) is open to anyone
 — that is its purpose — so it is public, secretless, budgeted per address, pruned once unconnected, and **never shown
 as verified**, whatever name it gives. A client id metadata document is the client's own URL serving its own
-description, so its host is a fact no one else can claim; a host we list is shown as verified. Fetching it means our
+description; a document under a URL prefix we list is shown as verified — a prefix, never a bare host, because other
+paths on the same host may serve what its users upload. Fetching it means our
 server requests a URL a stranger typed, from inside our network: the fetch resolves the host and refuses it if **any**
 address is not public, then dials exactly the addresses it checked (a DNS answer that changes between check and
 connect cannot slip a private one past), follows no redirect, reads 5 KB and stops at one 5-second deadline for the whole
-exchange — a host trickling a byte at a time is cut off there, not at each read. A document whose `client_id` is not the
+exchange — a host trickling a byte at a time is cut off there, not at each read, and a body past the cap is aborted
+rather than drained, so an endless one is refused as too large, never mistaken for an outage. A document whose `client_id` is not the
 URL it came from is refused. Its copy is kept for its `Cache-Control` lifetime; while the host is down a copy under a
 day old keeps serving, so an outage there breaks no one's refresh, but a document that now fails our rules is refused at
-once. Redirects match exactly, but a listener on this machine may change port (RFC 8252): `localhost` is allowed beside
+once. One caller fetches a document at a time and a failure is not retried for five minutes, so a host that is down
+costs one request its deadline, not every request. Revocation is answered from clients on file only, never a fetch, so
+the one endpoint needing no proof cannot be made to request URLs. Redirects match exactly, but a listener on this machine may change port (RFC 8252): `localhost` is allowed beside
 the IP literals because the command-line clients register it, and a private-use scheme (`cursor://`) is not, because any
 installed app can claim one. A client revokes a token of its own grant with its id alone (RFC 7009 §2.1), and the whole
 grant ends; the framework's own revocation reads tokens back by value, which a hashed store never holds.

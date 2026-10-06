@@ -14,9 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Deletes grants nobody can use any more — every token expired, or a request never consented to — and the rotated
- * refresh hashes older than any refresh token could be. A replay of one that old is refused as unknown instead. Then the
- * clients nobody connects: a dynamic registration costs a stranger nothing, so one left unused is not kept, and a
- * metadata document's copy long past its lifetime is fetched again if its client ever returns.
+ * refresh hashes older than any refresh token could be. A replay of one that old is refused as unknown instead. Then
+ * registered or document clients nobody has connected for a while, and never one with a grant.
  */
 @Slf4j
 @Component

@@ -22,9 +22,15 @@ public class StubClientMetadataFetcher implements ClientMetadataFetcher {
 
     private final Map<String, FetchedClientMetadata> documents = new ConcurrentHashMap<>();
     private final List<String> fetched = new CopyOnWriteArrayList<>();
+    private final Map<String, Duration> delays = new ConcurrentHashMap<>();
 
     public void serve(String url, String body, Duration lifetime) {
         documents.put(url, new FetchedClientMetadata(body, lifetime));
+    }
+
+    /** Answers only after {@code delay}, as a slow host would. */
+    public void slowDown(String url, Duration delay) {
+        delays.put(url, delay);
     }
 
     public void takeDown(String url) {
@@ -38,6 +44,14 @@ public class StubClientMetadataFetcher implements ClientMetadataFetcher {
     @Override
     public FetchedClientMetadata fetch(URI documentUrl) {
         fetched.add(documentUrl.toString());
+        Duration delay = delays.get(documentUrl.toString());
+        if (delay != null) {
+            try {
+                Thread.sleep(delay.toMillis());
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
         FetchedClientMetadata document = documents.get(documentUrl.toString());
         if (document == null) {
             throw new ClientMetadataUnavailable(ClientMetadataRefusal.UNREACHABLE, documentUrl.toString());

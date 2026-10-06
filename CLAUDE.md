@@ -593,10 +593,12 @@ A client is never signed up by hand (#702): it registers itself through Spring's
 (`POST /api/v1/oauth/register`, open, 10 an hour per address, public clients only, pruned after 30 days unconnected), or
 its `client_id` is the https URL of its own **metadata document** (CIMD), fetched by `HttpClientMetadataFetcher` — a
 public address only, checked on the addresses the connection dials, no redirect, 5 KB, 5 s — and kept as a row for its
-`Cache-Control` lifetime (`ClientMetadataDocumentClients`). A redirect URI matches exactly, except a listener on this
-machine (`127.0.0.1`, `[::1]`, `localhost`) whose port may change; a private-use scheme is refused. The consent screen
-calls only a document on a listed host (`lightmove.mcp.verified-client-hosts`) verified — a registration never is. A
-client revokes its own grant at `/api/v1/oauth/revoke` (RFC 7009) with its id alone.
+`Cache-Control` lifetime (`ClientMetadataDocumentClients`: one fetch at a time per document, a failed one not retried
+for 5 minutes, a stale copy serving meanwhile). A redirect URI matches exactly, except a listener on this machine
+(`127.0.0.1`, `[::1]`, `localhost`) whose port may change; a private-use scheme is refused. The consent screen calls only
+a document under a listed URL prefix (`lightmove.mcp.verified-client-id-prefixes`) verified — a registration never is.
+A client revokes its own grant at `/api/v1/oauth/revoke` (RFC 7009) with its id alone, budgeted per address, and that
+path never fetches a document.
 
 ## Commands
 

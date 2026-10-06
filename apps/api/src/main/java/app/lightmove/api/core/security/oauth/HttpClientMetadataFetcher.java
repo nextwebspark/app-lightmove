@@ -28,6 +28,8 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.ssl.DefaultClientTlsStrategy;
+import org.apache.hc.core5.http.ClassicHttpResponse;
+import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpHeaders;
 import org.apache.hc.core5.http.HttpStatus;
@@ -37,10 +39,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * Fetches a client id metadata document over the internet, from a URL a stranger chose. Everything about the request
- * is held down: https only, a public address only ({@link PublicAddressResolver}), no redirect followed, no cookie, a
- * few kilobytes read and then nothing more, and one deadline for the whole exchange — a host that trickles a byte at
- * a time is cut off at the deadline, not at each read's timeout.
+ * Fetches a client id metadata document from a URL a stranger chose: https and a public address only, no redirect, a
+ * few kilobytes, and one deadline for the whole exchange, so a host trickling a byte at a time is cut off there.
  */
 @Slf4j
 @Component
@@ -105,26 +105,14 @@ public class HttpClientMetadataFetcher implements ClientMetadataFetcher, Disposa
         }, timeout.toMillis(), TimeUnit.MILLISECONDS);
         try {
             return http.execute(request, response -> {
-                int status = response.getCode();
-                if (status >= HttpStatus.SC_REDIRECTION && status < HttpStatus.SC_CLIENT_ERROR) {
-                    throw new ClientMetadataUnavailable(ClientMetadataRefusal.REDIRECT, "HTTP " + status);
+                try {
+                    return read(response);
+                } catch (ClientMetadataUnavailable refused) {
+                    // Aborted, never closed: closing would read the rest of the body to reuse the connection, and an
+                    // endless one would then run to the deadline and pass for an outage.
+                    request.cancel();
+                    throw refused;
                 }
-                if (status != HttpStatus.SC_OK) {
-                    throw new ClientMetadataUnavailable(ClientMetadataRefusal.HTTP_ERROR, "HTTP " + status);
-                }
-                HttpEntity entity = response.getEntity();
-                if (entity == null || !isJson(entity.getContentType())) {
-                    throw new ClientMetadataUnavailable(ClientMetadataRefusal.NOT_JSON,
-                            entity == null ? "no body" : String.valueOf(entity.getContentType()));
-                }
-                if (entity.getContentLength() > maxBytes) {
-                    throw new ClientMetadataUnavailable(ClientMetadataRefusal.TOO_LARGE,
-                            entity.getContentLength() + " bytes");
-                }
-                String body = readAtMost(entity.getContent());
-                return new FetchedClientMetadata(body,
-                        lifetimeOf(response.getFirstHeader(HttpHeaders.CACHE_CONTROL) == null ? null
-                                : response.getFirstHeader(HttpHeaders.CACHE_CONTROL).getValue()));
             });
         } catch (ClientMetadataUnavailable refused) {
             throw timedOut.get() ? new ClientMetadataUnavailable(ClientMetadataRefusal.TIMEOUT, documentUrl.toString())
@@ -135,6 +123,27 @@ public class HttpClientMetadataFetcher implements ClientMetadataFetcher, Disposa
         } finally {
             deadline.cancel(false);
         }
+    }
+
+    private FetchedClientMetadata read(ClassicHttpResponse response) throws IOException {
+        int status = response.getCode();
+        if (status >= HttpStatus.SC_REDIRECTION && status < HttpStatus.SC_CLIENT_ERROR) {
+            throw new ClientMetadataUnavailable(ClientMetadataRefusal.REDIRECT, "HTTP " + status);
+        }
+        if (status != HttpStatus.SC_OK) {
+            throw new ClientMetadataUnavailable(ClientMetadataRefusal.HTTP_ERROR, "HTTP " + status);
+        }
+        HttpEntity entity = response.getEntity();
+        if (entity == null || !isJson(entity.getContentType())) {
+            throw new ClientMetadataUnavailable(ClientMetadataRefusal.NOT_JSON,
+                    entity == null ? "no body" : String.valueOf(entity.getContentType()));
+        }
+        if (entity.getContentLength() > maxBytes) {
+            throw new ClientMetadataUnavailable(ClientMetadataRefusal.TOO_LARGE, entity.getContentLength() + " bytes");
+        }
+        Header cacheControl = response.getFirstHeader(HttpHeaders.CACHE_CONTROL);
+        return new FetchedClientMetadata(readAtMost(entity.getContent()),
+                lifetimeOf(cacheControl == null ? null : cacheControl.getValue()));
     }
 
     /** {@code no-store} or {@code no-cache} keeps it the least while, as does a host that says nothing. */
@@ -159,19 +168,19 @@ public class HttpClientMetadataFetcher implements ClientMetadataFetcher, Disposa
         return stated.compareTo(minTtl) < 0 ? minTtl : stated.compareTo(maxTtl) > 0 ? maxTtl : stated;
     }
 
-    private String readAtMost(InputStream content) throws IOException {
-        try (InputStream in = content) {
-            ByteArrayOutputStream body = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                body.write(buffer, 0, read);
-                if (body.size() > maxBytes) {
-                    throw new ClientMetadataUnavailable(ClientMetadataRefusal.TOO_LARGE, "over " + maxBytes + " bytes");
-                }
+    /** Not closed here on an overflow: {@link #fetch} aborts the exchange instead. */
+    private String readAtMost(InputStream in) throws IOException {
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            body.write(buffer, 0, read);
+            if (body.size() > maxBytes) {
+                throw new ClientMetadataUnavailable(ClientMetadataRefusal.TOO_LARGE, "over " + maxBytes + " bytes");
             }
-            return body.toString(StandardCharsets.UTF_8);
         }
+        in.close();
+        return body.toString(StandardCharsets.UTF_8);
     }
 
     private static boolean isJson(String contentType) {

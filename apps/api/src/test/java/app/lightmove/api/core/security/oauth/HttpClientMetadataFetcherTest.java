@@ -42,9 +42,9 @@ class HttpClientMetadataFetcherTest {
     private static final String PASSWORD = "changeit";
     private static final Duration TIMEOUT = Duration.ofSeconds(1);
     private static final McpSettings SETTINGS = new McpSettings("", "file:unused", "file:unused",
-            Duration.ofHours(1), Duration.ofDays(30), Duration.ofMinutes(5), 30, 60, 30, 10, Duration.ofDays(30),
+            Duration.ofHours(1), Duration.ofDays(30), Duration.ofMinutes(5), 30, 60, 30, 10, 30, Duration.ofDays(30),
             5120, TIMEOUT, Duration.ofMinutes(5), Duration.ofHours(24), Duration.ofHours(24),
-            List.of("claude.ai"));
+            List.of("https://claude.ai/oauth/"));
     private static final String DOCUMENT = "{\"client_id\":\"x\"}";
 
     @TempDir static Path keys;
@@ -90,6 +90,19 @@ class HttpClientMetadataFetcherTest {
                 send(exchange, 200, "application/json", new byte[6000], true));
         server.createContext("/chunked-big", exchange ->
                 send(exchange, 200, "application/json", new byte[6000], false));
+        server.createContext("/endless", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, 0);
+            byte[] chunk = new byte[1024];
+            try (OutputStream out = exchange.getResponseBody()) {
+                while (true) {
+                    out.write(chunk);
+                    out.flush();
+                }
+            } catch (IOException clientGone) {
+                // The fetcher hung up once past the cap, which is the point.
+            }
+        });
         server.createContext("/text", exchange ->
                 send(exchange, 200, "text/html", DOCUMENT.getBytes(StandardCharsets.UTF_8), true));
         server.createContext("/error", exchange ->
@@ -141,6 +154,14 @@ class HttpClientMetadataFetcherTest {
     void oversizedRefused() {
         assertRefused(at("/big"), ClientMetadataRefusal.TOO_LARGE);
         assertRefused(at("/chunked-big"), ClientMetadataRefusal.TOO_LARGE);
+    }
+
+    @Test
+    @DisplayName("an endless body is refused as too large at once, not drained until the deadline")
+    void endlessBodyRefusedAsTooLarge() {
+        long started = System.nanoTime();
+        assertRefused(at("/endless"), ClientMetadataRefusal.TOO_LARGE);
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(TIMEOUT);
     }
 
     @Test

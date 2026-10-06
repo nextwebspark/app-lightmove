@@ -2,11 +2,15 @@ package app.lightmove.api.core.security.oauth;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.McpSettings;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.net.URI;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -20,13 +24,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The clients the authorization server sees: the registered ones, and any client whose id is the https URL of its own
- * metadata document (the MCP spec's preferred way in, which Spring does not offer). Such a document is fetched behind
- * {@link ClientMetadataFetcher}'s guards, and kept as a row — a grant needs a client row to belong to — until the
- * lifetime its host gave it runs out.
+ * The registered clients, and any client whose id is the https URL of its own metadata document (CIMD, which Spring
+ * lacks): fetched behind {@link ClientMetadataFetcher}'s guards and kept as a row, which a grant needs, until it expires.
  *
- * <p>The fetch runs outside any transaction and the row is written in its own, so a slow host never holds a database
- * connection and a caller's read-only transaction never refuses the write.
+ * <p>A fetch runs outside any transaction, one at a time per document; a failed one is not retried for
+ * {@code cimd-min-ttl}, so a host that is down costs one caller its deadline, not every caller.
  */
 @Slf4j
 @Primary
@@ -41,6 +43,9 @@ public class ClientMetadataDocumentClients implements RegisteredClientRepository
     private final Clock clock;
     private final McpSettings settings;
     private final JsonMapper json = JsonMapper.builder().build();
+    private final ConcurrentHashMap<String, CompletableFuture<RegisteredClient>> fetching = new ConcurrentHashMap<>();
+    /** Documents refused or unreachable with no copy to fall back on; asked again only once this lapses. */
+    private final Cache<String, Boolean> recentlyRefused;
 
     public ClientMetadataDocumentClients(OAuthRegisteredClients registered, OAuthClientJpaRepository clients,
                                          ClientMetadataFetcher fetcher, NamedParameterJdbcTemplate jdbc,
@@ -54,6 +59,10 @@ public class ClientMetadataDocumentClients implements RegisteredClientRepository
         this.ownTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.clock = clock;
         this.settings = properties.mcp();
+        this.recentlyRefused = Caffeine.newBuilder()
+                .expireAfterWrite(settings.cimdMinTtl())
+                .maximumSize(10_000)
+                .build();
     }
 
     @Override
@@ -74,12 +83,40 @@ public class ClientMetadataDocumentClients implements RegisteredClientRepository
         if (!ClientMetadataDocument.isAcceptableUrl(clientId)) {
             return null;
         }
-        Instant now = clock.instant();
-        Optional<OAuthClient> cached = clients.findByClientId(clientId)
-                .filter(client -> client.getSource() == OAuthClientSource.CIMD);
-        if (cached.isPresent() && cached.get().getMetadataExpiresAt().isAfter(now)) {
+        Optional<OAuthClient> cached = storedDocumentClient(clientId);
+        if (cached.isPresent() && cached.get().getMetadataExpiresAt().isAfter(clock.instant())) {
             return registered.toRegisteredClient(cached.get());
         }
+        if (recentlyRefused.getIfPresent(clientId) != null) {
+            return null;
+        }
+        CompletableFuture<RegisteredClient> mine = new CompletableFuture<>();
+        CompletableFuture<RegisteredClient> running = fetching.putIfAbsent(clientId, mine);
+        if (running != null) {
+            return running.join();
+        }
+        try {
+            RegisteredClient client = refresh(clientId, cached);
+            mine.complete(client);
+            return client;
+        } catch (RuntimeException failed) {
+            mine.completeExceptionally(failed);
+            throw failed;
+        } finally {
+            fetching.remove(clientId, mine);
+        }
+    }
+
+    /**
+     * Only what is already on file, never a fetch: for revocation, where a client never fetched owns no grant, and a
+     * fetch would let anyone make the server request URLs through an endpoint that needs no proof.
+     */
+    public RegisteredClient findStoredByClientId(String clientId) {
+        return registered.findByClientId(clientId);
+    }
+
+    private RegisteredClient refresh(String clientId, Optional<OAuthClient> cached) {
+        Instant now = clock.instant();
         try {
             FetchedClientMetadata fetched = fetcher.fetch(URI.create(clientId));
             ClientMetadataDocument document = ClientMetadataDocument.read(clientId, fetched.body());
@@ -90,11 +127,25 @@ public class ClientMetadataDocumentClients implements RegisteredClientRepository
                     && cached.get().getMetadataFetchedAt().plus(settings.cimdStaleIfError()).isAfter(now)) {
                 log.warn("Client metadata document {} unavailable ({}); serving the copy fetched at {}", clientId,
                         unavailable.getMessage(), cached.get().getMetadataFetchedAt());
+                ownTransaction.executeWithoutResult(status -> retryNoSoonerThan(clientId, now.plus(settings.cimdMinTtl())));
                 return registered.toRegisteredClient(cached.get());
             }
             log.info("Client metadata document {} refused: {}", clientId, unavailable.getMessage());
+            recentlyRefused.put(clientId, Boolean.TRUE);
             return null;
         }
+    }
+
+    private Optional<OAuthClient> storedDocumentClient(String clientId) {
+        return clients.findByClientId(clientId).filter(client -> client.getSource() == OAuthClientSource.CIMD);
+    }
+
+    /** The stale copy serves until then without anyone waiting on the host again; its fetch time is left as it was. */
+    private void retryNoSoonerThan(String clientId, Instant retryAt) {
+        jdbc.update("""
+                UPDATE app_lm_oauth_client SET metadata_expires_at = :retryAt
+                WHERE client_id = :clientId AND source = 'CIMD'
+                """, new MapSqlParameterSource("clientId", clientId).addValue("retryAt", Timestamp.from(retryAt)));
     }
 
     /** One row per document URL; a registered client that happens to share the id is never overwritten. */

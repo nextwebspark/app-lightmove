@@ -159,8 +159,7 @@
 			<version>${springdoc.version}</version>
 		</dependency>
 
-		<!-- Fetches an MCP client's metadata document: its DnsResolver hook is where a private address is refused, on the
-		     addresses the connection then uses, which the JDK client cannot offer per client. -->
+		<!-- Its DnsResolver hook refuses a metadata document's private address per client (core/security/oauth). -->
 		<dependency>
 			<groupId>org.apache.httpcomponents.client5</groupId>
 			<artifactId>httpclient5</artifactId>

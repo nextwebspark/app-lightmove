@@ -20,9 +20,8 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Budgets for the authorize, token and registration endpoints, spent before anything is read: per IP on all three, and
- * per client on the token endpoint, where a stolen refresh token or a guessed code would be tried. Registration needs
- * nothing but a request, so its budget is counted in hours.
+ * Budgets for the authorization server's open endpoints, spent before anything is read: per IP on each, per client and
+ * IP on the token endpoint, and per hour on registration, which needs nothing but a request.
  */
 public class OAuthRateLimitFilter extends OncePerRequestFilter {
 
@@ -32,6 +31,7 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
     private final String authorizeEndpoint;
     private final String tokenEndpoint;
     private final String registrationEndpoint;
+    private final String revocationEndpoint;
     private final McpSettings budgets;
     private final RateLimitSettings rateLimit;
     private final RateLimiter limiter;
@@ -39,11 +39,12 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
     private final AuditService audit;
 
     public OAuthRateLimitFilter(String authorizeEndpoint, String tokenEndpoint, String registrationEndpoint,
-                                McpSettings budgets, RateLimitSettings rateLimit, RateLimiter limiter,
+                                String revocationEndpoint, McpSettings budgets, RateLimitSettings rateLimit, RateLimiter limiter,
                                 ClientIpResolver clientIps, AuditService audit) {
         this.authorizeEndpoint = authorizeEndpoint;
         this.tokenEndpoint = tokenEndpoint;
         this.registrationEndpoint = registrationEndpoint;
+        this.revocationEndpoint = revocationEndpoint;
         this.budgets = budgets;
         this.rateLimit = rateLimit;
         this.limiter = limiter;
@@ -58,7 +59,8 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
         boolean authorize = path.equals(authorizeEndpoint);
         boolean token = path.equals(tokenEndpoint);
         boolean registration = path.equals(registrationEndpoint);
-        if (!rateLimit.enabled() || (!authorize && !token && !registration)) {
+        boolean revocation = path.equals(revocationEndpoint);
+        if (!rateLimit.enabled() || (!authorize && !token && !registration && !revocation)) {
             chain.doFilter(request, response);
             return;
         }
@@ -67,6 +69,8 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
         boolean withinBudget;
         if (authorize) {
             withinBudget = limiter.tryAcquire("oauth-authorize:ip:" + ip, budgets.authorizePerMinutePerIp(), WINDOW);
+        } else if (revocation) {
+            withinBudget = limiter.tryAcquire("oauth-revoke:ip:" + ip, budgets.revokePerMinutePerIp(), WINDOW);
         } else if (registration) {
             withinBudget = limiter.tryAcquire("oauth-register:ip:" + ip, budgets.registerPerHourPerIp(),
                     REGISTRATION_WINDOW);
@@ -79,7 +83,8 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
         }
 
         audit.event(SecurityEventType.RATE_LIMIT_EXCEEDED).failed().from(request)
-                .detail("action", authorize ? "oauth-authorize" : registration ? "oauth-register" : "oauth-token")
+                .detail("action", authorize ? "oauth-authorize" : registration ? "oauth-register"
+                        : revocation ? "oauth-revoke" : "oauth-token")
                 .record();
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setHeader(HttpHeaders.RETRY_AFTER,

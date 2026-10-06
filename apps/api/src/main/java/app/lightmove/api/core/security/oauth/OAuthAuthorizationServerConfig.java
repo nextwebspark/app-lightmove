@@ -30,6 +30,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationConsentAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.authentication.OAuth2ClientRegistrationAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.PublicClientAuthenticationProvider;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.token.DelegatingOAuth2TokenGenerator;
@@ -96,6 +97,7 @@ public class OAuthAuthorizationServerConfig {
     SecurityFilterChain authorizationServerChain(HttpSecurity http, McpServerIdentity identity,
                                                  JWKSource<SecurityContext> mcpJwkSource,
                                                  RegisteredClientRepository clients,
+                                                 ClientMetadataDocumentClients documentClients,
                                                  HashingAuthorizationService authorizations,
                                                  PerGrantConsentService consents,
                                                  AuthorizationServerSettings settings,
@@ -123,14 +125,18 @@ public class OAuthAuthorizationServerConfig {
                                 accessTokens, new RotatingRefreshTokenGenerator(clock)))
                         .clientAuthentication(clientAuthentication -> clientAuthentication
                                 .authenticationConverter(new PublicClientAuthentication.Converter(TOKEN, REVOKE))
-                                .authenticationProvider(new PublicClientAuthentication.Provider(clients)))
+                                .authenticationProvider(new PublicClientAuthentication.Provider(documentClients))
+                                .authenticationProviders(providers -> providers.replaceAll(provider ->
+                                        provider instanceof PublicClientAuthenticationProvider framework
+                                                ? new PublicClientAuthentication.CodeGrantOnly(framework)
+                                                : provider)))
                         .clientRegistrationEndpoint(registration -> registration
                                 .openRegistrationAllowed(true)
                                 .authenticationProviders(providers -> providers.forEach(provider -> {
                                     if (provider instanceof OAuth2ClientRegistrationAuthenticationProvider register) {
                                         register.setAuthenticationValidator(DynamicClientRegistrations::validate);
-                                        register.setRegisteredClientConverter(
-                                                DynamicClientRegistrations::toRegisteredClient);
+                                        register.setRegisteredClientConverter(registered ->
+                                                DynamicClientRegistrations.toRegisteredClient(registered, clock));
                                     }
                                 })))
                         .tokenRevocationEndpoint(revocation -> revocation
@@ -199,7 +205,7 @@ public class OAuthAuthorizationServerConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(replies,
                         PathPatternRequestMatcher.withDefaults().matcher(AUTHORIZE)))
-                .addFilterBefore(new OAuthRateLimitFilter(AUTHORIZE, TOKEN, REGISTER, properties.mcp(),
+                .addFilterBefore(new OAuthRateLimitFilter(AUTHORIZE, TOKEN, REGISTER, REVOKE, properties.mcp(),
                         properties.auth().rateLimit(), limiter, clientIps, audit), CsrfFilter.class)
                 .addFilterBefore(sessionBearerFilter(sessionDecoder), X509AuthenticationFilter.class);
 

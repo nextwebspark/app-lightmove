@@ -1,50 +1,45 @@
 package app.lightmove.api.core.security.oauth;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import java.net.URI;
-import java.util.Locale;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Whether the consent screen may name an app as the one it says it is. A metadata document is served from its
- * client's own host, so a document on a host we list is that company's app; a dynamic registration can call itself
- * anything, so it is never verified, whatever its name.
+ * Whether the consent screen may name an app as the one it says it is: a metadata document under a URL prefix we list,
+ * never a host alone — other paths on the same host may serve what its users upload. A registration never is.
  */
 @Component
 public class ClientVerification {
 
-    private final Set<String> verifiedHosts;
+    private final List<String> verifiedPrefixes;
 
     public ClientVerification(LightMoveProperties properties) {
-        this.verifiedHosts = properties.mcp().verifiedClientHosts().stream()
-                .map(host -> host.trim().toLowerCase(Locale.ROOT))
-                .filter(host -> !host.isEmpty())
-                .collect(Collectors.toUnmodifiableSet());
+        this.verifiedPrefixes = properties.mcp().verifiedClientIdPrefixes().stream()
+                .map(String::trim)
+                .filter(prefix -> !prefix.isEmpty())
+                .toList();
+        verifiedPrefixes.forEach(ClientVerification::requireDocumentPrefix);
     }
 
     public boolean isVerified(OAuthClientSource source, String clientId) {
         return switch (source) {
             case SEEDED -> true;
             case DCR -> false;
-            case CIMD -> {
-                String host = documentHostOf(source, clientId);
-                yield host != null && verifiedHosts.contains(host);
-            }
+            case CIMD -> verifiedPrefixes.stream().anyMatch(clientId::startsWith);
         };
     }
 
     /** The host a metadata document was read from; nothing for any other client. */
     public static String documentHostOf(OAuthClientSource source, String clientId) {
-        if (source != OAuthClientSource.CIMD) {
-            return null;
-        }
-        try {
-            String host = URI.create(clientId).getHost();
-            return host == null ? null : host.toLowerCase(Locale.ROOT);
-        } catch (IllegalArgumentException malformed) {
-            return null;
+        return source == OAuthClientSource.CIMD ? OAuthUris.hostOf(clientId) : null;
+    }
+
+    /** An https URL whose path ends in a slash, so a prefix can never stop part-way through a host or a segment. */
+    private static void requireDocumentPrefix(String prefix) {
+        if (!prefix.startsWith("https://") || OAuthUris.hostOf(prefix) == null
+                || prefix.indexOf('/', "https://".length()) < 0 || !prefix.endsWith("/")) {
+            throw new IllegalStateException("lightmove.mcp.verified-client-id-prefixes: not an https URL ending in a"
+                    + " path and a slash: " + prefix);
         }
     }
 }
