@@ -113,6 +113,23 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
     }
 
     @Test
+    @DisplayName("the consent screen's refused send answers a problem coded with the OAuth error, never a redirect")
+    void consentScreenRefusalCarriesCode() throws Exception {
+        String user = adminOf(domain);
+        String clientId = registerClient();
+
+        MvcResult refused = mvc.perform(request(clientId, Tokens.generate(), "projects:read")
+                .with("redirect_uri", "https://evil.example/cb")
+                .with("workspace_id", workspaceOf(user)).asPost(user)).andReturn();
+
+        assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+        assertThat(refused.getResponse().getContentType()).startsWith("application/problem+json");
+        assertThat(refused.getResponse().getRedirectedUrl()).isNull();
+        JsonNode problem = body(refused);
+        assertThat(problem.get("code").asText()).isNotBlank().isEqualTo(problem.get("error").asText());
+    }
+
+    @Test
     @DisplayName("a pure client representative cannot connect their workspace, nor anyone a workspace they are not in")
     void ineligibleWorkspaceRefused() throws Exception {
         String admin = adminOf(domain);
