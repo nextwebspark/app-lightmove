@@ -18,34 +18,35 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.web.authentication.AuthenticationConverter;
 
 /**
- * Client authentication for a public client's refresh request, which carries only its {@code client_id}. The
- * framework authenticates a public client solely on the code grant, by its PKCE verifier; without this a public
- * client's refresh token could never be spent. The refresh token itself, single-use and rotated, is the proof.
+ * Client authentication for a public client's refresh and revocation requests, which carry only its {@code client_id}.
+ * The framework authenticates a public client solely on the code grant, by its PKCE verifier; without this a public
+ * client's refresh token could never be spent, nor any of its tokens revoked (RFC 7009 §2.1). The token presented is
+ * the proof: a refresh token single-use and rotated, and a revocation only ever ends the presenting client's own grant.
  */
-public final class PublicClientRefreshAuthentication {
+public final class PublicClientAuthentication {
 
-    private PublicClientRefreshAuthentication() {
+    private static final String REVOKED_TOKEN = "token";
+
+    private PublicClientAuthentication() {
     }
 
     public static final class Converter implements AuthenticationConverter {
 
         private final String tokenEndpoint;
+        private final String revocationEndpoint;
 
         /**
-         * The client authentication filter serves revocation and introspection too; there the framework looks a token up
-         * by its raw value, which a hashed store cannot answer, so a public client is authenticated on the token endpoint
-         * and nowhere else.
+         * The client authentication filter serves introspection too, where the framework looks a token up by its raw
+         * value, which a hashed store cannot answer: a public client is authenticated on these two endpoints only.
          */
-        public Converter(String tokenEndpoint) {
+        public Converter(String tokenEndpoint, String revocationEndpoint) {
             this.tokenEndpoint = tokenEndpoint;
+            this.revocationEndpoint = revocationEndpoint;
         }
 
         @Override
         public Authentication convert(HttpServletRequest request) {
-            if (!HttpMethod.POST.matches(request.getMethod())
-                    || !tokenEndpoint.equals(request.getRequestURI())
-                    || !AuthorizationGrantType.REFRESH_TOKEN.getValue()
-                    .equals(request.getParameter(OAuth2ParameterNames.GRANT_TYPE))
+            if (!HttpMethod.POST.matches(request.getMethod()) || !(isRefresh(request) || isRevocation(request))
                     || request.getHeader(HttpHeaders.AUTHORIZATION) != null
                     || request.getParameter(OAuth2ParameterNames.CLIENT_SECRET) != null
                     || request.getParameter(OAuth2ParameterNames.CLIENT_ASSERTION) != null) {
@@ -64,6 +65,16 @@ public final class PublicClientRefreshAuthentication {
             return new OAuth2ClientAuthenticationToken(clientIds[0], ClientAuthenticationMethod.NONE, null,
                     additionalParameters);
         }
+
+        private boolean isRefresh(HttpServletRequest request) {
+            return tokenEndpoint.equals(request.getRequestURI()) && AuthorizationGrantType.REFRESH_TOKEN.getValue()
+                    .equals(request.getParameter(OAuth2ParameterNames.GRANT_TYPE));
+        }
+
+        private boolean isRevocation(HttpServletRequest request) {
+            return revocationEndpoint.equals(request.getRequestURI()) && request.getParameter(REVOKED_TOKEN) != null
+                    && request.getParameter(OAuth2ParameterNames.GRANT_TYPE) == null;
+        }
     }
 
     public static final class Provider implements AuthenticationProvider {
@@ -77,9 +88,11 @@ public final class PublicClientRefreshAuthentication {
         @Override
         public Authentication authenticate(Authentication authentication) {
             OAuth2ClientAuthenticationToken client = (OAuth2ClientAuthenticationToken) authentication;
+            Object grantType = client.getAdditionalParameters().get(OAuth2ParameterNames.GRANT_TYPE);
+            boolean refresh = AuthorizationGrantType.REFRESH_TOKEN.getValue().equals(grantType);
+            boolean revocation = grantType == null && client.getAdditionalParameters().containsKey(REVOKED_TOKEN);
             if (!ClientAuthenticationMethod.NONE.equals(client.getClientAuthenticationMethod())
-                    || !AuthorizationGrantType.REFRESH_TOKEN.getValue()
-                    .equals(client.getAdditionalParameters().get(OAuth2ParameterNames.GRANT_TYPE))) {
+                    || client.getCredentials() != null || !(refresh || revocation)) {
                 return null;
             }
             RegisteredClient registered = clients.findByClientId((String) client.getPrincipal());

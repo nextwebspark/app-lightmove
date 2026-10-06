@@ -159,6 +159,13 @@
 			<version>${springdoc.version}</version>
 		</dependency>
 
+		<!-- Fetches an MCP client's metadata document: its DnsResolver hook is where a private address is refused, on the
+		     addresses the connection then uses, which the JDK client cannot offer per client. -->
+		<dependency>
+			<groupId>org.apache.httpcomponents.client5</groupId>
+			<artifactId>httpclient5</artifactId>
+		</dependency>
+
 		<!-- Rate limiting on the auth endpoints -->
 		<dependency>
 			<groupId>com.bucket4j</groupId>

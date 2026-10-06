@@ -1,6 +1,7 @@
 package app.lightmove.api.core.config;
 
 import java.time.Duration;
+import java.util.List;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
@@ -21,7 +22,20 @@ public record McpSettings(
         @DefaultValue("30") int authorizePerMinutePerIp,
         @DefaultValue("60") int tokenPerMinutePerIp,
         /** Per client per address, never per client alone: a public client's id is shared and secretless. */
-        @DefaultValue("30") int tokenPerMinutePerClient
+        @DefaultValue("30") int tokenPerMinutePerClient,
+        /** Dynamic registrations a single address may make; registration needs nothing but a request. */
+        @DefaultValue("10") int registerPerHourPerIp,
+        /** A dynamically registered client nobody has connected for this long is deleted. */
+        @DefaultValue("30d") Duration unusedClientTtl,
+        /** A client id metadata document: the most bytes read, the longest wait, and how long a copy is kept. */
+        @DefaultValue("5120") int cimdMaxBytes,
+        @DefaultValue("5s") Duration cimdTimeout,
+        @DefaultValue("5m") Duration cimdMinTtl,
+        @DefaultValue("24h") Duration cimdMaxTtl,
+        /** How long an expired copy still serves while its host cannot be reached, so an outage there breaks no refresh. */
+        @DefaultValue("24h") Duration cimdStaleIfError,
+        /** Metadata document hosts the consent screen names as verified; every other app is shown as unverified. */
+        @DefaultValue({"claude.ai", "chatgpt.com"}) List<String> verifiedClientHosts
 ) {
 
     public String resourceUrlUnder(String webBaseUrl) {

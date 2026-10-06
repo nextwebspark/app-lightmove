@@ -169,7 +169,7 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
     }
 
     @Test
-    @DisplayName("a public client cannot authenticate at revocation or introspection: a 401, never a 500")
+    @DisplayName("a refresh-shaped request cannot authenticate at revocation or introspection: a 401, never a 500")
     void revokeAndIntrospectRefusePublicClients() throws Exception {
         String clientId = registerClient();
         String refreshToken = connect(clientId, adminOf(domain), "projects:read").get("refresh_token").asText();
@@ -182,6 +182,40 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
                     .andExpect(status().isUnauthorized());
         }
         assertThat(refresh(clientId, refreshToken).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("a public client revokes its own token and the whole grant ends with it")
+    void publicClientRevokes() throws Exception {
+        String clientId = registerClient();
+        JsonNode tokens = connect(clientId, adminOf(domain), "projects:read");
+        String grant = mcpTokens.decode(tokens.get("access_token").asText()).getClaimAsString("grant_id");
+
+        assertThat(revoke(clientId, tokens.get("refresh_token").asText()).getResponse().getStatus()).isEqualTo(200);
+
+        assertThat(db.queryForObject("select count(*) from app_lm_oauth_authorization where id = ?::uuid",
+                Integer.class, grant)).isZero();
+        assertThat(body(refresh(clientId, tokens.get("refresh_token").asText())).get("error").asText())
+                .isEqualTo("invalid_grant");
+        assertThat(db.queryForObject("""
+                select metadata ->> 'reason' from app_lm_audit_event
+                where event_type = 'OAUTH_GRANT_REVOKED' and target_id = ?""", String.class, grant))
+                .isEqualTo("CLIENT_REVOKED");
+        assertThat(revoke(clientId, tokens.get("access_token").asText()).getResponse().getStatus())
+                .as("a token already gone is answered as revoked").isEqualTo(200);
+    }
+
+    @Test
+    @DisplayName("a client cannot revoke another client's grant")
+    void revocationIsTheClientsOwn() throws Exception {
+        String user = adminOf(domain);
+        String owner = registerClient();
+        String stranger = registerClient();
+        JsonNode tokens = connect(owner, user, "projects:read");
+
+        assertThat(body(revoke(stranger, tokens.get("access_token").asText())).get("error").asText())
+                .isEqualTo("invalid_client");
+        assertThat(refresh(owner, tokens.get("refresh_token").asText()).getResponse().getStatus()).isEqualTo(200);
     }
 
     @Test
@@ -326,7 +360,11 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
         assertThat(metadata.get("authorization_response_iss_parameter_supported").asBoolean()).isTrue();
         assertThat(metadata.has("device_authorization_endpoint")).isFalse();
         assertThat(metadata.toString()).doesNotContain("/oauth2/");
-        assertThat(metadata.has("revocation_endpoint")).isFalse();
+        assertThat(metadata.get("registration_endpoint").asText()).endsWith("/api/v1/oauth/register");
+        assertThat(metadata.get("client_id_metadata_document_supported").asBoolean()).isTrue();
+        assertThat(metadata.get("revocation_endpoint").asText()).endsWith("/api/v1/oauth/revoke");
+        assertThat(metadata.get("revocation_endpoint_auth_methods_supported").toString()).isEqualTo("[\"none\"]");
+        assertThat(metadata.has("introspection_endpoint")).isFalse();
 
         JsonNode keys = body(mvc.perform(get("/api/v1/oauth/jwks")).andExpect(status().isOk()).andReturn());
         assertThat(keys.get("keys")).hasSize(1);

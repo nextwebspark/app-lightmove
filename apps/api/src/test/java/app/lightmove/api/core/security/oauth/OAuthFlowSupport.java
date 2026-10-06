@@ -27,6 +27,8 @@ abstract class OAuthFlowSupport extends FlowTestSupport {
 
     static final String AUTHORIZE = "/api/v1/oauth/authorize";
     static final String TOKEN = "/api/v1/oauth/token";
+    static final String REGISTER = "/api/v1/oauth/register";
+    static final String REVOKE = "/api/v1/oauth/revoke";
     static final String REDIRECT = "https://claude.ai/api/mcp/auth_callback";
     static final String CLIENT_STATE = "client-state-1";
     static final List<String> EVERY_SCOPE = List.of("projects:read", "companies:read", "candidates:read",
@@ -126,10 +128,15 @@ abstract class OAuthFlowSupport extends FlowTestSupport {
     }
 
     MvcResult exchange(String clientId, String code, String verifier, String resource) throws Exception {
+        return exchange(clientId, code, verifier, resource, REDIRECT);
+    }
+
+    MvcResult exchange(String clientId, String code, String verifier, String resource, String redirectUri)
+            throws Exception {
         MockHttpServletRequestBuilder builder = post(TOKEN).contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .param("grant_type", "authorization_code")
                 .param("code", code)
-                .param("redirect_uri", REDIRECT)
+                .param("redirect_uri", redirectUri)
                 .param("client_id", clientId)
                 .param("code_verifier", verifier);
         if (resource != null) {
@@ -146,6 +153,18 @@ abstract class OAuthFlowSupport extends FlowTestSupport {
                 .param("resource", identity.resourceUrl())).andReturn();
     }
 
+    /** RFC 7591: what an MCP client posts to register itself, with nobody signed in. */
+    MvcResult registerDynamically(String metadataJson) throws Exception {
+        return mvc.perform(post(REGISTER).contentType(MediaType.APPLICATION_JSON).content(metadataJson)).andReturn();
+    }
+
+    /** RFC 7009 as a public client sends it: its id and the token, no secret. */
+    MvcResult revoke(String clientId, String token) throws Exception {
+        return mvc.perform(post(REVOKE).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("client_id", clientId)
+                .param("token", token)).andReturn();
+    }
+
     /** The whole flow, answering the token response. */
     JsonNode connect(String clientId, String sessionToken, String... granted) throws Exception {
         String verifier = Tokens.generate();
@@ -153,6 +172,15 @@ abstract class OAuthFlowSupport extends FlowTestSupport {
                 identity.resourceUrl());
         assertThat(tokens.getResponse().getStatus()).as(tokens.getResponse().getContentAsString()).isEqualTo(200);
         return body(tokens);
+    }
+
+    /**
+     * A request that names no client or redirect we can trust is shown on our own consent page as an error — never
+     * sent to the address it named, and never on to sign-in.
+     */
+    void assertRefusedOnOurPage(MvcResult refused) {
+        assertThat(refused.getResponse().getRedirectedUrl()).as("refused on our page")
+                .startsWith(identity.issuer() + "/oauth/consent?error=");
     }
 
     static String queryParam(String url, String name) {

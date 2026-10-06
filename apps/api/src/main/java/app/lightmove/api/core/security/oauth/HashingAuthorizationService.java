@@ -183,6 +183,9 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
             record(WorkspaceEventType.OAUTH_TOKEN_REFRESHED, authorization, builder -> { });
         }
         if (consented) {
+            jdbc.update("UPDATE app_lm_oauth_client SET last_authorized_at = :now WHERE id = :clientId",
+                    new MapSqlParameterSource("now", Timestamp.from(now))
+                            .addValue("clientId", UUID.fromString(authorization.getRegisteredClientId())));
             record(WorkspaceEventType.OAUTH_GRANT_CREATED, authorization,
                     builder -> builder.detail("scopes", List.copyOf(authorization.getAuthorizedScopes())));
         }
@@ -193,6 +196,14 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
     public void remove(OAuth2Authorization authorization) {
         jdbc.update("DELETE FROM app_lm_oauth_authorization WHERE id = :id",
                 new MapSqlParameterSource("id", UUID.fromString(authorization.getId())));
+    }
+
+    /** The app revoked a token of its own grant (RFC 7009): the grant ends, as a disconnect from Settings ends it. */
+    @Transactional
+    public void revokeAtClientRequest(OAuth2Authorization authorization) {
+        remove(authorization);
+        record(WorkspaceEventType.OAUTH_GRANT_REVOKED, authorization,
+                builder -> builder.reason(OAuthGrantRevokeReason.CLIENT_REVOKED.name()));
     }
 
     @Override

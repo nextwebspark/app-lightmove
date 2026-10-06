@@ -19,13 +19,15 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * The two reads the consent screen makes around the authorization server's own endpoints: what is being asked, before
@@ -33,7 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
  * framework decides at the authorize endpoint, under {@link McpAuthorizationRules}.
  */
 @Service
-@RequiredArgsConstructor
 public class OAuthConsentService {
 
     private static final OAuth2TokenType STATE = new OAuth2TokenType(OAuth2ParameterNames.STATE);
@@ -43,14 +44,44 @@ public class OAuthConsentService {
     private final WorkspaceSelection selection;
     private final WorkspaceRepository workspaces;
     private final WorkspaceAccess access;
+    private final RegisteredClientRepository registeredClients;
+    private final ClientVerification verification;
+    private final TransactionTemplate readOnly;
 
-    @Transactional(readOnly = true)
+    public OAuthConsentService(OAuthClientJpaRepository clients, HashingAuthorizationService authorizations,
+                               WorkspaceSelection selection, WorkspaceRepository workspaces, WorkspaceAccess access,
+                               RegisteredClientRepository registeredClients, ClientVerification verification,
+                               PlatformTransactionManager transactions) {
+        this.clients = clients;
+        this.authorizations = authorizations;
+        this.selection = selection;
+        this.workspaces = workspaces;
+        this.access = access;
+        this.registeredClients = registeredClients;
+        this.verification = verification;
+        this.readOnly = new TransactionTemplate(transactions);
+        this.readOnly.setReadOnly(true);
+    }
+
+    /**
+     * Only a client already on file: the screen opens after the authorize request loaded it, so this read never makes
+     * the server fetch a URL a signed-in caller typed. A metadata document's copy that expired meanwhile is fetched
+     * again first, outside any transaction, so its host's wait never holds a connection.
+     */
     public OAuthConsentContextResponse context(UUID userId, String clientId, String redirectUri, String scope) {
+        if (clientId == null || clients.findByClientId(clientId).isEmpty()
+                || registeredClients.findByClientId(clientId) == null) {
+            throw ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND);
+        }
+        return readOnly.execute(status -> contextOf(userId, clientId, redirectUri, scope));
+    }
+
+    private OAuthConsentContextResponse contextOf(UUID userId, String clientId, String redirectUri, String scope) {
         OAuthClient client = clients.findByClientId(clientId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND));
         String redirect = redirectUri != null ? redirectUri
                 : client.getRedirectUris().size() == 1 ? client.getRedirectUris().getFirst() : null;
-        if (redirect == null || !client.getRedirectUris().contains(redirect)) {
+        if (redirect == null || !RedirectUriRules.matches(client.getRedirectUris(), redirect)) {
             throw ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND);
         }
 
@@ -72,7 +103,9 @@ public class OAuthConsentService {
                         access.holdsAction(userId, member.getWorkspaceId(), WorkspaceAction.API_KEY_MANAGE)))
                 .toList();
 
-        return new OAuthConsentContextResponse(client.getClientId(), client.getClientName(), client.getClientUri(),
+        return new OAuthConsentContextResponse(client.getClientId(), client.getClientName(), client.getSource(),
+                ClientVerification.documentHostOf(client.getSource(), client.getClientId()),
+                verification.isVerified(client.getSource(), client.getClientId()), client.getClientUri(),
                 client.getLogoUri(), OAuthGrantService.hostOf(redirect), requested, offered);
     }
 

@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.AccessLevel;
@@ -45,6 +46,16 @@ public class OAuthClient extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "source", nullable = false, length = 16, updatable = false)
     private OAuthClientSource source;
+
+    /** Written by SQL alone: a consent stamps it, and a metadata document's fetch writes the other two. */
+    @Column(name = "last_authorized_at", insertable = false, updatable = false)
+    private Instant lastAuthorizedAt;
+
+    @Column(name = "metadata_fetched_at", insertable = false, updatable = false)
+    private Instant metadataFetchedAt;
+
+    @Column(name = "metadata_expires_at", insertable = false, updatable = false)
+    private Instant metadataExpiresAt;
 
     public static OAuthClient registered(String clientId, String clientName, String clientUri, String logoUri,
                                          List<String> redirectUris, List<String> scopes, OAuthClientSource source) {

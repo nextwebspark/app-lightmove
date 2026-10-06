@@ -17,7 +17,8 @@ import org.springframework.test.web.servlet.ResultActions;
 @TestPropertySource(properties = {
         "lightmove.auth.rate-limit.enabled=true",
         "lightmove.mcp.authorize-per-minute-per-ip=2",
-        "lightmove.mcp.token-per-minute-per-client=2"
+        "lightmove.mcp.token-per-minute-per-client=2",
+        "lightmove.mcp.register-per-hour-per-ip=2"
 })
 class OAuthRateLimitTest extends OAuthFlowSupport {
 
@@ -62,6 +63,21 @@ class OAuthRateLimitTest extends OAuthFlowSupport {
         mvc.perform(request(clientId, Tokens.generate(), "projects:read").asGet()).andExpect(status().isFound());
         mvc.perform(request(clientId, Tokens.generate(), "projects:read").asGet())
                 .andExpect(status().isTooManyRequests());
+    }
+
+    @Test
+    @DisplayName("dynamic registrations from one address are refused once its hourly budget is spent")
+    void registrationBudget() throws Exception {
+        String metadata = """
+                {"client_name":"Some app","redirect_uris":["https://app.example.com/callback"],
+                 "token_endpoint_auth_method":"none"}""";
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(post(REGISTER).contentType(MediaType.APPLICATION_JSON).content(metadata))
+                    .andExpect(status().isCreated());
+        }
+        mvc.perform(post(REGISTER).contentType(MediaType.APPLICATION_JSON).content(metadata))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().string("Retry-After", "3600"));
     }
 
     private ResultActions exchangeGuess(String clientId) throws Exception {

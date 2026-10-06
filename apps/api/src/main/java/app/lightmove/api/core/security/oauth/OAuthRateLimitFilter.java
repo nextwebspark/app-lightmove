@@ -20,26 +20,30 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Budgets for the authorize and token endpoints, spent before anything is read: per IP on both, and per client on the
- * token endpoint, where a stolen refresh token or a guessed code would be tried.
+ * Budgets for the authorize, token and registration endpoints, spent before anything is read: per IP on all three, and
+ * per client on the token endpoint, where a stolen refresh token or a guessed code would be tried. Registration needs
+ * nothing but a request, so its budget is counted in hours.
  */
 public class OAuthRateLimitFilter extends OncePerRequestFilter {
 
     private static final Duration WINDOW = Duration.ofMinutes(1);
+    private static final Duration REGISTRATION_WINDOW = Duration.ofHours(1);
 
     private final String authorizeEndpoint;
     private final String tokenEndpoint;
+    private final String registrationEndpoint;
     private final McpSettings budgets;
     private final RateLimitSettings rateLimit;
     private final RateLimiter limiter;
     private final ClientIpResolver clientIps;
     private final AuditService audit;
 
-    public OAuthRateLimitFilter(String authorizeEndpoint, String tokenEndpoint, McpSettings budgets,
-                                RateLimitSettings rateLimit, RateLimiter limiter, ClientIpResolver clientIps,
-                                AuditService audit) {
+    public OAuthRateLimitFilter(String authorizeEndpoint, String tokenEndpoint, String registrationEndpoint,
+                                McpSettings budgets, RateLimitSettings rateLimit, RateLimiter limiter,
+                                ClientIpResolver clientIps, AuditService audit) {
         this.authorizeEndpoint = authorizeEndpoint;
         this.tokenEndpoint = tokenEndpoint;
+        this.registrationEndpoint = registrationEndpoint;
         this.budgets = budgets;
         this.rateLimit = rateLimit;
         this.limiter = limiter;
@@ -53,25 +57,33 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         boolean authorize = path.equals(authorizeEndpoint);
         boolean token = path.equals(tokenEndpoint);
-        if (!rateLimit.enabled() || (!authorize && !token)) {
+        boolean registration = path.equals(registrationEndpoint);
+        if (!rateLimit.enabled() || (!authorize && !token && !registration)) {
             chain.doFilter(request, response);
             return;
         }
 
         String ip = clientIps.resolve(request);
-        boolean withinBudget = authorize
-                ? limiter.tryAcquire("oauth-authorize:ip:" + ip, budgets.authorizePerMinutePerIp(), WINDOW)
-                : withinTokenBudget(request, ip);
+        boolean withinBudget;
+        if (authorize) {
+            withinBudget = limiter.tryAcquire("oauth-authorize:ip:" + ip, budgets.authorizePerMinutePerIp(), WINDOW);
+        } else if (registration) {
+            withinBudget = limiter.tryAcquire("oauth-register:ip:" + ip, budgets.registerPerHourPerIp(),
+                    REGISTRATION_WINDOW);
+        } else {
+            withinBudget = withinTokenBudget(request, ip);
+        }
         if (withinBudget) {
             chain.doFilter(request, response);
             return;
         }
 
         audit.event(SecurityEventType.RATE_LIMIT_EXCEEDED).failed().from(request)
-                .detail("action", authorize ? "oauth-authorize" : "oauth-token")
+                .detail("action", authorize ? "oauth-authorize" : registration ? "oauth-register" : "oauth-token")
                 .record();
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-        response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(WINDOW.toSeconds()));
+        response.setHeader(HttpHeaders.RETRY_AFTER,
+                Long.toString((registration ? REGISTRATION_WINDOW : WINDOW).toSeconds()));
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write("{\"error\":\"temporarily_unavailable\"}");
