@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.core.security.token.Tokens;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
@@ -100,7 +99,8 @@ public abstract class OAuthFlowSupport extends FlowTestSupport {
         MvcResult stored = mvc.perform(request.with("workspace_id", workspaceId).asPost(sessionToken)).andReturn();
         assertThat(stored.getResponse().getStatus()).as(stored.getResponse().getContentAsString()).isEqualTo(302);
         String location = stored.getResponse().getRedirectedUrl();
-        assertThat(URI.create(location).getPath()).isEqualTo("/api/v1/oauth/consent");
+        // On the deployment's origin, never the request's host: the screen's fetch keeps its bearer only on that one.
+        assertThat(location).startsWith(identity.issuer() + "/api/v1/oauth/consent?");
         return queryParam(location, "state");
     }
 

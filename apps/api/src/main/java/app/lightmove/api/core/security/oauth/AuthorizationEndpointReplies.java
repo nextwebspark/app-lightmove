@@ -83,10 +83,13 @@ public class AuthorizationEndpointReplies
         }
 
         if (isFromConsentScreen(request)) {
-            Map<String, String> body = new LinkedHashMap<>();
+            // A problem whose code is the OAuth error, so the screen switches on it as on every other refusal.
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("status", HttpStatus.BAD_REQUEST.value());
+            body.put("code", error.getErrorCode());
             body.put(OAuth2ParameterNames.ERROR, error.getErrorCode());
             body.put(OAuth2ParameterNames.ERROR_DESCRIPTION, error.getDescription());
-            writeJson(response, HttpStatus.BAD_REQUEST, body);
+            writeJson(response, HttpStatus.BAD_REQUEST, MediaType.APPLICATION_PROBLEM_JSON_VALUE, body);
             return;
         }
         response.sendRedirect(UriComponentsBuilder.fromUriString(identity.issuer() + CONSENT_ROUTE)
@@ -124,15 +127,16 @@ public class AuthorizationEndpointReplies
 
     private void redirect(HttpServletRequest request, HttpServletResponse response, String target) throws IOException {
         if (isFromConsentScreen(request)) {
-            writeJson(response, HttpStatus.OK, Map.of("redirectUri", target));
+            writeJson(response, HttpStatus.OK, MediaType.APPLICATION_JSON_VALUE, Map.of("redirectUri", target));
             return;
         }
         response.sendRedirect(target);
     }
 
-    private void writeJson(HttpServletResponse response, HttpStatus status, Map<String, ?> body) throws IOException {
+    private void writeJson(HttpServletResponse response, HttpStatus status, String contentType, Map<String, ?> body)
+            throws IOException {
         response.setStatus(status.value());
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setContentType(contentType);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         response.getWriter().write(json.writeValueAsString(body));

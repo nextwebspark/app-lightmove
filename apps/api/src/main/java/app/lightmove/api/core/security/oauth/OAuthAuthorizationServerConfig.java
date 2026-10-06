@@ -144,7 +144,10 @@ public class OAuthAuthorizationServerConfig {
                                     providers.add(new PublicClientRevocation(authorizations));
                                 }))
                         .authorizationEndpoint(authorize -> authorize
-                                .consentPage(CONSENT)
+                                // Absolute, on the deployment's origin: the consent screen's fetch follows
+                                // this redirect with its bearer, which a browser drops on a hop to another
+                                // origin — the API's own host behind a proxy rewriting Host, as dev's does.
+                                .consentPage(identity.issuer() + CONSENT)
                                 .authorizationResponseHandler(replies)
                                 .errorResponseHandler(replies)
                                 .authenticationProviders(providers -> providers.forEach(provider -> {
