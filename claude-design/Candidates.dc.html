@@ -484,8 +484,14 @@
         </sc-if>
 
         <sc-if value="{{ tabContact }}" hint-placeholder-val="{{ false }}">
-          <!-- What is on file, nothing more: finding and editing contacts is a position's act, in the
-               executive drawer (Position.dc.html). The rows are the same component as there. -->
+          <!-- The rows are the executive drawer's (Position.dc.html), read-only here: finding and editing
+               contacts is a position's act. Outreach and meetings are the person's, so they are offered here
+               too — a sequence belongs to a position, so Add to sequence asks which one first. -->
+          <sc-if value="{{ dv.canOutreach }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;justify-content:flex-end;padding-top:12px">
+              <button onClick="{{ addToSequence }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 11px;font:500 12.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.mail }}"></path></svg>Add to sequence</button>
+            </div>
+          </sc-if>
           <div data-screen-label="Contact" style="padding-top:6px">
             <sc-for list="{{ dv.channels }}" as="ch" hint-placeholder-count="3">
               <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft)">
@@ -508,6 +514,37 @@
             </sc-for>
             <sc-if value="{{ dv.dnc }}"><p style="margin:12px 0 0;font:400 12px var(--mono);color:var(--red)">Do not contact is set — lookups are off for this person.</p></sc-if>
           </div>
+
+          <section data-screen-label="Meetings" style="padding:16px 0">
+            <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.calendar }}"></path></svg>
+              <h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Meetings</h3>
+              <sc-if value="{{ dv.mtHasAny }}"><span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9.5px var(--mono);color:var(--text3)">{{ dv.mtCount }}</span></sc-if>
+              <sc-if value="{{ dv.canOutreach }}" hint-placeholder-val="{{ true }}"><button onClick="{{ bookCall }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Book a call</button></sc-if>
+            </div>
+            <sc-if value="{{ dv.mtEmpty }}"><p style="margin:0;font:400 12.5px/1.5 var(--sans);color:var(--text3)">No meetings with {{ dv.first }} on your team's calendars yet.</p></sc-if>
+            <sc-if value="{{ dv.mtHasUpcoming }}">
+              <div style="margin-bottom:4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Upcoming</div>
+              <sc-for list="{{ dv.mtUpcoming }}" as="m">
+                <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0">
+                  <span style="width:42px;flex:none;border-radius:7px;border:1px solid var(--line);text-align:center;padding:3px 0"><span style="display:block;font:600 9.5px var(--mono);text-transform:uppercase;color:var(--amber)">{{ m.month }}</span><span style="display:block;font:600 16px/1.2 var(--mono)">{{ m.day }}</span></span>
+                  <span style="min-width:0;flex:1">
+                    <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
+                    <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
+                    <sc-if value="{{ m.viaLink }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
+                  </span>
+                  <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
+                </div>
+              </sc-for>
+            </sc-if>
+            <sc-if value="{{ dv.mtHasPast }}">
+              <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
+              <sc-for list="{{ dv.mtPast }}" as="m">
+                <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span></span></div>
+              </sc-for>
+            </sc-if>
+            <p style="margin:10px 0 0;font:400 11px/1.5 var(--mono);color:var(--text3)">From your team's connected calendars. Only meetings with {{ dv.first }}'s addresses are kept, never the rest of anyone's calendar.</p>
+          </section>
         </sc-if>
 
         <!-- Records: what the team keeps on the person, shared by every position — tags, notes, documents,
@@ -953,6 +990,8 @@
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;people&quot;,&quot;options&quot;:[&quot;people&quot;,&quot;activity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;filtersOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;selectedCount&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;0&quot;,&quot;options&quot;:[&quot;0&quot;,&quot;3&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawerTab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notes&quot;,&quot;documents&quot;,&quot;timeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;docsState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;loaded&quot;,&quot;options&quot;:[&quot;loaded&quot;,&quot;empty&quot;,&quot;history&quot;,&quot;dropping&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;trayState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;newVersion&quot;,&quot;newDocument&quot;,&quot;duplicate&quot;,&quot;mixed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;tagPickerOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;addToPosition&quot;,&quot;tag&quot;,&quot;owner&quot;,&quot;merge&quot;,&quot;preview&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
+  video: "m22 8-6 4 6 4V8ZM2 6h14v12H2z",
+  calendar: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
   profile: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z",
   members: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
@@ -1211,6 +1250,9 @@ const KIND_GROUP = {
   RESEARCHED: "profile", AI_ASSESSED: "profile", PROFILE_EDITED: "profile", MERGED: "profile",
   TAGGED: "tags", UNTAGGED: "tags", OWNER_CHANGED: "tags",
   DOCUMENT_ADDED: "documents", DOCUMENT_VERSION_ADDED: "documents", DOCUMENT_VERSION_REMOVED: "documents", DOCUMENT_REMOVED: "documents"
+};
+const MEETINGS = {
+  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["22 Apr", "Coffee at DIFC", "Yara Haddad"]] }
 };
 const TIMELINE_CUT = 5;
 const CAREER_CUT = 4;
@@ -1495,6 +1537,9 @@ class Component extends DCLogic {
       career: careerShown.map((c) => ({ company: c[0], title: c[1], period: c[2], dotStyle: `position:absolute;left:-21px;top:5px;width:9px;height:9px;border-radius:50%;border:2px solid var(--panel);background:${c[3] ? "var(--sky)" : "var(--line)"}` })),
       compTiles: [["Base", amt(comp && comp[1])], ["Bonus", amt(comp && comp[2])], ["Allowances", amt(comp && comp[3])], ["LTIP", amt(comp && comp[4])], ["Total", comp ? `${comp[0]} ${num(total)}` : null], ["Notice period", comp ? comp[5] : null]].map(([label, v]) => Object.assign({ label }, tile(v))),
       bgTiles: [["Nationality", x.nat], ["Gender", x.gender], ["Experience", x.years ? `${x.years} years` : null]].map(([label, v]) => Object.assign({ label }, tile(v))),
+      first: x.name.split(" ")[0], canOutreach: !x.dnc && x.emails.length > 0,
+      ...((m) => ({ mtUpcoming: m.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: m.past.map(([date, title, who]) => ({ date, title, who })),
+        mtHasUpcoming: m.upcoming.length > 0, mtHasPast: m.past.length > 0, mtEmpty: m.upcoming.length + m.past.length === 0, mtHasAny: m.upcoming.length + m.past.length > 0, mtCount: m.upcoming.length + m.past.length }))(MEETINGS[x.id] || { upcoming: [], past: [] }),
       channels: [
         { label: "Email", icon: I.mail, disc: true, isLi: false, lines: x.emails.map((e) => line("email", e[0], e[1], e[2])), emptyLine: x.eLooked ? "No email on record" : "—" },
         { label: "Phone", icon: I.phone, disc: true, isLi: false, lines: x.phones.map((e) => line("phone", e[0], e[1], e[2])), emptyLine: x.pLooked ? "No phone on record" : "—" },
@@ -1854,6 +1899,8 @@ class Component extends DCLogic {
       loadMore: () => this.setState({ feedLimit: s.feedLimit + 24 }),
 
       setDrawerTab: (e) => this.setState({ drawerTab: e.currentTarget.dataset.id }),
+      addToSequence: () => this.showToast(`Choose a position, then its sequence — ${x.name.split(" ")[0]} is enrolled there`),
+      bookCall: () => this.showToast("Book a call — the slot picker is drawn in Outreach.dc.html"),
       toggleSummaryMore: () => this.setState({ summaryMore: !s.summaryMore }),
       toggleCareerAll: () => this.setState({ careerAll: !s.careerAll }),
       showMoreTimeline: () => this.setState({ tlAll: true }),

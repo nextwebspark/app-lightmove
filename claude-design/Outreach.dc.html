@@ -559,6 +559,11 @@
           </div>
         </div>
       </div>
+      <!-- The executive drawer opened on its Contact & outreach tab. Position.dc.html draws the whole drawer:
+           Profile · Contact & outreach · Records · Timeline. -->
+      <div role="tablist" aria-label="Executive sections" style="flex:none;display:flex;gap:2px;margin:0 20px;border-bottom:1px solid var(--line-soft)">
+        <sc-for list="{{ drawerTabs }}" as="dt" hint-placeholder-count="4"><a href="{{ dt.href }}" role="tab" aria-selected="{{ dt.on }}" style="{{ dt.style }}">{{ dt.label }}</a></sc-for>
+      </div>
       <div style="min-height:0;flex:1;overflow-y:auto;padding:0 20px 20px">
         <section data-screen-label="Outreach section" style="border-bottom:1px solid var(--line-soft);padding:14px 0">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -640,10 +645,6 @@
           </sc-if>
           <p style="margin:8px 0 0;font:400 11px/1.5 var(--mono);color:var(--text3)">From your team's connected calendars. Only meetings with {{ dr.first }}'s addresses are kept, never the rest of anyone's calendar.</p>
         </section>
-        <sc-for list="{{ drawerFolds }}" as="fd" hint-placeholder-count="5">
-          <div style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);padding:13px 0;font:600 13px var(--sans);color:var(--text2)">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.chevronRight }}"></path></svg>{{ fd.label }}</div>
-        </sc-for>
         <p style="margin:12px 0 0;font:400 11.5px var(--mono);color:var(--text3)">The timeline reads each step too: "Yara Haddad emailed (CFO — first approach, step 1)", "Replied", "Sequence stopped".</p>
       </div>
     </aside>
@@ -1004,7 +1005,8 @@ class Component extends DCLogic {
       showBookCall: s.dialog === "bookCall", bk,
       statusOptions: STATUSES.map(([value, label]) => ({ value, label })),
       replyChoices: [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })),
-      drawerFolds: ["Positions", "Profile", "Contact", "Notes", "Timeline"].map((label) => ({ label })),
+      drawerTabs: [["profile", "Profile"], ["contact", "Contact & outreach"], ["records", "Records"], ["timeline", "Timeline"]].map(([key, label]) => { const on = key === "contact";
+        return { key, label, on, href: `Position.dc.html?page=universe&drawer=candidate&cdTab=${key}`, style: `display:inline-flex;align-items:center;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);text-decoration:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"}` }; }),
       toast: s.toast,
       toggleTheme: () => { const d = !s.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
       stop: (e) => e.stopPropagation(),
