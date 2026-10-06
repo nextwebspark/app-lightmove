@@ -348,6 +348,37 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a large client's headcount is context only: no question is narrowed to a share of it")
+    void neverScalesTheSearchToTheClientsHeadcount() throws Exception {
+        String hana = "hana@" + domain;
+        createWorkspace(verifiedUser("Hana Saleh", hana), "Gulf Energy Search", "AGENCY");
+        String admin = login(hana);
+        universe.company("aramco", "Aramco").employees(168_000).insert();
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"aramco"}}"""))
+                .andReturn()).get("id").asText();
+        String projectId = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Chief Executive Officer"}
+                                """.formatted(clientId)))
+                .andReturn()).get("id").asText();
+
+        askAndAwait(admin, projectId, null, "Give me top 10 retail companies");
+
+        String system = companyPrompt().getSystemMessage().getText().replaceAll("\\s+", " ");
+        assertThat(system)
+                .contains("- Headcount: 168,000")
+                .contains("set no minEmployees or maxEmployees")
+                .contains("never derive it from the hiring company's headcount")
+                .doesNotContain("a third of the hiring company's headcount");
+    }
+
+    @Test
     @DisplayName("a mandate with no brief row is still answered, from its title alone, and none is drafted")
     void answersAMandateWithNoBrief() throws Exception {
         Firm firm = firm("Assistant Briefless Firm");
