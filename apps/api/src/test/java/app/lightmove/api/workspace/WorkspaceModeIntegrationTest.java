@@ -128,7 +128,7 @@ class WorkspaceModeIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"%s","name":"Wizard Firm","companySize":"11-50 people"}
+                                {"mode":"%s","name":"Wizard Firm"}
                                 """.formatted(mode)))
                 .andExpect(status().isOk());
     }

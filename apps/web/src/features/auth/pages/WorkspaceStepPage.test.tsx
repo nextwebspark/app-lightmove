@@ -50,7 +50,7 @@ beforeEach(() => {
 });
 
 describe("WorkspaceStepPage — the organization is picked from the company database", () => {
-  it("files a picked company by its universe id and sizes the firm from its headcount", async () => {
+  it("files a picked company by its universe id", async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -65,7 +65,6 @@ describe("WorkspaceStepPage — the organization is picked from the company data
         mode: "AGENCY",
         name: "Al-Futtaim",
         apolloAccountId: "apollo-af",
-        companySize: "200+ people",
       }),
     );
   });
@@ -146,9 +145,6 @@ describe("WorkspaceStepPage — the organization is picked from the company data
         roles: ["ADMIN"],
         joinedAt: null,
         company: null,
-        companySize: "51–200 people",
-        primaryRegion: "Europe",
-        teamFocus: "Board advisory",
       },
     };
     vi.mocked(authApi.updateWorkspace).mockResolvedValue({} as User);
@@ -161,9 +157,6 @@ describe("WorkspaceStepPage — the organization is picked from the company data
       expect.objectContaining({
         mode: "AGENCY",
         name: "Nimbus Partners",
-        companySize: "51–200 people",
-        primaryRegion: "Europe",
-        teamFocus: "Board advisory",
       }),
     );
   });

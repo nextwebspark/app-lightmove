@@ -106,8 +106,7 @@ public abstract class FlowTestSupport {
                         .header("Authorization", "Bearer " + bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"%s","name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
-                                 "teamFocus":"Executive search"}
+                                {"mode":"%s","name":"%s"}
                                 """.formatted(mode, name)))
                 .andExpect(status().isCreated())
                 .andReturn();

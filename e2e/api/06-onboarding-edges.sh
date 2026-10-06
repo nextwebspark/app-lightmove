@@ -15,7 +15,7 @@ signup_verified() { # signup_verified EMAIL [FULLNAME] -> echoes an access token
 
 make_workspace() { # make_workspace TOKEN NAME
   post_json /onboarding/workspace "$(jq -nc --arg n "$2" \
-    '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+    '{mode:"COMPANY", name:$n}')" \
     -H "$(auth_header "$1")"
 }
 
@@ -55,7 +55,7 @@ check_status N27.7 "the same route after re-issuing the token" 200
 
 WS2="Second Co $(date +%s)$RANDOM"
 post_json /workspaces "$(jq -nc --arg n "$WS2" \
-  '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n}')" \
   -H "$(auth_header "$OWNER_TOKEN")"
 check_status N27.7b "a second workspace is founded from inside the app" 201
 WS2_ID=$(json '.workspace.id')

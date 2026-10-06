@@ -276,8 +276,7 @@ class MultiWorkspaceMembershipIntegrationTest extends FlowTestSupport {
 
     private static String workspaceBody(String name) {
         return """
-                {"mode":"COMPANY","name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
-                 "teamFocus":"Executive search"}
+                {"mode":"COMPANY","name":"%s"}
                 """.formatted(name);
     }
 }

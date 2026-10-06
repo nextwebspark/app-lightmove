@@ -9,9 +9,6 @@ import app.lightmove.api.workspace.constant.WorkspaceMode;
 public record CreateWorkspaceCommand(
         String name,
         WorkspaceMode mode,
-        String apolloAccountId,
-        String companySize,
-        String primaryRegion,
-        String teamFocus
+        String apolloAccountId
 ) {
 }

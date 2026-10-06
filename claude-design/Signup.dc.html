@@ -183,29 +183,6 @@
         <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">This becomes your workspace name — you can change it later.</span>
       </label>
 
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px">
-        <label style="display:block;margin-bottom:16px">
-          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Company size</span></span>
-          <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
-            <sc-for list="{{ companySizes }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for>
-          </select>
-        </label>
-
-        <label style="display:block;margin-bottom:16px">
-          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Primary region</span></span>
-          <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
-            <sc-for list="{{ regions }}" as="o" hint-placeholder-count="5"><option>{{ o }}</option></sc-for>
-          </select>
-        </label>
-
-        <label style="display:block;margin-bottom:16px">
-          <span style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Team focus</span></span>
-          <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
-            <sc-for list="{{ teamFocuses }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for>
-          </select>
-        </label>
-      </div>
-
       <button type="button" onClick="{{ submitWorkspace }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;transition:filter .15s" style-hover="filter:brightness(1.05)">Continue</button>
     </div>
   </sc-if>
@@ -273,9 +250,6 @@ class Component extends DCLogic {
       { n: 3, label: 'Organization' },
       { n: 4, label: 'Invite team' },
     ];
-    this.COMPANY_SIZES = ['1–10 people', '11–50 people', '51–200 people', '200+ people'];
-    this.REGIONS = ['GCC', 'MENA', 'Europe', 'North America', 'Global'];
-    this.TEAM_FOCUSES = ['Talent acquisition', 'Talent mapping', 'People operations', 'Mixed'];
     this.INVITE_ROLES = [{ value: 'MEMBER', label: 'Member' }, { value: 'ADMIN', label: 'Admin' }];
     this.CAST_NAME = 'Yara Haddad';
     this.CAST_EMAIL = 'yara@alfuttaim.com';
@@ -415,9 +389,6 @@ class Component extends DCLogic {
       step3Subtitle: 'Step 3 of 4 · ' + (reentered ? 'update your workspace' : 'this becomes your workspace'),
       orgName: this.state.orgName !== null ? this.state.orgName : reentered ? this.CAST_WORKSPACE : '',
       setOrgName: (e) => this.setState({ orgName: e.currentTarget.value }),
-      companySizes: this.COMPANY_SIZES,
-      regions: this.REGIONS,
-      teamFocuses: this.TEAM_FOCUSES,
       submitWorkspace: () => this.setState({ step: '4' }),
 
       invites,

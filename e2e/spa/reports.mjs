@@ -93,7 +93,7 @@ const REP_EMAIL = `lm-e2e-reports-rep-${STAMP}@${DOMAIN}`;
 await api("/auth/signup", { method: "POST", body: { fullName: LEAD_NAME, email: EMAIL, password: PASSWORD, termsAccepted: true } });
 await api("/auth/verify", { method: "POST", body: { token: linkFor(EMAIL, "verify").split("token=")[1] } });
 let token = (await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).body.accessToken;
-await api("/onboarding/workspace", { method: "POST", token, body: { mode: "COMPANY", name: `Reports SPA ${STAMP}`, companySize: "11-50 people", primaryRegion: "GCC", teamFocus: "Executive search" } });
+await api("/onboarding/workspace", { method: "POST", token, body: { mode: "COMPANY", name: `Reports SPA ${STAMP}` } });
 // A token minted before the workspace existed carries no wsId, so every tenant route 404s until reissued.
 token = (await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).body.accessToken;
 const clientId = (await api("/clients", { method: "POST", token, body: { customName: `Report Holding ${STAMP}`, customDomain: `reportholding${STAMP}.example` } })).body.id;
