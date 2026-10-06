@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.function.ToIntFunction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +53,21 @@ public class McpToolCalls {
                     .reason(failed.getClass().getSimpleName())
                     .record();
             throw refusalOf(failed, projectId);
+        }
+    }
+
+    /**
+     * One row read inside a position the caller may read: its absence names the row, never the position, which the
+     * caller already proved it can see.
+     */
+    public static <T> T foundOr(Supplier<T> read, String notFound) {
+        try {
+            return read.get();
+        } catch (ApiException refused) {
+            if (refused.getCode() == ErrorCode.NOT_FOUND) {
+                throw new McpToolRefusal(notFound);
+            }
+            throw refused;
         }
     }
 

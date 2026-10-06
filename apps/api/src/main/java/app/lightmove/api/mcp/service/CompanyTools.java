@@ -3,6 +3,8 @@ package app.lightmove.api.mcp.service;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.apikey.PublicApiAuthorizer;
 import app.lightmove.api.mcp.constant.McpResponseFormat;
+import app.lightmove.api.mcp.dto.McpCandidateRow;
+import app.lightmove.api.mcp.dto.McpCompanyDetail;
 import app.lightmove.api.mcp.dto.McpCompanyPage;
 import app.lightmove.api.mcp.dto.McpCompanyRow;
 import app.lightmove.api.mcp.model.McpRowsPage;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Component;
 public class CompanyTools {
 
     static final String LIST = "uncava_list_companies";
+    static final String GET = "uncava_get_company";
 
     private final McpToolCalls calls;
     private final PublicReadService reads;
@@ -53,5 +56,41 @@ public class CompanyTools {
                     company -> McpCompanyRow.of(company, format.isDetailed()));
             return new McpCompanyPage(page.rows(), page.totalCount(), page.nextCursor(), page.notice());
         }, page -> page.companies().size());
+    }
+
+    @McpTool(name = GET, generateOutputSchema = true, title = "Get one of a position's companies",
+            description = "Read one company of a position by its id, from uncava_list_companies, with the executives "
+                    + "mapped at it a page at a time. Use it to look into one company; to read a whole stage with its "
+                    + "executives at once, use uncava_get_universe. The executives come only where this connection "
+                    + "holds candidates:read.",
+            annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
+                    openWorldHint = false))
+    @McpToolScopes(ApiKeyScope.COMPANIES_READ)
+    public McpCompanyDetail getCompany(
+            McpTransportContext context,
+            @McpToolParam(description = "The position's id, from uncava_search_positions") UUID positionId,
+            @McpToolParam(description = "The company's id within the position, from uncava_list_companies")
+            UUID companyId,
+            @McpToolParam(description = "The nextCursor of the previous page of executives; omit for the first",
+                    required = false) String cursor,
+            @McpToolParam(description = "Executives per page, 1 to 100; 25 when omitted", required = false)
+            Integer limit,
+            @McpToolParam(description = "concise (the default) or detailed: every field of the company and each "
+                    + "executive", required = false) String response_format) {
+        return calls.call(context, GET, positionId, caller -> {
+            McpResponseFormat format = McpResponseFormat.parse(response_format);
+            authorizer.requireProjectRead(caller.reader(), positionId);
+            String notFound = "No company " + companyId + " is on this position. Find it with uncava_list_companies.";
+            McpCompanyRow company = McpCompanyRow.of(McpToolCalls.foundOr(
+                    () -> reads.companyOf(caller.reader(), positionId, companyId), notFound), format.isDetailed());
+            if (!caller.holds(ApiKeyScope.CANDIDATES_READ)) {
+                return new McpCompanyDetail(company, null, null, null, null);
+            }
+            McpRowsPage<McpCandidateRow> page = paging.page(cursor, limit,
+                    (number, size) -> reads.candidates(caller.reader(), positionId, null, companyId, null, null,
+                            number, size),
+                    candidate -> McpCandidateRow.of(candidate, format.isDetailed()));
+            return new McpCompanyDetail(company, page.rows(), page.totalCount(), page.nextCursor(), page.notice());
+        }, company -> 1 + (company.executives() == null ? 0 : company.executives().size()));
     }
 }

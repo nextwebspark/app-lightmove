@@ -19,17 +19,24 @@ import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
 import app.lightmove.api.publicapi.dto.PublicCompany;
+import app.lightmove.api.publicapi.dto.PublicCompanyDetail;
 import app.lightmove.api.publicapi.dto.PublicPage;
+import app.lightmove.api.publicapi.dto.PublicPositionSummary;
 import app.lightmove.api.publicapi.dto.PublicProject;
+import app.lightmove.api.publicapi.dto.PublicStageCounts;
+import app.lightmove.api.publicapi.dto.PublicTimeline;
 import app.lightmove.api.publicapi.dto.PublicUniverse;
 import app.lightmove.api.publicapi.dto.PublicUniverseCompany;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
+import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -88,17 +95,59 @@ public class PublicReadService {
         return new PublicPage<>(rows, found.page(), found.size(), found.totalCount());
     }
 
+    /**
+     * A position's executives, narrowed by status, by company, by text in a name, title or employer, and by the stage
+     * of the company they are mapped at — an executive at no company is at no stage.
+     */
     public PublicPage<PublicCandidate> candidates(PublicReader reader, UUID projectId, String status,
-                                                  UUID companyId, Integer page, Integer size) {
+                                                  UUID companyId, String query, String stage, Integer page,
+                                                  Integer size) {
         int pageSize = size == null ? properties.company().list().defaultPageSize() : size;
+        Set<UUID> stageCompanies = stage == null || stage.isBlank() ? null
+                : companies.idsOfStage(reader.workspaceId(), projectId, TriageCompanyStatus.parseOrInUniverse(stage));
         CandidatesResponse found = candidates.list(reader.workspaceId(), projectId, new CandidateListCriteria(
-                companyId == null ? null : List.of(companyId), null, null, status, page, pageSize));
+                companyId == null ? null : List.of(companyId), null, null, query, stageCompanies, status, page,
+                pageSize));
         boolean withContacts = reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
         List<PublicCandidate> rows = found.candidates().stream()
                 .map(candidate -> PublicCandidate.of(candidate, withContacts, withCompensation))
                 .toList();
         return new PublicPage<>(rows, found.page(), found.size(), found.totalCount());
+    }
+
+    /** Where a position stands, in a fixed number of queries however large it is. */
+    public PublicPositionSummary summary(PublicReader reader, UUID projectId) {
+        ProjectResponse project = projects.get(reader.workspaceId(), projectId);
+        TriageCountsDto stages = companies.stageCountsOf(reader.workspaceId(), projectId);
+        Map<String, Long> executives = new LinkedHashMap<>();
+        candidates.statusCountsOf(reader.workspaceId(), projectId)
+                .forEach((status, total) -> executives.put(status.value(), total));
+        return new PublicPositionSummary(PublicProject.of(project),
+                new PublicStageCounts(stages.inUniverse(), stages.shortlisted(), stages.declined()),
+                executives, project.mappedCompanies(),
+                new PublicTimeline(project.startDate(), project.mappingTargetDate(), project.deliveryDate(),
+                        project.targetDate()));
+    }
+
+    public PublicCandidate candidate(PublicReader reader, UUID projectId, UUID candidateId) {
+        return PublicCandidate.of(candidates.get(reader.workspaceId(), projectId, candidateId),
+                reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ),
+                reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ));
+    }
+
+    /** The company, and its executives only for a reader who may read executives. */
+    public PublicCompanyDetail company(PublicReader reader, UUID projectId, UUID companyId, Integer page,
+                                       Integer size) {
+        PublicCompany company = companyOf(reader, projectId, companyId);
+        PublicPage<PublicCandidate> executives = reader.holds(ApiKeyScope.CANDIDATES_READ)
+                ? candidates(reader, projectId, null, companyId, null, null, page, size)
+                : null;
+        return new PublicCompanyDetail(company, executives);
+    }
+
+    public PublicCompany companyOf(PublicReader reader, UUID projectId, UUID companyId) {
+        return PublicCompany.of(companies.get(reader.workspaceId(), projectId, companyId));
     }
 
     /** Refused past the export caps rather than truncated: a partial universe reads as a whole one. */
