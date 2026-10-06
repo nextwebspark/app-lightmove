@@ -463,8 +463,8 @@ jobs:
           if [ "${{ vars.MCP_ENABLED }}" = "true" ]; then
             echo "the MCP server is up and refuses a caller without a token, pointing at its metadata"
             [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$URL/api/v1/mcp")" = "401" ]
-            curl -fsS "$URL/.well-known/oauth-protected-resource/api/v1/mcp" | grep -q '"authorization_servers"'
-            curl -fsS "$URL/.well-known/oauth-authorization-server" | grep -q '"client_id_metadata_document_supported":true'
+            curl -fsS "$URL/.well-known/oauth-protected-resource/api/v1/mcp" | jq -e '.authorization_servers | length > 0' > /dev/null
+            curl -fsS "$URL/.well-known/oauth-authorization-server" | jq -e '.client_id_metadata_document_supported == true' > /dev/null
           fi
 
           if [ "$URL" != "$SERVICE_URL" ]; then

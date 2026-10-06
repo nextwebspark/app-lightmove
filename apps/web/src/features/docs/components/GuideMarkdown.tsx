@@ -13,11 +13,16 @@ const ELEMENTS: Components = {
   ul: ({ children }) => <ul className="mb-3 list-disc space-y-1.5 ps-5 text-u-text2">{children}</ul>,
   ol: ({ children }) => <ol className="mb-3 list-decimal space-y-1.5 ps-5 text-u-text2">{children}</ol>,
   strong: ({ children }) => <strong className="font-semibold text-u-text">{children}</strong>,
-  a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-u-accent hover:underline">
-      {children}
-    </a>
-  ),
+  a: ({ href, children }) =>
+    href && opensElsewhere(href) ? (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-u-accent hover:underline">
+        {children}
+      </a>
+    ) : (
+      <a href={href} className="font-medium text-u-accent hover:underline">
+        {children}
+      </a>
+    ),
   pre: ({ children }) => (
     <pre className="mb-4 overflow-x-auto rounded-lg border border-u-border bg-u-raised px-4 py-3 font-mono text-[12.5px] leading-[1.6] text-u-text [&_code]:bg-transparent [&_code]:p-0">
       {children}
@@ -42,6 +47,15 @@ const ELEMENTS: Components = {
     </td>
   ),
 };
+
+function opensElsewhere(href: string): boolean {
+  try {
+    const target = new URL(href, window.location.href);
+    return /^https?:$/.test(target.protocol) && target.origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
 
 /** A guide's Markdown, tables included. Raw HTML in it is never rendered. */
 export function GuideMarkdown({ markdown }: { markdown: string }) {

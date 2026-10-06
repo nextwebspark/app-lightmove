@@ -17,8 +17,6 @@ export function grantHostOf(grant: OAuthGrant): string {
   return grant.clientKind === "DCR" ? `registered itself · ${redirect}` : redirect;
 }
 
-export const MCP_GUIDE_PATH = "/docs/mcp";
-
 /** The server's MCP endpoint on this deployment's own origin, which an AI app is given as a connector. */
 export function mcpServerUrl(origin: string = window.location.origin): string {
   return `${origin}/api/v1/mcp`;

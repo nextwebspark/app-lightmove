@@ -9,7 +9,7 @@
 //   RUNS                          optional, runs per case (default 1)
 //   REPORT=1                      append the result to docs/eval/mcp-eval.md
 import { spawnSync } from "node:child_process";
-import { appendFileSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,9 +23,17 @@ if (!key || !position) {
 }
 const url = process.env.UNCAVA_MCP_URL ?? "http://localhost:8080/api/v1/mcp";
 const runs = Number(process.env.RUNS ?? 1);
+if (!Number.isInteger(runs) || runs < 1) {
+  console.error("RUNS is a whole number of runs per case, 1 or more.");
+  process.exit(2);
+}
 const cases = JSON.parse(readFileSync(join(here, "cases.json"), "utf8"));
 
-const config = join(mkdtempSync(join(tmpdir(), "uncava-mcp-eval-")), "mcp.json");
+// The config carries the key, so it goes with the run however the run ends.
+const configDir = mkdtempSync(join(tmpdir(), "uncava-mcp-eval-"));
+process.on("exit", () => rmSync(configDir, { recursive: true, force: true }));
+for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(130));
+const config = join(configDir, "mcp.json");
 writeFileSync(config, JSON.stringify({
   mcpServers: { uncava: { type: "http", url, headers: { Authorization: `Bearer ${key}` } } },
 }), { mode: 0o600 });

@@ -5,12 +5,13 @@ import { PageHeader } from "../../../components/layout/PageHeader";
 import { SegmentedControl, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
+import { MCP_GUIDE_PATH } from "../../docs/lib/paths";
 import * as oauthGrantsApi from "../api/oauthGrantsApi";
 import type { OAuthGrant } from "../api/types";
 import { CopyableValue } from "../components/CopyableValue";
 import { DisconnectAiAppModal } from "../components/DisconnectAiAppModal";
 import { OAuthGrantRow } from "../components/OAuthGrantRow";
-import { MCP_GUIDE_PATH, mcpServerUrl } from "../lib/oauthGrants";
+import { mcpServerUrl } from "../lib/oauthGrants";
 
 type GrantsView = "mine" | "all";
 
