@@ -53,7 +53,7 @@ public class AssistantModelCall {
                 .toolContext(context.asMap())
                 .call()
                 .content();
-        return answer == null ? "" : answer.strip();
+        return answerOf(answer);
     }
 
     /** No thinking budget: the supervisor only chooses whom to ask and passes the answer on. */
@@ -68,7 +68,12 @@ public class AssistantModelCall {
                 .toolContext(context.asMap())
                 .call()
                 .content();
-        return answer == null ? "" : answer.strip();
+        return answerOf(answer);
+    }
+
+    /** Every call is sent {@link #conversation}'s card blocks, so any answer may echo one back. */
+    private static String answerOf(String answer) {
+        return answer == null ? "" : CardMemory.stripFrom(answer);
     }
 
     private GoogleGenAiChatOptions.Builder options(String promptId, int thinkingBudget) {

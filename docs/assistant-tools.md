@@ -15,8 +15,12 @@ run as a nested model call by `AssistantModelCall.askSpecialist`. `AssistantSupe
 - **Several** → one supervisor call (`prompts/assistant-supervisor.st`, no thinking budget) whose tools
   are the specialists, each wrapped per ask as a `SpecialistToolCallback` taking `{task}`. The callback
   reads whom it acts for from the server's `ToolContext`, never from the model's input. It re-checks
-  `availableTo`, refuses past `max-specialist-calls-per-ask` (3), and records an "Asking the …
+  `availableTo`, runs each specialist once per ask (asked again, it hands back its first answer with no
+  second nested call), refuses past `max-specialist-calls-per-ask` (3) distinct specialists, keeps only
+  the first 300 characters of `task` (and ignores one that is not JSON), and records an "Asking the …
   specialist" step. The supervisor passes one specialist's answer back unchanged.
+- Every model call is sent the earlier cards (`CardMemory`), so `AssistantModelCall` strips a card block
+  from every answer it returns, whoever wrote it.
 
 | Specialist | Prompt id | Tools | Available |
 |---|---|---|---|

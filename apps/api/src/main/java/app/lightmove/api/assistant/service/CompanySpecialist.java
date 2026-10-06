@@ -104,11 +104,6 @@ public class CompanySpecialist implements AssistantSpecialist {
     }
 
     @Override
-    public String cleanAnswer(String answer) {
-        return CardMemory.stripFrom(answer);
-    }
-
-    @Override
     public void afterAnswer(AssistantToolContext context) {
         proposalTools.proposeWhatWasFound(context);
     }

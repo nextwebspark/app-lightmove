@@ -11,6 +11,10 @@ import org.springframework.core.io.Resource;
  * One domain the assistant answers about — its own prompt and its own few tools, run as a nested model
  * call. The supervisor offers each one it may use to the model as a tool ({@link SpecialistToolCallback}),
  * so a domain's data rules live with its tools rather than in one prompt shared by every domain.
+ *
+ * <p>Within one ask the hooks run in order: {@link #prepare} for every available specialist before any
+ * model call, then {@link #afterAnswer} for each one asked, once its answer is in and before the turn
+ * is saved — so whatever {@code prepare} put on the {@link TurnRecorder} is there for {@code afterAnswer}.
  */
 public interface AssistantSpecialist {
 
@@ -41,11 +45,6 @@ public interface AssistantSpecialist {
 
     /** Called for every specialist available to an ask, before any model call. */
     default void prepare(List<AssistantTurn> history, TurnRecorder recorder) {
-    }
-
-    /** Removes from an answer what this specialist's history rendering puts into the conversation. */
-    default String cleanAnswer(String answer) {
-        return answer;
     }
 
     /** Runs after this specialist has answered, while the turn is still being assembled. */

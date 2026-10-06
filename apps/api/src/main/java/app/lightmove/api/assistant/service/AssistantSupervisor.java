@@ -50,8 +50,7 @@ public class AssistantSupervisor {
     private String answerAlone(AssistantSpecialist specialist, String question, List<AssistantTurn> history,
                                AssistantToolContext context) {
         context.recorder().consulted(specialist.domain());
-        String answer = specialist.cleanAnswer(
-                unavailableOnFailure(() -> model.askSpecialist(specialist, history, question, context)));
+        String answer = unavailableOnFailure(() -> model.askSpecialist(specialist, history, question, context));
         specialist.afterAnswer(context);
         return answer;
     }
@@ -62,11 +61,7 @@ public class AssistantSupervisor {
                 .map(specialist -> new SpecialistToolCallback(specialist, model, json, history, question,
                         settings.maxSpecialistCallsPerAsk()))
                 .toList();
-        String answer = unavailableOnFailure(() -> model.askSupervisor(tools, history, question, context));
-        for (AssistantSpecialist specialist : available) {
-            answer = specialist.cleanAnswer(answer);
-        }
-        return answer;
+        return unavailableOnFailure(() -> model.askSupervisor(tools, history, question, context));
     }
 
     private static String unavailableOnFailure(Supplier<String> modelCall) {

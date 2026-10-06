@@ -8,13 +8,15 @@ import java.util.Map;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * A specialist offered to the supervisor's model as a tool, built per ask because it carries that ask's
  * question and history. Whom it acts for comes from the {@link ToolContext} the server set, never from
- * the model's input, which carries only what the supervisor wants asked.
+ * the model's input, which carries only what the supervisor wants asked. Asked again in the same ask,
+ * it answers what it said the first time rather than running a second nested call.
  */
 public class SpecialistToolCallback implements ToolCallback {
 
@@ -23,6 +25,9 @@ public class SpecialistToolCallback implements ToolCallback {
             "description":"What the consultant needs from this specialist, in a sentence."}},
             "required":["task"]}""";
 
+    /** The supervisor's model writes the task, steered in part by tool results it read; it stays a hint. */
+    static final int MAX_TASK_LENGTH = 300;
+
     private final AssistantSpecialist specialist;
     private final AssistantModelCall model;
     private final ObjectMapper json;
@@ -30,6 +35,7 @@ public class SpecialistToolCallback implements ToolCallback {
     private final String question;
     private final int maxCallsPerAsk;
     private final ToolDefinition definition;
+    private String earlierAnswer;
 
     public SpecialistToolCallback(AssistantSpecialist specialist, AssistantModelCall model, ObjectMapper json,
                                   List<AssistantTurn> history, String question, int maxCallsPerAsk) {
@@ -62,15 +68,19 @@ public class SpecialistToolCallback implements ToolCallback {
         if (!specialist.availableTo(context)) {
             return result("The " + specialist.domain() + " specialist is not available here.");
         }
+        if (earlierAnswer != null) {
+            return result(earlierAnswer);
+        }
         TurnRecorder recorder = context.recorder();
         if (recorder.consultedSpecialists().size() >= maxCallsPerAsk) {
             return result("No more specialists can be asked for this question; answer with what you have.");
         }
         recorder.consulted(specialist.domain());
         int step = recorder.startStep("Asking the " + specialist.domain() + " specialist");
-        String answer = specialist.cleanAnswer(model.askSpecialist(specialist, history, withTask(toolInput), context));
+        String answer = model.askSpecialist(specialist, history, withTask(toolInput), context);
         specialist.afterAnswer(context);
         recorder.finishStep(step, null);
+        earlierAnswer = answer;
         return result(answer);
     }
 
@@ -89,7 +99,16 @@ public class SpecialistToolCallback implements ToolCallback {
         if (toolInput == null || toolInput.isBlank()) {
             return "";
         }
-        JsonNode task = json.readTree(toolInput).path("task");
-        return task.isString() ? task.asString().strip() : "";
+        JsonNode task;
+        try {
+            task = json.readTree(toolInput).path("task");
+        } catch (JacksonException malformed) {
+            return "";
+        }
+        if (!task.isString()) {
+            return "";
+        }
+        String stripped = task.asString().strip();
+        return stripped.length() <= MAX_TASK_LENGTH ? stripped : stripped.substring(0, MAX_TASK_LENGTH).strip();
     }
 }

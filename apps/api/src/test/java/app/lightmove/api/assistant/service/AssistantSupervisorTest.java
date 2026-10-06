@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,12 +37,13 @@ class AssistantSupervisorTest {
     private final AssistantToolContext context = new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(),
             recorder);
 
+    /** Both shipped specialists need a position, so today this path waits for one gated more narrowly. */
     @Test
     void aLoneAvailableSpecialistAnswersWithoutASupervisorRound() {
         FakeSpecialist companies = new FakeSpecialist("companies", true);
         FakeSpecialist candidates = new FakeSpecialist("candidates", false);
         when(model.askSpecialist(eq(companies), anyList(), eq("Find utilities"), eq(context)))
-                .thenReturn("Here are four <card>x</card>");
+                .thenReturn("Here are four");
 
         String answer = supervisor(companies, candidates).answer("Find utilities", List.of(), context);
 
@@ -61,7 +63,7 @@ class AssistantSupervisorTest {
         when(model.askSupervisor(anyList(), anyList(), eq("Who is mapped?"), eq(context))).thenAnswer(call -> {
             List<SpecialistToolCallback> tools = call.getArgument(0);
             tools.forEach(tool -> offered.add(tool.getToolDefinition().name()));
-            return "Three executives <card>x</card>";
+            return "Three executives";
         });
 
         String answer = supervisor(companies, candidates, reports).answer("Who is mapped?", List.of(), context);
@@ -118,6 +120,40 @@ class AssistantSupervisorTest {
         verify(model, never()).askSpecialist(any(), anyList(), anyString(), any());
     }
 
+    @Test
+    void aSpecialistAskedTwiceInOneAskAnswersItsFirstReplyWithoutASecondCall() {
+        FakeSpecialist companies = new FakeSpecialist("companies", true);
+        when(model.askSpecialist(eq(companies), anyList(), anyString(), eq(context))).thenReturn("Four utilities");
+        SpecialistToolCallback tool = new SpecialistToolCallback(companies, model, new ObjectMapper(), List.of(),
+                "Find utilities", 3);
+        ToolContext toolContext = new ToolContext(context.asMap());
+
+        tool.call("{\"task\":\"Find utilities\"}", toolContext);
+        String again = tool.call("{\"task\":\"Find more utilities\"}", toolContext);
+
+        assertThat(again).isEqualTo("{\"answer\":\"Four utilities\"}");
+        verify(model, times(1)).askSpecialist(any(), anyList(), anyString(), any());
+        assertThat(recorder.consultedSpecialists()).containsExactly("companies");
+    }
+
+    @Test
+    void aMalformedOrOverlongTaskIsDroppedOrCutRatherThanFailingTheAsk() {
+        FakeSpecialist candidates = new FakeSpecialist("candidates", true);
+        when(model.askSpecialist(any(), anyList(), anyString(), any())).thenReturn("ok");
+        ToolContext toolContext = new ToolContext(context.asMap());
+
+        new SpecialistToolCallback(candidates, model, new ObjectMapper(), List.of(), "Who is mapped?", 3)
+                .call("{\"task\": not json", toolContext);
+        new SpecialistToolCallback(candidates, model, new ObjectMapper(), List.of(), "Who else?", 3)
+                .call("{\"task\":\"" + "x".repeat(SpecialistToolCallback.MAX_TASK_LENGTH + 50) + "\"}",
+                        new ToolContext(new AssistantToolContext(context.workspaceId(), context.projectId(),
+                                new TurnRecorder(step -> { })).asMap()));
+
+        verify(model).askSpecialist(candidates, List.of(), "Who is mapped?", context);
+        verify(model).askSpecialist(eq(candidates), anyList(),
+                eq("Who else?\n\n(Focus: " +"x".repeat(SpecialistToolCallback.MAX_TASK_LENGTH) + ")"), any());
+    }
+
     private AssistantSupervisor supervisor(AssistantSpecialist... specialists) {
         LightMoveProperties properties = mock(LightMoveProperties.class);
         when(properties.assistant()).thenReturn(new AssistantSettings("gemini-2.5-flash", 0.2, 512, 12, 25, 250,
@@ -125,7 +161,7 @@ class AssistantSupervisorTest {
         return new AssistantSupervisor(List.of(specialists), model, new ObjectMapper(), properties);
     }
 
-    /** Strips a {@code <card>} block as the company specialist does, and records which hooks ran. */
+    /** Records which hooks ran. */
     private static final class FakeSpecialist implements AssistantSpecialist {
 
         private final String domain;
@@ -180,11 +216,6 @@ class AssistantSupervisorTest {
         @Override
         public void prepare(List<AssistantTurn> history, TurnRecorder recorder) {
             events.add("prepare");
-        }
-
-        @Override
-        public String cleanAnswer(String answer) {
-            return CardMemory.stripFrom(answer);
         }
 
         @Override
