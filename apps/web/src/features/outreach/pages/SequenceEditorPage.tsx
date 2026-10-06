@@ -11,7 +11,16 @@ import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as sequenceApi from "../api/sequenceApi";
-import type { RecipientTokens, Sequence, SequenceStep } from "../api/sequenceApi";
+import type { RecipientTokens, Sequence, SequenceSchedule, SequenceStep, Weekday } from "../api/sequenceApi";
+import {
+  clockOf,
+  DEFAULT_SCHEDULE,
+  HALF_HOURS,
+  MONDAY_TO_FRIDAY,
+  SUNDAY_TO_THURSDAY,
+  WEEKDAYS,
+  zoneCityOf,
+} from "../lib/sendSchedule";
 import { BOOKING_LINK_PLACEHOLDER, firstNameOf, renderParts, tokenOptions } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
 import { SequenceStatePill } from "../components/SequenceStatePill";
@@ -97,6 +106,11 @@ function SequenceEditor({
   const queryClient = useQueryClient();
   const [name, setName] = useState(saved?.name ?? "New sequence");
   const [steps, setSteps] = useState<SequenceStep[]>(saved?.steps ?? DEFAULT_STEPS);
+  const [schedule, setSchedule] = useState<SequenceSchedule>(() =>
+    saved?.schedule
+      ? { ...saved.schedule, windowStart: clockOf(saved.schedule.windowStart), windowEnd: clockOf(saved.schedule.windowEnd) }
+      : DEFAULT_SCHEDULE,
+  );
   const [selectedStep, setSelectedStep] = useState(0);
   const bodyRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const subjectRef = useRef<HTMLInputElement | null>(null);
@@ -107,7 +121,14 @@ function SequenceEditor({
 
   const save = useMutation({
     mutationFn: () => {
-      const body = { name: name.trim(), steps };
+      const body = {
+        name: name.trim(),
+        steps: steps.map((step, index) => ({
+          ...step,
+          sendTime: index === 0 || !step.sendTime ? null : clockOf(step.sendTime),
+        })),
+        schedule,
+      };
       return saved
         ? sequenceApi.updateSequence(projectId, saved.id, body)
         : sequenceApi.createSequence(projectId, body);
@@ -171,6 +192,13 @@ function SequenceEditor({
   };
 
   const isLive = (saved?.enrolledCount ?? 0) > 0;
+  const isScheduleUsable = schedule.days.length > 0 && schedule.windowStart < schedule.windowEnd;
+  const stepTimeOutsideWindow = steps.some(
+    (step, index) =>
+      index > 0 &&
+      step.sendTime &&
+      (clockOf(step.sendTime) < schedule.windowStart || clockOf(step.sendTime) >= schedule.windowEnd),
+  );
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 pb-20 pt-[22px] md:px-7">
@@ -203,7 +231,7 @@ function SequenceEditor({
         <Button
           className={cn("px-3.5 py-[7px] text-[13px] font-semibold", !saved && "ms-auto")}
           loading={save.isPending}
-          disabled={!name.trim()}
+          disabled={!name.trim() || !isScheduleUsable || stepTimeOutsideWindow}
           onClick={() => save.mutate()}
         >
           Save sequence
@@ -247,7 +275,11 @@ function SequenceEditor({
                 </span>
                 <span className="text-[13px] font-semibold">{STEP_LABELS[index]}</span>
                 <span className="font-mono text-[12px] text-u-text3">
-                  {index === 0 ? "sent when you start" : `+${step.delayWorkingDays} working days`}
+                  {index === 0
+                    ? "sent when you start"
+                    : `+${step.delayWorkingDays} sending ${step.delayWorkingDays === 1 ? "day" : "days"}${
+                        step.sendTime ? ` at ${clockOf(step.sendTime)}` : ""
+                      }`}
                 </span>
                 {index > 0 && (
                   <button
@@ -283,7 +315,30 @@ function SequenceEditor({
                       </option>
                     ))}
                   </select>
-                  working days after the last step, if they haven't replied, as a reply in the same thread
+                  sending days after the last step, at
+                  <select
+                    value={step.sendTime ? clockOf(step.sendTime) : ""}
+                    aria-label="Time of day"
+                    onChange={(event) => changeStep(index, { sendTime: event.target.value || null })}
+                    className={cn(
+                      "rounded-[6px] border bg-u-raised px-1.5 py-1 font-mono text-[12px] text-u-text",
+                      step.sendTime &&
+                        (clockOf(step.sendTime) < schedule.windowStart || clockOf(step.sendTime) >= schedule.windowEnd)
+                        ? "border-u-offlimits"
+                        : "border-u-border",
+                    )}
+                  >
+                    <option value="">the same time</option>
+                    {timeChoicesWith(
+                      HALF_HOURS.filter((time) => time >= schedule.windowStart && time < schedule.windowEnd),
+                      step.sendTime ? clockOf(step.sendTime) : null,
+                    ).map((time) => (
+                      <option key={time} value={time}>
+                        {time}
+                      </option>
+                    ))}
+                  </select>
+                  if they haven't replied, as a reply in the same thread
                 </div>
               )}
               {index === 0 && (
@@ -329,6 +384,12 @@ function SequenceEditor({
             Three emails catch nearly every reply a sequence will get.
           </div>
 
+          <SendingScheduleCard
+            schedule={schedule}
+            timeZone={mailbox.data?.connection?.timeZone ?? null}
+            hasStepOutsideWindow={Boolean(stepTimeOutsideWindow)}
+            onChange={setSchedule}
+          />
           <SequenceRules />
         </div>
 
@@ -364,13 +425,125 @@ function SequenceEditor({
   );
 }
 
+/** `Outreach.dc.html?page=sequence`'s Sending schedule: the days and hours its follow-ups may go. */
+function SendingScheduleCard({
+  schedule,
+  timeZone,
+  hasStepOutsideWindow,
+  onChange,
+}: {
+  schedule: SequenceSchedule;
+  timeZone: string | null;
+  hasStepOutsideWindow: boolean;
+  onChange: (schedule: SequenceSchedule) => void;
+}) {
+  const toggleDay = (day: Weekday) =>
+    onChange({
+      ...schedule,
+      days: schedule.days.includes(day) ? schedule.days.filter((held) => held !== day) : [...schedule.days, day],
+    });
+  const isSameDays = (days: Weekday[]) =>
+    days.length === schedule.days.length && days.every((day) => schedule.days.includes(day));
+  const timeSelectClass =
+    "rounded-[6px] border border-u-border bg-u-raised px-1.5 py-1 font-mono text-[12px] text-u-text";
+
+  return (
+    <div className="rounded-[10px] border border-u-border px-4 py-3.5">
+      <div className="mb-1 text-[13px] font-semibold">Sending schedule</div>
+      <p className="mb-2.5 text-[12px]/[1.5] text-u-text3">
+        Emails go only on these days and between these hours, in your mailbox's time zone
+        {timeZone ? ` (${zoneCityOf(timeZone)})` : ""}. The days in the delays above are these days. A first email you
+        start Now, or at a time you pick, goes when you said.
+      </p>
+      <div role="group" aria-label="Sending days" className="mb-2.5 flex flex-wrap items-center gap-1.5">
+        {WEEKDAYS.map(({ day, label }) => {
+          const isOn = schedule.days.includes(day);
+          return (
+            <button
+              key={day}
+              type="button"
+              aria-pressed={isOn}
+              onClick={() => toggleDay(day)}
+              className={cn(
+                "rounded-full border px-2.5 py-1 font-mono text-[12px] font-medium",
+                isOn ? "border-u-accent bg-u-accent-tint text-u-text" : "border-u-border text-u-text3 hover:text-u-text",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
+        <span className="ms-1.5 flex items-center gap-1.5 font-mono text-[11.5px] text-u-text3">
+          {(
+            [
+              ["Mon–Fri", MONDAY_TO_FRIDAY],
+              ["Sun–Thu", SUNDAY_TO_THURSDAY],
+            ] as const
+          ).map(([label, days]) => (
+            <button
+              key={label}
+              type="button"
+              disabled={isSameDays(days)}
+              onClick={() => onChange({ ...schedule, days: [...days] })}
+              className="font-medium text-u-accent disabled:text-u-text3"
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 font-mono text-[12px] text-u-text2">
+        Between
+        <select
+          value={schedule.windowStart}
+          aria-label="Sending starts"
+          onChange={(event) => onChange({ ...schedule, windowStart: event.target.value })}
+          className={timeSelectClass}
+        >
+          {timeChoicesWith(HALF_HOURS, schedule.windowStart).map((time) => (
+            <option key={time} value={time}>
+              {time}
+            </option>
+          ))}
+        </select>
+        and
+        <select
+          value={schedule.windowEnd}
+          aria-label="Sending stops"
+          onChange={(event) => onChange({ ...schedule, windowEnd: event.target.value })}
+          className={timeSelectClass}
+        >
+          {timeChoicesWith([...HALF_HOURS.slice(1), "23:59"], schedule.windowEnd).map((time) => (
+            <option key={time} value={time}>
+              {time}
+            </option>
+          ))}
+        </select>
+      </div>
+      {schedule.days.length === 0 && (
+        <p role="alert" className="mt-2 text-[12px] text-u-offlimits">
+          Choose at least one day to send on.
+        </p>
+      )}
+      {schedule.windowStart >= schedule.windowEnd && (
+        <p role="alert" className="mt-2 text-[12px] text-u-offlimits">
+          Sending has to stop after it starts.
+        </p>
+      )}
+      {hasStepOutsideWindow && (
+        <p role="alert" className="mt-2 text-[12px] text-u-offlimits">
+          A follow-up's time is outside these hours. Change its time or the hours.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SequenceRules() {
   return (
     <div className="rounded-[10px] border border-u-border px-4 py-3.5">
-      <div className="mb-2 text-[13px] font-semibold">When it sends and when it stops</div>
+      <div className="mb-2 text-[13px] font-semibold">When it stops</div>
       <div className="grid grid-cols-[100px_1fr] gap-x-3 gap-y-1.5 text-[12.5px]/[1.5] text-u-text2 md:grid-cols-[120px_1fr]">
-        <span className="text-u-text3">Window</span>
-        <span>Mon–Fri, 08:00–18:00 in the sender's time zone</span>
         <span className="text-u-text3">Daily cap</span>
         <span>Each mailbox sends up to its daily cap. Anything over waits for the next window.</span>
         <span className="text-u-text3">Stops when</span>
@@ -521,6 +694,11 @@ function tokensOf(
     location: person?.locationCity ?? person?.locationCountry ?? null,
     senderFirstName: firstNameOf(senderName),
   };
+}
+
+/** A saved time the picker does not list (the server takes any minute) is still shown as chosen. */
+function timeChoicesWith(choices: readonly string[], current: string | null): string[] {
+  return current === null || choices.includes(current) ? [...choices] : [...choices, current].sort();
 }
 
 /** A saved delay the picker does not list (the server takes 1–30) is still shown as chosen. */

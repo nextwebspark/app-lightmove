@@ -222,4 +222,8 @@ public class MailboxConnection extends BaseEntity {
     public ZoneId zone() {
         return ZoneId.of(timeZone);
     }
+
+    public void changeTimeZone(ZoneId zone) {
+        this.timeZone = zone.getId();
+    }
 }

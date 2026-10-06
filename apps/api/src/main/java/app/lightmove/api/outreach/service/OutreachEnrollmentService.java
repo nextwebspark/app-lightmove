@@ -9,6 +9,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.outreach.constant.OutreachSkipReason;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
+import app.lightmove.api.outreach.constant.SequenceStartMode;
 import app.lightmove.api.outreach.dto.EnrollPersonRequest;
 import app.lightmove.api.outreach.dto.EnrollmentCandidateResponse;
 import app.lightmove.api.outreach.dto.EnrollmentCandidatesRequest;
@@ -17,6 +18,7 @@ import app.lightmove.api.outreach.dto.RecipientEmailResponse;
 import app.lightmove.api.outreach.dto.SequenceTokensResponse;
 import app.lightmove.api.outreach.dto.StartSequenceRequest;
 import app.lightmove.api.outreach.dto.StartSequenceResponse;
+import app.lightmove.api.outreach.model.FirstSendSpacing;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachSequence;
@@ -30,13 +32,16 @@ import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,10 +51,13 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Add to sequence: who may be approached, and putting the reviewed people on a sequence as
  * {@code SCHEDULED}. Nothing here sends. Every rule the Choose step shows is decided again at Start, so
  * a person the dialog listed as skippable — or who became so while it was open — is never enrolled.
+ * First emails are spaced by {@link FirstSendSpacing}, in the order the people were sent.
  */
 @Service
 @RequiredArgsConstructor
 public class OutreachEnrollmentService {
+
+    static final Duration START_HORIZON = Duration.ofDays(60);
 
     private final CandidateOutreachService people;
     private final OutreachSequenceRepository sequences;
@@ -93,6 +101,7 @@ public class OutreachEnrollmentService {
         if (new HashSet<>(candidateIds).size() != candidateIds.size()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Someone is listed twice");
         }
+        refuseUnusableStartAt(request);
         boolean usesBookingLink = Boolean.TRUE.equals(transactions.execute(status -> sequences
                 .requireInProject(sequenceId, workspaceId, projectId).uses(SequenceTokens.BOOKING_LINK)));
         if (usesBookingLink) {
@@ -110,7 +119,8 @@ public class OutreachEnrollmentService {
                     .detail("candidateId", enrollment.getCandidateId().toString())
                     .record();
         }
-        return new StartSequenceResponse(created.size());
+        return new StartSequenceResponse(created.size(), created.getFirst().getNextSendAt(),
+                created.getLast().getNextSendAt());
     }
 
     /** Nothing more goes to this person on this sequence; what already went stays on the record. */
@@ -125,9 +135,23 @@ public class OutreachEnrollmentService {
         outcomes.stop(enrollment, OutreachStopReason.MANUAL, userId, clock.instant(), httpRequest);
     }
 
+    private void refuseUnusableStartAt(StartSequenceRequest request) {
+        if (request.startModeOrDefault() != SequenceStartMode.AT) {
+            return;
+        }
+        Instant now = clock.instant();
+        if (request.startAt() == null || request.startAt().isBefore(now)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "startAt", "Choose a time that is still ahead");
+        }
+        if (request.startAt().isAfter(now.plus(START_HORIZON))) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "startAt",
+                    "Choose a time within the next 60 days");
+        }
+    }
+
     private List<OutreachEnrollment> enroll(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                             StartSequenceRequest request) {
-        requireSendingMailbox(userId, workspaceId);
+        MailboxConnection mailbox = requireSendingMailbox(userId, workspaceId);
         OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
         List<UUID> candidateIds = request.people().stream().map(EnrollPersonRequest::candidateId).toList();
         Map<UUID, OutreachRecipient> recipients = people.recipientsOf(workspaceId, projectId, candidateIds, List.of())
@@ -143,8 +167,17 @@ public class OutreachEnrollmentService {
         SenderContext sender = personalisation.senderContextOf(userId, workspaceId, projectId);
         SequenceStep first = sequence.firstStep();
         Instant now = clock.instant();
-        List<OutreachEnrollment> created = request.people().stream()
-                .map(person -> {
+        SequenceStartMode mode = request.startModeOrDefault();
+        boolean pinned = mode != SequenceStartMode.NEXT_WINDOW;
+        Instant firstDue = switch (mode) {
+            case NOW -> now;
+            case AT -> request.startAt();
+            case NEXT_WINDOW -> sequence.sendingWindow().nextOpening(now, mailbox.zone());
+        };
+        List<Duration> offsets = FirstSendSpacing.offsetsOf(request.people().size(), ThreadLocalRandom.current());
+        List<OutreachEnrollment> created = IntStream.range(0, request.people().size())
+                .mapToObj(index -> {
+                    EnrollPersonRequest person = request.people().get(index);
                     OutreachRecipient recipient = recipients.get(person.candidateId());
                     if (!recipient.holdsEmail(person.toAddress())) {
                         throw ApiException.of(ErrorCode.OUTREACH_ADDRESS_NOT_ON_FILE);
@@ -154,7 +187,8 @@ public class OutreachEnrollmentService {
                     ReviewedFirstEmail email = new ReviewedFirstEmail(tokens.render(first.getSubject()),
                             tokens.render(first.getBody()), opener, person.openerEdited());
                     return OutreachEnrollment.scheduled(sequence, recipient.candidateId(), recipient.personId(),
-                            userId, ledgerSpellingOf(recipient, person.toAddress()), email, now);
+                            userId, ledgerSpellingOf(recipient, person.toAddress()), email, now,
+                            firstDue, offsets.get(index), pinned);
                 })
                 .toList();
         List<OutreachEnrollment> saved = enrollments.saveAllAndFlush(created);
@@ -163,12 +197,13 @@ public class OutreachEnrollmentService {
         return saved;
     }
 
-    private void requireSendingMailbox(UUID userId, UUID workspaceId) {
+    private MailboxConnection requireSendingMailbox(UUID userId, UUID workspaceId) {
         MailboxConnection mailbox = mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MAILBOX_NOT_CONNECTED));
         if (!mailbox.canSend()) {
             throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
+        return mailbox;
     }
 
     private static String ledgerSpellingOf(OutreachRecipient recipient, String requested) {

@@ -2,16 +2,20 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.dto.SaveSequenceRequest;
 import app.lightmove.api.outreach.dto.SequenceResponse;
+import app.lightmove.api.outreach.dto.SequenceScheduleRequest;
+import app.lightmove.api.outreach.dto.SequenceScheduleResponse;
 import app.lightmove.api.outreach.dto.SequenceStepRequest;
 import app.lightmove.api.outreach.dto.SequenceStepResponse;
 import app.lightmove.api.outreach.dto.SequencesResponse;
 import app.lightmove.api.outreach.model.OutreachSequence;
+import app.lightmove.api.outreach.model.SendingWindow;
 import app.lightmove.api.outreach.model.SequenceEnrollmentCount;
 import app.lightmove.api.outreach.model.SequenceStep;
 import app.lightmove.api.outreach.model.SequenceTokens;
@@ -44,6 +48,7 @@ public class OutreachSequenceService {
     private final OutreachEnrollmentRepository enrollments;
     private final UserRepository users;
     private final AuditService audit;
+    private final LightMoveProperties properties;
 
     @Transactional(readOnly = true)
     public SequencesResponse list(UUID workspaceId, UUID projectId) {
@@ -64,10 +69,12 @@ public class OutreachSequenceService {
     @Transactional
     public SequenceResponse create(UUID userId, UUID workspaceId, UUID projectId, SaveSequenceRequest request,
                                    HttpServletRequest httpRequest) {
-        List<SequenceStep> steps = stepsOf(request.steps());
+        SendingWindow schedule = request.schedule() == null
+                ? SendingWindow.of(properties.outreach()) : scheduleOf(request.schedule());
+        List<SequenceStep> steps = stepsOf(request.steps(), schedule);
         refuseUnofferedBookingLink(steps);
         OutreachSequence sequence = sequences.save(OutreachSequence.written(workspaceId, projectId, userId,
-                request.name().trim(), steps));
+                request.name().trim(), steps, schedule));
         audited(ProjectEventType.OUTREACH_SEQUENCE_CREATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);
     }
@@ -76,9 +83,11 @@ public class OutreachSequenceService {
     public SequenceResponse update(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                    SaveSequenceRequest request, HttpServletRequest httpRequest) {
         OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
-        List<SequenceStep> steps = stepsOf(request.steps());
+        SendingWindow schedule = request.schedule() == null
+                ? sequence.sendingWindow() : scheduleOf(request.schedule());
+        List<SequenceStep> steps = stepsOf(request.steps(), schedule);
         refuseUnofferedBookingLink(steps);
-        sequence.rewrite(request.name().trim(), steps);
+        sequence.rewrite(request.name().trim(), steps, schedule);
         audited(ProjectEventType.OUTREACH_SEQUENCE_UPDATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);
     }
@@ -100,8 +109,19 @@ public class OutreachSequenceService {
         }
     }
 
-    /** Step one goes when the consultant starts, so its delay is always zero; only it carries a subject. */
-    private static List<SequenceStep> stepsOf(List<SequenceStepRequest> requested) {
+    private static SendingWindow scheduleOf(SequenceScheduleRequest requested) {
+        if (!requested.windowStart().isBefore(requested.windowEnd())) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "schedule.windowEnd",
+                    "Sending has to stop after it starts");
+        }
+        return new SendingWindow(requested.windowStart(), requested.windowEnd(), requested.days());
+    }
+
+    /**
+     * Step one goes when the consultant starts, so its delay is always zero and it has no time of day; only it
+     * carries a subject. A follow-up's time of day has to fall inside the hours it may go.
+     */
+    private static List<SequenceStep> stepsOf(List<SequenceStepRequest> requested, SendingWindow schedule) {
         List<SequenceStep> steps = new ArrayList<>();
         for (int index = 0; index < requested.size(); index++) {
             SequenceStepRequest step = requested.get(index);
@@ -110,13 +130,17 @@ public class OutreachSequenceService {
                     throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "steps[0].subject",
                             "Write a subject for the first email");
                 }
-                steps.add(SequenceStep.of(0, step.subject().trim(), step.body()));
+                steps.add(SequenceStep.of(0, step.subject().trim(), step.body(), null));
             } else {
                 if (step.delayWorkingDays() < 1) {
                     throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "steps[" + index + "].delayWorkingDays",
                             "A follow-up waits at least one working day");
                 }
-                steps.add(SequenceStep.of(step.delayWorkingDays(), null, step.body()));
+                if (step.sendTime() != null && !schedule.admits(step.sendTime())) {
+                    throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "steps[" + index + "].sendTime",
+                            "Choose a time inside the sending hours");
+                }
+                steps.add(SequenceStep.of(step.delayWorkingDays(), null, step.body(), step.sendTime()));
             }
         }
         return steps;
@@ -136,7 +160,8 @@ public class OutreachSequenceService {
     private static SequenceResponse toResponse(OutreachSequence sequence, String author,
                                                SequenceEnrollmentCount counts) {
         return new SequenceResponse(sequence.getId(), sequence.getName(),
-                sequence.getSteps().stream().map(SequenceStepResponse::of).toList(), author,
+                sequence.getSteps().stream().map(SequenceStepResponse::of).toList(),
+                SequenceScheduleResponse.of(sequence.sendingWindow()), author,
                 counts == null ? 0 : counts.getTotal(), counts == null ? 0 : counts.getSent(),
                 counts == null ? 0 : counts.getReplied(), sequence.getUpdatedAt());
     }

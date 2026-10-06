@@ -9,18 +9,46 @@ export const SEQUENCES_KEY = (projectId: string) => ["outreach", projectId, "seq
 export const SEQUENCE_KEY = (projectId: string, sequenceId: string) =>
   [...SEQUENCES_KEY(projectId), sequenceId] as const;
 
+export type Weekday = "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
+
+/** The days and hours a sequence's emails may go, in the sender's mailbox zone. */
+export interface SequenceSchedule {
+  days: Weekday[];
+  /** "08:00", or "08:00:00" as the server writes it. */
+  windowStart: string;
+  windowEnd: string;
+}
+
 export interface SequenceStep {
-  /** Working days after the step before; always 0 on the first, which goes when the consultant starts. */
+  /** The schedule's days after the step before; always 0 on the first, which goes when the consultant starts. */
   delayWorkingDays: number;
   /** The first step's only; the others reply in its thread. */
   subject: string | null;
   body: string;
+  /** A follow-up's time of day inside the schedule's hours; null keeps the time the step before went. */
+  sendTime?: string | null;
+}
+
+/** When Start sends the first emails: at once, in the next sending window, or at a chosen time. */
+export type StartMode = "NOW" | "NEXT_WINDOW" | "AT";
+
+export interface StartTiming {
+  startMode: StartMode;
+  /** ISO instant, with `AT` only. */
+  startAt: string | null;
+}
+
+export interface StartedSequence {
+  enrolled: number;
+  firstSendAt: string;
+  lastFirstSendAt: string;
 }
 
 export interface Sequence {
   id: string;
   name: string;
   steps: SequenceStep[];
+  schedule: SequenceSchedule;
   createdByName: string | null;
   /** Everyone ever put on it; a sequence with anyone is Live, one with nobody a Draft. */
   enrolledCount: number;
@@ -34,6 +62,7 @@ export interface Sequence {
 export interface SaveSequence {
   name: string;
   steps: SequenceStep[];
+  schedule: SequenceSchedule;
 }
 
 export type OutreachSkipReason = "NO_EMAIL" | "DO_NOT_CONTACT" | "LEFT_THE_RUNNING" | "ALREADY_IN_SEQUENCE";
@@ -145,9 +174,10 @@ export function startSequence(
   projectId: string,
   sequenceId: string,
   people: EnrollPerson[],
-): Promise<{ enrolled: number }> {
-  return request<{ enrolled: number }>(`/projects/${projectId}/outreach/sequences/${sequenceId}/enrollments`, {
+  timing: StartTiming,
+): Promise<StartedSequence> {
+  return request<StartedSequence>(`/projects/${projectId}/outreach/sequences/${sequenceId}/enrollments`, {
     method: "POST",
-    body: { people },
+    body: { people, ...timing },
   });
 }

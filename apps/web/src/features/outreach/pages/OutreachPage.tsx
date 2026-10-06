@@ -11,8 +11,10 @@ import * as mailboxApi from "../api/mailboxApi";
 import type { ConnectedMailbox, Mailbox } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import type { Sequence } from "../api/sequenceApi";
+import { scheduleLabelOf } from "../lib/sendSchedule";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { PeopleInOutreach } from "../components/PeopleInOutreach";
+import { MailboxTimeZoneSelect } from "../components/MailboxTimeZoneSelect";
 import { SequenceStatePill } from "../components/SequenceStatePill";
 import { ZoomConnectControl } from "../components/ZoomConnectControl";
 import { connectMailboxInPopup } from "../lib/mailboxPopup";
@@ -205,12 +207,13 @@ function SequenceCard({ projectId, sequence }: { projectId: string; sequence: Se
   );
 }
 
-/** "3 steps · day 0, +3, +5 working days · by Yara Haddad", as the mockup's card meta reads. */
+/** "3 steps · day 0, +3, +5 sending days · Mon–Fri, 08:00–18:00 · by Yara Haddad", as the mockup's card meta reads. */
 function sequenceMetaOf(sequence: Sequence): string {
   const steps = `${sequence.steps.length} ${sequence.steps.length === 1 ? "step" : "steps"}`;
   const days = sequence.steps.map((step, index) => (index === 0 ? "day 0" : `+${step.delayWorkingDays}`)).join(", ");
-  const timing = sequence.steps.length > 1 ? ` · ${days} working days` : "";
-  return `${steps}${timing}${sequence.createdByName ? ` · by ${sequence.createdByName}` : ""}`;
+  const timing = sequence.steps.length > 1 ? ` · ${days} sending days` : "";
+  const schedule = ` · ${scheduleLabelOf(sequence.schedule)}`;
+  return `${steps}${timing}${schedule}${sequence.createdByName ? ` · by ${sequence.createdByName}` : ""}`;
 }
 
 function MailboxState({
@@ -354,6 +357,7 @@ function ConnectedMailboxPill({
         {connection.address}
         <span className="text-u-text3">· up to {connection.dailyCap} a day</span>
       </span>
+      <MailboxTimeZoneSelect timeZone={connection.timeZone} />
       <Button variant="ghost" className="px-1.5 py-1 text-[12px]" loading={isSendingTest} onClick={onSendTest}>
         Send a test email
       </Button>
