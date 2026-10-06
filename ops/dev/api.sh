@@ -36,4 +36,5 @@ exec env \
   DB_PASSWORD=lm \
   LIGHTMOVE_EMAIL_PROVIDER=log \
   CREDENTIAL_KEYSET="${CREDENTIAL_KEYSET:-$DEV_CREDENTIAL_KEYSET}" \
+  MCP_ENABLED="${MCP_ENABLED:-true}" \
   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local

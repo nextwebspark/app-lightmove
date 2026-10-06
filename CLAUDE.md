@@ -575,6 +575,21 @@ change to what integrations see is reviewed in its PR. `pairing` is the one plac
 paired with their executives — the talent map, the export and the public universe read all go through
 `StagePairingService`.
 
+The **MCP server** (epic #699) starts with its **OAuth 2.1 authorization server** (#701, `core/security/oauth`):
+Spring Security's own, its endpoints moved under `/api/v1/oauth/**` (`/oauth2/**` is the sign-in providers') with
+RFC 8414 metadata at `/.well-known/oauth-authorization-server`, behind `MCP_ENABLED` (off: all of it a 404). Clients
+are public only — PKCE S256, the code and refresh grants — and every request must name the MCP endpoint as its
+`resource` (RFC 8707), which becomes the token's `aud`. An unsigned-in authorize request lands on the SPA's
+`/oauth/consent`, which signs in, offers the caller's staff workspaces (`API_KEY_MANAGE`, so never a pure client)
+and posts the request and then its consent with the session's bearer, answered as JSON (`redirectUri`, carrying
+RFC 9207 `iss`). A **grant** (V115 `app_lm_oauth_authorization`) is one user × one client × one workspace, every
+token in it stored as SHA-256 only (`HashingAuthorizationService`), consent asked every time and never remembered
+(`PerGrantConsentService`), the access token an RS256 JWT on its **own key** (`McpTokenKeys`, `kid` `mcp-…`) with
+`sub`, `wsId`, `scope`, `client_id` and `grant_id` and no roles, and the refresh token rotated on every use — a
+rotated one replayed deletes the grant. Settings → Connected AI apps reads `/api/v1/workspace/oauth-grants`
+(`API_KEY_MANAGE`, `?all=true` under `WORKSPACE_MANAGE`, as API keys), and a grant ends with its membership or
+workspace, as a personal key does, and every grant of an account ends with a password change or reset.
+
 ## Commands
 
 ```bash
@@ -634,6 +649,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
 - **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
+- **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
 - **An API key reaches only `/api/v1/public/**`**, read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens no public route.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
 
@@ -826,6 +842,11 @@ was already sent for.
 V114 adds `app_lm_api_key` — the public API's keys: kind (`PERSONAL` with an owner, `SERVICE` without, by CHECK),
 `token_hash` (SHA-256, unique) and a `token_hint` a list can show, scopes as a jsonb array held to the five tokens
 by CHECK, expiry, last use and revocation (`REVOKED | MEMBER_REMOVED | WORKSPACE_DELETED`).
+V115 adds the MCP authorization server's tables: `app_lm_oauth_client` (public clients; redirect URIs and the most
+it may ask for, held to the five scopes by CHECK; `source` `SEEDED | DCR | CIMD`), `app_lm_oauth_authorization` (one
+grant: client, user, workspace — null only while waiting for consent — and the state, code, access and refresh
+token as SHA-256 hashes, unique each) and `app_lm_oauth_retired_refresh_token` (rotated-away refresh hashes, the
+replay check). Deleting a grant row is revoking it.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
