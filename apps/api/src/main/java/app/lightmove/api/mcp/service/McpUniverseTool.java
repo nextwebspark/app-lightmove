@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
 /** One stage of a position with its executives nested under their companies, in one call. */
 @Component
 @RequiredArgsConstructor
-public class UniverseTool {
+public class McpUniverseTool {
 
     static final String GET = "uncava_get_universe";
 

@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 /** The positions a connection can read: found by title, and read one at a time. */
 @Component
 @RequiredArgsConstructor
-public class PositionTools {
+public class McpPositionTools {
 
     static final String SEARCH = "uncava_search_positions";
     static final String GET = "uncava_get_position";

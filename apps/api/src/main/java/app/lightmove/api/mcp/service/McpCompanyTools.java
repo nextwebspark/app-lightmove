@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 /** The companies a position has filed, one stage at a time. */
 @Component
 @RequiredArgsConstructor
-public class CompanyTools {
+public class McpCompanyTools {
 
     static final String LIST = "uncava_list_companies";
     static final String GET = "uncava_get_company";
