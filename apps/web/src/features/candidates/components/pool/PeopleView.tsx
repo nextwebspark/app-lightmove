@@ -168,9 +168,7 @@ export function PeopleView({
                   positions={lookups.positions}
                 />
               )}
-              {/* The bar floats over the grid rather than over the viewport, so it centres on the
-                  table and never covers the paging row underneath. */}
-              <div className="relative flex min-h-0 flex-1 flex-col">
+              <div className="flex min-h-0 flex-1 flex-col">
                 <DataGrid
                   table={table}
                   label="Candidates"
