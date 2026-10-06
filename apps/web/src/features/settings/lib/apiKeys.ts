@@ -1,13 +1,54 @@
 import { formatInstantDate } from "../../../lib/format";
 import type { ApiKey, ApiKeyKind, ApiKeyScope } from "../api/types";
 
-/** What each scope reads, in the API's own order; the last two are personal data and say so. */
-export const API_KEY_SCOPES: readonly { scope: ApiKeyScope; note: string; personalData: boolean }[] = [
-  { scope: "projects:read", note: "Positions: title, stage, type, dates and counts.", personalData: false },
-  { scope: "companies:read", note: "Each position's companies — in universe, shortlisted and declined.", personalData: false },
-  { scope: "candidates:read", note: "Each position's executives: profile, company and status.", personalData: false },
-  { scope: "candidates.contacts:read", note: "Their emails and phone numbers.", personalData: true },
-  { scope: "candidates.compensation:read", note: "Their salary, bonus, allowances and incentives.", personalData: true },
+interface ApiKeyScopeChoice {
+  scope: ApiKeyScope;
+  note: string;
+  personalData: boolean;
+  opensMcp: boolean;
+}
+
+/**
+ * What each scope reads, in the API's own order; the personal-data pair says so. `mcp:use` reads nothing: it lets an AI
+ * agent use the key over MCP, with whatever else the key reads.
+ */
+export const API_KEY_SCOPES: readonly ApiKeyScopeChoice[] = [
+  {
+    scope: "projects:read",
+    note: "Positions: title, stage, type, dates and counts.",
+    personalData: false,
+    opensMcp: false,
+  },
+  {
+    scope: "companies:read",
+    note: "Each position's companies — in universe, shortlisted and declined.",
+    personalData: false,
+    opensMcp: false,
+  },
+  {
+    scope: "candidates:read",
+    note: "Each position's executives: profile, company and status.",
+    personalData: false,
+    opensMcp: false,
+  },
+  {
+    scope: "candidates.contacts:read",
+    note: "Their emails and phone numbers.",
+    personalData: true,
+    opensMcp: false,
+  },
+  {
+    scope: "candidates.compensation:read",
+    note: "Their salary, bonus, allowances and incentives.",
+    personalData: true,
+    opensMcp: false,
+  },
+  {
+    scope: "mcp:use",
+    note: "Lets an AI agent use this key over MCP. Reads nothing by itself — tick what it may read too.",
+    personalData: false,
+    opensMcp: true,
+  },
 ];
 
 /** The wire's `SERVICE` is a "Workspace" key on screen. */
@@ -29,6 +70,17 @@ export type ApiKeyTone = "active" | "soon" | "expired" | "revoked";
 
 export function isPersonalData(scope: ApiKeyScope): boolean {
   return API_KEY_SCOPES.some((choice) => choice.scope === scope && choice.personalData);
+}
+
+/** A scope as a chip: personal data in the off-limits tone, `mcp:use` in the accent, the rest plain. */
+export function scopeChipClass(scope: ApiKeyScope): string {
+  if (isPersonalData(scope)) return "bg-u-offlimits-tint text-u-offlimits";
+  return scope === "mcp:use" ? "bg-u-accent-tint text-u-accent" : "bg-u-surface text-u-text2";
+}
+
+/** A key holding only `mcp:use` would reach the MCP server and read nothing there. */
+export function readsSomething(scopes: readonly ApiKeyScope[]): boolean {
+  return scopes.some((scope) => scope !== "mcp:use");
 }
 
 export function statusOf(key: ApiKey, now: Date = new Date()): { label: string; tone: ApiKeyTone } {
@@ -63,7 +115,7 @@ export function usageLineOf(key: ApiKey, now: Date = new Date()): string {
   return `Last used ${sinceLabel(key.lastUsedAt, now)}${key.lastUsedIp ? ` from ${key.lastUsedIp}` : ""}`;
 }
 
-function sinceLabel(isoInstant: string, now: Date): string {
+export function sinceLabel(isoInstant: string, now: Date = new Date()): string {
   const minutes = Math.floor((now.getTime() - new Date(isoInstant).getTime()) / 60_000);
   if (minutes < 1) return "just now";
   if (minutes < 60) return minutes === 1 ? "1 minute ago" : `${minutes} minutes ago`;

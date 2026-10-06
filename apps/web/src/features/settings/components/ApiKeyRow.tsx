@@ -1,6 +1,6 @@
 import { cn } from "../../../lib/cn";
 import type { ApiKey } from "../api/types";
-import { isPersonalData, KIND_LABEL, metaLineOf, statusOf, usageLineOf, type ApiKeyTone } from "../lib/apiKeys";
+import { KIND_LABEL, metaLineOf, scopeChipClass, statusOf, usageLineOf, type ApiKeyTone } from "../lib/apiKeys";
 
 const PILL = "inline-flex rounded-full px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.05em]";
 
@@ -60,10 +60,7 @@ export function ApiKeyRow({
         {apiKey.scopes.map((scope) => (
           <code
             key={scope}
-            className={cn(
-              "rounded-[4px] px-1.5 py-0.5 font-mono text-[11px]",
-              isPersonalData(scope) ? "bg-u-offlimits-tint text-u-offlimits" : "bg-u-surface text-u-text2",
-            )}
+            className={cn("rounded-[4px] px-1.5 py-0.5 font-mono text-[11px]", scopeChipClass(scope))}
           >
             {scope}
           </code>
