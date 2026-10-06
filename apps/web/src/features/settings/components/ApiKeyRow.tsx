@@ -1,8 +1,7 @@
 import { cn } from "../../../lib/cn";
 import type { ApiKey } from "../api/types";
-import { KIND_LABEL, metaLineOf, scopeChipClass, statusOf, usageLineOf, type ApiKeyTone } from "../lib/apiKeys";
-
-const PILL = "inline-flex rounded-full px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.05em]";
+import { KIND_LABEL, metaLineOf, statusOf, usageLineOf, type ApiKeyTone } from "../lib/apiKeys";
+import { ScopeChips, STATUS_PILL } from "./ScopeChips";
 
 const TONE: Record<ApiKeyTone, string> = {
   active: "bg-u-direct-tint text-u-direct",
@@ -32,7 +31,7 @@ export function ApiKeyRow({
         <span className="min-w-0 truncate text-[13.5px] font-medium text-u-text">{apiKey.name}</span>
         <span
           className={cn(
-            PILL,
+            STATUS_PILL,
             apiKey.kind === "SERVICE"
               ? "bg-u-adjacent-tint text-u-adjacent"
               : "border border-u-border bg-u-surface text-u-text2",
@@ -40,7 +39,7 @@ export function ApiKeyRow({
         >
           {KIND_LABEL[apiKey.kind]}
         </span>
-        <span className={cn(PILL, TONE[status.tone])}>{status.label}</span>
+        <span className={cn(STATUS_PILL, TONE[status.tone])}>{status.label}</span>
         {canRevoke && !dead && (
           <button
             type="button"
@@ -56,16 +55,7 @@ export function ApiKeyRow({
         <span className="text-u-text2">{apiKey.tokenHint}</span> · {metaLineOf(apiKey, showOwner)}
       </div>
       <div className="mt-1 font-mono text-[11.5px]/[1.55] text-u-text3">{usageLineOf(apiKey)}</div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {apiKey.scopes.map((scope) => (
-          <code
-            key={scope}
-            className={cn("rounded-[4px] px-1.5 py-0.5 font-mono text-[11px]", scopeChipClass(scope))}
-          >
-            {scope}
-          </code>
-        ))}
-      </div>
+      <ScopeChips scopes={apiKey.scopes} className="mt-2" />
     </li>
   );
 }

@@ -14,7 +14,8 @@ export function DisconnectAiAppModal({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  const whose = ownGrant || !grant.ownerName ? grant.clientName : `${grant.ownerName}'s ${grant.clientName}`;
+  const whose = ownGrant ? grant.clientName : `${grant.ownerName}'s ${grant.clientName}`;
+  const asked = ownGrant ? "you will see" : `${grant.ownerName} will see`;
   return (
     <Modal
       open
@@ -37,7 +38,7 @@ export function DisconnectAiAppModal({
     >
       <p className="text-[13px] text-u-text2">
         {whose} loses access at once; its next request is refused. What it already read cannot be taken back. It can
-        ask to connect again, and you will see the consent screen.
+        ask to connect again, and {asked} the consent screen.
       </p>
     </Modal>
   );

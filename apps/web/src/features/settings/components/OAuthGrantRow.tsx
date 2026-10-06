@@ -1,10 +1,8 @@
 import { cn } from "../../../lib/cn";
 import { ClientMark } from "../../oauth/components/ClientMark";
 import type { OAuthGrant } from "../api/types";
-import { scopeChipClass } from "../lib/apiKeys";
 import { grantHostOf, grantMetaOf } from "../lib/oauthGrants";
-
-const PILL = "inline-flex rounded-full px-2 py-0.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.05em]";
+import { ScopeChips, STATUS_PILL } from "./ScopeChips";
 
 export function OAuthGrantRow({
   grant,
@@ -26,7 +24,10 @@ export function OAuthGrantRow({
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[13.5px] font-medium text-u-text">{grant.clientName}</span>
             <span
-              className={cn(PILL, grant.verified ? "bg-u-direct-tint text-u-direct" : "bg-u-signal-tint text-u-signal")}
+              className={cn(
+                STATUS_PILL,
+                grant.verified ? "bg-u-direct-tint text-u-direct" : "bg-u-signal-tint text-u-signal",
+              )}
             >
               {grant.verified ? "Verified" : "Unverified"}
             </span>
@@ -46,13 +47,7 @@ export function OAuthGrantRow({
           </button>
         )}
       </div>
-      <div className="ms-12 mt-2 flex flex-wrap gap-1.5">
-        {grant.scopes.map((scope) => (
-          <code key={scope} className={cn("rounded-[4px] px-1.5 py-0.5 font-mono text-[11px]", scopeChipClass(scope))}>
-            {scope}
-          </code>
-        ))}
-      </div>
+      <ScopeChips scopes={grant.scopes} className="ms-12 mt-2" />
     </li>
   );
 }

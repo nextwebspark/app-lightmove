@@ -5,9 +5,9 @@ import type { ClientIdentity } from "../api/types";
 import { clientLogoOf } from "../lib/consentRequest";
 
 /** The app's tile: what `clientLogoOf` allows, or its letter. Decorative — the name sits beside it. */
-export function ClientMark({ client: context, size = "lg" }: { client: ClientIdentity; size?: "md" | "lg" }) {
+export function ClientMark({ client, size = "lg" }: { client: ClientIdentity; size?: "md" | "lg" }) {
   const [isBroken, setIsBroken] = useState(false);
-  const logo = clientLogoOf(context);
+  const logo = clientLogoOf(client);
   const shown = logo?.kind === "url" && isBroken ? null : logo;
   return (
     <span
@@ -16,7 +16,7 @@ export function ClientMark({ client: context, size = "lg" }: { client: ClientIde
       className={cn(
         "grid flex-none place-items-center overflow-hidden font-bold",
         size === "lg" ? "size-11 rounded-[10px] text-lg" : "size-9 rounded-lg text-[13px]",
-        context.verified
+        client.verified
           ? "border border-u-border-strong bg-u-raised text-u-text"
           : "border border-dashed border-u-signal bg-u-signal-tint text-u-signal",
       )}
@@ -36,7 +36,7 @@ export function ClientMark({ client: context, size = "lg" }: { client: ClientIde
           onError={() => setIsBroken(true)}
         />
       ) : (
-        context.clientName.trim().charAt(0).toUpperCase() || "?"
+        client.clientName.trim().charAt(0).toUpperCase() || "?"
       )}
     </span>
   );

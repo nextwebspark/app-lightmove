@@ -37,9 +37,7 @@ describe("grantMetaOf", () => {
     expect(grantMetaOf(grant({ lastUsedAt: "2026-10-06T10:00:00Z" }), false, now)).toBe(
       `connected ${connected} · last used 2 hours ago`,
     );
-    expect(grantMetaOf(grant({ ownerName: null }), true, now)).toBe(
-      `A former member · connected ${connected} · never used`,
-    );
+    expect(grantMetaOf(grant(), true, now)).toBe(`Alok Kumar · connected ${connected} · never used`);
   });
 });
 

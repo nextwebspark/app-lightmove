@@ -108,7 +108,8 @@ export interface OAuthGrant {
   logoUri: string | null;
   scopes: ApiKeyScope[];
   ownerUserId: string;
-  ownerName: string | null;
+  /** Always someone: a grant ends with its owner's membership. */
+  ownerName: string;
   connectedAt: string;
   lastUsedAt: string | null;
   expiresAt: string | null;

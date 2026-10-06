@@ -9,6 +9,7 @@ import {
   EXPIRY_CHOICES,
   expiryDateAfter,
   KIND_LABEL,
+  MCP_SCOPE,
   readsSomething,
 } from "../lib/apiKeys";
 
@@ -38,7 +39,7 @@ export function CreateApiKeyModal({
   const [scopes, setScopes] = useState<ApiKeyScope[]>([...DEFAULT_SCOPES]);
   const [expiresInDays, setExpiresInDays] = useState(90);
   const blocked = !name.trim() || !readsSomething(scopes);
-  const opensMcp = scopes.includes("mcp:use");
+  const opensMcp = scopes.includes(MCP_SCOPE);
 
   const handleToggleScope = (scope: ApiKeyScope) =>
     setScopes((current) => (current.includes(scope) ? current.filter((held) => held !== scope) : [...current, scope]));
@@ -144,14 +145,12 @@ function ScopeCheckRow({
   scope,
   note,
   personalData,
-  opensMcp,
   checked,
   onToggle,
 }: {
   scope: ApiKeyScope;
   note: string;
   personalData: boolean;
-  opensMcp: boolean;
   checked: boolean;
   onToggle: () => void;
 }) {
@@ -174,7 +173,7 @@ function ScopeCheckRow({
               Personal data
             </span>
           )}
-          {opensMcp && (
+          {scope === MCP_SCOPE && (
             <span className="rounded-full bg-u-accent-tint px-[7px] py-px font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-u-accent">
               AI access
             </span>

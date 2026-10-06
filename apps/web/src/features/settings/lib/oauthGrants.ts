@@ -1,13 +1,12 @@
-import { formatInstantDate } from "../../../lib/format";
+import { formatInstantDate, formatTimeAgo } from "../../../lib/format";
 import type { OAuthGrant } from "../api/types";
-import { sinceLabel } from "./apiKeys";
 
 /** "connected 12 Sep 2026 · last used 2 hours ago", naming whose connection it is on the All view. */
 export function grantMetaOf(grant: OAuthGrant, showOwner: boolean, now: Date = new Date()): string {
   const parts: string[] = [];
-  if (showOwner) parts.push(grant.ownerName ?? "A former member");
+  if (showOwner) parts.push(grant.ownerName);
   parts.push(`connected ${formatInstantDate(grant.connectedAt)}`);
-  parts.push(grant.lastUsedAt ? `last used ${sinceLabel(grant.lastUsedAt, now)}` : "never used");
+  parts.push(grant.lastUsedAt ? `last used ${formatTimeAgo(grant.lastUsedAt, now)}` : "never used");
   return parts.join(" · ");
 }
 

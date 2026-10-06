@@ -116,6 +116,21 @@ describe("SettingsAiAppsPage", () => {
     expect(oauthGrantsApi.oauthGrants).toHaveBeenLastCalledWith(true, expect.anything());
   });
 
+  it("tells an admin disconnecting a colleague's app that the colleague is the one asked again", async () => {
+    vi.mocked(oauthGrantsApi.oauthGrants).mockImplementation(async (all) =>
+      all ? [aGrant({ id: "g3", ownerUserId: "u2", ownerName: "Sara Al-Mansour" })] : [],
+    );
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("radio", { name: /All in NextWebSpark Search/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect Claude" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Disconnect Claude?" });
+    expect(dialog).toHaveTextContent("Sara Al-Mansour's Claude loses access at once");
+    expect(dialog).toHaveTextContent("Sara Al-Mansour will see the consent screen");
+    expect(dialog).not.toHaveTextContent("you will see");
+  });
+
   it("gives a member only their own connections, with no All view", async () => {
     currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
     renderPage();
