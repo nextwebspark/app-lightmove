@@ -352,6 +352,22 @@ public enum ErrorCode {
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 
+    /** A key id that is not in the caller's workspace, or not one the caller may see. */
+    API_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "That API key does not exist"),
+
+    /** The caller already holds {@code lightmove.public-api.max-active-keys-per-user} live personal keys. */
+    API_KEY_LIMIT_REACHED(HttpStatus.CONFLICT, "You have the most API keys allowed. Revoke one you no longer use"),
+
+    /** Every refusal of a public API key — missing, malformed, unknown, revoked, expired or its owner's access gone — alike. */
+    API_KEY_INVALID(HttpStatus.UNAUTHORIZED, "The API key is missing, invalid or no longer active"),
+
+    /** A live key asking a route outside its scopes; the body names the scope as {@code requiredScope}. */
+    API_KEY_SCOPE_MISSING(HttpStatus.FORBIDDEN, "This API key does not carry the scope this request needs"),
+
+    /** A universe read past {@code lightmove.export.*}: refused, never truncated, as the export is. */
+    PUBLIC_API_UNIVERSE_TOO_LARGE(HttpStatus.BAD_REQUEST,
+            "This stage is too large to read in one call. Page through the companies and candidates routes instead"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

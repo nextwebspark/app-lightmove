@@ -306,7 +306,9 @@ DB_IAM_USER=you@example.com npm run dev:api:cloud               # Flyway applies
 
 `create-database.sh` is idempotent — on an existing database it says so and changes nothing.
 `ops/cloudsql/harden.sql` locks down the company reference table, and `ops/cloudsql/sync-companies.sh`
-fills it from the `brightdata` warehouse.
+fills it from the `brightdata` warehouse. It also creates the indexes a migration cannot on a table it does
+not own (V74's audit index, V112's universe name index): **re-run it as `postgres` after any deploy whose
+Flyway log warns that one was not created**, since nothing else fails or alerts when it is missing.
 
 ## Deploying
 

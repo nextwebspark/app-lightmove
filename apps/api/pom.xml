@@ -31,11 +31,15 @@
 		     already brings; later releases move http-client to 2.x underneath the connector. -->
 		<google-cloud-storage.version>2.55.0</google-cloud-storage.version>
 		<tink.version>1.18.0</tink.version>
+		<springdoc.version>3.1.1</springdoc.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
 		<!-- Overrides the 11.0.22 Boot 4.1.0 manages, which carries three critical
 		     authentication advisories (CVE-2026-65905, CVE-2026-65182, CVE-2026-68525).
 		     Remove once the parent manages 11.0.25 or later. -->
 		<tomcat.version>11.0.25</tomcat.version>
+		<!-- Overrides the 7.0.8 Boot 4.1.0 manages, whose spring-webmvc carries a critical remote code
+		     execution advisory (CVE-2026-47884, XsltView). Remove once the parent manages 7.0.9 or later. -->
+		<spring-framework.version>7.0.9</spring-framework.version>
 	</properties>
 
 	<dependencyManagement>
@@ -141,6 +145,13 @@
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-google-genai-embedding</artifactId>
+		</dependency>
+
+		<!-- The public API's OpenAPI 3.1 document and Swagger UI; 3.x is the line built on Boot 4. -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
 		</dependency>
 
 		<!-- Rate limiting on the auth endpoints -->

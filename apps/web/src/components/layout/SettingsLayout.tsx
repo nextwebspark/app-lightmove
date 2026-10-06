@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
+import { isPureClient } from "../../features/auth/roles";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { type SidebarGroup } from "./Sidebar";
@@ -17,6 +18,7 @@ const SETTINGS_SECTIONS = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Account" },
   { to: "/settings/security", label: "Security", icon: ICONS.lock, group: "Account" },
   { to: "/settings/workspaces", label: "Workspaces", icon: ICONS.allProjects, group: "Account" },
+  { to: "/settings/api-keys", label: "API keys", icon: ICONS.key, group: "Account", staffOnly: true },
   { to: "/settings/general", label: "General", icon: ICONS.settings, group: "Workspace" },
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
   { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
@@ -38,7 +40,8 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
  * The settings shell: breadcrumb topbar, the section rail, and a narrower content column than the
  * workspace screens.
  *
- * <p>Account is everyone's — a portal guest has a name and a timezone like anyone else. The Workspace
+ * <p>Account is everyone's — a portal guest has a name and a timezone like anyone else — except API keys,
+ * which are staff's. The Workspace
  * group is admin-only and the Platform group is LightMove staff's, matching the routes: hiding them is
  * presentation, and the route guards are the gate.
  */
@@ -47,6 +50,7 @@ export function SettingsLayout() {
   const { user } = useAuth();
 
   const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
+  const isClient = isPureClient(user?.workspace?.roles ?? []);
   const isLibraryEditor = user?.platformActions.includes("TEMPLATE_LIBRARY_MANAGE") ?? false;
   const visibleGroups: SettingsGroupLabel[] = [
     "Account",
@@ -56,7 +60,9 @@ export function SettingsLayout() {
 
   const groups: SidebarGroup[] = visibleGroups.map((group) => ({
     label: group,
-    items: SETTINGS_SECTIONS.filter((section) => section.group === group).map(
+    items: SETTINGS_SECTIONS.filter(
+      (section) => section.group === group && !(isClient && "staffOnly" in section),
+    ).map(
       ({ to, label, icon }) => ({ to, label, icon }),
     ),
   }));

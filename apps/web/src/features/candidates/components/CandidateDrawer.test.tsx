@@ -998,6 +998,20 @@ describe("CandidateDrawer", () => {
     expect(within(others).queryByText("Chief Financial Officer")).not.toBeInTheDocument();
   });
 
+  it("keeps Remove from mandate and Close in a footer every tab shares", async () => {
+    const onClose = vi.fn();
+    const onRemove = vi.fn();
+    renderDrawer({ candidate: yasmin, company: null, onClose, onDelete: onRemove });
+
+    await openTab("Timeline");
+    await userEvent.click(screen.getByRole("button", { name: "Remove from mandate" }));
+    expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+
+    // The header's ✕ and the footer's button both read "Close"; the footer's comes last.
+    await userEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it("gives a client seat the profile and contact tabs alone", async () => {
     renderDrawer({ candidate: yasmin, company: null, canWrite: false });
 

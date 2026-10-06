@@ -388,10 +388,9 @@
 
   <sc-if value="{{ drawerShown }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
-    <!-- One person, whichever position they were opened from. The same drawer opens from a position's
-         Companies grid and Candidates page (Position.dc.html), where it also knows the position it came
-         from: the note composer defaults to that position and its row is first under Positions. A client
-         contact never reaches this drawer — Positions, Notes and Timeline are staff-only. -->
+    <!-- One person, keyed by person id, staff-only. Profile · Contact · Records · Timeline is the same
+         four-tab shape as a position's executive drawer (Position.dc.html), which adds what belongs to a
+         position: status, the AI assessment, finding contacts, outreach and meetings. -->
     <aside role="dialog" aria-modal="true" aria-label="{{ dv.name }}" data-screen-label="Candidate drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:600px;max-width:94vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
       <div style="position:relative;flex:none;padding:16px 20px 0">
         <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;right:14px;top:14px;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
@@ -401,7 +400,6 @@
             <span style="display:flex;align-items:center;gap:6px">
               <h2 style="margin:0;font:600 16px var(--sans)">{{ dv.name }}</h2>
               <sc-if value="{{ dv.hasLi }}"><a href="#" aria-label="LinkedIn profile" style="display:flex;flex:none;align-items:center;opacity:.8"><span style="width:16px;height:15px;border-radius:2px;background:var(--text);color:var(--panel);font:700 10px/15px var(--sans);text-align:center">in</span></a></sc-if>
-              <button title="Edit details" style="border-radius:6px;padding:6px;color:var(--text3);opacity:.6;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text);opacity:1"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pencil }}"></path></svg></button>
             </span>
             <p style="margin:2px 0 0;font:400 12.5px var(--mono);color:var(--text2)">{{ dv.title }}</p>
             <p style="margin:4px 0 0;font:400 11.5px var(--mono);color:var(--text3)">{{ dv.context }}</p>
@@ -435,31 +433,6 @@
           </div>
         </sc-if>
 
-        <div data-screen-label="Tags" style="position:relative;margin-top:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
-          <sc-for list="{{ dv.tags }}" as="t" hint-placeholder-count="2">
-            <span style="{{ t.style }}">{{ t.label }}<button onClick="{{ removeTag }}" data-id="{{ t.id }}" aria-label="Remove tag {{ t.label }}" style="display:grid;width:14px;height:14px;place-items:center;border-radius:50%;margin-left:2px;padding:0;background:none;border:none;color:inherit;opacity:.7;cursor:pointer" style-hover="opacity:1"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="{{ ic.close }}"></path></svg></button></span>
-          </sc-for>
-          <button onClick="{{ toggleTagPicker }}" aria-expanded="{{ tagPickerOpen }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:999px;border:1px dashed var(--line);padding:2px 9px;font:500 11.5px var(--mono);color:var(--text3);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Tag</button>
-          <sc-if value="{{ tagPickerOpen }}" hint-placeholder-val="{{ false }}">
-            <div data-screen-label="Tag picker" style="position:absolute;left:0;top:30px;z-index:20;width:260px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow);animation:fadeUp .15s ease both">
-              <input value="{{ tagQuery }}" onChange="{{ onTagQuery }}" placeholder="Find or create a tag…" aria-label="Find or create a tag" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
-              <div style="margin-top:6px;display:flex;flex-direction:column">
-                <sc-for list="{{ tagOptions }}" as="to" hint-placeholder-count="5">
-                  <button onClick="{{ pickTag }}" data-id="{{ to.id }}" role="checkbox" aria-checked="{{ to.on }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:6px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
-                    <span style="display:grid;flex:none;place-items:center;width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ to.boxColor }};background:{{ to.boxBg }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ to.tick }}"><path d="{{ ic.check }}"></path></svg></span>
-                    <span style="{{ to.style }}">{{ to.label }}</span>
-                    <span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ to.count }}</span>
-                  </button>
-                </sc-for>
-                <sc-if value="{{ canCreateTag }}">
-                  <button onClick="{{ createTag }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 6px;text-align:left;font:500 12.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Create “{{ tagQueryTrim }}”</button>
-                </sc-if>
-              </div>
-              <div style="margin:6px 2px 0;border-top:1px solid var(--line-soft);padding-top:6px;font:400 11px var(--mono);color:var(--text3)">Tags are shared by your whole team. Rename or retire them in <a href="Settings.dc.html?section=candidate-tags">Settings</a>.</div>
-            </div>
-          </sc-if>
-        </div>
-
         <div role="tablist" aria-label="Candidate sections" style="margin-top:12px;display:flex;gap:2px;border-bottom:1px solid var(--line-soft)">
           <sc-for list="{{ drawerTabs }}" as="dt" hint-placeholder-count="3">
             <button onClick="{{ setDrawerTab }}" data-id="{{ dt.key }}" role="tab" aria-selected="{{ dt.on }}" style="{{ dt.style }}">{{ dt.label }}<sc-if value="{{ dt.hasCount }}"><span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text3)">{{ dt.count }}</span></sc-if></button>
@@ -469,9 +442,288 @@
 
       <div style="min-height:0;flex:1;overflow-y:auto;padding:0 20px">
         <sc-if value="{{ tabProfile }}" hint-placeholder-val="{{ true }}">
-          <div data-screen-label="Positions" style="padding:16px 0 10px;border-bottom:1px solid var(--line-soft)">
+          <sc-for list="{{ dv.sections }}" as="sx" hint-placeholder-count="5">
+            <section style="border-bottom:1px solid var(--line-soft)">
+              <button onClick="{{ toggleSec }}" data-id="{{ sx.id }}" style="margin:0 -8px;display:flex;width:calc(100% + 16px);min-width:0;align-items:center;gap:8px;border-radius:6px;padding:14px 8px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ sx.chev }}"><path d="{{ ic.chevronDown }}"></path></svg>
+                <span style="flex:none;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">{{ sx.title }}</span>
+                <sc-if value="{{ sx.showSummary }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:4px;font:400 11.5px var(--mono);color:var(--text3)">{{ sx.summary }}</span></sc-if>
+              </button>
+              <sc-if value="{{ sx.open }}">
+                <div style="padding-bottom:16px">
+                  <sc-if value="{{ sx.isSummary }}"><p style="{{ dv.summaryStyle }}">{{ dv.summary }}</p><sc-if value="{{ dv.summaryLong }}"><button onClick="{{ toggleSummaryMore }}" style="margin-top:4px;padding:0;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">{{ dv.summaryMoreLabel }}</button></sc-if></sc-if>
+                  <sc-if value="{{ sx.isExperience }}">
+                    <ol style="margin:0 0 0 5px;list-style:none;border-left:1px solid var(--line);padding-left:16px">
+                      <sc-for list="{{ dv.career }}" as="cg">
+                        <li style="position:relative;padding-bottom:14px">
+                          <span style="{{ cg.dotStyle }}"></span>
+                          <div style="font:600 13px var(--sans);color:var(--text)">{{ cg.company }}</div>
+                          <div style="margin-top:2px;font:500 13px var(--sans);color:var(--text2)">{{ cg.title }}</div>
+                          <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ cg.period }}</div>
+                        </li>
+                      </sc-for>
+                    </ol>
+                    <sc-if value="{{ dv.careerLong }}"><button onClick="{{ toggleCareerAll }}" style="margin-left:21px;padding:0;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">{{ dv.careerMoreLabel }}</button></sc-if>
+                  </sc-if>
+                  <sc-if value="{{ sx.isComp }}">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:12px;row-gap:10px">
+                      <sc-for list="{{ dv.compTiles }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
+                    </div>
+                    <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">One package on file for this person, read by every position they are in.</p>
+                  </sc-if>
+                  <sc-if value="{{ sx.isBackground }}">
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:12px;row-gap:10px">
+                      <sc-for list="{{ dv.bgTiles }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-if>
+            </section>
+          </sc-for>
+          <p style="margin:0;padding:16px 0;font:400 11px var(--mono);color:var(--text3)">{{ dv.footer }}</p>
+        </sc-if>
+
+        <sc-if value="{{ tabContact }}" hint-placeholder-val="{{ false }}">
+          <!-- What is on file, nothing more. Finding and editing contacts, sequences and meetings are a
+               position's acts, in the executive drawer (Position.dc.html, In universe). -->
+          <div data-screen-label="Contact" style="padding-top:6px">
+            <sc-for list="{{ dv.channels }}" as="ch" hint-placeholder-count="3">
+              <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line-soft)">
+                <sc-if value="{{ ch.disc }}"><span style="display:grid;width:28px;height:28px;flex:none;place-items:center;border-radius:50%;background:var(--panel2);color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ch.icon }}"></path></svg></span></sc-if>
+                <sc-if value="{{ ch.isLi }}"><span style="display:grid;width:28px;height:28px;flex:none;place-items:center"><span style="width:22px;height:22px;border-radius:4px;background:#0a66c2;color:#fff;font:700 13px/22px var(--sans);text-align:center">in</span></span></sc-if>
+                <div style="min-width:0;flex:1">
+                  <div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ ch.label }}</div>
+                  <sc-for list="{{ ch.lines }}" as="cl">
+                    <div style="display:flex;min-width:0;align-items:center;gap:8px;padding:2px 0">
+                      <sc-if value="{{ cl.isLink }}"><a href="#" title="{{ cl.value }}" style="display:inline-flex;min-width:0;align-items:center;gap:4px;font:400 13px var(--mono);color:var(--sky);text-decoration:none"><span style="color:var(--text3)">{{ cl.prefix }}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ cl.handle }}</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ ic.externalLink }}"></path></svg></a></sc-if>
+                      <sc-if value="{{ cl.isPlain }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--mono);color:var(--text)">{{ cl.value }}</span></sc-if>
+                      <sc-if value="{{ cl.hasKind }}"><span style="{{ cl.kindStyle }}">{{ cl.kind }}</span></sc-if>
+                      <sc-if value="{{ cl.verified }}"><span style="display:inline-flex;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;background:var(--green-dim);color:var(--green)">Verified</span></sc-if>
+                      <button onClick="{{ copyContact }}" data-id="{{ cl.what }}" aria-label="Copy {{ cl.what }}" title="Copy" style="display:grid;flex:none;place-items:center;border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.copy }}"></path></svg></button>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ ch.empty }}"><p style="margin:0;font:400 13px var(--mono);color:var(--text3)">{{ ch.emptyLine }}</p></sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ dv.dnc }}"><p style="margin:12px 0 0;font:400 12px var(--mono);color:var(--red)">Do not contact is set — lookups are off for this person.</p></sc-if>
+          </div>
+        </sc-if>
+
+        <!-- Records: what the team keeps on the person, shared by every position — tags, notes, documents,
+             and the positions themselves. Old ?drawerTab=notes|documents links open here. -->
+        <sc-if value="{{ tabRecords }}" hint-placeholder-val="{{ false }}">
+          <section style="padding:16px 0;border-bottom:1px solid var(--line-soft)">
+            <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Tags</h3></div>
+            <div data-screen-label="Tags" style="position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+              <sc-for list="{{ dv.tags }}" as="t" hint-placeholder-count="2">
+                <span style="{{ t.style }}">{{ t.label }}<button onClick="{{ removeTag }}" data-id="{{ t.id }}" aria-label="Remove tag {{ t.label }}" style="display:grid;width:14px;height:14px;place-items:center;border-radius:50%;margin-left:2px;padding:0;background:none;border:none;color:inherit;opacity:.7;cursor:pointer" style-hover="opacity:1"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="{{ ic.close }}"></path></svg></button></span>
+              </sc-for>
+              <button onClick="{{ toggleTagPicker }}" aria-expanded="{{ tagPickerOpen }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:999px;border:1px dashed var(--line);padding:2px 9px;font:500 11.5px var(--mono);color:var(--text3);background:none;cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Tag</button>
+              <sc-if value="{{ tagPickerOpen }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Tag picker" style="position:absolute;left:0;top:30px;z-index:20;width:260px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:8px;box-shadow:var(--shadow);animation:fadeUp .15s ease both">
+                  <input value="{{ tagQuery }}" onChange="{{ onTagQuery }}" placeholder="Find or create a tag…" aria-label="Find or create a tag" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:7px 9px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+                  <div style="margin-top:6px;display:flex;flex-direction:column">
+                    <sc-for list="{{ tagOptions }}" as="to" hint-placeholder-count="5">
+                      <button onClick="{{ pickTag }}" data-id="{{ to.id }}" role="checkbox" aria-checked="{{ to.on }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:6px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
+                        <span style="display:grid;flex:none;place-items:center;width:15px;height:15px;border-radius:4px;box-shadow:inset 0 0 0 1.5px {{ to.boxColor }};background:{{ to.boxBg }}"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:var(--on-amber);opacity:{{ to.tick }}"><path d="{{ ic.check }}"></path></svg></span>
+                        <span style="{{ to.style }}">{{ to.label }}</span>
+                        <span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ to.count }}</span>
+                      </button>
+                    </sc-for>
+                    <sc-if value="{{ canCreateTag }}">
+                      <button onClick="{{ createTag }}" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 6px;text-align:left;font:500 12.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Create “{{ tagQueryTrim }}”</button>
+                    </sc-if>
+                  </div>
+                  <div style="margin:6px 2px 0;border-top:1px solid var(--line-soft);padding-top:6px;font:400 11px var(--mono);color:var(--text3)">Tags are shared by your whole team. Rename or retire them in <a href="Settings.dc.html?section=candidate-tags">Settings</a>.</div>
+                </div>
+              </sc-if>
+            </div>
+          </section>
+
+          <section data-screen-label="Notes" style="padding:16px 0;border-bottom:1px solid var(--line-soft)">
+            <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Notes</h3></div>
+            <div data-screen-label="Note composer" style="border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:12px">
+              <div role="radiogroup" aria-label="Kind of note" style="display:flex;flex-wrap:wrap;gap:4px">
+                <sc-for list="{{ noteKinds }}" as="nk" hint-placeholder-count="4">
+                  <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg>{{ nk.label }}</button>
+                </sc-for>
+              </div>
+              <textarea value="{{ noteText }}" onChange="{{ onNoteText }}" rows="3" maxLength="4000" aria-label="Note" placeholder="{{ notePlaceholder }}" style="margin-top:8px;width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                <label style="display:inline-flex;min-width:0;align-items:center;gap:6px;font:400 11.5px var(--mono);color:var(--text3)">About
+                  <select value="{{ notePos }}" onChange="{{ setNotePos }}" aria-label="Position this note is about" style="max-width:280px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
+                    <sc-for list="{{ notePosOptions }}" as="np"><option value="{{ np.value }}">{{ np.label }}</option></sc-for>
+                  </select>
+                </label>
+                <button onClick="{{ saveNote }}" style="margin-left:auto;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ saveNoteOpacity }}" style-hover="filter:brightness(1.05)">Save note</button>
+              </div>
+            </div>
+            <p style="margin:8px 2px 14px;font:400 11px var(--mono);color:var(--text3)">Shared with your whole team, on every position this person is in. Client contacts never see notes.</p>
+            <sc-for list="{{ dv.notes }}" as="n" hint-placeholder-count="3">
+              <article style="margin-bottom:10px;border-radius:8px;border:1px solid {{ n.border }};background:{{ n.bg }};padding:11px 13px">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                  <span style="{{ n.avStyle }}">{{ n.initials }}</span>
+                  <span style="font:600 12.5px var(--sans);color:var(--text)">{{ n.author }}</span>
+                  <span style="{{ n.kindStyle }}">{{ n.kind }}</span>
+                  <sc-if value="{{ n.pinned }}"><span style="display:inline-flex;align-items:center;gap:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--amber)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pin }}"></path></svg>Pinned</span></sc-if>
+                  <span title="{{ n.exact }}" style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ n.when }}</span>
+                </div>
+                <p style="margin:8px 0 0;white-space:pre-wrap;font:400 13px/1.55 var(--sans);color:var(--text)">{{ n.body }}</p>
+                <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                  <sc-if value="{{ n.hasPos }}"><span style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;background:var(--panel2);padding:2px 7px;font:500 11px var(--mono);color:var(--text2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.position }}"></path></svg>{{ n.pos }}</span></sc-if>
+                  <sc-if value="{{ n.edited }}"><span style="font:400 11px var(--mono);color:var(--text3)">{{ n.editedLine }}</span></sc-if>
+                  <span style="margin-left:auto;display:flex;gap:2px">
+                    <button onClick="{{ togglePin }}" data-id="{{ n.id }}" style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">{{ n.pinLabel }}</button>
+                    <sc-if value="{{ n.canEdit }}">
+                      <button style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Edit</button>
+                      <button onClick="{{ deleteNote }}" data-id="{{ n.id }}" style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--red)">Delete</button>
+                    </sc-if>
+                  </span>
+                </div>
+              </article>
+            </sc-for>
+            <sc-if value="{{ dv.noNotes }}"><p style="margin:0;padding:20px 0;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">No notes yet. The first call or meeting you log will sit here for the whole team.</p></sc-if>
+          </section>
+
+          <section style="padding:16px 0 8px;border-bottom:1px solid var(--line-soft)">
+            <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between"><h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Documents</h3></div>
+            <!-- The whole section is a drop target. A file named like the latest file of a document here becomes
+                 its next version unless the tray says to keep it apart; the same bytes are refused. -->
+            <div data-screen-label="Documents" style="position:relative;padding-bottom:8px">
+              <div data-screen-label="Drop zone" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-radius:10px;border:1.5px dashed var(--line);background:var(--panel2);padding:12px 14px">
+                <span style="display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:8px;background:var(--panel);color:var(--text3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.uploadCloud }}"></path></svg></span>
+                <div style="min-width:0;flex:1">
+                  <div style="font:600 13px var(--sans);color:var(--text)">Drop files anywhere on this section</div>
+                  <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">PDF, Word, ODT, RTF, TXT, PNG or JPEG · up to 20 MB each</div>
+                </div>
+                <button onClick="{{ pickFiles }}" style="display:inline-flex;flex:none;align-items:center;gap:6px;border-radius:8px;padding:8px 13px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.exportOut }}"></path></svg>Upload</button>
+              </div>
+
+              <sc-if value="{{ dc.hasTray }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Upload tray" style="margin-top:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px">
+                    <span style="font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Ready to upload</span>
+                    <button onClick="{{ clearTray }}" style="font:500 12px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Clear</button>
+                  </div>
+                  <sc-for list="{{ dc.tray }}" as="tr" hint-placeholder-count="3">
+                    <div style="{{ tr.rowStyle }}">
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <span style="{{ tr.badgeStyle }}">{{ tr.ext }}</span>
+                        <div style="min-width:0;flex:1">
+                          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">{{ tr.file }}</div>
+                          <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ tr.size }}</div>
+                        </div>
+                        <select value="{{ tr.cat }}" onChange="{{ setTrayCat }}" data-id="{{ tr.id }}" disabled="{{ tr.dup }}" aria-label="Category of {{ tr.file }}" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
+                          <sc-for list="{{ dc.categoryOptions }}" as="co"><option value="{{ co.value }}">{{ co.label }}</option></sc-for>
+                        </select>
+                        <button onClick="{{ dropTrayItem }}" data-id="{{ tr.id }}" aria-label="Remove {{ tr.file }}" style="flex:none;border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.close }}"></path></svg></button>
+                      </div>
+                      <div style="margin:7px 0 0 42px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px">
+                        <span style="{{ tr.lineStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none"><path d="{{ tr.icon }}"></path></svg><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ tr.line }}</span></span>
+                        <sc-if value="{{ tr.canSeparate }}">
+                          <button onClick="{{ toggleSeparate }}" data-id="{{ tr.id }}" role="switch" aria-checked="{{ tr.separate }}" style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--mono);color:var(--text2);background:none;border:none;cursor:pointer"><span style="{{ tr.switchTrack }}"><span style="{{ tr.switchKnob }}"></span></span>Keep as a separate document</button>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--line-soft);padding:10px 12px">
+                    <span style="min-width:0;flex:1;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ dc.trayNote }}</span>
+                    <button onClick="{{ sendTray }}" style="flex:none;border-radius:8px;padding:8px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ dc.uploadOpacity }}" style-hover="filter:brightness(1.05)">{{ dc.uploadLabel }}</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <sc-for list="{{ dc.groups }}" as="g" hint-placeholder-count="2">
+                <section style="margin-top:18px">
+                  <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">{{ g.label }}<span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9.5px var(--mono)">{{ g.count }}</span></div>
+                  <sc-for list="{{ g.docs }}" as="d" hint-placeholder-count="2">
+                    <article style="position:relative;margin-bottom:8px;border-radius:8px;border:1px solid {{ d.border }};background:var(--panel);padding:10px 12px">
+                      <div style="display:flex;align-items:flex-start;gap:10px">
+                        <span style="{{ d.badgeStyle }}">{{ d.ext }}</span>
+                        <div style="min-width:0;flex:1">
+                          <div style="display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:6px">
+                            <sc-if value="{{ d.primary }}"><span title="Primary CV — the one the header opens" style="display:inline-flex;color:var(--amber)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="{{ ic.star }}"></path></svg></span></sc-if>
+                            <sc-if value="{{ d.notRenaming }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ d.title }}</span></sc-if>
+                            <sc-if value="{{ d.renaming }}">
+                              <input value="{{ renameText }}" onChange="{{ onRenameText }}" aria-label="Document title" style="min-width:0;flex:1;border-radius:6px;border:1px solid var(--sky);background:var(--panel2);padding:4px 8px;font:500 13px var(--sans);color:var(--text);outline:none">
+                              <button onClick="{{ saveRename }}" style="border-radius:6px;padding:4px 9px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Save</button>
+                            </sc-if>
+                            <span style="{{ d.catStyle }}">{{ d.cat }}</span>
+                            <span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">{{ d.v }}</span>
+                          </div>
+                          <div title="{{ d.exact }}" style="margin-top:4px;font:400 11px var(--mono);color:var(--text3)">{{ d.meta }}</div>
+                        </div>
+                        <div style="display:flex;flex:none;align-items:center;gap:2px">
+                          <sc-if value="{{ d.previewable }}"><button onClick="{{ openPreview }}" data-id="{{ d.id }}" title="Preview" aria-label="Preview {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.eye }}"></path></svg></button></sc-if>
+                          <button onClick="{{ downloadDoc }}" data-id="{{ d.id }}" title="Download" aria-label="Download {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg></button>
+                          <button onClick="{{ toggleDocMenu }}" data-id="{{ d.id }}" aria-haspopup="menu" aria-expanded="{{ d.menuOpen }}" aria-label="More for {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.moreH }}"></path></svg></button>
+                        </div>
+                      </div>
+                      <div style="margin:6px 0 0 42px;display:flex;flex-wrap:wrap;align-items:center;gap:4px">
+                        <button onClick="{{ uploadVersion }}" data-id="{{ d.id }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 6px;margin-left:-6px;font:500 11.5px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.exportOut }}"></path></svg>Upload new version</button>
+                        <sc-if value="{{ d.hasHistory }}">
+                          <button onClick="{{ toggleHistory }}" data-id="{{ d.id }}" aria-expanded="{{ d.historyOpen }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 6px;font:500 11.5px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="{{ d.historyChev }}"><path d="{{ ic.chevronDown }}"></path></svg>{{ d.historyLabel }}</button>
+                        </sc-if>
+                      </div>
+                      <sc-if value="{{ d.historyOpen }}">
+                        <ol data-screen-label="Version history" style="margin:8px 0 2px 42px;list-style:none;padding:0;border-top:1px solid var(--line-soft)">
+                          <sc-for list="{{ d.versions }}" as="vh" hint-placeholder-count="3">
+                            <li style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);padding:7px 0">
+                              <span style="flex:none;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">v{{ vh.no }}</span>
+                              <div style="min-width:0;flex:1">
+                                <div style="display:flex;align-items:center;gap:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12.5px var(--sans);color:var(--text)">{{ vh.file }}</span><sc-if value="{{ vh.current }}"><span style="flex:none;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--green)">Current</span></sc-if></div>
+                                <div style="margin-top:1px;font:400 11px var(--mono);color:var(--text3)">{{ vh.meta }}</div>
+                              </div>
+                              <button onClick="{{ downloadDoc }}" data-id="{{ vh.key }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:4px 7px;font:500 11.5px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Download</button>
+                              <button onClick="{{ deleteVersion }}" data-id="{{ vh.key }}" title="{{ vh.delTitle }}" style="{{ vh.delStyle }}" style-hover="background:var(--panel2);color:var(--red)">Delete</button>
+                            </li>
+                          </sc-for>
+                        </ol>
+                      </sc-if>
+                      <sc-if value="{{ d.menuOpen }}">
+                        <div role="menu" data-screen-label="Document menu" style="position:absolute;right:8px;top:40px;z-index:20;width:236px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow);animation:fadeUp .15s ease both">
+                          <button onClick="{{ startRename }}" data-id="{{ d.id }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.pencil }}"></path></svg>Rename</button>
+                          <sc-if value="{{ d.canMakePrimary }}">
+                            <button onClick="{{ makePrimary }}" data-id="{{ d.id }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="{{ ic.star }}"></path></svg>Make primary CV</button>
+                          </sc-if>
+                          <div style="padding:8px 8px 4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Category</div>
+                          <div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 8px 8px">
+                            <sc-for list="{{ d.catOptions }}" as="cc"><button onClick="{{ setDocCat }}" data-id="{{ cc.key }}" role="menuitemradio" style="{{ cc.style }}">{{ cc.label }}</button></sc-for>
+                          </div>
+                          <div style="margin:2px 0;border-top:1px solid var(--line-soft)"></div>
+                          <button onClick="{{ deleteDoc }}" data-id="{{ d.id }}" role="menuitem" title="{{ d.delTitle }}" style="{{ d.delStyle }}" style-hover="background:var(--red-dim)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg>Delete document</button>
+                        </div>
+                      </sc-if>
+                    </article>
+                  </sc-for>
+                </section>
+              </sc-for>
+
+              <sc-if value="{{ dc.none }}" hint-placeholder-val="{{ false }}">
+                <div style="padding:34px 12px 20px;text-align:center">
+                  <span style="display:inline-grid;width:40px;height:40px;place-items:center;border-radius:10px;background:var(--panel2);color:var(--text3)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fileText }}"></path></svg></span>
+                  <p style="margin:10px 0 0;font:600 13px var(--sans);color:var(--text)">No documents yet</p>
+                  <p style="margin:4px auto 0;max-width:340px;font:400 12px/1.5 var(--mono);color:var(--text3)">A CV, cover letter or reference filed here is shared by every position this person is in. The first CV becomes the one the header opens.</p>
+                </div>
+              </sc-if>
+              <p style="margin:14px 2px 0;font:400 11px var(--mono);color:var(--text3)">Shared with your whole team. Client contacts never see documents, and every download is recorded.</p>
+
+              <sc-if value="{{ dc.dropping }}" hint-placeholder-val="{{ false }}">
+                <div onClick="{{ endDrop }}" data-screen-label="Dropping files" style="position:absolute;inset:8px -8px 0;z-index:30;display:grid;place-items:center;border-radius:12px;border:2px dashed var(--amber);background:color-mix(in srgb,var(--panel) 82%,var(--amber) 18%);cursor:copy">
+                  <div style="text-align:center">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--amber)"><path d="{{ ic.uploadCloud }}"></path></svg>
+                    <div style="margin-top:8px;font:600 14px var(--sans);color:var(--text)">{{ dc.dropLine }}</div>
+                    <div style="margin-top:3px;font:400 11.5px var(--mono);color:var(--text3)">You choose each file's category before anything is uploaded</div>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </section>
+
+          <section data-screen-label="Positions" style="padding:16px 0 10px">
             <div style="margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
-              <span style="display:inline-flex;align-items:center;gap:8px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Positions<span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9.5px var(--mono)">{{ dv.positionCount }}</span></span>
+              <h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Positions</h3>
               <button onClick="{{ addOneToPosition }}" style="display:inline-flex;align-items:center;gap:6px;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.plus }}"></path></svg>Add to position</button>
             </div>
             <sc-for list="{{ dv.mappings }}" as="m" hint-placeholder-count="2">
@@ -487,107 +739,8 @@
                 </select>
               </div>
             </sc-for>
-            <sc-if value="{{ dv.noMappings }}"><p style="margin:0 0 8px;font:400 12px var(--mono);color:var(--text3)">Not in any position right now. Everything below stays on file for the next search.</p></sc-if>
-          </div>
-
-          <sc-for list="{{ dv.sections }}" as="sx" hint-placeholder-count="5">
-            <section style="border-bottom:1px solid var(--line-soft)">
-              <button onClick="{{ toggleSec }}" data-id="{{ sx.id }}" style="margin:0 -8px;display:flex;width:calc(100% + 16px);min-width:0;align-items:center;gap:8px;border-radius:6px;padding:14px 8px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ sx.chev }}"><path d="{{ ic.chevronDown }}"></path></svg>
-                <span style="flex:none;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">{{ sx.title }}</span>
-                <sc-if value="{{ sx.showSummary }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-left:4px;font:400 11.5px var(--mono);color:var(--text3)">{{ sx.summary }}</span></sc-if>
-              </button>
-              <sc-if value="{{ sx.open }}">
-                <div style="padding-bottom:16px">
-                  <sc-if value="{{ sx.isSummary }}"><p style="margin:0;font-size:13px;line-height:1.6;color:var(--text2)">{{ dv.summary }}</p></sc-if>
-                  <sc-if value="{{ sx.isExperience }}">
-                    <ol style="margin:0 0 0 5px;list-style:none;border-left:1px solid var(--line);padding-left:16px">
-                      <sc-for list="{{ dv.career }}" as="cg">
-                        <li style="position:relative;padding-bottom:14px">
-                          <span style="{{ cg.dotStyle }}"></span>
-                          <div style="font:600 13px var(--sans);color:var(--text)">{{ cg.company }}</div>
-                          <div style="margin-top:2px;font:500 13px var(--sans);color:var(--text2)">{{ cg.title }}</div>
-                          <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ cg.period }}</div>
-                        </li>
-                      </sc-for>
-                    </ol>
-                  </sc-if>
-                  <sc-if value="{{ sx.isComp }}">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:12px;row-gap:10px">
-                      <sc-for list="{{ dv.compTiles }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
-                    </div>
-                    <p style="margin:10px 0 0;font:400 11px var(--mono);color:var(--text3)">One package on file for this person, read by every position they are in.</p>
-                  </sc-if>
-                  <sc-if value="{{ sx.isBackground }}">
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:12px;row-gap:10px">
-                      <sc-for list="{{ dv.bgTiles }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
-                    </div>
-                  </sc-if>
-                  <sc-if value="{{ sx.isContact }}">
-                    <sc-for list="{{ dv.contactLines }}" as="cl">
-                      <div style="display:flex;align-items:center;gap:8px;padding:5px 0">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="{{ cl.icon }}"></path></svg>
-                        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--mono);color:var(--text)">{{ cl.value }}</span>
-                        <sc-if value="{{ cl.hasKind }}"><span style="{{ cl.kindStyle }}">{{ cl.kind }}</span></sc-if>
-                        <sc-if value="{{ cl.verified }}"><span title="Verified" style="display:inline-flex;color:var(--green)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.check }}"></path></svg></span></sc-if>
-                      </div>
-                    </sc-for>
-                    <sc-if value="{{ dv.noContacts }}"><p style="margin:0;font:400 12px var(--mono);color:var(--text3)">No email or phone on file.</p></sc-if>
-                    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px">
-                      <sc-for list="{{ dv.findButtons }}" as="fb">
-                        <button disabled="{{ fb.disabled }}" title="{{ fb.title }}" style="{{ fb.style }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ fb.icon }}"></path></svg>{{ fb.label }}</button>
-                      </sc-for>
-                    </div>
-                  </sc-if>
-                </div>
-              </sc-if>
-            </section>
-          </sc-for>
-          <p style="margin:0;padding:16px 0;font:400 11px var(--mono);color:var(--text3)">{{ dv.footer }}</p>
-        </sc-if>
-
-        <sc-if value="{{ tabNotes }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Note composer" style="margin-top:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:12px">
-            <div role="radiogroup" aria-label="Kind of note" style="display:flex;flex-wrap:wrap;gap:4px">
-              <sc-for list="{{ noteKinds }}" as="nk" hint-placeholder-count="4">
-                <button onClick="{{ setNoteKind }}" data-id="{{ nk.key }}" role="radio" aria-checked="{{ nk.on }}" style="{{ nk.style }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ nk.icon }}"></path></svg>{{ nk.label }}</button>
-              </sc-for>
-            </div>
-            <textarea value="{{ noteText }}" onChange="{{ onNoteText }}" rows="3" maxLength="4000" aria-label="Note" placeholder="{{ notePlaceholder }}" style="margin-top:8px;width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:10px 12px;font:400 13px/1.55 var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
-            <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-              <label style="display:inline-flex;min-width:0;align-items:center;gap:6px;font:400 11.5px var(--mono);color:var(--text3)">About
-                <select value="{{ notePos }}" onChange="{{ setNotePos }}" aria-label="Position this note is about" style="max-width:280px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
-                  <sc-for list="{{ notePosOptions }}" as="np"><option value="{{ np.value }}">{{ np.label }}</option></sc-for>
-                </select>
-              </label>
-              <button onClick="{{ saveNote }}" style="margin-left:auto;border-radius:8px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ saveNoteOpacity }}" style-hover="filter:brightness(1.05)">Save note</button>
-            </div>
-          </div>
-          <p style="margin:8px 2px 14px;font:400 11px var(--mono);color:var(--text3)">Shared with your whole team, on every position this person is in. Client contacts never see notes.</p>
-          <sc-for list="{{ dv.notes }}" as="n" hint-placeholder-count="3">
-            <article style="margin-bottom:10px;border-radius:8px;border:1px solid {{ n.border }};background:{{ n.bg }};padding:11px 13px">
-              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-                <span style="{{ n.avStyle }}">{{ n.initials }}</span>
-                <span style="font:600 12.5px var(--sans);color:var(--text)">{{ n.author }}</span>
-                <span style="{{ n.kindStyle }}">{{ n.kind }}</span>
-                <sc-if value="{{ n.pinned }}"><span style="display:inline-flex;align-items:center;gap:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--amber)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pin }}"></path></svg>Pinned</span></sc-if>
-                <span title="{{ n.exact }}" style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ n.when }}</span>
-              </div>
-              <p style="margin:8px 0 0;white-space:pre-wrap;font:400 13px/1.55 var(--sans);color:var(--text)">{{ n.body }}</p>
-              <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
-                <sc-if value="{{ n.hasPos }}"><span style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;background:var(--panel2);padding:2px 7px;font:500 11px var(--mono);color:var(--text2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.position }}"></path></svg>{{ n.pos }}</span></sc-if>
-                <sc-if value="{{ n.edited }}"><span style="font:400 11px var(--mono);color:var(--text3)">{{ n.editedLine }}</span></sc-if>
-                <span style="margin-left:auto;display:flex;gap:2px">
-                  <button onClick="{{ togglePin }}" data-id="{{ n.id }}" style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">{{ n.pinLabel }}</button>
-                  <sc-if value="{{ n.canEdit }}">
-                    <button style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Edit</button>
-                    <button onClick="{{ deleteNote }}" data-id="{{ n.id }}" style="border-radius:5px;padding:3px 7px;font:500 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--red)">Delete</button>
-                  </sc-if>
-                </span>
-              </div>
-            </article>
-          </sc-for>
-          <sc-if value="{{ dv.noNotes }}"><p style="margin:0;padding:20px 0;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">No notes yet. The first call or meeting you log will sit here for the whole team.</p></sc-if>
+            <sc-if value="{{ dv.noMappings }}"><p style="margin:0 0 8px;font:400 12px var(--mono);color:var(--text3)">Not in any position right now. Everything on file stays for the next search.</p></sc-if>
+          </section>
         </sc-if>
 
         <sc-if value="{{ tabTimeline }}" hint-placeholder-val="{{ false }}">
@@ -598,7 +751,7 @@
           </div>
           <p style="margin:10px 2px 4px;font:400 11px var(--mono);color:var(--text3)">Everything done to this person, by whom and when, on every position. Nothing here can be edited.</p>
           <div data-screen-label="Timeline" role="feed" aria-label="Timeline">
-            <sc-for list="{{ dv.tlDays }}" as="td" hint-placeholder-count="3">
+            <sc-for list="{{ dv.tlDays }}" as="td" hint-placeholder-count="2">
               <section style="padding-top:10px">
                 <div style="padding:4px 0 6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">{{ td.label }}</div>
                 <sc-for list="{{ td.entries }}" as="te" hint-placeholder-count="3">
@@ -614,146 +767,13 @@
               </section>
             </sc-for>
             <sc-if value="{{ dv.noTimeline }}"><p style="margin:0;padding:20px 0;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">Nothing of this kind recorded yet.</p></sc-if>
+            <sc-if value="{{ dv.tlCut }}"><button onClick="{{ showMoreTimeline }}" style="margin:6px 0 16px;padding:0;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">{{ dv.tlMoreLabel }}</button></sc-if>
           </div>
         </sc-if>
 
-        <!-- The whole tab is a drop target. A file named like the latest file of a document here becomes
-             its next version unless the tray says to keep it apart; the same bytes are refused. -->
-        <sc-if value="{{ tabDocuments }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Documents" style="position:relative;min-height:100%;padding-bottom:8px">
-            <div data-screen-label="Drop zone" style="margin-top:16px;display:flex;align-items:center;gap:12px;border-radius:10px;border:1.5px dashed var(--line);background:var(--panel2);padding:12px 14px">
-              <span style="display:grid;width:34px;height:34px;flex:none;place-items:center;border-radius:8px;background:var(--panel);color:var(--text3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.uploadCloud }}"></path></svg></span>
-              <div style="min-width:0;flex:1">
-                <div style="font:600 13px var(--sans);color:var(--text)">Drop files anywhere on this tab</div>
-                <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">PDF, Word, ODT, RTF, TXT, PNG or JPEG · up to 20 MB each</div>
-              </div>
-              <button onClick="{{ pickFiles }}" style="display:inline-flex;flex:none;align-items:center;gap:6px;border-radius:8px;padding:8px 13px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.exportOut }}"></path></svg>Upload</button>
-            </div>
-
-            <sc-if value="{{ dc.hasTray }}" hint-placeholder-val="{{ false }}">
-              <div data-screen-label="Upload tray" style="margin-top:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)">
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px">
-                  <span style="font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Ready to upload</span>
-                  <button onClick="{{ clearTray }}" style="font:500 12px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Clear</button>
-                </div>
-                <sc-for list="{{ dc.tray }}" as="tr" hint-placeholder-count="3">
-                  <div style="{{ tr.rowStyle }}">
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <span style="{{ tr.badgeStyle }}">{{ tr.ext }}</span>
-                      <div style="min-width:0;flex:1">
-                        <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 12.5px var(--sans);color:var(--text)">{{ tr.file }}</div>
-                        <div style="margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ tr.size }}</div>
-                      </div>
-                      <select value="{{ tr.cat }}" onChange="{{ setTrayCat }}" data-id="{{ tr.id }}" disabled="{{ tr.dup }}" aria-label="Category of {{ tr.file }}" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
-                        <sc-for list="{{ dc.categoryOptions }}" as="co"><option value="{{ co.value }}">{{ co.label }}</option></sc-for>
-                      </select>
-                      <button onClick="{{ dropTrayItem }}" data-id="{{ tr.id }}" aria-label="Remove {{ tr.file }}" style="flex:none;border-radius:5px;padding:4px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="{{ ic.close }}"></path></svg></button>
-                    </div>
-                    <div style="margin:7px 0 0 42px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px">
-                      <span style="{{ tr.lineStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none"><path d="{{ tr.icon }}"></path></svg><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ tr.line }}</span></span>
-                      <sc-if value="{{ tr.canSeparate }}">
-                        <button onClick="{{ toggleSeparate }}" data-id="{{ tr.id }}" role="switch" aria-checked="{{ tr.separate }}" style="display:inline-flex;align-items:center;gap:7px;font:500 11.5px var(--mono);color:var(--text2);background:none;border:none;cursor:pointer"><span style="{{ tr.switchTrack }}"><span style="{{ tr.switchKnob }}"></span></span>Keep as a separate document</button>
-                      </sc-if>
-                    </div>
-                  </div>
-                </sc-for>
-                <div style="display:flex;align-items:center;gap:12px;border-top:1px solid var(--line-soft);padding:10px 12px">
-                  <span style="min-width:0;flex:1;font:400 11px/1.45 var(--mono);color:var(--text3)">{{ dc.trayNote }}</span>
-                  <button onClick="{{ sendTray }}" style="flex:none;border-radius:8px;padding:8px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ dc.uploadOpacity }}" style-hover="filter:brightness(1.05)">{{ dc.uploadLabel }}</button>
-                </div>
-              </div>
-            </sc-if>
-
-            <sc-for list="{{ dc.groups }}" as="g" hint-placeholder-count="2">
-              <section style="margin-top:18px">
-                <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">{{ g.label }}<span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 9.5px var(--mono)">{{ g.count }}</span></div>
-                <sc-for list="{{ g.docs }}" as="d" hint-placeholder-count="2">
-                  <article style="position:relative;margin-bottom:8px;border-radius:8px;border:1px solid {{ d.border }};background:var(--panel);padding:10px 12px">
-                    <div style="display:flex;align-items:flex-start;gap:10px">
-                      <span style="{{ d.badgeStyle }}">{{ d.ext }}</span>
-                      <div style="min-width:0;flex:1">
-                        <div style="display:flex;min-width:0;flex-wrap:wrap;align-items:center;gap:6px">
-                          <sc-if value="{{ d.primary }}"><span title="Primary CV — the one the header opens" style="display:inline-flex;color:var(--amber)"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="{{ ic.star }}"></path></svg></span></sc-if>
-                          <sc-if value="{{ d.notRenaming }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 13px var(--sans);color:var(--text)">{{ d.title }}</span></sc-if>
-                          <sc-if value="{{ d.renaming }}">
-                            <input value="{{ renameText }}" onChange="{{ onRenameText }}" aria-label="Document title" style="min-width:0;flex:1;border-radius:6px;border:1px solid var(--sky);background:var(--panel2);padding:4px 8px;font:500 13px var(--sans);color:var(--text);outline:none">
-                            <button onClick="{{ saveRename }}" style="border-radius:6px;padding:4px 9px;font:600 12px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Save</button>
-                          </sc-if>
-                          <span style="{{ d.catStyle }}">{{ d.cat }}</span>
-                          <span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">{{ d.v }}</span>
-                        </div>
-                        <div title="{{ d.exact }}" style="margin-top:4px;font:400 11px var(--mono);color:var(--text3)">{{ d.meta }}</div>
-                      </div>
-                      <div style="display:flex;flex:none;align-items:center;gap:2px">
-                        <sc-if value="{{ d.previewable }}"><button onClick="{{ openPreview }}" data-id="{{ d.id }}" title="Preview" aria-label="Preview {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.eye }}"></path></svg></button></sc-if>
-                        <button onClick="{{ downloadDoc }}" data-id="{{ d.id }}" title="Download" aria-label="Download {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.importInto }}"></path></svg></button>
-                        <button onClick="{{ toggleDocMenu }}" data-id="{{ d.id }}" aria-haspopup="menu" aria-expanded="{{ d.menuOpen }}" aria-label="More for {{ d.title }}" style="border-radius:5px;padding:5px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="{{ ic.moreH }}"></path></svg></button>
-                      </div>
-                    </div>
-                    <div style="margin:6px 0 0 42px;display:flex;flex-wrap:wrap;align-items:center;gap:4px">
-                      <button onClick="{{ uploadVersion }}" data-id="{{ d.id }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 6px;margin-left:-6px;font:500 11.5px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ ic.exportOut }}"></path></svg>Upload new version</button>
-                      <sc-if value="{{ d.hasHistory }}">
-                        <button onClick="{{ toggleHistory }}" data-id="{{ d.id }}" aria-expanded="{{ d.historyOpen }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:3px 6px;font:500 11.5px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="{{ d.historyChev }}"><path d="{{ ic.chevronDown }}"></path></svg>{{ d.historyLabel }}</button>
-                      </sc-if>
-                    </div>
-                    <sc-if value="{{ d.historyOpen }}">
-                      <ol data-screen-label="Version history" style="margin:8px 0 2px 42px;list-style:none;padding:0;border-top:1px solid var(--line-soft)">
-                        <sc-for list="{{ d.versions }}" as="vh" hint-placeholder-count="3">
-                          <li style="display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line-soft);padding:7px 0">
-                            <span style="flex:none;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">v{{ vh.no }}</span>
-                            <div style="min-width:0;flex:1">
-                              <div style="display:flex;align-items:center;gap:6px"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12.5px var(--sans);color:var(--text)">{{ vh.file }}</span><sc-if value="{{ vh.current }}"><span style="flex:none;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--green)">Current</span></sc-if></div>
-                              <div style="margin-top:1px;font:400 11px var(--mono);color:var(--text3)">{{ vh.meta }}</div>
-                            </div>
-                            <button onClick="{{ downloadDoc }}" data-id="{{ vh.key }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:4px 7px;font:500 11.5px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Download</button>
-                            <button onClick="{{ deleteVersion }}" data-id="{{ vh.key }}" title="{{ vh.delTitle }}" style="{{ vh.delStyle }}" style-hover="background:var(--panel2);color:var(--red)">Delete</button>
-                          </li>
-                        </sc-for>
-                      </ol>
-                    </sc-if>
-                    <sc-if value="{{ d.menuOpen }}">
-                      <div role="menu" data-screen-label="Document menu" style="position:absolute;right:8px;top:40px;z-index:20;width:236px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow);animation:fadeUp .15s ease both">
-                        <button onClick="{{ startRename }}" data-id="{{ d.id }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><path d="{{ ic.pencil }}"></path></svg>Rename</button>
-                        <sc-if value="{{ d.canMakePrimary }}">
-                          <button onClick="{{ makePrimary }}" data-id="{{ d.id }}" role="menuitem" style="display:flex;width:100%;align-items:center;gap:8px;border-radius:5px;padding:7px 8px;font:500 12.5px var(--sans);text-align:left;background:none;border:none;color:var(--text);cursor:pointer" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--amber)"><path d="{{ ic.star }}"></path></svg>Make primary CV</button>
-                        </sc-if>
-                        <div style="padding:8px 8px 4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Category</div>
-                        <div style="display:flex;flex-wrap:wrap;gap:4px;padding:0 8px 8px">
-                          <sc-for list="{{ d.catOptions }}" as="cc"><button onClick="{{ setDocCat }}" data-id="{{ cc.key }}" role="menuitemradio" style="{{ cc.style }}">{{ cc.label }}</button></sc-for>
-                        </div>
-                        <div style="margin:2px 0;border-top:1px solid var(--line-soft)"></div>
-                        <button onClick="{{ deleteDoc }}" data-id="{{ d.id }}" role="menuitem" title="{{ d.delTitle }}" style="{{ d.delStyle }}" style-hover="background:var(--red-dim)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg>Delete document</button>
-                      </div>
-                    </sc-if>
-                  </article>
-                </sc-for>
-              </section>
-            </sc-for>
-
-            <sc-if value="{{ dc.none }}" hint-placeholder-val="{{ false }}">
-              <div style="padding:34px 12px 20px;text-align:center">
-                <span style="display:inline-grid;width:40px;height:40px;place-items:center;border-radius:10px;background:var(--panel2);color:var(--text3)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fileText }}"></path></svg></span>
-                <p style="margin:10px 0 0;font:600 13px var(--sans);color:var(--text)">No documents yet</p>
-                <p style="margin:4px auto 0;max-width:340px;font:400 12px/1.5 var(--mono);color:var(--text3)">A CV, cover letter or reference filed here is shared by every position this person is in. The first CV becomes the one the header opens.</p>
-              </div>
-            </sc-if>
-            <p style="margin:14px 2px 0;font:400 11px var(--mono);color:var(--text3)">Shared with your whole team. Client contacts never see documents, and every download is recorded.</p>
-
-            <sc-if value="{{ dc.dropping }}" hint-placeholder-val="{{ false }}">
-              <div onClick="{{ endDrop }}" data-screen-label="Dropping files" style="position:absolute;inset:8px -8px 0;z-index:30;display:grid;place-items:center;border-radius:12px;border:2px dashed var(--amber);background:color-mix(in srgb,var(--panel) 82%,var(--amber) 18%);cursor:copy">
-                <div style="text-align:center">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--amber)"><path d="{{ ic.uploadCloud }}"></path></svg>
-                  <div style="margin-top:8px;font:600 14px var(--sans);color:var(--text)">{{ dc.dropLine }}</div>
-                  <div style="margin-top:3px;font:400 11.5px var(--mono);color:var(--text3)">You choose each file's category before anything is uploaded</div>
-                </div>
-              </div>
-            </sc-if>
-          </div>
-        </sc-if>
       </div>
 
-      <div style="display:flex;flex:none;align-items:center;justify-content:space-between;border-top:1px solid var(--line-soft);padding:12px 20px">
-        <button onClick="{{ openMerge }}" title="Fold another record of the same person into this one" style="display:flex;align-items:center;gap:8px;border-radius:8px;padding:9px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.merge }}"></path></svg>Merge a duplicate…</button>
+      <div style="display:flex;flex:none;align-items:center;justify-content:flex-end;border-top:1px solid var(--line-soft);padding:12px 20px">
         <button onClick="{{ closeDrawer }}" style="border-radius:8px;padding:9px 14px;font:500 13px var(--sans);background:transparent;border:none;color:var(--text3);cursor:pointer" style-hover="color:var(--text2);text-decoration:underline">Close</button>
       </div>
     </aside>
@@ -1192,6 +1212,10 @@ const KIND_GROUP = {
   TAGGED: "tags", UNTAGGED: "tags", OWNER_CHANGED: "tags",
   DOCUMENT_ADDED: "documents", DOCUMENT_VERSION_ADDED: "documents", DOCUMENT_VERSION_REMOVED: "documents", DOCUMENT_REMOVED: "documents"
 };
+const TIMELINE_CUT = 5;
+const CAREER_CUT = 4;
+const ALWAYS_OPEN = ["summary", "experience"];
+const drawerTabOf = (t) => (t === "notes" || t === "documents" ? "records" : ["profile", "contact", "records", "timeline"].includes(t) ? t : "profile");
 const KIND_CHIPS = [["all", "Everything"], ["positions", "Positions & status"], ["notes", "Notes"], ["documents", "Documents"], ["contacts", "Contacts"], ["profile", "Profile & AI"], ["tags", "Tags & owner"]];
 const KIND_ICON = {
   ADDED_TO_POOL: I.userPlus, MAPPED: I.position, UNMAPPED: I.close, STATUS_CHANGED: I.arrowRight, NOTE_ADDED: I.note,
@@ -1271,12 +1295,12 @@ class Component extends DCLogic {
       q: "", quick: "all", filtersOpen: flag("filtersOpen", false), railOpen: null,
       tagMode: "any", tagSel: {}, fPos: "all", fStatus: "all", fOwner: "all", fCountry: "all",
       sortField: "activity", sortDir: "desc", sel: {},
-      openId: drawerOpen ? "e01" : null, drawerTab: docTabFirst ? "documents" : pick("drawerTab", "profile"),
+      openId: drawerOpen ? "e01" : null, drawerTab: docTabFirst ? "records" : drawerTabOf(pick("drawerTab", "profile")), summaryMore: false, careerAll: false, tlAll: false,
       docs: DOC_SEED.filter((d) => docsState !== "empty" || d.person !== "e01").map((d) => Object.assign({}, d, { versions: d.versions.map((v) => Object.assign({}, v)) })),
       histOpen: docsState === "history" ? { d1: true } : {}, docMenu: null, renameId: null, renameText: "", dropping: docsState === "dropping",
       tray: (TRAY_FILES[trayState] || []).map((f, i) => ({ id: `t${i}`, file: f.file, kb: f.kb, cat: guessCat(f.file), dupOf: f.dupOf || null, forDoc: null, separate: false })),
       preview: dialog === "preview" ? { doc: "d1", no: 3 } : null,
-      sec: { summary: true, experience: true, compensation: false, background: false, contact: true },
+      sec: { summary: true, experience: true, compensation: false, background: false },
       tagPickerOpen: flag("tagPickerOpen", false), tagQuery: "",
       noteKind: "call", notePos: "none", noteText: "", tlKind: "all",
       dialog, dialogTarget: "selection", bulkPos: "leasing", bulkTagMode: "add", bulkTagSel: { relocate: true }, bulkOwner: "yh",
@@ -1437,11 +1461,16 @@ class Component extends DCLogic {
       { id: "summary", title: "Summary", summary: x.summary ? `${x.summary.slice(0, 90)}…` : "Not written yet" },
       { id: "experience", title: "Experience", summary: `${x.title || "—"} at ${x.company || "—"}` },
       { id: "compensation", title: "Compensation", summary: comp ? `${comp[0]} ${num(total)} · ${comp[5]} notice` : "Nothing on file" },
-      { id: "background", title: "Background", summary: [x.nat, x.gender, x.years ? `${x.years} yrs` : null].filter(Boolean).join(" · ") || "Nothing on file" },
-      { id: "contact", title: "Contact", summary: [x.emails[0] && x.emails[0][0], x.phones[0] && x.phones[0][0]].filter(Boolean).join(" · ") || "No email or phone" }
+      { id: "background", title: "Background", summary: [x.nat, x.gender, x.years ? `${x.years} yrs` : null].filter(Boolean).join(" · ") || "Nothing on file" }
     ];
     const notes = s.notes.filter((n) => n.person === x.id).sort((a, b) => (b.pinned - a.pinned) || b.at.localeCompare(a.at));
     const timeline = all.filter((e) => s.tlKind === "all" || KIND_GROUP[e.kind] === s.tlKind);
+    const shownTimeline = s.tlAll ? timeline : timeline.slice(0, TIMELINE_CUT);
+    const careerShown = s.careerAll ? career : career.slice(0, CAREER_CUT);
+    const summaryLong = (x.summary || "").length > 220;
+    const kindPill = (kind) => `display:inline-flex;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${kind === "Work" ? "background:var(--sky-dim);color:var(--sky)" : "background:var(--amber-dim);color:var(--amber)"}`;
+    const line = (what, value, kind, verified) => ({ what, value, kind: kind || "", hasKind: !!kind, verified: !!verified, kindStyle: kindPill(kind), isPlain: true, isLink: false });
+    const liHandle = x.li ? `${x.name.toLowerCase().replace(/[^a-z]+/g, "-")}` : "";
     const kindStyle = (k) => `display:inline-flex;align-items:center;border-radius:4px;padding:1px 6px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:${k.fg};background:${k.bg}`;
     const lookupOff = !!x.dnc;
     const findBtn = (label, icon, show) => ({ show, label, icon, disabled: lookupOff, title: lookupOff ? "Do not contact is set — lookups are off for this person" : `Spends one ContactOut credit`,
@@ -1457,24 +1486,29 @@ class Component extends DCLogic {
       positionCount: x.maps.length, noMappings: x.maps.length === 0,
       mappings: [...x.maps].sort((a, b) => b.at.localeCompare(a.at)).map((m) => ({ pos: m.pos, title: POS[m.pos].title, unit: POS[m.pos].unit, stage: POS[m.pos].stage, href: POS[m.pos].href, status: m.status,
         added: `Added by ${MEMBERS[m.by].name} · ${dateGB(m.at.slice(0, 10))} · ${DOORS[m.door]}` })),
-      sections: secDefs.map((d) => { const open = !!s.sec[d.id]; return { id: d.id, title: d.title, open, showSummary: !open, summary: d.summary,
+      sections: secDefs.map((d) => { const open = ALWAYS_OPEN.includes(d.id) || !!s.sec[d.id]; return { id: d.id, title: d.title, open, showSummary: !open, summary: d.summary,
         chev: `flex:none;color:var(--text3);transition:transform .2s;transform:${open ? "none" : "rotate(-90deg)"}`,
-        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background", isContact: d.id === "contact" }; }),
-      summary: x.summary || "No summary written yet.",
-      career: career.map((c) => ({ company: c[0], title: c[1], period: c[2], dotStyle: `position:absolute;left:-21px;top:5px;width:9px;height:9px;border-radius:50%;border:2px solid var(--panel);background:${c[3] ? "var(--sky)" : "var(--line)"}` })),
+        isSummary: d.id === "summary", isExperience: d.id === "experience", isComp: d.id === "compensation", isBackground: d.id === "background" }; }),
+      summary: x.summary || "No summary written yet.", summaryLong, summaryMoreLabel: s.summaryMore ? "See less" : "See more",
+      summaryStyle: `margin:0;font-size:13px;line-height:1.6;color:var(--text2)${summaryLong && !s.summaryMore ? ";display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden" : ""}`,
+      careerLong: career.length > CAREER_CUT, careerMoreLabel: s.careerAll ? "Show fewer" : `Show all ${career.length} posts`,
+      career: careerShown.map((c) => ({ company: c[0], title: c[1], period: c[2], dotStyle: `position:absolute;left:-21px;top:5px;width:9px;height:9px;border-radius:50%;border:2px solid var(--panel);background:${c[3] ? "var(--sky)" : "var(--line)"}` })),
       compTiles: [["Base", amt(comp && comp[1])], ["Bonus", amt(comp && comp[2])], ["Allowances", amt(comp && comp[3])], ["LTIP", amt(comp && comp[4])], ["Total", comp ? `${comp[0]} ${num(total)}` : null], ["Notice period", comp ? comp[5] : null]].map(([label, v]) => Object.assign({ label }, tile(v))),
       bgTiles: [["Nationality", x.nat], ["Gender", x.gender], ["Experience", x.years ? `${x.years} years` : null]].map(([label, v]) => Object.assign({ label }, tile(v))),
-      contactLines: [...x.emails.map((e) => ({ icon: I.mail, value: e[0], kind: e[1] || "", hasKind: !!e[1], verified: !!e[2] })), ...x.phones.map((e) => ({ icon: I.phone, value: e[0], kind: e[1] || "", hasKind: !!e[1], verified: !!e[2] }))]
-        .map((c) => Object.assign(c, { kindStyle: `display:inline-flex;border-radius:5px;padding:2px 7px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;${c.kind === "Work" ? "background:var(--sky-dim);color:var(--sky)" : "background:var(--amber-dim);color:var(--amber)"}` })),
-      noContacts: x.emails.length + x.phones.length === 0,
-      findButtons: [findBtn("Find email", I.mail, !x.eLooked), findBtn("Find phone", I.phone, !x.pLooked)].filter((b) => b.show),
+      channels: [
+        { label: "Email", icon: I.mail, disc: true, isLi: false, lines: x.emails.map((e) => line("email", e[0], e[1], e[2])), emptyLine: x.eLooked ? "No email on record" : "—" },
+        { label: "Phone", icon: I.phone, disc: true, isLi: false, lines: x.phones.map((e) => line("phone", e[0], e[1], e[2])), emptyLine: x.pLooked ? "No phone on record" : "—" },
+        { label: "LinkedIn", icon: "", disc: false, isLi: true, emptyLine: "—",
+          lines: x.li ? [{ what: "LinkedIn URL", value: `https://www.linkedin.com/in/${liHandle}`, prefix: "linkedin.com/in/", handle: liHandle, isLink: true, isPlain: false, hasKind: false, verified: false }] : [] }
+      ].map((c) => Object.assign(c, { empty: c.lines.length === 0 })),
       footer: first ? `Added to the candidates ${exactOf(first.at)} by ${MEMBERS[first.actor].name} · ${DOORS[first.door]}` : "",
       notes: notes.map((n) => { const k = NOTE_KIND[n.kind]; return { id: n.id, author: MEMBERS[n.author].name, initials: initials(MEMBERS[n.author].name), avStyle: memberAvatar(n.author, 22),
         kind: k.label, kindStyle: kindStyle(k), pinned: n.pinned, pinLabel: n.pinned ? "Unpin" : "Pin", when: whenOf(n.at), exact: exactOf(n.at), body: n.body,
         hasPos: !!n.pos, pos: n.pos ? POS[n.pos].title : "", edited: !!n.edited, editedLine: n.edited ? `Edited by ${MEMBERS[n.edited.by].name} · ${exactOf(n.edited.at)}` : "",
         canEdit: true, border: n.pinned ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)", bg: n.pinned ? "var(--panel2)" : "var(--panel)" }; }),
       noNotes: notes.length === 0, noteCount: notes.length,
-      tlDays: this.byDay(timeline, s, false), noTimeline: timeline.length === 0, eventCount: all.length
+      tlDays: this.byDay(shownTimeline, s, false), noTimeline: timeline.length === 0, eventCount: all.length,
+      tlCut: timeline.length > TIMELINE_CUT && !s.tlAll || s.tlAll && timeline.length > shownTimeline.length, tlMoreLabel: "See more"
     };
   }
 
@@ -1659,7 +1693,7 @@ class Component extends DCLogic {
     const feed = feedAll.slice(0, s.feedLimit);
 
     const x = s.openId ? s.people.find((y) => y.id === s.openId) : null;
-    const dv = x ? this.drawerVals(s, x) : { tags: [], mappings: [], sections: [], notes: [], tlDays: [], career: [], compTiles: [], bgTiles: [], contactLines: [], findButtons: [] };
+    const dv = x ? this.drawerVals(s, x) : { tags: [], mappings: [], sections: [], notes: [], tlDays: [], career: [], compTiles: [], bgTiles: [], channels: [] };
     const dc = x ? this.docsVals(s, x) : { groups: [], tray: [], categoryOptions: [] };
     const pv = this.previewVals(s);
 
@@ -1754,11 +1788,11 @@ class Component extends DCLogic {
       askVisible: !x && selIds.length === 0,
       drawerShown: !!x, dv, ownerOptions: [{ value: "none", label: "Nobody" }, ...MEMBER_ORDER.map((m) => ({ value: m, label: MEMBERS[m].name }))],
       statusOptions: STATUSES.map((st) => ({ value: st.value, label: st.label })),
-      drawerTabs: [["profile", "Profile", null], ["notes", "Notes", dv.noteCount], ["documents", "Documents", dc.count], ["timeline", "Timeline", dv.eventCount]].map(([key, label, count]) => {
+      drawerTabs: [["profile", "Profile", null], ["contact", "Contact", null], ["records", "Records", null], ["timeline", "Timeline", null]].map(([key, label, count]) => {
         const on = s.drawerTab === key;
         return { key, label, on, hasCount: count !== null, count, style: `display:inline-flex;align-items:center;gap:7px;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer` };
       }),
-      tabProfile: s.drawerTab === "profile", tabNotes: s.drawerTab === "notes", tabTimeline: s.drawerTab === "timeline", tabDocuments: s.drawerTab === "documents", dc, pv,
+      tabProfile: s.drawerTab === "profile", tabContact: s.drawerTab === "contact", tabRecords: s.drawerTab === "records", tabTimeline: s.drawerTab === "timeline", dc, pv,
       tagPickerOpen: s.tagPickerOpen, tagQuery: s.tagQuery, tagQueryTrim: tq, tagOptions, canCreateTag: !!tq && !s.tags.some((t) => t.label.toLowerCase() === tq.toLowerCase()),
       noteKinds: NOTE_KINDS.map((k) => { const on = s.noteKind === k.key; return { key: k.key, label: k.label, icon: k.icon, on,
         style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;${on ? `border:1px solid transparent;background:${k.bg};color:${k.fg}` : "border:1px solid var(--line);background:var(--panel);color:var(--text3)"}` }; }),
@@ -1811,8 +1845,8 @@ class Component extends DCLogic {
         this.setState({ dialog: key, dialogTarget: "selection", bulkTagSel: {}, bulkTagMode: "add" });
       },
       exportView: () => this.showToast(`Exported ${rows.length} people as a CSV — recorded in the audit trail`),
-      openRow: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "profile", tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
-      openFromFeed: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "timeline", tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
+      openRow: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "profile", summaryMore: false, careerAll: false, tlAll: false, tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
+      openFromFeed: (e) => this.setState({ openId: e.currentTarget.dataset.id, drawerTab: "timeline", summaryMore: false, careerAll: false, tlAll: false, tagPickerOpen: false, notePos: "none", noteText: "", tlKind: "all" }),
       closeDrawer: () => this.setState({ openId: null, tagPickerOpen: false }),
 
       setActivitySelect: (e) => this.setState({ [e.currentTarget.dataset.id]: e.target.value, feedLimit: 24 }),
@@ -1820,6 +1854,10 @@ class Component extends DCLogic {
       loadMore: () => this.setState({ feedLimit: s.feedLimit + 24 }),
 
       setDrawerTab: (e) => this.setState({ drawerTab: e.currentTarget.dataset.id }),
+      toggleSummaryMore: () => this.setState({ summaryMore: !s.summaryMore }),
+      toggleCareerAll: () => this.setState({ careerAll: !s.careerAll }),
+      showMoreTimeline: () => this.setState({ tlAll: true }),
+      copyContact: (e) => this.showToast(`${e.currentTarget.dataset.id === "email" ? "Email" : e.currentTarget.dataset.id === "phone" ? "Phone" : "LinkedIn URL"} copied`),
       toggleSec: (e) => { const id = e.currentTarget.dataset.id; this.setState({ sec: Object.assign({}, s.sec, { [id]: !s.sec[id] }) }); },
       setOwner: (e) => {
         const owner = e.target.value === "none" ? null : e.target.value;

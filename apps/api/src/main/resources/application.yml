@@ -1,6 +1,11 @@
 spring:
   application:
     name: lightmove-api
+  # SpaResourceConfig serves the SPA itself. Boot's own mappings would also serve every webjar at /webjars/**,
+  # Swagger UI's among them: unauthenticated, on the SPA's origin, outside the public chain's CSP.
+  web:
+    resources:
+      add-mappings: false
 
   datasource:
     # Cloud SQL Java connector: no host in the URL, no IP allowlist, no proxy process to babysit.
@@ -282,7 +287,7 @@ lightmove:
     tool-row-limit: ${ASSISTANT_TOOL_ROW_LIMIT:25}
     max-concurrent-asks: ${ASSISTANT_MAX_CONCURRENT_ASKS:4}
     max-names-per-lookup: 10
-    name-lookup-parallelism: 3
+    name-lookup-parallelism: ${ASSISTANT_NAME_LOOKUP_PARALLELISM:5}
     name-lookup-deadline: 25s
     max-vendor-searches-per-ask: ${ASSISTANT_MAX_VENDOR_SEARCHES:15}
 
@@ -532,6 +537,16 @@ lightmove:
     max-companies: ${EXPORT_MAX_COMPANIES:5000}
     max-candidates: ${EXPORT_MAX_CANDIDATES:10000}
 
+  # Keys for the public API (/api/v1/public/**). Every key expires: 90 days unless its maker picks another
+  # term, never past max-key-ttl. The per-user ceiling counts live personal keys only.
+  public-api:
+    enabled: ${PUBLIC_API_ENABLED:true}
+    requests-per-minute: ${PUBLIC_API_REQUESTS_PER_MINUTE:60}
+    requests-per-minute-per-ip: ${PUBLIC_API_REQUESTS_PER_MINUTE_PER_IP:300}
+    default-key-ttl: ${PUBLIC_API_DEFAULT_KEY_TTL:90d}
+    max-key-ttl: ${PUBLIC_API_MAX_KEY_TTL:365d}
+    max-active-keys-per-user: ${PUBLIC_API_MAX_ACTIVE_KEYS_PER_USER:10}
+
   # The talent mapping report reads every company and executive of a mandate in one pass, so the two
   # row caps play the pager's part and the response says when it hit one. The category caps bound how
   # many sectors, hubs and nationalities a chapter names before the tail folds into "Other".
@@ -656,7 +671,7 @@ management:
   #
   # Cloud Run routes exactly ONE port into a container, so a loopback socket on 9090 is unreachable —
   # and with it, any health endpoint at all. There we set MANAGEMENT_PORT=8080: Actuator moves onto the
-  # app socket, SecurityConfig's chain 0 stands itself down, and chain 3 permits health and info while
+  # app socket, SecurityConfig's chain 0 stands itself down, and chain 4 permits health and info while
   # denying everything else. Metrics stay shut; only the fence moves, from the socket to the matcher.
   #
   # `address` is deliberately NOT here — see the profile block at the end of this file.
@@ -682,6 +697,22 @@ management:
   metrics:
     tags:
       application: lightmove-api
+
+# The public API's spec and Swagger UI only: no internal route is scanned, and both sit under /api/v1/public.
+springdoc:
+  packages-to-scan: app.lightmove.api.publicapi
+  paths-to-match: /api/v1/public/**
+  writer-with-order-by-keys: true
+  api-docs:
+    enabled: ${PUBLIC_API_ENABLED:true}
+    path: /api/v1/public/openapi.json
+    version: openapi_3_1
+  swagger-ui:
+    enabled: ${PUBLIC_API_ENABLED:true}
+    path: /api/v1/public/docs/index.html
+    persist-authorization: false
+    try-it-out-enabled: true
+    display-request-duration: true
 
 logging:
   level:

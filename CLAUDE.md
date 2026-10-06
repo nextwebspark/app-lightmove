@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -523,7 +523,15 @@ off in tests, which call `dispatchAt(instant)`): every minute it claims due rows
 instances never share a row, and a claim nobody released is stopped `SEND_UNCERTAIN`, never resent. Each
 send re-checks what Start checked (do not contact, still mapped, still in the running, address still on the
 ledger, mailbox active) and stops the run with that reason rather than hooking `candidate`; it waits for
-the sender's weekday 08:00–18:00 in their mailbox's `time_zone` and under its daily cap. Step 1 is the
+the sequence's own sending days and hours (V113, `send_days`/`window_start`/`window_end`, Mon–Fri 08:00–18:00
+by default) in the mailbox's `time_zone` — which the consultant sets on the Outreach page
+(`PUT /outreach/mailbox/time-zone`) — and under its daily cap. A follow-up waits its delay in those days and
+goes at its step's `send_time`, or the time of day the step before went. Start chooses when the first emails
+go (`startMode`): `NOW` or `AT` a chosen instant (≤ 60 days) pins it (`first_send_pinned`), so the window
+never moves it though the cap still does, and `NEXT_WINDOW` waits for the window; each person after the
+first is due 1–3 minutes after the one before (`FirstSendSpacing`), and keeps that offset past any opening the
+window or the cap holds it for (`send_offset_seconds`), so a deferred batch never goes at once. A time-zone change
+is audited (`MAILBOX_TIME_ZONE_CHANGED`) and takes a region's zone or UTC only. Step 1 is the
 frozen email; a follow-up is rendered from the sequence as it stands and replies to the last message, which
 threads it. The first send moves Identified to Contacted, forward only. A reply or bounce arrives on the
 public `/api/v1/outreach/webhooks/mailbox`, whose HMAC signature is its credential
@@ -556,6 +564,24 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 (`toAddress`, never merely the ledger — the booking form's address is typed by whoever holds the link),
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
+
+`publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
+script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
+with Swagger UI at `/api/v1/public/docs`. Its credential is an **API key** (V114 `app_lm_api_key`), made in
+**Settings → API keys**: personal (`uncava_pat_`, any staff member's own) or workspace (`uncava_svc_`,
+`WORKSPACE_MANAGE` only), with scopes and an expiry, stored as a SHA-256 hash and shown once. Keys ride their own
+security chain (an opaque-token resource server, `ApiKeyIntrospector`) and open no other route, as a session's
+token opens none of these. Every call re-reads the key and its owner: a personal key reads only positions its
+owner holds `WORK_VIEW` on (`PublicApiAuthorizer`, `@RequirePublicScope`, `@RequirePublicProjectRead`) and dies
+with their staff access; a workspace key reads its whole workspace. Each route reads through the service the
+screens use and narrows to public DTOs: `contacts` and `compensation` only with their own scopes, a model's
+unconfirmed guess sent as null, and no note, AI assessment, `added_by` or custom field ever. Every read is
+audited (`PUBLIC_API_READ`), budgets are per key and per IP, spent before the database
+(`lightmove.public-api.*`, per instance), and `PUBLIC_API_ENABLED=false` answers 404 for all of it. The
+contract is held by `docs/public-api/openapi.json`, which `PublicApiContractTest` regenerates and diffs, so a
+change to what integrations see is reviewed in its PR. `pairing` is the one place a stage's companies are
+paired with their executives — the talent map, the export and the public universe read all go through
+`StagePairingService`.
 
 ## Commands
 
@@ -616,6 +642,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
 - **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
+- **An API key reaches only `/api/v1/public/**`**, read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens no public route.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
 
 ## Database
@@ -804,6 +831,9 @@ V110 gives `app_lm_outreach_enrollment` its `thread_gateway` (`NYLAS | DIRECT`, 
 mailbox, Nylas where it is gone) and adds `MAILBOX_MOVED` and `BOOKING_LINK_UNAVAILABLE` to its `stop_reason` CHECK.
 V111 gives `app_lm_workspace_mail_integration` `secret_expiry_warned_days` — the fewest days left an expiry warning
 was already sent for.
+V114 adds `app_lm_api_key` — the public API's keys: kind (`PERSONAL` with an owner, `SERVICE` without, by CHECK),
+`token_hash` (SHA-256, unique) and a `token_hint` a list can show, scopes as a jsonb array held to the five tokens
+by CHECK, expiry, last use and revocation (`REVOKED | MEMBER_REMOVED | WORKSPACE_DELETED`).
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

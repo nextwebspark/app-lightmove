@@ -4,6 +4,7 @@ import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.apikey.ApiKeyService;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
@@ -33,6 +34,7 @@ public class MemberService {
     private final WorkspaceAccess access;
     private final RbacService rbac;
     private final MemberDetachment detachment;
+    private final ApiKeyService apiKeys;
     private final AuditService audit;
 
     /** Replace-set semantics; self-demotion is allowed under the same last-admin rule. */
@@ -76,6 +78,7 @@ public class MemberService {
 
         member.remove();
         detachment.detach(memberId);
+        apiKeys.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
 
         log.info("User {} removed member {} from workspace {}", actorId, memberId, workspaceId);
         audit.event(WorkspaceEventType.MEMBER_REMOVED)

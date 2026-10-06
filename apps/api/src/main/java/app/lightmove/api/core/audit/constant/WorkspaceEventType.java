@@ -28,9 +28,13 @@ public enum WorkspaceEventType implements AuditEventType {
 
     MAILBOX_CONNECTED,
     MAILBOX_DISCONNECTED,
+    MAILBOX_TIME_ZONE_CHANGED,
 
     ZOOM_CONNECTED,
-    ZOOM_DISCONNECTED;
+    ZOOM_DISCONNECTED,
+
+    API_KEY_CREATED,
+    API_KEY_REVOKED;
 
     @Override
     public String code() {

@@ -208,6 +208,34 @@ and only the consultant reconnecting brings it back — no retry spends a dead t
 take a mailbox out of service, so it is refused unless its Svix signature verifies and is under five minutes
 old; a blank secret refuses everything rather than trusting an unsigned delivery.
 
+## An API key reaches the public API and nothing else
+
+**A key is a second kind of credential, so it gets its own door and no other.** The public API
+(`/api/v1/public/**`) is its own security chain whose only authentication is an API key, read as an opaque
+bearer token by `ApiKeyIntrospector`; every other chain authenticates by JWT and would refuse it. The reverse
+holds too: a session's access token is not a key and opens no public route. That separation is the whole
+point — an integration's key sits in a BI tool's config or a script's environment, far from the browser memory
+the session token lives in, and a leaked key must not be a way into the app's own writes.
+
+**Read-only, and never more than its owner could open today.** No public route writes. A personal key's reach is
+its scopes ∩ its owner's live permissions: the introspector refuses a key whose owner is no longer staff with
+`API_KEY_MANAGE`, and `PublicApiAuthorizer` asks `ProjectAccess` for `WORK_VIEW` on every position read — both
+re-read the database every call, as the guard beans do, so a removed seat or membership lands on the next
+request. A workspace key (`SERVICE`, made only under `WORKSPACE_MANAGE`) reads its whole workspace and outlives
+whoever made it, which is why only an admin may make or revoke one. Removing a member revokes their personal
+keys in the same transaction, so a later rejoin does not revive them.
+
+**Personal data needs its own scope, and a guess is not a fact.** Contacts and compensation are filled only for a
+key holding `candidates.contacts:read` or `candidates.compensation:read`; without them they are null, never
+omitted, so a client cannot mistake one for the other. A seniority, nationality, gender or years of experience a
+model proposed and no researcher confirmed is sent as null: outside the product there is no badge to mark it.
+Notes, the AI assessment, the nationality reading, `added_by` and custom fields never leave. Every read is an
+audit line (`PUBLIC_API_READ`) naming the key — data leaving through a key is an export.
+
+**A key is stored as its hash and shown once.** `uncava_pat_` / `uncava_svc_` plus random bytes and a check
+suffix; only SHA-256 is persisted, and the SPA holds the secret in component state while its dialog is open —
+never a query or mutation cache, never storage.
+
 ## An identity provider is configuration, not code
 
 Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`

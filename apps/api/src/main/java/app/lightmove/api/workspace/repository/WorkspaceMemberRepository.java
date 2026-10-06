@@ -2,12 +2,14 @@ package app.lightmove.api.workspace.repository;
 
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -26,6 +28,14 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
      */
     @EntityGraph(attributePaths = "roles")
     Optional<WorkspaceMember> findByWorkspaceIdAndUserIdAndStatus(UUID workspaceId, UUID userId, MemberStatus status);
+
+    /** Serialises a member's own check-then-insert writes, such as the per-user API key ceiling. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select m from WorkspaceMember m
+            where m.workspaceId = :workspaceId and m.userId = :userId and m.status = :status""")
+    Optional<WorkspaceMember> findForUpdate(@Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId,
+                                            @Param("status") MemberStatus status);
 
     /** Whatever its status — an invitation may be reactivating a removed member. */
     @EntityGraph(attributePaths = "roles")

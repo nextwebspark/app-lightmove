@@ -1,10 +1,14 @@
 package app.lightmove.api.assistant.tool;
 
+import app.lightmove.api.common.industry.service.Industries;
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.strategy.model.CompanyExclusion;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 
 /**
  * Turns what a model asked for into the scope the market reads. Headcount arrives as a
@@ -38,6 +42,34 @@ final class MarketQuery {
                 .distinct()
                 .limit(MAX_VALUES_PER_AXIS)
                 .toList();
+    }
+
+    /**
+     * The universe's own spelling of each country ("UAE" → "United Arab Emirates"), since the search
+     * matches exactly; an unknown one is kept as asked. Spares the model a describeMarket round-trip.
+     */
+    static List<String> countriesOf(List<String> supplied) {
+        return canonical(supplied, Countries::nameOf);
+    }
+
+    /** The universe's own label for each industry, however the model spelled or cased it. */
+    static List<String> industriesOf(List<String> supplied) {
+        return canonical(supplied, Industries::nameOf);
+    }
+
+    /**
+     * What neither catalog knows, read off {@link #countriesOf}/{@link #industriesOf}'s answers — a known
+     * spelling is already canonical there, so only an unknown one fails to resolve.
+     */
+    static List<String> unrecognised(List<String> askedCountries, List<String> askedIndustries) {
+        return Stream.concat(
+                        askedCountries.stream().filter(country -> Countries.resolve(country).isEmpty()),
+                        askedIndustries.stream().filter(industry -> !Industries.isKnown(industry)))
+                .toList();
+    }
+
+    private static List<String> canonical(List<String> supplied, UnaryOperator<String> spelling) {
+        return cleaned(supplied).stream().map(spelling).distinct().toList();
     }
 
     private static List<String> listOf(String supplied) {
