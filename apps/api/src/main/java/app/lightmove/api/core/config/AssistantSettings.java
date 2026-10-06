@@ -41,7 +41,10 @@ public record AssistantSettings(
         @DefaultValue("25s") Duration nameLookupDeadline,
 
         /** Billed Bright Data name searches one answer may make, whatever the model asks for. */
-        @DefaultValue("15") int maxVendorSearchesPerAsk
+        @DefaultValue("15") int maxVendorSearchesPerAsk,
+
+        /** Specialists the supervisor may ask in one answer — each is a nested model call. */
+        @DefaultValue("3") int maxSpecialistCallsPerAsk
 ) {
 
     public AssistantSettings {
@@ -65,7 +68,7 @@ public record AssistantSettings(
                     "lightmove.assistant.tool-row-limit must be at least 1, but was " + toolRowLimit);
         }
         if (maxConcurrentAsks < 1 || maxNamesPerLookup < 1 || nameLookupParallelism < 1
-                || maxVendorSearchesPerAsk < 0) {
+                || maxVendorSearchesPerAsk < 0 || maxSpecialistCallsPerAsk < 1) {
             throw new IllegalArgumentException("lightmove.assistant's ask, name and search limits must be positive");
         }
         if (nameLookupDeadline == null || nameLookupDeadline.isNegative() || nameLookupDeadline.isZero()) {
