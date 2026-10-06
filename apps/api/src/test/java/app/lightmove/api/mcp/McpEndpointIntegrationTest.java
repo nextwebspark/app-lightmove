@@ -69,6 +69,9 @@ class McpEndpointIntegrationTest extends McpFlowSupport {
                 where event_type = 'MCP_TOOL_CALL' and workspace_id = ?::uuid
                   and metadata ->> 'tool' = 'uncava_whoami' and metadata ->> 'credentialKind' = 'OAUTH'""",
                 Integer.class, workspaceOf(admin))).isEqualTo(1);
+        assertThat(db.queryForObject("select count(*) from app_lm_oauth_authorization where user_id = ?::uuid"
+                + " and last_used_at is not null", Integer.class, sessionTokens.decode(admin).getSubject()))
+                .as("Settings shows the connection used, not only once it refreshes").isEqualTo(1);
     }
 
     @Test

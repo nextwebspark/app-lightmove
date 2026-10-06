@@ -57,6 +57,12 @@ class OAuthCimdIntegrationTest extends OAuthFlowSupport {
                 .isEqualTo(clientId);
         assertThat(clients.findByClientId(clientId).orElseThrow().getSource()).isEqualTo(OAuthClientSource.CIMD);
         assertThat(documents.fetched()).as("one fetch, then the copy").filteredOn(clientId::equals).hasSize(1);
+
+        JsonNode listed = body(mvc.perform(get("/api/v1/workspace/oauth-grants")
+                .header("Authorization", "Bearer " + user)).andReturn()).get(0);
+        assertThat(listed.get("clientKind").asText()).as("Settings draws the same mark").isEqualTo("CIMD");
+        assertThat(listed.get("clientHost").asText()).isEqualTo("claude.ai");
+        assertThat(listed.get("verified").asBoolean()).isTrue();
     }
 
     @Test
