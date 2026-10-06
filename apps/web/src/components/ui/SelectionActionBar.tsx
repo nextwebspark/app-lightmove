@@ -1,5 +1,4 @@
 import { useEffect, type ReactNode } from "react";
-import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 
@@ -7,8 +6,9 @@ import { cn } from "../../lib/cn";
  * The pop-up a multi-select grid raises once something is ticked: the count, the actions and a way out,
  * at the bottom centre of the screen over a light scrim.
  *
- * <p>Portalled to the body so it is centred on the window whatever box the grid sits in, and above a
- * full-screen grid. The scrim only dims: it takes no pointer, so the rows under it can still be ticked.
+ * <p>Fixed in place rather than portalled, so it stays inside a full-screen grid's panel. It sits just
+ * under the drawer layer (90/95), so an opened row covers it, and clears the toast at the bottom. The
+ * scrim only dims: it takes no pointer, so the rows under it can still be ticked.
  */
 export function SelectionActionBar({
   count,
@@ -36,13 +36,13 @@ export function SelectionActionBar({
     return () => window.removeEventListener("keydown", dismiss);
   }, [onClear]);
 
-  return createPortal(
+  return (
     <>
-      <div aria-hidden className="pointer-events-none fixed inset-0 z-[98] bg-u-scrim/50" />
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[88] bg-u-scrim/50" />
       <div
         role="region"
         aria-label={`${count} ${count === 1 ? noun : plural} selected`}
-        className="animate-fade-up fixed bottom-6 left-1/2 z-[99] flex max-w-[calc(100vw-24px)] -translate-x-1/2 flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-2 shadow-u-e3"
+        className="animate-fade-up fixed bottom-16 left-1/2 z-[89] flex max-w-[calc(100vw-24px)] -translate-x-1/2 flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-2 shadow-u-e3"
       >
         <span aria-hidden className="whitespace-nowrap px-1.5 font-sans text-[13px] font-semibold text-u-text">
           <span className="text-u-accent">{count}</span> selected
@@ -60,8 +60,7 @@ export function SelectionActionBar({
           <Icon d={ICONS.close} size={14} />
         </button>
       </div>
-    </>,
-    document.body,
+    </>
   );
 }
 

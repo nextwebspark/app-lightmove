@@ -128,7 +128,7 @@ describe("WorkspaceStepPage — the organization is picked from the company data
 
     await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
     expect(authApi.createWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Nimbus Partners", apolloAccountId: null, companySize: "1–10 people" }),
+      expect.objectContaining({ name: "Nimbus Partners", apolloAccountId: null }),
     );
   });
 

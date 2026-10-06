@@ -13,8 +13,9 @@ import { WorkspaceModeChoice } from "./WorkspaceModeChoice";
 /**
  * The "About your organization" form — Signup.dc.html's step 3, and the first stage of the New
  * workspace modal. One form, because a workspace is described the same way whether it is the firm's
- * first or its third: who it hires for and the company picked from the universe. Which endpoint it posts to is the caller's: the wizard creates (or corrects) through
- * onboarding, the modal through `/workspaces`.
+ * first or its third: who it hires for and the company picked from the universe. Which endpoint it
+ * posts to is the caller's: the wizard creates (or corrects) through onboarding, the modal through
+ * `/workspaces`.
  */
 export function OrganisationForm({
   editing,
@@ -128,4 +129,3 @@ const ONBOARDING_COMPANY_SEARCH: CompanySearchSource = {
   key: authApi.ONBOARDING_COMPANY_SEARCH_KEY,
   search: authApi.searchOnboardingCompanies,
 };
-

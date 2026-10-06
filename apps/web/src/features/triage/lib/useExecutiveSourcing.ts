@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
@@ -18,7 +18,8 @@ export function useExecutiveSourcing(
   projectId: string,
   canWrite: boolean,
   streamIsLive: boolean,
-  onFinished?: () => void,
+  /** Handed the companies a run started here was sent, once it completes or fails. */
+  onSettled?: (triageCompanyIds: string[]) => void,
 ) {
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -51,10 +52,11 @@ export function useExecutiveSourcing(
     writeDismissed(projectId, run.id);
   };
 
-  const onFinishedRef = useRef(onFinished);
-  useLayoutEffect(() => {
-    onFinishedRef.current = onFinished;
-  }, [onFinished]);
+  const sentCompanyIds = useRef<string[]>([]);
+  const settle = useEffectEvent(() => {
+    onSettled?.(sentCompanyIds.current);
+    sentCompanyIds.current = [];
+  });
 
   const seenStatus = useRef<string | null>(null);
   useEffect(() => {
@@ -65,11 +67,11 @@ export function useExecutiveSourcing(
     if (run.status === "COMPLETED") {
       void rowsChanged(projectId);
       toast(summaryOf(run));
-      onFinishedRef.current?.();
+      settle();
     } else if (run.status === "FAILED") {
       void rowsChanged(projectId);
       toast("Find executives stopped before it finished — try again");
-      onFinishedRef.current?.();
+      settle();
     }
   }, [run, projectId, rowsChanged, toast]);
 
@@ -96,7 +98,12 @@ export function useExecutiveSourcing(
     isDismissed: run !== null && run.id === dismissedRunId,
     dismiss,
     start: (triageCompanyIds: string[], onStarted: () => void) =>
-      start.mutate(triageCompanyIds, { onSuccess: onStarted }),
+      start.mutate(triageCompanyIds, {
+        onSuccess: () => {
+          sentCompanyIds.current = triageCompanyIds;
+          onStarted();
+        },
+      }),
   };
 }
 

@@ -96,7 +96,7 @@ make_workspace "$UNVERIFIED_TOKEN" "Squatted Co $RANDOM"
 check_code N28.1 "an unverified user creating a workspace" 403 EMAIL_NOT_VERIFIED
 
 http PATCH /onboarding/workspace -H 'Content-Type: application/json' \
-  -H "$(auth_header "$UNVERIFIED_TOKEN")" -d '{"mode":"COMPANY","name":"Squatted Renamed","companySize":"11-50 people"}'
+  -H "$(auth_header "$UNVERIFIED_TOKEN")" -d '{"mode":"COMPANY","name":"Squatted Renamed"}'
 check_status N28.2 "PATCH is shut to them too" 403
 
 check N28.3 "nothing exists on the domain they claimed" "0" \
