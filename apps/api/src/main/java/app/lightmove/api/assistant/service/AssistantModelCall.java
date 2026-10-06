@@ -13,7 +13,6 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -65,7 +64,7 @@ public class AssistantModelCall {
                 .options(options(SUPERVISOR_PROMPT_ID, 0))
                 .system(supervisorPrompt)
                 .messages(conversation(history, question))
-                .toolCallbacks(List.<ToolCallback>copyOf(specialists))
+                .tools(specialists.toArray())
                 .toolContext(context.asMap())
                 .call()
                 .content();
