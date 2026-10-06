@@ -650,6 +650,34 @@ class AuthFlowIntegrationTest {
         assertThat(body(wrongPassword).get("detail")).isEqualTo(body(noSuchUser).get("detail"));
     }
 
+    /**
+     * The audit column is {@code varchar(64)}. An oversized inbound id was once written through, failed
+     * the insert, and the writer swallowed it — so one header erased the caller's own failed logins.
+     */
+    @Test
+    @DisplayName("an oversized X-Correlation-Id is replaced, and the failed login is still audited")
+    void oversizedCorrelationIdCannotSuppressTheAuditRow() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+        String oversized = "a".repeat(65);
+
+        MvcResult refused = mvc.perform(post("/api/v1/auth/login")
+                        .header("X-Correlation-Id", oversized)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"%s","password":"wrongpassword1"}
+                                """.formatted(alokEmail)))
+                .andReturn();
+
+        String generated = refused.getResponse().getHeader("X-Correlation-Id");
+        assertThat(generated).hasSize(16).isNotEqualTo(oversized);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM app_lm_audit_event event
+                JOIN app_lm_user actor ON actor.id = event.actor_user_id
+                WHERE event.event_type = 'LOGIN_FAILED' AND actor.email = ? AND event.correlation_id = ?
+                """, Integer.class, alokEmail, generated))
+                .isEqualTo(1);
+    }
+
     @Test
     @DisplayName("repeated failures lock the account")
     void lockoutAfterRepeatedFailures() throws Exception {

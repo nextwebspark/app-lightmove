@@ -514,6 +514,13 @@ public class CandidateService {
         candidates.requireInProject(candidateId, projectId);
     }
 
+    /** {@link #dossierOf(UUID, UUID)} once the position is confirmed to be this workspace's. */
+    @Transactional(readOnly = true)
+    public Optional<CandidateDossier> dossierOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return dossierOf(projectId, candidateId);
+    }
+
     /**
      * What the AI enrichment may send to the model — {@link CandidateDossier} is an allowlist, so
      * contact details and compensation never leave through here. Empty once the row is gone.

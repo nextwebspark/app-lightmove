@@ -22,11 +22,14 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -40,6 +43,10 @@ import tools.jackson.databind.JsonNode;
  */
 @IntegrationTest
 class AssistantIntegrationTest extends FlowTestSupport {
+
+    private static final String SUPERVISOR_MARKER = "coordinating specialists";
+    private static final String COMPANY_MARKER = "find the companies to source executives";
+    private static final String CANDIDATE_MARKER = "the executives a consultant has mapped";
 
     private static final Pattern COMPLETE_DONE_EVENT = Pattern.compile("event:done\\ndata:(.+)\\n\\n");
 
@@ -58,6 +65,14 @@ class AssistantIntegrationTest extends FlowTestSupport {
     void freshUniverse() {
         universe = new ApolloUniverse(db);
         universe.reset();
+        model.reset();
+        model.callToolWhenSystemContains(SUPERVISOR_MARKER, "askCompanySpecialist",
+                "{\"task\":\"Answer the consultant\"}");
+    }
+
+    @AfterEach
+    void resetModel() {
+        model.reset();
     }
 
     @Test
@@ -173,7 +188,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, threadId, "Shortlist the other one too");
 
-        assertThat(model.lastPrompt().getInstructions())
+        assertThat(companyPrompt().getInstructions())
                 .filteredOn(message -> message.getMessageType() == MessageType.ASSISTANT)
                 .singleElement()
                 .extracting(Message::getText)
@@ -281,7 +296,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
 
-        String system = model.lastPrompt().getSystemMessage().getText();
+        String system = companyPrompt().getSystemMessage().getText();
         assertThat(system)
                 .contains("- Name: Assistant Persona Firm")
                 .contains("- Sectors: Retail, Real Estate")
@@ -319,7 +334,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(admin, projectId, null, "Top hospital groups");
 
-        String system = model.lastPrompt().getSystemMessage().getText();
+        String system = companyPrompt().getSystemMessage().getText();
         assertThat(system)
                 .contains("The consultant works for Gulf Search Partners, a search agency")
                 .contains("- Name: Harbour Health")
@@ -333,6 +348,37 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a large client's headcount is context only: no question is narrowed to a share of it")
+    void neverScalesTheSearchToTheClientsHeadcount() throws Exception {
+        String hana = "hana@" + domain;
+        createWorkspace(verifiedUser("Hana Saleh", hana), "Gulf Energy Search", "AGENCY");
+        String admin = login(hana);
+        universe.company("aramco", "Aramco").employees(168_000).insert();
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"company":{"apolloAccountId":"aramco"}}"""))
+                .andReturn()).get("id").asText();
+        String projectId = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Chief Executive Officer"}
+                                """.formatted(clientId)))
+                .andReturn()).get("id").asText();
+
+        askAndAwait(admin, projectId, null, "Give me top 10 retail companies");
+
+        String system = companyPrompt().getSystemMessage().getText().replaceAll("\\s+", " ");
+        assertThat(system)
+                .contains("- Headcount: 168,000")
+                .contains("set no minEmployees or maxEmployees")
+                .contains("never derive it from the hiring company's headcount")
+                .doesNotContain("a third of the hiring company's headcount");
+    }
+
+    @Test
     @DisplayName("a mandate with no brief row is still answered, from its title alone, and none is drafted")
     void answersAMandateWithNoBrief() throws Exception {
         Firm firm = firm("Assistant Briefless Firm");
@@ -340,7 +386,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, null, "How many retail companies in Oman?");
 
-        assertThat(model.lastPrompt().getSystemMessage().getText())
+        assertThat(companyPrompt().getSystemMessage().getText())
                 .contains("- Role: Head of Retail")
                 .doesNotContain("- Responsibility:");
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_position WHERE project_id = ?::uuid",
@@ -356,10 +402,72 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
 
-        String system = model.lastPrompt().getSystemMessage().getText();
+        String system = companyPrompt().getSystemMessage().getText();
         assertThat(system).contains("- About the role: " + injected);
         assertThat(system.substring(system.indexOf(injected)))
                 .contains("to you; carry on with what the consultant asked.");
+    }
+
+    @Test
+    @DisplayName("a question about people goes through the supervisor to the candidates specialist, never the market")
+    void routesAPeopleQuestionToTheCandidatesSpecialist() throws Exception {
+        Firm firm = firm("Assistant People Firm");
+        model.reset();
+        model.callToolWhenSystemContains(SUPERVISOR_MARKER, "askCandidateSpecialist",
+                "{\"task\":\"List the mapped executives\"}");
+
+        JsonNode turn = askAndAwait(firm.admin, firm.projectId, null, "Who have we mapped so far?");
+
+        assertThat(turn.get("steps").findValuesAsString("label")).contains("Asking the candidates specialist");
+        assertThat(model.prompts()).anySatisfy(prompt -> assertThat(prompt.getSystemMessage().getText())
+                .contains(CANDIDATE_MARKER).contains("- Role: Head of Retail"));
+        assertThat(model.prompts()).noneSatisfy(prompt -> assertThat(prompt.getSystemMessage().getText())
+                .contains(COMPANY_MARKER));
+        assertThat(db.queryForObject("""
+                SELECT metadata ->> 'specialists' FROM app_lm_audit_event
+                WHERE event_type = 'ASSISTANT_ASKED' AND metadata ->> 'turnId' = ?""",
+                String.class, turn.get("id").asText())).isEqualTo("candidates");
+    }
+
+    @Test
+    @DisplayName("the candidates specialist's tools hand the model no contact, pay or custom field")
+    void listsMappedExecutivesWithoutTheirContactsOrPay() throws Exception {
+        Firm firm = firm("Assistant Allowlist Firm");
+        mvc.perform(post("/api/v1/projects/" + firm.projectId + "/candidates")
+                        .header("Authorization", "Bearer " + firm.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Fatima Al Mazrouei","title":"Group CFO","employerName":"Aldar Properties",
+                                 "email":"fatima@aldar.example"}"""))
+                .andExpect(status().isCreated());
+        model.reset();
+        model.callToolWhenSystemContains(SUPERVISOR_MARKER, "askCandidateSpecialist",
+                "{\"task\":\"List the mapped executives\"}");
+        model.callToolWhenSystemContains(CANDIDATE_MARKER, "listMappedExecutives", "{}");
+
+        askAndAwait(firm.admin, firm.projectId, null, "Who have we mapped so far?");
+
+        String listed = model.prompts().stream()
+                .filter(prompt -> prompt.getSystemMessage().getText().contains(CANDIDATE_MARKER))
+                .flatMap(prompt -> prompt.getInstructions().stream())
+                .filter(message -> message instanceof ToolResponseMessage)
+                .map(message -> ((ToolResponseMessage) message).getResponses().getFirst().responseData())
+                .findFirst()
+                .orElseThrow();
+        assertThat(listed)
+                .contains("Fatima Al Mazrouei")
+                .contains("Group CFO")
+                .doesNotContain("fatima@aldar.example")
+                .doesNotContain("compensation")
+                .doesNotContain("customFields");
+    }
+
+    /** The company specialist's prompt — the supervisor's own comes last, after the specialist answered. */
+    private Prompt companyPrompt() {
+        return model.prompts().stream()
+                .filter(prompt -> prompt.getSystemMessage().getText().contains(COMPANY_MARKER))
+                .reduce((first, second) -> second)
+                .orElseThrow();
     }
 
     private String turnWithCard(Firm firm) throws Exception {

@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Button, Modal, Skeleton, useToast } from "../../../components/ui";
+import { Avatar, Button, ChoiceCardGroup, DateInput, Modal, Skeleton, useToast } from "../../../components/ui";
+import type { ChoiceCardOption } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { MAILBOX_KEY } from "../api/mailboxApi";
@@ -13,7 +14,23 @@ import type {
   OutreachSkipReason,
   RecipientTokens,
   Sequence,
+  StartedSequence,
+  StartMode,
 } from "../api/sequenceApi";
+import {
+  clockOf,
+  dayLabelOf,
+  firstSendOf,
+  followUpDatesOf,
+  HALF_HOURS,
+  instantOf,
+  isOutsideSchedule,
+  nextOpeningOf,
+  scheduleLabelOf,
+  wallClockOf,
+  whenLabelOf,
+  zoneCityOf,
+} from "../lib/sendSchedule";
 import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
 
@@ -32,6 +49,19 @@ interface ReviewedEmail {
   openerEdited: boolean;
   isDrafting: boolean;
   draftFailed: boolean;
+}
+
+/** `StartSequenceRequest`'s horizon for a chosen start. */
+const START_HORIZON_DAYS = 60;
+
+/** Until the mailbox read lands; the server's own default. */
+const FALLBACK_ZONE = "Asia/Dubai";
+
+/** When the first emails go, as the Start step leaves it: a mode, and with `AT` a day and time in the sender's zone. */
+interface StartChoice {
+  mode: StartMode;
+  date: string;
+  time: string;
 }
 
 const SKIP_NOTES: Record<OutreachSkipReason, string> = {
@@ -82,6 +112,7 @@ export function EnrolDialog({
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
   const [reviewed, setReviewed] = useState<Record<string, ReviewedEmail>>({});
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [startChoice, setStartChoice] = useState<StartChoice>({ mode: "NOW", date: "", time: "" });
   const isOpen = useRef(true);
   // Set in the body as well as cleared in the cleanup: StrictMode mounts, unmounts and mounts again,
   // and a ref only cleared would discard every draft that lands after that.
@@ -101,6 +132,12 @@ export function EnrolDialog({
   const isOverTheCap = chosen.length > sequenceApi.MAX_PEOPLE_PER_START;
   const connection = mailbox.data?.connection ?? null;
   const canSend = connection?.status === "ACTIVE";
+  const timeZone = connection?.timeZone ?? FALLBACK_ZONE;
+  const chosenStart =
+    startChoice.mode === "AT" && startChoice.date && startChoice.time
+      ? instantOf(startChoice.date, startChoice.time, timeZone)
+      : null;
+  const startProblem = startProblemOf(startChoice.mode, chosenStart);
 
   /**
    * Drafts in presses of `OPENERS_PER_PRESS` and answers the ids that received an opener. Stops at the
@@ -173,14 +210,16 @@ export function EnrolDialog({
             openerEdited: email.openerEdited,
           };
         }),
+        {
+          startMode: startChoice.mode,
+          startAt: startChoice.mode === "AT" && chosenStart ? chosenStart.toISOString() : null,
+        },
       ),
-    onSuccess: ({ enrolled }) => {
+    onSuccess: (started) => {
       void queryClient.invalidateQueries({
         queryKey: sequenceApi.SEQUENCES_KEY(projectId),
       });
-      toast(
-        `Started. ${enrolled} first ${enrolled === 1 ? "email goes" : "emails go"} out in the next sending window.`,
-      );
+      toast(startedToastOf(started, startChoice.mode, timeZone));
       onClose();
     },
     onError: (error) => {
@@ -234,7 +273,7 @@ export function EnrolDialog({
             ? `Add at most ${sequenceApi.MAX_PEOPLE_PER_START} people at a time — untick ${chosen.length - sequenceApi.MAX_PEOPLE_PER_START}`
             : `${chosen.length} to add · ${skipped.length} skipped`)}
         {step === "review" && `Reviewing ${reviewIndex + 1} of ${chosen.length}. Edits are kept for this person only.`}
-        {step === "start" && "Nothing is sent until you press Start."}
+        {step === "start" && (startProblem ?? "Nothing is sent until you press Start.")}
       </span>
       {step !== "choose" && (
         <Button
@@ -268,7 +307,7 @@ export function EnrolDialog({
         <Button
           className="px-3.5 py-2 text-[13px] font-semibold"
           loading={start.isPending}
-          disabled={isAnyDrafting}
+          disabled={isAnyDrafting || startProblem !== null}
           onClick={() => start.mutate()}
         >
           Start sequence
@@ -335,7 +374,16 @@ export function EnrolDialog({
         />
       )}
       {step === "start" && sequence && (
-        <StartStep sequence={sequence} chosen={chosen} skipped={skipped} senderAddress={connection?.address ?? ""} />
+        <StartStep
+          sequence={sequence}
+          chosen={chosen}
+          skipped={skipped}
+          senderAddress={connection?.address ?? ""}
+          timeZone={timeZone}
+          choice={startChoice}
+          chosenStart={chosenStart}
+          onChoose={setStartChoice}
+        />
       )}
     </Modal>
   );
@@ -634,13 +682,50 @@ function StartStep({
   chosen,
   skipped,
   senderAddress,
+  timeZone,
+  choice,
+  chosenStart,
+  onChoose,
 }: {
   sequence: Sequence;
   chosen: EnrollmentCandidate[];
   skipped: EnrollmentCandidate[];
   senderAddress: string;
+  timeZone: string;
+  choice: StartChoice;
+  chosenStart: Date | null;
+  onChoose: (choice: StartChoice) => void;
 }) {
   const reasons = [...new Set(skipped.map((person) => SKIP_SUMMARY[person.skipReason!]))];
+  const [now] = useState(() => new Date());
+  const city = zoneCityOf(timeZone);
+  const schedule = sequence.schedule;
+  const firstSend = firstSendOf(choice.mode, schedule, now, timeZone, chosenStart);
+  const followUps = firstSend ? followUpDatesOf(schedule, sequence.steps, firstSend, timeZone) : [];
+  const today = wallClockOf(now, timeZone).date;
+  const lastDay = wallClockOf(new Date(now.getTime() + START_HORIZON_DAYS * 86_400_000), timeZone).date;
+  const options: ChoiceCardOption<StartMode>[] = [
+    {
+      value: "NOW",
+      title: "Now",
+      body:
+        chosen.length > 1
+          ? "The first goes at once and the rest a few minutes apart, whatever the hour"
+          : "It goes at once, whatever the hour",
+    },
+    { value: "NEXT_WINDOW", title: "Next sending window", body: `${scheduleLabelOf(schedule)} ${city} time` },
+    { value: "AT", title: "Pick a date and time", body: `Up to ${START_HORIZON_DAYS} days ahead, ${city} time` },
+  ];
+  const handleMode = (mode: StartMode) => {
+    if (mode !== "AT" || choice.date) {
+      onChoose({ ...choice, mode });
+      return;
+    }
+    const suggested = nextOpeningOf(schedule, instantOf(today, "23:59", timeZone), timeZone);
+    const clock = wallClockOf(suggested, timeZone);
+    onChoose({ mode, date: clock.date, time: clock.time });
+  };
+
   return (
     <div className="pb-2">
       <div className="mb-4 flex items-center gap-3">
@@ -654,13 +739,61 @@ function StartStep({
           </div>
         </div>
       </div>
+      <div className="mb-4">
+        <div className="mb-2 text-[13px] font-semibold">When should the first {chosen.length === 1 ? "email" : "emails"} go?</div>
+        <ChoiceCardGroup
+          label="When to send"
+          options={options}
+          value={choice.mode}
+          onChange={handleMode}
+          className="sm:grid-cols-3"
+        />
+        {choice.mode === "AT" && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 font-mono text-[12px] text-u-text2">
+            <DateInput
+              value={choice.date}
+              min={today}
+              max={lastDay}
+              ariaLabel="Start date"
+              onChange={(date) => onChoose({ ...choice, date })}
+              className="w-auto min-w-[150px] py-1.5"
+            />
+            at
+            <select
+              value={choice.time}
+              aria-label="Start time"
+              onChange={(event) => onChoose({ ...choice, time: event.target.value })}
+              className="rounded-[6px] border border-u-border-strong bg-u-raised px-1.5 py-1.5 font-mono text-[12px] text-u-text"
+            >
+              {(HALF_HOURS.includes(choice.time) ? HALF_HOURS : [...HALF_HOURS, choice.time].sort()).map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+            {city} time
+          </div>
+        )}
+        {choice.mode === "AT" && chosenStart && isOutsideSchedule(schedule, chosenStart, timeZone) && (
+          <p className="mt-2 text-[12px]/[1.5] text-u-text3">
+            That is outside this sequence's sending schedule ({scheduleLabelOf(schedule)}). The first emails still go
+            then; follow-ups keep to the schedule.
+          </p>
+        )}
+      </div>
       <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-2 text-[13px]/[1.5] md:grid-cols-[140px_1fr]">
         <dt className="text-u-text3">First emails</dt>
-        <dd>In the next sending window, Mon–Fri 08:00–18:00 your time, a few minutes apart</dd>
+        <dd>{firstSendLineOf(choice.mode, firstSend, chosen.length, timeZone)}</dd>
         {sequence.steps.length > 1 && (
           <>
             <dt className="text-u-text3">Follow-ups</dt>
-            <dd>{followUpLine(sequence)}, for anyone who hasn't replied</dd>
+            <dd>
+              {followUps.length > 0
+                ? `${followUps
+                    .map((due, index) => `${index === 0 ? "Step" : "step"} ${index + 2} on ${whenLabelOf(due, timeZone)}`)
+                    .join(", ")}, for anyone who hasn't replied`
+                : `${followUpLine(sequence)}, for anyone who hasn't replied`}
+            </dd>
           </>
         )}
         <dt className="text-u-text3">Status</dt>
@@ -676,6 +809,33 @@ function StartStep({
       </dl>
     </div>
   );
+}
+
+function startProblemOf(mode: StartMode, chosenStart: Date | null): string | null {
+  if (mode !== "AT") return null;
+  if (!chosenStart) return "Choose a day and a time.";
+  if (chosenStart.getTime() <= Date.now()) return "Choose a time that is still ahead.";
+  if (chosenStart.getTime() > Date.now() + START_HORIZON_DAYS * 86_400_000)
+    return `Choose a time within the next ${START_HORIZON_DAYS} days.`;
+  return null;
+}
+
+function firstSendLineOf(mode: StartMode, firstSend: Date | null, people: number, timeZone: string): string {
+  const apart = people > 1 ? ", the rest a few minutes apart" : "";
+  if (!firstSend) return "When you choose";
+  if (mode === "NOW") return `Now${apart}`;
+  return `${whenLabelOf(firstSend, timeZone)} ${zoneCityOf(timeZone)} time${apart}`;
+}
+
+function startedToastOf(started: StartedSequence, mode: StartMode, timeZone: string): string {
+  const emails = started.enrolled === 1 ? "first email" : "first emails";
+  if (mode === "NOW") return `Started. ${started.enrolled} ${emails} going out now.`;
+  const first = new Date(started.firstSendAt);
+  const when =
+    wallClockOf(first, timeZone).date === wallClockOf(new Date(), timeZone).date
+      ? `today at ${wallClockOf(first, timeZone).time}`
+      : `on ${dayLabelOf(first, timeZone)} at ${wallClockOf(first, timeZone).time}`;
+  return `Started. ${started.enrolled} ${emails} from ${when} ${zoneCityOf(timeZone)} time.`;
 }
 
 /** Typing is never blocked on the model: whatever is typed first wins over a draft that lands later. */
@@ -701,10 +861,14 @@ function followUpLine(sequence: Sequence): string {
     .slice(1)
     .map((step, index) =>
       index === 0
-        ? `Step 2 after ${step.delayWorkingDays} working ${step.delayWorkingDays === 1 ? "day" : "days"}`
-        : `step ${index + 2} after ${step.delayWorkingDays} more`,
+        ? `Step 2 after ${step.delayWorkingDays} sending ${step.delayWorkingDays === 1 ? "day" : "days"}${atTimeOf(step.sendTime)}`
+        : `step ${index + 2} after ${step.delayWorkingDays} more${atTimeOf(step.sendTime)}`,
     )
     .join(", ");
+}
+
+function atTimeOf(sendTime: string | null | undefined): string {
+  return sendTime ? ` at ${clockOf(sendTime)}` : "";
 }
 
 function withEach(

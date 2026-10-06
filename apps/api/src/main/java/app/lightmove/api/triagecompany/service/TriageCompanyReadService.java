@@ -18,6 +18,7 @@ import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.model.TriageCompanyLogo;
+import app.lightmove.api.triagecompany.model.TriageCompanyMatches;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import java.util.Collection;
 import java.util.HashSet;
@@ -177,6 +178,37 @@ public class TriageCompanyReadService {
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));
+    }
+
+    /** Every stage's companies whose name contains {@code companyName}, in name order, one query. */
+    @Transactional(readOnly = true)
+    public TriageCompanyMatches named(UUID workspaceId, UUID projectId, String companyName, int cap) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return matchesOf(triaged.findByProjectIdAndCompanyNameContainingIgnoreCase(projectId, companyName,
+                PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName").and(NEWEST_FIRST))));
+    }
+
+    /** The stage's companies outside {@code excludedIds}, in name order, with how many there are in all. */
+    @Transactional(readOnly = true)
+    public TriageCompanyMatches ofStageExcluding(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
+                                                 Set<UUID> excludedIds, int cap) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        PageRequest first = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName").and(NEWEST_FIRST));
+        return matchesOf(excludedIds.isEmpty()
+                ? triaged.findByProjectIdAndStatus(projectId, status, first)
+                : triaged.findByProjectIdAndStatusAndIdNotIn(projectId, status, excludedIds, first));
+    }
+
+    @Transactional(readOnly = true)
+    public long countOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.countByProjectIdAndStatus(projectId, status);
+    }
+
+    private static TriageCompanyMatches matchesOf(Page<TriageCompany> found) {
+        return new TriageCompanyMatches(
+                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
+                found.getTotalElements());
     }
 
     /** The stage's companies among {@code ids}; an id elsewhere, or in another mandate, is simply absent. */
