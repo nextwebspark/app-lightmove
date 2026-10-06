@@ -10,10 +10,10 @@ import app.lightmove.api.mcp.model.McpCaller;
 import app.lightmove.api.mcp.model.McpCallerAuthentication;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -51,10 +51,8 @@ public class McpCredentials {
         if (!key.holds(ApiKeyScope.MCP_USE)) {
             throw refused("This key is not enabled for MCP");
         }
-        Set<ApiKeyScope> scopes = EnumSet.noneOf(ApiKeyScope.class);
-        key.scopes().stream().filter(ApiKeyScope.dataScopes()::contains).forEach(scopes::add);
         return new McpCallerAuthentication(new McpCaller(McpCredentialKind.API_KEY, key.ownerUserId(),
-                key.workspaceId(), Set.copyOf(scopes), null, key.keyId()));
+                key.workspaceId(), dataScopesAmong(key::holds), null, key.keyId()));
     }
 
     /** The granted scopes, as an array or a space-separated string; anything this build does not know is dropped. */
@@ -63,9 +61,12 @@ public class McpCredentials {
                 : claim instanceof String text ? Arrays.asList(text.trim().split("\\s+"))
                 : Set.of();
         Set<String> granted = tokens.stream().map(String::valueOf).collect(Collectors.toSet());
-        return ApiKeyScope.dataScopes().stream()
-                .filter(scope -> granted.contains(scope.value()))
-                .collect(Collectors.toUnmodifiableSet());
+        return dataScopesAmong(scope -> granted.contains(scope.value()));
+    }
+
+    /** What a caller may read: never {@code mcp:use}, which opens the server and reads nothing. */
+    private static Set<ApiKeyScope> dataScopesAmong(Predicate<ApiKeyScope> held) {
+        return ApiKeyScope.dataScopes().stream().filter(held).collect(Collectors.toUnmodifiableSet());
     }
 
     private static Optional<UUID> uuidOf(String value) {

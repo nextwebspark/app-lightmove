@@ -364,10 +364,10 @@ public class SecurityConfig {
     /** The MCP endpoint's browser origins: the deployment's own and those listed, as its transport also checks. */
     private static CorsConfiguration mcpCors(LightMoveProperties properties) {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(McpSettings.allowedOriginsUnder(properties.mcp(), properties.web().baseUrl()));
-        config.setAllowedMethods(List.of("GET", "POST", "OPTIONS"));
+        config.setAllowedOrigins(properties.mcp().allowedOriginsUnder(properties.web().baseUrl()));
+        config.setAllowedMethods(List.of("POST", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Mcp-Protocol-Version"));
-        config.setExposedHeaders(List.of("WWW-Authenticate"));
+        config.setExposedHeaders(List.of("WWW-Authenticate", "Retry-After"));
         config.setAllowCredentials(false);
         return config;
     }

@@ -46,9 +46,10 @@ public record McpSettings(
         @DefaultValue({}) List<String> allowedOrigins,
         /** The largest MCP request body read: a JSON-RPC call is small, so anything larger is refused unread. */
         @DefaultValue("65536") int maxRequestBytes,
-        /** Per grant or key, and per address: counted per instance, like every budget the in-memory limiter keeps. */
+        /** Per grant or key, counted per instance like every budget the in-memory limiter keeps. */
         @DefaultValue("120") int callsPerMinutePerCredential,
-        @DefaultValue("240") int callsPerMinutePerIp
+        /** Refused credentials per address: the one budget an address gets, since a hosted client's is shared. */
+        @DefaultValue("30") int refusalsPerMinutePerIp
 ) {
 
     /** Where the MCP server is mounted, and the default resource every token is minted for. */
@@ -59,8 +60,8 @@ public record McpSettings(
     }
 
     /** The deployment's own origin and those listed, blanks dropped: an empty setting binds as one empty string. */
-    public static List<String> allowedOriginsUnder(McpSettings settings, String webBaseUrl) {
-        List<String> origins = new ArrayList<>(settings.allowedOrigins().stream()
+    public List<String> allowedOriginsUnder(String webBaseUrl) {
+        List<String> origins = new ArrayList<>(allowedOrigins.stream()
                 .map(String::trim).filter(origin -> !origin.isEmpty()).toList());
         URI base = URI.create(webBaseUrl);
         origins.add(base.getScheme() + "://" + base.getRawAuthority());

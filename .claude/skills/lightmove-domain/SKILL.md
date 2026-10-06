@@ -298,7 +298,11 @@ neither, so it is refused as a stranger's would be. An access token alone is not
 key's owner is, so a disconnected app stops at once rather than when its hour runs out. The caller rides the MCP
 transport context to the tool, never a thread-local, because a tool may run off the request's thread; and the tool calls
 our services in-process — no caller's token is ever forwarded anywhere. A browser page on another site is refused by
-`Origin`, twice: by the endpoint's own CORS policy (bearer only, no credentials) and by the transport.
+`Origin`, twice: by the endpoint's own CORS policy (bearer only, no credentials) and by the transport. Calls are
+budgeted per grant or key, never per address: claude.ai and ChatGPT call from their own shared egress, so an address
+budget on calls lets one tenant's agent loop refuse every other tenant of that client; an address spends a budget only
+on refused credentials, which is where a guesser is. Only `@McpTool` beans are tools — the converter that would publish
+every `ToolCallback` bean is excluded outright, so a tool written for the assistant can never reach a stranger.
 
 **The two tokens never cross.** An MCP token is signed by its own key, has the MCP endpoint as `aud` and the
 deployment origin as `iss`; the session decoder checks `iss=lightmove` and refuses any `aud`. Either check alone

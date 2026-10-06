@@ -72,7 +72,7 @@ public class McpServerConfig {
     WebMvcStatelessServerTransport webMvcStatelessServerTransport(@Qualifier("mcpServerJsonMapper") JsonMapper json,
                                                                   LightMoveProperties properties,
                                                                   ClientIpResolver clientIps) {
-        List<String> origins = McpSettings.allowedOriginsUnder(properties.mcp(), properties.web().baseUrl());
+        List<String> origins = properties.mcp().allowedOriginsUnder(properties.web().baseUrl());
         return WebMvcStatelessServerTransport.builder()
                 .jsonMapper(new JacksonMcpJsonMapper(json))
                 .messageEndpoint(McpSettings.MCP_PATH)
@@ -95,6 +95,14 @@ public class McpServerConfig {
         AuthenticationEntryPoint refused = (request, response, failure) -> {
             if (failure instanceof ApiKeyThrottledException throttled) {
                 response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(throttled.retryAfterSeconds()));
+                problems.write(request, response, ErrorCode.RATE_LIMITED);
+                return;
+            }
+            // An address is budgeted on its refusals alone: a guesser spends it, a hosted client's tenants never do.
+            if (properties.auth().rateLimit().enabled() && !limiter.tryAcquire(
+                    "mcp:refused:ip:" + clientIps.resolve(request), properties.mcp().refusalsPerMinutePerIp(),
+                    McpRateLimitFilter.WINDOW)) {
+                response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(McpRateLimitFilter.WINDOW.toSeconds()));
                 problems.write(request, response, ErrorCode.RATE_LIMITED);
                 return;
             }
@@ -126,7 +134,7 @@ public class McpServerConfig {
                 .addFilterBefore(new McpRequestLimitFilter(properties.mcp().maxRequestBytes(), problems),
                         BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new McpRateLimitFilter(properties.mcp(), properties.auth().rateLimit(), limiter,
-                        clientIps, problems, audit), BearerTokenAuthenticationFilter.class)
+                        problems, audit), BearerTokenAuthenticationFilter.class)
                 .build();
     }
 

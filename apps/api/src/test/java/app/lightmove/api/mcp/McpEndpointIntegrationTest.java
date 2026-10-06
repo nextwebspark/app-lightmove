@@ -14,7 +14,9 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.mcp.server.common.autoconfigure.StatelessToolCallbackConverterAutoConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
@@ -42,6 +44,7 @@ class McpEndpointIntegrationTest extends OAuthFlowSupport {
 
     @Autowired JdbcTemplate db;
     @Autowired JWKSource<SecurityContext> mcpJwkSource;
+    @Autowired ApplicationContext context;
 
     @Test
     @DisplayName("an OAuth token initializes, lists only our tools, and calls one in the workspace it was granted")
@@ -57,6 +60,8 @@ class McpEndpointIntegrationTest extends OAuthFlowSupport {
         assertThat(tools.valueStream().map(tool -> tool.get("name").asText()))
                 .as("nothing but our own tools: the assistant's are never published").containsExactly("uncava_whoami");
         assertThat(tools.get(0).at("/annotations/readOnlyHint").asBoolean()).isTrue();
+        assertThat(context.getBeanNamesForType(StatelessToolCallbackConverterAutoConfiguration.class))
+                .as("no ToolCallback bean is ever converted into a tool").isEmpty();
 
         JsonNode whoami = resultOf(rpc(token, WHOAMI));
         assertThat(whoami.get("credentialKind").asText()).isEqualTo("OAUTH");

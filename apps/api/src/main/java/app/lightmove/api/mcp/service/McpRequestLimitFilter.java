@@ -9,22 +9,24 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Holds an MCP request to a few kilobytes before anyone reads it: one declaring more is refused unread, and one sent
- * without a length stops being read at the cap. A JSON-RPC call is small; a large one is not a call.
+ * Holds an MCP request to a few kilobytes: the body is read here, at most one byte past the cap, and replayed to
+ * whatever reads it next, so a request over the cap is a 413 whether or not it declared its length.
  */
+@RequiredArgsConstructor
 public class McpRequestLimitFilter extends OncePerRequestFilter {
 
     private final int maxBytes;
     private final PublicApiProblemWriter problems;
-
-    public McpRequestLimitFilter(int maxBytes, PublicApiProblemWriter problems) {
-        this.maxBytes = maxBytes;
-        this.problems = problems;
-    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -33,77 +35,70 @@ public class McpRequestLimitFilter extends OncePerRequestFilter {
             problems.write(request, response, ErrorCode.MCP_REQUEST_TOO_LARGE);
             return;
         }
-        chain.doFilter(new BoundedRequest(request, maxBytes), response);
+        byte[] body = request.getInputStream().readNBytes(maxBytes + 1);
+        if (body.length > maxBytes) {
+            problems.write(request, response, ErrorCode.MCP_REQUEST_TOO_LARGE);
+            return;
+        }
+        chain.doFilter(new BufferedRequest(request, body), response);
     }
 
-    private static final class BoundedRequest extends HttpServletRequestWrapper {
+    /** The request with its body already read, served to the stream and the reader alike. */
+    private static final class BufferedRequest extends HttpServletRequestWrapper {
 
-        private final int maxBytes;
-        private ServletInputStream bounded;
+        private final byte[] body;
 
-        BoundedRequest(HttpServletRequest request, int maxBytes) {
+        BufferedRequest(HttpServletRequest request, byte[] body) {
             super(request);
-            this.maxBytes = maxBytes;
+            this.body = body;
         }
 
         @Override
-        public ServletInputStream getInputStream() throws IOException {
-            if (bounded == null) {
-                bounded = new BoundedInputStream(super.getInputStream(), maxBytes);
-            }
-            return bounded;
-        }
-    }
+        public ServletInputStream getInputStream() {
+            ByteArrayInputStream in = new ByteArrayInputStream(body);
+            return new ServletInputStream() {
+                @Override
+                public int read() {
+                    return in.read();
+                }
 
-    private static final class BoundedInputStream extends ServletInputStream {
+                @Override
+                public int read(byte[] buffer, int offset, int length) {
+                    return in.read(buffer, offset, length);
+                }
 
-        private final ServletInputStream in;
-        private final int maxBytes;
-        private long read;
+                @Override
+                public boolean isFinished() {
+                    return in.available() == 0;
+                }
 
-        BoundedInputStream(ServletInputStream in, int maxBytes) {
-            this.in = in;
-            this.maxBytes = maxBytes;
-        }
+                @Override
+                public boolean isReady() {
+                    return true;
+                }
 
-        @Override
-        public int read() throws IOException {
-            int next = in.read();
-            if (next != -1) {
-                count(1);
-            }
-            return next;
-        }
-
-        @Override
-        public int read(byte[] buffer, int offset, int length) throws IOException {
-            int count = in.read(buffer, offset, length);
-            if (count > 0) {
-                count(count);
-            }
-            return count;
-        }
-
-        private void count(int bytes) throws IOException {
-            read += bytes;
-            if (read > maxBytes) {
-                throw new IOException("MCP request over " + maxBytes + " bytes");
-            }
+                @Override
+                public void setReadListener(ReadListener listener) {
+                    throw new UnsupportedOperationException("The MCP request body is already read");
+                }
+            };
         }
 
         @Override
-        public boolean isFinished() {
-            return in.isFinished();
+        public BufferedReader getReader() {
+            String encoding = getCharacterEncoding();
+            Charset charset = encoding == null ? StandardCharsets.UTF_8 : Charset.forName(encoding);
+            return new BufferedReader(new InputStreamReader(getInputStream(), charset));
         }
 
         @Override
-        public boolean isReady() {
-            return in.isReady();
+        public int getContentLength() {
+            return body.length;
         }
 
         @Override
-        public void setReadListener(ReadListener listener) {
-            in.setReadListener(listener);
+        public long getContentLengthLong() {
+            return body.length;
         }
     }
 }

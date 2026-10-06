@@ -608,8 +608,11 @@ neither and opens nothing; tools call services in-process, never passing a calle
 audit line per call, never its arguments. RFC 9728 metadata is Spring Security's own at
 `/.well-known/oauth-protected-resource[/api/v1/mcp]`, and a 401 points at it. A browser `Origin` not on
 `lightmove.mcp.allowed-origins` (the deployment's own is always on it) is refused, by the endpoint's own CORS policy and
-by the transport; bodies are capped and calls budgeted per grant or key and per address. So far one tool,
-`uncava_whoami`; the parity tools are #704.
+by the transport; bodies are capped (read and replayed, so a body with no declared length is held too), calls are
+budgeted per grant or key, and an address only on its refused credentials — hosted clients call from shared egress, so
+an address budget on calls would let one tenant refuse the rest. Only `@McpTool` beans are served: Spring AI's
+`StatelessToolCallbackConverterAutoConfiguration`, which would publish every `ToolCallback` bean, is excluded on
+`LightMoveApplication`. So far one tool, `uncava_whoami`; the parity tools are #704.
 
 ## Commands
 
