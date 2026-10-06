@@ -360,6 +360,9 @@ public enum ErrorCode {
     /** The caller already holds {@code lightmove.public-api.max-active-keys-per-user} live personal keys. */
     API_KEY_LIMIT_REACHED(HttpStatus.CONFLICT, "You have the most API keys allowed. Revoke one you no longer use"),
 
+    /** A key asking for {@code mcp:use} alone, which would reach the MCP server and read nothing there. */
+    API_KEY_READS_NOTHING(HttpStatus.BAD_REQUEST, "Choose what the key may read besides MCP access"),
+
     /** Every refusal of a public API key — missing, malformed, unknown, revoked, expired or its owner's access gone — alike. */
     API_KEY_INVALID(HttpStatus.UNAUTHORIZED, "The API key is missing, invalid or no longer active"),
 

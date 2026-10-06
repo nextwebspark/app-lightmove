@@ -149,6 +149,9 @@ public class ApiKeyService {
         Set<ApiKeyScope> asked = tokens.stream()
                 .map(token -> ApiValueEnum.require(ApiKeyScope.class, token, "scope"))
                 .collect(Collectors.toSet());
+        if (ApiKeyScope.dataScopes().stream().noneMatch(asked::contains)) {
+            throw ApiException.of(ErrorCode.API_KEY_READS_NOTHING);
+        }
         return Arrays.stream(ApiKeyScope.values()).filter(asked::contains).toList();
     }
 

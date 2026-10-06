@@ -65,11 +65,7 @@ public class OAuthGrantService {
                 .addValue("workspaceId", workspaceId).addValue("now", Timestamp.from(clock.instant())), Boolean.class));
     }
 
-    /**
-     * Records that a grant's token was just used, for Settings → Connected AI apps; a refresh alone would leave an
-     * app reading "never used" through its first hour. At most once a minute, guarded in SQL so two racing calls
-     * write once.
-     */
+    /** A grant's last use, at most once a minute; only a refresh stamped it, so a new app read "never used". */
     @Transactional
     public void stampUse(UUID grantId) {
         Instant now = clock.instant();
