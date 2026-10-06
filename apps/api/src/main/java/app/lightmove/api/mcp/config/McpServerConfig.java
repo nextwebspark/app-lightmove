@@ -18,6 +18,7 @@ import app.lightmove.api.core.security.service.ClientIpResolver;
 import app.lightmove.api.mcp.model.McpCallOrigin;
 import app.lightmove.api.mcp.model.McpCaller;
 import app.lightmove.api.mcp.service.McpCredentials;
+import app.lightmove.api.mcp.service.McpPaging;
 import app.lightmove.api.mcp.service.McpRateLimitFilter;
 import app.lightmove.api.mcp.service.McpRequestLimitFilter;
 import app.lightmove.api.mcp.service.McpScopeStepUpFilter;
@@ -95,10 +96,8 @@ public class McpServerConfig {
 
     /** In place of Spring AI's own list (excluded on the application): the same tools, each behind the guard. */
     @Bean
-    List<SyncToolSpecification> mcpToolSpecifications(McpToolRegistry tools,
-                                                      @Qualifier("mcpServerJsonMapper") JsonMapper json,
-                                                      LightMoveProperties properties) {
-        return tools.specificationsGuardedBy(new McpToolGuard(json, properties.mcp().maxResultChars()));
+    List<SyncToolSpecification> mcpToolSpecifications(McpToolRegistry tools, McpPaging paging) {
+        return tools.specificationsGuardedBy(new McpToolGuard(paging));
     }
 
     @Bean

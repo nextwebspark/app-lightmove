@@ -45,7 +45,8 @@ public class McpScopeStepUpFilter extends OncePerRequestFilter {
             return;
         }
         String toolName = calledToolOf(request);
-        Set<ApiKeyScope> needed = toolName == null ? Set.of() : tools.scopesOf(toolName);
+        // A name no tool carries passes on: the transport answers it as an unknown tool, and nothing is served.
+        Set<ApiKeyScope> needed = toolName == null ? Set.of() : tools.scopesOf(toolName).orElse(Set.of());
         if (needed.stream().allMatch(caller::holds)) {
             chain.doFilter(request, response);
             return;

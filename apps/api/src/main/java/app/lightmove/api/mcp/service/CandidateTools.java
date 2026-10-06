@@ -47,8 +47,8 @@ public class CandidateTools {
             @McpToolParam(description = "Rows per page, 1 to 100; 25 when omitted", required = false) Integer limit,
             @McpToolParam(description = "concise (the default): names, titles, employers and status; detailed: "
                     + "every field", required = false) String response_format) {
-        McpResponseFormat format = McpResponseFormat.parse(response_format);
         return calls.call(context, LIST, positionId, caller -> {
+            McpResponseFormat format = McpResponseFormat.parse(response_format);
             authorizer.requireProjectRead(caller.reader(), positionId);
             McpRowsPage<McpCandidateRow> page = paging.page(cursor, limit,
                     (number, size) -> reads.candidates(caller.reader(), positionId, status, companyId, number, size),

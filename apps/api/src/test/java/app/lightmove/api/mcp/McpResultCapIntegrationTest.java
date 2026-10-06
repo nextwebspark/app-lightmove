@@ -12,7 +12,7 @@ import tools.jackson.databind.JsonNode;
 
 /** The per-call result cap, made small enough to reach. Its own class: the suite runs with production's. */
 @IntegrationTest
-@TestPropertySource(properties = "lightmove.mcp.max-result-chars=1600")
+@TestPropertySource(properties = "lightmove.mcp.max-result-chars=1400")
 class McpResultCapIntegrationTest extends McpFlowSupport {
 
     private static final List<String> COMPANIES = List.of("Aramco", "SABIC", "Ma'aden", "ACWA Power", "Masdar",

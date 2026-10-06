@@ -11,9 +11,9 @@ import io.modelcontextprotocol.common.McpTransportContext;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.Set;
 import java.util.function.ToIntFunction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +64,7 @@ public class McpToolCalls {
                 return new McpToolRefusal("No position " + projectId + " is readable through this connection. "
                         + "Find the positions it can read with uncava_search_positions.");
             }
+            // User-facing by design, as the REST problem body carries them: never the internal detail.
             if (refused.getFieldErrors() != null && !refused.getFieldErrors().isEmpty()) {
                 return new McpToolRefusal(String.join(" ", refused.getFieldErrors().values()));
             }

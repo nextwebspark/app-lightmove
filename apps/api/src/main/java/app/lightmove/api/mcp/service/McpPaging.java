@@ -1,5 +1,6 @@
 package app.lightmove.api.mcp.service;
 
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.mcp.model.McpRowsPage;
 import app.lightmove.api.mcp.model.McpToolRefusal;
 import app.lightmove.api.publicapi.dto.PublicPage;
@@ -7,8 +8,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import app.lightmove.api.core.config.LightMoveProperties;
+import java.util.function.Supplier;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -25,15 +28,20 @@ public class McpPaging {
     /** Room left for everything around the rows: the page's own fields and the notice. */
     private static final int ENVELOPE_CHARS = 1000;
 
-    private final JsonMapper json;
+    private final Supplier<JsonMapper> json;
     private final int maxResultChars;
 
+    /**
+     * Measures with the mapper the transport writes with, as the guard does, so a page cut to fit is never then
+     * refused whole. Looked up when first used: it exists only while the MCP server is on.
+     */
     @Autowired
-    public McpPaging(JsonMapper json, LightMoveProperties properties) {
-        this(json, properties.mcp().maxResultChars());
+    public McpPaging(@Qualifier("mcpServerJsonMapper") ObjectProvider<JsonMapper> json,
+                     LightMoveProperties properties) {
+        this(json::getObject, properties.mcp().maxResultChars());
     }
 
-    McpPaging(JsonMapper json, int maxResultChars) {
+    McpPaging(Supplier<JsonMapper> json, int maxResultChars) {
         this.json = json;
         this.maxResultChars = maxResultChars;
     }
@@ -66,7 +74,7 @@ public class McpPaging {
         int budget = maxResultChars - ENVELOPE_CHARS - reserved;
         int used = 0;
         for (int index = 0; index < rows.size(); index++) {
-            used += json.writeValueAsString(rows.get(index)).length() + 1;
+            used += json.get().writeValueAsString(rows.get(index)).length() + 1;
             if (used > budget) {
                 return Math.max(index, 1);
             }
@@ -74,8 +82,12 @@ public class McpPaging {
         return rows.size();
     }
 
+    public boolean exceedsCap(Object value) {
+        return charsOf(value) > maxResultChars;
+    }
+
     public int charsOf(Object value) {
-        return json.writeValueAsString(value).length();
+        return json.get().writeValueAsString(value).length();
     }
 
     private int fittingCount(List<?> rows) {

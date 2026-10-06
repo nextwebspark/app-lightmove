@@ -11,6 +11,8 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
@@ -60,6 +62,51 @@ class McpToolsIntegrationTest extends McpFlowSupport {
                 where event_type = 'MCP_TOOL_CALL' and metadata ->> 'tool' = 'uncava_get_position'
                   and target_type = 'project' and target_id = ?""", Integer.class, finance))
                 .as("each read of a position is audited against it, refusals included").isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"uncava_list_companies", "uncava_list_candidates", "uncava_get_universe"})
+    @DisplayName("a position tool refuses alike an unseated OAuth user, an unseated personal key and another workspace,"
+            + " and audits each refusal against the position")
+    void positionToolsFollowTheSeat(String tool) throws Exception {
+        String admin = adminOf(domain);
+        String finance = project(admin, "Chief Financial Officer");
+        String sara = seatedResearcher(admin, project(admin, "Head of Retail"));
+        String arguments = "{\"positionId\":\"" + finance + "\"}";
+        String refusal = "No position " + finance + " is readable through this connection. Find the positions it "
+                + "can read with uncava_search_positions.";
+
+        String saraToken = connect(registerClient(), sara, "companies:read", "candidates:read").get("access_token")
+                .asText();
+        assertThat(refusalOf(tool(saraToken, tool, arguments))).as("unseated OAuth user").isEqualTo(refusal);
+        String saraKey = keyOf(sara, "companies:read", "candidates:read", "mcp:use");
+        assertThat(refusalOf(tool(saraKey, tool, arguments))).as("unseated personal key").isEqualTo(refusal);
+        String outsider = serviceKeyOf(adminOf("other-" + domain), "companies:read", "candidates:read", "mcp:use");
+        assertThat(refusalOf(tool(outsider, tool, arguments))).as("another workspace").isEqualTo(refusal);
+
+        assertThat(resultOf(tool(serviceKeyOf(admin, "companies:read", "candidates:read", "mcp:use"), tool,
+                arguments))).as("the position's own workspace reads it").isNotNull();
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_audit_event
+                where event_type = 'MCP_TOOL_CALL' and metadata ->> 'tool' = ? and outcome = 'FAILURE'
+                  and target_type = 'project' and target_id = ?""", Integer.class, tool, finance))
+                .as("each refusal is audited against the position").isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("a refused response_format is answered as a result, and audited like any other refusal")
+    void badResponseFormatIsAudited() throws Exception {
+        String admin = adminOf(domain);
+        String finance = project(admin, "Chief Financial Officer");
+        String key = keyOf(admin, "projects:read", "mcp:use");
+
+        assertThat(refusalOf(tool(key, "uncava_get_position",
+                "{\"positionId\":\"" + finance + "\",\"response_format\":\"verbose\"}")))
+                .isEqualTo("response_format is concise or detailed.");
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_audit_event
+                where event_type = 'MCP_TOOL_CALL' and metadata ->> 'tool' = 'uncava_get_position'
+                  and outcome = 'FAILURE' and target_id = ?""", Integer.class, finance)).isEqualTo(1);
     }
 
     @Test

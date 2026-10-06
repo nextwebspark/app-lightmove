@@ -1,7 +1,6 @@
 package app.lightmove.api.mcp.dto;
 
 import app.lightmove.api.publicapi.dto.PublicCandidate;
-import app.lightmove.api.publicapi.dto.PublicCareerEntry;
 import app.lightmove.api.publicapi.dto.PublicCompany;
 import org.jspecify.annotations.Nullable;
 
@@ -18,28 +17,20 @@ final class McpFreeText {
     private McpFreeText() {
     }
 
+    /** Cut on a character, never inside a surrogate pair, so an emoji is never left half. */
     static @Nullable String capped(@Nullable String text, int max) {
-        return text == null || text.length() <= max ? text : text.substring(0, max - 1) + "…";
+        if (text == null || text.length() <= max) {
+            return text;
+        }
+        int end = Character.isHighSurrogate(text.charAt(max - 2)) ? max - 2 : max - 1;
+        return text.substring(0, end) + "…";
     }
 
     static PublicCompany capped(PublicCompany company) {
-        return new PublicCompany(company.id(), company.stage(), company.name(), company.industry(), company.country(),
-                company.city(), company.employees(), company.annualRevenue(), company.website(), company.linkedinUrl(),
-                company.foundedYear(), capped(company.description(), MAX_PROSE), company.logoUrl(),
-                company.noExecutiveFound(), company.addedAt());
+        return company.withDescription(text -> capped(text, MAX_PROSE));
     }
 
     static PublicCandidate capped(PublicCandidate candidate) {
-        return new PublicCandidate(candidate.id(), candidate.personId(), candidate.companyId(),
-                candidate.companyName(), candidate.fullName(), capped(candidate.title(), MAX_LINE),
-                candidate.seniority(), candidate.status(), candidate.linkedinUrl(), candidate.city(),
-                candidate.country(), candidate.nationality(), candidate.gender(), candidate.yearsExperience(),
-                capped(candidate.summary(), MAX_PROSE),
-                candidate.career().stream()
-                        .map(entry -> new PublicCareerEntry(entry.company(), capped(entry.title(), MAX_LINE),
-                                entry.period(), entry.location()))
-                        .toList(),
-                candidate.education(), candidate.languages(), candidate.skills(), candidate.addedAt(),
-                candidate.contacts(), candidate.compensation());
+        return candidate.withFreeText(text -> capped(text, MAX_PROSE), text -> capped(text, MAX_LINE));
     }
 }

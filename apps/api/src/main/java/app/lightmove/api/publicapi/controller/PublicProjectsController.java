@@ -166,8 +166,7 @@ public class PublicProjectsController {
             @RequestParam(required = false) String stage,
             HttpServletRequest request) {
         PublicUniverse universe = reads.universe(PublicReader.of(key), projectId, stage);
-        audit.record(key, projectId, request, universe.companies().size() + universe.unassigned().size()
-                + universe.companies().stream().mapToInt(company -> company.executives().size()).sum());
+        audit.record(key, projectId, request, universe.rowCount());
         return universe;
     }
 }

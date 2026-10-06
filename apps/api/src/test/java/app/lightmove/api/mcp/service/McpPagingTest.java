@@ -25,7 +25,7 @@ class McpPagingTest {
     @Test
     @DisplayName("a cursor reads on from any offset, across the read's own pages, to the last row and no further")
     void readsOnFromAnyOffset() {
-        McpPaging paging = new McpPaging(JSON, 90_000);
+        McpPaging paging = new McpPaging(() -> JSON, 90_000);
         List<Integer> seen = new ArrayList<>();
         String cursor = null;
         int pages = 0;
@@ -47,7 +47,7 @@ class McpPagingTest {
     @Test
     @DisplayName("a page the cap cuts short says so and reads on from its first left-out row")
     void cutPageReadsOn() {
-        McpPaging paging = new McpPaging(JSON, 1_000 + 3 * 4);
+        McpPaging paging = new McpPaging(() -> JSON, 1_000 + 3 * 4);
         McpRowsPage<Integer> page = paging.page(null, 10, McpPagingTest::read, row -> row + 100);
         assertThat(page.rows()).containsExactly(100, 101, 102);
         assertThat(page.notice()).startsWith("Cut to 3 of 10 rows");
@@ -70,7 +70,7 @@ class McpPagingTest {
     @Test
     @DisplayName("a cursor this server did not issue, and a limit out of range, are refused")
     void refusals() {
-        McpPaging paging = new McpPaging(JSON, 90_000);
+        McpPaging paging = new McpPaging(() -> JSON, 90_000);
         assertThatThrownBy(() -> McpCursor.offsetOf("not-ours")).isInstanceOf(McpToolRefusal.class);
         assertThatThrownBy(() -> McpCursor.offsetOf(McpCursor.at(0).substring(1))).isInstanceOf(McpToolRefusal.class);
         assertThatThrownBy(() -> paging.page(null, 0, McpPagingTest::read, row -> row))

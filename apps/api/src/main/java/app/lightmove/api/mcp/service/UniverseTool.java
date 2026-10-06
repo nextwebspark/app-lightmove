@@ -15,6 +15,7 @@ import app.lightmove.api.mcp.model.McpToolScopes;
 import app.lightmove.api.publicapi.dto.PublicUniverse;
 import app.lightmove.api.publicapi.service.PublicReadService;
 import io.modelcontextprotocol.common.McpTransportContext;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -51,12 +52,11 @@ public class UniverseTool {
             String stage,
             @McpToolParam(description = "concise (the default) or detailed: every field of each company and executive",
                     required = false) String response_format) {
-        McpResponseFormat format = McpResponseFormat.parse(response_format);
         return calls.call(context, GET, positionId, caller -> {
+            McpResponseFormat format = McpResponseFormat.parse(response_format);
             authorizer.requireProjectRead(caller.reader(), positionId);
             return universeOf(readWhole(caller.reader(), positionId, stage), format.isDetailed());
-        }, universe -> universe.companies().size() + universe.unassigned().size()
-                + universe.companies().stream().mapToInt(company -> company.executives().size()).sum());
+        }, McpUniverse::rowCount);
     }
 
     /** Refused past the export caps, as on the public API, but pointing at the tools rather than the routes. */
@@ -80,12 +80,20 @@ public class UniverseTool {
                 .toList();
         List<McpCandidateRow> unassigned = universe.unassigned().stream()
                 .map(candidate -> McpCandidateRow.of(candidate, detailed)).toList();
-        int fitting = paging.fittingCount(companies, paging.charsOf(unassigned));
-        String notice = fitting < companies.size()
-                ? "Cut to " + fitting + " of " + companies.size() + " companies to stay within the size limit. Read "
-                        + "the stage a page at a time with uncava_list_companies and uncava_list_candidates, or use "
-                        + "response_format=concise."
-                : null;
-        return new McpUniverse(universe.stage(), companies.subList(0, fitting), companies.size(), unassigned, notice);
+        List<McpCandidateRow> keptUnassigned = unassigned.subList(0, paging.fittingCount(unassigned, 0));
+        int fitting = paging.fittingCount(companies, paging.charsOf(keptUnassigned));
+        List<String> cuts = new ArrayList<>();
+        if (fitting < companies.size()) {
+            cuts.add("Cut to " + fitting + " of " + companies.size() + " companies to stay within the size limit. "
+                    + "Read the stage a page at a time with uncava_list_companies and uncava_list_candidates, or use "
+                    + "response_format=concise.");
+        }
+        if (keptUnassigned.size() < unassigned.size()) {
+            cuts.add("Cut to " + keptUnassigned.size() + " of " + unassigned.size() + " executives at no company. "
+                    + "Read them a page at a time with uncava_list_candidates, where theirs carry no companyId.");
+        }
+        String notice = cuts.isEmpty() ? null : String.join(" ", cuts);
+        return new McpUniverse(universe.stage(), companies.subList(0, fitting), companies.size(), keptUnassigned,
+                unassigned.size(), notice);
     }
 }

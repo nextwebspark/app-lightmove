@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Stands between the server and every tool: a scope the caller lacks is a result naming it, a {@link McpToolRefusal}
@@ -21,8 +20,7 @@ public class McpToolGuard {
     static final String TOO_LARGE = "This answer is too large to return in one call. Narrow it: filter by stage or "
             + "company, ask for fewer rows with limit, or use response_format=concise.";
 
-    private final JsonMapper json;
-    private final int maxResultChars;
+    private final McpPaging paging;
 
     public SyncToolSpecification guard(SyncToolSpecification tool, Set<ApiKeyScope> needed) {
         return SyncToolSpecification.builder()
@@ -41,8 +39,7 @@ public class McpToolGuard {
                     } catch (McpToolRefusal refusal) {
                         return refused(refusal.sentence());
                     }
-                    if (result.structuredContent() != null
-                            && json.writeValueAsString(result.structuredContent()).length() > maxResultChars) {
+                    if (result.structuredContent() != null && paging.exceedsCap(result.structuredContent())) {
                         return refused(TOO_LARGE);
                     }
                     return result;

@@ -12,6 +12,15 @@ public record McpUniverse(
         int totalCompanies,
         @Schema(description = "Executives at no company of the position; filled on inUniverse only")
         List<McpCandidateRow> unassigned,
-        @Schema(description = "Why companies were left out, and how to read them", nullable = true)
+        @Schema(description = "Every executive at no company, including any this answer was cut short of")
+        int totalUnassigned,
+        @Schema(description = "Why companies or executives were left out, and how to read them", nullable = true)
         @Nullable String notice
-) {}
+) {
+
+    /** Every row sent: companies, the executives under them and those at none. */
+    public int rowCount() {
+        return companies.size() + unassigned.size()
+                + companies.stream().mapToInt(company -> company.executives().size()).sum();
+    }
+}

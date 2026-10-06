@@ -44,8 +44,8 @@ public class PositionTools {
             @McpToolParam(description = "Rows per page, 1 to 100; 25 when omitted", required = false) Integer limit,
             @McpToolParam(description = "concise (the default): ids, titles and stages; detailed: every field",
                     required = false) String response_format) {
-        McpResponseFormat format = McpResponseFormat.parse(response_format);
         return calls.call(context, SEARCH, null, caller -> {
+            McpResponseFormat format = McpResponseFormat.parse(response_format);
             McpRowsPage<McpPositionRow> page = paging.page(cursor, limit,
                     (number, size) -> reads.projects(caller.reader(), title, number, size),
                     project -> McpPositionRow.of(project, format.isDetailed()));
@@ -64,8 +64,8 @@ public class PositionTools {
             @McpToolParam(description = "The position's id, from uncava_search_positions") UUID positionId,
             @McpToolParam(description = "concise (the default) or detailed: every field", required = false)
             String response_format) {
-        McpResponseFormat format = McpResponseFormat.parse(response_format);
         return calls.call(context, GET, positionId, caller -> {
+            McpResponseFormat format = McpResponseFormat.parse(response_format);
             authorizer.requireProjectRead(caller.reader(), positionId);
             return McpPositionRow.of(reads.project(caller.reader(), positionId), format.isDetailed());
         }, position -> 1);

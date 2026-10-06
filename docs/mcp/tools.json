@@ -566,7 +566,7 @@
       },
       "notice" : {
         "type" : [ "string", "null" ],
-        "description" : "Why companies were left out, and how to read them"
+        "description" : "Why companies or executives were left out, and how to read them"
       },
       "stage" : {
         "type" : "string",
@@ -577,6 +577,11 @@
         "format" : "int32",
         "description" : "Every company of the stage, including any this answer was cut short of"
       },
+      "totalUnassigned" : {
+        "type" : "integer",
+        "format" : "int32",
+        "description" : "Every executive at no company, including any this answer was cut short of"
+      },
       "unassigned" : {
         "description" : "Executives at no company of the position; filled on inUniverse only",
         "type" : "array",
@@ -585,7 +590,7 @@
         }
       }
     },
-    "required" : [ "companies", "notice", "stage", "totalCompanies", "unassigned" ]
+    "required" : [ "companies", "notice", "stage", "totalCompanies", "totalUnassigned", "unassigned" ]
   },
   "annotations" : {
     "title" : "",

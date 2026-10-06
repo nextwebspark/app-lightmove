@@ -4,6 +4,7 @@ import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 
 @Schema(name = "Company", description = "A company a position has taken into its universe, as it was filed")
 public record PublicCompany(
@@ -28,6 +29,12 @@ public record PublicCompany(
         boolean noExecutiveFound,
         @Schema(description = "When the position took it in") Instant addedAt
 ) {
+
+    /** This company with its description rewritten and every other field kept. */
+    public PublicCompany withDescription(UnaryOperator<String> rewrite) {
+        return new PublicCompany(id, stage, name, industry, country, city, employees, annualRevenue, website,
+                linkedinUrl, foundedYear, rewrite.apply(description), logoUrl, noExecutiveFound, addedAt);
+    }
 
     public static PublicCompany of(TriageCompanyResponse company) {
         return new PublicCompany(company.id(), company.status(), company.companyName(), company.industry(),
