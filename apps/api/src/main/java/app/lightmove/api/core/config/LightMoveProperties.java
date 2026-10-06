@@ -27,5 +27,6 @@ public record LightMoveProperties(
         StorageSettings storage,
         PersonDocumentSettings personDocuments,
         CredentialEncryptionSettings crypto,
-        RecallSettings recall
+        RecallSettings recall,
+        PublicApiSettings publicApi
 ) {}

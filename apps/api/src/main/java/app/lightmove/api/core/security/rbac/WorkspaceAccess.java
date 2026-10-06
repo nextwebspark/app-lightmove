@@ -26,6 +26,12 @@ public class WorkspaceAccess {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
     }
 
+    /** As {@link #requireActiveMember}, holding the row until the transaction ends. */
+    public WorkspaceMember lockActiveMember(UUID userId, UUID workspaceId) {
+        return members.findForUpdate(workspaceId, userId, MemberStatus.ACTIVE)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_A_MEMBER));
+    }
+
     /** An active member who is not a pure client; every staff-facing read gates on this, not membership. */
     public WorkspaceMember requireStaff(UUID userId, UUID workspaceId) {
         WorkspaceMember member = requireActiveMember(userId, workspaceId);

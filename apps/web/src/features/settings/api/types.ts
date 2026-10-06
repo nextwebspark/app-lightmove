@@ -43,3 +43,50 @@ export interface UpdateIntegrationRequest {
   tenantId?: string;
   secretExpiresOn?: string | null;
 }
+
+/** Settings → API keys. A key is `PERSONAL` (its owner's reach) or `SERVICE` (the whole workspace's). */
+export type ApiKeyKind = "PERSONAL" | "SERVICE";
+
+/** As of the read; "expires soon" is the screen's own reading of `expiresAt`. */
+export type ApiKeyStatus = "ACTIVE" | "EXPIRED" | "REVOKED";
+
+export type ApiKeyScope =
+  | "projects:read"
+  | "companies:read"
+  | "candidates:read"
+  | "candidates.contacts:read"
+  | "candidates.compensation:read";
+
+/** Never the secret: `tokenHint` is its first and last characters, which cannot be used. */
+export interface ApiKey {
+  id: string;
+  name: string;
+  kind: ApiKeyKind;
+  status: ApiKeyStatus;
+  tokenHint: string;
+  scopes: ApiKeyScope[];
+  /** Null on a workspace key. */
+  ownerUserId: string | null;
+  ownerName: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+  lastUsedIp: string | null;
+  revokedAt: string | null;
+  revokedByName: string | null;
+  revokedReason: string | null;
+}
+
+export interface CreateApiKeyRequest {
+  name: string;
+  kind: ApiKeyKind;
+  scopes: ApiKeyScope[];
+  expiresInDays: number;
+}
+
+/** The one answer that carries the secret; nothing returns it again. */
+export interface CreatedApiKey {
+  key: ApiKey;
+  secret: string;
+}

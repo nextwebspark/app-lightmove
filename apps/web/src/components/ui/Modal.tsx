@@ -20,6 +20,7 @@ export function Modal({
   subtitle,
   headerAside,
   closeButton = false,
+  dismissible = true,
   className,
 }: {
   open: boolean;
@@ -34,11 +35,13 @@ export function Modal({
   headerAside?: ReactNode;
   /** Draws an X in the header's corner. */
   closeButton?: boolean;
+  /** False keeps the overlay and Escape from closing it, for a dialog that must be acknowledged by its own button. */
+  dismissible?: boolean;
   className?: string;
 }) {
   // Through the shared stack rather than its own listener: a modal opened over a drawer or the
   // assistant panel must take Escape from it, not fire alongside it.
-  useEscapeKey(open, onClose);
+  useEscapeKey(open && dismissible, onClose);
   const { bodyRef, hiddenAbove, hiddenBelow, measure } = useScrollEdges(open);
 
   if (!open) return null;
@@ -50,7 +53,7 @@ export function Modal({
       className="fixed inset-0 z-[100] grid place-items-center bg-u-scrim"
       onClick={(event) => {
         event.stopPropagation();
-        onClose();
+        if (dismissible) onClose();
       }}
     >
       <div

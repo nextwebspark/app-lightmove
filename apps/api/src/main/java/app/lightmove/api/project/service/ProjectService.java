@@ -103,6 +103,22 @@ public class ProjectService {
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
+    /** Every mandate of the workspace, seat or none: a workspace API key's list. */
+    @Transactional(readOnly = true)
+    public List<ProjectResponse> listInWorkspace(UUID workspaceId) {
+        List<Project> all = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId);
+        if (all.isEmpty()) {
+            return List.of();
+        }
+        Assembly assembly = assemblyFor(workspaceId, all);
+        return all.stream().map(project -> toResponse(project, assembly)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ProjectResponse get(UUID workspaceId, UUID projectId) {
+        return responseFor(workspaceId, projects.requireInWorkspace(projectId, workspaceId));
+    }
+
     @Transactional(readOnly = true)
     public List<TeamMemberResponse> teamOf(UUID workspaceId, UUID projectId) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);

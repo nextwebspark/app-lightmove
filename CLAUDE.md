@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -565,6 +565,24 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
 
+`publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
+script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
+with Swagger UI at `/api/v1/public/docs`. Its credential is an **API key** (V114 `app_lm_api_key`), made in
+**Settings → API keys**: personal (`uncava_pat_`, any staff member's own) or workspace (`uncava_svc_`,
+`WORKSPACE_MANAGE` only), with scopes and an expiry, stored as a SHA-256 hash and shown once. Keys ride their own
+security chain (an opaque-token resource server, `ApiKeyIntrospector`) and open no other route, as a session's
+token opens none of these. Every call re-reads the key and its owner: a personal key reads only positions its
+owner holds `WORK_VIEW` on (`PublicApiAuthorizer`, `@RequirePublicScope`, `@RequirePublicProjectRead`) and dies
+with their staff access; a workspace key reads its whole workspace. Each route reads through the service the
+screens use and narrows to public DTOs: `contacts` and `compensation` only with their own scopes, a model's
+unconfirmed guess sent as null, and no note, AI assessment, `added_by` or custom field ever. Every read is
+audited (`PUBLIC_API_READ`), budgets are per key and per IP, spent before the database
+(`lightmove.public-api.*`, per instance), and `PUBLIC_API_ENABLED=false` answers 404 for all of it. The
+contract is held by `docs/public-api/openapi.json`, which `PublicApiContractTest` regenerates and diffs, so a
+change to what integrations see is reviewed in its PR. `pairing` is the one place a stage's companies are
+paired with their executives — the talent map, the export and the public universe read all go through
+`StagePairingService`.
+
 ## Commands
 
 ```bash
@@ -624,6 +642,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
 - **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
+- **An API key reaches only `/api/v1/public/**`**, read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens no public route.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
 
 ## Database
@@ -812,6 +831,9 @@ V110 gives `app_lm_outreach_enrollment` its `thread_gateway` (`NYLAS | DIRECT`, 
 mailbox, Nylas where it is gone) and adds `MAILBOX_MOVED` and `BOOKING_LINK_UNAVAILABLE` to its `stop_reason` CHECK.
 V111 gives `app_lm_workspace_mail_integration` `secret_expiry_warned_days` — the fewest days left an expiry warning
 was already sent for.
+V114 adds `app_lm_api_key` — the public API's keys: kind (`PERSONAL` with an owner, `SERVICE` without, by CHECK),
+`token_hash` (SHA-256, unique) and a `token_hint` a list can show, scopes as a jsonb array held to the five tokens
+by CHECK, expiry, last use and revocation (`REVOKED | MEMBER_REMOVED | WORKSPACE_DELETED`).
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

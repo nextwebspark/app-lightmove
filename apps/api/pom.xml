@@ -31,6 +31,7 @@
 		     already brings; later releases move http-client to 2.x underneath the connector. -->
 		<google-cloud-storage.version>2.55.0</google-cloud-storage.version>
 		<tink.version>1.18.0</tink.version>
+		<springdoc.version>3.1.1</springdoc.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
 		<!-- Overrides the 11.0.22 Boot 4.1.0 manages, which carries three critical
 		     authentication advisories (CVE-2026-65905, CVE-2026-65182, CVE-2026-68525).
@@ -144,6 +145,13 @@
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-google-genai-embedding</artifactId>
+		</dependency>
+
+		<!-- The public API's OpenAPI 3.1 document and Swagger UI; 3.x is the line built on Boot 4. -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
 		</dependency>
 
 		<!-- Rate limiting on the auth endpoints -->
