@@ -8,11 +8,9 @@ import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
-import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
-import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
+import app.lightmove.api.triagecompany.model.TriageCompanyMatches;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -31,7 +29,6 @@ public class CandidateTools {
 
     /** Companies one name filter may resolve to — the candidate list refuses more ids than a page holds. */
     private static final int MAX_MATCHED_COMPANIES = 50;
-    private static final int MAX_UNIVERSE_READ = 2_000;
 
     /** {@code CandidateStatus}'s tokens — a literal, since an annotation takes nothing else. */
     static final String STATUSES = "identified, contacted, engaged, interested, notInterested, offLimits, outOfScope";
@@ -51,7 +48,9 @@ public class CandidateTools {
             List the executives this mandate has mapped, first mapped first, with their title, \
             company, seniority, status and location. Every argument is optional. The answer says \
             how many matched in total and how many are shown — when those differ, ask for the next \
-            page or narrow the question rather than reporting the list as everyone.""")
+            page or narrow the question rather than reporting the list as everyone. When \
+            companyNameTooBroad is true the name matched more companies than one read takes: say so \
+            and ask for a fuller name rather than reporting the count as complete.""")
     public MappedExecutives listMappedExecutives(
             @ToolParam(required = false, description = "All or part of the company name they are mapped at")
             String companyName,
@@ -67,8 +66,11 @@ public class CandidateTools {
         CandidateStatus asked = ApiValueEnum.fromValue(CandidateStatus.class, blankToNull(status));
         int pageAsked = page == null || page < 0 ? 0 : page;
 
-        List<UUID> companyIds = blankToNull(companyName) == null ? null
-                : companiesNamed(context, companyName.strip());
+        TriageCompanyMatches named = blankToNull(companyName) == null ? null
+                : triaged.named(context.workspaceId(), context.projectId(), companyName.strip(),
+                        MAX_MATCHED_COMPANIES);
+        List<UUID> companyIds = named == null ? null
+                : named.companies().stream().map(TriageCompanyResponse::id).toList();
         CandidatesResponse found = candidates.list(context.workspaceId(), context.projectId(),
                 new CandidateListCriteria(companyIds, null, blankToNull(executiveName),
                         asked == null ? null : asked.value(), pageAsked, maxRows));
@@ -76,7 +78,8 @@ public class CandidateTools {
                 .map(MappedExecutiveSummary::of)
                 .toList();
         recorder.finishStep(step, found.totalCount() + (found.totalCount() == 1 ? " executive" : " executives"));
-        return new MappedExecutives(found.totalCount(), pageAsked, executives.size(), executives);
+        return new MappedExecutives(found.totalCount(), pageAsked, executives.size(),
+                named != null && named.truncated(), executives);
     }
 
     @Tool(description = """
@@ -89,8 +92,9 @@ public class CandidateTools {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
         TurnRecorder recorder = context.recorder();
         int step = recorder.startStep("Reading an executive's profile");
-        CandidateDossier dossier = uuidOrNull(candidateId) == null ? null
-                : candidates.dossierOf(context.projectId(), uuidOrNull(candidateId)).orElse(null);
+        UUID id = uuidOrNull(candidateId);
+        CandidateDossier dossier = id == null ? null
+                : candidates.dossierOf(context.workspaceId(), context.projectId(), id).orElse(null);
         recorder.finishStep(step, dossier == null ? "Not found on this mandate" : dossier.fullName());
         return dossier;
     }
@@ -102,28 +106,14 @@ public class CandidateTools {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
         TurnRecorder recorder = context.recorder();
         int step = recorder.startStep("Finding companies with nobody mapped");
-        TriageCompaniesResponse stage = triaged.listAllOfStage(context.workspaceId(), context.projectId(),
-                TriageCompanyStatus.IN_UNIVERSE, TriageCompanyFilters.none(), MAX_UNIVERSE_READ);
-        List<TriageCompanyResponse> universe = stage.companies();
         Set<UUID> mapped = candidates.companiesWithExecutivesOf(context.workspaceId(), context.projectId());
-        List<String> unmapped = universe.stream()
-                .filter(company -> !mapped.contains(company.id()))
-                .map(TriageCompanyResponse::companyName)
-                .toList();
-        recorder.finishStep(step, unmapped.size() + " of " + stage.totalCount() + " with nobody mapped");
-        return new UnmappedCompanies(unmapped.size(), stage.totalCount(),
-                unmapped.subList(0, Math.min(maxRows, unmapped.size())));
-    }
-
-    /** An empty list, not null, when nothing matches the name — so the read answers nobody rather than everyone. */
-    private List<UUID> companiesNamed(AssistantToolContext context, String companyName) {
-        Set<UUID> ids = new LinkedHashSet<>();
-        TriageCompanyFilters filters = new TriageCompanyFilters(companyName, null, null);
-        for (TriageCompanyStatus stage : TriageCompanyStatus.values()) {
-            triaged.listAllOfStage(context.workspaceId(), context.projectId(), stage, filters, MAX_MATCHED_COMPANIES)
-                    .companies().forEach(company -> ids.add(company.id()));
-        }
-        return ids.stream().limit(MAX_MATCHED_COMPANIES).toList();
+        TriageCompanyMatches unmapped = triaged.ofStageExcluding(context.workspaceId(), context.projectId(),
+                TriageCompanyStatus.IN_UNIVERSE, mapped, maxRows);
+        long inUniverse = triaged.countOfStage(context.workspaceId(), context.projectId(),
+                TriageCompanyStatus.IN_UNIVERSE);
+        recorder.finishStep(step, unmapped.totalCount() + " of " + inUniverse + " with nobody mapped");
+        return new UnmappedCompanies(unmapped.totalCount(), inUniverse,
+                unmapped.companies().stream().map(TriageCompanyResponse::companyName).toList());
     }
 
     private static String describeList(String companyName, String executiveName) {

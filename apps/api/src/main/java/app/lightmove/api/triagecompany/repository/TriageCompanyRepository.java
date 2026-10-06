@@ -44,6 +44,12 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             @Param("matchingIds") Set<UUID> matchingIds, @Param("companyName") String companyName,
             Pageable pageable);
 
+    Page<TriageCompany> findByProjectIdAndCompanyNameContainingIgnoreCase(
+            UUID projectId, String companyName, Pageable pageable);
+
+    Page<TriageCompany> findByProjectIdAndStatusAndIdNotIn(
+            UUID projectId, TriageCompanyStatus status, Collection<UUID> excludedIds, Pageable pageable);
+
     Optional<TriageCompany> findByIdAndProjectId(UUID id, UUID projectId);
 
     List<TriageCompany> findByProjectIdAndStatusAndIdIn(UUID projectId, TriageCompanyStatus status,

@@ -15,12 +15,16 @@ import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
+import app.lightmove.api.triagecompany.model.TriageCompanyMatches;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -49,8 +53,7 @@ class CandidateToolsTest {
 
     @Test
     void aCompanyNameThatMatchesNothingListsNobodyRatherThanEveryone() {
-        when(triaged.listAllOfStage(any(), any(), any(), any(), anyInt()))
-                .thenReturn(new TriageCompaniesResponse(List.of(), 0, 0, 50, null));
+        when(triaged.named(any(), any(), any(), anyInt())).thenReturn(new TriageCompanyMatches(List.of(), 0));
         when(candidates.list(any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
 
         MappedExecutives found = tools().listMappedExecutives("Nowhere Ltd", null, "not-a-status", null,
@@ -62,6 +65,7 @@ class CandidateToolsTest {
         assertThat(criteria.getValue().status()).isNull();
         assertThat(criteria.getValue().size()).isEqualTo(25);
         assertThat(found.matched()).isZero();
+        assertThat(found.companyNameTooBroad()).isFalse();
         assertThat(recorder.steps()).singleElement()
                 .satisfies(step -> assertThat(step.label()).isEqualTo("Listing executives at Nowhere Ltd"));
     }
@@ -69,7 +73,44 @@ class CandidateToolsTest {
     @Test
     void aProfileIdThatIsNotAnIdReadsNothing() {
         assertThat(tools().readExecutiveProfile("Fatima", toolContext())).isNull();
-        verify(candidates, never()).dossierOf(any(), any());
+        verify(candidates, never()).dossierOf(any(), any(), any());
+    }
+
+    @Test
+    void aProfileIsReadOnlyWithinTheCallersWorkspace() {
+        UUID candidateId = UUID.randomUUID();
+        when(candidates.dossierOf(context.workspaceId(), context.projectId(), candidateId))
+                .thenReturn(Optional.empty());
+
+        assertThat(tools().readExecutiveProfile(candidateId.toString(), toolContext())).isNull();
+        verify(candidates).dossierOf(context.workspaceId(), context.projectId(), candidateId);
+    }
+
+    @Test
+    void aCompanyNameMatchingMoreThanOneReadTakesSaysSo() {
+        TriageCompanyResponse company = mock(TriageCompanyResponse.class);
+        when(triaged.named(any(), any(), eq("Group"), anyInt()))
+                .thenReturn(new TriageCompanyMatches(List.of(company), 80));
+        when(candidates.list(any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
+
+        assertThat(tools().listMappedExecutives("Group", null, null, null, toolContext()).companyNameTooBroad())
+                .isTrue();
+    }
+
+    @Test
+    void unmappedCompaniesAreReadPastTheMappedOnesRatherThanFilteredInMemory() {
+        Set<UUID> mapped = Set.of(UUID.randomUUID());
+        TriageCompanyResponse company = mock(TriageCompanyResponse.class);
+        when(company.companyName()).thenReturn("Lulu Group");
+        when(candidates.companiesWithExecutivesOf(context.workspaceId(), context.projectId())).thenReturn(mapped);
+        when(triaged.ofStageExcluding(context.workspaceId(), context.projectId(), TriageCompanyStatus.IN_UNIVERSE,
+                mapped, 25)).thenReturn(new TriageCompanyMatches(List.of(company), 40));
+        when(triaged.countOfStage(context.workspaceId(), context.projectId(), TriageCompanyStatus.IN_UNIVERSE))
+                .thenReturn(41L);
+
+        UnmappedCompanies unmapped = tools().companiesWithoutExecutives(toolContext());
+
+        assertThat(unmapped).isEqualTo(new UnmappedCompanies(40, 41, List.of("Lulu Group")));
     }
 
     private CandidateTools tools() {
