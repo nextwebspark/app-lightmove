@@ -36,6 +36,9 @@
 		     authentication advisories (CVE-2026-65905, CVE-2026-65182, CVE-2026-68525).
 		     Remove once the parent manages 11.0.25 or later. -->
 		<tomcat.version>11.0.25</tomcat.version>
+		<!-- Overrides the 7.0.8 Boot 4.1.0 manages, whose spring-webmvc carries a critical remote code
+		     execution advisory (CVE-2026-47884, XsltView). Remove once the parent manages 7.0.9 or later. -->
+		<spring-framework.version>7.0.9</spring-framework.version>
 	</properties>
 
 	<dependencyManagement>
