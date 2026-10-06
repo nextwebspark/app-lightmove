@@ -290,6 +290,7 @@ lightmove:
     name-lookup-parallelism: ${ASSISTANT_NAME_LOOKUP_PARALLELISM:5}
     name-lookup-deadline: 25s
     max-vendor-searches-per-ask: ${ASSISTANT_MAX_VENDOR_SEARCHES:15}
+    max-specialist-calls-per-ask: 3
 
   email:
     provider: ${EMAIL_PROVIDER:resend}
