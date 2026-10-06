@@ -75,6 +75,20 @@ export function clientSubtitle(context: ConsentContext): string {
   return hostOf(context.clientUri) ?? context.redirectHost;
 }
 
+/** The apps whose own mark we draw, by the host their metadata document is served from. */
+const KNOWN_CLIENT_HOSTS = { "claude.ai": "claude", "chatgpt.com": "chatgpt" } as const;
+
+export type KnownClientMark = (typeof KNOWN_CLIENT_HOSTS)[keyof typeof KNOWN_CLIENT_HOSTS];
+
+/**
+ * Claude's or ChatGPT's own mark, only for a metadata document the server verified on that host — a URL prefix we list,
+ * so the host is proven, not typed. A self-registered app naming itself "Claude" gets nothing here.
+ */
+export function knownClientMarkOf(context: ConsentContext): KnownClientMark | null {
+  if (!context.verified || context.clientKind !== "CIMD" || !context.clientHost) return null;
+  return KNOWN_CLIENT_HOSTS[context.clientHost as keyof typeof KNOWN_CLIENT_HOSTS] ?? null;
+}
+
 function hostOf(uri: string | null): string | null {
   if (!uri) return null;
   try {

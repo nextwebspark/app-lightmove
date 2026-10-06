@@ -210,18 +210,43 @@ describe("OAuthConsentPage", () => {
   });
 
   it("draws a verified app's own logo, and never a self-registered app's", async () => {
-    vi.mocked(consentApi.getConsentContext).mockResolvedValue(context({ logoUri: "https://claude.ai/images/claude.svg" }));
+    vi.mocked(consentApi.getConsentContext).mockResolvedValue(
+      context({ clientName: "Cursor", clientHost: "cursor.com", logoUri: "https://cursor.com/logo.svg" }),
+    );
     const { container, unmount } = renderAt(REQUEST);
-    await screen.findByText("Claude wants to read your Uncava data");
-    expect(container.querySelector("img[src^=\"https:\"]")).toHaveAttribute("src", "https://claude.ai/images/claude.svg");
+    await screen.findByText("Cursor wants to read your Uncava data");
+    expect(container.querySelector("img[src^=\"https:\"]")).toHaveAttribute("src", "https://cursor.com/logo.svg");
     unmount();
 
     vi.mocked(consentApi.getConsentContext).mockResolvedValue(
-      context({ clientKind: "DCR", clientHost: null, verified: false, logoUri: "https://claude.ai/images/claude.svg" }),
+      context({ clientKind: "DCR", clientHost: null, verified: false, logoUri: "https://cursor.com/logo.svg" }),
     );
     const unverified = renderAt(REQUEST);
     await screen.findByText("Uncava can't confirm who made this app");
     expect(unverified.container.querySelector("img[src^=\"https:\"]")).toBeNull();
+  });
+
+  it("draws Claude's own mark for Claude's verified document, and ChatGPT's for ChatGPT's", async () => {
+    const { container, unmount } = renderAt(REQUEST);
+    await screen.findByText("Claude wants to read your Uncava data");
+    expect(container.querySelector("[data-mark]")).toHaveAttribute("data-mark", "claude");
+    unmount();
+
+    vi.mocked(consentApi.getConsentContext).mockResolvedValue(
+      context({ clientId: "https://chatgpt.com/oauth/x/client.json", clientName: "ChatGPT", clientHost: "chatgpt.com" }),
+    );
+    const chatgpt = renderAt(REQUEST);
+    await screen.findByText("ChatGPT wants to read your Uncava data");
+    expect(chatgpt.container.querySelector("[data-mark]")).toHaveAttribute("data-mark", "chatgpt");
+  });
+
+  it("gives a self-registered app calling itself Claude a letter, never Claude's mark", async () => {
+    vi.mocked(consentApi.getConsentContext).mockResolvedValue(
+      context({ clientKind: "DCR", clientHost: null, verified: false, logoUri: "https://claude.ai/logo.svg" }),
+    );
+    const { container } = renderAt(REQUEST);
+    await screen.findByText("Uncava can't confirm who made this app");
+    expect(container.querySelector("[data-mark]")).toHaveAttribute("data-mark", "letter");
   });
 
   it("shows an unknown client or redirect as an error and never sends the browser anywhere", async () => {

@@ -4,6 +4,7 @@ import {
   clientSubtitle,
   grantedSummary,
   initialScopes,
+  knownClientMarkOf,
   outcomeOf,
   readClientRequest,
   refusalMessage,
@@ -83,5 +84,33 @@ describe("refusalMessage", () => {
   it("never repeats what the server described, only what its code means", () => {
     expect(refusalMessage("OAUTH_CLIENT_NOT_FOUND")).toMatch(/never registered/);
     expect(refusalMessage("anything else")).toMatch(/not one Uncava accepts/);
+  });
+});
+
+describe("knownClientMarkOf", () => {
+  const verifiedDocument = (clientHost: string): ConsentContext => ({
+    clientId: `https://${clientHost}/oauth/client.json`,
+    clientName: "x",
+    clientKind: "CIMD",
+    clientHost,
+    verified: true,
+    clientUri: null,
+    logoUri: null,
+    redirectHost: clientHost,
+    requestedScopes: [],
+    workspaces: [],
+  });
+
+  it("draws Claude's and ChatGPT's own marks only for a document the server verified on their host", () => {
+    expect(knownClientMarkOf(verifiedDocument("claude.ai"))).toBe("claude");
+    expect(knownClientMarkOf(verifiedDocument("chatgpt.com"))).toBe("chatgpt");
+    expect(knownClientMarkOf(verifiedDocument("cursor.com"))).toBeNull();
+    expect(knownClientMarkOf({ ...verifiedDocument("claude.ai"), verified: false })).toBeNull();
+  });
+
+  it("never for a self-registered app that names itself Claude", () => {
+    expect(
+      knownClientMarkOf({ ...verifiedDocument("claude.ai"), clientKind: "DCR", clientHost: null, clientName: "Claude" }),
+    ).toBeNull();
   });
 });

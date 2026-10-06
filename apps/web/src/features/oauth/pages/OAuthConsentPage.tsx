@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { AuthLogo, Button, Spinner } from "../../../components/ui";
+import { ChatGptMark, ClaudeMark } from "../../../components/ui/BrandMarks";
 import { CheckBox } from "../../../components/ui/FilterCheckRow";
 import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -19,6 +20,7 @@ import {
   clientSubtitle,
   grantedSummary,
   initialScopes,
+  knownClientMarkOf,
   outcomeOf,
   readClientRequest,
   refusalMessage,
@@ -181,7 +183,7 @@ function ConsentAsk({
   return (
     <>
       <div className="flex items-center gap-3">
-        <ClientMark name={context.clientName} logoUri={context.logoUri} verified={context.verified} />
+        <ClientMark context={context} />
         <div className="min-w-0">
           <h1 className="text-[17px] font-semibold leading-[1.35] text-u-text">
             {context.clientName} wants to read your Uncava data
@@ -449,23 +451,30 @@ function Loading() {
 }
 
 /**
- * A verified app's own logo, from the metadata it publishes on a host we list or the row we seeded. A self-registered
- * app gets a letter: it could name anyone's logo, and its image URL would be fetched from this page.
+ * Claude's and ChatGPT's own marks where the server verified them; another verified app's published logo; a letter
+ * otherwise. A self-registered app always gets the letter: it could name anyone's logo, and its image URL would be
+ * fetched from this page.
  */
-function ClientMark({ name, logoUri, verified }: { name: string; logoUri: string | null; verified: boolean }) {
+function ClientMark({ context }: { context: ConsentContext }) {
   const [isBroken, setIsBroken] = useState(false);
-  const logo = verified && !isBroken ? httpsOrNull(logoUri) : null;
+  const known = knownClientMarkOf(context);
+  const logo = context.verified && !isBroken ? httpsOrNull(context.logoUri) : null;
   return (
     <span
       aria-hidden="true"
+      data-mark={known ?? (logo ? "logo" : "letter")}
       className={cn(
         "grid size-11 flex-none place-items-center overflow-hidden rounded-[10px] text-lg font-bold",
-        verified
+        context.verified
           ? "border border-u-border-strong bg-u-raised text-u-text"
           : "border border-dashed border-u-signal bg-u-signal-tint text-u-signal",
       )}
     >
-      {logo ? (
+      {known === "claude" ? (
+        <ClaudeMark size={26} />
+      ) : known === "chatgpt" ? (
+        <ChatGptMark size={26} />
+      ) : logo ? (
         <img
           src={logo}
           alt=""
@@ -474,7 +483,7 @@ function ClientMark({ name, logoUri, verified }: { name: string; logoUri: string
           onError={() => setIsBroken(true)}
         />
       ) : (
-        name.trim().charAt(0).toUpperCase() || "?"
+        context.clientName.trim().charAt(0).toUpperCase() || "?"
       )}
     </span>
   );
