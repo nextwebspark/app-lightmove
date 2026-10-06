@@ -7,6 +7,7 @@ import app.lightmove.api.mcp.dto.McpPositionPage;
 import app.lightmove.api.mcp.dto.McpPositionRow;
 import app.lightmove.api.mcp.model.McpRowsPage;
 import app.lightmove.api.mcp.model.McpToolScopes;
+import app.lightmove.api.publicapi.dto.PublicPositionSummary;
 import app.lightmove.api.publicapi.service.PublicReadService;
 import io.modelcontextprotocol.common.McpTransportContext;
 import java.util.UUID;
@@ -22,6 +23,7 @@ public class PositionTools {
 
     static final String SEARCH = "uncava_search_positions";
     static final String GET = "uncava_get_position";
+    static final String SUMMARY = "uncava_get_position_summary";
 
     private final McpToolCalls calls;
     private final PublicReadService reads;
@@ -69,5 +71,22 @@ public class PositionTools {
             authorizer.requireProjectRead(caller.reader(), positionId);
             return McpPositionRow.of(reads.project(caller.reader(), positionId), format.isDetailed());
         }, position -> 1);
+    }
+
+    @McpTool(name = SUMMARY, generateOutputSchema = true, title = "Summarise a position",
+            description = "Where a position stands, in one call: the position, its companies at each stage "
+                    + "(inUniverse, shortlisted, declined), its executives at each status, how many companies have an "
+                    + "executive mapped, and its dates. The natural first call on a position, before listing or "
+                    + "searching its companies and executives.",
+            annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,
+                    openWorldHint = false))
+    @McpToolScopes(ApiKeyScope.PROJECTS_READ)
+    public PublicPositionSummary getPositionSummary(
+            McpTransportContext context,
+            @McpToolParam(description = "The position's id, from uncava_search_positions") UUID positionId) {
+        return calls.call(context, SUMMARY, positionId, caller -> {
+            authorizer.requireProjectRead(caller.reader(), positionId);
+            return reads.summary(caller.reader(), positionId);
+        }, summary -> 1);
     }
 }

@@ -247,6 +247,27 @@ public class TriageCompanyReadService {
                 .collect(Collectors.toMap(TriageCompanyLogo::id, TriageCompanyLogo::logoUrl));
     }
 
+    /** How many companies sit at each stage, in three counts. */
+    @Transactional(readOnly = true)
+    public TriageCountsDto stageCountsOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return countsFor(projectId);
+    }
+
+    /** One company of the mandate; another mandate's id is not found, as a foreign mandate is. */
+    @Transactional(readOnly = true)
+    public TriageCompanyResponse get(UUID workspaceId, UUID projectId, UUID triageCompanyId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return TriageCompanyResponseMapper.toDto(triaged.requireInProject(triageCompanyId, projectId));
+    }
+
+    /** Every company id at one stage, unpaged: what holds a search to a stage. */
+    @Transactional(readOnly = true)
+    public Set<UUID> idsOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.findIdsByProjectIdAndStatus(projectId, status);
+    }
+
     private TriageCountsDto countsFor(UUID projectId) {
         return new TriageCountsDto(
                 triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.IN_UNIVERSE),

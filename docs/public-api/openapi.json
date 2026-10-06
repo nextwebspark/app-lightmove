@@ -275,6 +275,24 @@
             "format" : "uuid"
           }
         }, {
+          "description" : "Only executives whose name, title or employer contains this, ignoring case",
+          "example" : "Finance",
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Only executives mapped at a company of this stage; an executive at no company is at no stage",
+          "in" : "query",
+          "name" : "stage",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "inUniverse", "shortlisted", "declined" ]
+          }
+        }, {
           "description" : "Page number, from 0",
           "in" : "query",
           "name" : "page",
@@ -359,6 +377,95 @@
           }
         },
         "summary" : "List a position's executives",
+        "tags" : [ "Candidates" ]
+      }
+    },
+    "/api/v1/public/projects/{projectId}/candidates/{candidateId}" : {
+      "get" : {
+        "description" : "Needs `candidates:read`. `contacts` and `compensation` follow the same scopes as on the candidates route.",
+        "operationId" : "getCandidate",
+        "parameters" : [ {
+          "description" : "The position's id",
+          "in" : "path",
+          "name" : "projectId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The executive's id within the position",
+          "in" : "path",
+          "name" : "candidateId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Candidate"
+                }
+              }
+            },
+            "description" : "The executive"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such position, or no such executive on it (NOT_FOUND)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "Get one of a position's executives",
         "tags" : [ "Candidates" ]
       }
     },
@@ -471,6 +578,196 @@
         },
         "summary" : "List a position's companies",
         "tags" : [ "Companies" ]
+      }
+    },
+    "/api/v1/public/projects/{projectId}/companies/{companyId}" : {
+      "get" : {
+        "description" : "Needs `companies:read`. `executives` is that company's executives a page at a time, filled only with `candidates:read`; their `contacts` and `compensation` follow the candidates route.",
+        "operationId" : "getCompany",
+        "parameters" : [ {
+          "description" : "The position's id",
+          "in" : "path",
+          "name" : "projectId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "The company's id within the position",
+          "in" : "path",
+          "name" : "companyId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Page of executives, from 0",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "Executives per page",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 25,
+            "maximum" : 100,
+            "minimum" : 1
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CompanyDetail"
+                }
+              }
+            },
+            "description" : "The company"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such position, or no such company on it (NOT_FOUND)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "Get one of a position's companies, with its executives",
+        "tags" : [ "Companies" ]
+      }
+    },
+    "/api/v1/public/projects/{projectId}/summary" : {
+      "get" : {
+        "description" : "Needs `projects:read`. Its companies at each stage, its executives at each status and its dates, in one call: the counts the companies and candidates routes would page through.",
+        "operationId" : "getProjectSummary",
+        "parameters" : [ {
+          "description" : "The position's id",
+          "in" : "path",
+          "name" : "projectId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProjectSummary"
+                }
+              }
+            },
+            "description" : "The position's summary"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "A parameter is out of range or not one of its values (VALIDATION_FAILED), or a universe too large for one call (PUBLIC_API_UNIVERSE_TOO_LARGE)"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key is missing, invalid, revoked or expired (API_KEY_INVALID)"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "The key lacks the scope (API_KEY_SCOPE_MISSING), or its owner has no seat on the position (FORBIDDEN)"
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "No such position in the key's workspace (NOT_FOUND)"
+          },
+          "429" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description" : "Too many requests (RATE_LIMITED); wait for Retry-After seconds"
+          }
+        },
+        "summary" : "Summarise one position",
+        "tags" : [ "Projects" ]
       }
     },
     "/api/v1/public/projects/{projectId}/universe" : {
@@ -872,6 +1169,21 @@
           }
         }
       },
+      "CompanyDetail" : {
+        "type" : "object",
+        "description" : "One company of a position, with the executives mapped at it",
+        "properties" : {
+          "company" : {
+            "$ref" : "#/components/schemas/Company",
+            "description" : "The company"
+          },
+          "executives" : {
+            "type" : "null",
+            "$ref" : "#/components/schemas/CandidatePage",
+            "description" : "Its executives, first mapped first, a page at a time. Null unless the key holds candidates:read"
+          }
+        }
+      },
       "CompanyPage" : {
         "type" : "object",
         "description" : "One page of rows, and how many there are in all",
@@ -1175,6 +1487,101 @@
             "format" : "int64",
             "description" : "Rows across every page",
             "example" : 142
+          }
+        }
+      },
+      "ProjectSummary" : {
+        "type" : "object",
+        "description" : "Where a position stands: its companies by stage, its executives by status, and its dates, in one read",
+        "properties" : {
+          "companies" : {
+            "$ref" : "#/components/schemas/StageCounts",
+            "description" : "Companies at each stage"
+          },
+          "executives" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            },
+            "description" : "Executives at each status, every status present: identified, contacted, engaged, interested, notInterested, offLimits, outOfScope",
+            "example" : {
+              "identified" : 64,
+              "contacted" : 30,
+              "engaged" : 9,
+              "interested" : 4,
+              "notInterested" : 3,
+              "offLimits" : 1,
+              "outOfScope" : 2
+            }
+          },
+          "mappedCompanies" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Universe or shortlisted companies with at least one executive mapped",
+            "example" : 31
+          },
+          "position" : {
+            "$ref" : "#/components/schemas/Project",
+            "description" : "The position"
+          },
+          "timeline" : {
+            "$ref" : "#/components/schemas/Timeline",
+            "description" : "The position's dates"
+          }
+        }
+      },
+      "StageCounts" : {
+        "type" : "object",
+        "description" : "How many companies a position has filed at each stage",
+        "properties" : {
+          "declined" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Companies declined",
+            "example" : 7
+          },
+          "inUniverse" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Companies in the universe",
+            "example" : 48
+          },
+          "shortlisted" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Companies shortlisted",
+            "example" : 12
+          }
+        }
+      },
+      "Timeline" : {
+        "type" : "object",
+        "description" : "A position's dates, each null until it is set",
+        "properties" : {
+          "deliveryDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "When the map or shortlist is due",
+            "example" : "2026-11-30"
+          },
+          "mappingTargetDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "When the map is due, on a search",
+            "example" : "2026-10-20"
+          },
+          "startDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "When the work started",
+            "example" : "2026-09-01"
+          },
+          "targetDate" : {
+            "type" : [ "string", "null" ],
+            "format" : "date",
+            "description" : "When the hire is wanted",
+            "example" : "2027-01-15"
           }
         }
       },

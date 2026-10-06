@@ -614,7 +614,10 @@ an address budget on calls would let one tenant refuse the rest. Only `@McpTool`
 `StatelessToolCallbackConverterAutoConfiguration`, which would publish every `ToolCallback` bean, is excluded on
 `LightMoveApplication`, and so is Spring AI's own tool list: `McpServerConfig` builds it from the same `@McpTool` beans
 with every tool behind `McpToolGuard`. The parity tools (#704) are `uncava_whoami`, `uncava_search_positions`,
-`uncava_get_position`, `uncava_list_companies`, `uncava_list_candidates` and `uncava_get_universe`, each reading through
+`uncava_get_position`, `uncava_list_companies`, `uncava_list_candidates` and `uncava_get_universe`; the task-shaped
+ones (#705) — `uncava_get_position_summary`, `uncava_get_candidate`, `uncava_get_company` and
+`uncava_search_candidates` (a name, title or employer, held to a stage's companies) — each have a public REST twin
+(`…/summary`, `…/candidates/{id}`, `…/companies/{id}`, `…/candidates?q=&stage=`) over the same read. Every one reads through
 `PublicReadService` and the public DTOs — so REST's field rules hold, contacts and compensation with their own scopes —
 as a `PublicReader` (`core/security/apikey`, a key or a connection alike; a personal one reads only positions its user
 holds `WORK_VIEW` on, through `PublicApiAuthorizer.requireProjectRead`). A tool's scopes are its `@McpToolScopes`,

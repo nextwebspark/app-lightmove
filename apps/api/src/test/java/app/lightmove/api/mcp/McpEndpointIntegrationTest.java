@@ -52,7 +52,9 @@ class McpEndpointIntegrationTest extends McpFlowSupport {
         assertThat(tools.valueStream().map(tool -> tool.get("name").asText()))
                 .as("nothing but our own tools: the assistant's are never published")
                 .containsExactlyInAnyOrder("uncava_whoami", "uncava_search_positions", "uncava_get_position",
-                        "uncava_list_companies", "uncava_list_candidates", "uncava_get_universe");
+                        "uncava_list_companies", "uncava_list_candidates", "uncava_get_universe",
+                        "uncava_get_position_summary", "uncava_get_candidate", "uncava_get_company",
+                        "uncava_search_candidates");
         assertThat(tools.valueStream().map(tool -> tool.at("/annotations/readOnlyHint").asBoolean()))
                 .as("every tool reads and changes nothing").containsOnly(true);
         assertThat(context.getBeanNamesForType(StatelessToolCallbackConverterAutoConfiguration.class))
