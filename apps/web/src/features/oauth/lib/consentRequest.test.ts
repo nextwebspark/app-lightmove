@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ConsentContext } from "../api/types";
 import {
+  clientLogoOf,
   clientSubtitle,
+  consentOutcomeOf,
   grantedSummary,
   initialScopes,
-  knownClientMarkOf,
   outcomeOf,
   readClientRequest,
   refusalMessage,
@@ -76,7 +77,8 @@ describe("clientSubtitle", () => {
   it("names a document's host, says a registration is self-made, and falls back to the app's site", () => {
     expect(clientSubtitle({ ...base, clientKind: "CIMD", clientHost: "claude.ai" })).toBe("claude.ai");
     expect(clientSubtitle(base)).toBe("Registered itself");
-    expect(clientSubtitle({ ...base, clientKind: "SEEDED", clientUri: "https://chatgpt.com/apps" })).toBe("chatgpt.com");
+    const seeded = { ...base, clientKind: "SEEDED" as const, clientUri: "https://chatgpt.com/apps" };
+    expect(clientSubtitle(seeded)).toBe("chatgpt.com");
   });
 });
 
@@ -87,30 +89,66 @@ describe("refusalMessage", () => {
   });
 });
 
-describe("knownClientMarkOf", () => {
-  const verifiedDocument = (clientHost: string): ConsentContext => ({
+describe("clientLogoOf", () => {
+  const verifiedDocument = (clientHost: string, logoUri: string | null = null): ConsentContext => ({
     clientId: `https://${clientHost}/oauth/client.json`,
     clientName: "x",
     clientKind: "CIMD",
     clientHost,
     verified: true,
     clientUri: null,
-    logoUri: null,
+    logoUri,
     redirectHost: clientHost,
     requestedScopes: [],
     workspaces: [],
   });
 
   it("draws Claude's and ChatGPT's own marks only for a document the server verified on their host", () => {
-    expect(knownClientMarkOf(verifiedDocument("claude.ai"))).toBe("claude");
-    expect(knownClientMarkOf(verifiedDocument("chatgpt.com"))).toBe("chatgpt");
-    expect(knownClientMarkOf(verifiedDocument("cursor.com"))).toBeNull();
-    expect(knownClientMarkOf({ ...verifiedDocument("claude.ai"), verified: false })).toBeNull();
+    expect(clientLogoOf(verifiedDocument("claude.ai"))).toEqual({ kind: "mark", mark: "claude" });
+    expect(clientLogoOf(verifiedDocument("chatgpt.com"))).toEqual({ kind: "mark", mark: "chatgpt" });
+    expect(clientLogoOf(verifiedDocument("cursor.com"))).toBeNull();
+    expect(clientLogoOf({ ...verifiedDocument("claude.ai"), verified: false })).toBeNull();
   });
 
-  it("never for a self-registered app that names itself Claude", () => {
+  it("takes another verified app's logo only over https", () => {
+    expect(clientLogoOf(verifiedDocument("cursor.com", "https://cursor.com/logo.svg"))).toEqual({
+      kind: "url",
+      url: "https://cursor.com/logo.svg",
+    });
+    expect(clientLogoOf(verifiedDocument("cursor.com", "http://cursor.com/logo.svg"))).toBeNull();
+    expect(clientLogoOf(verifiedDocument("cursor.com", "not a url"))).toBeNull();
+  });
+
+  it("never for a self-registered app, even one naming itself Claude with Claude's logo", () => {
     expect(
-      knownClientMarkOf({ ...verifiedDocument("claude.ai"), clientKind: "DCR", clientHost: null, clientName: "Claude" }),
+      clientLogoOf({
+        ...verifiedDocument("claude.ai", "https://claude.ai/logo.svg"),
+        clientKind: "DCR",
+        clientHost: null,
+        clientName: "Claude",
+        verified: false,
+      }),
     ).toBeNull();
+  });
+});
+
+describe("consentOutcomeOf", () => {
+  it("reads the server's answer against the button pressed", () => {
+    expect(consentOutcomeOf("https://claude.ai/cb?code=c", "allow", "Al-Futtaim", ["projects:read"])).toEqual({
+      kind: "allowed",
+      workspaceName: "Al-Futtaim",
+      scopes: ["projects:read"],
+    });
+    expect(consentOutcomeOf("https://claude.ai/cb?error=access_denied", "deny", "Al-Futtaim", [])).toEqual({
+      kind: "denied",
+    });
+  });
+
+  it("calls an access_denied after Allow the server's refusal, never the person's own no", () => {
+    expect(consentOutcomeOf("https://claude.ai/cb?error=access_denied", "allow", "Al-Futtaim", ["projects:read"]))
+      .toEqual({ kind: "notConnected" });
+    expect(consentOutcomeOf("https://claude.ai/cb?error=invalid_scope", "allow", "Al-Futtaim", [])).toEqual({
+      kind: "notConnected",
+    });
   });
 });

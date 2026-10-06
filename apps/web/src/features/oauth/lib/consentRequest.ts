@@ -60,6 +60,29 @@ export function outcomeOf(redirectUri: string): "granted" | "denied" | "failed" 
   return params.get("error") === "access_denied" ? "denied" : "failed";
 }
 
+/** What the screen says once the server has answered. */
+export type ConsentOutcome =
+  | { kind: "allowed"; workspaceName: string; scopes: ApiKeyScope[] }
+  | { kind: "denied" }
+  | { kind: "notConnected" }
+  | { kind: "error"; code: string };
+
+/**
+ * The answer read against the button pressed: only a Deny reads an `access_denied` as the person's own no — after
+ * Allow it is the server refusing (a membership ended in between), and the app is not connected.
+ */
+export function consentOutcomeOf(
+  redirectUri: string,
+  choice: "allow" | "deny",
+  workspaceName: string,
+  granted: ApiKeyScope[],
+): ConsentOutcome {
+  const result = outcomeOf(redirectUri);
+  if (result === "granted") return { kind: "allowed", workspaceName, scopes: granted };
+  if (result === "denied" && choice === "deny") return { kind: "denied" };
+  return { kind: "notConnected" };
+}
+
 /** "positions, companies and executives". */
 export function grantedSummary(scopes: readonly ApiKeyScope[]): string {
   const labels = CONSENT_SCOPES.filter(({ scope }) => scopes.includes(scope)).map(({ label }) => label.toLowerCase());
@@ -78,15 +101,33 @@ export function clientSubtitle(context: ConsentContext): string {
 /** The apps whose own mark we draw, by the host their metadata document is served from. */
 const KNOWN_CLIENT_HOSTS = { "claude.ai": "claude", "chatgpt.com": "chatgpt" } as const;
 
-export type KnownClientMark = (typeof KNOWN_CLIENT_HOSTS)[keyof typeof KNOWN_CLIENT_HOSTS];
+/** What the app's tile shows besides its letter. */
+export type ClientLogo =
+  | { kind: "mark"; mark: (typeof KNOWN_CLIENT_HOSTS)[keyof typeof KNOWN_CLIENT_HOSTS] }
+  | { kind: "url"; url: string };
 
 /**
- * Claude's or ChatGPT's own mark, only for a metadata document the server verified on that host — a URL prefix we list,
- * so the host is proven, not typed. A self-registered app naming itself "Claude" gets nothing here.
+ * Only for an app the server verified. Claude's or ChatGPT's own mark for a metadata document on their host — a URL
+ * prefix we list, so the host is proven, not typed; else the https logo a verified app publishes. A self-registered app
+ * naming itself "Claude" gets neither: it could name anyone's logo, and its image URL would be fetched from the page.
  */
-export function knownClientMarkOf(context: ConsentContext): KnownClientMark | null {
-  if (!context.verified || context.clientKind !== "CIMD" || !context.clientHost) return null;
-  return KNOWN_CLIENT_HOSTS[context.clientHost as keyof typeof KNOWN_CLIENT_HOSTS] ?? null;
+export function clientLogoOf(context: ConsentContext): ClientLogo | null {
+  if (!context.verified) return null;
+  if (context.clientKind === "CIMD" && context.clientHost) {
+    const mark = KNOWN_CLIENT_HOSTS[context.clientHost as keyof typeof KNOWN_CLIENT_HOSTS];
+    if (mark) return { kind: "mark", mark };
+  }
+  const url = httpsOrNull(context.logoUri);
+  return url ? { kind: "url", url } : null;
+}
+
+function httpsOrNull(uri: string | null): string | null {
+  if (!uri) return null;
+  try {
+    return new URL(uri).protocol === "https:" ? uri : null;
+  } catch {
+    return null;
+  }
 }
 
 function hostOf(uri: string | null): string | null {

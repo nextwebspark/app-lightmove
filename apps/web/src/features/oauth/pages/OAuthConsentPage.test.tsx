@@ -200,7 +200,13 @@ describe("OAuthConsentPage", () => {
 
   it("warns that a self-registered app is unverified, naming where it sends you", async () => {
     vi.mocked(consentApi.getConsentContext).mockResolvedValue(
-      context({ clientName: "my-agent", clientKind: "DCR", clientHost: null, verified: false, redirectHost: "127.0.0.1:33418" }),
+      context({
+        clientName: "my-agent",
+        clientKind: "DCR",
+        clientHost: null,
+        verified: false,
+        redirectHost: "127.0.0.1:33418",
+      }),
     );
     renderAt(REQUEST);
 
@@ -233,7 +239,11 @@ describe("OAuthConsentPage", () => {
     unmount();
 
     vi.mocked(consentApi.getConsentContext).mockResolvedValue(
-      context({ clientId: "https://chatgpt.com/oauth/x/client.json", clientName: "ChatGPT", clientHost: "chatgpt.com" }),
+      context({
+        clientId: "https://chatgpt.com/oauth/x/client.json",
+        clientName: "ChatGPT",
+        clientHost: "chatgpt.com",
+      }),
     );
     const chatgpt = renderAt(REQUEST);
     await screen.findByText("ChatGPT wants to read your Uncava data");
@@ -247,6 +257,42 @@ describe("OAuthConsentPage", () => {
     const { container } = renderAt(REQUEST);
     await screen.findByText("Uncava can't confirm who made this app");
     expect(container.querySelector("[data-mark]")).toHaveAttribute("data-mark", "letter");
+  });
+
+  it("keeps the authorization server's code when it refuses the send itself", async () => {
+    vi.mocked(consentApi.storeAuthorizationRequest).mockRejectedValue(
+      new ApiRequestError({ code: "invalid_client", detail: "internal", status: 400, correlationId: "c" }),
+    );
+    const user = userEvent.setup();
+    renderAt(REQUEST);
+
+    await user.click(await screen.findByRole("button", { name: "Allow" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/never registered/);
+    expect(returnToClient).not.toHaveBeenCalled();
+  });
+
+  it("asks an unverified account to verify first rather than dropping the request", async () => {
+    auth.user = { ...staff(), emailVerified: false } as User;
+    renderAt(REQUEST);
+
+    expect(await screen.findByText("Verify your email first")).toBeInTheDocument();
+    expect(consentApi.getConsentContext).not.toHaveBeenCalled();
+  });
+
+  it("names the client contact's own workspace when refusing, not the first one listed", async () => {
+    auth.user = staff("ws-b");
+    vi.mocked(consentApi.getConsentContext).mockResolvedValue(
+      context({
+        workspaces: [
+          { id: "ws-a", name: "First Firm", eligible: false },
+          { id: "ws-b", name: "Second Firm", eligible: false },
+        ],
+      }),
+    );
+    renderAt(REQUEST);
+
+    expect(await screen.findByText(/client contact of Second Firm/)).toBeInTheDocument();
   });
 
   it("shows an unknown client or redirect as an error and never sends the browser anywhere", async () => {

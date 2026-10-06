@@ -7,7 +7,7 @@ import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import type { PlatformAction } from "../features/auth/api/types";
 import { homeFor } from "../features/auth/homeFor";
-import { safeReturnTo } from "../features/auth/returnTo";
+import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
@@ -198,10 +198,9 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
 
   if (loading) return <Booting />;
   if (user) {
-    // The same destination LoginPage navigates to. Signing in sets the user before the router's own navigation
-    // lands, so a plain homeFor here re-rendered first and won: a sign-in reached for by /oauth/consent ended on /.
+    // Signing in sets the user before the sign-in's own navigation lands, so this guard renders first and must agree.
     const returnTo = safeReturnTo((location.state as { from?: unknown } | null)?.from);
-    return <Navigate to={returnTo && user.workspace ? returnTo : homeFor(user)} replace />;
+    return <Navigate to={landingAfterSignIn(user, returnTo)} replace />;
   }
 
   return <>{children}</>;
