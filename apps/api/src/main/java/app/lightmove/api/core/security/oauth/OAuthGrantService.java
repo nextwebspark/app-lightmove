@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +42,8 @@ public class OAuthGrantService {
             AND GREATEST(g.code_expires_at, g.access_token_expires_at, g.refresh_token_expires_at) > :now
             """;
 
+    private static final Duration USE_STAMP_INTERVAL = Duration.ofMinutes(1);
+
     private final NamedParameterJdbcTemplate jdbc;
     private final WorkspaceAccess access;
     private final AuditService audit;
@@ -60,6 +63,17 @@ public class OAuthGrantService {
                                AND
                 """ + LIVE + ")", new MapSqlParameterSource("grantId", grantId).addValue("userId", userId)
                 .addValue("workspaceId", workspaceId).addValue("now", Timestamp.from(clock.instant())), Boolean.class));
+    }
+
+    /** A grant's last use, at most once a minute; only a refresh stamped it, so a new app read "never used". */
+    @Transactional
+    public void stampUse(UUID grantId) {
+        Instant now = clock.instant();
+        jdbc.update("""
+                UPDATE app_lm_oauth_authorization SET last_used_at = :now
+                WHERE id = :grantId AND (last_used_at IS NULL OR last_used_at < :staleBefore)
+                """, new MapSqlParameterSource("grantId", grantId).addValue("now", Timestamp.from(now))
+                .addValue("staleBefore", Timestamp.from(now.minus(USE_STAMP_INTERVAL))));
     }
 
     @Transactional(readOnly = true)
@@ -158,11 +172,15 @@ public class OAuthGrantService {
 
     private OAuthGrantResponse toResponse(ResultSet rs) throws SQLException {
         List<String> redirects = json.readValue(rs.getString("redirect_uris"), STRINGS);
+        OAuthClientSource source = OAuthClientSource.valueOf(rs.getString("source"));
+        String clientId = rs.getString("client_id");
         return new OAuthGrantResponse(
                 rs.getObject("id", UUID.class),
-                rs.getString("client_id"),
+                clientId,
                 rs.getString("client_name"),
-                verification.isVerified(OAuthClientSource.valueOf(rs.getString("source")), rs.getString("client_id")),
+                source,
+                ClientVerification.documentHostOf(source, clientId),
+                verification.isVerified(source, clientId),
                 redirects.isEmpty() ? null : OAuthUris.hostOf(redirects.getFirst()),
                 rs.getString("logo_uri"),
                 json.readValue(rs.getString("scopes"), STRINGS),

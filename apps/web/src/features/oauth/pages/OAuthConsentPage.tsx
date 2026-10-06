@@ -173,7 +173,7 @@ function ConsentAsk({
   return (
     <>
       <div className="flex items-center gap-3">
-        <ClientMark context={context} />
+        <ClientMark client={context} />
         <div className="min-w-0">
           <h1 className="text-[17px] font-semibold leading-[1.35] text-u-text">
             {context.clientName} wants to read your Uncava data

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ApiKey } from "../api/types";
-import { statusOf } from "./apiKeys";
+import { readsSomething, scopeChipClass, statusOf } from "./apiKeys";
 
 const NOW = new Date("2026-10-05T12:00:00Z");
 
@@ -26,5 +26,18 @@ describe("statusOf", () => {
   it("keeps the server's revoked and expired", () => {
     expect(statusOf(keyExpiring("2026-12-01T12:00:00Z", "REVOKED"), NOW).tone).toBe("revoked");
     expect(statusOf(keyExpiring("2026-12-01T12:00:00Z", "EXPIRED"), NOW).tone).toBe("expired");
+  });
+});
+
+describe("mcp:use", () => {
+  it("reads nothing by itself, so a key needs another scope beside it", () => {
+    expect(readsSomething(["mcp:use"])).toBe(false);
+    expect(readsSomething(["mcp:use", "projects:read"])).toBe(true);
+  });
+
+  it("is drawn in the accent, personal data in the off-limits tone, the rest plain", () => {
+    expect(scopeChipClass("mcp:use")).toContain("u-accent");
+    expect(scopeChipClass("candidates.contacts:read")).toContain("u-offlimits");
+    expect(scopeChipClass("projects:read")).toContain("u-text2");
   });
 });

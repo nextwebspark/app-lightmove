@@ -1,5 +1,5 @@
 import type { ApiKeyScope } from "../../settings/api/types";
-import type { ConsentContext } from "../api/types";
+import type { ClientIdentity, ConsentContext } from "../api/types";
 
 /** What each scope reads, in the API's order; the last two are personal data and say so. */
 export const CONSENT_SCOPES: readonly { scope: ApiKeyScope; label: string; note: string; personalData: boolean }[] = [
@@ -111,13 +111,13 @@ export type ClientLogo =
  * prefix we list, so the host is proven, not typed; else the https logo a verified app publishes. A self-registered app
  * naming itself "Claude" gets neither: it could name anyone's logo, and its image URL would be fetched from the page.
  */
-export function clientLogoOf(context: ConsentContext): ClientLogo | null {
-  if (!context.verified) return null;
-  if (context.clientKind === "CIMD" && context.clientHost) {
-    const mark = KNOWN_CLIENT_HOSTS[context.clientHost as keyof typeof KNOWN_CLIENT_HOSTS];
+export function clientLogoOf(client: ClientIdentity): ClientLogo | null {
+  if (!client.verified) return null;
+  if (client.clientKind === "CIMD" && client.clientHost) {
+    const mark = KNOWN_CLIENT_HOSTS[client.clientHost as keyof typeof KNOWN_CLIENT_HOSTS];
     if (mark) return { kind: "mark", mark };
   }
-  const url = httpsOrNull(context.logoUri);
+  const url = httpsOrNull(client.logoUri);
   return url ? { kind: "url", url } : null;
 }
 

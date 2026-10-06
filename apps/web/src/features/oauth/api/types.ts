@@ -25,6 +25,9 @@ export interface ConsentContext {
   workspaces: ConsentWorkspace[];
 }
 
+/** What draws an app's tile and trust pill, on the consent screen and in Settings → Connected AI apps alike. */
+export type ClientIdentity = Pick<ConsentContext, "clientName" | "clientKind" | "clientHost" | "verified" | "logoUri">;
+
 /** A stored request waiting for its consent: the `state` the consent is posted with. */
 export interface PendingConsent {
   clientId: string;

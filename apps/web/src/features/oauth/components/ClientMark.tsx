@@ -1,30 +1,31 @@
 import { useState } from "react";
 import { ChatGptMark, ClaudeMark } from "../../../components/ui/BrandMarks";
 import { cn } from "../../../lib/cn";
-import type { ConsentContext } from "../api/types";
+import type { ClientIdentity } from "../api/types";
 import { clientLogoOf } from "../lib/consentRequest";
 
 /** The app's tile: what `clientLogoOf` allows, or its letter. Decorative — the name sits beside it. */
-export function ClientMark({ context }: { context: ConsentContext }) {
+export function ClientMark({ client, size = "lg" }: { client: ClientIdentity; size?: "md" | "lg" }) {
   const [isBroken, setIsBroken] = useState(false);
-  const logo = clientLogoOf(context);
+  const logo = clientLogoOf(client);
   const shown = logo?.kind === "url" && isBroken ? null : logo;
   return (
     <span
       aria-hidden="true"
       data-mark={shown === null ? "letter" : shown.kind === "mark" ? shown.mark : "logo"}
       className={cn(
-        "grid size-11 flex-none place-items-center overflow-hidden rounded-[10px] text-lg font-bold",
-        context.verified
+        "grid flex-none place-items-center overflow-hidden font-bold",
+        size === "lg" ? "size-11 rounded-[10px] text-lg" : "size-9 rounded-lg text-[13px]",
+        client.verified
           ? "border border-u-border-strong bg-u-raised text-u-text"
           : "border border-dashed border-u-signal bg-u-signal-tint text-u-signal",
       )}
     >
       {shown?.kind === "mark" ? (
         shown.mark === "claude" ? (
-          <ClaudeMark size={26} />
+          <ClaudeMark size={size === "lg" ? 26 : 20} />
         ) : (
-          <ChatGptMark size={26} />
+          <ChatGptMark size={size === "lg" ? 26 : 20} />
         )
       ) : shown?.kind === "url" ? (
         <img
@@ -35,7 +36,7 @@ export function ClientMark({ context }: { context: ConsentContext }) {
           onError={() => setIsBroken(true)}
         />
       ) : (
-        context.clientName.trim().charAt(0).toUpperCase() || "?"
+        client.clientName.trim().charAt(0).toUpperCase() || "?"
       )}
     </span>
   );

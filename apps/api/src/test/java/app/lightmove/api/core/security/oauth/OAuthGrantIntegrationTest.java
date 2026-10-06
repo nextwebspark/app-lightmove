@@ -39,6 +39,8 @@ class OAuthGrantIntegrationTest extends OAuthFlowSupport {
         assertThat(own.get(0).get("id").asText()).isEqualTo(memberGrant);
         assertThat(own.get(0).get("clientName").asText()).isEqualTo("Claude");
         assertThat(own.get(0).get("redirectHost").asText()).isEqualTo("claude.ai");
+        assertThat(own.get(0).get("clientKind").asText()).isEqualTo("SEEDED");
+        assertThat(own.get(0).get("clientHost").isNull()).as("only a metadata document has a host of its own").isTrue();
         assertThat(own.get(0).get("scopes").toString()).contains("projects:read", "companies:read");
         assertThat(own.toString()).doesNotContain("token");
 

@@ -139,6 +139,9 @@ class ApiKeyIntegrationTest extends FlowTestSupport {
         assertThat(create(admin, """
                 {"name":"Odd kind","kind":"ROBOT","scopes":["projects:read"]}""").getResponse().getStatus())
                 .isEqualTo(400);
+        assertThat(codeOf(create(admin, """
+                {"name":"Reads nothing","scopes":["mcp:use"]}"""))).as("mcp:use reads nothing by itself")
+                .isEqualTo("API_KEY_READS_NOTHING");
 
         for (int i = 0; i < 10; i++) {
             assertThat(create(admin, personalKey()).getResponse().getStatus()).isEqualTo(201);

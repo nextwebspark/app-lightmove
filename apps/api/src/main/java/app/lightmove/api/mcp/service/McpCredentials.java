@@ -42,6 +42,7 @@ public class McpCredentials {
                 || !access.holdsAction(userId.get(), workspaceId.get(), WorkspaceAction.API_KEY_MANAGE)) {
             throw refused("The connection has ended");
         }
+        grants.stampUse(grantId.get());
         return new McpCallerAuthentication(new McpCaller(McpCredentialKind.OAUTH, userId.get(), workspaceId.get(),
                 scopesOf(token.getClaim("scope")), token.getClaimAsString("client_id"), grantId.get()));
     }
