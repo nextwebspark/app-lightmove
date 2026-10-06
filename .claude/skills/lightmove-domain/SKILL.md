@@ -303,6 +303,12 @@ budgeted per grant or key, never per address: claude.ai and ChatGPT call from th
 budget on calls lets one tenant's agent loop refuse every other tenant of that client; an address spends a budget only
 on refused credentials, which is where a guesser is. Only `@McpTool` beans are tools — the converter that would publish
 every `ToolCallback` bean is excluded outright, so a tool written for the assistant can never reach a stranger.
+A tool reads as the public API does — a `PublicReader`, `WORK_VIEW` per position for anyone but a workspace key — and a
+scope it lacks is answered by what the credential can do about it: an OAuth token is stepped up (403
+`insufficient_scope`, naming the scopes, so its client can ask for them), a key is told in a result, since only its
+owner can change it. A tool's failure never reaches the model as an exception's message: `ApiException`'s message is the
+internal detail, so every failure is a `McpToolRefusal` with a fixed sentence, and an unreadable position is one
+sentence whether it is another workspace's or one the caller has no seat on, so a guess learns nothing.
 
 **The two tokens never cross.** An MCP token is signed by its own key, has the MCP endpoint as `aud` and the
 deployment origin as `iss`; the session decoder checks `iss=lightmove` and refuses any `aud`. Either check alone

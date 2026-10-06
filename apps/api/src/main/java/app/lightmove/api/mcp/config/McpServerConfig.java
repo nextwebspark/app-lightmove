@@ -20,8 +20,12 @@ import app.lightmove.api.mcp.model.McpCaller;
 import app.lightmove.api.mcp.service.McpCredentials;
 import app.lightmove.api.mcp.service.McpRateLimitFilter;
 import app.lightmove.api.mcp.service.McpRequestLimitFilter;
+import app.lightmove.api.mcp.service.McpScopeStepUpFilter;
+import app.lightmove.api.mcp.service.McpToolGuard;
+import app.lightmove.api.mcp.service.McpToolRegistry;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.json.jackson3.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.server.transport.DefaultServerTransportSecurityValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
@@ -29,6 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.springframework.ai.mcp.annotation.McpTool;
+import org.springframework.ai.mcp.server.common.autoconfigure.annotations.McpServerAnnotationScannerAutoConfiguration.ServerMcpAnnotatedBeans;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStatelessServerTransport;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
@@ -83,11 +89,25 @@ public class McpServerConfig {
     }
 
     @Bean
+    McpToolRegistry mcpToolRegistry(ServerMcpAnnotatedBeans annotatedBeans) {
+        return new McpToolRegistry(annotatedBeans.getBeansByAnnotation(McpTool.class));
+    }
+
+    /** In place of Spring AI's own list (excluded on the application): the same tools, each behind the guard. */
+    @Bean
+    List<SyncToolSpecification> mcpToolSpecifications(McpToolRegistry tools,
+                                                      @Qualifier("mcpServerJsonMapper") JsonMapper json,
+                                                      LightMoveProperties properties) {
+        return tools.specificationsGuardedBy(new McpToolGuard(json, properties.mcp().maxResultChars()));
+    }
+
+    @Bean
     @Order(2)
     SecurityFilterChain mcpChain(HttpSecurity http, McpTokenDecoder mcpTokens, ApiKeyIntrospector keys,
                                  McpCredentials credentials, McpServerIdentity identity,
                                  PublicApiProblemWriter problems, LightMoveProperties properties, RateLimiter limiter,
-                                 ClientIpResolver clientIps, AuditService audit,
+                                 ClientIpResolver clientIps, AuditService audit, McpToolRegistry tools,
+                                 @Qualifier("mcpServerJsonMapper") JsonMapper json,
                                  @Qualifier("corsConfigurationSource") CorsConfigurationSource cors) throws Exception {
         String metadataUrl = identity.issuer() + RESOURCE_METADATA + URI.create(identity.resourceUrl()).getRawPath();
         BearerTokenAuthenticationEntryPoint challenge = new BearerTokenAuthenticationEntryPoint();
@@ -135,6 +155,7 @@ public class McpServerConfig {
                         BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(new McpRateLimitFilter(properties.mcp(), properties.auth().rateLimit(), limiter,
                         problems, audit), BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(new McpScopeStepUpFilter(tools, json, metadataUrl, problems), McpRateLimitFilter.class)
                 .build();
     }
 

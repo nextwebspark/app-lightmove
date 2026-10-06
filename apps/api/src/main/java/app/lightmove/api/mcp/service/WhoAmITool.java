@@ -16,7 +16,7 @@ public class WhoAmITool {
 
     private final McpToolCalls calls;
 
-    @McpTool(name = NAME, title = "Who am I",
+    @McpTool(name = NAME, generateOutputSchema = true, title = "Who am I",
             description = "Describe this connection: the Uncava workspace it reads and the scopes it was granted."
                     + " Needs no scope; call it to check a connection works before reading anything.",
             annotations = @McpTool.McpAnnotations(readOnlyHint = true, destructiveHint = false, idempotentHint = true,

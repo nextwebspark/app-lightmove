@@ -44,7 +44,7 @@ class HttpClientMetadataFetcherTest {
     private static final McpSettings SETTINGS = new McpSettings("", "file:unused", "file:unused",
             Duration.ofHours(1), Duration.ofDays(30), Duration.ofMinutes(5), 30, 60, 30, 10, 30, Duration.ofDays(30),
             5120, TIMEOUT, Duration.ofMinutes(5), Duration.ofHours(24), Duration.ofHours(24),
-            List.of("https://claude.ai/oauth/"), List.of(), 65536, 120, 30);
+            List.of("https://claude.ai/oauth/"), List.of(), 65536, 120, 30, 90000);
     private static final String DOCUMENT = "{\"client_id\":\"x\"}";
 
     @TempDir static Path keys;

@@ -2,6 +2,7 @@ package app.lightmove.api.publicapi.controller;
 
 import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
+import app.lightmove.api.core.security.apikey.PublicReader;
 import app.lightmove.api.core.security.apikey.RequirePublicProjectRead;
 import app.lightmove.api.core.security.apikey.RequirePublicScope;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
@@ -10,6 +11,7 @@ import app.lightmove.api.publicapi.dto.PublicPage;
 import app.lightmove.api.publicapi.dto.PublicProblem;
 import app.lightmove.api.publicapi.dto.PublicProject;
 import app.lightmove.api.publicapi.dto.PublicUniverse;
+import app.lightmove.api.publicapi.service.PublicApiReadAudit;
 import app.lightmove.api.publicapi.service.PublicReadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -49,6 +51,7 @@ public class PublicProjectsController {
     private static final String NOT_FOUND = "No such position in the key's workspace (NOT_FOUND)";
 
     private final PublicReadService reads;
+    private final PublicApiReadAudit audit;
 
     @GetMapping
     @RequirePublicScope(ApiKeyScope.PROJECTS_READ)
@@ -66,7 +69,9 @@ public class PublicProjectsController {
             @Parameter(description = "Rows per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
             @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
-        return reads.projects(key, title, page, size, request);
+        PublicPage<PublicProject> found = reads.projects(PublicReader.of(key), title, page, size);
+        audit.record(key, null, request, found.data().size());
+        return found;
     }
 
     @GetMapping("/{projectId}")
@@ -79,7 +84,9 @@ public class PublicProjectsController {
     public PublicProject get(@Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
                              @Parameter(description = "The position's id") @PathVariable UUID projectId,
                              HttpServletRequest request) {
-        return reads.project(key, projectId, request);
+        PublicProject project = reads.project(PublicReader.of(key), projectId);
+        audit.record(key, projectId, request, 1);
+        return project;
     }
 
     @GetMapping("/{projectId}/companies")
@@ -102,7 +109,9 @@ public class PublicProjectsController {
             @Parameter(description = "Rows per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
             @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
-        return reads.companies(key, projectId, stage, page, size, request);
+        PublicPage<PublicCompany> found = reads.companies(PublicReader.of(key), projectId, stage, page, size);
+        audit.record(key, projectId, request, found.data().size());
+        return found;
     }
 
     @GetMapping("/{projectId}/candidates")
@@ -129,7 +138,10 @@ public class PublicProjectsController {
             @Parameter(description = "Rows per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
             @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
-        return reads.candidates(key, projectId, status, companyId, page, size, request);
+        PublicPage<PublicCandidate> found = reads.candidates(PublicReader.of(key), projectId, status, companyId, page,
+                size);
+        audit.record(key, projectId, request, found.data().size());
+        return found;
     }
 
     @GetMapping("/{projectId}/universe")
@@ -153,6 +165,9 @@ public class PublicProjectsController {
                             defaultValue = "inUniverse"))
             @RequestParam(required = false) String stage,
             HttpServletRequest request) {
-        return reads.universe(key, projectId, stage, request);
+        PublicUniverse universe = reads.universe(PublicReader.of(key), projectId, stage);
+        audit.record(key, projectId, request, universe.companies().size() + universe.unassigned().size()
+                + universe.companies().stream().mapToInt(company -> company.executives().size()).sum());
+        return universe;
     }
 }

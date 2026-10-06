@@ -1,6 +1,7 @@
 package app.lightmove.api.mcp.model;
 
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
+import app.lightmove.api.core.security.apikey.PublicReader;
 import app.lightmove.api.mcp.constant.McpCredentialKind;
 import java.util.Set;
 import java.util.UUID;
@@ -26,5 +27,10 @@ public record McpCaller(
 
     public boolean holds(ApiKeyScope scope) {
         return scopes.contains(scope);
+    }
+
+    /** As the public reads see it: a workspace key, the one caller with no user, reads its whole workspace. */
+    public PublicReader reader() {
+        return new PublicReader(workspaceId, userId, scopes);
     }
 }
