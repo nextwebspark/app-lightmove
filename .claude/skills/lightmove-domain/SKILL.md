@@ -290,6 +290,20 @@ the IP literals because the command-line clients register it, and a private-use 
 installed app can claim one. A client revokes a token of its own grant with its id alone (RFC 7009 §2.1), and the whole
 grant ends; the framework's own revocation reads tokens back by value, which a hashed store never holds.
 
+**The MCP server takes two credentials and no third.** An AI client's access token, or an API key its owner opted in
+with `mcp:use` — a scope that reads nothing, so a key made for a BI tool never quietly becomes an AI connection, and
+existing keys do not have it. They are told apart by shape (a key's prefix and checksum), and a session token is
+neither, so it is refused as a stranger's would be. An access token alone is not enough: its grant is re-read every call
+(revoked from Settings, ended with a membership, a password change) and so is its user's staff access, as a personal
+key's owner is, so a disconnected app stops at once rather than when its hour runs out. The caller rides the MCP
+transport context to the tool, never a thread-local, because a tool may run off the request's thread; and the tool calls
+our services in-process — no caller's token is ever forwarded anywhere. A browser page on another site is refused by
+`Origin`, twice: by the endpoint's own CORS policy (bearer only, no credentials) and by the transport. Calls are
+budgeted per grant or key, never per address: claude.ai and ChatGPT call from their own shared egress, so an address
+budget on calls lets one tenant's agent loop refuse every other tenant of that client; an address spends a budget only
+on refused credentials, which is where a guesser is. Only `@McpTool` beans are tools — the converter that would publish
+every `ToolCallback` bean is excluded outright, so a tool written for the assistant can never reach a stranger.
+
 **The two tokens never cross.** An MCP token is signed by its own key, has the MCP endpoint as `aud` and the
 deployment origin as `iss`; the session decoder checks `iss=lightmove` and refuses any `aud`. Either check alone
 would do; both are there so that a key ever shared by mistake still opens nothing.

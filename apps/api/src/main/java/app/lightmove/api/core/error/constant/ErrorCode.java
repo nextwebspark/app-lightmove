@@ -129,6 +129,8 @@ public enum ErrorCode {
 
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That file is too large"),
 
+    MCP_REQUEST_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That request is too large"),
+
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
 
     /** The file type was right but the contents are not a table: no header row, corrupt, ragged rows. */
@@ -360,6 +362,9 @@ public enum ErrorCode {
 
     /** Every refusal of a public API key — missing, malformed, unknown, revoked, expired or its owner's access gone — alike. */
     API_KEY_INVALID(HttpStatus.UNAUTHORIZED, "The API key is missing, invalid or no longer active"),
+
+    MCP_CREDENTIAL_INVALID(HttpStatus.UNAUTHORIZED,
+            "The access token or API key is missing, invalid or no longer active"),
 
     /** A live key asking a route outside its scopes; the body names the scope as {@code requiredScope}. */
     API_KEY_SCOPE_MISSING(HttpStatus.FORBIDDEN, "This API key does not carry the scope this request needs"),

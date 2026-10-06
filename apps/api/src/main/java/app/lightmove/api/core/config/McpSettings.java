@@ -1,6 +1,8 @@
 package app.lightmove.api.core.config;
 
+import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -36,11 +38,34 @@ public record McpSettings(
         /** How long an expired copy still serves while its host cannot be reached, so an outage there breaks no refresh. */
         @DefaultValue("24h") Duration cimdStaleIfError,
         /** Metadata document URL prefixes the consent screen names as verified; every other app is unverified. */
-        @DefaultValue({"https://claude.ai/oauth/", "https://chatgpt.com/oauth/"}) List<String> verifiedClientIdPrefixes
+        @DefaultValue({"https://claude.ai/oauth/", "https://chatgpt.com/oauth/"}) List<String> verifiedClientIdPrefixes,
+        /**
+         * Browser origins the MCP endpoint answers, exactly, beyond requests that send none (every server-side client);
+         * the deployment's own origin is always one.
+         */
+        @DefaultValue({}) List<String> allowedOrigins,
+        /** The largest MCP request body read: a JSON-RPC call is small, so anything larger is refused unread. */
+        @DefaultValue("65536") int maxRequestBytes,
+        /** Per grant or key, counted per instance like every budget the in-memory limiter keeps. */
+        @DefaultValue("120") int callsPerMinutePerCredential,
+        /** Refused credentials per address: the one budget an address gets, since a hosted client's is shared. */
+        @DefaultValue("30") int refusalsPerMinutePerIp
 ) {
 
+    /** Where the MCP server is mounted, and the default resource every token is minted for. */
+    public static final String MCP_PATH = "/api/v1/mcp";
+
     public String resourceUrlUnder(String webBaseUrl) {
-        return resourceUrl.isBlank() ? stripTrailingSlash(webBaseUrl) + "/api/v1/mcp" : resourceUrl;
+        return resourceUrl.isBlank() ? stripTrailingSlash(webBaseUrl) + MCP_PATH : resourceUrl;
+    }
+
+    /** The deployment's own origin and those listed, blanks dropped: an empty setting binds as one empty string. */
+    public List<String> allowedOriginsUnder(String webBaseUrl) {
+        List<String> origins = new ArrayList<>(allowedOrigins.stream()
+                .map(String::trim).filter(origin -> !origin.isEmpty()).toList());
+        URI base = URI.create(webBaseUrl);
+        origins.add(base.getScheme() + "://" + base.getRawAuthority());
+        return List.copyOf(origins);
     }
 
     public static String stripTrailingSlash(String url) {

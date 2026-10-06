@@ -3,7 +3,6 @@ package app.lightmove.api.core.security.oauth;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -21,7 +20,7 @@ final class ClientMetadataRules {
     private static final int MAX_URI_LENGTH = 2048;
     private static final Set<String> GRANT_TYPES = Set.of(AuthorizationGrantType.AUTHORIZATION_CODE.getValue(),
             AuthorizationGrantType.REFRESH_TOKEN.getValue());
-    private static final List<String> EVERY_SCOPE = Arrays.stream(ApiKeyScope.values()).map(ApiKeyScope::value).toList();
+    private static final List<String> EVERY_SCOPE = ApiKeyScope.dataScopes().stream().map(ApiKeyScope::value).toList();
 
     private ClientMetadataRules() {
     }

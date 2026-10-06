@@ -10,7 +10,6 @@ import app.lightmove.api.core.security.service.ClientIpResolver;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import java.time.Clock;
-import java.util.Arrays;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
@@ -178,7 +177,7 @@ public class OAuthAuthorizationServerConfig {
                                             methods.add("S256");
                                         })
                                         .scopes(scopes -> scopes.addAll(
-                                                Arrays.stream(ApiKeyScope.values()).map(ApiKeyScope::value).toList()))
+                                                ApiKeyScope.dataScopes().stream().map(ApiKeyScope::value).toList()))
                                         .tokenRevocationEndpointAuthenticationMethods(methods -> {
                                             methods.clear();
                                             methods.add(ClientAuthenticationMethod.NONE.getValue());

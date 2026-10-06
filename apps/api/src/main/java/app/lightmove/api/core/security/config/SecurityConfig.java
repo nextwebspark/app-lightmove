@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.McpSettings;
 import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
@@ -202,15 +203,15 @@ public class SecurityConfig {
                 .build();
     }
 
-    /** The MCP authorization server switched off ({@code OAuthAuthorizationServerConfig} is absent): all of it a 404. */
+    /** MCP switched off (the authorization server and the MCP server are both absent): all of it a 404. */
     @Bean
     @Order(1)
     @ConditionalOnBooleanProperty(name = OAuthAuthorizationServerConfig.MCP_SWITCH, havingValue = false,
             matchIfMissing = true)
-    SecurityFilterChain mcpAuthorizationServerOffChain(HttpSecurity http, PublicApiProblemWriter problems)
-            throws Exception {
+    SecurityFilterChain mcpOffChain(HttpSecurity http, PublicApiProblemWriter problems) throws Exception {
         return http
                 .securityMatcher(OAuthAuthorizationServerConfig.OAUTH_BASE + "/**",
+                        McpSettings.MCP_PATH, McpSettings.MCP_PATH + "/**",
                         "/.well-known/oauth-*", "/.well-known/oauth-*/**")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -360,6 +361,17 @@ public class SecurityConfig {
         };
     }
 
+    /** The MCP endpoint's browser origins: the deployment's own and those listed, as its transport also checks. */
+    private static CorsConfiguration mcpCors(LightMoveProperties properties) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(properties.mcp().allowedOriginsUnder(properties.web().baseUrl()));
+        config.setAllowedMethods(List.of("POST", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Mcp-Protocol-Version"));
+        config.setExposedHeaders(List.of("WWW-Authenticate", "Retry-After"));
+        config.setAllowCredentials(false);
+        return config;
+    }
+
     /** {@code allowCredentials} is why the origin list must be explicit: never a wildcard. */
     @Bean
     CorsConfigurationSource corsConfigurationSource(LightMoveProperties properties) {
@@ -371,6 +383,9 @@ public class SecurityConfig {
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Registered first, so it wins for its path: MCP clients carry a bearer, never a cookie, so no credentials.
+        source.registerCorsConfiguration(McpSettings.MCP_PATH, mcpCors(properties));
+        source.registerCorsConfiguration(McpSettings.MCP_PATH + "/**", mcpCors(properties));
         source.registerCorsConfiguration("/**", config);
         return source;
     }

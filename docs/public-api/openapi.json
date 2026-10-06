@@ -595,7 +595,7 @@
             "description" : "What the key may read",
             "items" : {
               "type" : "string",
-              "enum" : [ "projects:read", "companies:read", "candidates:read", "candidates.contacts:read", "candidates.compensation:read" ]
+              "enum" : [ "projects:read", "companies:read", "candidates:read", "candidates.contacts:read", "candidates.compensation:read", "mcp:use" ]
             }
           },
           "workspaceId" : {

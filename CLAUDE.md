@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -599,6 +599,20 @@ for 5 minutes, a stale copy serving meanwhile). A redirect URI matches exactly, 
 a document under a listed URL prefix (`lightmove.mcp.verified-client-id-prefixes`) verified — a registration never is.
 A client revokes its own grant at `/api/v1/oauth/revoke` (RFC 7009) with its id alone, budgeted per address, and that
 path never fetches a document.
+The **MCP server** itself (#703, `mcp`) is Spring AI's stateless Streamable HTTP transport at `/api/v1/mcp` behind its
+own resource-server chain (`McpServerConfig`), which tells two credentials apart by shape: an access token from our
+authorization server (the MCP key, our issuer, the MCP endpoint as `aud`, its grant still live and its user still staff,
+re-read every call) or an API key holding the opt-in `mcp:use` (V117), which reads nothing by itself. A session token is
+neither and opens nothing; tools call services in-process, never passing a caller's token on. Either becomes one
+`McpCaller` in the MCP transport context, which every tool reads and runs through `McpToolCalls` — one `MCP_TOOL_CALL`
+audit line per call, never its arguments. RFC 9728 metadata is Spring Security's own at
+`/.well-known/oauth-protected-resource[/api/v1/mcp]`, and a 401 points at it. A browser `Origin` not on
+`lightmove.mcp.allowed-origins` (the deployment's own is always on it) is refused, by the endpoint's own CORS policy and
+by the transport; bodies are capped (read and replayed, so a body with no declared length is held too), calls are
+budgeted per grant or key, and an address only on its refused credentials — hosted clients call from shared egress, so
+an address budget on calls would let one tenant refuse the rest. Only `@McpTool` beans are served: Spring AI's
+`StatelessToolCallbackConverterAutoConfiguration`, which would publish every `ToolCallback` bean, is excluded on
+`LightMoveApplication`. So far one tool, `uncava_whoami`; the parity tools are #704.
 
 ## Commands
 
@@ -660,7 +674,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
 - **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
-- **An API key reaches only `/api/v1/public/**`**, read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens no public route.
+- **An API key reaches only `/api/v1/public/**`**, and `/api/v1/mcp` once it holds `mcp:use`; read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens neither.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
 
 ## Database
@@ -859,6 +873,7 @@ token as SHA-256 hashes, unique each) and `app_lm_oauth_retired_refresh_token` (
 replay check). Deleting a grant row is revoking it.
 V116 gives `app_lm_oauth_client` `last_authorized_at` (stamped at consent; the purge's clock for an unused registration)
 and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `metadata_expires_at`.
+V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
