@@ -128,6 +128,19 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
     }
 
     @Test
+    @DisplayName("a scope repeated in the request is read once, never a 500")
+    void repeatedScopeOnConsentScreen() throws Exception {
+        String user = adminOf(domain);
+        String clientId = registerClient();
+
+        JsonNode context = body(mvc.perform(get("/api/v1/oauth/consent-context").param("client_id", clientId)
+                        .param("scope", "projects:read projects:read")
+                        .header("Authorization", "Bearer " + user))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(context.get("requestedScopes").toString()).isEqualTo("[\"projects:read\"]");
+    }
+
+    @Test
     @DisplayName("consent cannot grant a scope the client never asked for, and denying grants nothing")
     void consentWithinRequest() throws Exception {
         String user = adminOf(domain);
@@ -247,6 +260,7 @@ class OAuthAuthorizationServerIntegrationTest extends OAuthFlowSupport {
         assertThat(metadata.get("authorization_response_iss_parameter_supported").asBoolean()).isTrue();
         assertThat(metadata.has("device_authorization_endpoint")).isFalse();
         assertThat(metadata.toString()).doesNotContain("/oauth2/");
+        assertThat(metadata.has("revocation_endpoint")).isFalse();
 
         JsonNode keys = body(mvc.perform(get("/api/v1/oauth/jwks")).andExpect(status().isOk()).andReturn());
         assertThat(keys.get("keys")).hasSize(1);

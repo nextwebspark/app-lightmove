@@ -261,7 +261,11 @@ to read them back fails every refresh.
 
 **A refresh token rotates, and a replayed one is theft.** As with the session's family, a rotated-away refresh
 token presented again deletes the grant, so the thief's copy and the client's newer token stop together; the
-deletion commits before the refusal is thrown. Removing a member or deleting a workspace deletes its grants in the
+deletion commits before the refusal is thrown. Two requests racing on one refresh token or one code are
+caught too: every grant read carries the hashes it held, and `save()` refuses (`invalid_grant`) under the row lock
+when the row has moved on or gone, so one token is never redeemed twice and a revoked grant is never written back.
+Budgets on the token endpoint are per address, the client's included: a public client's id is shared and secretless,
+and a budget on the id alone let any stranger refuse every user of that app. Removing a member or deleting a workspace deletes its grants in the
 same transaction, beside the API keys.
 
 **The two tokens never cross.** An MCP token is signed by its own key, has the MCP endpoint as `aud` and the

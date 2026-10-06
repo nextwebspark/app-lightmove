@@ -54,7 +54,8 @@ public class OAuthConsentService {
             throw ApiException.of(ErrorCode.OAUTH_CLIENT_NOT_FOUND);
         }
 
-        Set<String> asked = scope == null ? Set.of() : Set.of(scope.trim().split("\\s+"));
+        // Set.copyOf, not Set.of: a repeated scope is a legal request, and Set.of throws on it.
+        Set<String> asked = scope == null ? Set.of() : Set.copyOf(Arrays.asList(scope.trim().split("\\s+")));
         List<String> requested = Arrays.stream(ApiKeyScope.values()).map(ApiKeyScope::value)
                 .filter(asked::contains)
                 .filter(client.getScopes()::contains)

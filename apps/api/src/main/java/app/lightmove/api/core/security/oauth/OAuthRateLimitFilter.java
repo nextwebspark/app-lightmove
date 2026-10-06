@@ -76,12 +76,16 @@ public class OAuthRateLimitFilter extends OncePerRequestFilter {
         response.getWriter().write("{\"error\":\"temporarily_unavailable\"}");
     }
 
-    /** Both spent, not short-circuited, as the login budgets are: an attempt counts against its client either way. */
+    /**
+     * Both spent, not short-circuited, as the login budgets are. The client's budget is per address too: a public
+     * client's id is shared by all its users and needs no secret, so a budget on the id alone was one any stranger
+     * could spend to refuse every user of that app.
+     */
     private boolean withinTokenBudget(HttpServletRequest request, String ip) {
         boolean withinIp = limiter.tryAcquire("oauth-token:ip:" + ip, budgets.tokenPerMinutePerIp(), WINDOW);
         String clientId = request.getParameter(OAuth2ParameterNames.CLIENT_ID);
-        boolean withinClient = clientId == null
-                || limiter.tryAcquire("oauth-token:client:" + clientId, budgets.tokenPerMinutePerClient(), WINDOW);
+        boolean withinClient = clientId == null || limiter.tryAcquire(
+                "oauth-token:client:" + clientId + ":ip:" + ip, budgets.tokenPerMinutePerClient(), WINDOW);
         return withinIp && withinClient;
     }
 }

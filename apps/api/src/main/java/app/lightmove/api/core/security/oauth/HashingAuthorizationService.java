@@ -18,12 +18,16 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.jackson.SecurityJacksonModules;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
@@ -59,6 +63,8 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
     public static final String WORKSPACE_PARAMETER = "workspace_id";
 
     static final String HASH_MARKER = "sha256:";
+    /** The four hashes a grant held when it was read, carried on it until it is saved back; never stored. */
+    static final String LOADED_HASHES = "lightmove.loaded-hashes";
     static final String GRANT_TARGET = "oauth_grant";
 
     private static final OAuth2TokenType STATE = new OAuth2TokenType(OAuth2ParameterNames.STATE);
@@ -98,6 +104,7 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
     public void save(OAuth2Authorization authorization) {
         UUID id = UUID.fromString(authorization.getId());
         Optional<StoredHashes> before = storedHashes(id);
+        refuseIfChangedSinceRead(authorization, before);
         Instant now = clock.instant();
 
         OAuth2Authorization.Token<OAuth2AuthorizationCode> code = authorization.getToken(OAuth2AuthorizationCode.class);
@@ -113,6 +120,7 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
 
         Map<String, Object> attributes = new HashMap<>(authorization.getAttributes());
         attributes.remove(OAuth2ParameterNames.STATE);
+        attributes.remove(LOADED_HASHES);
 
         MapSqlParameterSource row = new MapSqlParameterSource()
                 .addValue("id", id)
@@ -251,11 +259,28 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
+    /**
+     * Compare-and-swap under the row lock {@link #storedHashes} takes. Two requests redeeming one refresh token or one
+     * code both read the grant before either saves; the second to reach the lock finds the row moved on (or gone, if
+     * the first revoked it) and is refused, so one token is never redeemed twice and a revoked grant never returns.
+     */
+    private static void refuseIfChangedSinceRead(OAuth2Authorization authorization, Optional<StoredHashes> before) {
+        String loaded = authorization.getAttribute(LOADED_HASHES);
+        if (loaded == null) {
+            return;
+        }
+        if (before.isEmpty() || !loaded.equals(before.get().fingerprint())) {
+            throw new OAuth2AuthenticationException(new OAuth2Error(OAuth2ErrorCodes.INVALID_GRANT,
+                    "The grant changed while this request was being served", null));
+        }
+    }
+
     private Optional<StoredHashes> storedHashes(UUID id) {
         return jdbc.query("""
-                        SELECT code_hash, refresh_token_hash FROM app_lm_oauth_authorization WHERE id = :id FOR UPDATE
+                        SELECT state_hash, code_hash, access_token_hash, refresh_token_hash
+                        FROM app_lm_oauth_authorization WHERE id = :id FOR UPDATE
                         """, new MapSqlParameterSource("id", id),
-                (rs, rowNum) -> new StoredHashes(rs.getString("code_hash"), rs.getString("refresh_token_hash")))
+                (rs, rowNum) -> StoredHashes.of(rs))
                 .stream().findFirst();
     }
 
@@ -271,7 +296,8 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
                 .principalName(rs.getString("user_id"))
                 .authorizationGrantType(new AuthorizationGrantType(rs.getString("authorization_grant_type")))
                 .authorizedScopes(Set.copyOf(readList(rs.getString("authorized_scopes"))))
-                .attributes(map -> map.putAll(attributes));
+                .attributes(map -> map.putAll(attributes))
+                .attribute(LOADED_HASHES, StoredHashes.of(rs).fingerprint());
 
         String stateHash = rs.getString("state_hash");
         if (stateHash != null) {
@@ -383,5 +409,16 @@ public class HashingAuthorizationService implements OAuth2AuthorizationService {
         return value == null ? null : value.toInstant();
     }
 
-    private record StoredHashes(String codeHash, String refreshHash) {}
+    private record StoredHashes(String stateHash, String codeHash, String accessHash, String refreshHash) {
+
+        static StoredHashes of(ResultSet rs) throws SQLException {
+            return new StoredHashes(rs.getString("state_hash"), rs.getString("code_hash"),
+                    rs.getString("access_token_hash"), rs.getString("refresh_token_hash"));
+        }
+
+        String fingerprint() {
+            return String.join("|", Objects.toString(stateHash, ""), Objects.toString(codeHash, ""),
+                    Objects.toString(accessHash, ""), Objects.toString(refreshHash, ""));
+        }
+    }
 }

@@ -20,6 +20,7 @@ public record McpSettings(
         /** Counted per instance, like every budget the in-memory limiter keeps. */
         @DefaultValue("30") int authorizePerMinutePerIp,
         @DefaultValue("60") int tokenPerMinutePerIp,
+        /** Per client per address, never per client alone: a public client's id is shared and secretless. */
         @DefaultValue("30") int tokenPerMinutePerClient
 ) {
 

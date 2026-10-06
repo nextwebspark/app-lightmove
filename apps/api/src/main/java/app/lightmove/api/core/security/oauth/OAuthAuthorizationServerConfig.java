@@ -160,9 +160,13 @@ public class OAuthAuthorizationServerConfig {
                                         .scopes(scopes -> scopes.addAll(
                                                 Arrays.stream(ApiKeyScope.values()).map(ApiKeyScope::value).toList()))
                                         .claim("authorization_response_iss_parameter_supported", true)
+                                        // Revocation needs client authentication a public client cannot give,
+                                        // so it is not advertised: a client must not believe a revoke worked.
                                         .claims(claims -> List.of("device_authorization_endpoint",
                                                         "introspection_endpoint",
                                                         "introspection_endpoint_auth_methods_supported",
+                                                        "revocation_endpoint",
+                                                        "revocation_endpoint_auth_methods_supported",
                                                         "tls_client_certificate_bound_access_tokens",
                                                         "dpop_signing_alg_values_supported")
                                                 .forEach(claims::remove)))))

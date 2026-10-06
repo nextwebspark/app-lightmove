@@ -32,6 +32,28 @@ class OAuthRateLimitTest extends OAuthFlowSupport {
     }
 
     @Test
+    @DisplayName("a client's spent budget at one address refuses nobody at another")
+    void clientBudgetIsPerAddress() throws Exception {
+        String clientId = registerClient();
+
+        exchangeGuess(clientId).andExpect(status().isBadRequest());
+        exchangeGuess(clientId).andExpect(status().isBadRequest());
+        exchangeGuess(clientId).andExpect(status().isTooManyRequests());
+
+        mvc.perform(post(TOKEN).with(request -> {
+                    request.setRemoteAddr("203.0.113.9");
+                    return request;
+                }).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .param("grant_type", "authorization_code")
+                .param("code", Tokens.generate())
+                .param("redirect_uri", REDIRECT)
+                .param("client_id", clientId)
+                .param("code_verifier", Tokens.generate())
+                .param("resource", identity.resourceUrl()))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("authorize requests from one address are refused once its budget is spent")
     void authorizeBudget() throws Exception {
         String clientId = registerClient();
