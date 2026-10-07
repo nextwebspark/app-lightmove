@@ -27,6 +27,8 @@ COPY apps/web/package.json ./apps/web/
 RUN npm ci
 
 COPY apps/web ./apps/web
+# The /docs/mcp page draws this file, so the guide in the repository is the one users read.
+COPY docs/mcp.md ./docs/mcp.md
 
 # Build parameters, read by vite.config.ts through loadEnv and frozen into the bundle. EXTENSION_ID
 # decides the chrome-extension:// origin the pairing page looks for; without it the page falls back to

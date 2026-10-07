@@ -34,7 +34,12 @@ public enum WorkspaceEventType implements AuditEventType {
     ZOOM_DISCONNECTED,
 
     API_KEY_CREATED,
-    API_KEY_REVOKED;
+    API_KEY_REVOKED,
+
+    OAUTH_GRANT_CREATED,
+    OAUTH_GRANT_REVOKED,
+    OAUTH_TOKEN_REFRESHED,
+    OAUTH_CLIENT_REGISTERED;
 
     @Override
     public String code() {

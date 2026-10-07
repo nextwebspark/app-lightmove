@@ -19,6 +19,7 @@ const SETTINGS_SECTIONS = [
   { to: "/settings/security", label: "Security", icon: ICONS.lock, group: "Account" },
   { to: "/settings/workspaces", label: "Workspaces", icon: ICONS.allProjects, group: "Account" },
   { to: "/settings/api-keys", label: "API keys", icon: ICONS.key, group: "Account", staffOnly: true },
+  { to: "/settings/ai-apps", label: "Connected AI apps", icon: ICONS.sparkle, group: "Account", staffOnly: true },
   { to: "/settings/general", label: "General", icon: ICONS.settings, group: "Workspace" },
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
   { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
@@ -40,8 +41,8 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
  * The settings shell: breadcrumb topbar, the section rail, and a narrower content column than the
  * workspace screens.
  *
- * <p>Account is everyone's — a portal guest has a name and a timezone like anyone else — except API keys,
- * which are staff's. The Workspace
+ * <p>Account is everyone's — a portal guest has a name and a timezone like anyone else — except API keys and
+ * Connected AI apps, which are staff's. The Workspace
  * group is admin-only and the Platform group is LightMove staff's, matching the routes: hiding them is
  * presentation, and the route guards are the gate.
  */

@@ -1,3 +1,5 @@
+import type { OAuthClientKind } from "../../oauth/api/types";
+
 /** Settings → Integrations' contract, hand-mirrored from the API like the other modules'. */
 
 export type IntegrationProvider = "GOOGLE" | "MICROSOFT" | "ZOOM";
@@ -55,7 +57,8 @@ export type ApiKeyScope =
   | "companies:read"
   | "candidates:read"
   | "candidates.contacts:read"
-  | "candidates.compensation:read";
+  | "candidates.compensation:read"
+  | "mcp:use";
 
 /** Never the secret: `tokenHint` is its first and last characters, which cannot be used. */
 export interface ApiKey {
@@ -89,4 +92,25 @@ export interface CreateApiKeyRequest {
 export interface CreatedApiKey {
   key: ApiKey;
   secret: string;
+}
+
+/** An AI app connected over MCP: one person, one workspace, the scopes they ticked. Carries no token. */
+export interface OAuthGrant {
+  id: string;
+  clientId: string;
+  clientName: string;
+  clientKind: OAuthClientKind;
+  /** For a metadata document, the host it was read from. */
+  clientHost: string | null;
+  verified: boolean;
+  /** Where the app sends the browser back to — what the consent screen named. */
+  redirectHost: string | null;
+  logoUri: string | null;
+  scopes: ApiKeyScope[];
+  ownerUserId: string;
+  /** Always someone: a grant ends with its owner's membership. */
+  ownerName: string;
+  connectedAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
 }

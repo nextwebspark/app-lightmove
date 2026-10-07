@@ -2,14 +2,18 @@ package app.lightmove.api.publicapi.controller;
 
 import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
+import app.lightmove.api.core.security.apikey.PublicReader;
 import app.lightmove.api.core.security.apikey.RequirePublicProjectRead;
 import app.lightmove.api.core.security.apikey.RequirePublicScope;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
 import app.lightmove.api.publicapi.dto.PublicCompany;
+import app.lightmove.api.publicapi.dto.PublicCompanyDetail;
 import app.lightmove.api.publicapi.dto.PublicPage;
+import app.lightmove.api.publicapi.dto.PublicPositionSummary;
 import app.lightmove.api.publicapi.dto.PublicProblem;
 import app.lightmove.api.publicapi.dto.PublicProject;
 import app.lightmove.api.publicapi.dto.PublicUniverse;
+import app.lightmove.api.publicapi.service.PublicApiReadAudit;
 import app.lightmove.api.publicapi.service.PublicReadService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -49,6 +53,7 @@ public class PublicProjectsController {
     private static final String NOT_FOUND = "No such position in the key's workspace (NOT_FOUND)";
 
     private final PublicReadService reads;
+    private final PublicApiReadAudit audit;
 
     @GetMapping
     @RequirePublicScope(ApiKeyScope.PROJECTS_READ)
@@ -66,7 +71,9 @@ public class PublicProjectsController {
             @Parameter(description = "Rows per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
             @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
-        return reads.projects(key, title, page, size, request);
+        PublicPage<PublicProject> found = reads.projects(PublicReader.of(key), title, page, size);
+        audit.record(key, null, request, found.data().size());
+        return found;
     }
 
     @GetMapping("/{projectId}")
@@ -79,7 +86,9 @@ public class PublicProjectsController {
     public PublicProject get(@Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
                              @Parameter(description = "The position's id") @PathVariable UUID projectId,
                              HttpServletRequest request) {
-        return reads.project(key, projectId, request);
+        PublicProject project = reads.project(PublicReader.of(key), projectId);
+        audit.record(key, projectId, request, 1);
+        return project;
     }
 
     @GetMapping("/{projectId}/companies")
@@ -102,7 +111,9 @@ public class PublicProjectsController {
             @Parameter(description = "Rows per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
             @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
-        return reads.companies(key, projectId, stage, page, size, request);
+        PublicPage<PublicCompany> found = reads.companies(PublicReader.of(key), projectId, stage, page, size);
+        audit.record(key, projectId, request, found.data().size());
+        return found;
     }
 
     @GetMapping("/{projectId}/candidates")
@@ -124,12 +135,82 @@ public class PublicProjectsController {
             @RequestParam(required = false) String status,
             @Parameter(description = "Only executives mapped at this company: a Company's id from the companies route")
             @RequestParam(required = false) UUID companyId,
+            @Parameter(description = "Only executives whose name, title or employer contains this, ignoring case",
+                    example = "Finance")
+            @RequestParam(required = false) String q,
+            @Parameter(description = "Only executives mapped at a company of this stage; an executive at no company "
+                    + "is at no stage",
+                    schema = @Schema(type = "string", allowableValues = {"inUniverse", "shortlisted", "declined"}))
+            @RequestParam(required = false) String stage,
             @Parameter(description = "Page number, from 0", schema = @Schema(type = "integer", minimum = "0", defaultValue = "0"))
             @RequestParam(required = false) Integer page,
             @Parameter(description = "Rows per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
             @RequestParam(required = false) Integer size,
             HttpServletRequest request) {
-        return reads.candidates(key, projectId, status, companyId, page, size, request);
+        PublicPage<PublicCandidate> found = reads.candidates(PublicReader.of(key), projectId, status, companyId, q,
+                stage, page, size);
+        audit.record(key, projectId, request, found.data().size());
+        return found;
+    }
+
+    @GetMapping("/{projectId}/summary")
+    @RequirePublicProjectRead(ApiKeyScope.PROJECTS_READ)
+    @Tag(name = "Projects")
+    @Operation(operationId = "getProjectSummary", summary = "Summarise one position",
+            description = "Needs `projects:read`. Its companies at each stage, its executives at each status and its "
+                    + "dates, in one call: the counts the companies and candidates routes would page through.")
+    @ApiResponse(responseCode = "200", description = "The position's summary")
+    @ApiResponse(responseCode = "404", description = NOT_FOUND,
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = PublicProblem.class)))
+    public PublicPositionSummary summary(@Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
+                                         @Parameter(description = "The position's id") @PathVariable UUID projectId,
+                                         HttpServletRequest request) {
+        PublicPositionSummary summary = reads.summary(PublicReader.of(key), projectId);
+        audit.record(key, projectId, request, 1);
+        return summary;
+    }
+
+    @GetMapping("/{projectId}/candidates/{candidateId}")
+    @RequirePublicProjectRead(ApiKeyScope.CANDIDATES_READ)
+    @Tag(name = "Candidates")
+    @Operation(operationId = "getCandidate", summary = "Get one of a position's executives",
+            description = "Needs `candidates:read`. `contacts` and `compensation` follow the same scopes as on the "
+                    + "candidates route.")
+    @ApiResponse(responseCode = "200", description = "The executive")
+    @ApiResponse(responseCode = "404", description = "No such position, or no such executive on it (NOT_FOUND)",
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = PublicProblem.class)))
+    public PublicCandidate candidate(@Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
+                                     @Parameter(description = "The position's id") @PathVariable UUID projectId,
+                                     @Parameter(description = "The executive's id within the position")
+                                     @PathVariable UUID candidateId,
+                                     HttpServletRequest request) {
+        PublicCandidate candidate = reads.candidate(PublicReader.of(key), projectId, candidateId);
+        audit.record(key, projectId, request, 1);
+        return candidate;
+    }
+
+    @GetMapping("/{projectId}/companies/{companyId}")
+    @RequirePublicProjectRead(ApiKeyScope.COMPANIES_READ)
+    @Tag(name = "Companies")
+    @Operation(operationId = "getCompany", summary = "Get one of a position's companies, with its executives",
+            description = "Needs `companies:read`. `executives` is that company's executives a page at a time, filled "
+                    + "only with `candidates:read`; their `contacts` and `compensation` follow the candidates route.")
+    @ApiResponse(responseCode = "200", description = "The company")
+    @ApiResponse(responseCode = "404", description = "No such position, or no such company on it (NOT_FOUND)",
+            content = @Content(mediaType = "application/problem+json", schema = @Schema(implementation = PublicProblem.class)))
+    public PublicCompanyDetail company(
+            @Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
+            @Parameter(description = "The position's id") @PathVariable UUID projectId,
+            @Parameter(description = "The company's id within the position") @PathVariable UUID companyId,
+            @Parameter(description = "Page of executives, from 0", schema = @Schema(type = "integer", minimum = "0", defaultValue = "0"))
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Executives per page", schema = @Schema(type = "integer", minimum = "1", maximum = "100", defaultValue = "25"))
+            @RequestParam(required = false) Integer size,
+            HttpServletRequest request) {
+        PublicCompanyDetail company = reads.company(PublicReader.of(key), projectId, companyId, page, size);
+        audit.record(key, projectId, request,
+                1 + (company.executives() == null ? 0 : company.executives().data().size()));
+        return company;
     }
 
     @GetMapping("/{projectId}/universe")
@@ -153,6 +234,8 @@ public class PublicProjectsController {
                             defaultValue = "inUniverse"))
             @RequestParam(required = false) String stage,
             HttpServletRequest request) {
-        return reads.universe(key, projectId, stage, request);
+        PublicUniverse universe = reads.universe(PublicReader.of(key), projectId, stage);
+        audit.record(key, projectId, request, universe.rowCount());
+        return universe;
     }
 }

@@ -548,7 +548,7 @@
             <div style="margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
               <div style="min-width:0;flex:1">
                 <div style="font:600 19px/1.25 var(--sans)">API keys</div>
-                <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Connect an ATS, a BI tool or a script to Uncava's public API. A key reads positions, their companies and their executives as JSON. It never changes anything.</div>
+                <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Connect an ATS, a BI tool, a script or an AI agent to Uncava. A key reads positions, their companies and their executives — as JSON from the public API, or over MCP when it allows AI access. It never changes anything.</div>
               </div>
               <sc-if value="{{ akHasKeys }}" hint-placeholder-val="{{ true }}">
                 <button onClick="{{ openAkCreate }}" style="display:flex;flex:none;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
@@ -608,6 +608,70 @@
             </sc-if>
 
             <p style="margin:12px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ akFootnote }} <a href="#" style="color:var(--amber)">API docs ↗</a></p>
+          </div>
+        </sc-if>
+        <!-- CONNECTED AI APPS — OAuth grants to MCP clients (epic #699). A grant is one person in one workspace, read-only, never more than they can open today; it ends with their membership. Connecting starts in the AI app, never here. -->
+        <sc-if value="{{ isAiApps }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Connected AI apps">
+            <div style="margin-bottom:18px">
+              <div style="font:600 19px/1.25 var(--sans)">Connected AI apps</div>
+              <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Claude, ChatGPT, Cursor and other AI apps that read Uncava over MCP. Each one asked you first, reads only what you ticked, and never changes anything.</div>
+            </div>
+
+            <div style="margin-bottom:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:12px 14px">
+              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">MCP server URL</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <code style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 10px;font:500 12.5px var(--mono);color:var(--text)">{{ mcpUrl }}</code>
+                <button onClick="{{ copyMcpUrl }}" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 12.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Copy</button>
+              </div>
+              <span style="margin-top:6px;display:block;font:400 11px/1.5 var(--mono);color:var(--text3)">Add it as a connector in your AI app. It sends you to Uncava to sign in and choose what it may read.</span>
+            </div>
+
+            <sc-if value="{{ aiShowViewToggle }}" hint-placeholder-val="{{ true }}">
+              <div role="radiogroup" aria-label="Which connections" style="margin-bottom:14px;display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:2px">
+                <sc-for list="{{ aiViews }}" as="v" hint-placeholder-count="2">
+                  <button role="radio" aria-checked="{{ v.on }}" data-view="{{ v.key }}" onClick="{{ setAiView }}" style="{{ v.style }}">{{ v.label }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ aiHasGrants }}" hint-placeholder-val="{{ true }}">
+              <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:4px 16px">
+                <sc-for list="{{ aiRows }}" as="g" hint-placeholder-count="4">
+                  <div style="{{ g.rowStyle }}">
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <span style="{{ g.tileStyle }}">{{ g.mark }}</span>
+                      <div style="min-width:0;flex:1">
+                        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                          <span style="font:500 13.5px var(--sans);color:var(--text)">{{ g.client }}</span>
+                          <span style="{{ g.trustStyle }}">{{ g.trustLabel }}</span>
+                        </div>
+                        <div style="margin-top:2px;overflow-wrap:anywhere;font:400 11.5px/1.55 var(--mono);color:var(--text3)"><span style="color:var(--text2)">{{ g.host }}</span> · {{ g.meta }}</div>
+                      </div>
+                      <sc-if value="{{ g.revocable }}" hint-placeholder-val="{{ true }}">
+                        <button data-id="{{ g.id }}" onClick="{{ askAiRevoke }}" style="flex:none;border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--red);background:none;border:none;cursor:pointer" style-hover="background:var(--red-dim)">Disconnect</button>
+                      </sc-if>
+                    </div>
+                    <div style="margin:8px 0 0 48px;display:flex;flex-wrap:wrap;gap:6px">
+                      <sc-for list="{{ g.scopes }}" as="s" hint-placeholder-count="3">
+                        <code style="{{ s.style }}">{{ s.code }}</code>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ aiEmpty }}" hint-placeholder-val="{{ false }}">
+              <div data-screen-label="Connected AI apps — empty" style="border-radius:10px;border:1px dashed var(--line);background:var(--panel2);padding:32px 24px;text-align:center">
+                <span style="margin:0 auto 12px;display:grid;width:40px;height:40px;place-items:center;border-radius:10px;background:var(--amber-dim);color:var(--amber)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.sparkle }}"></path></svg></span>
+                <div style="font:600 14px var(--sans)">{{ aiEmptyTitle }}</div>
+                <div style="margin:6px auto 0;max-width:440px;font:400 12px/1.55 var(--mono);color:var(--text3)">{{ aiEmptyBody }}</div>
+                <div style="margin-top:16px"><a href="#" style="font:500 12.5px var(--sans);color:var(--amber)">Read the MCP docs ↗</a></div>
+              </div>
+            </sc-if>
+
+            <p style="margin:12px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ aiFootnote }} <a href="#" style="color:var(--amber)">MCP docs ↗</a></p>
           </div>
         </sc-if>
 
@@ -1327,13 +1391,13 @@
         </sc-if>
 
         <div style="margin-bottom:16px">
-          <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">What it can read</span>
+          <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">What it can do</span>
           <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2)">
             <sc-for list="{{ akScopeChoices }}" as="sc" hint-placeholder-count="5">
               <button role="checkbox" aria-checked="{{ sc.on }}" data-scope="{{ sc.code }}" onClick="{{ toggleAkScope }}" style="{{ sc.rowStyle }}" style-hover="background:var(--panel)">
                 <span style="{{ sc.boxStyle }}"><sc-if value="{{ sc.on }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>
                 <span style="min-width:0;flex:1">
-                  <span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><code style="font:500 12px var(--mono);color:var(--text)">{{ sc.code }}</code><sc-if value="{{ sc.personal }}"><span style="border-radius:999px;padding:1px 7px;font:600 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--red-dim);color:var(--red)">Personal data</span></sc-if></span>
+                  <span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><code style="font:500 12px var(--mono);color:var(--text)">{{ sc.code }}</code><sc-if value="{{ sc.personal }}"><span style="border-radius:999px;padding:1px 7px;font:600 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--red-dim);color:var(--red)">Personal data</span></sc-if><sc-if value="{{ sc.ai }}"><span style="border-radius:999px;padding:1px 7px;font:600 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--sky-dim);color:var(--sky)">AI access</span></sc-if></span>
                   <span style="margin-top:2px;display:block;font:400 11px/1.5 var(--mono);color:var(--text3)">{{ sc.note }}</span>
                 </span>
               </button>
@@ -1400,13 +1464,27 @@
     </div>
   </sc-if>
 
+  <!-- Disconnect an AI app -->
+  <sc-if value="{{ aiRevokeOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Disconnect AI app" onClick="{{ closeAiDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Disconnect AI app" onClick="{{ stop }}" style="width:440px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:16px;font:600 16px var(--sans)">Disconnect {{ aiRevokeName }}?</div>
+        <p style="margin:0 0 20px;font:400 13px var(--sans);color:var(--text2)">{{ aiRevokeBody }}</p>
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeAiDialog }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ confirmAiRevoke }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:pointer" style-hover="filter:brightness(1.05)">Disconnect</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
     <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
   </sc-if>
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1425,13 +1503,14 @@ class Component extends DCLogic {
       laptop: 'M2 4h20v12H2zM8 20h8M12 16v4',
       phone: 'M7 2h10v20H7zM11 19h2',
       key: 'M2.6 17.4A2 2 0 0 0 2 18.8V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.2a2 2 0 0 0 1.4-.6l.8-.8a6.5 6.5 0 1 0-4-4ZM16.5 7.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z',
+      sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z',
       puzzle: 'M10 3a2 2 0 0 1 4 0v1h4a1 1 0 0 1 1 1v4h1a2 2 0 0 1 0 4h-1v4a1 1 0 0 1-1 1h-4v-1a2 2 0 0 0-4 0v1H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V5a1 1 0 0 1 1-1h4Z',
     };
     this.DISC = { EXECUTIVE: 'Executive', FINANCE: 'Finance', OPERATIONS: 'Operations', TECHNOLOGY: 'Technology', PEOPLE: 'People', COMMERCIAL: 'Commercial', GOVERNANCE: 'Governance', INVESTMENT: 'Investment' };
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'candidate-tags': 'Candidate tags', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -1505,6 +1584,9 @@ class Component extends DCLogic {
     const akDialog = urlProp('apiKeyDialog') || props.apiKeyDialog || 'none';
     const akEmpty = (urlProp('apiKeysEmpty') || String(!!props.apiKeysEmpty)) === 'true';
     if (akDialog !== 'none' || urlProp('apiKeysView')) section = 'api-keys';
+    const aiDialog = urlProp('aiAppsDialog') || props.aiAppsDialog || 'none';
+    const aiEmpty = (urlProp('aiAppsEmpty') || String(!!props.aiAppsEmpty)) === 'true';
+    if (aiDialog !== 'none' || urlProp('aiAppsView') || urlProp('aiAppsEmpty')) section = 'ai-apps';
 
     let collapsed = false;
     try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
@@ -1520,9 +1602,17 @@ class Component extends DCLogic {
         { id: 'k3', name: 'Weekly shortlist script', kind: 'PERSONAL', owner: 'yh', hint: 'uncava_pat_Qm0x…7b3e', scopes: ['projects:read', 'candidates:read'], created: '12 Sep 2026', expires: '10 Oct 2026', expiresInDays: 5, lastUsed: '6 days ago from 94.204.12.8' },
         { id: 'k4', name: 'Test key', kind: 'PERSONAL', owner: 'yh', hint: 'uncava_pat_a91L…c4d0', scopes: ['projects:read'], created: '1 Sep 2026', expires: '30 Nov 2026', expiresInDays: 56, lastUsed: null, revokedOn: '14 Sep 2026', revokedBy: 'yh' },
         { id: 'k5', name: 'Excel Power Query', kind: 'PERSONAL', owner: 'sa', hint: 'uncava_pat_Zt5w…19fe', scopes: ['projects:read', 'companies:read'], created: '22 Sep 2026', expires: '21 Dec 2026', expiresInDays: 77, lastUsed: 'yesterday from 94.204.13.40' },
+        { id: 'k7', name: 'Claude Code (terminal)', kind: 'PERSONAL', owner: 'yh', hint: 'uncava_pat_Vb6c…3d1f', scopes: ['projects:read', 'companies:read', 'candidates:read', 'mcp:use'], created: '4 Oct 2026', expires: '2 Jan 2027', expiresInDays: 89, lastUsed: '20 minutes ago from 94.204.12.8' },
         { id: 'k6', name: 'Pilot integration', kind: 'PERSONAL', owner: 'yi', hint: 'uncava_pat_Lr3n…8a72', scopes: ['projects:read', 'companies:read', 'candidates:read', 'candidates.compensation:read'], created: '22 Jun 2026', expires: '20 Sep 2026', expiresInDays: -15, lastUsed: '17 days ago from 31.215.8.66' },
       ],
       akView: urlProp('apiKeysView') || props.apiKeysView || 'mine', akDialog, akRevokeId: akDialog === 'revoke' ? 'k3' : null,
+      aiGrants: aiEmpty ? [] : [
+        { id: 'g1', client: 'Claude', mark: 'C', host: 'claude.ai', verified: true, owner: 'yh', scopes: ['projects:read', 'companies:read', 'candidates:read'], connected: '12 Sep 2026', lastUsed: '2 hours ago' },
+        { id: 'g2', client: 'ChatGPT', mark: 'G', host: 'chatgpt.com', verified: true, owner: 'yh', scopes: ['projects:read', 'candidates:read', 'candidates.contacts:read'], connected: '28 Sep 2026', lastUsed: 'yesterday' },
+        { id: 'g3', client: 'my-agent', mark: 'm', host: 'registered itself · 127.0.0.1', verified: false, owner: 'yh', scopes: ['projects:read'], connected: '3 Oct 2026', lastUsed: null },
+        { id: 'g4', client: 'Cursor', mark: 'Cu', host: 'cursor.com', verified: true, owner: 'sa', scopes: ['projects:read', 'companies:read'], connected: '20 Sep 2026', lastUsed: '4 days ago' },
+      ],
+      aiView: urlProp('aiAppsView') || props.aiAppsView || 'mine', aiDialog, aiRevokeId: aiDialog === 'revoke' ? 'g2' : null,
       akName: '', akKind: 'PERSONAL', akScopes: ['projects:read', 'companies:read', 'candidates:read'], akExpiry: '90',
       akRevealName: 'Power BI dashboard', akSecret: 'uncava_pat_7Kq2vXyR9bN4mTc8LwZp1sHe6uJfA3dGkQ5rVo0iYtBn_f9a1c03e',
       newWorkspaceOpen: !!props.newWorkspaceOpen, newWorkspaceStage: props.newWorkspaceStage || 'organisation',
@@ -1715,7 +1805,7 @@ class Component extends DCLogic {
       return { key, label, icon, iconColor: on ? 'var(--amber)' : 'currentColor',
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
-    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key)] }];
+    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
     if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
 
@@ -1921,8 +2011,11 @@ class Component extends DCLogic {
       ['candidates:read', 'Each position\'s executives: profile, company and status.'],
       ['candidates.contacts:read', 'Their emails and phone numbers.', true],
       ['candidates.compensation:read', 'Their salary, bonus, allowances and incentives.', true],
+      ['mcp:use', 'Lets an AI agent use this key over MCP. Reads nothing by itself — tick what it may read too.', false, true],
     ];
     const pill = 'display:inline-flex;border-radius:999px;padding:2px 8px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;';
+    const scopeChip = (code) => SCOPES.some((x) => x[0] === code && x[2]) ? 'background:var(--red-dim);color:var(--red)'
+      : SCOPES.some((x) => x[0] === code && x[3]) ? 'background:var(--sky-dim);color:var(--sky)' : 'background:var(--panel);color:var(--text2)';
     const memberName = (id) => (st.members.find((m) => m.id === id) || {}).name || 'A former member';
     const akView = isAdmin ? st.akView : 'mine';
     const akVisible = st.apiKeys.filter((k) => akView === 'all' || k.owner === 'yh');
@@ -1943,10 +2036,24 @@ class Component extends DCLogic {
         revocable: !revoked && !expired && (isAdmin || k.owner === 'yh'),
         rowStyle: 'padding:12px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') + (revoked || expired ? ';opacity:.6' : ''),
         scopes: k.scopes.map((code) => ({ code, style: 'border-radius:4px;padding:2px 6px;font:400 11px var(--mono);'
-          + (SCOPES.some((x) => x[0] === code && x[2]) ? 'background:var(--red-dim);color:var(--red)' : 'background:var(--panel);color:var(--text2)') })),
+          + scopeChip(code) })),
       };
     });
-    const akCreateBlocked = !st.akName.trim() || st.akScopes.length === 0;
+    const aiView = isAdmin ? st.aiView : 'mine';
+    const aiVisible = st.aiGrants.filter((g) => aiView === 'all' || g.owner === 'yh');
+    const aiRows = aiVisible.map((g, i) => ({
+      id: g.id, client: g.client, mark: g.mark, host: g.host,
+      meta: (aiView === 'all' ? memberName(g.owner) + ' · ' : '') + 'connected ' + g.connected + ' · ' + (g.lastUsed ? 'last used ' + g.lastUsed : 'never used'),
+      trustLabel: g.verified ? 'Verified' : 'Unverified',
+      trustStyle: pill + (g.verified ? 'background:var(--green-dim);color:var(--green)' : 'background:var(--u-signal-tint);color:var(--u-signal)'),
+      tileStyle: 'width:36px;height:36px;flex:none;border-radius:8px;display:grid;place-items:center;font:700 13px var(--sans);'
+        + (g.verified ? 'background:var(--panel);border:1px solid var(--line);color:var(--text)' : 'background:var(--u-signal-tint);border:1px dashed var(--u-signal);color:var(--u-signal)'),
+      revocable: isAdmin || g.owner === 'yh',
+      rowStyle: 'padding:12px 0' + (i ? ';border-top:1px solid var(--line-soft)' : ''),
+      scopes: g.scopes.map((code) => ({ code, style: 'border-radius:4px;padding:2px 6px;font:400 11px var(--mono);' + scopeChip(code) })),
+    }));
+    const aiRevoking = st.aiGrants.find((g) => g.id === st.aiRevokeId) || null;
+    const akCreateBlocked = !st.akName.trim() || !st.akScopes.some((c) => c !== 'mcp:use');
     const akRevoking = st.apiKeys.find((k) => k.id === st.akRevokeId) || null;
     const expiryDate = (() => { const d = new Date(2026, 9, 5 + Number(st.akExpiry)); return d.getDate() + ' ' + ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + ' ' + d.getFullYear(); })();
 
@@ -2038,7 +2145,7 @@ class Component extends DCLogic {
         style: 'border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;cursor:pointer;' + (akView === key ? 'background:var(--amber-dim);color:var(--text)' : 'background:none;color:var(--text3)') })),
       akRows, akHasKeys: akRows.length > 0, akEmpty: akRows.length === 0,
       akEmptyTitle: st.apiKeys.length === 0 ? 'No API keys yet' : "You haven't created a key",
-      akEmptyBody: st.apiKeys.length === 0 ? "Create a key for each tool that reads from Uncava, so you can revoke one without breaking the others. A key reads positions, companies and executives; it never changes anything." : "Your colleagues' keys are under All keys. Create your own for each tool you connect.",
+      akEmptyBody: st.apiKeys.length === 0 ? "Create a key for each tool that reads from Uncava, so you can revoke one without breaking the others. A key reads positions, companies and executives, and can let an AI agent read them over MCP; it never changes anything." : "Your colleagues' keys are under All keys. Create your own for each tool you connect.",
       akFootnote: isAdmin
         ? "A personal key reads only the positions its owner can open, and stops working the moment they leave the workspace. A workspace key reads every position and outlives the person who made it; only an admin can make or revoke one."
         : "A key reads only the positions you can open, and stops working if you leave the workspace. An admin can see and revoke every key here.",
@@ -2047,18 +2154,34 @@ class Component extends DCLogic {
       akKinds: [['PERSONAL', 'Personal', 'Yours. Reads only the positions you can open, and stops if you leave.'], ['SERVICE', 'Workspace', "The workspace's. Reads every position and outlives whoever made it."]]
         .map(([key, label, note]) => ({ key, label, note, on: st.akKind === key,
           style: 'display:block;width:100%;text-align:left;border-radius:8px;padding:10px 12px;cursor:pointer;background:' + (st.akKind === key ? 'var(--amber-dim)' : 'var(--panel2)') + ';border:1px solid ' + (st.akKind === key ? 'var(--amber)' : 'var(--line-soft)') })),
-      akScopeChoices: SCOPES.map(([code, note, personal], i) => { const on = st.akScopes.includes(code); return { code, note, personal: !!personal, on,
+      akScopeChoices: SCOPES.map(([code, note, personal, ai], i) => { const on = st.akScopes.includes(code); return { code, note, personal: !!personal, ai: !!ai, on,
         rowStyle: 'display:flex;width:100%;align-items:flex-start;gap:10px;text-align:left;padding:10px 12px;background:none;border:none;cursor:pointer' + (i ? ';border-top:1px solid var(--line-soft)' : ''),
         boxStyle: 'margin-top:1px;display:grid;width:16px;height:16px;flex:none;place-items:center;border-radius:4px;color:var(--on-amber);' + (on ? 'background:var(--amber-btn);border:1px solid var(--amber-btn)' : 'background:var(--panel);border:1px solid var(--line)') }; }),
       akReachLine: st.akKind === 'SERVICE'
-        ? 'Read-only. This key reads every position in ' + st.wsName + ', including the ones you are not on.'
-        : 'Read-only. This key never reaches more than you can open in Uncava today; lose access to a position and so does the key.',
+        ? 'Read-only. This key reads every position in ' + st.wsName + ', including the ones you are not on.' + (st.akScopes.includes('mcp:use') ? ' An AI agent holding it reads the same.' : '')
+        : 'Read-only. This key never reaches more than you can open in Uncava today; lose access to a position and so does the key.' + (st.akScopes.includes('mcp:use') ? ' An AI agent holding it reads the same, so keep it out of shared prompts and repositories.' : ''),
       akCreateBlocked, akCreateStyle: primary(akCreateBlocked),
       akRevealName: st.akRevealName, akSecret: st.akSecret, akSecretShort: st.akSecret.slice(0, 15) + '…',
       akRevokeName: akRevoking ? akRevoking.name : '',
       akRevokeBody: !akRevoking ? '' : akRevoking.kind === 'SERVICE'
         ? 'Every integration using this workspace key stops at once. This cannot be undone; create a new key to reconnect them.'
         : (akRevoking.owner === 'yh' ? 'Anything using this key' : 'Anything using ' + memberName(akRevoking.owner) + "'s key") + ' stops at once. This cannot be undone; create a new key to reconnect it.',
+
+      isAiApps: sec === 'ai-apps',
+      mcpUrl: 'https://beta.uncava.com/api/v1/mcp',
+      aiShowViewToggle: isAdmin && st.aiGrants.length > 0,
+      aiViews: [['mine', 'Your apps'], ['all', 'All in ' + st.wsName]].map(([key, label]) => ({ key, label, on: aiView === key,
+        style: 'border-radius:4px;padding:6px 10px;font:500 12.5px var(--sans);border:none;cursor:pointer;' + (aiView === key ? 'background:var(--amber-dim);color:var(--text)' : 'background:none;color:var(--text3)') })),
+      aiRows, aiHasGrants: aiRows.length > 0, aiEmpty: aiRows.length === 0,
+      aiEmptyTitle: st.aiGrants.length === 0 ? 'No AI apps connected' : "You haven't connected an AI app",
+      aiEmptyBody: st.aiGrants.length === 0 ? 'Add the MCP server URL above as a connector in Claude, ChatGPT or Cursor. The app sends you here to sign in and choose what it may read; whatever you allow is listed on this page.' : "Your colleagues' connections are under All in " + st.wsName + '.',
+      aiFootnote: isAdmin
+        ? 'An AI app reads only what its person can open today, in this workspace, and only what they ticked. It stops the moment they leave. As an admin you can see and disconnect every connection here.'
+        : 'An AI app reads only what you can open today, in this workspace, and only what you ticked. It stops if you leave. An admin can see and disconnect every connection here.',
+      aiRevokeOpen: st.aiDialog === 'revoke' && !!aiRevoking,
+      aiRevokeName: aiRevoking ? aiRevoking.client : '',
+      aiRevokeBody: !aiRevoking ? '' : (aiRevoking.owner === 'yh' ? aiRevoking.client : memberName(aiRevoking.owner) + "'s " + aiRevoking.client)
+        + ' loses access at once; its next request is refused. What it already read cannot be taken back. It can ask to connect again, and you will see the consent screen.',
 
       toast: st.toast, toastVisible: !!st.toast,
 
@@ -2088,6 +2211,15 @@ class Component extends DCLogic {
       confirmAkRevoke: () => {
         this.setState({ akDialog: 'none', akRevokeId: null, apiKeys: st.apiKeys.map((k) => (k.id === st.akRevokeId ? Object.assign({}, k, { revokedOn: '5 Oct 2026', revokedBy: 'yh' }) : k)) });
         this.showToast('Key revoked');
+      },
+      copyMcpUrl: () => { try { navigator.clipboard.writeText('https://beta.uncava.com/api/v1/mcp'); } catch (e) {} this.showToast('MCP server URL copied'); },
+      setAiView: (e) => this.setState({ aiView: e.currentTarget.dataset.view }),
+      askAiRevoke: (e) => this.setState({ aiDialog: 'revoke', aiRevokeId: e.currentTarget.dataset.id }),
+      closeAiDialog: () => this.setState({ aiDialog: 'none', aiRevokeId: null }),
+      confirmAiRevoke: () => {
+        const name = aiRevoking ? aiRevoking.client : 'App';
+        this.setState({ aiDialog: 'none', aiRevokeId: null, aiGrants: st.aiGrants.filter((g) => g.id !== st.aiRevokeId) });
+        this.showToast(name + ' disconnected');
       },
       toggleWsMenu: () => this.setState({ wsMenuOpen: !st.wsMenuOpen }),
       closeMenus: () => this.setState({ wsMenuOpen: false, infoOpen: false, columnsOpen: false }),

@@ -6,9 +6,8 @@ import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../compon
 import { ApiRequestError } from "../../../lib/apiClient";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
-import { homeFor } from "../homeFor";
 import { messageForOAuthError } from "../oauthErrors";
-import { rememberReturnTo, safeReturnTo } from "../returnTo";
+import { landingAfterSignIn, rememberReturnTo, safeReturnTo } from "../returnTo";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
 
@@ -73,7 +72,7 @@ export function LoginPage() {
       const user = await signIn(values.email, values.password);
       // Only once they are somewhere they can be: an unverified user or one mid-wizard belongs at the
       // step homeFor names, not at the page they were reaching for.
-      navigate(returnTo && user.workspace ? returnTo : homeFor(user), { replace: true });
+      navigate(landingAfterSignIn(user, returnTo), { replace: true });
     } catch (error) {
       setFormError(
         error instanceof ApiRequestError

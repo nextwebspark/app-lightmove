@@ -72,7 +72,7 @@ public class CandidateTools {
         List<UUID> companyIds = named == null ? null
                 : named.companies().stream().map(TriageCompanyResponse::id).toList();
         CandidatesResponse found = candidates.list(context.workspaceId(), context.projectId(),
-                new CandidateListCriteria(companyIds, null, blankToNull(executiveName),
+                new CandidateListCriteria(companyIds, null, blankToNull(executiveName), null, null,
                         asked == null ? null : asked.value(), pageAsked, maxRows));
         List<MappedExecutiveSummary> executives = found.candidates().stream()
                 .map(MappedExecutiveSummary::of)

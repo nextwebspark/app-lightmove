@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,6 +51,15 @@ class SpaSecurityTest {
                 .getHeader("Cross-Origin-Opener-Policy");
 
         assertThat(policy).isIn(null, "same-origin-allow-popups", "unsafe-none");
+    }
+
+    @Test
+    @DisplayName("no page may be framed, so the MCP consent screen's Allow cannot be clickjacked")
+    void refusesFraming() throws Exception {
+        mvc.perform(get("/oauth/consent").param("client_id", "anyone"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Security-Policy", "frame-ancestors 'none'"))
+                .andExpect(header().string("X-Frame-Options", "DENY"));
     }
 
     // The SPA is served
