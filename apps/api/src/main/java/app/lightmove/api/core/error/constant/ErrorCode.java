@@ -388,6 +388,20 @@ public enum ErrorCode {
     /** A consent read for an authorization request that is not the caller's, has ended, or never existed. */
     OAUTH_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "That connection request has expired. Start again from the app"),
 
+    /** A paid action the workspace's credits cannot cover; the body carries {@code required}, {@code available} and {@code resetsAt}. */
+    INSUFFICIENT_CREDITS(HttpStatus.PAYMENT_REQUIRED, "Your workspace is out of contact credits"),
+
+    CREDIT_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "That credit hold does not exist"),
+
+    /** A capture of a released hold, or a release or refund of one already settled the other way. */
+    CREDIT_HOLD_SETTLED(HttpStatus.CONFLICT, "That credit hold has already been settled"),
+
+    /** An idempotency key already naming a different action, or a charge replaying a hold never captured. */
+    CREDIT_IDEMPOTENCY_KEY_REUSED(HttpStatus.CONFLICT, "That request key was already used for another charge"),
+
+    /** A platform edit to a subscription Stripe bills: Stripe's webhooks own its plan and seats. */
+    SUBSCRIPTION_BILLED_BY_STRIPE(HttpStatus.CONFLICT, "This workspace pays through Stripe, so its plan is changed there"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

@@ -700,6 +700,16 @@ lightmove:
     max-documents-per-person: ${PERSON_DOCUMENT_MAX_PER_PERSON:50}
     max-versions-per-document: ${PERSON_DOCUMENT_MAX_VERSIONS:20}
 
+  # Contact credits (epic #734). Off, a spend the credits cannot cover is recorded as an overdraft, never refused.
+  billing:
+    enforce: ${BILLING_ENFORCE:false}
+    hold-ttl: ${BILLING_HOLD_TTL:15m}
+    # How often lapsed grants are expired and unsettled holds released. Spelled out: @Scheduled reads it.
+    sweep-interval: ${BILLING_SWEEP_INTERVAL:PT5M}
+    prices:
+      email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
+      phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
+
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
 # one half without the other.

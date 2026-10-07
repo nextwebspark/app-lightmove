@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan` and the contact-credit ledger, `credit`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -910,6 +910,16 @@ replay check). Deleting a grant row is revoking it.
 V116 gives `app_lm_oauth_client` `last_authorized_at` (stamped at consent; the purge's clock for an unused registration)
 and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `metadata_expires_at`.
 V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
+V118 is billing's first (epic #734): the plan catalogue (`app_lm_billing_plan`, Core / Pro / Enterprise priced per
+staff seat), one `app_lm_workspace_subscription` per workspace (every existing one backfilled Core, `INVOICED`, a seat per
+active staff member), and the contact-credit ledger — `app_lm_credit_grant` buckets a spend drains (plan, then given,
+then bought; soonest expiry first), `app_lm_credit_hold` (one per paid action, unique on its idempotency key per
+workspace), `app_lm_credit_entry` (append-only by trigger, and by `harden.sql` like the audit trail) and
+`app_lm_credit_balance`, the per-workspace sum of the entries whose row every ledger write locks first.
+`CreditLedger` is the only door; `lightmove.billing.enforce` (off) records a spend the credits cannot cover as an
+overdraft rather than refusing it. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
+never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
+releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
