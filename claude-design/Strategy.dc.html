@@ -636,8 +636,8 @@
           </div>
         </div>
         <!-- People mode: a people-first search over ContactOut's index, the Companies page's shape. The count is
-             free and follows the filter; Search is a deliberate press, because every page not already fetched
-             spends a search credit per person on it. -->
+             free and follows the filter; Search is a deliberate press: every page not already fetched
+             is bought from ContactOut, though it is part of the plan and carries no price on screen. -->
         <div data-screen-label="Strategy tab — People" style="{{ peoplePageStyle }}">
           <div data-screen-label="People toolbar" style="display:flex;min-height:44px;flex:none;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
             <div role="radiogroup" aria-label="Search for" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:2px">
@@ -656,7 +656,6 @@
               <button role="radio" aria-checked="{{ peopleTableOn }}" onClick="{{ showPeopleTable }}" style="{{ viewTableStyle }}">Table</button>
               <button role="radio" aria-checked="{{ peopleCardsOn }}" onClick="{{ showPeopleCards }}" style="{{ viewCardsStyle }}">Cards</button>
             </div>
-            <span style="margin-left:auto;font:400 11px var(--sans);color:var(--text3)">25 search credits spent on this search</span>
           </div>
 
           <div style="display:flex;min-height:0;flex:1">
@@ -704,7 +703,7 @@
               </div>
               <div style="border-top:1px solid var(--line-soft);padding:12px">
                 <button style="width:100%;border-radius:7px;border:none;background:var(--sky);padding:10px 16px;font:600 13px var(--sans);color:#fff;cursor:pointer">Search</button>
-                <div style="margin-top:6px;text-align:center;font:400 11px var(--sans);color:var(--text3)">The top 25 · up to 25 search credits, none for a page already fetched</div>
+                <div style="margin-top:6px;text-align:center;font:400 11px var(--sans);color:var(--text3)">The top 25</div>
               </div>
             </div>
 
@@ -774,7 +773,7 @@
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px">
                 <span style="font:400 11px var(--sans);color:var(--text3)">Showing 25 of 1,240</span>
-                <button style="border-radius:6px;border:1px solid var(--line);background:none;padding:6px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">Load 25 more · up to 25 credits</button>
+                <button style="border-radius:6px;border:1px solid var(--line);background:none;padding:6px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">Load 25 more</button>
               </div>
             </div>
           </div>

@@ -1204,7 +1204,7 @@
                           <sc-if value="{{ cd.findEmail }}">
                             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                               <button onClick="{{ findContact }}" data-id="email" title="{{ cd.findEmailTitle }}" style="display:flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.search }}"></path></svg>{{ cd.findEmailLabel }}</button>
-                              <span style="text-align:right;font:400 10px var(--mono);color:var(--text3)">Spends 1 credit</span>
+                              <span style="text-align:right;font:400 10px var(--mono);color:var(--text3)">1 credit</span>
                             </div>
                           </sc-if>
                         </div>
@@ -1229,7 +1229,7 @@
                           <sc-if value="{{ cd.findPhone }}">
                             <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
                               <button onClick="{{ findContact }}" data-id="phone" title="{{ cd.findPhoneTitle }}" style="display:flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.search }}"></path></svg>{{ cd.findPhoneLabel }}</button>
-                              <span style="text-align:right;font:400 10px var(--mono);color:var(--text3)">Spends 1 credit</span>
+                              <span style="text-align:right;font:400 10px var(--mono);color:var(--text3)">5 credits</span>
                             </div>
                           </sc-if>
                         </div>
@@ -2483,7 +2483,7 @@ class Component extends DCLogic {
     const kindStyle = (k) => `${DPILL}${k === "work" ? "background:var(--sky-dim);color:var(--sky)" : "background:var(--amber-dim);color:var(--amber)"}`;
     const line = (x) => ({ value: x[0], kind: x[1] || "", hasKind: !!x[1], kindStyle: kindStyle(x[1]), verified: !!x[2] });
     const lookup = cw;
-    const findTitle = (ch, held) => `Spends one ContactOut ${ch} credit${held ? " · your entry is kept" : ""}`;
+    const findTitle = (ch, held) => `Spends ${ch === "phone" ? "5 credits" : "1 credit"} if one is found${held ? " · your entry is kept" : ""}`;
     const summary = isFatima ? "Group Finance Director at Al Naboodah Group since 2022, running group treasury, tax and corporate finance across the construction and automotive portfolio. Led the 2023 sukuk refinancing and the restructuring of the international assets' financing. Chartered accountant; previously at Al Rostamani Group." : null;
     const note = isFatima ? "Spoke 14 Sep — open to a group CFO move if the remit includes the international portfolio. Follow up after Q3 close." : "";
     const firstLine = (t) => (t ? (t.length > 100 ? `${t.slice(0, 99).trimEnd()}…` : t) : null);
