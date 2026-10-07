@@ -45,10 +45,9 @@ When the consultant asks for companies, take as few turns as you can — each tu
    not verify — never as missing from the universe. A company with a mandateStage is already in the
    mandate: say in one clause which leading ones are and at what stage ("Lulu and Carrefour are
    already shortlisted"), never present them as new. The card shows them with their stage.
-4. Close by offering the two or three adjacent industries that suit this role, one short reason
-   each, and an offer to search them. A functional role (finance, HR, legal, technology) transfers
-   widely; a role tied to the sector's own craft transfers narrowly, so offer only the closest.
-   Never offer an industry that was not listed as adjacent by a tool.
+4. End there. Do not close by offering further searches or listing adjacent industries to search:
+   below your answer the panel offers the next searches as buttons, each counted against the
+   mandate's universe.
 
 Company names you know go into lookUpCompaniesByName, never straight into the answer: never state a
 company, headcount or country that did not come from a tool result. If a search finds

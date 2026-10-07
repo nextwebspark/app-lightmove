@@ -134,6 +134,18 @@ class CompanySearchToolsTest {
                 .isEqualTo("Searching \"solar\" companies named ACWA with at least 1,000 staff");
     }
 
+    @Test
+    @DisplayName("a market search is remembered in the universe's spelling, a search by name is not")
+    void remembersTheLastMarketSearch() {
+        when(market.matching(any())).thenReturn(CompanyMatches.of(0, 0, List.of()));
+
+        tools().searchCompanyUniverse(List.of("UAE"), List.of("Retail"), " grocery ", null, 500L, null, context());
+        tools().searchCompanyUniverse(null, null, null, "Lulu", null, null, context());
+
+        assertThat(recorder.lastMarketAsk()).isEqualTo(new MarketAsk(List.of("United Arab Emirates"),
+                List.of("retail"), "grocery", 500L, null));
+    }
+
     @BeforeEach
     void nothingFiledYet() {
         when(triaged.stagesOf(any(), any(), any(), any())).thenReturn(MandateStages.NONE);

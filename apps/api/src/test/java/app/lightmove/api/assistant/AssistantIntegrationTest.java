@@ -241,6 +241,33 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an answer that searched the market keeps its tally against the target universe, filed companies counted once")
+    void keepsTheRefinementsWithTheAnswer() throws Exception {
+        Firm firm = firm("Assistant Refinement Firm");
+        universe.company("a1", "ACWA Power").industry("oil & energy").country("Saudi Arabia").employees(4_000).insert();
+        universe.company("r1", "Lulu Retail").industry("retail").country("United Arab Emirates").employees(55_000).insert();
+        universe.company("r2", "Carrefour UAE").industry("retail").country("United Arab Emirates").employees(30_000).insert();
+        universe.company("r3", "Union Coop").industry("retail").country("United Arab Emirates").employees(4_000).insert();
+        mvc.perform(accept(firm.admin, turnWithCard(firm), """
+                        {"companyIds":["a1"],"status":"shortlisted"}"""))
+                .andExpect(status().isOk());
+        model.callToolWhenSystemContains(COMPANY_MARKER, "searchCompanyUniverse",
+                "{\"countries\":[\"UAE\"],\"industries\":[\"retail\"]}");
+
+        JsonNode turn = askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
+
+        JsonNode refinements = turn.get("refinements");
+        assertThat(refinements.get("inMandate").asLong()).isEqualTo(1);
+        assertThat(refinements.get("newFromSearch").asLong()).isEqualTo(3);
+        assertThat(refinements.get("projected").asLong()).isEqualTo(4);
+        assertThat(refinements.get("targetMin").asInt()).isEqualTo(50);
+        assertThat(refinements.get("targetMax").asInt()).isEqualTo(75);
+        mvc.perform(get("/api/v1/assistant/threads/" + turn.get("threadId").asText())
+                        .header("Authorization", "Bearer " + firm.admin))
+                .andExpect(jsonPath("$.turns[0].refinements.projected").value(4));
+    }
+
+    @Test
     @DisplayName("a company the card never offered cannot be filed through it")
     void refusesACompanyTheCardDidNotOffer() throws Exception {
         Firm firm = firm("Assistant Offer Firm");

@@ -116,7 +116,7 @@ class CandidateToolsTest {
     private CandidateTools tools() {
         LightMoveProperties properties = mock(LightMoveProperties.class);
         when(properties.assistant()).thenReturn(new AssistantSettings("gemini-2.5-flash", 0.2, 512, 12, 25, 250,
-                4, 10, 5, Duration.ofSeconds(25), 15, 3));
+                4, 10, 5, Duration.ofSeconds(25), 15, 3, 50, 75, List.of()));
         return new CandidateTools(candidates, triaged, properties);
     }
 

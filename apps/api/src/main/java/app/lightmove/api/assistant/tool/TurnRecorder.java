@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantRefinements;
 import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
@@ -37,6 +38,8 @@ public class TurnRecorder {
     private boolean namesLookedUp;
     private int vendorSearches;
     private AssistantProposal proposal;
+    private MarketAsk lastMarketAsk;
+    private AssistantRefinements refinements;
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
         this(onStep, proposal -> { });
@@ -135,6 +138,23 @@ public class TurnRecorder {
     public void propose(AssistantProposal proposal) {
         this.proposal = proposal;
         onProposal.accept(proposal);
+    }
+
+    public void searchedMarket(MarketAsk ask) {
+        lastMarketAsk = ask;
+    }
+
+    /** The latest market search of this answer — what its refinements change one axis of. Null when none ran. */
+    public MarketAsk lastMarketAsk() {
+        return lastMarketAsk;
+    }
+
+    public void offerRefinements(AssistantRefinements offered) {
+        refinements = offered;
+    }
+
+    public AssistantRefinements refinements() {
+        return refinements;
     }
 
     public List<AssistantStep> steps() {

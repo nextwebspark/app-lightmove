@@ -11,11 +11,13 @@ import app.lightmove.api.assistant.tool.SectorTools;
 import app.lightmove.api.assistant.tool.TurnRecorder;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /** The market: searches the company universe and the vendor by name, and proposes a card of companies. */
+@Slf4j
 @Service
 public class CompanySpecialist implements AssistantSpecialist {
 
@@ -28,11 +30,13 @@ public class CompanySpecialist implements AssistantSpecialist {
     private final SectorTools sectorTools;
     private final ProposalTools proposalTools;
     private final HiringSideResolver hiringSides;
+    private final RefinementAdvisor refinements;
     private final Resource systemPrompt;
 
     public CompanySpecialist(MandateTools mandateTools, CompanySearchTools searchTools,
                              NamedCompanyTools namedCompanyTools, SectorTools sectorTools,
                              ProposalTools proposalTools, HiringSideResolver hiringSides,
+                             RefinementAdvisor refinements,
                              @Value("classpath:prompts/assistant-system.st") Resource systemPrompt) {
         this.mandateTools = mandateTools;
         this.searchTools = searchTools;
@@ -40,6 +44,7 @@ public class CompanySpecialist implements AssistantSpecialist {
         this.sectorTools = sectorTools;
         this.proposalTools = proposalTools;
         this.hiringSides = hiringSides;
+        this.refinements = refinements;
         this.systemPrompt = systemPrompt;
     }
 
@@ -106,5 +111,15 @@ public class CompanySpecialist implements AssistantSpecialist {
     @Override
     public void afterAnswer(AssistantToolContext context) {
         proposalTools.proposeWhatWasFound(context);
+        offerRefinements(context);
+    }
+
+    /** The answer is already written and paid for; a failed count costs it only the buttons under it. */
+    private void offerRefinements(AssistantToolContext context) {
+        try {
+            refinements.offer(context);
+        } catch (RuntimeException failed) {
+            log.warn("Assistant refinements could not be counted", failed);
+        }
     }
 }

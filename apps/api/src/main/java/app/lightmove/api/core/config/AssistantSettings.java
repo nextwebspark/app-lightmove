@@ -1,6 +1,7 @@
 package app.lightmove.api.core.config;
 
 import java.time.Duration;
+import java.util.List;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /** Tunables for the Uncava Assistant — {@code lightmove.assistant.*}. */
@@ -44,7 +45,18 @@ public record AssistantSettings(
         @DefaultValue("15") int maxVendorSearchesPerAsk,
 
         /** Specialists the supervisor may ask in one answer — each is a nested model call. */
-        @DefaultValue("3") int maxSpecialistCallsPerAsk
+        @DefaultValue("3") int maxSpecialistCallsPerAsk,
+
+        /**
+         * The universe size an answer's refinements steer toward: the mandate's In universe and Shortlisted
+         * companies plus the new ones the search found.
+         */
+        @DefaultValue("50") int targetUniverseMin,
+
+        @DefaultValue("75") int targetUniverseMax,
+
+        /** ISO-2 codes offered beside a search's own countries when it finds too few — the Gulf six. */
+        @DefaultValue({"AE", "SA", "QA", "KW", "BH", "OM"}) List<String> refinementNeighbourCountryCodes
 ) {
 
     public AssistantSettings {
@@ -74,6 +86,12 @@ public record AssistantSettings(
         if (nameLookupDeadline == null || nameLookupDeadline.isNegative() || nameLookupDeadline.isZero()) {
             throw new IllegalArgumentException("lightmove.assistant.name-lookup-deadline must be positive");
         }
+        if (targetUniverseMin < 1 || targetUniverseMax < targetUniverseMin) {
+            throw new IllegalArgumentException("lightmove.assistant.target-universe-min must be at least 1 and at most "
+                    + "target-universe-max, but was " + targetUniverseMin + "–" + targetUniverseMax);
+        }
+        refinementNeighbourCountryCodes = refinementNeighbourCountryCodes == null ? List.of()
+                : refinementNeighbourCountryCodes.stream().filter(code -> code != null && !code.isBlank()).toList();
         if (vocabularyLimit < 1) {
             throw new IllegalArgumentException(
                     "lightmove.assistant.vocabulary-limit must be at least 1, but was " + vocabularyLimit);

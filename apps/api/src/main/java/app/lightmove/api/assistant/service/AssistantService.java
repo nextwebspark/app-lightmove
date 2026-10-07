@@ -101,7 +101,7 @@ public class AssistantService {
                     : threads.save(AssistantThread.of(workspaceId, userId, projectId,
                             titleOf(question)));
             AssistantTurn turn = turns.saveAndFlush(AssistantTurn.answered(thread, question, answer,
-                    recorder.steps(), recorder.proposal()));
+                    recorder.steps(), recorder.proposal(), recorder.refinements()));
             threads.touch(thread.getId(), Instant.now());
             return AssistantTurnResponse.of(turn);
         });
@@ -117,6 +117,8 @@ public class AssistantService {
                 .detail("specialists", String.join(",", recorder.consultedSpecialists()))
                 .detail("companiesOnCard", String.valueOf(
                         recorder.proposal() == null ? 0 : recorder.proposal().companies().size()))
+                .detailIfPresent("projectedUniverse", recorder.refinements() == null ? null
+                        : String.valueOf(recorder.refinements().projected()))
                 .record();
         return saved;
     }

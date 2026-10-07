@@ -61,6 +61,10 @@ public class CompanySearchTools {
                 .withAdjacentIndustries(adjacentTo(askedIndustries))
                 .withUnrecognisedSpellings(MarketQuery.unrecognised(askedCountries, askedIndustries));
         recorder.found(matches.companies().stream().map(MarketCompanySummary::apolloAccountId).toList());
+        if (!hasText(companyName)) {
+            recorder.searchedMarket(new MarketAsk(askedCountries, askedIndustries, keyword, minEmployees,
+                    maxEmployees));
+        }
         recorder.finishStep(step, describeMatches(matches));
         return matches;
     }
