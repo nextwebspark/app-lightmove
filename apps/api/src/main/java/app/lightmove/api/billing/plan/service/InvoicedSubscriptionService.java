@@ -16,25 +16,30 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** The plan and seats of a workspace billed outside Stripe, set by a platform admin; Stripe's own are its webhooks'. */
+/** The plan and seats of a workspace billed outside Stripe; a Stripe-billed one is its webhooks' to change. */
 @Service
 @RequiredArgsConstructor
 public class InvoicedSubscriptionService {
 
     private final WorkspaceSubscriptionRepository subscriptions;
     private final BillingPlanRepository plans;
+    private final BillingWorkspaces workspaces;
     private final AuditService audit;
 
     @Transactional
     public SubscriptionResponse set(UUID actorId, UUID workspaceId, InvoicedSubscriptionRequest request,
                                     HttpServletRequest httpRequest) {
-        if (!subscriptions.workspaceExists(workspaceId)) {
-            throw ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND);
-        }
-        BillingPlan plan = plans.findById(request.plan()).orElseThrow();
+        workspaces.requireExists(workspaceId);
+        BillingPlan plan = plans.findById(request.plan())
+                .orElseThrow(() -> new ApiException(ErrorCode.INTERNAL_ERROR,
+                        "plan " + request.plan() + " is missing from app_lm_billing_plan"));
         if (plan.isCustom() && request.contactCreditPool() == null) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "contactCreditPool",
                     "Enter the contact credits agreed for this workspace");
+        }
+        if (!plan.isCustom() && request.contactCreditPool() != null) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "contactCreditPool",
+                    "Only an Enterprise plan has an agreed pool; this plan's credits come from its seats");
         }
         if (request.currentPeriodStart() != null && request.currentPeriodEnd() != null
                 && !request.currentPeriodEnd().isAfter(request.currentPeriodStart())) {

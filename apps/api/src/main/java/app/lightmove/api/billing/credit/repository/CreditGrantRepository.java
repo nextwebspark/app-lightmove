@@ -19,6 +19,16 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
             ORDER BY g.drainRank, g.expiresAt ASC NULLS LAST, g.createdAt, g.id""")
     List<CreditGrant> findSpendable(UUID workspaceId, Instant now);
 
+    @Query("""
+            SELECT g FROM CreditGrant g
+            WHERE g.workspaceId = :workspaceId AND g.remaining > 0 AND g.expiresAt <= :now""")
+    List<CreditGrant> findLapsed(UUID workspaceId, Instant now);
+
+    @Query("""
+            SELECT coalesce(sum(g.remaining), 0) FROM CreditGrant g
+            WHERE g.workspaceId = :workspaceId AND g.remaining > 0 AND g.expiresAt <= :now""")
+    long sumLapsedRemaining(UUID workspaceId, Instant now);
+
     Optional<CreditGrant> findByWorkspaceIdAndSourceAndExternalRef(UUID workspaceId, CreditGrantSource source,
                                                                    String externalRef);
 }

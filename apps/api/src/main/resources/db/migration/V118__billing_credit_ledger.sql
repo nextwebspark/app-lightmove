@@ -108,6 +108,7 @@ CREATE UNIQUE INDEX app_lm_credit_grant_external_ref_uk
     ON app_lm_credit_grant (workspace_id, source, external_ref) WHERE external_ref IS NOT NULL;
 CREATE INDEX app_lm_credit_grant_spendable_idx
     ON app_lm_credit_grant (workspace_id, drain_rank, expires_at) WHERE remaining > 0;
+CREATE INDEX app_lm_credit_grant_lapsing_idx ON app_lm_credit_grant (expires_at) WHERE remaining > 0;
 
 CREATE TRIGGER app_lm_credit_grant_touch BEFORE UPDATE ON app_lm_credit_grant
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();
@@ -198,13 +199,15 @@ CREATE TRIGGER app_lm_credit_balance_touch BEFORE UPDATE ON app_lm_credit_balanc
 -- Settings → Billing: the plan, seats, buying credits and the card. Admins only.
 INSERT INTO app_lm_action (scope, name, description)
 VALUES ('WORKSPACE', 'BILLING_MANAGE', 'Billing: change the plan and seats, buy credits, manage the card and invoices'),
-       ('PLATFORM',  'CREDIT_GRANT',   'Grant a workspace contact credits by hand, and set an invoiced workspace''s plan and seats')
+       ('PLATFORM',  'CREDIT_GRANT',   'Grant a workspace contact credits by hand'),
+       ('PLATFORM',  'SUBSCRIPTION_MANAGE', 'Set the plan and seats of a workspace billed outside Stripe')
 ON CONFLICT (scope, name) DO NOTHING;
 
 INSERT INTO app_lm_role_action (role_id, action_id)
 SELECT r.id, a.id
 FROM (VALUES ('WORKSPACE', 'ADMIN',       'BILLING_MANAGE'),
-             ('PLATFORM',  'SUPER_ADMIN', 'CREDIT_GRANT')
+             ('PLATFORM',  'SUPER_ADMIN', 'CREDIT_GRANT'),
+             ('PLATFORM',  'SUPER_ADMIN', 'SUBSCRIPTION_MANAGE')
      ) AS grant_map(scope, role_name, action_name)
 JOIN app_lm_role   r ON r.scope = grant_map.scope AND r.name = grant_map.role_name
 JOIN app_lm_action a ON a.scope = grant_map.scope AND a.name = grant_map.action_name

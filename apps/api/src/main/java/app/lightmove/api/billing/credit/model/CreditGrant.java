@@ -78,6 +78,13 @@ public class CreditGrant extends BaseEntity {
         remaining -= credits;
     }
 
+    /** @return the credits that lapsed */
+    public long expire() {
+        long lapsed = remaining;
+        remaining = 0;
+        return lapsed;
+    }
+
     public void giveBack(long credits) {
         if (remaining + credits > amount) {
             throw new IllegalStateException("grant " + getId() + " would exceed its amount");

@@ -68,6 +68,24 @@ class PlatformBillingIntegrationTest extends BillingFlowSupport {
     }
 
     @Test
+    @DisplayName("a manual grant must state its cost per credit, and a free one must not claim one")
+    void costBasisFollowsTheSource() throws Exception {
+        String admin = superAdmin();
+        UUID workspace = newWorkspace();
+
+        assertThat(codeOf(grantCredits(admin, workspace, """
+                {"source":"MANUAL","credits":100}
+                """).andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
+        assertThat(codeOf(grantCredits(admin, workspace, """
+                {"source":"GOODWILL","credits":20,"filsPerCredit":150}
+                """).andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
+        grantCredits(admin, workspace, """
+                {"source":"GOODWILL","credits":20}
+                """).andExpect(status().isCreated());
+        assertThat(ledger.balanceOf(workspace).available()).isEqualTo(20);
+    }
+
+    @Test
     @DisplayName("an invoiced workspace's plan and seats set its monthly contact credits")
     void invoicedSubscriptionSetsMonthlyCredits() throws Exception {
         UUID workspace = newWorkspace();
@@ -81,6 +99,9 @@ class PlatformBillingIntegrationTest extends BillingFlowSupport {
 
         setSubscription(admin, workspace, """
                 {"plan":"ENTERPRISE","billingInterval":"ANNUAL","seats":12}
+                """).andExpect(status().isBadRequest());
+        setSubscription(admin, workspace, """
+                {"plan":"PRO","billingInterval":"ANNUAL","seats":3,"contactCreditPool":2500}
                 """).andExpect(status().isBadRequest());
         JsonNode enterprise = body(setSubscription(admin, workspace, """
                 {"plan":"ENTERPRISE","billingInterval":"ANNUAL","seats":12,"contactCreditPool":2500}

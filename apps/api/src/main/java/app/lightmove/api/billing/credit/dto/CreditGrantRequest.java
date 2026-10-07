@@ -8,10 +8,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/**
- * Credits a platform admin gives a workspace: {@code MANUAL} for a customer paying outside Stripe (with what each
- * credit cost them), {@code PROMO} or {@code GOODWILL} for free ones. {@code externalRef} makes a resend a no-op.
- */
+/** {@code filsPerCredit} is required on a MANUAL grant and refused on a free one; {@code externalRef} makes a resend a no-op. */
 public record CreditGrantRequest(
         @NotNull CreditGrantSource source,
         @Positive long credits,

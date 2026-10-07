@@ -81,6 +81,16 @@ public class CreditEntry {
         return entry;
     }
 
+    public static CreditEntry expired(CreditGrant grant, long credits, Instant now) {
+        CreditEntry entry = new CreditEntry();
+        entry.workspaceId = grant.getWorkspaceId();
+        entry.kind = CreditEntryKind.EXPIRE;
+        entry.availableDelta = -credits;
+        entry.grantId = grant.getId();
+        entry.createdAt = now;
+        return entry;
+    }
+
     public static CreditEntry ofHold(CreditHold hold, CreditEntryKind kind, UUID grantId, long availableDelta,
                               long heldDelta, Instant now) {
         CreditEntry entry = new CreditEntry();

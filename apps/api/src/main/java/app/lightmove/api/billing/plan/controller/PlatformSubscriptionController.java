@@ -24,7 +24,7 @@ public class PlatformSubscriptionController {
     private final InvoicedSubscriptionService subscriptions;
 
     @PutMapping("/api/v1/platform/workspaces/{workspaceId}/subscription")
-    @RequirePlatformPermission(PlatformAction.CREDIT_GRANT)
+    @RequirePlatformPermission(PlatformAction.SUBSCRIPTION_MANAGE)
     public SubscriptionResponse set(@AuthenticationPrincipal AuthPrincipal principal,
                                     @PathVariable UUID workspaceId,
                                     @Valid @RequestBody InvoicedSubscriptionRequest request,

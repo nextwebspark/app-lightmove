@@ -34,8 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The only door to a workspace's contact credits. Every write locks the workspace's balance row first, so writes
- * to one workspace run one at a time; each is a short transaction of its own, and a vendor call belongs between
- * a {@link #hold} and its {@link #capture} or {@link #release}, never inside either.
+ * to one workspace run one at a time; a vendor call belongs between a {@link #hold} and its {@link #capture} or
+ * {@link #release}, never inside either. Every write also expires the workspace's lapsed grants first.
  */
 @Service
 @RequiredArgsConstructor
@@ -50,49 +50,46 @@ public class CreditLedger {
     private final Clock clock;
 
     /**
-     * Reserves the action's price from the workspace's grants. Refused with {@code INSUFFICIENT_CREDITS} when they
-     * cannot cover it and enforcement is on; with it off, the shortfall is recorded as an overdraft at capture.
+     * Reserves the action's price. Refused with {@code INSUFFICIENT_CREDITS} when the grants cannot cover it and
+     * enforcement is on; with it off, the shortfall is recorded as an overdraft at capture.
      */
     @Transactional
     public CreditReceipt hold(CreditCharge charge) {
-        CreditBalance balance = lock(charge.workspaceId());
-        return holds.findByWorkspaceIdAndIdempotencyKey(charge.workspaceId(), charge.idempotencyKey())
-                .map(CreditHold::receipt)
-                .orElseGet(() -> open(charge, balance).receipt());
+        CreditBalance balance = begin(charge.workspaceId());
+        return replayOf(charge, false).orElseGet(() -> open(charge, balance).receipt());
     }
 
     /** {@link #hold} and {@link #capture} at once, for a spend that has already happened. */
     @Transactional
     public CreditReceipt charge(CreditCharge charge) {
-        CreditBalance balance = lock(charge.workspaceId());
-        return holds.findByWorkspaceIdAndIdempotencyKey(charge.workspaceId(), charge.idempotencyKey())
-                .map(CreditHold::receipt)
-                .orElseGet(() -> {
-                    CreditHold hold = open(charge, balance);
-                    spend(hold, balance);
-                    return hold.receipt();
-                });
+        CreditBalance balance = begin(charge.workspaceId());
+        return replayOf(charge, true).orElseGet(() -> {
+            CreditHold hold = open(charge, balance);
+            spend(hold, balance);
+            return hold.receipt();
+        });
     }
 
     @Transactional
     public CreditReceipt capture(UUID workspaceId, UUID holdId) {
-        CreditBalance balance = lock(workspaceId);
+        CreditBalance balance = begin(workspaceId);
         CreditHold hold = requireHold(workspaceId, holdId);
         if (hold.getStatus() == CreditHoldStatus.OPEN) {
             spend(hold, balance);
         } else if (hold.getStatus() == CreditHoldStatus.RELEASED) {
-            throw new IllegalStateException("hold " + holdId + " was released and cannot be captured");
+            throw settled(hold, "captured");
         }
         return hold.receipt();
     }
 
     @Transactional
     public CreditReceipt release(UUID workspaceId, UUID holdId) {
-        CreditBalance balance = lock(workspaceId);
+        CreditBalance balance = begin(workspaceId);
         CreditHold hold = requireHold(workspaceId, holdId);
-        if (hold.getStatus() != CreditHoldStatus.RELEASED) {
-            hold.settle(CreditHoldStatus.OPEN, CreditHoldStatus.RELEASED);
-            returnToGrants(hold, balance, CreditEntryKind.RELEASE);
+        if (hold.getStatus() == CreditHoldStatus.OPEN) {
+            giveBack(hold, balance, CreditHoldStatus.RELEASED);
+        } else if (hold.getStatus() != CreditHoldStatus.RELEASED) {
+            throw settled(hold, "released");
         }
         return hold.receipt();
     }
@@ -100,18 +97,19 @@ public class CreditLedger {
     /** Gives a captured spend's credits back to the grants it drained; an overdraft has nothing to give back. */
     @Transactional
     public CreditReceipt refund(UUID workspaceId, UUID holdId) {
-        CreditBalance balance = lock(workspaceId);
+        CreditBalance balance = begin(workspaceId);
         CreditHold hold = requireHold(workspaceId, holdId);
-        if (hold.getStatus() != CreditHoldStatus.REFUNDED) {
-            hold.settle(CreditHoldStatus.CAPTURED, CreditHoldStatus.REFUNDED);
-            returnToGrants(hold, balance, CreditEntryKind.REFUND);
+        if (hold.getStatus() == CreditHoldStatus.CAPTURED) {
+            giveBack(hold, balance, CreditHoldStatus.REFUNDED);
+        } else if (hold.getStatus() != CreditHoldStatus.REFUNDED) {
+            throw settled(hold, "refunded");
         }
         return hold.receipt();
     }
 
     @Transactional
     public CreditGrantReceipt grant(CreditGrantCommand command) {
-        CreditBalance balance = lock(command.workspaceId());
+        CreditBalance balance = begin(command.workspaceId());
         if (command.externalRef() != null) {
             Optional<CreditGrant> existing = grants.findByWorkspaceIdAndSourceAndExternalRef(
                     command.workspaceId(), command.source(), command.externalRef());
@@ -125,17 +123,51 @@ public class CreditLedger {
         return receiptOf(grant, false);
     }
 
+    /** Expires lapsed grants and releases holds nobody settled within {@code hold-ttl}: the sweeper's work. */
+    @Transactional
+    public void settleLapsed(UUID workspaceId) {
+        CreditBalance balance = begin(workspaceId);
+        for (CreditHold stale : holds.findStale(workspaceId, clock.instant())) {
+            giveBack(stale, balance, CreditHoldStatus.RELEASED);
+        }
+    }
+
+    /** Lapsed credits a sweep has not yet expired are left out, so the balance never shows what cannot be spent. */
     @Transactional(readOnly = true)
     public CreditBalanceSummary balanceOf(UUID workspaceId) {
+        long lapsed = grants.sumLapsedRemaining(workspaceId, clock.instant());
         return balances.findById(workspaceId)
-                .map(balance -> new CreditBalanceSummary(balance.getAvailable(), balance.getHeld()))
+                .map(balance -> new CreditBalanceSummary(balance.getAvailable() - lapsed, balance.getHeld()))
                 .orElse(new CreditBalanceSummary(0, 0));
     }
 
-    private CreditBalance lock(UUID workspaceId) {
+    private CreditBalance begin(UUID workspaceId) {
         balances.openIfAbsent(workspaceId);
-        return balances.findForUpdate(workspaceId)
+        CreditBalance balance = balances.findForUpdate(workspaceId)
                 .orElseThrow(() -> new IllegalStateException("no balance row for workspace " + workspaceId));
+        expireLapsed(workspaceId, balance);
+        return balance;
+    }
+
+    private void expireLapsed(UUID workspaceId, CreditBalance balance) {
+        Instant now = clock.instant();
+        for (CreditGrant lapsed : grants.findLapsed(workspaceId, now)) {
+            record(CreditEntry.expired(lapsed, lapsed.expire(), now), balance);
+        }
+    }
+
+    private Optional<CreditReceipt> replayOf(CreditCharge charge, boolean spent) {
+        return holds.findByWorkspaceIdAndIdempotencyKey(charge.workspaceId(), charge.idempotencyKey())
+                .map(hold -> {
+                    boolean sameAction = hold.getAction() == charge.action();
+                    boolean wasSpent = hold.getStatus() == CreditHoldStatus.CAPTURED
+                            || hold.getStatus() == CreditHoldStatus.REFUNDED;
+                    if (!sameAction || (spent && !wasSpent)) {
+                        throw new ApiException(ErrorCode.CREDIT_IDEMPOTENCY_KEY_REUSED,
+                                "key " + charge.idempotencyKey() + " already names hold " + hold.getId());
+                    }
+                    return hold.receipt();
+                });
     }
 
     private CreditHold open(CreditCharge charge, CreditBalance balance) {
@@ -174,7 +206,10 @@ public class CreditLedger {
         }
     }
 
-    private void returnToGrants(CreditHold hold, CreditBalance balance, CreditEntryKind kind) {
+    /** Credits handed back to a grant that has lapsed meanwhile expire in the same transaction. */
+    private void giveBack(CreditHold hold, CreditBalance balance, CreditHoldStatus outcome) {
+        CreditEntryKind kind = outcome == CreditHoldStatus.RELEASED ? CreditEntryKind.RELEASE : CreditEntryKind.REFUND;
+        hold.settle(outcome == CreditHoldStatus.RELEASED ? CreditHoldStatus.OPEN : CreditHoldStatus.CAPTURED, outcome);
         Instant now = clock.instant();
         for (CreditEntry held : entries.findByHoldIdAndKindOrderById(hold.getId(), CreditEntryKind.HOLD)) {
             long credits = held.getHeldDelta();
@@ -182,6 +217,8 @@ public class CreditLedger {
             long heldDelta = kind == CreditEntryKind.RELEASE ? -credits : 0;
             record(CreditEntry.ofHold(hold, kind, held.getGrantId(), credits, heldDelta, now), balance);
         }
+        grants.flush();
+        expireLapsed(hold.getWorkspaceId(), balance);
     }
 
     private void record(CreditEntry entry, CreditBalance balance) {
@@ -191,7 +228,13 @@ public class CreditLedger {
 
     private CreditHold requireHold(UUID workspaceId, UUID holdId) {
         return holds.findByIdAndWorkspaceId(holdId, workspaceId)
-                .orElseThrow(() -> new IllegalArgumentException("no hold " + holdId + " in workspace " + workspaceId));
+                .orElseThrow(() -> new ApiException(ErrorCode.CREDIT_HOLD_NOT_FOUND,
+                        "no hold " + holdId + " in workspace " + workspaceId));
+    }
+
+    private static ApiException settled(CreditHold hold, String attempted) {
+        return new ApiException(ErrorCode.CREDIT_HOLD_SETTLED,
+                "hold " + hold.getId() + " is " + hold.getStatus() + " and cannot be " + attempted);
     }
 
     private ApiException insufficient(UUID workspaceId, long required, long available) {

@@ -917,7 +917,9 @@ then bought; soonest expiry first), `app_lm_credit_hold` (one per paid action, u
 workspace), `app_lm_credit_entry` (append-only by trigger, and by `harden.sql` like the audit trail) and
 `app_lm_credit_balance`, the per-workspace sum of the entries whose row every ledger write locks first.
 `CreditLedger` is the only door; `lightmove.billing.enforce` (off) records a spend the credits cannot cover as an
-overdraft rather than refusing it. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
+overdraft rather than refusing it. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
+never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
+releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

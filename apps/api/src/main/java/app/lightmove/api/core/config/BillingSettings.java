@@ -11,5 +11,6 @@ public record BillingSettings(
         @DefaultValue("false") boolean enforce,
         /** How long a hold may wait for its capture before the sweeper releases it. */
         @DefaultValue("15m") Duration holdTtl,
+        @DefaultValue("5m") Duration sweepInterval,
         @DefaultValue CreditPriceSettings prices
 ) {}

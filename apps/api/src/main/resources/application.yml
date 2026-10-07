@@ -704,6 +704,8 @@ lightmove:
   billing:
     enforce: ${BILLING_ENFORCE:false}
     hold-ttl: ${BILLING_HOLD_TTL:15m}
+    # How often lapsed grants are expired and unsettled holds released. Spelled out: @Scheduled reads it.
+    sweep-interval: ${BILLING_SWEEP_INTERVAL:PT5M}
     prices:
       email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
       phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
