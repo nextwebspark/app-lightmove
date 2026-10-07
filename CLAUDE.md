@@ -910,6 +910,8 @@ replay check). Deleting a grant row is revoking it.
 V116 gives `app_lm_oauth_client` `last_authorized_at` (stamped at consent; the purge's clock for an unused registration)
 and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `metadata_expires_at`.
 V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
+V118 adds `app_lm_assistant_turn.refinements` jsonb — the assistant's counted next searches under an answer
+(`RefinementAdvisor`), steering a mandate's universe toward 50–75 companies; null where no market search ran.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

@@ -68,9 +68,16 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │                              company the mandate already holds with its stage (shown
         │                              last, unticked, never filed again), records the card
         │   each tool reports its steps ──▶ event: step {index, label, detail, done}
-        └─ save the turn {question, answer, steps, proposal} ──▶ event: done {turn}
+        ├─ RefinementAdvisor (after the answer, no model call): the last market search, re-counted
+        │  as new companies only (filed and off-limits excluded) plus In universe + Shortlisted,
+        │  against lightmove.assistant.target-universe-min/max (50–75). Too few → add an adjacent
+        │  industry, a Gulf neighbour, any size, no keyword; too many → a round headcount floor,
+        │  one country, one industry fewer. Each lever counted; up to three, in-band first
+        └─ save the turn {question, answer, steps, proposal, refinements} ──▶ event: done {turn}
                                               model failed ──▶ event: failed {code}
 Panel shows the steps live; on `done` it reads the chat back (GET /api/v1/assistant/threads/{id})
+Under the latest answer only: the tally and the refinement buttons, each asking its prompt — a question
+restating the whole search, so the model infers nothing. The empty chat's starters are separate.
 
 Card button ──POST /api/v1/assistant/turns/{turnId}/accept {companyIds, status}──▶
    owner check + WORK_EXECUTE on the chat's project
@@ -94,7 +101,7 @@ by account id, else by name — the rule a capture uses), stored on the turn and
 | Table | Row |
 |---|---|
 | `app_lm_assistant_thread` | One chat: `workspace_id`, `user_id`, `project_id`, `title`. Private to its user. |
-| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V71), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome). |
+| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V71), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome), `refinements` (jsonb, V118: the tally and the next searches offered). |
 
 ## Security
 
