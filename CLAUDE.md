@@ -930,6 +930,15 @@ a Find executives run's filed executives; an AI deep enrich press; the people an
 ask, whose turn also keeps its model and tokens (V120 re-adds the columns V70 dropped). `FairUseGuard` refuses a use that would pass the
 month's ceiling — staff seats × `lightmove.billing.fair-use.<kind>-per-seat`, `0` for none — with 429
 `FAIR_USE_REACHED` (`kind`, `resetsAt`), after `LlmBudgetGuard` and before any vendor or model is asked.
+**The billing month** (`BillingMonth`) is what both run over: monthly steps from the subscription's period start, so a
+yearly plan still resets monthly, or the UTC calendar month without one. `MonthlyCreditReset` (#740,
+`lightmove.billing.jobs.monthly-reset`, hourly) grants each live plan its month's credits expiring with the month —
+no rollover, the ledger expiring the old grant first — keyed `plan:<workspace>:<month start>`, the key Stripe's
+`invoice.paid` will use, so neither grants a month twice. Every spend claims the 80%, 90% and used-up thresholds of
+the month's plan credits it reached (V121 `app_lm_credit_threshold_crossing`, under the balance lock) and publishes
+`ContactCreditThresholdCrossed` for the highest newly claimed. `CreditBalanceReconcile` checks nightly that each
+balance is its entries' and its grants' sum, audits a drift (`CREDIT_BALANCE_DRIFT`) and corrects nothing; a job
+that must run once across instances claims an `app_lm_billing_job_run` row first.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

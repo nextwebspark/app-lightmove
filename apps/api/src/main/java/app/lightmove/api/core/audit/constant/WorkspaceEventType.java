@@ -41,7 +41,8 @@ public enum WorkspaceEventType implements AuditEventType {
     OAUTH_TOKEN_REFRESHED,
     OAUTH_CLIENT_REGISTERED,
 
-    FAIR_USE_REACHED;
+    FAIR_USE_REACHED,
+    CREDIT_BALANCE_DRIFT;
 
     @Override
     public String code() {
