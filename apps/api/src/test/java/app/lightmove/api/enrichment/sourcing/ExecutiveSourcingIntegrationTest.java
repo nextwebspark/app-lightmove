@@ -376,6 +376,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
                 .containsExactly("AE", "SA", "QA", "KW", "BH", "OM");
         assertThat(outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld).get("outcome").asText())
                 .isEqualTo("NO_HITS");
+        assertThat(db.queryForObject("select count(*) from app_lm_usage_event where project_id = ?::uuid",
+                Integer.class, projectId)).as("a run that filed nobody used nothing").isZero();
     }
 
     @Test

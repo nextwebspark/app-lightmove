@@ -50,9 +50,11 @@ class FairUseIntegrationTest extends BillingFlowSupport {
                             .containsEntry("kind", "AI_ENRICH")
                             .containsEntry("resetsAt", nextMonth().atDay(1).atStartOfDay(ZoneOffset.UTC).toInstant());
                 });
+        assertThatThrownBy(() -> fairUse.check(workspaceId, null, UsageKind.AI_ENRICH, 1))
+                .isInstanceOf(ApiException.class);
         assertThat(db.queryForObject("""
                 SELECT count(*) FROM app_lm_audit_event WHERE event_type = 'FAIR_USE_REACHED' AND workspace_id = ?""",
-                Integer.class, workspaceId)).isEqualTo(1);
+                Integer.class, workspaceId)).as("a retried refusal is answered, not audited again").isEqualTo(1);
     }
 
     @Test

@@ -137,8 +137,11 @@ class ExecutiveSourcingWorker {
         });
     }
 
-    /** Whatever a run filed before it ended, once per run. */
+    /** Whatever a run filed before it ended, once per run; a run that filed nobody used nothing. */
     private void recordUsage(ExecutiveSourcingRequested request, ExecutiveSourcingRun ended) {
+        if (ended.getExecutivesFiled() == 0) {
+            return;
+        }
         usage.record(new MeteredUse(request.workspaceId(), request.requestedBy(), request.projectId(),
                 UsageKind.SOURCING_RUN, ended.getExecutivesFiled(), "sourcing-run:" + ended.getId()));
     }

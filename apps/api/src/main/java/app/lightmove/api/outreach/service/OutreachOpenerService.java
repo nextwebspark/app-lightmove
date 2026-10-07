@@ -1,11 +1,11 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.candidate.model.CandidateDossier;
-import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.billing.usage.service.UsageRecorder;
+import app.lightmove.api.candidate.model.CandidateDossier;
+import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -64,7 +64,7 @@ public class OutreachOpenerService {
                 .detail("count", dossiers.size())
                 .record();
         List<DraftedOpener> drafted = draftAll(dossiers, brief);
-        int written = (int) drafted.stream().filter(opener -> opener.opener() != null).count();
+        int written = Math.toIntExact(drafted.stream().filter(opener -> opener.opener() != null).count());
         if (written > 0) {
             usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.OUTREACH_OPENER, written));
         }

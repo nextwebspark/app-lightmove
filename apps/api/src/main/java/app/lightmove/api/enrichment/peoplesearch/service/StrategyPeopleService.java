@@ -1,9 +1,5 @@
 package app.lightmove.api.enrichment.peoplesearch.service;
 
-import app.lightmove.api.billing.usage.constant.UsageKind;
-import app.lightmove.api.billing.usage.model.MeteredUse;
-import app.lightmove.api.billing.usage.service.FairUseGuard;
-import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -64,23 +60,21 @@ public class StrategyPeopleService {
     private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final RateLimiter limiter;
-    private final FairUseGuard fairUse;
-    private final UsageRecorder usage;
+    private final PeoplePageMeter meter;
     private final AuditService audit;
     private final ContactOutSettings config;
     private final ObjectMapper json;
 
     public StrategyPeopleService(CachedContactOutPeopleQuery contactOut, StrategyService strategy,
                                  TriageCompanyReadService triage, CandidateService candidates, RateLimiter limiter,
-                                 FairUseGuard fairUse, UsageRecorder usage, AuditService audit,
-                                 LightMoveProperties properties, ObjectMapper json) {
+                                 PeoplePageMeter meter, AuditService audit, LightMoveProperties properties,
+                                 ObjectMapper json) {
         this.contactOut = contactOut;
         this.strategy = strategy;
         this.triage = triage;
         this.candidates = candidates;
         this.limiter = limiter;
-        this.fairUse = fairUse;
-        this.usage = usage;
+        this.meter = meter;
         this.audit = audit;
         this.config = properties.enrichment().contactout();
         this.json = json;
@@ -123,17 +117,10 @@ public class StrategyPeopleService {
         if (cached.isEmpty()) {
             requireBudget(userId);
         }
-        String usageKey = "people-page:" + contactOut.queryKeyOf(question, page);
-        boolean newHere = !usage.hasRecorded(workspaceId, usageKey);
-        if (newHere) {
-            fairUse.check(workspaceId, userId, UsageKind.PEOPLE_SEARCH_PAGE,
-                    cached.map(known -> known.people().size()).orElse(ContactOutPeopleClient.MAX_PAGE_SIZE));
-        }
+        Optional<String> newHere = meter.admit(workspaceId, userId, contactOut.queryKeyOf(question, page),
+                cached.map(known -> known.people().size()).orElse(ContactOutPeopleClient.MAX_PAGE_SIZE));
         PeoplePage found = cached.orElseGet(() -> ask(() -> contactOut.buyPage(question, page)));
-        if (newHere) {
-            usage.record(new MeteredUse(workspaceId, userId, projectId, UsageKind.PEOPLE_SEARCH_PAGE,
-                    found.people().size(), usageKey));
-        }
+        newHere.ifPresent(key -> meter.record(workspaceId, userId, projectId, key, found.people().size()));
 
         audit.projectEvent(ProjectEventType.PEOPLE_SEARCH_PAGE_FETCHED, userId, workspaceId, projectId, httpRequest)
                 .detail("page", Integer.toString(page))
