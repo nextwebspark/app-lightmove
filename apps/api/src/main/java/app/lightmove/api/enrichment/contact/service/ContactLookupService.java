@@ -1,5 +1,9 @@
 package app.lightmove.api.enrichment.contact.service;
 
+import app.lightmove.api.billing.credit.constant.CreditAction;
+import app.lightmove.api.billing.credit.model.CreditCharge;
+import app.lightmove.api.billing.credit.model.CreditReceipt;
+import app.lightmove.api.billing.credit.service.CreditLedger;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidatePhoneDto;
@@ -33,6 +37,10 @@ import org.springframework.stereotype.Service;
  * through a permit wait and retries. The guard against paying twice is the lookup timestamp, checked
  * here and again inside the write; two presses in flight can still both reach the provider, which the
  * per-user budget caps rather than a row lock across the call.
+ *
+ * <p>The workspace pays in contact credits only for what was found: the price is held before the provider
+ * is asked, captured on a find and released on a miss or a failure. Presses in flight together share one
+ * hold, so they spend once.
  */
 @Service
 @Slf4j
@@ -42,14 +50,16 @@ public class ContactLookupService {
     private final CandidateService candidates;
     private final RateLimiter limiter;
     private final AuditService audit;
+    private final CreditLedger ledger;
     private final ContactOutSettings config;
 
     public ContactLookupService(ContactFinder finder, CandidateService candidates, RateLimiter limiter,
-                                AuditService audit, LightMoveProperties properties) {
+                                AuditService audit, CreditLedger ledger, LightMoveProperties properties) {
         this.finder = finder;
         this.candidates = candidates;
         this.limiter = limiter;
         this.audit = audit;
+        this.ledger = ledger;
         this.config = properties.enrichment().contactout();
     }
 
@@ -62,15 +72,25 @@ public class ContactLookupService {
         CandidateContactState state = begin(ContactChannel.EMAIL, userId, workspaceId, projectId, candidateId);
         if (state.emailsAsked()) {
             return answered(alreadyAsked(!state.hasFoundEmails()), state.candidate(),
-                    ContactChannel.EMAIL, false, userId, workspaceId, projectId, candidateId, httpRequest);
+                    ContactChannel.EMAIL, false, 0, userId, workspaceId, projectId, candidateId, httpRequest);
         }
         requireBudget(ContactChannel.EMAIL, userId);
-        FoundEmails found = ask(() -> finder.findEmails(state.linkedinUrl()));
-        CandidateResponse candidate = candidates.applyFoundEmails(userId, projectId, candidateId, found);
+        CreditReceipt hold = holdFor(CreditAction.EMAIL_FOUND, ContactChannel.EMAIL, state, userId, workspaceId,
+                projectId);
+        CandidateResponse candidate;
+        FoundEmails found;
+        try {
+            found = ask(() -> finder.findEmails(state.linkedinUrl()));
+            candidate = candidates.applyFoundEmails(userId, projectId, candidateId, found);
+        } catch (RuntimeException failed) {
+            settle(workspaceId, hold, false);
+            throw failed;
+        }
         boolean foundNothing = foundNothing(
                 candidate.contacts().emails().stream().map(CandidateEmailDto::source), found.source());
+        long spent = settle(workspaceId, hold, !foundNothing);
         return answered(outcomeOf(foundNothing), candidate,
-                ContactChannel.EMAIL, true, userId, workspaceId, projectId, candidateId, httpRequest);
+                ContactChannel.EMAIL, true, spent, userId, workspaceId, projectId, candidateId, httpRequest);
     }
 
     public ContactLookupResponse findPhone(UUID userId, UUID workspaceId, UUID projectId,
@@ -78,15 +98,25 @@ public class ContactLookupService {
         CandidateContactState state = begin(ContactChannel.PHONE, userId, workspaceId, projectId, candidateId);
         if (state.phonesAsked()) {
             return answered(alreadyAsked(!state.hasFoundPhones()), state.candidate(),
-                    ContactChannel.PHONE, false, userId, workspaceId, projectId, candidateId, httpRequest);
+                    ContactChannel.PHONE, false, 0, userId, workspaceId, projectId, candidateId, httpRequest);
         }
         requireBudget(ContactChannel.PHONE, userId);
-        FoundPhones found = ask(() -> finder.findPhones(state.linkedinUrl()));
-        CandidateResponse candidate = candidates.applyFoundPhones(userId, projectId, candidateId, found);
+        CreditReceipt hold = holdFor(CreditAction.PHONE_FOUND, ContactChannel.PHONE, state, userId, workspaceId,
+                projectId);
+        CandidateResponse candidate;
+        FoundPhones found;
+        try {
+            found = ask(() -> finder.findPhones(state.linkedinUrl()));
+            candidate = candidates.applyFoundPhones(userId, projectId, candidateId, found);
+        } catch (RuntimeException failed) {
+            settle(workspaceId, hold, false);
+            throw failed;
+        }
         boolean foundNothing = foundNothing(
                 candidate.contacts().phones().stream().map(CandidatePhoneDto::source), found.source());
+        long spent = settle(workspaceId, hold, !foundNothing);
         return answered(outcomeOf(foundNothing), candidate,
-                ContactChannel.PHONE, true, userId, workspaceId, projectId, candidateId, httpRequest);
+                ContactChannel.PHONE, true, spent, userId, workspaceId, projectId, candidateId, httpRequest);
     }
 
     private CandidateContactState begin(ContactChannel channel, UUID userId, UUID workspaceId,
@@ -114,6 +144,39 @@ public class ContactLookupService {
                 config.lookupsPerUserPerMinute(), Duration.ofMinutes(1));
         if (!isWithinBudget) {
             throw ApiException.of(ErrorCode.RATE_LIMITED);
+        }
+    }
+
+    /**
+     * Keyed on the person, the channel and how many of their holds were released before: presses in flight
+     * together share the key and so one hold, and a press after a failed one opens a fresh hold rather than
+     * replaying the released one. Refused with {@code INSUFFICIENT_CREDITS} before the provider is asked.
+     */
+    private CreditReceipt holdFor(CreditAction action, ContactChannel channel, CandidateContactState state,
+                                  UUID userId, UUID workspaceId, UUID projectId) {
+        UUID personId = state.candidate().personId();
+        long attempt = ledger.releasedHoldsOf(workspaceId, personId, action);
+        String key = "contact:%s:%s:%d".formatted(personId, channel.value(), attempt);
+        return ledger.hold(new CreditCharge(workspaceId, action, key, userId, projectId, personId));
+    }
+
+    /**
+     * Captures the hold when something was found and releases it otherwise, answering the credits spent. A hold a
+     * racing press settled the other way meanwhile is left as it stands.
+     */
+    private long settle(UUID workspaceId, CreditReceipt hold, boolean found) {
+        try {
+            if (!found) {
+                ledger.release(workspaceId, hold.holdId());
+                return 0;
+            }
+            return ledger.capture(workspaceId, hold.holdId()).credits();
+        } catch (ApiException settled) {
+            if (settled.getCode() != ErrorCode.CREDIT_HOLD_SETTLED) {
+                throw settled;
+            }
+            log.warn("Contact lookup found its credit hold {} already settled", hold.holdId());
+            return 0;
         }
     }
 
@@ -155,7 +218,7 @@ public class ContactLookupService {
     }
 
     private ContactLookupResponse answered(ContactLookupOutcome outcome, CandidateResponse candidate,
-                                           ContactChannel channel, boolean asked, UUID userId,
+                                           ContactChannel channel, boolean asked, long creditsSpent, UUID userId,
                                            UUID workspaceId, UUID projectId, UUID candidateId,
                                            HttpServletRequest httpRequest) {
         audit.projectEvent(ProjectEventType.CANDIDATE_CONTACT_LOOKED_UP, userId, workspaceId, projectId, httpRequest)
@@ -163,7 +226,9 @@ public class ContactLookupService {
                 .detail("channel", channel.value())
                 .detail("outcome", outcome.value())
                 .detail("asked", String.valueOf(asked))
+                .detail("creditsSpent", String.valueOf(creditsSpent))
                 .record();
-        return new ContactLookupResponse(outcome.value(), candidate);
+        return new ContactLookupResponse(outcome.value(), candidate, creditsSpent,
+                ledger.balanceOf(workspaceId).available());
     }
 }
