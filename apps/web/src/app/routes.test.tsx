@@ -67,9 +67,6 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
     emailDomain: "firm.example",
     joinedAt: null,
     company: null,
-    companySize: null,
-    primaryRegion: null,
-    teamFocus: null,
     roles,
   },
 });

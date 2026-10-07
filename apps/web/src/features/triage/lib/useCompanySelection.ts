@@ -10,6 +10,11 @@ export function useCompanySelection() {
   const toast = useToast();
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
   const clear = useCallback(() => setSelectedIds(new Set()), []);
+  const deselect = useCallback(
+    (companyIds: readonly string[]) =>
+      setSelectedIds((current) => new Set([...current].filter((id) => !companyIds.includes(id)))),
+    [],
+  );
 
   const toggle = (companyId: string, cap: number, action = "Find executives") => {
     const next = new Set(selectedIds);
@@ -40,5 +45,5 @@ export function useCompanySelection() {
     setSelectedIds(next);
   };
 
-  return { selectedIds, clear, toggle, toggleAll };
+  return { selectedIds, clear, deselect, toggle, toggleAll };
 }

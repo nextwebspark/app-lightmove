@@ -1265,20 +1265,6 @@
             <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Organization name</span>
             <input placeholder="e.g. Meridian Search Partners" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s" style-focus="border-color:var(--sky);box-shadow:0 0 0 1px var(--ring)">
           </label>
-          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px">
-            <label style="display:block;margin-bottom:16px">
-              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Company size</span>
-              <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s"><sc-for list="{{ companySizes }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for></select>
-            </label>
-            <label style="display:block;margin-bottom:16px">
-              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Primary region</span>
-              <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s"><sc-for list="{{ regions }}" as="o" hint-placeholder-count="5"><option>{{ o }}</option></sc-for></select>
-            </label>
-            <label style="display:block;margin-bottom:16px">
-              <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Team focus</span>
-              <select style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none;transition:border-color .15s"><sc-for list="{{ teamFocuses }}" as="o" hint-placeholder-count="4"><option>{{ o }}</option></sc-for></select>
-            </label>
-          </div>
           <button onClick="{{ newWorkspaceContinue }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Continue</button>
         </sc-if>
         <sc-if value="{{ isNewWorkspaceInvite }}" hint-placeholder-val="{{ false }}">
@@ -2100,7 +2086,7 @@ class Component extends DCLogic {
       acceptInvitation: () => this.setState({ wsMenuOpen: false, toast: 'Joined Northgate Search' }),
       newWorkspaceOpen: st.newWorkspaceOpen,
       isNewWorkspaceOrganisation: st.newWorkspaceStage === 'organisation', isNewWorkspaceInvite: st.newWorkspaceStage === 'invite',
-      companySizes: ['1–10 people', '11–50 people', '51–200 people', '200+ people'], regions: ['GCC', 'MENA', 'Europe', 'North America', 'Global'], teamFocuses: ['Executive search', 'Board advisory', 'Talent mapping', 'Mixed'],
+     
       newWorkspaceInvites: [{ id: 1 }, { id: 2 }],
       openNewWorkspace: () => this.setState({ newWorkspaceOpen: true, newWorkspaceStage: 'organisation' }),
       closeNewWorkspace: () => this.setState({ newWorkspaceOpen: false }),

@@ -3,21 +3,12 @@ import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 
 /**
- * The floating bar a multi-select grid raises once something is ticked: how many are selected, what
- * can be done to them, and a way out.
+ * The pop-up a multi-select grid raises once something is ticked: the count, the actions and a way out,
+ * at the bottom centre of the screen over a light scrim.
  *
- * <p>The shape is the one every table-heavy product converged on — Gmail, Jira, Linear, ClickUp,
- * Adobe's Spectrum action bar, PatternFly's bulk selection — and the reasons it won are worth
- * keeping: it appears only when there is a selection, so it costs no chrome the rest of the time; it
- * floats near the rows rather than in the toolbar, so the cursor does not travel the height of the
- * screen between picking and acting; it states the count, because "Decline" over an unseen selection
- * is a question the user must be able to answer before pressing it; and it carries its own dismissal,
- * because a selection with no visible way to drop it is a trap.
- *
- * <p>Positioned against the grid it belongs to rather than the viewport — the caller gives it a
- * {@code relative} box — so it centres on the table instead of drifting off-centre by half the width
- * of the nav rail. The wrapper is click-through; only the bar itself takes the pointer, so the rows
- * it floats over stay usable.
+ * <p>Fixed in place rather than portalled, so it stays inside a full-screen grid's panel. It sits just
+ * under the drawer layer (90/95), so an opened row covers it, and clears the toast at the bottom. The
+ * scrim only dims: it takes no pointer, so the rows under it can still be ticked.
  */
 export function SelectionActionBar({
   count,
@@ -46,11 +37,12 @@ export function SelectionActionBar({
   }, [onClear]);
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-3">
+    <>
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-[88] bg-u-scrim/50" />
       <div
         role="region"
         aria-label={`${count} ${count === 1 ? noun : plural} selected`}
-        className="animate-fade-up pointer-events-auto flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-2 shadow-u-e3"
+        className="animate-fade-up fixed bottom-16 left-1/2 z-[89] flex max-w-[calc(100vw-24px)] -translate-x-1/2 flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-2 shadow-u-e3"
       >
         <span aria-hidden className="whitespace-nowrap px-1.5 font-sans text-[13px] font-semibold text-u-text">
           <span className="text-u-accent">{count}</span> selected
@@ -68,7 +60,7 @@ export function SelectionActionBar({
           <Icon d={ICONS.close} size={14} />
         </button>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -57,13 +57,9 @@ class WorkspaceCompanyIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"COMPANY","name":"Anything Typed","apolloAccountId":"apollo-af",
-                                 "companySize":"200+ people","primaryRegion":"GCC","teamFocus":"Mixed"}"""))
+                                {"mode":"COMPANY","name":"Anything Typed","apolloAccountId":"apollo-af"}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.workspace.name").value("Al-Futtaim"))
-                .andExpect(jsonPath("$.workspace.companySize").value("200+ people"))
-                .andExpect(jsonPath("$.workspace.primaryRegion").value("GCC"))
-                .andExpect(jsonPath("$.workspace.teamFocus").value("Mixed"))
                 .andExpect(jsonPath("$.workspace.company.apolloAccountId").value("apollo-af"))
                 .andExpect(jsonPath("$.workspace.company.industry").value("retail"))
                 .andExpect(jsonPath("$.workspace.company.city").value("Dubai"))

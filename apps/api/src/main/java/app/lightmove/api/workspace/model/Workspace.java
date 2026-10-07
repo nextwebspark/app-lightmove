@@ -51,15 +51,6 @@ public class Workspace extends BaseEntity {
     @Column(name = "logo_mark", length = 4)
     private String logoMark;
 
-    @Column(name = "company_size", length = 32)
-    private String companySize;
-
-    @Column(name = "primary_region", length = 32)
-    private String primaryRegion;
-
-    @Column(name = "team_focus", length = 32)
-    private String teamFocus;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private WorkspaceMode mode;
@@ -113,32 +104,22 @@ public class Workspace extends BaseEntity {
     private UUID createdBy;
 
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
-                                   WorkspaceMode mode, WorkspaceCompany company,
-                                   String companySize, String primaryRegion, String teamFocus) {
+                                   WorkspaceMode mode, WorkspaceCompany company) {
         Workspace workspace = new Workspace();
         workspace.name = name;
         workspace.slug = slug;
         workspace.emailDomain = emailDomain.toLowerCase(Locale.ROOT);
         workspace.createdBy = createdBy;
         workspace.mode = Objects.requireNonNull(mode, "mode");
-        workspace.companySize = companySize;
-        workspace.primaryRegion = primaryRegion;
-        workspace.teamFocus = teamFocus;
         workspace.logoMark = deriveLogoMark(name);
         workspace.identifyAs(company);
         workspace.persona = HiringPersona.seededFrom(seedOf(company));
-
-        workspace.defaultRegion = primaryRegion != null ? primaryRegion : "GCC";
         return workspace;
     }
 
     /** Never the slug (in URLs) or the email domain: a workspace can be re-described, not re-identified. */
-    public void describe(String name, WorkspaceCompany company,
-                         String companySize, String primaryRegion, String teamFocus) {
+    public void describe(String name, WorkspaceCompany company) {
         this.name = name;
-        this.companySize = companySize;
-        this.primaryRegion = primaryRegion;
-        this.teamFocus = teamFocus;
         this.logoMark = deriveLogoMark(name);
         this.persona = persona.refiledFrom(seedOf(getCompany()), seedOf(company));
         identifyAs(company);

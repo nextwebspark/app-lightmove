@@ -15,7 +15,7 @@ signup_verified() { # signup_verified EMAIL [FULLNAME] -> echoes an access token
 
 make_workspace() { # make_workspace TOKEN NAME
   post_json /onboarding/workspace "$(jq -nc --arg n "$2" \
-    '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+    '{mode:"COMPANY", name:$n}')" \
     -H "$(auth_header "$1")"
 }
 
@@ -55,7 +55,7 @@ check_status N27.7 "the same route after re-issuing the token" 200
 
 WS2="Second Co $(date +%s)$RANDOM"
 post_json /workspaces "$(jq -nc --arg n "$WS2" \
-  '{mode:"COMPANY", name:$n, companySize:"1-10 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+  '{mode:"COMPANY", name:$n}')" \
   -H "$(auth_header "$OWNER_TOKEN")"
 check_status N27.7b "a second workspace is founded from inside the app" 201
 WS2_ID=$(json '.workspace.id')
@@ -96,7 +96,7 @@ make_workspace "$UNVERIFIED_TOKEN" "Squatted Co $RANDOM"
 check_code N28.1 "an unverified user creating a workspace" 403 EMAIL_NOT_VERIFIED
 
 http PATCH /onboarding/workspace -H 'Content-Type: application/json' \
-  -H "$(auth_header "$UNVERIFIED_TOKEN")" -d '{"mode":"COMPANY","name":"Squatted Renamed","companySize":"11-50 people"}'
+  -H "$(auth_header "$UNVERIFIED_TOKEN")" -d '{"mode":"COMPANY","name":"Squatted Renamed"}'
 check_status N28.2 "PATCH is shut to them too" 403
 
 check N28.3 "nothing exists on the domain they claimed" "0" \

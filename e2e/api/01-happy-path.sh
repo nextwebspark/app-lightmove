@@ -39,7 +39,7 @@ section "P2  step 2 — the organisation and invite steps are shut until the mai
 
 post_json /onboarding/workspace \
   "$(jq -nc --arg n "$WORKSPACE_NAME" \
-     '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+     '{mode:"COMPANY", name:$n}')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
 check_status P2.1 "POST /onboarding/workspace while unverified" 403
 check P2.2 "and says why, so the SPA can send them back a step" "EMAIL_NOT_VERIFIED" "$(json '.code')"
@@ -78,7 +78,7 @@ section "P4  steps 3 and 4 — the workspace and the invitations, created outrig
 
 post_json /onboarding/workspace \
   "$(jq -nc --arg n "$WORKSPACE_NAME" \
-     '{mode:"COMPANY", name:$n, companySize:"11-50 people", primaryRegion:"GCC", teamFocus:"Executive search"}')" \
+     '{mode:"COMPANY", name:$n}')" \
   -H "$(auth_header "$ADMIN_TOKEN")"
 check_status P4.1 "POST /onboarding/workspace on the session verifying minted" 201
 check P4.2 "workspace now exists" "1" "$(sql "SELECT count(*) FROM app_lm_workspace WHERE name = '$WORKSPACE_NAME'")"

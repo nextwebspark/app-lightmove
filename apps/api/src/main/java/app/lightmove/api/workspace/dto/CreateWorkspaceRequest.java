@@ -16,14 +16,10 @@ public record CreateWorkspaceRequest(
         WorkspaceMode mode,
 
         @Size(max = 64)
-        String apolloAccountId,
-
-        String companySize,
-        String primaryRegion,
-        String teamFocus
+        String apolloAccountId
 ) {
 
     public CreateWorkspaceCommand toCommand() {
-        return new CreateWorkspaceCommand(name, mode, apolloAccountId, companySize, primaryRegion, teamFocus);
+        return new CreateWorkspaceCommand(name, mode, apolloAccountId);
     }
 }

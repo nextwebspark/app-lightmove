@@ -167,7 +167,6 @@ There is no central vocabulary today. The strings are inlined in about 15 files.
   - **Search agency**: "You hire for client companies."
   - **In-house team**: "You hire for your own departments and business units."
 - Nothing is preselected. The Zod schema in `features/auth/schemas.ts:83` makes it required, and the type `CreateWorkspaceRequest` in `auth/api/types.ts:154` gets `mode`.
-- `teamFocus` stays as it is. It describes the kind of work, not who is being hired for.
 
 **Settings → General (`SettingsGeneralPage.tsx`):**
 - Add a "Workspace type" row, editable by admins.

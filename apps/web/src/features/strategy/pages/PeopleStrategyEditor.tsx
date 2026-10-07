@@ -345,7 +345,7 @@ export function PeopleStrategyEditor({
         )}
 
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">
-          <div className="relative flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col">
             {(run === 0 && restored.isFetching) || (results.isFetching && !results.data) ? (
               renderResults([], true)
             ) : !results.data ? (

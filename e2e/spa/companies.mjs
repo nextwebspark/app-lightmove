@@ -94,7 +94,7 @@ const REP_EMAIL = `lm-e2e-companies-rep-${STAMP}@${DOMAIN}`;
 await api("/auth/signup", { method: "POST", body: { fullName: "Carla Companies", email: LEAD_EMAIL, password: PASSWORD, termsAccepted: true } });
 await api("/auth/verify", { method: "POST", body: { token: await tokenFor(LEAD_EMAIL, "verify") } });
 let token = await login(LEAD_EMAIL);
-await api("/onboarding/workspace", { method: "POST", token, body: { mode: "COMPANY", name: `Companies SPA ${STAMP}`, companySize: "11-50 people", primaryRegion: "GCC", teamFocus: "Executive search" } });
+await api("/onboarding/workspace", { method: "POST", token, body: { mode: "COMPANY", name: `Companies SPA ${STAMP}` } });
 // A token minted before the workspace existed carries no wsId, so every tenant route 404s until reissued.
 token = await login(LEAD_EMAIL);
 const clientId = (await api("/clients", { method: "POST", token, body: { customName: "Harbour Group Holding", customDomain: "harbourgroup.example" } })).body.id;

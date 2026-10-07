@@ -16,9 +16,6 @@ export function aWorkspace(overrides: Partial<WorkspaceSummary> = {}): Workspace
     roles: ["ADMIN"],
     joinedAt: "2026-03-14T09:00:00Z",
     company: null,
-    companySize: null,
-    primaryRegion: null,
-    teamFocus: null,
     ...overrides,
   };
 }
