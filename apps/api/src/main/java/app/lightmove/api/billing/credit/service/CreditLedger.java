@@ -3,6 +3,7 @@ package app.lightmove.api.billing.credit.service;
 import app.lightmove.api.billing.credit.constant.CreditAction;
 import app.lightmove.api.billing.credit.constant.CreditEntryKind;
 import app.lightmove.api.billing.credit.constant.CreditHoldStatus;
+import app.lightmove.api.billing.credit.model.ContactCreditThresholdCrossed;
 import app.lightmove.api.billing.credit.model.CreditBalance;
 import app.lightmove.api.billing.credit.model.CreditBalanceSummary;
 import app.lightmove.api.billing.credit.model.CreditCharge;
@@ -36,7 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The only door to a workspace's contact credits. Every write locks the workspace's balance row first, so writes
  * to one workspace run one at a time; a vendor call belongs between a {@link #hold} and its {@link #capture} or
- * {@link #release}, never inside either. Every write also expires the workspace's lapsed grants first.
+ * {@link #release}, never inside either. Every write also expires the workspace's lapsed grants first, and every
+ * spend announces a threshold of the month's credits it crossed ({@link ContactCreditThresholdCrossed}).
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +49,7 @@ public class CreditLedger {
     private final CreditHoldRepository holds;
     private final CreditEntryRepository entries;
     private final WorkspaceSubscriptionRepository subscriptions;
+    private final ContactCreditThresholds thresholds;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -212,6 +215,7 @@ public class CreditLedger {
         if (hold.overdraft() > 0) {
             record(CreditEntry.overdrawn(hold, now), balance);
         }
+        thresholds.claimCrossed(hold.getWorkspaceId(), balance.getAvailable(), now);
     }
 
     /** Credits handed back to a grant that has lapsed meanwhile expire in the same transaction. */

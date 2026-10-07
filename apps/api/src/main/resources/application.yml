@@ -706,6 +706,10 @@ lightmove:
     hold-ttl: ${BILLING_HOLD_TTL:15m}
     # How often lapsed grants are expired and unsettled holds released. Spelled out: @Scheduled reads it.
     sweep-interval: ${BILLING_SWEEP_INTERVAL:PT5M}
+    # UTC crons: the month's credits are granted within the hour a billing month starts; the books checked nightly.
+    jobs:
+      monthly-reset: ${BILLING_MONTHLY_RESET_CRON:0 7 * * * *}
+      reconcile: ${BILLING_RECONCILE_CRON:0 40 2 * * *}
     prices:
       email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
       phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
