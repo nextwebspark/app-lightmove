@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.config;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.McpSettings;
 import app.lightmove.api.core.config.SpaRequestPaths;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.handler.ProblemAccessDeniedHandler;
@@ -8,6 +9,7 @@ import app.lightmove.api.core.security.apikey.ApiKeyIntrospector;
 import app.lightmove.api.core.security.apikey.ApiKeyThrottledException;
 import app.lightmove.api.core.security.apikey.PublicApiProblemWriter;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
+import app.lightmove.api.core.security.oauth.OAuthAuthorizationServerConfig;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
@@ -58,6 +60,9 @@ public class SecurityConfig {
     private static final String PUBLIC_API_CSP = "default-src 'self'; script-src 'self'; "
             + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
             + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+
+    /** Framing alone: the bundle's own sources (Mapbox, Nylas, the fonts) are not pinned here. */
+    private static final String SPA_CSP = "frame-ancestors 'none'";
 
     /** Resolves {@code '{value}'} in {@code @RequireProjectPermission}; static, as method security reads it while being built. */
     @Bean
@@ -204,6 +209,27 @@ public class SecurityConfig {
                 .build();
     }
 
+    /** MCP switched off (the authorization server and the MCP server are both absent): all of it a 404. */
+    @Bean
+    @Order(1)
+    @ConditionalOnBooleanProperty(name = OAuthAuthorizationServerConfig.MCP_SWITCH, havingValue = false,
+            matchIfMissing = true)
+    SecurityFilterChain mcpOffChain(HttpSecurity http, PublicApiProblemWriter problems) throws Exception {
+        return http
+                .securityMatcher(OAuthAuthorizationServerConfig.OAUTH_BASE + "/**",
+                        McpSettings.MCP_PATH, McpSettings.MCP_PATH + "/**",
+                        "/.well-known/oauth-*", "/.well-known/oauth-*/**")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(auth -> auth.anyRequest().denyAll())
+                .exceptionHandling(e -> e
+                        .authenticationEntryPoint((request, response, failure) ->
+                                problems.write(request, response, ErrorCode.NOT_FOUND))
+                        .accessDeniedHandler((request, response, denial) ->
+                                problems.write(request, response, ErrorCode.NOT_FOUND)))
+                .build();
+    }
+
     private static HttpSecurity publicApi(HttpSecurity http) throws Exception {
         return http
                 .securityMatcher(PUBLIC_API + "/**")
@@ -224,6 +250,8 @@ public class SecurityConfig {
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+                // No page of the app is ever framed, and the MCP consent screen's Allow must not be clickjacked.
+                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(SPA_CSP)))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
@@ -343,6 +371,17 @@ public class SecurityConfig {
         };
     }
 
+    /** The MCP endpoint's browser origins: the deployment's own and those listed, as its transport also checks. */
+    private static CorsConfiguration mcpCors(LightMoveProperties properties) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(properties.mcp().allowedOriginsUnder(properties.web().baseUrl()));
+        config.setAllowedMethods(List.of("POST", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Mcp-Protocol-Version"));
+        config.setExposedHeaders(List.of("WWW-Authenticate", "Retry-After"));
+        config.setAllowCredentials(false);
+        return config;
+    }
+
     /** {@code allowCredentials} is why the origin list must be explicit: never a wildcard. */
     @Bean
     CorsConfigurationSource corsConfigurationSource(LightMoveProperties properties) {
@@ -354,6 +393,9 @@ public class SecurityConfig {
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Registered first, so it wins for its path: MCP clients carry a bearer, never a cookie, so no credentials.
+        source.registerCorsConfiguration(McpSettings.MCP_PATH, mcpCors(properties));
+        source.registerCorsConfiguration(McpSettings.MCP_PATH + "/**", mcpCors(properties));
         source.registerCorsConfiguration("/**", config);
         return source;
     }

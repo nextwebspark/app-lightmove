@@ -80,6 +80,9 @@ public enum ProjectEventType implements AuditEventType {
     /** Rows read through an API key: data leaving the product, recorded as an export is. */
     PUBLIC_API_READ,
 
+    /** One MCP tool call, from an AI client's token or an opted-in key: what it read, never its arguments. */
+    MCP_TOOL_CALL,
+
     OUTREACH_SEQUENCE_CREATED,
     OUTREACH_SEQUENCE_UPDATED,
     OUTREACH_SEQUENCE_DELETED,

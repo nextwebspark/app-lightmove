@@ -42,7 +42,7 @@ class PublicApiDocsIntegrationTest {
                 .contains("200", "401", "429");
         assertThat(spec.at("/components/schemas/CallingKey/properties/scopes/items/enum").toString())
                 .isEqualTo("[\"projects:read\",\"companies:read\",\"candidates:read\","
-                        + "\"candidates.contacts:read\",\"candidates.compensation:read\"]");
+                        + "\"candidates.contacts:read\",\"candidates.compensation:read\",\"mcp:use\"]");
     }
 
     @Test

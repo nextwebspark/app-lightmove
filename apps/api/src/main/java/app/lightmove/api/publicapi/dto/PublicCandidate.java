@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.UnaryOperator;
 
 /**
  * An executive as a key reads them. A background value a model proposed and no researcher has since
@@ -77,6 +78,17 @@ public record PublicCandidate(
                 candidate.languages(), candidate.skills(), candidate.addedAt(),
                 withContacts ? PublicContacts.of(candidate.contacts()) : null,
                 withCompensation ? PublicCompensation.of(candidate.compensation()) : null);
+    }
+
+    /** This executive with their free text rewritten — summary as prose, titles as lines — and every other field kept. */
+    public PublicCandidate withFreeText(UnaryOperator<String> prose, UnaryOperator<String> line) {
+        return new PublicCandidate(id, personId, companyId, companyName, fullName, line.apply(title), seniority, status,
+                linkedinUrl, city, country, nationality, gender, yearsExperience, prose.apply(summary),
+                career.stream()
+                        .map(entry -> new PublicCareerEntry(entry.company(), line.apply(entry.title()), entry.period(),
+                                entry.location()))
+                        .toList(),
+                education, languages, skills, addedAt, contacts, compensation);
     }
 
     private static <T> T recorded(Set<String> proposed, BackgroundField field, T value) {

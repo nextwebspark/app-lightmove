@@ -14,6 +14,7 @@ import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
+import app.lightmove.api.core.security.oauth.OAuthGrantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,7 @@ public class PasswordChangeService {
 
     private final PasswordPolicy passwords;
     private final TokenService tokens;
+    private final OAuthGrantService oauthGrants;
     private final AuthenticationService authentication;
     private final WorkspaceSelection selection;
     private final EmailSender emailSender;
@@ -82,6 +84,7 @@ public class PasswordChangeService {
 
         // Before issuing, so the session handed back below survives the revocation it triggered.
         tokens.revokeAllSessions(userId, RevokeReason.PASSWORD_CHANGED);
+        oauthGrants.revokeAllOfUser(userId, userId, request);
 
         log.info("Password changed for user {}", userId);
         audit.event(AuthEventType.PASSWORD_CHANGED).actor(userId).from(request).record();

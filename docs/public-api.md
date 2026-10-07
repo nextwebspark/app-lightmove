@@ -49,6 +49,9 @@ curl -s "$BASE/projects?size=25" -H "Authorization: Bearer $UNCAVA_API_KEY"
 # One position
 curl -s "$BASE/projects/$PROJECT_ID" -H "Authorization: Bearer $UNCAVA_API_KEY"
 
+# Where it stands: companies by stage, executives by status, its dates
+curl -s "$BASE/projects/$PROJECT_ID/summary" -H "Authorization: Bearer $UNCAVA_API_KEY"
+
 # Its shortlisted companies, a page at a time
 curl -s "$BASE/projects/$PROJECT_ID/companies?stage=shortlisted&page=0&size=100" \
   -H "Authorization: Bearer $UNCAVA_API_KEY"
@@ -56,6 +59,13 @@ curl -s "$BASE/projects/$PROJECT_ID/companies?stage=shortlisted&page=0&size=100"
 # Its executives at one status, or at one company
 curl -s "$BASE/projects/$PROJECT_ID/candidates?status=contacted" -H "Authorization: Bearer $UNCAVA_API_KEY"
 curl -s "$BASE/projects/$PROJECT_ID/candidates?companyId=$COMPANY_ID" -H "Authorization: Bearer $UNCAVA_API_KEY"
+
+# Its executives whose name, title or employer mentions "CFO", at shortlisted companies only
+curl -s "$BASE/projects/$PROJECT_ID/candidates?q=CFO&stage=shortlisted" -H "Authorization: Bearer $UNCAVA_API_KEY"
+
+# One executive, and one company with its executives
+curl -s "$BASE/projects/$PROJECT_ID/candidates/$CANDIDATE_ID" -H "Authorization: Bearer $UNCAVA_API_KEY"
+curl -s "$BASE/projects/$PROJECT_ID/companies/$COMPANY_ID" -H "Authorization: Bearer $UNCAVA_API_KEY"
 
 # A whole stage in one call: every company with its executives nested
 curl -s "$BASE/projects/$PROJECT_ID/universe?stage=inUniverse" -H "Authorization: Bearer $UNCAVA_API_KEY"
@@ -68,8 +78,11 @@ curl -s "$BASE/projects/$PROJECT_ID/universe?stage=inUniverse" -H "Authorization
 | `GET /me` | none | The calling key |
 | `GET /projects?title=&page=&size=` | `projects:read` | Positions, paged; `title` filters by a case-insensitive substring |
 | `GET /projects/{projectId}` | `projects:read` | One position |
+| `GET /projects/{projectId}/summary` | `projects:read` | `{ position, companies: { inUniverse, shortlisted, declined }, executives: { <status>: n }, mappedCompanies, timeline }` |
 | `GET /projects/{projectId}/companies?stage=&page=&size=` | `companies:read` | One stage's companies, paged |
-| `GET /projects/{projectId}/candidates?status=&companyId=&page=&size=` | `candidates:read` | Executives, paged, first mapped first |
+| `GET /projects/{projectId}/companies/{companyId}?page=&size=` | `companies:read` (executives need `candidates:read`) | `{ company, executives }`, the executives paged and `null` without `candidates:read` |
+| `GET /projects/{projectId}/candidates?status=&companyId=&q=&stage=&page=&size=` | `candidates:read` | Executives, paged, first mapped first |
+| `GET /projects/{projectId}/candidates/{candidateId}` | `candidates:read` | One executive |
 | `GET /projects/{projectId}/universe?stage=` | `companies:read` **and** `candidates:read` | The whole stage: `{ stage, companies: [{ company, executives }], unassigned }` |
 
 - `stage` is `inUniverse` (the default), `shortlisted` or `declined`.
@@ -77,6 +90,11 @@ curl -s "$BASE/projects/$PROJECT_ID/universe?stage=inUniverse" -H "Authorization
 - An executive's `companyId` is the `id` of a company from the companies route, or null when their employer is not in
   the position's universe.
 - In the universe read, those executives come back in `unassigned`, on `inUniverse` only.
+- On the candidates route, `q` matches a name, a title or an employer, ignoring case. `stage` keeps executives mapped
+  at a company of that stage, so an executive at no company is at no stage.
+- The summary's `executives` names every status, zero included, and `mappedCompanies` counts the universe and
+  shortlisted companies with at least one executive mapped.
+- A company or executive id from another position answers `404 NOT_FOUND`, as an unknown position does.
 
 ## Scopes
 

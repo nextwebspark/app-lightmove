@@ -278,8 +278,8 @@ async function sendWithCsrf(send: (csrf: string | null) => Promise<Response>): P
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /**
-   * Serialised as JSON, unless it is a `FormData` — a file upload is sent as-is, and the browser
-   * writes the multipart `Content-Type` itself. Setting that header by hand omits the boundary the
+   * Serialised as JSON, unless it is a `FormData` or `URLSearchParams` — a file upload or a form is sent
+   * as-is, and the browser writes its `Content-Type` itself. Setting that header by hand omits the boundary the
    * body was built with, and the server then reads the whole part as one unparseable blob.
    */
   body?: unknown;
@@ -298,9 +298,9 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
   const { method = "GET", body, anonymous = false, withCsrf = false, signal } = options;
 
   const dispatch = (token: string | null, csrf: string | null): Promise<Response> => {
-    const isMultipart = body instanceof FormData;
+    const isRaw = body instanceof FormData || body instanceof URLSearchParams;
     const headers: Record<string, string> = {};
-    if (body !== undefined && !isMultipart) {
+    if (body !== undefined && !isRaw) {
       headers["Content-Type"] = "application/json";
     }
     if (token) {
@@ -316,7 +316,7 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
       // Always: the refresh cookie must ride along on the auth routes, and sending it elsewhere is
       // harmless because the cookie is path-scoped and the browser will not attach it anyway.
       credentials: "include",
-      body: body === undefined ? undefined : isMultipart ? body : JSON.stringify(body),
+      body: body === undefined ? undefined : isRaw ? body : JSON.stringify(body),
       signal,
     });
   };

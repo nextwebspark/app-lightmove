@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { homeFor } from "../../../app/routes";
 import { Logo } from "../../../components/ui";
 import { setAccessToken } from "../../../lib/apiClient";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { type OAuthOutcome, reportOAuthOutcome, takeHandshakeId } from "../oauthPopup";
-import { takeReturnTo } from "../returnTo";
+import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**
  * Where an identity provider sends the browser back to — for both outcomes, and for both ways of
@@ -75,7 +74,7 @@ export function OAuthCallbackPage() {
         // who signed in with a provider may still be an invitee or hold an unfinished wizard, and
         // homeFor already encodes that ordering — which is load-bearing.
         const returnTo = takeReturnTo();
-        navigate(returnTo && user.workspace ? returnTo : homeFor(user), { replace: true });
+        navigate(landingAfterSignIn(user, returnTo), { replace: true });
       } catch {
         setAccessToken(null);
         navigate("/login?error=OAUTH_FAILED", { replace: true });

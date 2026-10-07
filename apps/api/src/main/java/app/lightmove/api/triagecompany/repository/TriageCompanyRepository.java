@@ -64,6 +64,9 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
 
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
 
+    @Query("select t.id from TriageCompany t where t.projectId = :projectId and t.status = :status")
+    Set<UUID> findIdsByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
+
     /** One query for the projects list; a mandate holding nothing is absent rather than zero. */
     @Query("select new app.lightmove.api.triagecompany.model.TriageCompanyCount(c.projectId, count(c)) "
             + "from TriageCompany c where c.projectId in :projectIds and c.status <> :excludedStatus "

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <style>
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);--ring:var(--u-accent-ring);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --warn:var(--u-signal);--warn-dim:var(--u-signal-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);--radius-panel:var(--u-r-modal);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--u-num:var(--u-font-num);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
+</helmet>
+
+<div data-screen-label="OAuth consent" style="min-height:100vh;background:var(--bg);color:var(--text)">
+<section style="{{ sectionStyle }}">
+
+  <sc-if value="{{ isCanvas }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:28px">
+      <div>
+        <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">MCP · /oauth/consent</div>
+        <h1 style="font:700 26px/1.15 var(--sans);letter-spacing:-.02em;margin:9px 0 0">Connect an AI app</h1>
+        <p style="font:400 13px/1.6 var(--sans);color:var(--text2);max-width:680px;margin:8px 0 0">What a staff member sees when Claude, ChatGPT, Cursor or their own agent asks to read Uncava over MCP. A signed-out visitor signs in first through the ordinary login and lands back here. The grant is for one workspace, read-only, and never more than the person can open today; the server checks all of it again, so this page decides nothing on its own.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="display:inline-flex;align-items:center;padding:5px 11px;border-radius:6px;background:var(--panel2);border:1px solid var(--line-soft);font:600 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">{{ stateCount }}</span>
+        <button onClick="{{ toggleTheme }}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text2);font:500 12px var(--sans);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">{{ themeLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="{{ rowStyle }}">
+    <sc-for list="{{ frames }}" as="f" hint-placeholder-count="7">
+      <div style="{{ f.wrapStyle }}">
+        <sc-if value="{{ f.showCaption }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:10px">
+            <span style="font:600 13px var(--sans);color:var(--text)">{{ f.label }}</span>
+            <span style="font:400 11.5px var(--mono);color:var(--text3)">{{ f.caption }}</span>
+          </div>
+        </sc-if>
+        <div data-screen-label="{{ f.screenLabel }}" style="{{ f.frameStyle }}">
+          <div style="width:100%;max-width:460px;animation:fadeUp .5s ease both">
+            <div style="display:flex;justify-content:center;margin-bottom:22px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:36px;width:auto;flex:none;color:var(--text)" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+                <span style="font:500 14px var(--sans);text-transform:uppercase;letter-spacing:.32em;color:var(--text)">Uncava</span>
+              </div>
+            </div>
+
+            <div style="border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:28px;box-shadow:var(--shadow)">
+
+              <sc-if value="{{ f.showAsk }}">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <span style="{{ f.clientTileStyle }}">{{ f.clientMark }}</span>
+                  <div style="min-width:0">
+                    <h1 style="margin:0;font:600 17px/1.35 var(--sans);color:var(--text)"><span>{{ f.clientName }}</span> wants to read your Uncava data</h1>
+                    <div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font:400 12px var(--mono);color:var(--text3)">
+                      <span>{{ f.clientHost }}</span>
+                      <span style="{{ f.trustPillStyle }}">{{ f.trustLabel }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <sc-if value="{{ f.unverified }}">
+                  <div role="note" style="margin-top:16px;border-radius:8px;border:1px solid var(--warn);background:var(--warn-dim);padding:10px 12px;font:400 12.5px/1.55 var(--sans);color:var(--text)">
+                    <div style="font-weight:600">Uncava can't confirm who made this app</div>
+                    <div style="margin-top:2px;color:var(--text2)">It registered itself and will send you back to <code style="font:500 12px var(--mono);color:var(--text)">{{ f.redirectHost }}</code>. Allow it only if you set it up yourself or your firm told you to.</div>
+                  </div>
+                </sc-if>
+
+                <div style="margin-top:18px;display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+                  <span style="width:28px;height:28px;flex:none;border-radius:999px;background:var(--sky-dim);color:var(--sky);font:600 11px var(--mono);display:grid;place-items:center">{{ userInitials }}</span>
+                  <div style="min-width:0;flex:1">
+                    <div style="font:500 13px var(--sans);color:var(--text)">{{ userName }}</div>
+                    <div style="font:400 11.5px var(--mono);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ userEmail }}</div>
+                  </div>
+                  <a href="Login.dc.html" style="flex:none;font:500 12px var(--sans)">Not you?</a>
+                </div>
+
+                <div style="margin-top:18px">
+                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Workspace</span>
+                  <sc-if value="{{ f.singleWorkspace }}">
+                    <div style="display:flex;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px">
+                      <span style="width:22px;height:22px;flex:none;border-radius:5px;background:var(--amber-btn);color:var(--on-amber);font:700 10px var(--mono);display:grid;place-items:center">{{ f.workspaceMark }}</span>
+                      <span style="font:500 13px var(--sans);color:var(--text)">{{ f.workspaceName }}</span>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ f.pickWorkspace }}">
+                    <div role="radiogroup" aria-label="Workspace" style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2)">
+                      <sc-for list="{{ f.workspaces }}" as="w" hint-placeholder-count="2">
+                        <button role="radio" aria-checked="{{ w.on }}" data-frame="{{ f.id }}" data-ws="{{ w.id }}" onClick="{{ pickWorkspace }}" style="{{ w.rowStyle }}" style-hover="background:var(--panel)">
+                          <span style="{{ w.dotStyle }}"></span>
+                          <span style="width:22px;height:22px;flex:none;border-radius:5px;background:var(--amber-btn);color:var(--on-amber);font:700 10px var(--mono);display:grid;place-items:center">{{ w.mark }}</span>
+                          <span style="min-width:0;flex:1">
+                            <span style="display:block;font:500 13px var(--sans);color:var(--text)">{{ w.name }}</span>
+                            <span style="display:block;font:400 11px var(--mono);color:var(--text3)">{{ w.note }}</span>
+                          </span>
+                        </button>
+                      </sc-for>
+                    </div>
+                    <span style="margin-top:6px;display:block;font:400 11px/1.5 var(--mono);color:var(--text3)">One workspace per connection. Connect again to add another.</span>
+                  </sc-if>
+                </div>
+
+                <div style="margin-top:18px">
+                  <span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">What it can read</span>
+                  <div style="border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2)">
+                    <sc-for list="{{ f.scopes }}" as="sc" hint-placeholder-count="5">
+                      <button role="checkbox" aria-checked="{{ sc.on }}" data-frame="{{ f.id }}" data-scope="{{ sc.code }}" onClick="{{ toggleScope }}" style="{{ sc.rowStyle }}" style-hover="background:var(--panel)">
+                        <span style="{{ sc.boxStyle }}"><sc-if value="{{ sc.on }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"></path></svg></sc-if></span>
+                        <span style="min-width:0;flex:1">
+                          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:6px"><span style="font:500 13px var(--sans);color:var(--text)">{{ sc.label }}</span><sc-if value="{{ sc.personal }}"><span style="border-radius:999px;padding:1px 7px;font:600 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--red-dim);color:var(--red)">Personal data</span></sc-if></span>
+                          <span style="margin-top:2px;display:block;font:400 11px/1.5 var(--mono);color:var(--text3)">{{ sc.note }}</span>
+                        </span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div style="margin-top:14px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel2);padding:10px 12px;font:400 11.5px/1.55 var(--mono);color:var(--text3)">Read-only: it can't add, change or delete anything. It reaches only the positions you can open today, and loses them when you do. Disconnect it any time in Settings → Connected AI apps.</div>
+
+                <div style="margin-top:20px;display:flex;gap:8px">
+                  <button data-frame="{{ f.id }}" onClick="{{ deny }}" style="flex:1;display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">Deny</button>
+                  <button data-frame="{{ f.id }}" onClick="{{ allow }}" disabled="{{ f.allowBlocked }}" style="{{ f.allowStyle }}">Allow</button>
+                </div>
+                <p style="margin:12px 0 0;text-align:center;font:400 11.5px var(--mono);color:var(--text3)">Either way you go back to {{ f.redirectHost }}.</p>
+              </sc-if>
+
+              <sc-if value="{{ f.isAllowed }}">
+                <div style="text-align:center">
+                  <span style="margin:0 auto;width:40px;height:40px;border-radius:999px;background:var(--green-dim);color:var(--green);display:grid;place-items:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"></path></svg></span>
+                  <h1 style="margin:16px 0 0;font:600 18px/28px var(--sans);color:var(--text)">{{ f.clientName }} is connected</h1>
+                  <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">It can now read {{ f.grantedSummary }} in {{ f.workspaceName }}. You can close this window.</p>
+                  <p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:var(--text3)">It appears in Settings → Connected AI apps, where you can disconnect it at any time.</p>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ f.isDenied }}">
+                <div style="text-align:center">
+                  <h1 style="margin:0;font:600 18px/28px var(--sans);color:var(--text)">Not connected</h1>
+                  <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">{{ f.clientName }} was told no and can read nothing. You can close this window.</p>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ f.isRefused }}">
+                <div style="text-align:center">
+                  <h1 style="margin:0;font:600 18px/28px var(--sans);color:var(--text)">AI apps are for your firm's staff</h1>
+                  <p style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--text2)">You're signed in as a client contact of {{ f.workspaceName }}, so {{ f.clientName }} can't connect on your behalf. The positions shared with you stay open in Uncava as usual.</p>
+                  <a href="Workspace.dc.html" style="margin-top:20px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2)">Back to Uncava</a>
+                </div>
+              </sc-if>
+
+              <sc-if value="{{ f.isError }}">
+                <div style="text-align:center">
+                  <h1 style="margin:0;font:600 18px/28px var(--sans);color:var(--text)">This connection can't go ahead</h1>
+                  <p role="alert" style="margin:8px 0 0;font-size:14px;line-height:1.625;color:var(--red)">{{ f.errorMessage }}</p>
+                  <p style="margin:14px 0 0;font-size:12px;line-height:1.5;color:var(--text3)">Nothing was shared, and you were not sent anywhere. Start the connection again from the app.</p>
+                </div>
+              </sc-if>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+
+</section>
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">AI</text></svg></template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;canvas&quot;,&quot;options&quot;:[&quot;canvas&quot;,&quot;consent&quot;,&quot;pick-workspace&quot;,&quot;unverified&quot;,&quot;allowed&quot;,&quot;denied&quot;,&quot;refused&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const screens = ['canvas', 'consent', 'pick-workspace', 'unverified', 'allowed', 'denied', 'refused', 'error'];
+    let screen = screens.indexOf(props.screen) >= 0 ? props.screen : 'canvas';
+    if (typeof location !== 'undefined') {
+      const q = new URLSearchParams(location.search).get('screen');
+      if (q && screens.indexOf(q) >= 0) screen = q;
+    }
+    this.user = { fullName: 'Yara Haddad', email: 'yara@alfuttaim.com', initials: 'YH' };
+    this.workspaces = [
+      { id: 'af', name: 'Al-Futtaim', mark: 'A', note: 'Admin · 14 positions' },
+      { id: 'meridian', name: 'Meridian Search Partners', mark: 'M', note: 'Member · 3 positions' },
+    ];
+    this.scopes = [
+      ['projects:read', 'Positions', 'Title, stage, type, dates and counts.'],
+      ['companies:read', 'Companies', 'Each position\'s companies: in universe, shortlisted and declined.'],
+      ['candidates:read', 'Executives', 'Each position\'s executives: profile, company and status.'],
+      ['candidates.contacts:read', 'Contact details', 'Their emails and phone numbers.', true],
+      ['candidates.compensation:read', 'Compensation', 'Their salary, bonus, allowances and incentives.', true],
+    ];
+    this.defaultScopes = ['projects:read', 'companies:read', 'candidates:read'];
+    this.clients = {
+      claude: { name: 'Claude', mark: 'C', host: 'claude.ai', redirect: 'claude.ai', verified: true },
+      chatgpt: { name: 'ChatGPT', mark: 'G', host: 'chatgpt.com', redirect: 'chatgpt.com', verified: true },
+      agent: { name: 'my-agent', mark: 'm', host: 'Registered itself on 5 Oct 2026', redirect: '127.0.0.1:33418', verified: false },
+    };
+    this.meta = [
+      { id: 'consent', label: 'Consent', caption: 'a known client, one workspace', client: 'claude', workspaces: 1 },
+      { id: 'pickWorkspace', label: 'Consent · pick a workspace', caption: 'a member of two workspaces', client: 'chatgpt', workspaces: 2 },
+      { id: 'unverified', label: 'Consent · unverified client', caption: 'registered through DCR', client: 'agent', workspaces: 1 },
+      { id: 'allowed', label: 'Allowed', caption: 'the code goes back to the client', client: 'claude', workspaces: 1, outcome: 'allowed' },
+      { id: 'denied', label: 'Denied', caption: 'access_denied goes back', client: 'claude', workspaces: 1, outcome: 'denied' },
+      { id: 'refused', label: 'Refused', caption: 'a pure client representative', client: 'claude', workspaces: 1, outcome: 'refused' },
+      { id: 'error', label: 'Error', caption: 'redirect_uri not registered', client: 'agent', workspaces: 1, outcome: 'error' },
+    ];
+    this.byScreen = { consent: 'consent', 'pick-workspace': 'pickWorkspace', unverified: 'unverified', allowed: 'allowed', denied: 'denied', refused: 'refused', error: 'error' };
+    const frames = {};
+    this.meta.forEach((m) => { frames[m.id] = { scopes: this.defaultScopes.slice(), wsId: 'af', outcome: m.outcome || null }; });
+    this.state = { dark: true, screen: screen, frames: frames };
+  }
+
+  componentDidMount() {
+    this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' });
+  }
+
+  patch(id, obj) {
+    this.setState((s) => ({ frames: Object.assign({}, s.frames, { [id]: Object.assign({}, s.frames[id], obj) }) }));
+  }
+
+  frameView(meta, isCanvas) {
+    const f = this.state.frames[meta.id];
+    const c = this.clients[meta.client];
+    const ws = this.workspaces.find((w) => w.id === f.wsId);
+    const allowBlocked = f.scopes.length === 0;
+    const pill = 'display:inline-flex;border-radius:999px;padding:1px 7px;font:600 9px var(--mono);letter-spacing:.06em;text-transform:uppercase;';
+    const granted = this.scopes.filter((s) => f.scopes.includes(s[0])).map((s) => s[1].toLowerCase());
+    return {
+      id: meta.id,
+      label: meta.label,
+      caption: meta.caption,
+      showCaption: isCanvas,
+      screenLabel: '/oauth/consent — ' + meta.label,
+      wrapStyle: isCanvas ? 'width:540px;flex:none' : 'width:100%',
+      frameStyle: isCanvas
+        ? 'min-height:560px;display:flex;align-items:flex-start;justify-content:center;padding:32px 24px;background:var(--bg);border:1px solid var(--line);border-radius:14px'
+        : 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;background:var(--bg)',
+      showAsk: !f.outcome,
+      isAllowed: f.outcome === 'allowed',
+      isDenied: f.outcome === 'denied',
+      isRefused: f.outcome === 'refused',
+      isError: f.outcome === 'error',
+      errorMessage: 'my-agent asked to send you back to an address it never registered.',
+      clientName: c.name,
+      clientMark: c.mark,
+      clientHost: c.host,
+      redirectHost: c.redirect,
+      unverified: !c.verified,
+      trustLabel: c.verified ? 'Verified' : 'Unverified',
+      trustPillStyle: pill + (c.verified ? 'background:var(--green-dim);color:var(--green)' : 'background:var(--warn-dim);color:var(--warn)'),
+      clientTileStyle: 'width:44px;height:44px;flex:none;border-radius:10px;display:grid;place-items:center;font:700 18px var(--sans);'
+        + (c.verified ? 'background:var(--panel2);border:1px solid var(--line);color:var(--text)' : 'background:var(--warn-dim);border:1px dashed var(--warn);color:var(--warn)'),
+      singleWorkspace: meta.workspaces === 1,
+      pickWorkspace: meta.workspaces > 1,
+      workspaceName: ws.name,
+      workspaceMark: ws.mark,
+      workspaces: this.workspaces.map((w, i) => {
+        const on = w.id === f.wsId;
+        return Object.assign({}, w, { on,
+          rowStyle: 'display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:10px 12px;background:none;border:none;cursor:pointer' + (i ? ';border-top:1px solid var(--line-soft)' : ''),
+          dotStyle: 'width:14px;height:14px;flex:none;border-radius:999px;' + (on ? 'border:4px solid var(--amber-btn);background:var(--panel)' : 'border:1px solid var(--line);background:var(--panel)') });
+      }),
+      scopes: this.scopes.map(([code, label, note, personal], i) => {
+        const on = f.scopes.includes(code);
+        return { code, label, note, personal: !!personal, on,
+          rowStyle: 'display:flex;width:100%;align-items:flex-start;gap:10px;text-align:left;padding:10px 12px;background:none;border:none;cursor:pointer' + (i ? ';border-top:1px solid var(--line-soft)' : ''),
+          boxStyle: 'margin-top:2px;display:grid;width:16px;height:16px;flex:none;place-items:center;border-radius:4px;color:var(--on-amber);' + (on ? 'background:var(--amber-btn);border:1px solid var(--amber-btn)' : 'background:var(--panel);border:1px solid var(--line)') };
+      }),
+      grantedSummary: granted.length > 1 ? granted.slice(0, -1).join(', ') + ' and ' + granted[granted.length - 1] : (granted[0] || 'nothing'),
+      allowBlocked,
+      allowStyle: 'flex:1;display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);' + (allowBlocked ? 'opacity:.45;cursor:not-allowed' : 'cursor:pointer'),
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const isCanvas = s.screen === 'canvas';
+    const meta = isCanvas ? this.meta : this.meta.filter((m) => m.id === this.byScreen[s.screen]);
+    const frameOf = (e) => e.currentTarget.dataset.frame;
+    return {
+      isCanvas: isCanvas,
+      sectionStyle: isCanvas ? 'padding:40px 44px 64px' : 'padding:0',
+      rowStyle: isCanvas ? 'display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start' : 'display:block',
+      stateCount: this.meta.length + ' states',
+      themeLabel: s.dark ? 'Light mode' : 'Dark mode',
+      frames: meta.map((m) => this.frameView(m, isCanvas)),
+      userName: this.user.fullName,
+      userEmail: this.user.email,
+      userInitials: this.user.initials,
+
+      toggleTheme: () => {
+        const d = !this.state.dark;
+        document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light');
+        try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {}
+        this.setState({ dark: d });
+      },
+      toggleScope: (e) => {
+        const id = frameOf(e);
+        const code = e.currentTarget.dataset.scope;
+        const cur = this.state.frames[id].scopes;
+        this.patch(id, { scopes: cur.includes(code) ? cur.filter((c) => c !== code) : cur.concat([code]) });
+      },
+      pickWorkspace: (e) => this.patch(frameOf(e), { wsId: e.currentTarget.dataset.ws }),
+      allow: (e) => {
+        const id = frameOf(e);
+        if (this.state.frames[id].scopes.length === 0) return;
+        this.patch(id, { outcome: 'allowed' });
+      },
+      deny: (e) => this.patch(frameOf(e), { outcome: 'denied' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

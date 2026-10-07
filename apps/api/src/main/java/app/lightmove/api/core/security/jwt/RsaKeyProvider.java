@@ -1,7 +1,4 @@
 package app.lightmove.api.core.security.jwt;
-import app.lightmove.api.core.security.token.Tokens;
-
-import app.lightmove.api.core.config.JwtSettings;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -23,8 +20,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
 /**
- * Supplies the RS256 keypair for access tokens. Development generates one into {@code .keys/};
- * production must supply {@code JWT_PRIVATE_KEY_LOCATION}, as a generated key differs per instance.
+ * Supplies an RS256 keypair: the session's, and the MCP authorization server's beside it. Development generates
+ * one into {@code .keys/}; production must supply its locations, as a generated key differs per instance.
  */
 @Slf4j
 public class RsaKeyProvider {
@@ -36,15 +33,15 @@ public class RsaKeyProvider {
     private final RSAPrivateKey privateKey;
 
     /** @param mayGenerate true only in dev and test */
-    public RsaKeyProvider(JwtSettings config, ResourceLoader resourceLoader,
+    public RsaKeyProvider(String privateKeyLocation, String publicKeyLocation, ResourceLoader resourceLoader,
                           boolean mayGenerate) {
-        Resource privateResource = resourceLoader.getResource(config.privateKeyLocation());
-        Resource publicResource = resourceLoader.getResource(config.publicKeyLocation());
+        Resource privateResource = resourceLoader.getResource(privateKeyLocation);
+        Resource publicResource = resourceLoader.getResource(publicKeyLocation);
 
         if (!privateResource.exists() || !publicResource.exists()) {
-            requireKeysOrGenerate(config, mayGenerate);
+            requireKeysOrGenerate(privateKeyLocation, publicKeyLocation, mayGenerate);
 
-            KeyPair generated = generateAndPersist(config);
+            KeyPair generated = generateAndPersist(privateKeyLocation, publicKeyLocation);
             this.publicKey = (RSAPublicKey) generated.getPublic();
             this.privateKey = (RSAPrivateKey) generated.getPrivate();
             return;
@@ -52,21 +49,22 @@ public class RsaKeyProvider {
 
         this.privateKey = readPrivateKey(privateResource);
         this.publicKey = readPublicKey(publicResource);
-        log.info("Loaded JWT signing keys from {}", config.privateKeyLocation());
+        log.info("Loaded JWT signing keys from {}", privateKeyLocation);
     }
 
     /** Outside development a missing key fails startup: a silent one signs everyone out at the next scale-out. */
-    private static void requireKeysOrGenerate(JwtSettings config, boolean mayGenerate) {
+    private static void requireKeysOrGenerate(String privateKeyLocation, String publicKeyLocation,
+                                              boolean mayGenerate) {
         if (!mayGenerate) {
             throw new IllegalStateException(
                     "No JWT signing keys at %s / %s. Refusing to generate a throwaway keypair outside "
-                            .formatted(config.privateKeyLocation(), config.publicKeyLocation())
+                            .formatted(privateKeyLocation, publicKeyLocation)
                             + "dev/test: it would be different on every instance and every restart, "
                             + "invalidating every token the moment this service scales or redeploys. "
-                            + "Point JWT_PRIVATE_KEY_LOCATION and JWT_PUBLIC_KEY_LOCATION at real keys.");
+                            + "Point the key's *_PRIVATE_KEY_LOCATION and *_PUBLIC_KEY_LOCATION at real keys.");
         }
         log.warn("No JWT keys found — generating a development keypair at {}. Never do this in production.",
-                config.privateKeyLocation());
+                privateKeyLocation);
     }
 
     public RSAPublicKey publicKey() {
@@ -77,14 +75,14 @@ public class RsaKeyProvider {
         return privateKey;
     }
 
-    private KeyPair generateAndPersist(JwtSettings config) {
+    private KeyPair generateAndPersist(String privateKeyLocation, String publicKeyLocation) {
         try {
             KeyPairGenerator generator = KeyPairGenerator.getInstance(ALGORITHM);
             generator.initialize(KEY_SIZE);
             KeyPair pair = generator.generateKeyPair();
 
-            Path privatePath = toWritablePath(config.privateKeyLocation());
-            Path publicPath = toWritablePath(config.publicKeyLocation());
+            Path privatePath = toWritablePath(privateKeyLocation);
+            Path publicPath = toWritablePath(publicKeyLocation);
 
             if (privatePath == null || publicPath == null) {
                 log.warn("JWT keys are not at a writable file: location — generated in memory. "
@@ -98,7 +96,7 @@ public class RsaKeyProvider {
             restrictToOwner(privatePath);
 
             log.warn("No JWT keypair found — generated one at {}. Development only: production must "
-                    + "supply keys via JWT_PRIVATE_KEY_LOCATION.", privatePath);
+                    + "supply its key locations.", privatePath);
             return pair;
 
         } catch (NoSuchAlgorithmException | IOException ex) {

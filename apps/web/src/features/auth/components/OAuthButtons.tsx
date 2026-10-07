@@ -5,10 +5,9 @@ import { Button } from "../../../components/ui";
 import { GoogleMark } from "../../../components/ui/BrandMarks";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
-import { homeFor } from "../homeFor";
 import { messageForOAuthError } from "../oauthErrors";
 import { startOAuthSignIn } from "../oauthPopup";
-import { takeReturnTo } from "../returnTo";
+import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**
  * The "Continue with …" buttons, one per identity provider the server has configured.
@@ -80,7 +79,7 @@ export function OAuthButtons({ onError }: OAuthButtonsProps) {
             // Same ordering the redirect callback uses: a provider sign-in may still land on an
             // invitee or an unfinished wizard, and homeFor is the one place that knows.
             const returnTo = takeReturnTo();
-            navigate(returnTo && user.workspace ? returnTo : homeFor(user), { replace: true });
+            navigate(landingAfterSignIn(user, returnTo), { replace: true });
           })();
         },
         onError: (code) => {

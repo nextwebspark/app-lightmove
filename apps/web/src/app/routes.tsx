@@ -7,6 +7,7 @@ import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import type { PlatformAction } from "../features/auth/api/types";
 import { homeFor } from "../features/auth/homeFor";
+import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
@@ -20,7 +21,10 @@ import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
 import { CandidatesPage } from "../features/candidates/pages/CandidatesPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
+import { MCP_GUIDE_PATH } from "../features/docs/lib/paths";
+import { McpGuidePage } from "../features/docs/pages/McpGuidePage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
+import { OAuthConsentPage } from "../features/oauth/pages/OAuthConsentPage";
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
 import BookingPage from "../features/outreach/pages/BookingPage";
 import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
@@ -30,6 +34,7 @@ import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
+import { SettingsAiAppsPage } from "../features/settings/pages/SettingsAiAppsPage";
 import { SettingsApiKeysPage } from "../features/settings/pages/SettingsApiKeysPage";
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
@@ -71,6 +76,11 @@ export function AppRoutes() {
       <Route path={MAILBOX_CALLBACK_PATH} element={<MailboxCallbackPage />} />
       {/* Public and unguarded: an executive opens their consultant's booking link from an email. */}
       <Route path="/book/:slug" element={<BookingPage />} />
+      {/* Where an AI app's authorize request lands. Unguarded: it shows the authorization server's error to anyone,
+          and sends a signed-out visitor to sign in with the request as the return-to. */}
+      <Route path="/oauth/consent" element={<OAuthConsentPage />} />
+      {/* Public: the guide to connecting an AI app, read before or without a session. */}
+      <Route path={MCP_GUIDE_PATH} element={<McpGuidePage />} />
 
       {/* Public, and unguarded on purpose: the invitee may have no account, an unverified one, or be
           signed in as somebody else entirely. The page reads its own state and says which. Guarding it
@@ -155,6 +165,7 @@ export function AppRoutes() {
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
+        <Route path="/settings/ai-apps" element={<RequireStaff><SettingsAiAppsPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />
@@ -189,9 +200,14 @@ function Booting() {
 
 function AnonymousOnly({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) return <Booting />;
-  if (user) return <Navigate to={homeFor(user)} replace />;
+  if (user) {
+    // Signing in sets the user before the sign-in's own navigation lands, so this guard renders first and must agree.
+    const returnTo = safeReturnTo((location.state as { from?: unknown } | null)?.from);
+    return <Navigate to={landingAfterSignIn(user, returnTo)} replace />;
+  }
 
   return <>{children}</>;
 }
