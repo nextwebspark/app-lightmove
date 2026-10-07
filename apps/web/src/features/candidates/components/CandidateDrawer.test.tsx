@@ -1094,6 +1094,8 @@ describe("CandidateDrawer", () => {
           phonesLookedUpAt: "2026-09-16T09:00:00Z",
           source: "contactout",
         }),
+        creditsSpent: 5,
+        creditsLeft: 45,
       });
       renderDrawer({ candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" }, company: null }, LiveDrawer);
       await openTab("Contact & outreach");

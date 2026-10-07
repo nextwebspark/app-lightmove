@@ -1,5 +1,7 @@
 package app.lightmove.api.billing.credit.repository;
 
+import app.lightmove.api.billing.credit.constant.CreditAction;
+import app.lightmove.api.billing.credit.constant.CreditHoldStatus;
 import app.lightmove.api.billing.credit.model.CreditHold;
 import java.time.Instant;
 import java.util.List;
@@ -13,6 +15,9 @@ public interface CreditHoldRepository extends JpaRepository<CreditHold, UUID> {
     Optional<CreditHold> findByWorkspaceIdAndIdempotencyKey(UUID workspaceId, String idempotencyKey);
 
     Optional<CreditHold> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    long countByWorkspaceIdAndPersonIdAndActionAndStatus(UUID workspaceId, UUID personId, CreditAction action,
+                                                         CreditHoldStatus status);
 
     @Query("""
             SELECT h FROM CreditHold h

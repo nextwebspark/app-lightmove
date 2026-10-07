@@ -920,6 +920,10 @@ workspace), `app_lm_credit_entry` (append-only by trigger, and by `harden.sql` l
 overdraft rather than refusing it. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
 never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
 releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
+A Find email or Find phone press (#737) holds its price before ContactOut is asked — keyed on the person, the channel
+and how many of their holds were released before (V119 indexes that count), so presses in flight together share one
+hold — captures it only on a find and releases it on a miss or a failure; the answer carries `creditsSpent` and
+`creditsLeft`.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

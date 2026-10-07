@@ -1,5 +1,6 @@
 package app.lightmove.api.billing.credit.service;
 
+import app.lightmove.api.billing.credit.constant.CreditAction;
 import app.lightmove.api.billing.credit.constant.CreditEntryKind;
 import app.lightmove.api.billing.credit.constant.CreditHoldStatus;
 import app.lightmove.api.billing.credit.model.CreditBalance;
@@ -139,6 +140,13 @@ public class CreditLedger {
         return balances.findById(workspaceId)
                 .map(balance -> new CreditBalanceSummary(balance.getAvailable() - lapsed, balance.getHeld()))
                 .orElse(new CreditBalanceSummary(0, 0));
+    }
+
+    /** Holds on one person's action that were given back unspent: a caller's attempt counter for its next key. */
+    @Transactional(readOnly = true)
+    public long releasedHoldsOf(UUID workspaceId, UUID personId, CreditAction action) {
+        return holds.countByWorkspaceIdAndPersonIdAndActionAndStatus(workspaceId, personId, action,
+                CreditHoldStatus.RELEASED);
     }
 
     private CreditBalance begin(UUID workspaceId) {

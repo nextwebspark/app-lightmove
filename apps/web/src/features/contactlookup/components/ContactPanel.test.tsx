@@ -257,7 +257,7 @@ describe("ContactPanel", () => {
   it("hands the answer back and toasts a miss", async () => {
     const onSaved = vi.fn();
     const answered = { ...hakan, contacts: { ...NONE, emailsLookedUpAt: "2026-09-16T17:55:24Z", source: "contactout" } };
-    vi.mocked(contactLookupApi.findEmail).mockResolvedValue({ outcome: "none", candidate: answered });
+    vi.mocked(contactLookupApi.findEmail).mockResolvedValue({ outcome: "none", candidate: answered, creditsSpent: 0, creditsLeft: 10 });
     renderPanel(hakan, { onSaved });
 
     await userEvent.click(screen.getByRole("button", { name: "Find email" }));
