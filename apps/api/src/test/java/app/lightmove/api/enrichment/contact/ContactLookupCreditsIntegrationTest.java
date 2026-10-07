@@ -134,6 +134,25 @@ class ContactLookupCreditsIntegrationTest extends ContactCreditsFlowSupport {
     }
 
     @Test
+    @DisplayName("a find whose hold a racing press released meanwhile is charged afresh, once")
+    void aFindWhoseHoldWasReleasedIsChargedAfresh() throws Exception {
+        grant(workspaceId, CreditGrantSource.MANUAL, 10, null);
+        String candidateId = executive("released-person");
+        finder.answerEmailsWith(EMAILS);
+        finder.whileAsked(() -> ledger.release(workspaceId, db.queryForObject(
+                "SELECT id FROM app_lm_credit_hold WHERE workspace_id = ? AND status = 'OPEN'", UUID.class,
+                workspaceId)));
+
+        JsonNode email = body(press(candidateId, "email").andExpect(status().isOk()).andReturn());
+
+        assertThat(email.get("creditsSpent").asLong()).isEqualTo(1);
+        assertThat(email.get("creditsLeft").asLong()).isEqualTo(9);
+        assertThat(holdsOf("RELEASED")).isEqualTo(1);
+        assertThat(holdsOf("CAPTURED")).isEqualTo(1);
+        assertLedgerAddsUp(workspaceId);
+    }
+
+    @Test
     @DisplayName("with enforcement off, a find the credits cannot cover is recorded as an overdraft")
     void anUncoveredFindIsAnOverdraft() throws Exception {
         String candidateId = executive("overdrawn-person");
