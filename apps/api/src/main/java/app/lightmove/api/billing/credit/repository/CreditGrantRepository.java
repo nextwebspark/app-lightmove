@@ -40,12 +40,13 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
               AND g.effectiveAt <= :now AND g.expiresAt > :now""")
     MonthlyCredits monthlyCreditsOf(UUID workspaceId, Instant now);
 
-    /** Workspaces on a live plan with credits to grant and no month's grant in force at {@code now}. */
+    /** Workspaces past {@code after} on a live plan with credits to grant and no month's grant in force now. */
     @Query(nativeQuery = true, value = """
             SELECT s.workspace_id
             FROM app_lm_workspace_subscription s
             JOIN app_lm_billing_plan p ON p.code = s.plan_code
-            WHERE s.status IN ('ACTIVE', 'TRIALING', 'INVOICED')
+            WHERE s.workspace_id > :after
+              AND s.status IN ('ACTIVE', 'TRIALING', 'INVOICED')
               AND CASE WHEN p.custom THEN coalesce(s.contact_credit_pool, 0)
                        ELSE s.seats * p.contact_credits_per_seat END > 0
               AND NOT EXISTS (SELECT 1 FROM app_lm_credit_grant g
@@ -54,7 +55,7 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
                                 AND g.effective_at <= :now AND g.expires_at > :now)
             ORDER BY s.workspace_id
             LIMIT :limit""")
-    List<UUID> findWorkspacesDueMonthlyCredits(Instant now, int limit);
+    List<UUID> findWorkspacesDueMonthlyCredits(Instant now, UUID after, int limit);
 
     Optional<CreditGrant> findByWorkspaceIdAndSourceAndExternalRef(UUID workspaceId, CreditGrantSource source,
                                                                    String externalRef);

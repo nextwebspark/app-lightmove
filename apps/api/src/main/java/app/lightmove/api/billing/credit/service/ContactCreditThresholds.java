@@ -5,7 +5,6 @@ import app.lightmove.api.billing.credit.model.ContactCreditThresholdCrossed;
 import app.lightmove.api.billing.credit.model.MonthlyCredits;
 import app.lightmove.api.billing.credit.repository.CreditGrantRepository;
 import app.lightmove.api.billing.plan.model.BillingMonth;
-import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -34,9 +33,7 @@ class ContactCreditThresholds {
         if (level == ContactCreditLevel.OK) {
             return;
         }
-        BillingMonth month = subscriptions.findByWorkspaceId(workspaceId)
-                .map(subscription -> subscription.monthContaining(now))
-                .orElseGet(() -> BillingMonth.containing(null, now));
+        BillingMonth month = BillingMonth.of(subscriptions.findByWorkspaceId(workspaceId).orElse(null), now);
         ContactCreditLevel announced = null;
         for (ContactCreditLevel threshold : ContactCreditLevel.values()) {
             if (threshold != ContactCreditLevel.OK && threshold.compareTo(level) <= 0

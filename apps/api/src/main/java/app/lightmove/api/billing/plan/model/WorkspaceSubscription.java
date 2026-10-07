@@ -81,10 +81,6 @@ public class WorkspaceSubscription extends BaseEntity {
         this.currentPeriodEnd = periodEnd;
     }
 
-    public BillingMonth monthContaining(Instant now) {
-        return BillingMonth.containing(currentPeriodStart, now);
-    }
-
     public long monthlyContactCredits(BillingPlan plan) {
         if (plan.isCustom()) {
             return contactCreditPool == null ? 0 : contactCreditPool;

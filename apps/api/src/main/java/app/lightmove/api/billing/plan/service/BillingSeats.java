@@ -30,8 +30,7 @@ public class BillingSeats {
                 .filter(subscribed -> subscribed > 0)
                 .map(Integer::longValue)
                 .orElseGet(() -> (long) access.activeStaff(workspaceId).size());
-        BillingMonth month = subscription.map(subscribed -> subscribed.monthContaining(now))
-                .orElseGet(() -> BillingMonth.containing(null, now));
+        BillingMonth month = BillingMonth.of(subscription.orElse(null), now);
         return new FairUseAllowance(Math.max(seats, 1), month.start(), month.end());
     }
 }

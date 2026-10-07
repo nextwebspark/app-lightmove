@@ -12,6 +12,11 @@ import java.time.temporal.ChronoUnit;
  */
 public record BillingMonth(Instant start, Instant end) {
 
+    /** @param subscription null for a workspace without one */
+    public static BillingMonth of(WorkspaceSubscription subscription, Instant now) {
+        return containing(subscription == null ? null : subscription.getCurrentPeriodStart(), now);
+    }
+
     public static BillingMonth containing(Instant anchor, Instant now) {
         ZonedDateTime at = now.atZone(ZoneOffset.UTC);
         ZonedDateTime from = anchor == null

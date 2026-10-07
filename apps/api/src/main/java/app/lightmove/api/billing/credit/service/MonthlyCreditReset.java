@@ -11,6 +11,7 @@ import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MonthlyCreditReset {
 
-    private static final int WORKSPACES_PER_RUN = 500;
+    private static final int WORKSPACES_PER_PAGE = 500;
+    private static final UUID FIRST = new UUID(0, 0);
 
     private final CreditGrantRepository grants;
     private final WorkspaceSubscriptionRepository subscriptions;
@@ -37,8 +39,9 @@ public class MonthlyCreditReset {
     private final CreditLedger ledger;
     private final Clock clock;
 
+    /** To the second: the period start Stripe sends has no finer part, and Postgres keeps only microseconds. */
     public static String grantKey(UUID workspaceId, Instant monthStart) {
-        return "plan:" + workspaceId + ":" + monthStart;
+        return "plan:" + workspaceId + ":" + monthStart.truncatedTo(ChronoUnit.SECONDS);
     }
 
     @Scheduled(cron = "${lightmove.billing.jobs.monthly-reset}", zone = "UTC")
@@ -46,17 +49,22 @@ public class MonthlyCreditReset {
         resetAt(clock.instant());
     }
 
-    /** @return how many workspaces were granted a month */
+    /** Pages past a workspace that fails, so one broken subscription never holds back the ones after it. */
     public int resetAt(Instant now) {
-        List<UUID> due = grants.findWorkspacesDueMonthlyCredits(now, WORKSPACES_PER_RUN);
         int granted = 0;
-        for (UUID workspaceId : due) {
-            try {
-                granted += grantMonth(workspaceId, now) ? 1 : 0;
-            } catch (RuntimeException failure) {
-                log.error("Could not grant the month's contact credits of workspace {}", workspaceId, failure);
+        UUID after = FIRST;
+        List<UUID> due;
+        do {
+            due = grants.findWorkspacesDueMonthlyCredits(now, after, WORKSPACES_PER_PAGE);
+            for (UUID workspaceId : due) {
+                try {
+                    granted += grantMonth(workspaceId, now) ? 1 : 0;
+                } catch (RuntimeException failure) {
+                    log.error("Could not grant the month's contact credits of workspace {}", workspaceId, failure);
+                }
+                after = workspaceId;
             }
-        }
+        } while (due.size() == WORKSPACES_PER_PAGE);
         if (granted > 0) {
             log.info("Granted the month's contact credits to {} workspaces", granted);
         }
@@ -70,7 +78,7 @@ public class MonthlyCreditReset {
         if (credits <= 0) {
             return false;
         }
-        BillingMonth month = subscription.monthContaining(now);
+        BillingMonth month = BillingMonth.of(subscription, now);
         return !ledger.grant(new CreditGrantCommand(workspaceId, CreditGrantSource.PLAN, credits, month.start(),
                 month.end(), BigDecimal.ZERO, grantKey(workspaceId, month.start()), null, null)).alreadyGranted();
     }

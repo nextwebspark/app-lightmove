@@ -40,21 +40,28 @@ public class CreditBalanceReconcile {
         if (!runs.claim(JOB, day.toString())) {
             return List.of();
         }
-        List<CreditBalanceDrift> drifts = drifts();
-        for (CreditBalanceDrift drift : drifts) {
-            log.error("Credit balance drift in workspace {}: cached {} available, {} held; ledger {} available, "
-                            + "{} held; grants {} remaining", drift.workspaceId(), drift.available(), drift.held(),
-                    drift.ledgerAvailable(), drift.ledgerHeld(), drift.grantsRemaining());
-            audit.event(WorkspaceEventType.CREDIT_BALANCE_DRIFT).workspace(drift.workspaceId())
-                    .target("workspace", drift.workspaceId())
-                    .detail("available", drift.available())
-                    .detail("held", drift.held())
-                    .detail("ledgerAvailable", drift.ledgerAvailable())
-                    .detail("ledgerHeld", drift.ledgerHeld())
-                    .detail("grantsRemaining", drift.grantsRemaining())
-                    .record();
+        try {
+            List<CreditBalanceDrift> drifts = drifts();
+            drifts.forEach(this::report);
+            return drifts;
+        } catch (RuntimeException failure) {
+            runs.giveBack(JOB, day.toString());
+            throw failure;
         }
-        return drifts;
+    }
+
+    private void report(CreditBalanceDrift drift) {
+        log.error("Credit balance drift in workspace {}: cached {} available, {} held; ledger {} available, "
+                        + "{} held; grants {} remaining", drift.workspaceId(), drift.available(), drift.held(),
+                drift.ledgerAvailable(), drift.ledgerHeld(), drift.grantsRemaining());
+        audit.event(WorkspaceEventType.CREDIT_BALANCE_DRIFT).workspace(drift.workspaceId())
+                .target("workspace", drift.workspaceId())
+                .detail("available", drift.available())
+                .detail("held", drift.held())
+                .detail("ledgerAvailable", drift.ledgerAvailable())
+                .detail("ledgerHeld", drift.ledgerHeld())
+                .detail("grantsRemaining", drift.grantsRemaining())
+                .record();
     }
 
     public List<CreditBalanceDrift> drifts() {
