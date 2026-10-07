@@ -135,6 +135,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(db.queryForObject("select count(*) from app_lm_audit_event where target_id = ? and event_type in "
                 + "('EXECUTIVE_SOURCING_REQUESTED', 'EXECUTIVE_SOURCING_COMPLETED')", Integer.class, projectId))
                 .isEqualTo(2);
+        assertThat(db.queryForList("select units from app_lm_usage_event where project_id = ?::uuid and kind = ?",
+                Integer.class, projectId, "SOURCING_RUN")).as("the executives filed, once per run").containsExactly(3);
 
         mvc.perform(get(sourcingUrl(projectId) + "/latest").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
@@ -158,6 +160,30 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         JsonNode outcome = outcomeFor(runOf(projectId, runId).get("outcomes"), dpWorld);
         assertThat(outcome.get("picks")).extracting(pick -> pick.get("name").asText())
                 .containsExactly("The CFO", "Head of Finance", "Finance Director");
+    }
+
+    @Test
+    @DisplayName("a run that would pass the month's fair-use ceiling is refused before anything is searched or queued")
+    void aRunPastTheFairUseCeilingIsRefused() throws Exception {
+        String projectId = mandate("Fair Use Firm");
+        company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        db.update("""
+                insert into app_lm_usage_event (workspace_id, project_id, kind, units, est_cost_fils)
+                select workspace_id, id, 'SOURCING_RUN', 2000, 0 from app_lm_project where id = ?::uuid""", projectId);
+
+        JsonNode refusal = body(mvc.perform(post(sourcingUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"triageCompanyIds\":[]}"))
+                .andExpect(status().isTooManyRequests())
+                .andReturn());
+
+        assertThat(refusal.get("code").asText()).isEqualTo("FAIR_USE_REACHED");
+        assertThat(refusal.get("kind").asText()).isEqualTo("SOURCING_RUN");
+        assertThat(refusal.get("resetsAt").isNull()).isFalse();
+        assertThat(peopleSearch.searches()).isEmpty();
+        assertThat(db.queryForObject("select count(*) from app_lm_executive_sourcing_run where project_id = ?::uuid",
+                Integer.class, projectId)).isZero();
     }
 
     @Test

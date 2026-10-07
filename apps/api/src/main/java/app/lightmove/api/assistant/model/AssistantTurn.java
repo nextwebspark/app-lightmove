@@ -42,12 +42,21 @@ public class AssistantTurn extends BaseEntity {
     @Column(name = "steps", nullable = false, updatable = false)
     private List<AssistantStep> steps = List.of();
 
+    @Column(name = "model", updatable = false, length = 64)
+    private String model;
+
+    @Column(name = "input_tokens", updatable = false)
+    private Integer inputTokens;
+
+    @Column(name = "output_tokens", updatable = false)
+    private Integer outputTokens;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "proposal_accepted")
     private ProposalOutcome proposalAccepted;
 
     public static AssistantTurn answered(AssistantThread thread, String question, String answer,
-                                         List<AssistantStep> steps, AssistantProposal proposal) {
+                                         List<AssistantStep> steps, AssistantProposal proposal, ModelSpend spend) {
         AssistantTurn turn = new AssistantTurn();
         turn.threadId = thread.getId();
         turn.actorUserId = thread.getUserId();
@@ -56,6 +65,9 @@ public class AssistantTurn extends BaseEntity {
         turn.answer = answer;
         turn.steps = List.copyOf(steps);
         turn.proposal = proposal;
+        turn.model = spend.model();
+        turn.inputTokens = spend.inputTokens();
+        turn.outputTokens = spend.outputTokens();
         return turn;
     }
 

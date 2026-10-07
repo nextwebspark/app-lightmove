@@ -391,6 +391,10 @@ public enum ErrorCode {
     /** A paid action the workspace's credits cannot cover; the body carries {@code required}, {@code available} and {@code resetsAt}. */
     INSUFFICIENT_CREDITS(HttpStatus.PAYMENT_REQUIRED, "Your workspace is out of contact credits"),
 
+    /** Search or AI past the workspace's monthly fair-use ceiling; the body carries {@code kind} and {@code resetsAt}. */
+    FAIR_USE_REACHED(HttpStatus.TOO_MANY_REQUESTS,
+            "Your workspace has reached this month's fair-use limit for this feature"),
+
     CREDIT_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "That credit hold does not exist"),
 
     /** A capture of a released hold, or a release or refund of one already settled the other way. */
