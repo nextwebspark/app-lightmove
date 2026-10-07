@@ -29,5 +29,6 @@ public record LightMoveProperties(
         CredentialEncryptionSettings crypto,
         RecallSettings recall,
         PublicApiSettings publicApi,
-        McpSettings mcp
+        McpSettings mcp,
+        BillingSettings billing
 ) {}
