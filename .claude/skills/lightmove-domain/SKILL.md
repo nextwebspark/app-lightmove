@@ -236,6 +236,90 @@ audit line (`PUBLIC_API_READ`) naming the key — data leaving through a key is 
 suffix; only SHA-256 is persisted, and the SPA holds the secret in component state while its dialog is open —
 never a query or mutation cache, never storage.
 
+## An AI app connects through OAuth, for one user in one workspace
+
+**The MCP authorization server is Spring's, extended only where the standards need it** (`core/security/oauth`).
+Three gaps were closed by hand, each for a reason: Spring 7.1 issues a public client no refresh token unless it
+proves possession with DPoP, which no MCP client does (`RotatingRefreshTokenGenerator`,
+`PublicClientRefreshAuthentication`); it neither requires RFC 8707's `resource` nor sends RFC 9207's `iss`
+(`McpAuthorizationRules`, `ResourceBoundTokenRequests`, `AuthorizationEndpointReplies`); and its JDBC services keep
+every token raw under fixed `oauth2_*` names (`HashingAuthorizationService`, our tables, hashes only).
+
+**A grant is per workspace, so consent is per grant.** The workspace is chosen on the consent screen and travels
+as the stored request's `workspace_id`; the token carries it as `wsId` and the MCP server takes the tenant from
+there and nowhere else. The framework's consent store adds back every scope an earlier consent of the same user to
+the same client held — it would re-grant contacts the user had just unticked — so `PerGrantConsentService`
+remembers nothing and every connection asks again. Eligibility is staff, read as `API_KEY_MANAGE` like a personal
+key's, checked when the request is stored and again at consent: a membership can end in between.
+
+**The session's token is read early on that chain, and as a bare user id.** The framework validates an authorize
+request before the resource server's filter would run and keeps whatever principal it found, so the session bearer
+is read by a filter placed ahead of it. The principal is then stored inside the grant through Spring's Jackson
+allowlist, which is why it is a plain `UsernamePasswordAuthenticationToken` of the user id — and why anything put in
+a token's claims must be an allowlisted type (`ArrayList`, never `List.of`): the claims are stored too, and a refusal
+to read them back fails every refresh.
+
+**A refresh token rotates, and a replayed one is theft.** As with the session's family, a rotated-away refresh
+token presented again deletes the grant, so the thief's copy and the client's newer token stop together; the
+deletion commits before the refusal is thrown. Two requests racing on one refresh token or one code are
+caught too: every grant read carries the hashes it held, and `save()` refuses (`invalid_grant`) under the row lock
+when the row has moved on or gone, so one token is never redeemed twice and a revoked grant is never written back.
+Budgets on the token endpoint are per address, the client's included: a public client's id is shared and secretless,
+and a budget on the id alone let any stranger refuse every user of that app. Removing a member or deleting a workspace deletes its grants in the
+same transaction, beside the API keys. A changed or reset password ends every grant the account holds, in every workspace,
+as it ends every session — unlike an API key, which a person makes deliberately and can see in a list, a grant
+can be made in one click by whoever held the session, so a takeover's grant must not outlive the takeover.
+
+**A client introduces itself, and is believed only as far as its host.** MCP clients connect with no signup, two
+ways. A dynamic registration (RFC 7591, Spring's endpoint with its validator and converter replaced) is open to anyone
+— that is its purpose — so it is public, secretless, budgeted per address, pruned once unconnected, and **never shown
+as verified**, whatever name it gives. A client id metadata document is the client's own URL serving its own
+description; a document under a URL prefix we list is shown as verified — a prefix, never a bare host, because other
+paths on the same host may serve what its users upload. Fetching it means our
+server requests a URL a stranger typed, from inside our network: the fetch resolves the host and refuses it if **any**
+address is not public, then dials exactly the addresses it checked (a DNS answer that changes between check and
+connect cannot slip a private one past), follows no redirect, reads 5 KB and stops at one 5-second deadline for the whole
+exchange — a host trickling a byte at a time is cut off there, not at each read, and a body past the cap is aborted
+rather than drained, so an endless one is refused as too large, never mistaken for an outage. A document whose `client_id` is not the
+URL it came from is refused. Its copy is kept for its `Cache-Control` lifetime; while the host is down a copy under a
+day old keeps serving, so an outage there breaks no one's refresh, but a document that now fails our rules is refused at
+once. One caller fetches a document at a time and a failure is not retried for five minutes, so a host that is down
+costs one request its deadline, not every request. Revocation is answered from clients on file only, never a fetch, so
+the one endpoint needing no proof cannot be made to request URLs. Redirects match exactly, but a listener on this machine may change port (RFC 8252): `localhost` is allowed beside
+the IP literals because the command-line clients register it, and a private-use scheme (`cursor://`) is not, because any
+installed app can claim one. A client revokes a token of its own grant with its id alone (RFC 7009 §2.1), and the whole
+grant ends; the framework's own revocation reads tokens back by value, which a hashed store never holds.
+
+**The MCP server takes two credentials and no third.** An AI client's access token, or an API key its owner opted in
+with `mcp:use` — a scope that reads nothing, so a key made for a BI tool never quietly becomes an AI connection, and
+existing keys do not have it. They are told apart by shape (a key's prefix and checksum), and a session token is
+neither, so it is refused as a stranger's would be. An access token alone is not enough: its grant is re-read every call
+(revoked from Settings, ended with a membership, a password change) and so is its user's staff access, as a personal
+key's owner is, so a disconnected app stops at once rather than when its hour runs out. The caller rides the MCP
+transport context to the tool, never a thread-local, because a tool may run off the request's thread; and the tool calls
+our services in-process — no caller's token is ever forwarded anywhere. A browser page on another site is refused by
+`Origin`, twice: by the endpoint's own CORS policy (bearer only, no credentials) and by the transport. Calls are
+budgeted per grant or key, never per address: claude.ai and ChatGPT call from their own shared egress, so an address
+budget on calls lets one tenant's agent loop refuse every other tenant of that client; an address spends a budget only
+on refused credentials, which is where a guesser is. Only `@McpTool` beans are tools — the converter that would publish
+every `ToolCallback` bean is excluded outright, so a tool written for the assistant can never reach a stranger.
+A tool reads as the public API does — a `PublicReader`, `WORK_VIEW` per position for anyone but a workspace key — and a
+scope it lacks is answered by what the credential can do about it: an OAuth token is stepped up (403
+`insufficient_scope`, naming the scopes, so its client can ask for them), a key is told in a result, since only its
+owner can change it. A tool's failure never reaches the model as an exception's message: `ApiException`'s message is the
+internal detail, so every failure is a `McpToolRefusal` with a fixed sentence, and an unreadable position is one
+sentence whether it is another workspace's or one the caller has no seat on, so a guess learns nothing.
+
+**The two tokens never cross.** An MCP token is signed by its own key, has the MCP endpoint as `aud` and the
+deployment origin as `iss`; the session decoder checks `iss=lightmove` and refuses any `aud`. Either check alone
+would do; both are there so that a key ever shared by mistake still opens nothing.
+
+**The MCP keypair is its own secret, and a deployment turns the server on deliberately.** `MCP_ENABLED` defaults to
+off everywhere but `npm run dev`; turned on in `deploy.yml` it mounts `lightmove-mcp-jwt-*` beside the session's pair,
+never instead of it. Replacing the MCP key refuses every access token at once and costs nothing else (refresh tokens
+are hashes, not signatures); replacing the session key would sign everyone out. The guide users read is
+`docs/mcp.md`, drawn at `/docs/mcp`: a change to what a client must do to connect belongs in it, in the same PR.
+
 ## An identity provider is configuration, not code
 
 Adding Google, LinkedIn, or anything else that speaks OIDC is a `spring.security.oauth2.client`

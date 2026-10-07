@@ -32,10 +32,6 @@ export interface WorkspaceSummary {
   joinedAt: string | null;
   /** The universe company the firm was picked as at signup; null for one typed in by hand. */
   company: WorkspaceCompany | null;
-  /** Signup's description of the firm, so going back to that step shows what was saved. */
-  companySize: string | null;
-  primaryRegion: string | null;
-  teamFocus: string | null;
 }
 
 export interface WorkspaceCompany {
@@ -158,9 +154,6 @@ export interface CreateWorkspaceRequest {
   mode: WorkspaceMode;
   /** The universe company picked; null for a firm typed in by hand. The server files it under its own name. */
   apolloAccountId: string | null;
-  companySize: string;
-  primaryRegion: string;
-  teamFocus: string;
 }
 
 export interface InviteRequest {

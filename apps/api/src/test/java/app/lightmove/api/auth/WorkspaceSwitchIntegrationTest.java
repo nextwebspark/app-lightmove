@@ -315,8 +315,7 @@ class WorkspaceSwitchIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + bearerToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"COMPANY","name":"%s","companySize":"11-50 people","primaryRegion":"GCC",
-                                 "teamFocus":"Executive search"}
+                                {"mode":"COMPANY","name":"%s"}
                                 """.formatted(name)))
                 .andExpect(status().isCreated())
                 .andReturn();

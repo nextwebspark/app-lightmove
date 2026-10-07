@@ -225,8 +225,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + unverified)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"COMPANY","name":"Held Firm","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
+                                {"mode":"COMPANY","name":"Held Firm"}
                                 """))
                 .andExpect(status().isForbidden());
 
@@ -240,8 +239,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + login(email))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"mode":"COMPANY","name":"Held Firm","companySize":"11-50 people",
-                                 "primaryRegion":"GCC","teamFocus":"Executive search"}
+                                {"mode":"COMPANY","name":"Held Firm"}
                                 """))
                 .andExpect(status().isCreated());
 

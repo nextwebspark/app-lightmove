@@ -103,6 +103,31 @@ describe("SettingsApiKeysPage", () => {
     expect(JSON.stringify({ ...sessionStorage })).not.toContain(SECRET);
   });
 
+  it("opts a key in to MCP with mcp:use, off by default, and never makes one that reads nothing", async () => {
+    vi.mocked(apiKeysApi.createApiKey).mockResolvedValue({ key: aKey(), secret: SECRET });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Create key" }));
+    const dialog = screen.getByRole("dialog");
+    await userEvent.type(within(dialog).getByPlaceholderText("e.g. Power BI dashboard"), "Claude Code");
+    const mcp = within(dialog).getByRole("checkbox", { name: /mcp:use/ });
+    expect(mcp).toHaveAttribute("aria-checked", "false");
+
+    await userEvent.click(mcp);
+    for (const scope of ["projects:read", "companies:read", "candidates:read"]) {
+      await userEvent.click(within(dialog).getByRole("checkbox", { name: new RegExp(`^${scope}`) }));
+    }
+    expect(within(dialog).getByRole("button", { name: "Create key" })).toBeDisabled();
+
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: /^projects:read/ }));
+    expect(within(dialog).getByText(/An AI agent holding it reads the same/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Create key" }));
+
+    expect(apiKeysApi.createApiKey).toHaveBeenCalledWith(
+      expect.objectContaining({ scopes: ["projects:read", "mcp:use"] }),
+    );
+  });
+
   it("offers an admin the workspace kind and the All keys view", async () => {
     vi.mocked(apiKeysApi.createApiKey).mockResolvedValue({ key: aKey({ kind: "SERVICE" }), secret: SECRET });
     renderPage();

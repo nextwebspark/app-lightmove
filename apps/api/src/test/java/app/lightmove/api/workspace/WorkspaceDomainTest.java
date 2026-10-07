@@ -65,8 +65,7 @@ class WorkspaceDomainTest {
     @DisplayName("deleting a workspace is final")
     void workspaceDeleteIsFinal() {
         Workspace workspace = Workspace.create(
-                "Acme Search", "acme-search", "acme.example", someone, WorkspaceMode.COMPANY,
-                null, null, null, null);
+                "Acme Search", "acme-search", "acme.example", someone, WorkspaceMode.COMPANY, null);
 
         workspace.delete();
 

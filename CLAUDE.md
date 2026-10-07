@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi` |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp` |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -583,6 +583,72 @@ change to what integrations see is reviewed in its PR. `pairing` is the one plac
 paired with their executives — the talent map, the export and the public universe read all go through
 `StagePairingService`.
 
+The **MCP server** (epic #699) starts with its **OAuth 2.1 authorization server** (#701, `core/security/oauth`):
+Spring Security's own, its endpoints moved under `/api/v1/oauth/**` (`/oauth2/**` is the sign-in providers') with
+RFC 8414 metadata at `/.well-known/oauth-authorization-server`, behind `MCP_ENABLED` (off: all of it a 404). Clients
+are public only — PKCE S256, the code and refresh grants — and every request must name the MCP endpoint as its
+`resource` (RFC 8707), which becomes the token's `aud`. An unsigned-in authorize request lands on the SPA's
+`/oauth/consent`, which signs in, offers the caller's staff workspaces (`API_KEY_MANAGE`, so never a pure client)
+and posts the request and then its consent with the session's bearer, answered as JSON (`redirectUri`, carrying
+RFC 9207 `iss`). A **grant** (V115 `app_lm_oauth_authorization`) is one user × one client × one workspace, every
+token in it stored as SHA-256 only (`HashingAuthorizationService`), consent asked every time and never remembered
+(`PerGrantConsentService`), the access token an RS256 JWT on its **own key** (`McpTokenKeys`, `kid` `mcp-…`) with
+`sub`, `wsId`, `scope`, `client_id` and `grant_id` and no roles, and the refresh token rotated on every use — a
+rotated one replayed deletes the grant. Settings → Connected AI apps (`/settings/ai-apps`, staff, #707) reads
+`/api/v1/workspace/oauth-grants` (`API_KEY_MANAGE`, `?all=true` under `WORKSPACE_MANAGE`, as API keys): the MCP server
+URL to copy, one row per grant drawn with the consent screen's `ClientMark`, its last use stamped by every MCP call at
+most once a minute, and Disconnect. API keys offer the `mcp:use` tick, off by default and never alone. A grant ends with
+its membership or workspace, as a personal key does, and every grant of an account ends with a password change or reset.
+A client is never signed up by hand (#702): it registers itself through Spring's RFC 7591 endpoint
+(`POST /api/v1/oauth/register`, open, 10 an hour per address, public clients only, pruned after 30 days unconnected), or
+its `client_id` is the https URL of its own **metadata document** (CIMD), fetched by `HttpClientMetadataFetcher` — a
+public address only, checked on the addresses the connection dials, no redirect, 5 KB, 5 s — and kept as a row for its
+`Cache-Control` lifetime (`ClientMetadataDocumentClients`: one fetch at a time per document, a failed one not retried
+for 5 minutes, a stale copy serving meanwhile). A redirect URI matches exactly, except a listener on this machine
+(`127.0.0.1`, `[::1]`, `localhost`) whose port may change; a private-use scheme is refused. The consent screen calls only
+a document under a listed URL prefix (`lightmove.mcp.verified-client-id-prefixes`) verified — a registration never is.
+A client revokes its own grant at `/api/v1/oauth/revoke` (RFC 7009) with its id alone, budgeted per address, and that
+path never fetches a document.
+The **MCP server** itself (#703, `mcp`) is Spring AI's stateless Streamable HTTP transport at `/api/v1/mcp` behind its
+own resource-server chain (`McpServerConfig`), which tells two credentials apart by shape: an access token from our
+authorization server (the MCP key, our issuer, the MCP endpoint as `aud`, its grant still live and its user still staff,
+re-read every call) or an API key holding the opt-in `mcp:use` (V117), which reads nothing by itself. A session token is
+neither and opens nothing; tools call services in-process, never passing a caller's token on. Either becomes one
+`McpCaller` in the MCP transport context, which every tool reads and runs through `McpToolCalls` — one `MCP_TOOL_CALL`
+audit line per call, never its arguments. RFC 9728 metadata is Spring Security's own at
+`/.well-known/oauth-protected-resource[/api/v1/mcp]`, and a 401 points at it. A browser `Origin` not on
+`lightmove.mcp.allowed-origins` (the deployment's own is always on it) is refused, by the endpoint's own CORS policy and
+by the transport; bodies are capped (read and replayed, so a body with no declared length is held too), calls are
+budgeted per grant or key, and an address only on its refused credentials — hosted clients call from shared egress, so
+an address budget on calls would let one tenant refuse the rest. Only `@McpTool` beans are served: Spring AI's
+`StatelessToolCallbackConverterAutoConfiguration`, which would publish every `ToolCallback` bean, is excluded on
+`LightMoveApplication`, and so is Spring AI's own tool list: `McpServerConfig` builds it from the same `@McpTool` beans
+with every tool behind `McpToolGuard`. The parity tools (#704) are `uncava_whoami`, `uncava_search_positions`,
+`uncava_get_position`, `uncava_list_companies`, `uncava_list_candidates` and `uncava_get_universe`; the task-shaped
+ones (#705) — `uncava_get_position_summary`, `uncava_get_candidate`, `uncava_get_company` and
+`uncava_search_candidates` (a name, title or employer, held to a stage's companies) — each have a public REST twin
+(`…/summary`, `…/candidates/{id}`, `…/companies/{id}`, `…/candidates?q=&stage=`) over the same read. Every one reads through
+`PublicReadService` and the public DTOs — so REST's field rules hold, contacts and compensation with their own scopes —
+as a `PublicReader` (`core/security/apikey`, a key or a connection alike; a personal one reads only positions its user
+holds `WORK_VIEW` on, through `PublicApiAuthorizer.requireProjectRead`). A tool's scopes are its `@McpToolScopes`,
+required on every tool (`{}` for none) and read at boot under the name the SDK gives it, so a tool without one, or two
+under one name, fails the start rather than being served unchecked (`McpToolRegistry`): an OAuth token lacking one is answered 403 `insufficient_scope` naming them (`McpScopeStepUpFilter`, the spec's step-up)
+and a key, which cannot step up, with an `isError` result naming them. Every failure leaves as a `McpToolRefusal` — an
+`McpError`, the one exception Spring AI's callback does not turn into a result quoting its message, which for an
+`ApiException` is the internal detail — carrying a fixed sentence; a foreign position and one without a seat read alike.
+Each tool declares an output schema and answers `structuredContent`, which the SDK validates and copies as text (a
+nullable enum is given null by `McpToolRegistry`, since the generator leaves it out). Rows are concise, or carry the
+whole public record as `detail` under `response_format=detailed`; lists page by an opaque offset `cursor`, and a page
+past `lightmove.mcp.max-result-chars` (about 25k tokens) is cut with a `notice` and reads on from its first left-out
+row. What clients are told is `docs/mcp/tools.json`, which `McpToolContractTest` regenerates and diffs.
+**Shipping it (#708)**: `docs/mcp.md` is the user's guide — connecting Claude, ChatGPT, Cursor and the APIs, the tools,
+scopes, limits and errors — and the SPA draws it, public, at `/docs/mcp` (`features/docs`, its maintainers' section cut
+and its URLs put on the page's own origin; the Dockerfile copies that one file in), linked from Settings → Connected AI
+apps. Cursor connects by key: its OAuth return is a `cursor://` link, which is refused. `deploy.yml`'s `MCP_ENABLED`
+mounts the MCP keypair (`lightmove-mcp-jwt-private-key` / `-public-key`, made by hand as `ops/gcp/bootstrap.sh` says)
+and smoke-tests the 401 and both metadata documents. `ops/eval/mcp` asks Claude Code the questions in its
+`cases.json` against a local stack and reports the tools it chose (`docs/eval/mcp-eval.md`); it never gates a build.
+
 ## Commands
 
 ```bash
@@ -642,7 +708,9 @@ its area — the invariants below are the summary; the skills hold the rationale
 - **An identity provider is a yml block** — never branch on a provider name anywhere.
 - **Tokens are never stored raw** (SHA-256); the refresh cookie rotates on every use; the access token lives in JS memory only.
 - **The SPA and API are one origin**; every endpoint lives under `/api/v1`. Don't split hosts.
-- **An API key reaches only `/api/v1/public/**`**, read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens no public route.
+- **An MCP token's `aud` is the MCP endpoint and it is signed by its own key**; the session decoder checks our issuer and refuses any token carrying an `aud`, so neither token opens the other's routes.
+- **No token passthrough:** an MCP tool calls our services in-process as its `McpCaller`; a caller's token is never forwarded to another service, ours or a provider's.
+- **An API key reaches only `/api/v1/public/**`**, and `/api/v1/mcp` once it holds `mcp:use`; read-only, and never more than its scopes ∩ its owner's live permissions — re-read every call; a session token opens neither.
 - **Auth errors are deliberately vague** — one sentence, one timing, for every password-login failure.
 
 ## Database
@@ -834,6 +902,14 @@ was already sent for.
 V114 adds `app_lm_api_key` — the public API's keys: kind (`PERSONAL` with an owner, `SERVICE` without, by CHECK),
 `token_hash` (SHA-256, unique) and a `token_hint` a list can show, scopes as a jsonb array held to the five tokens
 by CHECK, expiry, last use and revocation (`REVOKED | MEMBER_REMOVED | WORKSPACE_DELETED`).
+V115 adds the MCP authorization server's tables: `app_lm_oauth_client` (public clients; redirect URIs and the most
+it may ask for, held to the five scopes by CHECK; `source` `SEEDED | DCR | CIMD`), `app_lm_oauth_authorization` (one
+grant: client, user, workspace — null only while waiting for consent — and the state, code, access and refresh
+token as SHA-256 hashes, unique each) and `app_lm_oauth_retired_refresh_token` (rotated-away refresh hashes, the
+replay check). Deleting a grant row is revoking it.
+V116 gives `app_lm_oauth_client` `last_authorized_at` (stamped at consent; the purge's clock for an unused registration)
+and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `metadata_expires_at`.
+V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

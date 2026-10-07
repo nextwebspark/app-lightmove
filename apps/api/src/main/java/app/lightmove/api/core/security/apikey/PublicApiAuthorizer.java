@@ -33,12 +33,17 @@ public class PublicApiAuthorizer {
         for (String scope : scopes) {
             requireScope(key, ApiKeyScope.valueOf(scope));
         }
-        if (key.kind() == ApiKeyKind.SERVICE) {
-            projects.requireInWorkspace(projectId, key.workspaceId());
-        } else {
-            projectAccess.requireAction(key.ownerUserId(), key.workspaceId(), projectId, ProjectAction.WORK_VIEW);
-        }
+        requireProjectRead(PublicReader.of(key), projectId);
         return true;
+    }
+
+    /** The position alone, for a reader whose scopes were already checked. */
+    public void requireProjectRead(PublicReader reader, UUID projectId) {
+        if (reader.readsWholeWorkspace()) {
+            projects.requireInWorkspace(projectId, reader.workspaceId());
+        } else {
+            projectAccess.requireAction(reader.userId(), reader.workspaceId(), projectId, ProjectAction.WORK_VIEW);
+        }
     }
 
     private static void requireScope(ApiKeyPrincipal key, ApiKeyScope scope) {

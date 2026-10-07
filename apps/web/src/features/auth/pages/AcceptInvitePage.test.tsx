@@ -90,9 +90,6 @@ describe("AcceptInvitePage", () => {
           emailDomain: "nextwebspark.com",
           joinedAt: null,
           company: null,
-          companySize: null,
-          primaryRegion: null,
-          teamFocus: null,
           roles: ["MEMBER"],
         },
       },
@@ -210,9 +207,6 @@ describe("AcceptInvitePage", () => {
       roles: ["MEMBER" as const],
       joinedAt: "2026-03-14T09:00:00Z",
       company: null,
-      companySize: null,
-      primaryRegion: null,
-      teamFocus: null,
     };
     const sara = {
       id: "u3",

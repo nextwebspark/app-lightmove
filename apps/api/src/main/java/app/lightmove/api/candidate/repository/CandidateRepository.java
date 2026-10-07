@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.MappedProfile;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
+import app.lightmove.api.candidate.model.CandidateStatusCount;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.Collection;
@@ -63,6 +64,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             + "and c.status in :statuses group by c.projectId")
     List<CandidateCount> countByProjectIdInAndStatusIn(Collection<UUID> projectIds,
                                                        Collection<CandidateStatus> statuses);
+
+    @Query("select c.status as status, count(c) as total from Candidate c where c.projectId = :projectId "
+            + "group by c.status")
+    List<CandidateStatusCount> countByStatusOfProject(UUID projectId);
 
     /** Everyone a mandate has mapped, ruled out or not — the side panel's "Executives mapped". */
     @Query("select c.projectId as projectId, count(c) as total "

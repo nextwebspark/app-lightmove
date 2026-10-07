@@ -1,3 +1,5 @@
+import { homeFor } from "./homeFor";
+
 /**
  * Where sign-in should land, when the user was already headed somewhere.
  *
@@ -47,4 +49,13 @@ export function takeReturnTo(): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Where a sign-in lands: the page it interrupted, once the user is somewhere they can be — an unverified user or one
+ * mid-wizard belongs at the step homeFor names. Every sign-in path and the login route's own guard ask this one rule;
+ * two copies of it disagreeing once sent a sign-in reached from the MCP consent screen to the projects list.
+ */
+export function landingAfterSignIn(user: NonNullable<Parameters<typeof homeFor>[0]>, returnTo: string | null): string {
+  return returnTo && user.workspace ? returnTo : homeFor(user);
 }

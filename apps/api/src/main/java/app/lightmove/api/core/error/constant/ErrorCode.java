@@ -129,6 +129,8 @@ public enum ErrorCode {
 
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That file is too large"),
 
+    MCP_REQUEST_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That request is too large"),
+
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
 
     /** The file type was right but the contents are not a table: no header row, corrupt, ragged rows. */
@@ -358,8 +360,17 @@ public enum ErrorCode {
     /** The caller already holds {@code lightmove.public-api.max-active-keys-per-user} live personal keys. */
     API_KEY_LIMIT_REACHED(HttpStatus.CONFLICT, "You have the most API keys allowed. Revoke one you no longer use"),
 
+    /** A key asking for {@code mcp:use} alone, which would reach the MCP server and read nothing there. */
+    API_KEY_READS_NOTHING(HttpStatus.BAD_REQUEST, "Choose what the key may read besides MCP access"),
+
     /** Every refusal of a public API key — missing, malformed, unknown, revoked, expired or its owner's access gone — alike. */
     API_KEY_INVALID(HttpStatus.UNAUTHORIZED, "The API key is missing, invalid or no longer active"),
+
+    MCP_CREDENTIAL_INVALID(HttpStatus.UNAUTHORIZED,
+            "The access token or API key is missing, invalid or no longer active"),
+
+    /** An OAuth token calling an MCP tool it lacks a scope for; {@code WWW-Authenticate} names the scopes to ask for. */
+    MCP_SCOPE_INSUFFICIENT(HttpStatus.FORBIDDEN, "This connection was not granted the access this tool needs"),
 
     /** A live key asking a route outside its scopes; the body names the scope as {@code requiredScope}. */
     API_KEY_SCOPE_MISSING(HttpStatus.FORBIDDEN, "This API key does not carry the scope this request needs"),
@@ -367,6 +378,15 @@ public enum ErrorCode {
     /** A universe read past {@code lightmove.export.*}: refused, never truncated, as the export is. */
     PUBLIC_API_UNIVERSE_TOO_LARGE(HttpStatus.BAD_REQUEST,
             "This stage is too large to read in one call. Page through the companies and candidates routes instead"),
+
+    /** A grant id that is not in the caller's workspace, or not one the caller may see. */
+    OAUTH_GRANT_NOT_FOUND(HttpStatus.NOT_FOUND, "That connection does not exist"),
+
+    /** A client id or redirect the authorization server does not know, asked for on the consent screen. */
+    OAUTH_CLIENT_NOT_FOUND(HttpStatus.NOT_FOUND, "That app is not registered with Uncava"),
+
+    /** A consent read for an authorization request that is not the caller's, has ended, or never existed. */
+    OAUTH_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "That connection request has expired. Start again from the app"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

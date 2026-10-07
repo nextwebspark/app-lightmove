@@ -7,6 +7,7 @@ import { ToastProvider } from "../components/ui";
 import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
+import * as consentApi from "../features/oauth/api/oauthConsentApi";
 import * as projectsApi from "../features/projects/api/projectsApi";
 import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
@@ -14,6 +15,7 @@ import * as workspaceApi from "../features/workspace/api/workspaceApi";
 import { AppRoutes } from "./routes";
 
 vi.mock("../features/auth/api/authApi");
+vi.mock("../features/oauth/api/oauthConsentApi");
 vi.mock("../features/projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/projects/api/projectsApi")>()),
   projects: vi.fn(),
@@ -65,9 +67,6 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
     emailDomain: "firm.example",
     joinedAt: null,
     company: null,
-    companySize: null,
-    primaryRegion: null,
-    teamFocus: null,
     roles,
   },
 });
@@ -336,6 +335,21 @@ describe("routes — returning to where the guard interrupted", () => {
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
     expect(screen.getByTestId("from")).toHaveTextContent("/extension/connect");
+  });
+
+  it("signs an AI app's visitor in by password and lands back on its consent request, not the projects list", async () => {
+    const consent = "/oauth/consent?client_id=claude&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcb&scope=projects%3Aread";
+    vi.mocked(authApi.login).mockResolvedValue({ accessToken: "t", expiresIn: 900, user: userWith(["MEMBER"]) });
+    vi.mocked(consentApi.getConsentContext).mockReturnValue(new Promise(() => {}));
+    const user = userEvent.setup();
+    renderAt(consent);
+
+    await user.type(await screen.findByLabelText(/email/i), "someone@firm.example");
+    await user.type(screen.getByLabelText(/password/i), "a long password");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/oauth/consent"));
+    expect(consentApi.getConsentContext).toHaveBeenCalledWith("claude", "https://claude.ai/cb", "projects:read");
   });
 });
 

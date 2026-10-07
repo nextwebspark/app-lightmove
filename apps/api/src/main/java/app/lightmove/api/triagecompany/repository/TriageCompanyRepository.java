@@ -44,6 +44,12 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             @Param("matchingIds") Set<UUID> matchingIds, @Param("companyName") String companyName,
             Pageable pageable);
 
+    Page<TriageCompany> findByProjectIdAndCompanyNameContainingIgnoreCase(
+            UUID projectId, String companyName, Pageable pageable);
+
+    Page<TriageCompany> findByProjectIdAndStatusAndIdNotIn(
+            UUID projectId, TriageCompanyStatus status, Collection<UUID> excludedIds, Pageable pageable);
+
     Optional<TriageCompany> findByIdAndProjectId(UUID id, UUID projectId);
 
     List<TriageCompany> findByProjectIdAndStatusAndIdIn(UUID projectId, TriageCompanyStatus status,
@@ -57,6 +63,9 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
     }
 
     long countByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
+
+    @Query("select t.id from TriageCompany t where t.projectId = :projectId and t.status = :status")
+    Set<UUID> findIdsByProjectIdAndStatus(UUID projectId, TriageCompanyStatus status);
 
     /** One query for the projects list; a mandate holding nothing is absent rather than zero. */
     @Query("select new app.lightmove.api.triagecompany.model.TriageCompanyCount(c.projectId, count(c)) "

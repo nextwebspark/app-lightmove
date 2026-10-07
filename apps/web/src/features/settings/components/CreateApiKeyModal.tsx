@@ -3,7 +3,15 @@ import { Button, ChoiceCardGroup, Field, FormError, Input, Modal, Select } from 
 import { CheckBox } from "../../../components/ui/FilterCheckRow";
 import { messageFor } from "../../../lib/errorCodes";
 import type { ApiKeyKind, ApiKeyScope, CreateApiKeyRequest } from "../api/types";
-import { API_KEY_SCOPES, DEFAULT_SCOPES, EXPIRY_CHOICES, expiryDateAfter, KIND_LABEL } from "../lib/apiKeys";
+import {
+  API_KEY_SCOPES,
+  DEFAULT_SCOPES,
+  EXPIRY_CHOICES,
+  expiryDateAfter,
+  KIND_LABEL,
+  MCP_SCOPE,
+  readsSomething,
+} from "../lib/apiKeys";
 
 const KIND_OPTIONS = [
   { value: "PERSONAL", title: KIND_LABEL.PERSONAL, body: "Yours. Reads only the positions you can open, and stops if you leave." },
@@ -30,7 +38,8 @@ export function CreateApiKeyModal({
   const [kind, setKind] = useState<ApiKeyKind>("PERSONAL");
   const [scopes, setScopes] = useState<ApiKeyScope[]>([...DEFAULT_SCOPES]);
   const [expiresInDays, setExpiresInDays] = useState(90);
-  const blocked = !name.trim() || scopes.length === 0;
+  const blocked = !name.trim() || !readsSomething(scopes);
+  const opensMcp = scopes.includes(MCP_SCOPE);
 
   const handleToggleScope = (scope: ApiKeyScope) =>
     setScopes((current) => (current.includes(scope) ? current.filter((held) => held !== scope) : [...current, scope]));
@@ -116,6 +125,10 @@ export function CreateApiKeyModal({
           {canMakeWorkspaceKeys && kind === "SERVICE"
             ? `Read-only. This key reads every position in ${workspaceName}, including the ones you are not on.`
             : "Read-only. This key never reaches more than you can open in Uncava today; lose access to a position and so does the key."}
+          {opensMcp &&
+            (canMakeWorkspaceKeys && kind === "SERVICE"
+              ? " An AI agent holding it reads the same."
+              : " An AI agent holding it reads the same, so keep it out of shared prompts and repositories.")}
         </p>
         {error != null && (
           <div className="mt-3">
@@ -158,6 +171,11 @@ function ScopeCheckRow({
           {personalData && (
             <span className="rounded-full bg-u-offlimits-tint px-[7px] py-px font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-u-offlimits">
               Personal data
+            </span>
+          )}
+          {scope === MCP_SCOPE && (
+            <span className="rounded-full bg-u-accent-tint px-[7px] py-px font-mono text-[9px] font-semibold uppercase tracking-[0.06em] text-u-accent">
+              AI access
             </span>
           )}
         </span>

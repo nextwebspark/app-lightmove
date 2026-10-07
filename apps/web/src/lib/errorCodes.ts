@@ -114,6 +114,7 @@ export type ApiErrorCode =
   | "NOT_ACCEPTABLE"
   | "API_KEY_NOT_FOUND"
   | "API_KEY_LIMIT_REACHED"
+  | "API_KEY_READS_NOTHING"
   | "INTERNAL_ERROR";
 
 // BULK_ADD_SCOPE_TOO_LARGE is deliberately absent: its server detail names how many companies matched
@@ -139,6 +140,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   FORBIDDEN: "You don't have permission to do this.",
   API_KEY_NOT_FOUND: "That key no longer exists. Reload to see the current list.",
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
+  API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
   RATE_LIMITED: "Too many requests — slow down a little.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
   EMAIL_NOT_VERIFIED: "Verify your email address to continue.",

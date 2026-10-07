@@ -63,7 +63,7 @@ public class CandidateController {
                                    @RequestParam(required = false) Integer page,
                                    @RequestParam(required = false) Integer size) {
         CandidateListCriteria criteria =
-                new CandidateListCriteria(triageCompanyId, unmapped, q, null, page, size);
+                new CandidateListCriteria(triageCompanyId, unmapped, q, null, null, null, page, size);
         return candidates.list(principal.requireWorkspaceId(), projectId, criteria);
     }
 

@@ -59,6 +59,7 @@ import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -167,15 +168,33 @@ public class CandidateService {
             return new CandidatesResponse(List.of(), 0, page, size);
         }
 
+        if (criteria.withinTriageCompanyIds() != null && criteria.withinTriageCompanyIds().isEmpty()) {
+            return new CandidatesResponse(List.of(), 0, page, size);
+        }
+
         PageRequest pageRequest = PageRequest.of(page, size, FIRST_MAPPED_FIRST);
         String nameQuery = criteria.nameQuery() == null ? "" : criteria.nameQuery().trim();
+        String textQuery = criteria.textQuery() == null ? "" : criteria.textQuery().trim();
         CandidateStatus status = ApiValueEnum.parse(CandidateStatus.class, criteria.status(), null, "status");
         Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, status, companyIds,
-                Boolean.TRUE.equals(criteria.unmapped()), nameQuery), pageRequest);
+                Boolean.TRUE.equals(criteria.unmapped()), nameQuery, textQuery, criteria.withinTriageCompanyIds()),
+                pageRequest);
 
         return new CandidatesResponse(
                 found.getContent().stream().map(responses::toDto).toList(),
                 found.getTotalElements(), page, size);
+    }
+
+    /** A mandate's executives at each status, every status present, zero included: one grouped count. */
+    @Transactional(readOnly = true)
+    public Map<CandidateStatus, Long> statusCountsOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Map<CandidateStatus, Long> counts = new EnumMap<>(CandidateStatus.class);
+        for (CandidateStatus status : CandidateStatus.values()) {
+            counts.put(status, 0L);
+        }
+        candidates.countByStatusOfProject(projectId).forEach(row -> counts.put(row.getStatus(), row.getTotal()));
+        return counts;
     }
 
     @Transactional(readOnly = true)
@@ -493,6 +512,13 @@ public class CandidateService {
     public void requireCandidate(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
         candidates.requireInProject(candidateId, projectId);
+    }
+
+    /** {@link #dossierOf(UUID, UUID)} once the position is confirmed to be this workspace's. */
+    @Transactional(readOnly = true)
+    public Optional<CandidateDossier> dossierOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return dossierOf(projectId, candidateId);
     }
 
     /**

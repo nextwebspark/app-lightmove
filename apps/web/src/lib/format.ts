@@ -96,6 +96,17 @@ export function formatRelativeTime(isoInstant: string): string {
   return days === 1 ? "1 day ago" : `${days} days ago`;
 }
 
+/** An instant → "just now" / "5 minutes ago" / "yesterday", for a key's or an AI app's last use. */
+export function formatTimeAgo(isoInstant: string, now: Date = new Date()): string {
+  const minutes = Math.floor((now.getTime() - new Date(isoInstant).getTime()) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return minutes === 1 ? "1 minute ago" : `${minutes} minutes ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? "yesterday" : `${days} days ago`;
+}
+
 /**
  * Null is the common case — Apollo publishes a revenue figure on roughly one row in ten — and reads
  * as unknown, not zero. Shared by both company grids: a revenue that says "$1.2B" on Strategy and

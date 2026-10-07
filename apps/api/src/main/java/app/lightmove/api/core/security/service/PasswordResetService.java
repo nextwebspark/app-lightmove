@@ -25,6 +25,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import app.lightmove.api.core.security.oauth.OAuthGrantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class PasswordResetService {
     private final VerificationTokenRepository verificationTokens;
     private final PasswordPolicy passwords;
     private final TokenService tokens;
+    private final OAuthGrantService oauthGrants;
     private final AuthenticationService authentication;
     private final WorkspaceSelection selection;
     private final EmailSender emailSender;
@@ -127,6 +129,7 @@ public class PasswordResetService {
 
         // Before issuing, so the fresh session survives.
         tokens.revokeAllSessions(user.getId(), RevokeReason.PASSWORD_CHANGED);
+        oauthGrants.revokeAllOfUser(user.getId(), user.getId(), request);
 
         log.info("Password reset completed for user {}", user.getId());
         audit.event(AuthEventType.PASSWORD_RESET_COMPLETED)

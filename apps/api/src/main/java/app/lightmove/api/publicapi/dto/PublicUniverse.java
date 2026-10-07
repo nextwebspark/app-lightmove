@@ -12,4 +12,11 @@ public record PublicUniverse(
         @Schema(description = "Executives at no company of the position. Filled on inUniverse only; empty on the "
                 + "other stages")
         List<PublicCandidate> unassigned
-) {}
+) {
+
+    /** Every row read: companies, the executives under them and those at none. */
+    public int rowCount() {
+        return companies.size() + unassigned.size()
+                + companies.stream().mapToInt(company -> company.executives().size()).sum();
+    }
+}

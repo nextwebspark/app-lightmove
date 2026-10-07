@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
@@ -14,7 +14,13 @@ const POLL_WHILE_STREAMING_MS = 15_000;
  * Find executives for one mandate: whether it is offered, the latest run, and the start. The stream
  * refreshes a running run; the slow poll beside it is what lets a lost run time out on screen.
  */
-export function useExecutiveSourcing(projectId: string, canWrite: boolean, streamIsLive: boolean) {
+export function useExecutiveSourcing(
+  projectId: string,
+  canWrite: boolean,
+  streamIsLive: boolean,
+  /** Handed the companies a run started here was sent, once it completes or fails. */
+  onSettled?: (triageCompanyIds: string[]) => void,
+) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const rowsChanged = useProjectRowsChanged();
@@ -46,6 +52,12 @@ export function useExecutiveSourcing(projectId: string, canWrite: boolean, strea
     writeDismissed(projectId, run.id);
   };
 
+  const sentCompanyIds = useRef<string[]>([]);
+  const settle = useEffectEvent(() => {
+    onSettled?.(sentCompanyIds.current);
+    sentCompanyIds.current = [];
+  });
+
   const seenStatus = useRef<string | null>(null);
   useEffect(() => {
     const previous = seenStatus.current;
@@ -55,9 +67,11 @@ export function useExecutiveSourcing(projectId: string, canWrite: boolean, strea
     if (run.status === "COMPLETED") {
       void rowsChanged(projectId);
       toast(summaryOf(run));
+      settle();
     } else if (run.status === "FAILED") {
       void rowsChanged(projectId);
       toast("Find executives stopped before it finished — try again");
+      settle();
     }
   }, [run, projectId, rowsChanged, toast]);
 
@@ -84,7 +98,12 @@ export function useExecutiveSourcing(projectId: string, canWrite: boolean, strea
     isDismissed: run !== null && run.id === dismissedRunId,
     dismiss,
     start: (triageCompanyIds: string[], onStarted: () => void) =>
-      start.mutate(triageCompanyIds, { onSuccess: onStarted }),
+      start.mutate(triageCompanyIds, {
+        onSuccess: () => {
+          sentCompanyIds.current = triageCompanyIds;
+          onStarted();
+        },
+      }),
   };
 }
 

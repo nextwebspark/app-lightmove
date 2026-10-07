@@ -1,16 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Button, Field, FormError, Select } from "../../../components/ui";
+import { Button, FormError } from "../../../components/ui";
 import * as authApi from "../../auth/api/authApi";
 import type { CreateWorkspaceRequest, User, WorkspaceSummary } from "../../auth/api/types";
-import {
-  COMPANY_SIZES,
-  REGIONS,
-  TEAM_FOCUSES,
-  workspaceSchema,
-  type WorkspaceValues,
-} from "../../auth/schemas";
+import { workspaceSchema, type WorkspaceValues } from "../../auth/schemas";
 import { CompanyPicker, type CompanySearchSource } from "../../clients/components/CompanyPicker";
 import { pickedCompanyName, workspaceCompanyPick, type CompanyPick } from "../../clients/lib/companyPick";
 import { messageFor } from "../../../lib/errorCodes";
@@ -19,9 +13,9 @@ import { WorkspaceModeChoice } from "./WorkspaceModeChoice";
 /**
  * The "About your organization" form — Signup.dc.html's step 3, and the first stage of the New
  * workspace modal. One form, because a workspace is described the same way whether it is the firm's
- * first or its third: who it hires for, the company picked from the universe, its size, region and
- * focus. Which endpoint it posts to is the caller's: the wizard creates (or corrects) through
- * onboarding, the modal through `/workspaces`.
+ * first or its third: who it hires for and the company picked from the universe. Which endpoint it
+ * posts to is the caller's: the wizard creates (or corrects) through onboarding, the modal through
+ * `/workspaces`.
  */
 export function OrganisationForm({
   editing,
@@ -49,7 +43,6 @@ export function OrganisationForm({
     register,
     handleSubmit,
     setValue,
-    getValues,
     clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<WorkspaceValues>({
@@ -57,30 +50,13 @@ export function OrganisationForm({
     defaultValues: {
       mode: editing?.mode,
       name: editing?.name ?? "",
-      // The mockup's dropdowns open on their first option; ours were opening on the second.
-      companySize: editing?.companySize ?? COMPANY_SIZES[0],
-      primaryRegion: editing?.primaryRegion ?? REGIONS[0],
-      teamFocus: editing?.teamFocus ?? TEAM_FOCUSES[0],
     },
   });
-
-  // The size a database pick filled in, so dropping that pick can take it back out — unless the
-  // user has since chosen a size themselves.
-  const sizeFromPick = useRef<string | null>(null);
 
   const handlePick = (next: CompanyPick | null) => {
     setPick(next);
     setValue("name", next ? pickedCompanyName(next) : "");
     if (next) clearErrors("name");
-    if (sizeFromPick.current !== null && getValues("companySize") === sizeFromPick.current) {
-      setValue("companySize", COMPANY_SIZES[0]);
-    }
-    sizeFromPick.current = null;
-    const size = next?.source === "universe" ? companySizeOf(next.company.numEmployees) : null;
-    if (size) {
-      setValue("companySize", size);
-      sizeFromPick.current = size;
-    }
   };
 
   const onSubmit = async (values: WorkspaceValues) => {
@@ -136,34 +112,6 @@ export function OrganisationForm({
         </div>
         <input type="hidden" {...register("name")} />
 
-        {/* No bottom margin: each Field already carries mb-4, and stacking the grid's own on top of the
-            last row's put a double gap above Continue that the mockup does not have. */}
-        <div className="grid grid-cols-1 gap-x-4 md:grid-cols-2">
-          <Field label="Company size">
-            <Select {...register("companySize")}>
-              {COMPANY_SIZES.map((size) => (
-                <option key={size}>{size}</option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Primary region">
-            <Select {...register("primaryRegion")}>
-              {REGIONS.map((region) => (
-                <option key={region}>{region}</option>
-              ))}
-            </Select>
-          </Field>
-
-          <Field label="Team focus">
-            <Select {...register("teamFocus")}>
-              {TEAM_FOCUSES.map((focus) => (
-                <option key={focus}>{focus}</option>
-              ))}
-            </Select>
-          </Field>
-        </div>
-
         <Button type="submit" loading={isSubmitting} className="w-full">
           {submitLabel}
         </Button>
@@ -181,12 +129,3 @@ const ONBOARDING_COMPANY_SEARCH: CompanySearchSource = {
   key: authApi.ONBOARDING_COMPANY_SEARCH_KEY,
   search: authApi.searchOnboardingCompanies,
 };
-
-/** The universe's headcount as one of the form's size bands; null leaves the dropdown where it was. */
-function companySizeOf(numEmployees: number | null): string | null {
-  if (numEmployees === null || numEmployees <= 0) return null;
-  if (numEmployees <= 10) return COMPANY_SIZES[0];
-  if (numEmployees <= 50) return COMPANY_SIZES[1];
-  if (numEmployees <= 200) return COMPANY_SIZES[2];
-  return COMPANY_SIZES[3];
-}

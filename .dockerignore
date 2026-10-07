@@ -22,5 +22,7 @@ docs/
 ops/
 **/*.md
 !README.md
+# The SPA's /docs/mcp page is built from it.
+!docs/mcp.md
 .editorconfig
 .gitignore

@@ -314,7 +314,12 @@ function TriageStage() {
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);
 
   /** Offered on the universe's table view only, and only where the deployment has a people search. */
-  const sourcing = useExecutiveSourcing(project.id, canWrite && stage.status === "inUniverse", streamIsLive);
+  const sourcing = useExecutiveSourcing(
+    project.id,
+    canWrite && stage.status === "inUniverse",
+    streamIsLive,
+    companySelection.deselect,
+  );
   const findExecutivesOffered = canWrite && stage.status === "inUniverse" && view === "table" && sourcing.offered;
   const findExecutivesCap = sourcing.config?.maxCompaniesPerRun ?? 0;
   const mailbox = useMailbox(canWrite);
@@ -334,10 +339,7 @@ function TriageStage() {
   };
 
   const handleStartFindExecutives = () =>
-    sourcing.start([...companySelection.selectedIds], () => {
-      companySelection.clear();
-      setConfirmingFindExecutives(false);
-    });
+    sourcing.start([...companySelection.selectedIds], () => setConfirmingFindExecutives(false));
 
   /**
    * The screen's ordinary freshness is the project stream above: the server says when something
