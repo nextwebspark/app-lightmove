@@ -62,10 +62,11 @@ public class SourcingRunStore {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void fail(UUID runId, String reason) {
-        runs.findById(runId).ifPresent(run -> {
+    public Optional<ExecutiveSourcingRun> fail(UUID runId, String reason) {
+        return runs.findById(runId).map(run -> {
             run.fail(reason);
             stream.publish(run.getProjectId(), ProjectStreamKind.EXECUTIVE_SOURCING);
+            return run;
         });
     }
 }

@@ -246,6 +246,8 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
                 .contains("Priya Raman", "Group CFO")
                 .doesNotContain("priya.private@target.example", "123 4567", "987654", "unhappy with her board",
                         CLIENT_NAME);
+        assertThat(jdbc.queryForList("SELECT units FROM app_lm_usage_event WHERE project_id = ?::uuid AND kind = ?",
+                Integer.class, projectId, "OUTREACH_OPENER")).containsExactly(1);
     }
 
     @Test

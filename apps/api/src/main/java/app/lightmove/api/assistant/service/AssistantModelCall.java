@@ -12,6 +12,9 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -44,7 +47,7 @@ public class AssistantModelCall {
 
     public String askSpecialist(AssistantSpecialist specialist, List<AssistantTurn> history, String question,
                                 AssistantToolContext context) {
-        String answer = chatClient.prompt()
+        ChatResponse response = chatClient.prompt()
                 .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, specialist.promptId()))
                 .options(options(specialist.promptId(), settings.thinkingBudget()))
                 .system(system -> system.text(specialist.systemPrompt()).params(specialist.systemParams(context)))
@@ -52,14 +55,14 @@ public class AssistantModelCall {
                 .tools(specialist.tools().toArray())
                 .toolContext(context.asMap())
                 .call()
-                .content();
-        return answerOf(answer);
+                .chatResponse();
+        return answerOf(response, context);
     }
 
     /** No thinking budget: the supervisor only chooses whom to ask and passes the answer on. */
     public String askSupervisor(List<SpecialistToolCallback> specialists, List<AssistantTurn> history,
                                 String question, AssistantToolContext context) {
-        String answer = chatClient.prompt()
+        ChatResponse response = chatClient.prompt()
                 .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, SUPERVISOR_PROMPT_ID))
                 .options(options(SUPERVISOR_PROMPT_ID, 0))
                 .system(supervisorPrompt)
@@ -67,12 +70,24 @@ public class AssistantModelCall {
                 .tools(specialists.toArray())
                 .toolContext(context.asMap())
                 .call()
-                .content();
-        return answerOf(answer);
+                .chatResponse();
+        return answerOf(response, context);
     }
 
-    /** Every call is sent {@link #conversation}'s card blocks, so any answer may echo one back. */
-    private static String answerOf(String answer) {
+    /**
+     * Every call is sent {@link #conversation}'s card blocks, so any answer may echo one back. The tokens are
+     * Spring AI's sum over the call's tool rounds; a specialist's nested call reports its own.
+     */
+    private String answerOf(ChatResponse response, AssistantToolContext context) {
+        if (response == null) {
+            return "";
+        }
+        Usage usage = response.getMetadata().getUsage();
+        String model = response.getMetadata().getModel();
+        context.recorder().spent(model == null || model.isBlank() ? settings.model() : model,
+                usage.getPromptTokens(), usage.getCompletionTokens());
+        Generation result = response.getResult();
+        String answer = result == null ? null : result.getOutput().getText();
         return answer == null ? "" : CardMemory.stripFrom(answer);
     }
 

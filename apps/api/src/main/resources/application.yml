@@ -709,6 +709,18 @@ lightmove:
     prices:
       email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
       phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
+    # Search and AI: a month's units per staff seat (0 lifts the ceiling) and each unit's estimated cost in fils.
+    fair-use:
+      people-search-page-per-seat: ${FAIR_USE_PEOPLE_SEARCH_PAGE_PER_SEAT:20000}
+      people-search-page-cost-fils: ${FAIR_USE_PEOPLE_SEARCH_PAGE_COST_FILS:4}
+      sourcing-run-per-seat: ${FAIR_USE_SOURCING_RUN_PER_SEAT:2000}
+      sourcing-run-cost-fils: ${FAIR_USE_SOURCING_RUN_COST_FILS:8}
+      ai-enrich-per-seat: ${FAIR_USE_AI_ENRICH_PER_SEAT:2000}
+      ai-enrich-cost-fils: ${FAIR_USE_AI_ENRICH_COST_FILS:6}
+      outreach-opener-per-seat: ${FAIR_USE_OUTREACH_OPENER_PER_SEAT:5000}
+      outreach-opener-cost-fils: ${FAIR_USE_OUTREACH_OPENER_COST_FILS:2}
+      assistant-ask-per-seat: ${FAIR_USE_ASSISTANT_ASK_PER_SEAT:1500}
+      assistant-ask-cost-fils: ${FAIR_USE_ASSISTANT_ASK_COST_FILS:15}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move

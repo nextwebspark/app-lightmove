@@ -87,6 +87,17 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         JsonNode second = askAndAwait(firm.admin, firm.projectId, threadId, "And in Qatar?");
         assertThat(second.get("threadId").asText()).isEqualTo(threadId);
+        assertThat(db.queryForList("SELECT units FROM app_lm_usage_event WHERE project_id = ?::uuid AND kind = ?",
+                Integer.class, firm.projectId, "ASSISTANT_ASK")).containsExactly(1, 1);
+        assertThat(db.queryForMap("SELECT model, input_tokens, output_tokens FROM app_lm_assistant_turn WHERE id = ?::uuid",
+                first.get("id").asText()))
+                .as("the supervisor's and the specialist's tokens, summed")
+                .satisfies(turn -> {
+                    assertThat((String) turn.get("model")).isNotBlank();
+                    assertThat(((Number) turn.get("input_tokens")).intValue()).isEqualTo(2 * StubChatModel.PROMPT_TOKENS);
+                    assertThat(((Number) turn.get("output_tokens")).intValue())
+                            .isEqualTo(2 * StubChatModel.COMPLETION_TOKENS);
+                });
 
         mvc.perform(get("/api/v1/projects/" + firm.projectId + "/assistant/threads")
                         .header("Authorization", "Bearer " + firm.admin))

@@ -1,5 +1,7 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -52,6 +54,7 @@ public class ExecutiveSourcingService {
     private final CandidateService candidates;
     private final PeopleSearch peopleSearch;
     private final LlmBudgetGuard llmBudget;
+    private final FairUseGuard fairUse;
     private final AuditService audit;
     private final ProjectStreamPublisher stream;
     private final ApplicationEventPublisher events;
@@ -59,13 +62,15 @@ public class ExecutiveSourcingService {
 
     public ExecutiveSourcingService(ExecutiveSourcingRunRepository runs, TriageCompanyReadService companies,
                                     CandidateService candidates, PeopleSearch peopleSearch,
-                                    LlmBudgetGuard llmBudget, AuditService audit, ProjectStreamPublisher stream,
+                                    LlmBudgetGuard llmBudget, FairUseGuard fairUse, AuditService audit,
+                                    ProjectStreamPublisher stream,
                                     ApplicationEventPublisher events, LightMoveProperties properties) {
         this.runs = runs;
         this.companies = companies;
         this.candidates = candidates;
         this.peopleSearch = peopleSearch;
         this.llmBudget = llmBudget;
+        this.fairUse = fairUse;
         this.audit = audit;
         this.stream = stream;
         this.events = events;
@@ -105,6 +110,7 @@ public class ExecutiveSourcingService {
         }
 
         llmBudget.require(LlmBudget.EXECUTIVE_SOURCING, userId);
+        fairUse.check(workspaceId, userId, UsageKind.SOURCING_RUN, (long) chosen.size() * settings.picksPerCompany());
         ExecutiveSourcingRun run = saveRefusingASecond(ExecutiveSourcingRun.requested(workspaceId, projectId, userId,
                 chosen));
         stream.publish(projectId, ProjectStreamKind.EXECUTIVE_SOURCING);
