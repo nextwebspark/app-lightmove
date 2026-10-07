@@ -141,6 +141,48 @@ describe("a chat with the assistant", () => {
     expect(ask).toHaveBeenLastCalledWith("p1", "Question t2", "th1", expect.any(Function), expect.any(Function));
   });
 
+  it("offers the latest answer's next searches, counted, and asks one in a press", async () => {
+    const refinements = {
+      inMandate: 10,
+      newFromSearch: 20,
+      projected: 30,
+      targetMin: 50,
+      targetMax: 75,
+      options: [
+        {
+          kind: "ADD_INDUSTRY" as const,
+          label: "Add Consumer goods",
+          prompt: "Find retail and consumer goods companies in United Arab Emirates",
+          projected: 55,
+        },
+      ],
+    };
+    const first = turn("t1", "th1", { refinements });
+    const second = turn("t2", "th1", { refinements: { ...refinements, projected: 55, newFromSearch: 45, options: [] } });
+    ask.mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+    getThread.mockResolvedValue(thread("th1", [first]));
+
+    mount();
+    await send("Question t1");
+    expect(await screen.findByText("10 in the mandate + 20 new → 30 · aim 50–75")).toBeInTheDocument();
+    expect(screen.getByText("→ 55")).toBeInTheDocument();
+    getThread.mockResolvedValue(thread("th1", [first, second]));
+    await userEvent.click(screen.getByRole("button", { name: /Add Consumer goods/ }));
+
+    expect(await screen.findByText("Answer t2")).toBeInTheDocument();
+    expect(ask).toHaveBeenLastCalledWith(
+      "p1",
+      "Find retail and consumer goods companies in United Arab Emirates",
+      "th1",
+      expect.any(Function),
+      expect.any(Function),
+    );
+    expect(screen.getByText("10 in the mandate + 45 new → 55 · in range")).toBeInTheDocument();
+    // The earlier answer's buttons would search from where the mandate no longer is.
+    expect(screen.queryByRole("button", { name: /Add Consumer goods/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("10 in the mandate + 20 new → 30 · aim 50–75")).not.toBeInTheDocument();
+  });
+
   it("lists this project's chats and opens one", async () => {
     listThreads.mockResolvedValue([{ id: "old", title: "Qatar contractors", updatedAt: "2026-01-01T00:00:00Z" }]);
     getThread.mockResolvedValue(thread("old", [turn("t9", "old")]));

@@ -46,6 +46,27 @@ export type LiveStep = AssistantStep & {
   done: boolean;
 };
 
+/** One next search offered under an answer: asking `prompt` would leave `projected` companies. */
+export type AssistantRefinement = {
+  kind: "ADD_INDUSTRY" | "ADD_COUNTRY" | "ANY_SIZE" | "DROP_KEYWORD" | "SIZE_FLOOR" | "ONE_COUNTRY" | "DROP_INDUSTRY";
+  label: string;
+  prompt: string;
+  projected: number;
+};
+
+/**
+ * Where an answer's search leaves the mandate: In universe and Shortlisted plus the new companies it
+ * found, against the target band. `options` is empty once the search lands inside it.
+ */
+export type AssistantRefinements = {
+  inMandate: number;
+  newFromSearch: number;
+  projected: number;
+  targetMin: number;
+  targetMax: number;
+  options: AssistantRefinement[];
+};
+
 export type AssistantTurn = {
   id: string;
   threadId: string;
@@ -54,6 +75,7 @@ export type AssistantTurn = {
   steps: AssistantStep[];
   proposal: AssistantProposal | null;
   proposalAccepted: ProposalOutcome | null;
+  refinements?: AssistantRefinements | null;
   createdAt: string;
 };
 

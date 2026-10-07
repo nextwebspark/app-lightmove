@@ -256,7 +256,12 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
 
         {turns.map((turn) => (
           <div key={turn.id}>
-            <AssistantTurnView turn={turn} projectId={projectId} />
+            <AssistantTurnView
+              turn={turn}
+              projectId={projectId}
+              onRefine={turn.id === lastTurnId && !pendingQuestion ? (prompt) => asking.mutate(prompt) : undefined}
+              refining={asking.isPending}
+            />
           </div>
         ))}
 

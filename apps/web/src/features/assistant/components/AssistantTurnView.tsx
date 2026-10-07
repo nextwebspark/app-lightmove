@@ -7,10 +7,24 @@ import * as assistantApi from "../api/assistantApi";
 import type { AssistantTurn, ProposalOutcome } from "../api/types";
 import { AssistantAnswer } from "./AssistantAnswer";
 import { AssistantProposalCard, outcomeLine } from "./AssistantProposalCard";
+import { AssistantRefinements } from "./AssistantRefinements";
 import { AssistantSteps } from "./AssistantSteps";
 
-/** One question and its answer, with the card it proposed. Filing the card happens here. */
-export function AssistantTurnView({ turn, projectId }: { turn: AssistantTurn; projectId: string }) {
+/**
+ * One question and its answer, with the card it proposed. Filing the card happens here. Only the latest
+ * answer offers its next searches (`onRefine`); an earlier one's would search from a stale place.
+ */
+export function AssistantTurnView({
+  turn,
+  projectId,
+  onRefine,
+  refining = false,
+}: {
+  turn: AssistantTurn;
+  projectId: string;
+  onRefine?: (prompt: string) => void;
+  refining?: boolean;
+}) {
   const queryClient = useQueryClient();
   const rowsChanged = useProjectRowsChanged();
   const toast = useToast();
@@ -48,6 +62,10 @@ export function AssistantTurnView({ turn, projectId }: { turn: AssistantTurn; pr
             onAccept={(ids, status) => filing.mutate({ ids, status })}
           />
         </div>
+      )}
+
+      {onRefine && turn.refinements && (
+        <AssistantRefinements refinements={turn.refinements} disabled={refining} onPick={onRefine} />
       )}
 
       {filing.isError && (
