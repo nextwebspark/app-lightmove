@@ -138,11 +138,8 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
     }
 
     /**
-     * Each word is matched in the specialties or the about text — single words only, since
-     * {@code includes} on a phrase runs ten seconds. A group holds four rules at most
-     * ({@link BrightDataSearch#MAX_RULES_PER_GROUP}), so the words sit one group per field inside an
-     * {@code or}, the industries in one {@code in}, and the headcount and exclusion inside their own
-     * {@code and}: country, words, industries, the rest — four.
+     * A group holds four rules at most ({@link BrightDataSearch#MAX_RULES_PER_GROUP}): country, words,
+     * industries, and the headcount and exclusion nested in their own {@code and}.
      */
     static Map<String, Object> doing(CompanyActivityQuery query) {
         List<Map<String, Object>> rules = new ArrayList<>();

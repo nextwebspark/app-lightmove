@@ -45,7 +45,7 @@ public class CompanyResearch {
         return recordOf(linkedinSlug).flatMap(VendorCompanyRecord::asCapturedDetails);
     }
 
-    /** The whole record, its specialties included — what a page's niche is read from. */
+    /** The whole record, specialties included. */
     public Optional<VendorCompanyRecord> recordOf(String linkedinSlug) {
         Instant staleBefore = Instant.now().minus(cacheTtl);
         Optional<CachedCompany> held = store.find(linkedinSlug);
@@ -73,10 +73,7 @@ public class CompanyResearch {
         return CompanyNames.distinctiveWords(name);
     }
 
-    /**
-     * Every page a name search finds, not just the best — the caller tells namesakes apart. One billed
-     * search, on the name's core ("seddiqi"), so "Seddiqi Holding" and "Ahmed Seddiqi & Sons" both come back.
-     */
+    /** Every page one billed search on the name's core finds, not just the best: the caller tells namesakes apart. */
     public List<VendorCompanyRecord> pagesNamed(String name, String country, VendorSearchAllowance allowance) {
         List<String> terms = CompanyNames.searchTerms(name);
         if (!enricher.isEnabled() || terms.isEmpty() || !allowance.take()) {
@@ -89,7 +86,7 @@ public class CompanyResearch {
         return hits;
     }
 
-    /** One billed search by what companies do; every hit is remembered, because every hit is paid for. */
+    /** Every hit is remembered, because every hit is paid for. */
     public List<VendorCompanyRecord> byActivity(CompanyActivityQuery query, VendorSearchAllowance allowance) {
         if (!enricher.isEnabled() || query.words().isEmpty() || !allowance.take()) {
             return List.of();

@@ -42,7 +42,8 @@ class CompanyDiscoveryTest {
     private final ApolloCompanyQueryService market = mock(ApolloCompanyQueryService.class);
     private final CompanyResearch research = mock(CompanyResearch.class);
     private final SectorTaxonomy taxonomy = mock(SectorTaxonomy.class);
-    private final CompanyDiscovery discovery = new CompanyDiscovery(market, research, taxonomy);
+    private final CompanyDiscovery discovery = new CompanyDiscovery(market, research, taxonomy,
+            new LinkedInTopUp(market, research));
     private final List<SimilarityScope> asked = new ArrayList<>();
 
     @BeforeEach
@@ -112,7 +113,7 @@ class CompanyDiscoveryTest {
     }
 
     @Test
-    @DisplayName("too few loosens the headcount, then drops it, then the sector, then the niche — saying so each time, never the country")
+    @DisplayName("too few loosens headcount, then sector, then niche — saying so each time, never the country")
     void loosensOneCriterionAtATime() {
         when(research.isEnabled()).thenReturn(false);
 
@@ -194,7 +195,7 @@ class CompanyDiscoveryTest {
     @Test
     @DisplayName("the words a LinkedIn search keys on are the ones the niche keywords share, generic ones left out")
     void picksTheNichesCommonWords() {
-        assertThat(CompanyDiscovery.nicheWords(List.of("luxury watches", "watch retail", "luxury watch repair",
+        assertThat(NicheWords.of(List.of("luxury watches", "watch retail", "luxury watch repair",
                 "fine jewellery", "customer experience")))
                 .startsWith("watch")
                 .contains("jewellery", "repair")

@@ -177,10 +177,7 @@ public class ApolloCompanyQueryService {
                 .optional();
     }
 
-    /**
-     * Companies whose name holds every word, biggest first — "Seddiqi" finds both "Seddiqi Holding" and
-     * "Ahmed Seddiqi & Sons", which is the point: the caller decides whether that is one company or two.
-     */
+    /** Every company whose name holds every word, biggest first; the caller tells namesakes apart. */
     public List<CompanyRow> namedLike(List<String> nameWords, String country, int limit) {
         if (nameWords.isEmpty()) {
             return List.of();
@@ -209,10 +206,9 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * Companies sharing the anchor's distinctive keywords, scored by the sum of {@code ln(N / companies
-     * using it)}. A keyword on more than {@link #COMMONEST_KEYWORD_SHARE} of the universe ("services",
-     * "b2c", "retail") distinguishes nothing and is not counted, which also keeps the candidate set small
-     * enough for the GIN index to matter: nearly every UAE company shares one of those with anyone.
+     * Companies sharing the anchor's keywords, scored {@code Σ ln(N / companies using it)}. A keyword past
+     * {@link #COMMONEST_KEYWORD_SHARE} is not counted: it distinguishes nothing, and it would hand the GIN
+     * index nearly every company in the country.
      */
     public List<ScoredCompanyRow> similarTo(SimilarityScope scope) {
         if (scope.anchorKeywords().isEmpty()) {
@@ -278,11 +274,7 @@ public class ApolloCompanyQueryService {
                 .list();
     }
 
-    /**
-     * Of {@code keywords}, the ones that say which niche a company is in — neither one-off phrasings nor
-     * words half the market uses — the most widely used of them first, which reads as the niche itself
-     * ("luxury watches" before "luxury watch collector").
-     */
+    /** The keywords that place a company in a niche, most widely used first: "luxury watches" before a one-off phrasing. */
     public List<String> distinctiveKeywords(List<String> keywords, int limit) {
         if (keywords.isEmpty()) {
             return List.of();

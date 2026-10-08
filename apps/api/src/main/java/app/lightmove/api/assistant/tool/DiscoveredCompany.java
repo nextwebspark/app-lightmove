@@ -2,11 +2,7 @@ package app.lightmove.api.assistant.tool;
 
 import java.util.List;
 
-/**
- * A company found by what it does. {@code apolloAccountId} where the company database holds it, else
- * the {@code linkedinSlug} it was found under on LinkedIn — either is what {@code proposeCompanies}
- * takes. {@code sharedNiche} is the niche keywords it has in common with what was asked, rarest first.
- */
+/** A company found by who it is like or what it does; its account id, else its slug, goes to proposeCompanies. */
 public record DiscoveredCompany(String apolloAccountId, String linkedinSlug, String companyName, String industry,
                                 String country, String city, Integer employees, List<String> sharedNiche,
                                 String mandateStage) {
