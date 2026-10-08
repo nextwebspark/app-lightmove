@@ -1,8 +1,10 @@
 package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.model.ProposalOutcome;
 import app.lightmove.api.assistant.model.ProposedCompany;
+import app.lightmove.api.assistant.tool.TurnRecorder;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +28,8 @@ final class CardMemory {
     /** Long enough for a legal name, short enough that no name reads as a paragraph of instructions. */
     private static final int MAX_TEXT = 80;
 
-    private static final Pattern CARD_BLOCK = Pattern.compile("(?s)<card\\b[^>]*>.*?</card>");
+    private static final Pattern CARD_BLOCK =
+            Pattern.compile("(?s)<suggested_companies\\b[^>]*>.*?</suggested_companies>");
     private static final Pattern MARKUP_CHARACTERS = Pattern.compile("[<>\"\\[\\]]");
 
     private CardMemory() {
@@ -39,7 +42,7 @@ final class CardMemory {
      */
     static String render(AssistantProposal card, ProposalOutcome outcome, boolean listed) {
         List<String> lines = new ArrayList<>();
-        lines.add("<card title=\"" + plain(card.title()) + "\">");
+        lines.add("<suggested_companies title=\"" + plain(card.title()) + "\">");
         if (listed) {
             for (ProposedCompany company : card.companies()) {
                 lines.add("- " + describe(company));
@@ -51,8 +54,22 @@ final class CardMemory {
             lines.add("Filed " + outcome.added() + " as " + stageLabel(outcome.status())
                     + (outcome.skipped() > 0 ? " (" + outcome.skipped() + " already in the mandate)" : ""));
         }
-        lines.add("</card>");
+        lines.add("</suggested_companies>");
         return String.join("\n", lines);
+    }
+
+    /** Researched pages ride on the stored list, so an earlier company can be proposed again unbilled. */
+    static void rememberResearchOf(List<AssistantTurn> history, TurnRecorder recorder) {
+        for (AssistantTurn turn : history) {
+            AssistantProposal suggested = turn.getProposal();
+            if (suggested == null) {
+                continue;
+            }
+            suggested.researched().forEach(recorder::remember);
+            suggested.companies().stream()
+                    .filter(company -> company.operates() != null && company.key() != null)
+                    .forEach(company -> recorder.operates(company.key(), company.operates()));
+        }
     }
 
     /** A model that copies the block into its own answer would show the consultant raw markup. */

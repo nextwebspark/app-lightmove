@@ -33,7 +33,7 @@ public class TurnRecorder {
     private final Map<String, CapturedCompanyDetails> researched = new LinkedHashMap<>();
     private final Map<String, CapturedCompanyDetails> remembered = new LinkedHashMap<>();
     private final Map<String, String> operatedBrands = new LinkedHashMap<>();
-    private final List<String> consultedSpecialists = new ArrayList<>();
+    private final Set<String> skillsUsed = new LinkedHashSet<>();
     private boolean namesLookedUp;
     private int vendorSearches;
     private AssistantProposal proposal;
@@ -90,13 +90,13 @@ public class TurnRecorder {
         return vendorSearches;
     }
 
-    public void consulted(String specialist) {
-        consultedSpecialists.add(specialist);
+    public void usedSkill(String skill) {
+        skillsUsed.add(skill);
     }
 
-    /** Every specialist this answer asked, in order and once per ask — what its audit event records. */
-    public List<String> consultedSpecialists() {
-        return List.copyOf(consultedSpecialists);
+    /** Every playbook this answer loaded, in order, each once — what its audit event records. */
+    public List<String> skillsUsed() {
+        return List.copyOf(skillsUsed);
     }
 
     public void researched(String linkedinSlug, CapturedCompanyDetails details) {

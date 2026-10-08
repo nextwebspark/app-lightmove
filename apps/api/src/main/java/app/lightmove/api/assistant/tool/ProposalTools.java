@@ -44,12 +44,13 @@ public class ProposalTools {
     }
 
     @Tool(description = """
-            Show companies to the user as a card they can tick and add to the mandate. Call it every \
-            time an answer puts forward companies. Pass the Apollo account ids a search returned, and \
-            the LinkedIn slugs of RESEARCHED companies lookUpCompaniesByName returned, in this answer \
-            or on an earlier card of this chat. The answer says how many the card holds and how many \
-            of those the mandate has already filed (shown with their stage, not offered again); \
-            companies the client has ruled off limits, or that were never found, are left out.""")
+            List companies below the answer, for the user to tick and file into the mandate. Call it \
+            every time an answer puts forward companies. Pass the Apollo account ids a search returned, \
+            and the LinkedIn slugs of RESEARCHED companies lookUpCompaniesByName returned, in this \
+            answer or in an earlier suggested_companies block of this chat. The answer says how many \
+            are suggested and how many of those the mandate has already filed (shown with their stage, \
+            not offered again); companies the client has ruled off limits, or that were never found, \
+            are left out.""")
     public CardResult proposeCompanies(
             @ToolParam(description = "One short line saying what these companies are") String title,
             @ToolParam(description = "Apollo account ids, and LinkedIn slugs of researched companies, from this chat")
@@ -74,7 +75,7 @@ public class ProposalTools {
         if (recorder.proposal() != null || found.isEmpty()) {
             return;
         }
-        int step = recorder.startStep("Preparing the card");
+        int step = recorder.startStep("Preparing the suggested companies");
         AssistantProposal card = card(context, "Companies found", found);
         recorder.propose(card);
         recorder.finishStep(step, describeCard(resultOf(card, card.companies().size())));
@@ -85,9 +86,9 @@ public class ProposalTools {
         return new CardResult(card.companies().size(), held, Math.max(0, asked - card.companies().size()));
     }
 
-    /** "8 on the card, 2 already in the mandate, 1 left out (off limits or not found)". */
+    /** "8 suggested, 2 already in the mandate, 1 left out (off limits or not found)". */
     static String describeCard(CardResult result) {
-        StringBuilder described = new StringBuilder(result.onCard() + " on the card");
+        StringBuilder described = new StringBuilder(result.suggested() + " suggested");
         if (result.alreadyInMandate() > 0) {
             described.append(", ").append(result.alreadyInMandate()).append(" already in the mandate");
         }

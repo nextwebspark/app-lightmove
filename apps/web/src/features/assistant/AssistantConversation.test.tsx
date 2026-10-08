@@ -200,7 +200,7 @@ describe("a chat with the assistant", () => {
     let finish: (value: AssistantTurn) => void = () => {};
     ask.mockImplementation((_projectId, _question, _threadId, onStep: (step: LiveStep) => void,
       onProposal: (proposal: typeof CARD) => void) => {
-      onStep({ index: 0, label: "Preparing 2 companies", detail: "2 on the card", done: true });
+      onStep({ index: 0, label: "Preparing 2 companies", detail: "2 suggested", done: true });
       onProposal(CARD);
       return new Promise<AssistantTurn>((resolve) => {
         finish = resolve;
@@ -211,7 +211,7 @@ describe("a chat with the assistant", () => {
     mount();
     await send("Top retailers in UAE");
 
-    expect(await screen.findByText("Preparing the card for 2 companies…")).toBeInTheDocument();
+    expect(await screen.findByText("Preparing 2 suggested companies…")).toBeInTheDocument();
     expect(screen.getByText("Writing the answer")).toBeInTheDocument();
     expect(screen.queryByText("Landmark Group")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Universe" })).not.toBeInTheDocument();
@@ -219,7 +219,7 @@ describe("a chat with the assistant", () => {
     finish(answered);
 
     expect(await screen.findByText("Answer t1")).toBeInTheDocument();
-    expect(screen.queryByText("Preparing the card for 2 companies…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Preparing 2 suggested companies…")).not.toBeInTheDocument();
     expect(screen.getAllByText("Landmark Group")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Universe" })).toBeEnabled();
   });
