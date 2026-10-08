@@ -3,6 +3,7 @@ package app.lightmove.api.enrichment.company.service;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.company.model.CachedCompany;
+import app.lightmove.api.enrichment.company.model.CompanyActivityQuery;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
@@ -23,6 +24,9 @@ public class CompanyResearch {
     /** Below this, a namesake is likelier than a match. */
     public static final int MIN_EMPLOYEES_IN_COUNTRY = 50;
 
+    /** Small enough to keep a real namesake in the running, big enough to leave out a one-person shell. */
+    public static final int MIN_EMPLOYEES_TO_IDENTIFY = 10;
+
     /** A name as short as "H&M" otherwise buys strangers. */
     public static final int MIN_EMPLOYEES_ANYWHERE = 1_000;
 
@@ -38,10 +42,15 @@ public class CompanyResearch {
     }
 
     public Optional<CapturedCompanyDetails> of(String linkedinSlug) {
+        return recordOf(linkedinSlug).flatMap(VendorCompanyRecord::asCapturedDetails);
+    }
+
+    /** The whole record, its specialties included — what a page's niche is read from. */
+    public Optional<VendorCompanyRecord> recordOf(String linkedinSlug) {
         Instant staleBefore = Instant.now().minus(cacheTtl);
         Optional<CachedCompany> held = store.find(linkedinSlug);
         if (held.isPresent() && held.get().fetchedAt().isAfter(staleBefore)) {
-            return held.get().found().flatMap(VendorCompanyRecord::asCapturedDetails);
+            return held.get().found();
         }
 
         // With enrichment off a stored miss would outlive the day someone configures a key.
@@ -52,7 +61,42 @@ public class CompanyResearch {
         Optional<VendorCompanyRecord> answer = enricher.fetch(linkedinSlug);
         // A vendor that threw never reaches here, so a bad minute is not remembered as a miss.
         store.remember(linkedinSlug, enricher.provider(), answer);
-        return answer.flatMap(VendorCompanyRecord::asCapturedDetails);
+        return answer;
+    }
+
+    public boolean isEnabled() {
+        return enricher.isEnabled();
+    }
+
+    /** "Seddiqi Holdings" → [seddiqi]: what a name search keys on. */
+    public static List<String> distinctiveNameWords(String name) {
+        return CompanyNames.distinctiveWords(name);
+    }
+
+    /**
+     * Every page a name search finds, not just the best — the caller tells namesakes apart. One billed
+     * search, on the name's core ("seddiqi"), so "Seddiqi Holding" and "Ahmed Seddiqi & Sons" both come back.
+     */
+    public List<VendorCompanyRecord> pagesNamed(String name, String country, VendorSearchAllowance allowance) {
+        List<String> terms = CompanyNames.searchTerms(name);
+        if (!enricher.isEnabled() || terms.isEmpty() || !allowance.take()) {
+            return List.of();
+        }
+        String countryCode = Countries.codeOf(country);
+        List<VendorCompanyRecord> hits = enricher.searchByName(terms.getLast(), countryCode,
+                countryCode == null ? MIN_EMPLOYEES_ANYWHERE : MIN_EMPLOYEES_TO_IDENTIFY);
+        store.rememberAll(enricher.provider(), hits);
+        return hits;
+    }
+
+    /** One billed search by what companies do; every hit is remembered, because every hit is paid for. */
+    public List<VendorCompanyRecord> byActivity(CompanyActivityQuery query, VendorSearchAllowance allowance) {
+        if (!enricher.isEnabled() || query.words().isEmpty() || !allowance.take()) {
+            return List.of();
+        }
+        List<VendorCompanyRecord> hits = enricher.searchByActivity(query);
+        store.rememberAll(enricher.provider(), hits);
+        return hits;
     }
 
     /**

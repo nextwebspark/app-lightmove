@@ -13,6 +13,8 @@ import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.model.CompanyScope;
 import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.ScopeBreakdown;
+import app.lightmove.api.strategy.model.ScoredCompanyRow;
+import app.lightmove.api.strategy.model.SimilarityScope;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -49,6 +51,9 @@ public class ApolloCompanyQueryService {
             company_phone, company_state, company_address, parent_company,
             total_funding, latest_funding, latest_funding_amount, last_raised_at,
             number_of_retail_locations, keywords, technologies, sic_codes, naics_codes""";
+
+    /** A keyword on more of the universe than this says nothing about which niche a company is in. */
+    static final double COMMONEST_KEYWORD_SHARE = 0.03;
 
     private final JdbcClient jdbc;
     private final SectorTaxonomy taxonomy;
@@ -170,6 +175,133 @@ public class ApolloCompanyQueryService {
                 .param("min", minEmployees)
                 .query(COMPANY_ROW_MAPPER)
                 .optional();
+    }
+
+    /**
+     * Companies whose name holds every word, biggest first — "Seddiqi" finds both "Seddiqi Holding" and
+     * "Ahmed Seddiqi & Sons", which is the point: the caller decides whether that is one company or two.
+     */
+    public List<CompanyRow> namedLike(List<String> nameWords, String country, int limit) {
+        if (nameWords.isEmpty()) {
+            return List.of();
+        }
+        Map<String, Object> params = new LinkedHashMap<>();
+        List<String> clauses = new ArrayList<>();
+        for (int index = 0; index < nameWords.size(); index++) {
+            clauses.add("company_name ILIKE :word%d ESCAPE '\\'".formatted(index));
+            params.put("word" + index, "%" + LikePatterns.escape(nameWords.get(index)) + "%");
+        }
+        if (country != null) {
+            clauses.add("company_country = :country");
+            params.put("country", country);
+        }
+        params.put("limit", limit);
+        return jdbc.sql("""
+                        SELECT %s
+                        FROM app_lm_apollo_companies
+                        WHERE %s
+                        ORDER BY num_employees DESC NULLS LAST, apollo_account_id
+                        LIMIT :limit
+                        """.formatted(ROW_COLUMNS, String.join(" AND ", clauses)))
+                .params(params)
+                .query(COMPANY_ROW_MAPPER)
+                .list();
+    }
+
+    /**
+     * Companies sharing the anchor's distinctive keywords, scored by the sum of {@code ln(N / companies
+     * using it)}. A keyword on more than {@link #COMMONEST_KEYWORD_SHARE} of the universe ("services",
+     * "b2c", "retail") distinguishes nothing and is not counted, which also keeps the candidate set small
+     * enough for the GIN index to matter: nearly every UAE company shares one of those with anyone.
+     */
+    public List<ScoredCompanyRow> similarTo(SimilarityScope scope) {
+        if (scope.anchorKeywords().isEmpty()) {
+            return List.of();
+        }
+        Map<String, Object> params = new LinkedHashMap<>();
+        params.put("anchorKeywords", lowered(scope.anchorKeywords()));
+        params.put("commonestShare", COMMONEST_KEYWORD_SHARE);
+        params.put("minShared", Math.max(1, scope.minShared()));
+        params.put("limit", scope.limit());
+        List<String> clauses = new ArrayList<>();
+        if (!scope.countries().isEmpty()) {
+            clauses.add("a.company_country IN (:countries)");
+            params.put("countries", scope.countries());
+        }
+        if (!scope.industries().isEmpty()) {
+            clauses.add("lower(a.industry) IN (:industries)");
+            params.put("industries", lowered(scope.industries()));
+        }
+        if (scope.minEmployees() != null) {
+            clauses.add("a.num_employees >= :minEmployees");
+            params.put("minEmployees", scope.minEmployees());
+        }
+        if (scope.maxEmployees() != null) {
+            clauses.add("a.num_employees <= :maxEmployees");
+            params.put("maxEmployees", scope.maxEmployees());
+        }
+        if (!scope.excludedAccountIds().isEmpty()) {
+            clauses.add("a.apollo_account_id NOT IN (:excluded)");
+            params.put("excluded", scope.excludedAccountIds());
+        }
+        String filters = clauses.isEmpty() ? "" : " AND " + String.join(" AND ", clauses);
+        String sql = """
+                WITH universe AS (
+                    SELECT count(*)::float8 AS companies FROM app_lm_apollo_companies
+                ),
+                distinctive AS (
+                    SELECT k.keyword, ln(u.companies / k.company_count) AS weight
+                    FROM app_lm_apollo_keywords k, universe u
+                    WHERE k.keyword IN (:anchorKeywords)
+                      AND k.company_count >= 2
+                      AND k.company_count <= greatest(3, u.companies * :commonestShare)
+                ),
+                scored AS (
+                    SELECT a.apollo_account_id, sum(d.weight) AS score,
+                           array_agg(d.keyword ORDER BY d.weight DESC) AS shared
+                    FROM app_lm_apollo_companies a
+                    CROSS JOIN LATERAL unnest(a.keywords) AS held(keyword)
+                    JOIN distinctive d ON d.keyword = held.keyword
+                    WHERE a.keywords && ARRAY(SELECT keyword FROM distinctive)%s
+                    GROUP BY a.apollo_account_id
+                    HAVING count(*) >= least(:minShared, (SELECT count(*) FROM distinctive))
+                )
+                SELECT %s, s.score, s.shared
+                FROM scored s
+                JOIN app_lm_apollo_companies USING (apollo_account_id)
+                ORDER BY s.score DESC, num_employees DESC NULLS LAST, apollo_account_id
+                LIMIT :limit
+                """.formatted(filters, ROW_COLUMNS);
+        return jdbc.sql(sql).params(params)
+                .query((rs, rowNumber) -> new ScoredCompanyRow(mapRow(rs, rowNumber), rs.getDouble("score"),
+                        stringList(rs, "shared")))
+                .list();
+    }
+
+    /**
+     * Of {@code keywords}, the ones that say which niche a company is in — neither one-off phrasings nor
+     * words half the market uses — the most widely used of them first, which reads as the niche itself
+     * ("luxury watches" before "luxury watch collector").
+     */
+    public List<String> distinctiveKeywords(List<String> keywords, int limit) {
+        if (keywords.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("""
+                        SELECT k.keyword
+                        FROM app_lm_apollo_keywords k,
+                             (SELECT count(*)::float8 AS companies FROM app_lm_apollo_companies) u
+                        WHERE k.keyword IN (:keywords)
+                          AND k.company_count >= 2
+                          AND k.company_count <= greatest(3, u.companies * :commonestShare)
+                        ORDER BY k.company_count DESC, k.keyword
+                        LIMIT :limit
+                        """)
+                .param("keywords", lowered(keywords))
+                .param("commonestShare", COMMONEST_KEYWORD_SHARE)
+                .param("limit", limit)
+                .query(String.class)
+                .list();
     }
 
     /**

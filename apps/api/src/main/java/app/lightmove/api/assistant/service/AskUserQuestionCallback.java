@@ -44,11 +44,14 @@ final class AskUserQuestionCallback implements ToolCallback {
     private final ToolCallback delegate;
     private final ToolDefinition definition;
     private final TurnRecorder recorder;
+    private final ObjectMapper json;
 
-    private AskUserQuestionCallback(ToolCallback delegate, ToolDefinition definition, TurnRecorder recorder) {
+    private AskUserQuestionCallback(ToolCallback delegate, ToolDefinition definition, TurnRecorder recorder,
+                                    ObjectMapper json) {
         this.delegate = delegate;
         this.definition = definition;
         this.recorder = recorder;
+        this.json = json;
     }
 
     static ToolCallback forAsk(TurnRecorder recorder, ObjectMapper json) {
@@ -64,7 +67,7 @@ final class AskUserQuestionCallback implements ToolCallback {
                 .name(original.name())
                 .description(original.description())
                 .inputSchema(withoutAnswers(original.inputSchema(), json))
-                .build(), recorder);
+                .build(), recorder, json);
     }
 
     /**
@@ -96,9 +99,17 @@ final class AskUserQuestionCallback implements ToolCallback {
         return call(toolInput, new ToolContext(Map.of()));
     }
 
-    /** The library throws on a question it cannot read (a blank header, a missing label); that shows nothing. */
+    /**
+     * Answered as a JSON string: Gemini's adapter parses every tool result as JSON, and plain text failed the
+     * whole answer with "Failed to parse JSON" the first time a live model asked (eval, 2026-10-08).
+     */
     @Override
     public String call(String toolInput, ToolContext toolContext) {
+        return json.writeValueAsString(reply(toolInput, toolContext));
+    }
+
+    /** The library throws on a question it cannot read (a blank header, a missing label); that shows nothing. */
+    private String reply(String toolInput, ToolContext toolContext) {
         if (recorder.skillsUsed().isEmpty()) {
             log.info("Assistant question turned away: no playbook loaded yet");
             return LOAD_A_PLAYBOOK_FIRST;

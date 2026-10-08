@@ -9,7 +9,9 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
 import app.lightmove.api.enrichment.common.service.BrightDataSearch;
+import app.lightmove.api.enrichment.company.model.CompanyActivityQuery;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -105,6 +107,84 @@ public class BrightDataCompanyEnricher implements LinkedInCompanyEnricher {
                 .filter(hit -> hit.hasNonNull("id"))
                 .flatMap(hit -> toRecord(hit.get("id").asString().toLowerCase(Locale.ROOT), hit, json).stream())
                 .toList();
+    }
+
+    @Override
+    @Retryable(
+            predicate = VendorRetryPredicate.class,
+            maxRetriesString = "${lightmove.enrichment.brightdata.max-retries}",
+            delayString = "${lightmove.resilience.retry-delay}",
+            jitterString = "${lightmove.resilience.retry-jitter}",
+            multiplierString = "${lightmove.resilience.retry-multiplier}",
+            maxDelayString = "${lightmove.resilience.retry-max-delay}")
+    public List<VendorCompanyRecord> searchByActivity(CompanyActivityQuery query) {
+        if (query.words().isEmpty() || query.size() < 1) {
+            return List.of();
+        }
+        JsonNode result = guard.call(VendorCall.of(VENDOR, "company-activity-search"),
+                () -> client.post()
+                        .uri("/datasets/search/{datasetId}", datasetId)
+                        .body(doing(query))
+                        .retrieve()
+                        .body(JsonNode.class));
+        JsonNode hits = result == null ? null : result.get("hits");
+        if (hits == null || hits.isEmpty()) {
+            return List.of();
+        }
+        return hits.valueStream()
+                .filter(hit -> hit.hasNonNull("id"))
+                .flatMap(hit -> toRecord(hit.get("id").asString().toLowerCase(Locale.ROOT), hit, json).stream())
+                .toList();
+    }
+
+    /**
+     * Each word is matched in the specialties or the about text — single words only, since
+     * {@code includes} on a phrase runs ten seconds. A group holds four rules at most
+     * ({@link BrightDataSearch#MAX_RULES_PER_GROUP}), so the words sit one group per field inside an
+     * {@code or}, the industries in one {@code in}, and the headcount and exclusion inside their own
+     * {@code and}: country, words, industries, the rest — four.
+     */
+    static Map<String, Object> doing(CompanyActivityQuery query) {
+        List<Map<String, Object>> rules = new ArrayList<>();
+        List<Map<String, Object>> countries = query.countryCodes().stream()
+                .limit(BrightDataSearch.MAX_RULES_PER_GROUP)
+                .map(code -> Map.<String, Object>of("name", "country_codes_array", "operator", "array_includes",
+                        "value", code))
+                .toList();
+        if (countries.size() == 1) {
+            rules.add(countries.getFirst());
+        } else if (!countries.isEmpty()) {
+            rules.add(Map.of("operator", "or", "filters", countries));
+        }
+        List<String> words = query.words().stream().limit(BrightDataSearch.MAX_RULES_PER_GROUP).toList();
+        rules.add(Map.of("operator", "or", "filters", List.of(
+                anyWordIn("specialties", words), anyWordIn("about", words))));
+        if (!query.industries().isEmpty()) {
+            rules.add(Map.of("name", "industries", "operator", "in", "value", query.industries()));
+        }
+        List<Map<String, Object>> narrowing = new ArrayList<>();
+        if (query.minEmployees() != null) {
+            narrowing.add(Map.of("name", "employees_in_linkedin", "operator", ">=", "value", query.minEmployees()));
+        }
+        if (query.maxEmployees() != null) {
+            narrowing.add(Map.of("name", "employees_in_linkedin", "operator", "<=", "value", query.maxEmployees()));
+        }
+        if (!query.excludedSlugs().isEmpty()) {
+            narrowing.add(Map.of("name", "id", "operator", "not_in",
+                    "value", query.excludedSlugs().stream().limit(BrightDataSearch.MAX_EXCLUDED).toList()));
+        }
+        if (narrowing.size() == 1) {
+            rules.add(narrowing.getFirst());
+        } else if (!narrowing.isEmpty()) {
+            rules.add(Map.of("operator", "and", "filters", narrowing));
+        }
+        return Map.of("size", query.size(), "filter", Map.of("operator", "and", "filters", rules));
+    }
+
+    private static Map<String, Object> anyWordIn(String field, List<String> words) {
+        return Map.of("operator", "or", "filters", words.stream()
+                .map(word -> Map.<String, Object>of("name", field, "operator", "includes", "value", word))
+                .toList());
     }
 
     static Map<String, Object> namedIn(String namePart, String countryCode, int minEmployees) {

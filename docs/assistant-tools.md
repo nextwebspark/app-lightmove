@@ -17,7 +17,8 @@ a playbook only when its question needs it.
 
 | Playbook | When | What it tells the model |
 |---|---|---|
-| `find-companies` | companies by sector, country, size, a named company's peers, "top N" | search + name lookup in one turn, `proposeCompanies`, a two-sentence answer, adjacent industries |
+| `find-companies` | companies by sector, country, size, what they do ("watch distributors"), "top N" | search + name lookup (+ `searchCompaniesByActivity` for an activity) in one turn, `proposeCompanies`, a two-sentence answer, adjacent industries |
+| `similar-companies` | a named company's competitors, peers, "companies like X" | `identifyCompany`; ask which one when several share the name; `findSimilarCompanies` + name lookup in one turn; say what was loosened |
 | `recommend-sectors` | which sectors to target | reason from the brief, name only what `describeMarket` / `adjacentIndustries` report, propose nothing |
 | `earlier-list` | "what are these", "the first three", "more like these" | list or narrow from the `<suggested_companies>` block; for more, load `find-companies` |
 | `mapped-executives` | who the position has mapped | `listMappedExecutives`, `readExecutiveProfile`, `companiesWithoutExecutives` — read-only |
@@ -90,6 +91,18 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │                              operator first, then the universe, then LinkedIn in the
         │                              country via Bright Data, then the brand's own page anywhere
         │                              (cached per page, 30 days)
+        │     identifyCompany        → every company a name could mean (database by every name word,
+        │                              else one Bright Data name search), each with its niche
+        │     findSimilarCompanies   → the same niche (rare keywords shared, weighted by rarity),
+        │                              then sector, then headcount ¼–4×; headcount widened to
+        │                              ⅒–10×, then dropped, then the sector, until enough are found
+        │                              — never the country; a shortfall goes to Bright Data's
+        │                              company dataset in the same countries (country_codes_array)
+        │                              and headcount ⅒–10×, by the niche's words in specialties /
+        │                              about: first in the sector's V2 industries, then without
+        │                              (≤10 hits in all; a search finding nobody costs nothing)
+        │     searchCompaniesByActivity → companies by what they do: the database's keywords for
+        │                              each word, then Bright Data's specialties / about text
         │     adjacentIndustries     → the sectors beside one, from industry-adjacency.json
         │     proposeCompanies(ids)  → account ids from the universe, LinkedIn slugs this answer or
         │                              an earlier card researched; drops off-limits, stamps each
@@ -177,7 +190,11 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   - `service/AskUserQuestionCallback` offers the library's question tool, ending the answer rather than
     waiting for one.
   - `service/AssistantProposalService` handles accept.
-  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `CompanyDiscoveryTools` (over `CompanyDiscovery`), `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - The niche read is `ApolloCompanyQueryService.similarTo` / `distinctiveKeywords` / `namedLike` (`strategy`), over V33's
+    `app_lm_apollo_keywords`: a keyword on more than 3% of the universe distinguishes nothing and is not counted. The
+    LinkedIn half is `CompanyResearch.pagesNamed` / `byActivity` over the company dataset's synchronous search, every
+    hit cached in `app_lm_vendor_company`.
 - Frontend `apps/web/src/features/assistant`:
   - `AssistantProvider` holds whether the panel is open and the chat shown per project.
   - `components/AssistantPanel` has the history list, New chat, the transcript and the composer.
