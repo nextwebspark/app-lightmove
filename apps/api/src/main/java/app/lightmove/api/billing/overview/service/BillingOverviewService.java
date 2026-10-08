@@ -23,6 +23,7 @@ import app.lightmove.api.billing.plan.model.BillingPlan;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.BillingPlanRepository;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
+import app.lightmove.api.billing.plan.service.BillingSeats;
 import app.lightmove.api.core.config.CreditPriceSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.time.Clock;
@@ -44,6 +45,7 @@ public class BillingOverviewService {
     private final BillingPlanRepository plans;
     private final CreditGrantRepository grants;
     private final CreditSpendReport spend;
+    private final BillingSeats seats;
     private final PaymentGateway gateway;
     private final PlanPrices planPrices;
     private final LightMoveProperties properties;
@@ -56,10 +58,12 @@ public class BillingOverviewService {
         BillingPlan plan = subscription == null ? null : plans.findById(subscription.getPlanCode()).orElseThrow();
         CreditPriceSettings prices = properties.billing().prices();
         boolean offered = gateway.isOffered();
+        boolean trial = subscription != null && subscription.isAppTrial();
         return new BillingResponse(
                 plan == null ? null : new BillingPlanSummary(plan.getCode(), plan.getName()),
                 subscription == null ? null : subscription.getBillingInterval(),
-                subscription == null ? 0 : subscription.getSeats(),
+                trial ? Math.toIntExact(seats.allowanceOf(workspaceId, now).staffSeats())
+                        : subscription == null ? 0 : subscription.getSeats(),
                 plan == null ? null : seatPriceOf(plan, subscription.getBillingInterval()),
                 subscription == null ? null : subscription.getStatus(),
                 subscription == null ? null : subscription.getCurrentPeriodEnd(),
@@ -68,7 +72,8 @@ public class BillingOverviewService {
                 paymentMethodOf(subscription),
                 offered,
                 offered ? planOffers() : List.of(),
-                offered ? packOffers() : List.of());
+                offered ? packOffers() : List.of(),
+                trial ? subscription.getTrialEndsAt() : null);
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +94,13 @@ public class BillingOverviewService {
         long given = bySource.stream().filter(credits -> credits.source().isGivenByHand())
                 .mapToLong(SourceCredits::remaining).sum();
         return new ContactCreditsResponse(monthly.granted(), left, bought, given, monthly.usedPercent(),
-                monthly.levelAt(left), BillingMonth.of(subscription, now).end());
+                monthly.levelAt(left), resetsAtOf(subscription, now));
+    }
+
+    /** A trial's credits do not reset: they lapse with it. */
+    private static Instant resetsAtOf(WorkspaceSubscription subscription, Instant now) {
+        return subscription != null && subscription.isAppTrial()
+                ? subscription.getTrialEndsAt() : BillingMonth.of(subscription, now).end();
     }
 
     private List<BillingPlanOffer> planOffers() {
@@ -115,7 +126,8 @@ public class BillingOverviewService {
     }
 
     private static PaymentMethodResponse paymentMethodOf(WorkspaceSubscription subscription) {
-        if (subscription == null || subscription.getStatus() == SubscriptionStatus.CANCELLED) {
+        if (subscription == null || subscription.getStatus() == SubscriptionStatus.CANCELLED
+                || subscription.isAppTrial()) {
             return new PaymentMethodResponse(PaymentMethodKind.NONE, null, null);
         }
         PaymentMethodKind kind = subscription.isBilledByStripe() ? PaymentMethodKind.CARD : PaymentMethodKind.INVOICED;

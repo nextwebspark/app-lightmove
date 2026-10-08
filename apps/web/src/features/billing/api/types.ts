@@ -50,7 +50,10 @@ export interface CreditPackOffer {
   priceFils: number;
 }
 
-/** `GET /billing`. The plan's fields are null for a workspace with no subscription; `plans` and `packs` are empty where Stripe is not offered. */
+/**
+ * `GET /billing`. The plan's fields are null for a workspace with no subscription; `plans` and `packs` are empty where
+ * Stripe is not offered. `trialEndsAt` is set only on the app's own trial, still unpaid, and passed once it has ended.
+ */
 export interface Billing {
   plan: { code: PlanCode; name: string } | null;
   interval: BillingInterval | null;
@@ -65,6 +68,7 @@ export interface Billing {
   stripeOffered: boolean;
   plans: BillingPlanOffer[];
   packs: CreditPackOffer[];
+  trialEndsAt: string | null;
 }
 
 /** One member's captured finds this billing month; a spend no member made has a null `userId`. */

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { aBilling, aCardBilling, anInvoicedBilling, PLAN_OFFERS, someCredits } from "../test/fixtures";
+import { aBilling, aCardBilling, anInvoicedBilling, aTrialBilling, PLAN_OFFERS, someCredits } from "../test/fixtures";
 import {
   billingBannerOf,
   billingRefusalOf,
@@ -9,24 +9,59 @@ import {
   formatAed,
   planChoiceOf,
   planOptionOf,
+  trialOf,
   withVat,
 } from "./billingView";
 
+const NOW = new Date("2026-10-08T12:00:00Z");
+const IN_NINE_DAYS = "2026-10-17T10:00:00Z";
+const IN_TWO_DAYS = "2026-10-10T10:00:00Z";
+const AN_HOUR_AGO = "2026-10-08T11:00:00Z";
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("creditChipOf", () => {
+  const withCredits = (overrides: Parameters<typeof someCredits>[0]) => aBilling({ credits: someCredits(overrides) });
+
   it("shows nothing below 80% used", () => {
-    expect(creditChipOf(someCredits({ level: "OK" }))).toBeNull();
+    expect(creditChipOf(withCredits({ level: "OK" }))).toBeNull();
   });
 
   it("names what is left at 80% and 90%", () => {
-    expect(creditChipOf(someCredits({ level: "EIGHTY", left: 1350 }))).toEqual({
+    expect(creditChipOf(withCredits({ level: "EIGHTY", left: 1350 }))).toEqual({
       tone: "warn",
       label: "1,350 contact credits left",
+      about: "Contact credits",
     });
-    expect(creditChipOf(someCredits({ level: "NINETY", left: 60 }))?.tone).toBe("warn");
+    expect(creditChipOf(withCredits({ level: "NINETY", left: 60 }))?.tone).toBe("warn");
   });
 
   it("says used up once nothing is left", () => {
-    expect(creditChipOf(someCredits({ level: "OUT", left: 0 }))).toEqual({ tone: "out", label: "Out of contact credits" });
+    expect(creditChipOf(withCredits({ level: "OUT", left: 0 }))).toMatchObject({
+      tone: "out",
+      label: "Out of contact credits",
+    });
+  });
+
+  it("counts a trial's days down, warning in its last three, and says when it has ended", () => {
+    expect(creditChipOf(aTrialBilling(IN_NINE_DAYS))).toEqual({ tone: "trial", label: "Trial · 9 days left", about: "Trial" });
+    expect(creditChipOf(aTrialBilling(IN_TWO_DAYS))).toMatchObject({ tone: "warn", label: "Trial · 2 days left" });
+    expect(creditChipOf(aTrialBilling(AN_HOUR_AGO))).toMatchObject({ tone: "out", label: "Trial ended" });
+  });
+});
+
+describe("trialOf", () => {
+  it("is null off a trial, and rounds the days left up", () => {
+    expect(trialOf(aCardBilling())).toBeNull();
+    expect(trialOf(aTrialBilling(IN_NINE_DAYS))).toEqual({ endsAt: IN_NINE_DAYS, daysLeft: 9, ended: false });
+    expect(trialOf(aTrialBilling(AN_HOUR_AGO))).toEqual({ endsAt: AN_HOUR_AGO, daysLeft: 0, ended: true });
   });
 });
 
@@ -43,6 +78,14 @@ describe("buyOptionOf", () => {
     expect(buyOptionOf(aBilling(), true)).toMatchObject({ kind: "contact", label: "Contact Uncava" });
   });
 
+  it("offers a trial's admin the plans, or Uncava where Stripe is not offered", () => {
+    expect(buyOptionOf(aTrialBilling(IN_NINE_DAYS), true)).toEqual({ kind: "plans", label: "Choose a plan" });
+    expect(buyOptionOf(aTrialBilling(IN_NINE_DAYS, { stripeOffered: false, plans: [], packs: [] }), true)).toMatchObject({
+      kind: "contact",
+      label: "Contact Uncava",
+    });
+  });
+
   it("sends an invoiced admin to Uncava", () => {
     const option = buyOptionOf(aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED", brand: null, last4: null } }), true);
     expect(option).toMatchObject({ kind: "contact", label: "Contact Uncava" });
@@ -53,6 +96,11 @@ describe("buyOptionOf", () => {
 describe("planOptionOf", () => {
   it("offers a member nothing", () => {
     expect(planOptionOf(aCardBilling(), false)).toBeNull();
+  });
+
+  it("has a trial's admin choose a plan, ended or not", () => {
+    expect(planOptionOf(aTrialBilling(IN_NINE_DAYS), true)).toEqual({ kind: "plans", label: "Choose a plan" });
+    expect(planOptionOf(aTrialBilling(AN_HOUR_AGO), true)).toEqual({ kind: "plans", label: "Choose a plan" });
   });
 
   it("opens the plans dialog where Stripe takes payment", () => {
@@ -115,6 +163,24 @@ describe("billingBannerOf", () => {
     expect(banner?.title).toBe("We couldn't take this month's payment");
   });
 
+  it("counts a trial down, and puts the credits running out first", () => {
+    expect(billingBannerOf(aTrialBilling(IN_NINE_DAYS), true)).toMatchObject({
+      tone: "info",
+      title: "Pro trial · 9 days left",
+      action: { kind: "plans", label: "Choose a plan" },
+    });
+    expect(billingBannerOf(aTrialBilling(IN_TWO_DAYS), false)).toMatchObject({ tone: "warn", action: null });
+    expect(
+      billingBannerOf(aTrialBilling(IN_NINE_DAYS, { credits: someCredits({ level: "OUT", left: 0 }) }), true)?.title,
+    ).toBe("Your trial's contact credits are used up");
+  });
+
+  it("says an ended trial keeps everything and resumes with a plan", () => {
+    const banner = billingBannerOf(aTrialBilling(AN_HOUR_AGO), false);
+    expect(banner).toMatchObject({ tone: "red", title: "Your trial has ended" });
+    expect(banner?.body).toContain("once an admin chooses a plan");
+  });
+
   it("says an invoiced workspace is paid by invoice", () => {
     expect(billingBannerOf(aBilling({ status: "INVOICED" }), true)).toMatchObject({ tone: "info", title: "Paid by invoice" });
   });
@@ -137,6 +203,13 @@ describe("billingRefusalOf", () => {
     expect(
       billingRefusalOf(refused({ code: "FAIR_USE_REACHED", kind: "PEOPLE_SEARCH_PAGE", resetsAt: "2026-11-01T00:00:00Z" })),
     ).toEqual({ kind: "fairUse", use: "PEOPLE_SEARCH_PAGE", resetsAt: "2026-11-01T00:00:00Z" });
+  });
+
+  it("reads a trial's end", () => {
+    expect(billingRefusalOf(refused({ code: "TRIAL_ENDED", trialEndedAt: AN_HOUR_AGO }))).toEqual({
+      kind: "trialEnded",
+      endedAt: AN_HOUR_AGO,
+    });
   });
 
   it("leaves every other refusal to its caller", () => {

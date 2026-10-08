@@ -7,7 +7,7 @@ import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as billingApi from "../api/billingApi";
 import * as checkoutReturn from "../lib/checkoutReturn";
-import { aBilling, aCardBilling, anInvoicedBilling, someCredits } from "../test/fixtures";
+import { aBilling, aCardBilling, anInvoicedBilling, aTrialBilling, someCredits } from "../test/fixtures";
 import { SettingsBillingPage } from "./SettingsBillingPage";
 
 vi.mock("../api/billingApi", async (importOriginal) => ({
@@ -66,6 +66,26 @@ describe("SettingsBillingPage", () => {
     expect(meter).toHaveTextContent("Email found 1 · Phone found 5");
     expect(meter).toHaveTextContent(/412\s*of 750 left this month/);
     expect(meter).toHaveTextContent("Resets to 750 on 1 Nov");
+  });
+
+  it("shows a trial's days and credits, and takes its admin to the plans", async () => {
+    const endsAt = new Date(Date.now() + 9 * 86_400_000 - 3_600_000).toISOString();
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling(endsAt));
+    const user = userEvent.setup();
+    renderPage();
+
+    const plan = await screen.findByRole("region", { name: "Plan" });
+    expect(plan).toHaveTextContent("Trial");
+    expect(plan).toHaveTextContent("1 staff seat · free while the trial lasts");
+    expect(plan).toHaveTextContent("50 contact credits for the trial");
+    expect(plan).not.toHaveTextContent("AED");
+    expect(screen.getByRole("region", { name: "Contact credits" })).toHaveTextContent(/50\s*of 50 left in your trial/);
+    expect(screen.getByRole("status")).toHaveTextContent("Pro trial · 9 days left");
+    expect(screen.getByRole("region", { name: "Payment and invoices" })).toHaveTextContent("No card yet");
+
+    await user.click(within(screen.getByRole("status")).getByRole("button", { name: "Choose a plan" }));
+
+    expect(await screen.findByRole("dialog", { name: "Plans" })).toBeInTheDocument();
   });
 
   it("shows no banner and no buy button below 80% on a card", async () => {

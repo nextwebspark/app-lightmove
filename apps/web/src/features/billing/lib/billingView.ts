@@ -1,32 +1,79 @@
 import { ApiRequestError } from "../../../lib/apiClient";
 import { formatNumber } from "../../../lib/format";
-import type { Billing, BillingInterval, BillingPlanOffer, ContactCredits, FairUseKind } from "../api/types";
+import type { Billing, BillingInterval, BillingPlanOffer, FairUseKind } from "../api/types";
 
 /** Where an invoiced workspace writes to change its plan or add credits, and where anyone asks for more fair use. */
 export const BILLING_CONTACT_EMAIL = "billing@uncava.com";
 
 export type CreditTone = "warn" | "out";
 
-/** The topbar chip: nothing below 80% used, then what is left, then used up. */
-export function creditChipOf(credits: ContactCredits): { tone: CreditTone; label: string } | null {
+const DAY_MS = 86_400_000;
+
+/** The app's own trial, still unpaid: how many days are left, rounded up, and whether it has ended. */
+export interface Trial {
+  endsAt: string;
+  daysLeft: number;
+  ended: boolean;
+}
+
+export function trialOf(billing: Billing, now: number = Date.now()): Trial | null {
+  if (!billing.trialEndsAt) return null;
+  const left = new Date(billing.trialEndsAt).getTime() - now;
+  return { endsAt: billing.trialEndsAt, daysLeft: Math.max(0, Math.ceil(left / DAY_MS)), ended: left <= 0 };
+}
+
+export function daysLeftLabel(days: number): string {
+  return days === 1 ? "1 day left" : `${days} days left`;
+}
+
+/**
+ * The topbar chip: a trial's days left, or its end; otherwise nothing below 80% used, then what is left, then used
+ * up. A trial's last three days are a warning.
+ */
+export function creditChipOf(billing: Billing): CreditChip | null {
+  const trial = trialOf(billing);
+  if (trial?.ended) return { tone: "out", label: "Trial ended", about: "Trial" };
+  const { credits } = billing;
+  if (trial && credits.level === "OK") {
+    return {
+      tone: trial.daysLeft <= 3 ? "warn" : "trial",
+      label: `Trial · ${daysLeftLabel(trial.daysLeft)}`,
+      about: "Trial",
+    };
+  }
   switch (credits.level) {
     case "OK":
       return null;
     case "OUT":
-      return { tone: "out", label: "Out of contact credits" };
+      return { tone: "out", label: "Out of contact credits", about: "Contact credits" };
     default:
-      return { tone: "warn", label: `${formatNumber(credits.left)} contact credits left` };
+      return { tone: "warn", label: `${formatNumber(credits.left)} contact credits left`, about: "Contact credits" };
   }
 }
 
+export interface CreditChip {
+  tone: CreditTone | "trial";
+  label: string;
+  about: "Trial" | "Contact credits";
+}
+
 /**
- * How an admin gets more credits: the Buy more credits dialog on a workspace paying Stripe by card, or a word to
- * Uncava wherever Stripe is not offered or the workspace is invoiced. A member is offered neither — only an admin buys.
+ * How an admin gets more credits: the Buy more credits dialog on a workspace paying Stripe by card, the plans on a
+ * trial, or a word to Uncava wherever Stripe is not offered or the workspace is invoiced. A member is offered neither —
+ * only an admin buys.
  */
-export type BuyOption = { kind: "buy"; label: string } | { kind: "contact"; label: string; href: string };
+export type BuyOption =
+  | { kind: "buy"; label: string }
+  | { kind: "plans"; label: string }
+  | { kind: "contact"; label: string; href: string };
 
 export function buyOptionOf(billing: Billing, isAdmin: boolean): BuyOption | null {
   if (!isAdmin || !billing.plan) return null;
+  if (billing.trialEndsAt) {
+    return billing.stripeOffered && billing.plans.length > 0
+      ? { kind: "plans", label: "Choose a plan" }
+      : { kind: "contact", label: "Contact Uncava", href: mailtoBilling("Choose a plan") };
+  }
   if (paysByCard(billing) && billing.packs.length > 0) {
     return { kind: "buy", label: "Buy more credits" };
   }
@@ -41,6 +88,7 @@ export function planOptionOf(billing: Billing, isAdmin: boolean): PlanOption | n
   if (!billing.stripeOffered || billing.status === "INVOICED" || billing.plans.length === 0) {
     return { kind: "contact", label: "Contact Uncava", href: mailtoBilling(billing.plan ? "Change plan" : "Choose a plan") };
   }
+  if (billing.trialEndsAt) return { kind: "plans", label: "Choose a plan" };
   return { kind: "plans", label: hasLivePlan(billing) ? "Change plan" : "See plans" };
 }
 
@@ -91,16 +139,38 @@ export interface BillingBanner {
   action: BuyOption | null;
 }
 
-/** The one banner the page draws, most pressing first: a failed payment, credits used up, 80/90%, then invoiced. */
+/**
+ * The one banner the page draws, most pressing first: a failed payment, an ended trial, credits used up, 80/90%, a
+ * trial's days left, then invoiced.
+ */
 export function billingBannerOf(billing: Billing, isAdmin: boolean): BillingBanner | null {
   const { credits } = billing;
   const resets = formatResetDate(credits.resetsAt);
+  const trial = trialOf(billing);
   if (billing.status === "PAST_DUE") {
     return {
       tone: "red",
       title: "We couldn't take this month's payment",
       body: `The card will be tried again. Everything keeps working until then.${isAdmin ? "" : " An admin can update the card."}`,
       action: null,
+    };
+  }
+  if (trial?.ended) {
+    return {
+      tone: "red",
+      title: "Your trial has ended",
+      body:
+        "Everything your team mapped is still here. Finding contacts, search and AI start again once " +
+        `${isAdmin ? "you choose" : "an admin chooses"} a plan.`,
+      action: buyOptionOf(billing, isAdmin),
+    };
+  }
+  if (trial && credits.level === "OUT") {
+    return {
+      tone: "red",
+      title: "Your trial's contact credits are used up",
+      body: `Choose a plan to get a month of credits at once. Search and AI keep working until ${formatResetDate(trial.endsAt)}.`,
+      action: buyOptionOf(billing, isAdmin),
     };
   }
   if (billing.plan && credits.level === "OUT") {
@@ -118,6 +188,18 @@ export function billingBannerOf(billing: Billing, isAdmin: boolean): BillingBann
       tone: "warn",
       title: `${credits.usedPercent}% of this month's contact credits used`,
       body: `${formatNumber(credits.left)} left until they reset on ${resets}.`,
+      action: buyOptionOf(billing, isAdmin),
+    };
+  }
+  if (trial) {
+    return {
+      tone: trial.daysLeft <= 3 ? "warn" : "info",
+      title: `${billing.plan?.name ?? "Pro"} trial · ${daysLeftLabel(trial.daysLeft)}`,
+      body:
+        `Your trial ends on ${formatResetDate(trial.endsAt)}. ` +
+        (isAdmin
+          ? "Choose a plan any time to keep finding contacts, searching and using AI after that."
+          : "An admin can choose a plan to keep everything working after that."),
       action: buyOptionOf(billing, isAdmin),
     };
   }
@@ -169,10 +251,11 @@ export const FAIR_USE_FEATURES: Record<FairUseKind, string> = {
   ASSISTANT_ASK: "The assistant",
 };
 
-/** A refusal one of the two billing sheets answers, read off the problem the server sent. */
+/** A refusal one of the billing sheets answers, read off the problem the server sent. */
 export type BillingRefusal =
   | { kind: "credits"; required: number | null; available: number | null; resetsAt: string | null }
-  | { kind: "fairUse"; use: FairUseKind | null; resetsAt: string | null };
+  | { kind: "fairUse"; use: FairUseKind | null; resetsAt: string | null }
+  | { kind: "trialEnded"; endedAt: string | null };
 
 export function billingRefusalOf(error: unknown): BillingRefusal | null {
   if (!(error instanceof ApiRequestError)) return null;
@@ -184,6 +267,9 @@ export function billingRefusalOf(error: unknown): BillingRefusal | null {
       available: problem.available ?? null,
       resetsAt: problem.resetsAt ?? null,
     };
+  }
+  if (problem.code === "TRIAL_ENDED") {
+    return { kind: "trialEnded", endedAt: problem.trialEndedAt ?? null };
   }
   if (problem.code === "FAIR_USE_REACHED") {
     const use = problem.kind && problem.kind in FAIR_USE_FEATURES ? (problem.kind as FairUseKind) : null;

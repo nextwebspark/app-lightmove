@@ -67,6 +67,9 @@ lightmove:
   # so they run as before enforcement; the classes testing enforcement switch it back on.
   billing:
     enforce: false
+    # Off, so a workspace a test founds has no subscription until the test writes one; TrialIntegrationTest turns it on.
+    trial:
+      enabled: false
     # Ids the recording payment gateway is handed; no test reaches Stripe.
     packs:
       contact-100:

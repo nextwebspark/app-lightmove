@@ -27,6 +27,7 @@ export function aBilling(overrides: Partial<Billing> = {}): Billing {
     stripeOffered: false,
     plans: [],
     packs: [],
+    trialEndsAt: null,
     ...overrides,
   };
 }
@@ -45,6 +46,19 @@ export const PACK_OFFERS: CreditPackOffer[] = [
 /** A workspace Stripe bills by card, on a deployment that sells plans and packs online. */
 export function aCardBilling(overrides: Partial<Billing> = {}): Billing {
   return aBilling({ stripeOffered: true, plans: PLAN_OFFERS, packs: PACK_OFFERS, ...overrides });
+}
+
+/** A workspace on the app's own Pro trial, ending `endsAt`, on a deployment that sells plans online. */
+export function aTrialBilling(endsAt: string, overrides: Partial<Billing> = {}): Billing {
+  return aCardBilling({
+    status: "TRIALING",
+    seats: 1,
+    paymentMethod: { kind: "NONE", brand: null, last4: null },
+    renewsAt: endsAt,
+    trialEndsAt: endsAt,
+    credits: someCredits({ monthly: 50, left: 50, usedPercent: 0, resetsAt: endsAt }),
+    ...overrides,
+  });
 }
 
 /** A workspace Uncava invoices, on the same deployment. */

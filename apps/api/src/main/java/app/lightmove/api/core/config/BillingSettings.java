@@ -17,6 +17,7 @@ public record BillingSettings(
         @DefaultValue CreditPriceSettings prices,
         @DefaultValue FairUseSettings fairUse,
         @DefaultValue GrandfatherSettings grandfather,
+        @DefaultValue TrialSettings trial,
         /** How long the month's credits keep being granted after a payment fails. */
         @DefaultValue("7d") Duration pastDueGrace,
         Map<String, CreditPackSettings> packs,

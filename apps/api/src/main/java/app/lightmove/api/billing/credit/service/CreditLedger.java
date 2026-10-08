@@ -19,6 +19,7 @@ import app.lightmove.api.billing.credit.repository.CreditGrantRepository;
 import app.lightmove.api.billing.credit.repository.CreditHoldRepository;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
+import app.lightmove.api.billing.plan.service.TrialGate;
 import app.lightmove.api.core.config.BillingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -50,15 +51,18 @@ public class CreditLedger {
     private final CreditEntryRepository entries;
     private final WorkspaceSubscriptionRepository subscriptions;
     private final ContactCreditThresholds thresholds;
+    private final TrialGate trialGate;
     private final LightMoveProperties properties;
     private final Clock clock;
 
     /**
      * Reserves the action's price. Refused with {@code INSUFFICIENT_CREDITS} when the grants cannot cover it and
-     * enforcement is on; with it off, the shortfall is recorded as an overdraft at capture.
+     * enforcement is on, or {@code TRIAL_ENDED} once an unpaid trial has; with it off, the shortfall is recorded as an
+     * overdraft at capture.
      */
     @Transactional
     public CreditReceipt hold(CreditCharge charge) {
+        trialGate.requireOpen(charge.workspaceId());
         CreditBalance balance = begin(charge.workspaceId());
         return replayOf(charge, false).orElseGet(() -> open(charge, balance).receipt());
     }
@@ -66,6 +70,7 @@ public class CreditLedger {
     /** {@link #hold} and {@link #capture} at once, for a spend that has already happened. */
     @Transactional
     public CreditReceipt charge(CreditCharge charge) {
+        trialGate.requireOpen(charge.workspaceId());
         CreditBalance balance = begin(charge.workspaceId());
         return replayOf(charge, true).orElseGet(() -> {
             CreditHold hold = open(charge, balance);

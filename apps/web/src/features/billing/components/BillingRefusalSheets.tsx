@@ -6,11 +6,13 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import type { Member } from "../../workspace/api/types";
 import * as billingApi from "../api/billingApi";
 import { BuyCreditsDialog } from "./BuyCreditsDialog";
+import { PlansDialog } from "./PlansDialog";
 import {
   billingRefusalOf,
   buyOptionOf,
   creditsLabel,
   FAIR_USE_FEATURES,
+  formatBillingDate,
   formatResetDate,
   mailtoBilling,
   type BillingRefusal,
@@ -19,13 +21,14 @@ import {
 import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
 
 /**
- * The out-of-credits and fair-use sheets, opened by a 402 `INSUFFICIENT_CREDITS` or a 429 `FAIR_USE_REACHED` from
- * any request on any screen. Mounted once, above the routes; a caller that meets either refusal leaves it to this.
+ * The out-of-credits, trial-ended and fair-use sheets, opened by a 402 `INSUFFICIENT_CREDITS` or `TRIAL_ENDED`, or a
+ * 429 `FAIR_USE_REACHED`, from any request on any screen. Mounted once, above the routes; a caller that meets any of
+ * them leaves it to this.
  */
 export function BillingRefusalSheets() {
   const queryClient = useQueryClient();
   const [refusal, setRefusal] = useState<BillingRefusal | null>(null);
-  const [buying, setBuying] = useState(false);
+  const [next, setNext] = useState<"buy" | "plans" | null>(null);
 
   useEffect(
     () =>
@@ -39,18 +42,23 @@ export function BillingRefusalSheets() {
   );
 
   const close = () => setRefusal(null);
-  if (buying) return <BuyFromSheet onClose={() => setBuying(false)} />;
+  const openNext = (dialog: "buy" | "plans") => {
+    close();
+    setNext(dialog);
+  };
+  if (next) return <DialogFromSheet dialog={next} onClose={() => setNext(null)} />;
   if (refusal?.kind === "credits") {
     return (
       <OutOfCreditsSheet
         refusal={refusal}
         onClose={close}
-        onBuy={() => {
-          close();
-          setBuying(true);
-        }}
+        onBuy={() => openNext("buy")}
+        onPlans={() => openNext("plans")}
       />
     );
+  }
+  if (refusal?.kind === "trialEnded") {
+    return <TrialEndedSheet refusal={refusal} onClose={close} onPlans={() => openNext("plans")} />;
   }
   if (refusal?.kind === "fairUse") return <FairUseSheet refusal={refusal} onClose={close} />;
   return null;
@@ -60,10 +68,12 @@ function OutOfCreditsSheet({
   refusal,
   onClose,
   onBuy,
+  onPlans,
 }: {
   refusal: Extract<BillingRefusal, { kind: "credits" }>;
   onClose: () => void;
   onBuy: () => void;
+  onPlans: () => void;
 }) {
   const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
@@ -77,35 +87,90 @@ function OutOfCreditsSheet({
     (isAdmin ? "" : ` Only an admin can add more${admin ? ` — ${admin.fullName}` : ""}.`);
 
   const buy = billing.data ? buyOptionOf(billing.data, isAdmin) : null;
-  const primary = <MoreCreditsAction isAdmin={isAdmin} buy={buy} admin={admin} onClose={onClose} onBuy={onBuy} />;
+  const primary = (
+    <MoreCreditsAction
+      isAdmin={isAdmin}
+      buy={buy}
+      admin={admin}
+      onClose={onClose}
+      onBuy={onBuy}
+      onPlans={onPlans}
+      askFor={billing.data?.trialEndsAt ? "choose a plan" : "add more"}
+    />
+  );
 
   return <RefusalSheet title="No contact credits left" body={body} primary={primary} onClose={onClose} />;
 }
 
-function BuyFromSheet({ onClose }: { onClose: () => void }) {
+function TrialEndedSheet({
+  refusal,
+  onClose,
+  onPlans,
+}: {
+  refusal: Extract<BillingRefusal, { kind: "trialEnded" }>;
+  onClose: () => void;
+  onPlans: () => void;
+}) {
+  const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
-  return billing.data ? <BuyCreditsDialog billing={billing.data} onClose={onClose} /> : null;
+  const admin = useFirstAdmin(!isAdmin);
+  const endedAt = billing.data?.trialEndsAt ?? refusal.endedAt;
+
+  const body =
+    `Your trial ended${endedAt ? ` on ${formatBillingDate(endedAt)}` : ""}. Everything your team mapped is still ` +
+    "here; finding contacts, search and AI start again once " +
+    (isAdmin ? "you choose a plan." : `an admin chooses a plan${admin ? ` — ${admin.fullName}` : ""}.`);
+
+  const buy = billing.data ? buyOptionOf(billing.data, isAdmin) : null;
+  const primary = (
+    <MoreCreditsAction
+      isAdmin={isAdmin}
+      buy={buy}
+      admin={admin}
+      onClose={onClose}
+      onBuy={onPlans}
+      onPlans={onPlans}
+      askFor="choose a plan"
+    />
+  );
+
+  return <RefusalSheet title="Your trial has ended" body={body} primary={primary} onClose={onClose} />;
 }
 
-/** An admin's way to more credits, or a member's way to ask an admin for them. */
+function DialogFromSheet({ dialog, onClose }: { dialog: "buy" | "plans"; onClose: () => void }) {
+  const billing = useBilling();
+  if (!billing.data) return null;
+  return dialog === "plans" ? (
+    <PlansDialog billing={billing.data} onClose={onClose} />
+  ) : (
+    <BuyCreditsDialog billing={billing.data} onClose={onClose} />
+  );
+}
+
+/** An admin's way to more credits or a plan, or a member's way to ask an admin for them. */
 function MoreCreditsAction({
   isAdmin,
   buy,
   admin,
   onClose,
   onBuy,
+  onPlans,
+  askFor,
 }: {
   isAdmin: boolean;
   buy: BuyOption | null;
   admin: Member | null;
   onClose: () => void;
   onBuy: () => void;
+  onPlans: () => void;
+  /** What a member asks the admin to do. */
+  askFor: string;
 }) {
   if (!isAdmin) {
     if (!admin) return null;
     return (
       <PrimaryLink href={askAdminHref(admin.email)} onClick={onClose}>
-        Ask {admin.fullName.split(" ")[0]} to add more
+        Ask {admin.fullName.split(" ")[0]} to {askFor}
       </PrimaryLink>
     );
   }
@@ -118,7 +183,7 @@ function MoreCreditsAction({
     );
   }
   return (
-    <Button type="button" onClick={onBuy}>
+    <Button type="button" onClick={buy.kind === "plans" ? onPlans : onBuy}>
       {buy.label}
     </Button>
   );

@@ -59,7 +59,8 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
 
     /**
      * Workspaces past {@code after} on a live plan with credits to grant and no month's grant in force now. A
-     * subscription past due since before {@code graceStart} is not live until Stripe is paid.
+     * subscription past due since before {@code graceStart} is not live until Stripe is paid, and the app's own trial
+     * gets its credits once, when it starts.
      */
     @Query(nativeQuery = true, value = """
             SELECT s.workspace_id
@@ -68,6 +69,7 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
             WHERE s.workspace_id > :after
               AND (s.status IN ('ACTIVE', 'TRIALING', 'INVOICED')
                    OR (s.status = 'PAST_DUE' AND s.past_due_since > :graceStart))
+              AND NOT (s.status = 'TRIALING' AND s.stripe_subscription_id IS NULL)
               AND CASE WHEN p.custom THEN coalesce(s.contact_credit_pool, 0)
                        ELSE s.seats * p.contact_credits_per_seat END > 0
               AND NOT EXISTS (SELECT 1 FROM app_lm_credit_grant g

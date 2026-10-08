@@ -991,6 +991,16 @@ Stripe sends the admin back to `?checkout=subscribed|credits|cancelled`, and the
 change shows (`lib/checkoutReturn.ts`; bought credits before Checkout are kept in `sessionStorage` to tell). An invoiced
 workspace, or a deployment without Stripe, gets Contact Uncava in place of every buying control, and the invite dialog
 says what a staff seat adds to a Stripe bill (`SeatCostNotice`).
+**Trial (#771, V128)**: founding a workspace (`OnboardingService` → `billing/trial`'s `WorkspaceTrials`, in the same
+transaction) puts it on Pro, `TRIALING`, until `trial_ends_at` (`lightmove.billing.trial.length`, 14d) with a `PLAN` grant
+of `trial.credits` (50) keyed `trial:<workspace>` and expiring with it — no card, no Stripe, no seats of its own (fair use
+counts the staff) and no monthly reset. One trial per founder (`trial_started_by`): their next workspace starts ended.
+Once an app trial ends unpaid, `TrialGate` — asked first by `CreditLedger.hold`/`charge` and `FairUseGuard.check`, so
+every contact find, search and AI use — refuses with 402 `TRIAL_ENDED` while enforcement is on; nothing else locks and
+nothing is deleted. Checkout from the plans dialog converts it (Stripe's webhook overwrites the row), as does a platform
+admin's invoicing. Billing managers are emailed 3 days before the end and once it has (`TRIAL_ENDING`/`TRIAL_ENDED`
+claims). The SPA counts it down in the banner and the topbar chip, and the ended sheet offers Choose a plan.
+`trial.enabled: false` (the test profile's) founds workspaces with no subscription, as before.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

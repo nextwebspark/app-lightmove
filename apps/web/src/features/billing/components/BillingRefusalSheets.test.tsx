@@ -7,7 +7,7 @@ import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as billingApi from "../api/billingApi";
-import { aBilling, aCardBilling } from "../test/fixtures";
+import { aBilling, aCardBilling, aTrialBilling } from "../test/fixtures";
 import { BillingRefusalSheets } from "./BillingRefusalSheets";
 
 let refused: ((error: ApiRequestError) => void) | null = null;
@@ -42,6 +42,15 @@ const outOfCredits = () =>
     correlationId: "x",
     required: 5,
     available: 2,
+  });
+
+const trialEnded = () =>
+  new ApiRequestError({
+    code: "TRIAL_ENDED",
+    detail: "Your workspace's trial has ended",
+    status: 402,
+    correlationId: "x",
+    trialEndedAt: "2026-10-08T09:00:00Z",
   });
 
 function renderSheets() {
@@ -119,6 +128,32 @@ describe("BillingRefusalSheets", () => {
     expect(ask).toHaveAttribute("href", expect.stringMatching(/^mailto:yara@nextwebspark\.com/));
     expect(screen.getByRole("dialog")).toHaveTextContent("Only an admin can add more — Yara Haddad.");
     expect(screen.queryByRole("button", { name: "Buy more credits" })).not.toBeInTheDocument();
+  });
+
+  it("takes an admin from an ended trial's sheet to the plans", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling("2026-10-08T09:00:00Z"));
+    const user = userEvent.setup();
+    renderSheets();
+    refuse(trialEnded());
+
+    const choose = await screen.findByRole("button", { name: "Choose a plan" });
+    expect(screen.getByRole("dialog", { name: "Your trial has ended" })).toHaveTextContent(
+      "Your trial ended on 8 Oct 2026. Everything your team mapped is still here",
+    );
+    await user.click(choose);
+
+    expect(await screen.findByRole("dialog", { name: "Plans" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Your trial has ended" })).not.toBeInTheDocument();
+  });
+
+  it("has a member ask an admin to choose a plan once the trial has ended", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling("2026-10-08T09:00:00Z"));
+    renderSheets();
+    refuse(trialEnded());
+
+    expect(await screen.findByRole("link", { name: "Ask Yara to choose a plan" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent("once an admin chooses a plan — Yara Haddad.");
   });
 
   it("opens the fair-use sheet for the use that reached its ceiling", async () => {
