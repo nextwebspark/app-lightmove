@@ -1,25 +1,35 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as billingApi from "../api/billingApi";
-import { aBilling, someCredits } from "../test/fixtures";
+import * as checkoutReturn from "../lib/checkoutReturn";
+import { aBilling, aCardBilling, anInvoicedBilling, someCredits } from "../test/fixtures";
 import { SettingsBillingPage } from "./SettingsBillingPage";
 
 vi.mock("../api/billingApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/billingApi")>()),
   getBilling: vi.fn(),
   getBillingUsage: vi.fn(),
+  startSubscriptionCheckout: vi.fn(),
+  startCreditsCheckout: vi.fn(),
+  openPortal: vi.fn(),
+}));
+
+vi.mock("../lib/checkoutReturn", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../lib/checkoutReturn")>()),
+  goToStripe: vi.fn(),
 }));
 
 let currentUser: User = aUser();
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: currentUser }) }));
 
-function renderPage() {
+function renderPage(path = "/settings/billing") {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <SettingsBillingPage />
       </QueryClientProvider>
@@ -66,24 +76,103 @@ describe("SettingsBillingPage", () => {
     expect(screen.queryByRole("button", { name: "Buy more credits" })).not.toBeInTheDocument();
   });
 
-  it("warns at 80% and offers an admin Buy more, disabled until checkout exists", async () => {
+  it("warns at 80% and sends an admin on a card to Checkout for a pack, VAT shown", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(
-      aBilling({ credits: someCredits({ level: "EIGHTY", usedPercent: 82, left: 135 }) }),
+      aCardBilling({ credits: someCredits({ level: "EIGHTY", usedPercent: 82, left: 135 }) }),
     );
+    vi.mocked(billingApi.startCreditsCheckout).mockResolvedValue({ url: "https://checkout.stripe.test/c" });
+    const user = userEvent.setup();
     renderPage();
 
     expect(await screen.findByRole("status")).toHaveTextContent("82% of this month's contact credits used");
-    for (const buy of screen.getAllByRole("button", { name: "Buy more credits" })) expect(buy).toBeDisabled();
+    await user.click(screen.getAllByRole("button", { name: "Buy more credits" })[0]);
+    const dialog = screen.getByRole("dialog", { name: "Buy more credits" });
+    await user.click(within(dialog).getByRole("radio", { name: /500 credits/ }));
+    expect(dialog).toHaveTextContent("AED 650 + 5% VAT");
+    await user.click(within(dialog).getByRole("button", { name: "Pay AED 682.50" }));
+
+    expect(billingApi.startCreditsCheckout).toHaveBeenCalledWith("contact-500");
+    await waitFor(() => expect(checkoutReturn.goToStripe).toHaveBeenCalledWith("https://checkout.stripe.test/c"));
+  });
+
+  it("opens the plans and sends a Stripe subscriber's switch to the portal", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    vi.mocked(billingApi.openPortal).mockResolvedValue({ url: "https://billing.stripe.test/p" });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Change plan" }));
+    const plans = screen.getByRole("dialog", { name: "Plans" });
+    expect(within(plans).getByRole("button", { name: "Current plan" })).toBeDisabled();
+    expect(within(plans).getByRole("link", { name: "Talk to us" })).toHaveAttribute("href", expect.stringMatching(/^mailto:/));
+    await user.click(within(plans).getByRole("radio", { name: "Yearly · save 20%" }));
+    await user.click(within(plans).getByRole("button", { name: "Switch to yearly" }));
+
+    expect(billingApi.openPortal).toHaveBeenCalled();
+    expect(billingApi.startSubscriptionCheckout).not.toHaveBeenCalled();
+  });
+
+  it("sends an admin with no plan to Checkout for the plan and period chosen", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(
+      aCardBilling({ plan: null, interval: null, status: null, paymentMethod: { kind: "NONE", brand: null, last4: null } }),
+    );
+    vi.mocked(billingApi.startSubscriptionCheckout).mockResolvedValue({ url: "https://checkout.stripe.test/s" });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "See plans" }));
+    await user.click(screen.getByRole("button", { name: "Choose Core" }));
+
+    expect(billingApi.startSubscriptionCheckout).toHaveBeenCalledWith("CORE", "MONTHLY");
+  });
+
+  it("waits on Stripe after Checkout and shows the new credits without a reload", async () => {
+    vi.mocked(billingApi.getBilling)
+      .mockResolvedValueOnce(aCardBilling())
+      .mockResolvedValue(aCardBilling({ credits: someCredits({ bought: 100, left: 512 }) }));
+    renderPage("/settings/billing?checkout=credits");
+
+    expect(await screen.findByText(/waiting for Stripe to confirm the credits/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("region", { name: "Contact credits" })).toHaveTextContent("512"), {
+      timeout: 5_000,
+    });
+    expect(screen.queryByText(/waiting for Stripe/)).not.toBeInTheDocument();
+  });
+
+  it("opens Invoices & card for an admin on a card", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    vi.mocked(billingApi.openPortal).mockResolvedValue({ url: "https://billing.stripe.test/p" });
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Invoices & card" }));
+
+    await waitFor(() => expect(checkoutReturn.goToStripe).toHaveBeenCalledWith("https://billing.stripe.test/p"));
+  });
+
+  it("offers an invoiced admin no buying, only Contact Uncava", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(
+      anInvoicedBilling({ credits: someCredits({ level: "EIGHTY", usedPercent: 82, left: 135 }) }),
+    );
+    renderPage();
+
+    await screen.findByRole("region", { name: "Plan" });
+    expect(screen.queryByRole("button", { name: "Buy more credits" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change plan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Invoices & card" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Contact Uncava" }).length).toBeGreaterThan(0);
   });
 
   it("offers a member neither seats nor credits", async () => {
     currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
-    vi.mocked(billingApi.getBilling).mockResolvedValue(aBilling({ credits: someCredits({ level: "OUT", left: 0 }) }));
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling({ credits: someCredits({ level: "OUT", left: 0 }) }));
     renderPage();
 
     expect(await screen.findByRole("status")).toHaveTextContent("an admin adds more");
     expect(screen.queryByRole("button", { name: "Buy more credits" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Add seats" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change plan" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Invoices & card" })).not.toBeInTheDocument();
   });
 
   it("lists this month's spend per member, the caller marked", async () => {

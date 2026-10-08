@@ -4,18 +4,19 @@ import { isPureClient } from "../../auth/roles";
 import * as billingApi from "../api/billingApi";
 
 /** The billing read, asked only for staff: a pure client is answered 404, so it is never sent. */
-export function useBilling() {
+export function useBilling(refetchInterval: number | false = false) {
   const { user } = useAuth();
   const roles = user?.workspace?.roles;
-  return useBillingRead(roles !== undefined && !isPureClient(roles));
+  return useBillingRead(roles !== undefined && !isPureClient(roles), refetchInterval);
 }
 
 /** The same read for a caller that already knows it is staff's, such as a button only staff are offered. */
-export function useBillingRead(enabled: boolean) {
+export function useBillingRead(enabled: boolean, refetchInterval: number | false = false) {
   return useQuery({
     queryKey: billingApi.BILLING_KEY,
     queryFn: ({ signal }) => billingApi.getBilling(signal),
     enabled,
+    refetchInterval,
   });
 }
 

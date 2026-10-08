@@ -982,6 +982,15 @@ Stripe-billed workspace and Contact Uncava (`lightmove.billing.contact-email`) t
 credits lapsing within a week (`lightmove.billing.jobs.purchased-credit-expiry`, daily) are each claimed in
 `app_lm_billing_notice` (per invoice, per grant) in a transaction of their own before anything is sent, so a replayed
 or retried event, or a second instance, sends nothing more.
+**Buying (#747)**: `GET /billing` also carries the catalogue an admin may buy — `plans` (per-seat prices, credits per
+seat, and the `checkoutIntervals` Stripe sells each in) and `packs` — both empty where Stripe is not offered. Settings →
+Billing's **Change plan** / **See plans** opens the plans dialog: a workspace with no card goes to Checkout, one Stripe
+already bills to the Customer Portal (the API refuses it a second Checkout), Enterprise is "Talk to us". **Buy more
+credits** (banner, meter, out-of-credits sheet) is the packs dialog with VAT shown; **Invoices & card** is the portal.
+Stripe sends the admin back to `?checkout=subscribed|credits|cancelled`, and the page polls the read until the webhook's
+change shows (`lib/checkoutReturn.ts`; bought credits before Checkout are kept in `sessionStorage` to tell). An invoiced
+workspace, or a deployment without Stripe, gets Contact Uncava in place of every buying control, and the invite dialog
+says what a staff seat adds to a Stripe bill (`SeatCostNotice`).
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

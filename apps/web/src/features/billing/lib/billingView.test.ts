@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { aBilling, someCredits } from "../test/fixtures";
-import { billingBannerOf, billingRefusalOf, buyOptionOf, creditChipOf, formatAed } from "./billingView";
+import { aBilling, aCardBilling, anInvoicedBilling, PLAN_OFFERS, someCredits } from "../test/fixtures";
+import {
+  billingBannerOf,
+  billingRefusalOf,
+  buyOptionOf,
+  creditChipOf,
+  formatAed,
+  planChoiceOf,
+  planOptionOf,
+  withVat,
+} from "./billingView";
 
 describe("creditChipOf", () => {
   it("shows nothing below 80% used", () => {
@@ -26,15 +35,61 @@ describe("buyOptionOf", () => {
     expect(buyOptionOf(aBilling(), false)).toBeNull();
   });
 
-  it("offers an admin on a card Buy more, disabled until checkout is offered", () => {
-    expect(buyOptionOf(aBilling(), true)).toEqual({ kind: "buy", label: "Buy more credits", disabled: true });
-    expect(buyOptionOf(aBilling({ stripeOffered: true }), true)).toMatchObject({ disabled: false });
+  it("offers an admin on a card Buy more credits once Stripe sells packs", () => {
+    expect(buyOptionOf(aCardBilling(), true)).toEqual({ kind: "buy", label: "Buy more credits" });
+  });
+
+  it("sends an admin to Uncava where Stripe is not offered", () => {
+    expect(buyOptionOf(aBilling(), true)).toMatchObject({ kind: "contact", label: "Contact Uncava" });
   });
 
   it("sends an invoiced admin to Uncava", () => {
     const option = buyOptionOf(aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED", brand: null, last4: null } }), true);
     expect(option).toMatchObject({ kind: "contact", label: "Contact Uncava" });
     expect(option?.kind === "contact" && option.href).toMatch(/^mailto:billing@uncava\.com/);
+  });
+});
+
+describe("planOptionOf", () => {
+  it("offers a member nothing", () => {
+    expect(planOptionOf(aCardBilling(), false)).toBeNull();
+  });
+
+  it("opens the plans dialog where Stripe takes payment", () => {
+    expect(planOptionOf(aCardBilling(), true)).toEqual({ kind: "plans", label: "Change plan" });
+    expect(planOptionOf(aCardBilling({ plan: null, status: null }), true)).toEqual({ kind: "plans", label: "See plans" });
+  });
+
+  it("writes to Uncava from an invoiced workspace or where Stripe is not offered", () => {
+    expect(planOptionOf(anInvoicedBilling(), true)).toMatchObject({ kind: "contact", label: "Contact Uncava" });
+    expect(planOptionOf(aBilling(), true)).toMatchObject({ kind: "contact", label: "Contact Uncava" });
+  });
+});
+
+describe("planChoiceOf", () => {
+  const [core, pro, enterprise] = PLAN_OFFERS;
+
+  it("marks the plan and period in force, and sends any other move to the portal", () => {
+    const billing = aCardBilling();
+    expect(planChoiceOf(billing, pro, "MONTHLY")).toEqual({ kind: "current", label: "Current plan" });
+    expect(planChoiceOf(billing, pro, "ANNUAL")).toEqual({ kind: "portal", label: "Switch to yearly" });
+    expect(planChoiceOf(billing, core, "MONTHLY")).toEqual({ kind: "portal", label: "Switch to Core" });
+  });
+
+  it("sends a workspace with no card to Checkout, only in a period Stripe sells", () => {
+    const billing = aCardBilling({ plan: null, status: null, paymentMethod: { kind: "NONE", brand: null, last4: null } });
+    expect(planChoiceOf(billing, core, "ANNUAL")).toEqual({ kind: "checkout", label: "Choose Core", available: true });
+    expect(planChoiceOf(billing, { ...core, checkoutIntervals: ["MONTHLY"] }, "ANNUAL")).toMatchObject({ available: false });
+  });
+
+  it("asks Enterprise to talk to us", () => {
+    expect(planChoiceOf(aCardBilling(), enterprise, "MONTHLY")).toMatchObject({ kind: "talk", label: "Talk to us" });
+  });
+});
+
+describe("withVat", () => {
+  it("adds 5% to a price in fils", () => {
+    expect(withVat(15_000)).toBe(15_750);
   });
 });
 

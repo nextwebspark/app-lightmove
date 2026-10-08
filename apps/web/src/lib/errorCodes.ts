@@ -67,6 +67,11 @@ export type ApiErrorCode =
   | "CONTACT_LIMIT_REACHED"
   | "INSUFFICIENT_CREDITS"
   | "FAIR_USE_REACHED"
+  | "BILLING_UNAVAILABLE"
+  | "BILLING_PLAN_UNKNOWN"
+  | "BILLING_PACK_UNKNOWN"
+  | "SUBSCRIPTION_BILLED_BY_STRIPE"
+  | "SEAT_LIMIT_REACHED"
   | "CANDIDATE_PROFILE_URL_LOCKED"
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
@@ -181,6 +186,11 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
   INSUFFICIENT_CREDITS: "Your workspace is out of contact credits. Nothing was spent.",
   FAIR_USE_REACHED: "Your team has reached this month's fair use for this feature.",
+  BILLING_UNAVAILABLE: "Paying online isn't available right now. Write to billing@uncava.com instead.",
+  BILLING_PLAN_UNKNOWN: "That plan can't be bought online. Write to billing@uncava.com to choose it.",
+  BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",
+  SUBSCRIPTION_BILLED_BY_STRIPE: "This workspace already pays through Stripe — change the plan from Invoices & card.",
+  SEAT_LIMIT_REACHED: "Every seat your workspace pays for is taken. Write to billing@uncava.com to add seats.",
   CANDIDATE_PROFILE_URL_LOCKED:
     "This profile was captured from LinkedIn, so its URL is not editable.",
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives is not set up on this deployment.",

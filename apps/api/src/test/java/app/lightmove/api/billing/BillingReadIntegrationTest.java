@@ -69,6 +69,29 @@ class BillingReadIntegrationTest extends BillingFlowSupport {
     }
 
     @Test
+    @DisplayName("the billing read offers the plans per seat in the intervals Stripe sells them, and the packs by size")
+    void offersThePlansAndThePacks() throws Exception {
+        String owner = "catalogue@" + domain;
+        createWorkspace(verifiedUser("Yara Haddad", owner), "Catalogue Firm");
+
+        JsonNode billing = body(read(login(owner), "/api/v1/billing").andExpect(status().isOk()).andReturn());
+
+        assertThat(billing.get("plans")).extracting(plan -> plan.get("code").asText())
+                .containsExactly("CORE", "PRO", "ENTERPRISE");
+        JsonNode pro = billing.get("plans").get(1);
+        assertThat(pro.get("seatPriceMonthlyFils").asLong()).isEqualTo(49_900);
+        assertThat(pro.get("seatPriceAnnualFils").asLong()).isEqualTo(39_900);
+        assertThat(pro.get("contactCreditsPerSeat").asInt()).isEqualTo(150);
+        assertThat(pro.get("checkoutIntervals")).extracting(JsonNode::asText).containsExactly("MONTHLY", "ANNUAL");
+        JsonNode enterprise = billing.get("plans").get(2);
+        assertThat(enterprise.get("custom").asBoolean()).isTrue();
+        assertThat(enterprise.get("seatPriceMonthlyFils").isNull()).isTrue();
+        assertThat(enterprise.get("checkoutIntervals")).isEmpty();
+        assertThat(billing.get("packs")).extracting(pack -> pack.get("code").asText() + ":" + pack.get("credits")
+                + ":" + pack.get("priceFils")).containsExactly("contact-100:100:15000", "contact-500:500:65000");
+    }
+
+    @Test
     @DisplayName("the level moves OK, 80%, 90%, then used up as the month's credits are spent")
     void theLevelFollowsTheSpend() throws Exception {
         String owner = "owner@" + domain;

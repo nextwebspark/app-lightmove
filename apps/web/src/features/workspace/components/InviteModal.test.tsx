@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import * as billingApi from "../../billing/api/billingApi";
+import { aCardBilling, anInvoicedBilling } from "../../billing/test/fixtures";
 import * as workspaceApi from "../api/workspaceApi";
 import { InviteModal } from "./InviteModal";
 
@@ -24,8 +26,14 @@ const wrap = (children: ReactNode) => (
 
 const open = () => render(wrap(<InviteModal open onClose={vi.fn()} />));
 
+vi.mock("../../billing/api/billingApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../billing/api/billingApi")>()),
+  getBilling: vi.fn(),
+}));
+
 beforeEach(() => {
   vi.mocked(workspaceApi.invite).mockReset();
+  vi.mocked(billingApi.getBilling).mockReset().mockResolvedValue(anInvoicedBilling());
 });
 
 /**
@@ -105,5 +113,22 @@ describe("InviteModal — where a refusal is reported", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "You don't have permission to do this.",
     );
+  });
+});
+
+describe("InviteModal — what a staff seat costs", () => {
+  it("says what a staff invitation adds to a Stripe bill", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    open();
+
+    expect(await screen.findByText(/Adds AED 499 a month, before VAT/)).toBeInTheDocument();
+  });
+
+  it("says nothing on an invoiced workspace, whose seats are agreed with Uncava", async () => {
+    open();
+
+    await vi.waitFor(() => expect(billingApi.getBilling).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByText(/Adds AED/)).not.toBeInTheDocument();
   });
 });
