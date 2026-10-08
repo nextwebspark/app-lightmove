@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button, Modal } from "../../../components/ui";
 import { onRequestRefused } from "../../../lib/apiClient";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import type { Member } from "../../workspace/api/types";
 import * as billingApi from "../api/billingApi";
 import {
   billingRefusalOf,
@@ -12,6 +13,7 @@ import {
   formatResetDate,
   mailtoBilling,
   type BillingRefusal,
+  type BuyOption,
 } from "../lib/billingView";
 import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
 
@@ -59,21 +61,44 @@ function OutOfCreditsSheet({
     (isAdmin ? "" : ` Only an admin can add more${admin ? ` — ${admin.fullName}` : ""}.`);
 
   const buy = billing.data ? buyOptionOf(billing.data, isAdmin) : null;
-  const primary = isAdmin ? (
-    buy?.kind === "contact" ? (
-      <PrimaryLink href={buy.href} onClick={onClose}>{buy.label}</PrimaryLink>
-    ) : buy ? (
-      <Button type="button" disabled={buy.disabled} title={buy.disabled ? "Buying credits is coming soon" : undefined}>
-        {buy.label}
-      </Button>
-    ) : null
-  ) : admin ? (
-    <PrimaryLink href={askAdminHref(admin.email)} onClick={onClose}>
-      Ask {admin.fullName.split(" ")[0]} to add more
-    </PrimaryLink>
-  ) : null;
+  const primary = <MoreCreditsAction isAdmin={isAdmin} buy={buy} admin={admin} onClose={onClose} />;
 
   return <RefusalSheet title="No contact credits left" body={body} primary={primary} onClose={onClose} />;
+}
+
+/** An admin's way to more credits, or a member's way to ask an admin for them. */
+function MoreCreditsAction({
+  isAdmin,
+  buy,
+  admin,
+  onClose,
+}: {
+  isAdmin: boolean;
+  buy: BuyOption | null;
+  admin: Member | null;
+  onClose: () => void;
+}) {
+  if (!isAdmin) {
+    if (!admin) return null;
+    return (
+      <PrimaryLink href={askAdminHref(admin.email)} onClick={onClose}>
+        Ask {admin.fullName.split(" ")[0]} to add more
+      </PrimaryLink>
+    );
+  }
+  if (!buy) return null;
+  if (buy.kind === "contact") {
+    return (
+      <PrimaryLink href={buy.href} onClick={onClose}>
+        {buy.label}
+      </PrimaryLink>
+    );
+  }
+  return (
+    <Button type="button" disabled={buy.disabled} title={buy.disabled ? "Buying credits is coming soon" : undefined}>
+      {buy.label}
+    </Button>
+  );
 }
 
 function FairUseSheet({

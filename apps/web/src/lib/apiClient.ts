@@ -53,7 +53,10 @@ function workspaceClaimOf(token: string | null): string | null {
   }
 }
 
-/** Told of every refused request, before its caller is: how a refusal any screen can meet opens one sheet. */
+/**
+ * Told of every refused request, before its caller is: how a refusal any screen can meet opens one sheet.
+ * Every status, not only billing's, so this module stays ignorant of which codes some feature cares about.
+ */
 type RefusalListener = (error: ApiRequestError) => void;
 const refusalListeners = new Set<RefusalListener>();
 
@@ -349,7 +352,14 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
 
   if (!response.ok) {
     const refused = new ApiRequestError(await problemFrom(response));
-    refusalListeners.forEach((listener) => listener(refused));
+    refusalListeners.forEach((listener) => {
+      // A listener's own failure must never replace the refusal its caller is about to be told.
+      try {
+        listener(refused);
+      } catch (failure) {
+        console.error(failure);
+      }
+    });
     throw refused;
   }
 
