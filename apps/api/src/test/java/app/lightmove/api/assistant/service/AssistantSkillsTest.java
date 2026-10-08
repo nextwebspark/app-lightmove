@@ -15,7 +15,8 @@ class AssistantSkillsTest {
     @DisplayName("the shipped playbooks are offered by name and description, never by where they sit on disk")
     void offersTheShippedPlaybooks() {
         assertThat(shipped.names())
-                .containsExactlyInAnyOrder("find-companies", "recommend-sectors", "earlier-list", "mapped-executives");
+                .containsExactlyInAnyOrder("find-companies", "recommend-sectors", "earlier-list", "mapped-executives",
+                        "similar-companies");
         assertThat(shipped.tool().getToolDefinition().name()).isEqualTo(AssistantSkills.TOOL_NAME);
         assertThat(shipped.tool().getToolDefinition().description())
                 .contains("<name>earlier-list</name>")

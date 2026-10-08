@@ -89,6 +89,8 @@ class AssistantEval extends FlowTestSupport {
             company.path("keywords").forEach(keyword -> keywords.add(keyword.asText()));
             seed.keywords(keywords.toArray(String[]::new)).insert();
         }
+        seedFillers(universe, cases.get("fillers"));
+        universe.refreshKeywordVocabulary();
 
         Map<String, List<TurnResult>> results = new LinkedHashMap<>();
         for (JsonNode conversation : cases.get("conversations")) {
@@ -281,6 +283,24 @@ class AssistantEval extends FlowTestSupport {
 
     private static String blankAsDash(String value) {
         return value == null || value.isBlank() ? "—" : value;
+    }
+
+    /**
+     * Companies nobody asks about, so that a keyword on a handful of the named ones is rare, as it is in
+     * the real universe: the niche search ignores a keyword on more than 3% of it.
+     */
+    private static void seedFillers(ApolloUniverse universe, JsonNode fillers) {
+        List<String> keywords = new ArrayList<>();
+        fillers.path("keywords").forEach(keyword -> keywords.add(keyword.asText()));
+        for (int index = 0; index < fillers.get("count").asInt(); index++) {
+            universe.company("filler-" + index, "Filler Company " + index)
+                    .industry(fillers.get("industry").asText())
+                    .country(fillers.get("country").asText())
+                    .city(fillers.get("city").asText())
+                    .employees(fillers.get("employees").asInt())
+                    .keywords(keywords.toArray(String[]::new))
+                    .insert();
+        }
     }
 
     private static JsonNode readCases() throws IOException {

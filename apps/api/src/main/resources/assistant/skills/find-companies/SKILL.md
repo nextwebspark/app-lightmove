@@ -1,6 +1,6 @@
 ---
 name: find-companies
-description: Find, list or map companies to source executives from - by sector, country, size, a named company's competitors or peers, or "top N" in a market. Use whenever the consultant asks for companies that are not already on an earlier list.
+description: Find, list or map companies to source executives from - by sector, country, size, what they do ("watch distributors"), or "top N" in a market. Use whenever the consultant asks for companies that are not already on an earlier list, unless the question names one company and asks for others like it (similar-companies).
 ---
 
 # Finding companies
@@ -9,8 +9,8 @@ Take as few turns as you can — each turn is a wait.
 
 Ask before searching (AskUserQuestionTool) only when the question names no sector, company or market
 and the brief does not suggest one — "find me companies" on a generic brief. A missing country or size
-is never a reason to ask: the defaults below cover them. Nor is a named company: where it operates and
-what it does are lookUpCompaniesByName's to find.
+is never a reason to ask: the defaults below cover them. A named company's competitors or look-alikes
+are the similar-companies playbook's: load it instead.
 
 1. In one turn, call searchCompanyUniverse and lookUpCompaniesByName together. Neither needs the
    other's result, so never wait for one before calling the other.
@@ -30,10 +30,15 @@ what it does are lookUpCompaniesByName's to find.
      run in the country by a franchise partner or distributor, give that partner as its
      localOperator — that is where the local executives work. The hiring company's competitors,
      where recorded, belong on this list — they employ the same people.
+   - When the question names what the companies do rather than only a sector — an activity, a
+     product or a kind of business ("watch distributors", "luxury boutiques", "cold-chain logistics")
+     — also call searchCompaniesByActivity in this same turn, with one to four single words for it
+     ("watch", "distributor"). An industry alone cannot tell a watch distributor from a supermarket.
    - A search for an industry also returns its adjacentIndustries. When the question is about one
      sector and the search names no industry, call adjacentIndustries for it in this same turn.
 2. Call proposeCompanies with the companies you are putting forward — the account ids from the
-   search and from UNIVERSE results, and the LinkedIn slugs of RESEARCHED results — so the consultant
+   searches and from UNIVERSE results, and the LinkedIn slugs of RESEARCHED results and of
+   searchCompaniesByActivity rows without an account id — so the consultant
    sees them listed below your answer, to tick and file. Put forward the ones that fit; leave out an
    entry that does not read as an operating company in that sector.
 3. The list below your answer shows every company, so do not repeat it — no list of company names,

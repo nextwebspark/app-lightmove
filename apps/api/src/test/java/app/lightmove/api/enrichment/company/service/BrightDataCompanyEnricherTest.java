@@ -2,9 +2,12 @@ package app.lightmove.api.enrichment.company.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.enrichment.company.model.CompanyActivityQuery;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.io.InputStream;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
@@ -63,6 +66,34 @@ class BrightDataCompanyEnricherTest {
                 {"about":"About text","industries":"Software Development"}""");
 
         assertThat(BrightDataCompanyEnricher.toRecord("nameless", nameless, JSON)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("an activity search keeps to the countries and industries, matching each word in the specialties or about text")
+    void buildsAnActivitySearch() {
+        Map<String, Object> body = BrightDataCompanyEnricher.doing(new CompanyActivityQuery(
+                List.of("watch", "jewellery"), List.of("AE", "SA"), List.of("Retail", "Retail Luxury Goods and Jewelry"),
+                95, 9_500, List.of("seddiqi-holding"), 4));
+
+        assertThat((JsonNode) JSON.valueToTree(body)).isEqualTo(JSON.valueToTree(Map.of(
+                "size", 4,
+                "filter", Map.of("operator", "and", "filters", List.of(
+                        Map.of("operator", "or", "filters", List.of(
+                                Map.of("name", "country_codes_array", "operator", "array_includes", "value", "AE"),
+                                Map.of("name", "country_codes_array", "operator", "array_includes", "value", "SA"))),
+                        Map.of("operator", "or", "filters", List.of(
+                                Map.of("operator", "or", "filters", List.of(
+                                        Map.of("name", "specialties", "operator", "includes", "value", "watch"),
+                                        Map.of("name", "specialties", "operator", "includes", "value", "jewellery"))),
+                                Map.of("operator", "or", "filters", List.of(
+                                        Map.of("name", "about", "operator", "includes", "value", "watch"),
+                                        Map.of("name", "about", "operator", "includes", "value", "jewellery"))))),
+                        Map.of("name", "industries", "operator", "in",
+                                "value", List.of("Retail", "Retail Luxury Goods and Jewelry")),
+                        Map.of("operator", "and", "filters", List.of(
+                                Map.of("name", "employees_in_linkedin", "operator", ">=", "value", 95),
+                                Map.of("name", "employees_in_linkedin", "operator", "<=", "value", 9_500),
+                                Map.of("name", "id", "operator", "not_in", "value", List.of("seddiqi-holding")))))))));
     }
 
     private static VendorCompanyRecord fixtureRecord() {

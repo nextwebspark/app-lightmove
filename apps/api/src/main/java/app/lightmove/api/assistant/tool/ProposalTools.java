@@ -46,7 +46,8 @@ public class ProposalTools {
     @Tool(description = """
             List companies below the answer, for the user to tick and file into the mandate. Call it \
             every time an answer puts forward companies. Pass the Apollo account ids a search returned, \
-            and the LinkedIn slugs of RESEARCHED companies lookUpCompaniesByName returned, in this \
+            and the LinkedIn slugs of RESEARCHED companies lookUpCompaniesByName returned and of \
+            companies findSimilarCompanies or searchCompaniesByActivity found on LinkedIn, in this \
             answer or in an earlier suggested_companies block of this chat. The answer says how many \
             are suggested and how many of those the mandate has already filed (shown with their stage, \
             not offered again); companies the client has ruled off limits, or that were never found, \

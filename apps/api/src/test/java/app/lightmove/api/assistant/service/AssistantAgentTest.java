@@ -15,6 +15,7 @@ import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.HiringSide;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.CandidateTools;
+import app.lightmove.api.assistant.tool.CompanyDiscoveryTools;
 import app.lightmove.api.assistant.tool.CompanySearchTools;
 import app.lightmove.api.assistant.tool.MandateBrief;
 import app.lightmove.api.assistant.tool.MandateTools;
@@ -68,7 +69,8 @@ class AssistantAgentTest {
     private final AssistantToolContext context = new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(),
             recorder);
     private final AssistantToolset toolset = new AssistantToolset(AssistantSkills.fromClasspath(), new ObjectMapper(),
-            mandateTools, mock(CompanySearchTools.class), mock(NamedCompanyTools.class), mock(SectorTools.class),
+            mandateTools, mock(CompanySearchTools.class), mock(NamedCompanyTools.class),
+            mock(CompanyDiscoveryTools.class), mock(SectorTools.class),
             proposalTools, mock(CandidateTools.class));
     private final AssistantAgent agent = new AssistantAgent(model, toolset, mandateTools, proposalTools, hiringSides);
 
@@ -92,6 +94,7 @@ class AssistantAgentTest {
 
         assertThat(offered).containsExactlyInAnyOrder(AssistantSkills.TOOL_NAME, "AskUserQuestionTool",
                 "readMandateBrief", "searchCompanyUniverse", "describeMarket", "lookUpCompaniesByName",
+                "identifyCompany", "findSimilarCompanies", "searchCompaniesByActivity",
                 "adjacentIndustries", "proposeCompanies",
                 "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives");
     }
@@ -142,7 +145,7 @@ class AssistantAgentTest {
 
         String result = questionTool().call(TWO_QUESTIONS);
 
-        assertThat(result).isEqualTo(AskUserQuestionCallback.SHOWN_TO_CONSULTANT);
+        assertThat(result).isEqualTo(asJson(AskUserQuestionCallback.SHOWN_TO_CONSULTANT));
         assertThat(recorder.questions()).hasSize(2);
         assertThat(recorder.questions().getFirst().header()).isEqualTo("Region");
         assertThat(recorder.questions().getFirst().options()).extracting("label")
@@ -154,7 +157,7 @@ class AssistantAgentTest {
     @Test
     @DisplayName("a question asked before any playbook is turned away: the playbook may settle it")
     void turnsAwayAQuestionBeforeAPlaybook() {
-        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(AskUserQuestionCallback.LOAD_A_PLAYBOOK_FIRST);
+        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(asJson(AskUserQuestionCallback.LOAD_A_PLAYBOOK_FIRST));
 
         assertThat(recorder.askedQuestions()).isFalse();
     }
@@ -165,7 +168,7 @@ class AssistantAgentTest {
         recorder.usedSkill("find-companies");
         recorder.propose(new AssistantProposal("Two utilities", List.of(), Map.of()));
 
-        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(AskUserQuestionCallback.ALREADY_SUGGESTED);
+        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(asJson(AskUserQuestionCallback.ALREADY_SUGGESTED));
 
         assertThat(recorder.askedQuestions()).isFalse();
     }
@@ -189,10 +192,10 @@ class AssistantAgentTest {
     void reportsQuestionsThatReachedNobody() {
         recorder.usedSkill("find-companies");
 
-        assertThat(questionTool().call(QUESTION_WITH_ONE_OPTION)).isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+        assertThat(questionTool().call(QUESTION_WITH_ONE_OPTION)).isEqualTo(asJson(AskUserQuestionCallback.NOTHING_SHOWN));
         assertThat(questionTool().call(QUESTION_WITH_A_BLANK_HEADER))
-                .isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
-        assertThat(questionTool().call("not json")).isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+                .isEqualTo(asJson(AskUserQuestionCallback.NOTHING_SHOWN));
+        assertThat(questionTool().call("not json")).isEqualTo(asJson(AskUserQuestionCallback.NOTHING_SHOWN));
 
         assertThat(recorder.askedQuestions()).isFalse();
         assertThat(recorder.steps()).isEmpty();
@@ -214,5 +217,9 @@ class AssistantAgentTest {
                 .filter(tool -> tool.getToolDefinition().name().equals("AskUserQuestionTool"))
                 .findFirst()
                 .orElseThrow();
+    }
+
+    private static String asJson(String reply) {
+        return new ObjectMapper().writeValueAsString(reply);
     }
 }

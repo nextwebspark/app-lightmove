@@ -70,6 +70,13 @@ final class CompanyNames {
         return List.copyOf(spellings);
     }
 
+    /** The words that tell this company apart — legal form and generic words dropped, unless nothing else is left. */
+    static List<String> distinctiveWords(String name) {
+        List<String> legal = words(withoutLegalForm(name));
+        List<String> core = legal.stream().filter(word -> !GENERIC_WORDS.contains(word)).toList();
+        return (core.isEmpty() ? legal : core).stream().filter(word -> !word.equals("&")).toList();
+    }
+
     private static String withoutLegalForm(String name) {
         return without(words(name), LEGAL_FORMS);
     }

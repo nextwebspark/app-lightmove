@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.company.service;
 
+import app.lightmove.api.enrichment.company.model.CompanyActivityQuery;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import java.util.List;
 import java.util.Optional;
@@ -14,6 +15,11 @@ public interface LinkedInCompanyEnricher {
 
     /** In {@code countryCode} (anywhere when null). Every hit is billed, so a provider answers a handful. */
     default List<VendorCompanyRecord> searchByName(String namePart, String countryCode, int minEmployees) {
+        return List.of();
+    }
+
+    /** Pages by what the company does rather than its name; every hit is billed. */
+    default List<VendorCompanyRecord> searchByActivity(CompanyActivityQuery query) {
         return List.of();
     }
 

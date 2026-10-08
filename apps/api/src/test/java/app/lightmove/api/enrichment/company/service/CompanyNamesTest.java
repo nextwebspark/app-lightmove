@@ -47,6 +47,14 @@ class CompanyNamesTest {
         assertThat(CompanyNames.best("Aldar", hits)).isEmpty();
     }
 
+    @Test
+    @DisplayName("the words that tell a company apart drop its legal form and its generic words, unless nothing else is left")
+    void keepsTheWordsThatTellACompanyApart() {
+        assertThat(CompanyNames.distinctiveWords("Seddiqi Holdings LLC")).containsExactly("seddiqi");
+        assertThat(CompanyNames.distinctiveWords("Ahmed Seddiqi & Sons")).containsExactly("ahmed", "seddiqi", "sons");
+        assertThat(CompanyNames.distinctiveWords("The Holding Group")).containsExactly("holding", "group");
+    }
+
     private static VendorCompanyRecord page(String slug, String name, int employees) {
         return new VendorCompanyRecord(slug, name, "Real Estate", "United Arab Emirates", "Abu Dhabi",
                 employees, null, "https://www.linkedin.com/company/" + slug, null, null, null, List.of(), "{}");
