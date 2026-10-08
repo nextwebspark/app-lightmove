@@ -711,6 +711,7 @@ lightmove:
       monthly-reset: ${BILLING_MONTHLY_RESET_CRON:0 7 * * * *}
       reconcile: ${BILLING_RECONCILE_CRON:0 40 2 * * *}
       seat-sync: ${BILLING_SEAT_SYNC_CRON:0 */5 * * * *}
+      purchased-credit-expiry: ${BILLING_PURCHASED_CREDIT_EXPIRY_CRON:0 20 6 * * *}
     prices:
       email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
       phone-found: ${BILLING_PRICE_PHONE_FOUND:5}

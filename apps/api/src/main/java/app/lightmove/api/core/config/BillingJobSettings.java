@@ -7,5 +7,7 @@ public record BillingJobSettings(
         @DefaultValue("0 7 * * * *") String monthlyReset,
         @DefaultValue("0 40 2 * * *") String reconcile,
         /** Retries the Stripe seat quantities a membership change could not sync. */
-        @DefaultValue("0 */5 * * * *") String seatSync
+        @DefaultValue("0 */5 * * * *") String seatSync,
+        /** Warns of bought credits lapsing within a week. */
+        @DefaultValue("0 20 6 * * *") String purchasedCreditExpiry
 ) {}

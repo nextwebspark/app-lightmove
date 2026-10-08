@@ -186,7 +186,7 @@ class StripeBillingIntegrationTest extends BillingFlowSupport {
                 .truncatedTo(ChronoUnit.SECONDS);
         deliver(invoicePaid(customer, subscriptionId, "price_test_core_monthly", 2, lastMonth));
         deliver(new PaymentEvent.InvoicePaymentFailed("evt_" + UUID.randomUUID(), "invoice.payment_failed",
-                Instant.now().minus(Duration.ofDays(8)), customer, subscriptionId));
+                Instant.now().minus(Duration.ofDays(8)), "in_" + UUID.randomUUID(), customer, subscriptionId));
 
         assertThat(subscriptionOf(firm.workspaceId()).get("status")).isEqualTo("PAST_DUE");
         reset.resetAt(Instant.now());
