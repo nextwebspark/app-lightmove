@@ -29,15 +29,15 @@ function isStillAnswering(error: unknown): boolean {
 }
 
 /**
- * Stands in for the card until the turn is saved: a card drawn early is redrawn under the answer
- * once it lands, which read as a glitch.
+ * Stands in for the suggested companies until the turn is saved: a list drawn early is redrawn under
+ * the answer once it lands, which read as a glitch.
  */
 function PreparingCard({ count }: { count: number }) {
   return (
     <div className="mt-3 flex items-center gap-2 rounded-[9px] border border-u-border bg-u-raised px-3 py-2.5">
       <Icon d="M21 12a9 9 0 1 1-6.2-8.6" size={11} className="flex-none animate-spin text-u-inferred" />
       <span className="font-sans text-[11.5px] text-u-text2">
-        Preparing the card for {count} {count === 1 ? "company" : "companies"}…
+        Preparing {count} suggested {count === 1 ? "company" : "companies"}…
       </span>
     </div>
   );

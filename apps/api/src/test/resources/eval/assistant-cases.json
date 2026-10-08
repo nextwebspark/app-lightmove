@@ -1,0 +1,48 @@
+{
+  "positionTitle": "Retail Director",
+  "persona": {
+    "summary": "Gulf luxury retail and distribution group",
+    "sectors": ["Retail", "Luxury Goods & Jewelry"],
+    "competitors": [],
+    "geographies": ["United Arab Emirates"]
+  },
+  "universe": [
+    {"id": "chalhoub", "name": "Chalhoub Group", "industry": "luxury goods & jewelry", "country": "United Arab Emirates", "city": "Dubai", "employees": 12000, "keywords": ["luxury", "retail", "distribution", "fashion", "beauty"]},
+    {"id": "altayer", "name": "Al Tayer Group", "industry": "retail", "country": "United Arab Emirates", "city": "Dubai", "employees": 9000, "keywords": ["luxury", "retail", "automotive", "fashion"]},
+    {"id": "seddiqi", "name": "Ahmed Seddiqi & Sons", "industry": "luxury goods & jewelry", "country": "United Arab Emirates", "city": "Dubai", "employees": 1200, "keywords": ["watches", "luxury watches", "distribution", "retail"]},
+    {"id": "rivoli", "name": "Rivoli Group", "industry": "luxury goods & jewelry", "country": "United Arab Emirates", "city": "Dubai", "employees": 1600, "keywords": ["watches", "eyewear", "retail", "distribution"]},
+    {"id": "binhendi", "name": "BinHendi Enterprises", "industry": "retail", "country": "United Arab Emirates", "city": "Dubai", "employees": 1500, "keywords": ["luxury", "retail", "watches", "fashion"]},
+    {"id": "parisgallery", "name": "Paris Gallery", "industry": "retail", "country": "United Arab Emirates", "city": "Dubai", "employees": 2000, "keywords": ["perfumes", "watches", "luxury", "retail"]},
+    {"id": "damas", "name": "Damas Jewellery", "industry": "luxury goods & jewelry", "country": "United Arab Emirates", "city": "Dubai", "employees": 1800, "keywords": ["jewellery", "gold", "retail"]},
+    {"id": "malabar", "name": "Malabar Gold & Diamonds", "industry": "luxury goods & jewelry", "country": "United Arab Emirates", "city": "Dubai", "employees": 6000, "keywords": ["jewellery", "gold", "diamonds"]},
+    {"id": "joyalukkas", "name": "Joyalukkas", "industry": "luxury goods & jewelry", "country": "United Arab Emirates", "city": "Dubai", "employees": 8000, "keywords": ["jewellery", "gold"]},
+    {"id": "majidalfuttaim", "name": "Majid Al Futtaim", "industry": "retail", "country": "United Arab Emirates", "city": "Dubai", "employees": 45000, "keywords": ["malls", "retail", "carrefour", "leisure"]},
+    {"id": "landmark", "name": "Landmark Group", "industry": "retail", "country": "United Arab Emirates", "city": "Dubai", "employees": 50000, "keywords": ["fashion", "retail", "home"]},
+    {"id": "apparel", "name": "Apparel Group", "industry": "retail", "country": "United Arab Emirates", "city": "Dubai", "employees": 25000, "keywords": ["fashion", "retail", "franchise"]},
+    {"id": "lulu", "name": "Lulu Group International", "industry": "retail", "country": "United Arab Emirates", "city": "Abu Dhabi", "employees": 60000, "keywords": ["hypermarkets", "grocery", "retail"]},
+    {"id": "alfuttaim", "name": "Al-Futtaim Group", "industry": "retail", "country": "United Arab Emirates", "city": "Dubai", "employees": 40000, "keywords": ["automotive", "retail", "ikea", "marks & spencer"]},
+    {"id": "sharafdg", "name": "Sharaf DG", "industry": "consumer electronics", "country": "United Arab Emirates", "city": "Dubai", "employees": 3000, "keywords": ["electronics", "retail"]},
+    {"id": "alshaya", "name": "Alshaya Group", "industry": "retail", "country": "Kuwait", "city": "Kuwait City", "employees": 55000, "keywords": ["franchise", "fashion", "food", "retail"]},
+    {"id": "alhokair", "name": "Fawaz Abdulaziz Alhokair & Co", "industry": "retail", "country": "Saudi Arabia", "city": "Riyadh", "employees": 12000, "keywords": ["fashion", "franchise", "retail"]},
+    {"id": "lamasat", "name": "Lama Watches Trading", "industry": "luxury goods & jewelry", "country": "Saudi Arabia", "city": "Riyadh", "employees": 300, "keywords": ["watches", "distribution"]},
+    {"id": "swissarabian", "name": "Swiss Arabian Perfumes", "industry": "cosmetics", "country": "United Arab Emirates", "city": "Dubai", "employees": 1000, "keywords": ["perfumes", "fragrance"]},
+    {"id": "ajmal", "name": "Ajmal Perfumes", "industry": "cosmetics", "country": "United Arab Emirates", "city": "Dubai", "employees": 1300, "keywords": ["perfumes", "fragrance", "retail"]},
+    {"id": "emaar", "name": "Emaar Properties", "industry": "real estate", "country": "United Arab Emirates", "city": "Dubai", "employees": 9000, "keywords": ["real estate", "malls"]},
+    {"id": "jumbo", "name": "Jumbo Electronics", "industry": "consumer electronics", "country": "United Arab Emirates", "city": "Dubai", "employees": 1200, "keywords": ["electronics", "distribution", "retail"]}
+  ],
+  "declined": ["rivoli"],
+  "conversations": [
+    {"id": "uae-retail-role", "turns": ["map 50 companies in the UAE retail sector for this role"]},
+    {"id": "gcc-retail-role", "turns": ["map 50 companies in the GCC retail sector for this role"]},
+    {"id": "gcc-role", "turns": ["map 50 companies in the GCC region for this role"]},
+    {"id": "uae-retail-500", "turns": ["map 50 retail companies in the UAE with 500+ employees"]},
+    {"id": "relevant-candidates", "turns": ["map 50 target companies where I can find relevant candidates"]},
+    {"id": "similar-to-mine", "turns": ["map 50 companies similar to my company"]},
+    {"id": "my-competitors", "turns": ["map 50 companies that are my competitors"]},
+    {"id": "seddiqi-competitors", "turns": ["map 10 companies that are Seddiqi Holdings competitors", "what are these companies?"], "listsEarlier": [1]},
+    {"id": "watch-distributors", "turns": ["list watches distributors in the uae"]},
+    {"id": "sectors-for-role", "turns": ["which sectors should I target for this role?"]},
+    {"id": "who-is-mapped", "turns": ["who have we mapped so far?"]}
+  ],
+  "overlaps": [["seddiqi-competitors", "watch-distributors"], ["uae-retail-role", "uae-retail-500"]]
+}

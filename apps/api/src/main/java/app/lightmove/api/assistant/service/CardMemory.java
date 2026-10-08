@@ -26,7 +26,8 @@ final class CardMemory {
     /** Long enough for a legal name, short enough that no name reads as a paragraph of instructions. */
     private static final int MAX_TEXT = 80;
 
-    private static final Pattern CARD_BLOCK = Pattern.compile("(?s)<card\\b[^>]*>.*?</card>");
+    private static final Pattern CARD_BLOCK =
+            Pattern.compile("(?s)<suggested_companies\\b[^>]*>.*?</suggested_companies>");
     private static final Pattern MARKUP_CHARACTERS = Pattern.compile("[<>\"\\[\\]]");
 
     private CardMemory() {
@@ -39,7 +40,7 @@ final class CardMemory {
      */
     static String render(AssistantProposal card, ProposalOutcome outcome, boolean listed) {
         List<String> lines = new ArrayList<>();
-        lines.add("<card title=\"" + plain(card.title()) + "\">");
+        lines.add("<suggested_companies title=\"" + plain(card.title()) + "\">");
         if (listed) {
             for (ProposedCompany company : card.companies()) {
                 lines.add("- " + describe(company));
@@ -51,7 +52,7 @@ final class CardMemory {
             lines.add("Filed " + outcome.added() + " as " + stageLabel(outcome.status())
                     + (outcome.skipped() > 0 ? " (" + outcome.skipped() + " already in the mandate)" : ""));
         }
-        lines.add("</card>");
+        lines.add("</suggested_companies>");
         return String.join("\n", lines);
     }
 

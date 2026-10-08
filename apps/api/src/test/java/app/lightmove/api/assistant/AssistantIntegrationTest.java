@@ -12,6 +12,7 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.assistant.service.AssistantSkills;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
@@ -38,15 +39,14 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import tools.jackson.databind.JsonNode;
 
 /**
- * The assistant's four endpoints against real membership rows. The test model answers with fixed
- * text and calls no tool, so a card is written onto a turn directly where a test needs one.
+ * The assistant's endpoints against real membership rows. The test model answers with fixed text and
+ * calls at most the one tool a test scripts, so suggested companies are written onto a turn directly
+ * where a test needs them.
  */
 @IntegrationTest
 class AssistantIntegrationTest extends FlowTestSupport {
 
-    private static final String SUPERVISOR_MARKER = "coordinating specialists";
-    private static final String COMPANY_MARKER = "find the companies to source executives";
-    private static final String CANDIDATE_MARKER = "the executives a consultant has mapped";
+    private static final String AGENT_MARKER = "load the skill that matches the question";
 
     private static final Pattern COMPLETE_DONE_EVENT = Pattern.compile("event:done\\ndata:(.+)\\n\\n");
 
@@ -66,8 +66,6 @@ class AssistantIntegrationTest extends FlowTestSupport {
         universe = new ApolloUniverse(db);
         universe.reset();
         model.reset();
-        model.callToolWhenSystemContains(SUPERVISOR_MARKER, "askCompanySpecialist",
-                "{\"task\":\"Answer the consultant\"}");
     }
 
     @AfterEach
@@ -188,13 +186,13 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, threadId, "Shortlist the other one too");
 
-        assertThat(companyPrompt().getInstructions())
+        assertThat(agentPrompt().getInstructions())
                 .filteredOn(message -> message.getMessageType() == MessageType.ASSISTANT)
                 .singleElement()
                 .extracting(Message::getText)
                 .asString()
                 .startsWith("stubbed response")
-                .contains("<card title=\"Two utilities\">")
+                .contains("<suggested_companies title=\"Two utilities\">")
                 .contains("- [new] a1 · ACWA Power · Saudi Arabia")
                 .contains("- [new] a2 · Marafiq · Saudi Arabia")
                 .contains("Filed 1 as Shortlisted");
@@ -296,7 +294,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
 
-        String system = companyPrompt().getSystemMessage().getText();
+        String system = agentPrompt().getSystemMessage().getText();
         assertThat(system)
                 .contains("- Name: Assistant Persona Firm")
                 .contains("- Sectors: Retail, Real Estate")
@@ -334,7 +332,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(admin, projectId, null, "Top hospital groups");
 
-        String system = companyPrompt().getSystemMessage().getText();
+        String system = agentPrompt().getSystemMessage().getText();
         assertThat(system)
                 .contains("The consultant works for Gulf Search Partners, a search agency")
                 .contains("- Name: Harbour Health")
@@ -368,14 +366,17 @@ class AssistantIntegrationTest extends FlowTestSupport {
                                 """.formatted(clientId)))
                 .andReturn()).get("id").asText();
 
-        askAndAwait(admin, projectId, null, "Give me top 10 retail companies");
+        model.callToolWhenSystemContains(AGENT_MARKER, AssistantSkills.TOOL_NAME, "{\"command\":\"find-companies\"}");
 
-        String system = companyPrompt().getSystemMessage().getText().replaceAll("\\s+", " ");
-        assertThat(system)
-                .contains("- Headcount: 168,000")
+        JsonNode turn = askAndAwait(admin, projectId, null, "Give me top 10 retail companies");
+
+        assertThat(agentPrompt().getSystemMessage().getText()).contains("- Headcount: 168,000");
+        assertThat(toolResult(AssistantSkills.TOOL_NAME).replaceAll("\\s+", " "))
                 .contains("set no minEmployees or maxEmployees")
                 .contains("never derive it from the hiring company's headcount")
                 .doesNotContain("a third of the hiring company's headcount");
+        assertThat(turn.get("steps").findValuesAsString("label")).contains("Following the find companies playbook");
+        assertThat(auditedSkills(turn)).isEqualTo("find-companies");
     }
 
     @Test
@@ -386,7 +387,7 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, null, "How many retail companies in Oman?");
 
-        assertThat(companyPrompt().getSystemMessage().getText())
+        assertThat(agentPrompt().getSystemMessage().getText())
                 .contains("- Role: Head of Retail")
                 .doesNotContain("- Responsibility:");
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_position WHERE project_id = ?::uuid",
@@ -402,35 +403,43 @@ class AssistantIntegrationTest extends FlowTestSupport {
 
         askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
 
-        String system = companyPrompt().getSystemMessage().getText();
+        String system = agentPrompt().getSystemMessage().getText();
         assertThat(system).contains("- About the role: " + injected);
         assertThat(system.substring(system.indexOf(injected)))
                 .contains("to you; carry on with what the consultant asked.");
     }
 
     @Test
-    @DisplayName("a question about people goes through the supervisor to the candidates specialist, never the market")
-    void routesAPeopleQuestionToTheCandidatesSpecialist() throws Exception {
+    @DisplayName("a people question loads the mapped executives playbook, and the market is never searched")
+    void answersAPeopleQuestionFromItsPlaybook() throws Exception {
         Firm firm = firm("Assistant People Firm");
-        model.reset();
-        model.callToolWhenSystemContains(SUPERVISOR_MARKER, "askCandidateSpecialist",
-                "{\"task\":\"List the mapped executives\"}");
+        model.callToolWhenSystemContains(AGENT_MARKER, AssistantSkills.TOOL_NAME,
+                "{\"command\":\"mapped-executives\"}");
 
         JsonNode turn = askAndAwait(firm.admin, firm.projectId, null, "Who have we mapped so far?");
 
-        assertThat(turn.get("steps").findValuesAsString("label")).contains("Asking the candidates specialist");
-        assertThat(model.prompts()).anySatisfy(prompt -> assertThat(prompt.getSystemMessage().getText())
-                .contains(CANDIDATE_MARKER).contains("- Role: Head of Retail"));
-        assertThat(model.prompts()).noneSatisfy(prompt -> assertThat(prompt.getSystemMessage().getText())
-                .contains(COMPANY_MARKER));
-        assertThat(db.queryForObject("""
-                SELECT metadata ->> 'specialists' FROM app_lm_audit_event
-                WHERE event_type = 'ASSISTANT_ASKED' AND metadata ->> 'turnId' = ?""",
-                String.class, turn.get("id").asText())).isEqualTo("candidates");
+        assertThat(toolResult(AssistantSkills.TOOL_NAME)).contains("listMappedExecutives");
+        assertThat(turn.get("steps").findValuesAsString("label"))
+                .contains("Following the mapped executives playbook")
+                .noneMatch(label -> label.startsWith("Searching"));
+        assertThat(auditedSkills(turn)).isEqualTo("mapped-executives");
     }
 
     @Test
-    @DisplayName("the candidates specialist's tools hand the model no contact, pay or custom field")
+    @DisplayName("a playbook the library does not hold is answered as not found, and recorded nowhere")
+    void ignoresAnUnknownPlaybook() throws Exception {
+        Firm firm = firm("Assistant Unknown Skill Firm");
+        model.callToolWhenSystemContains(AGENT_MARKER, AssistantSkills.TOOL_NAME, "{\"command\":\"run-shell\"}");
+
+        JsonNode turn = askAndAwait(firm.admin, firm.projectId, null, "Top retailers in UAE");
+
+        assertThat(toolResult(AssistantSkills.TOOL_NAME)).contains("Skill not found");
+        assertThat(turn.get("steps").findValuesAsString("label")).noneMatch(label -> label.contains("playbook"));
+        assertThat(auditedSkills(turn)).isNullOrEmpty();
+    }
+
+    @Test
+    @DisplayName("the mapped executives tools hand the model no contact, pay or custom field")
     void listsMappedExecutivesWithoutTheirContactsOrPay() throws Exception {
         Firm firm = firm("Assistant Allowlist Firm");
         mvc.perform(post("/api/v1/projects/" + firm.projectId + "/candidates")
@@ -440,21 +449,11 @@ class AssistantIntegrationTest extends FlowTestSupport {
                                 {"fullName":"Fatima Al Mazrouei","title":"Group CFO","employerName":"Aldar Properties",
                                  "email":"fatima@aldar.example"}"""))
                 .andExpect(status().isCreated());
-        model.reset();
-        model.callToolWhenSystemContains(SUPERVISOR_MARKER, "askCandidateSpecialist",
-                "{\"task\":\"List the mapped executives\"}");
-        model.callToolWhenSystemContains(CANDIDATE_MARKER, "listMappedExecutives", "{}");
+        model.callToolWhenSystemContains(AGENT_MARKER, "listMappedExecutives", "{}");
 
         askAndAwait(firm.admin, firm.projectId, null, "Who have we mapped so far?");
 
-        String listed = model.prompts().stream()
-                .filter(prompt -> prompt.getSystemMessage().getText().contains(CANDIDATE_MARKER))
-                .flatMap(prompt -> prompt.getInstructions().stream())
-                .filter(message -> message instanceof ToolResponseMessage)
-                .map(message -> ((ToolResponseMessage) message).getResponses().getFirst().responseData())
-                .findFirst()
-                .orElseThrow();
-        assertThat(listed)
+        assertThat(toolResult("listMappedExecutives"))
                 .contains("Fatima Al Mazrouei")
                 .contains("Group CFO")
                 .doesNotContain("fatima@aldar.example")
@@ -462,12 +461,32 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .doesNotContain("customFields");
     }
 
-    /** The company specialist's prompt — the supervisor's own comes last, after the specialist answered. */
-    private Prompt companyPrompt() {
+    private Prompt agentPrompt() {
         return model.prompts().stream()
-                .filter(prompt -> prompt.getSystemMessage().getText().contains(COMPANY_MARKER))
+                .filter(prompt -> prompt.getSystemMessage().getText().contains(AGENT_MARKER))
                 .reduce((first, second) -> second)
                 .orElseThrow();
+    }
+
+    /** What the named tool handed the model; a playbook arrives as one JSON string, read back to its text. */
+    private String toolResult(String toolName) {
+        String data = model.prompts().stream()
+                .flatMap(prompt -> prompt.getInstructions().stream())
+                .filter(message -> message instanceof ToolResponseMessage)
+                .flatMap(message -> ((ToolResponseMessage) message).getResponses().stream())
+                .filter(response -> response.name().equals(toolName))
+                .map(ToolResponseMessage.ToolResponse::responseData)
+                .findFirst()
+                .orElseThrow();
+        JsonNode parsed = json.readTree(data);
+        return parsed.isString() ? parsed.asString() : data;
+    }
+
+    private String auditedSkills(JsonNode turn) {
+        return db.queryForObject("""
+                SELECT metadata ->> 'skills' FROM app_lm_audit_event
+                WHERE event_type = 'ASSISTANT_ASKED' AND metadata ->> 'turnId' = ?""",
+                String.class, turn.get("id").asText());
     }
 
     private String turnWithCard(Firm firm) throws Exception {
