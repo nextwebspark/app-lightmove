@@ -75,6 +75,38 @@ describe("the assistant's question card", () => {
     expect(onAnswer).toHaveBeenCalledWith("Region: Saudi and Qatar · Ownership: Listed, Sovereign");
   });
 
+  it("moves through a single-select question with the arrow keys, as a radio group does", async () => {
+    mount();
+    const gcc = screen.getByRole("radio", { name: /GCC only/ });
+    const mena = screen.getByRole("radio", { name: /MENA/ });
+
+    expect(screen.getByRole("radiogroup", { name: "Which markets should the companies operate in?" })).toBeInTheDocument();
+    expect(gcc).toHaveAttribute("tabindex", "0");
+    expect(mena).toHaveAttribute("tabindex", "-1");
+
+    gcc.focus();
+    await userEvent.keyboard("{ArrowDown}");
+
+    expect(mena).toHaveFocus();
+    expect(mena).toHaveAttribute("aria-checked", "true");
+    expect(gcc).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("keeps a repeated question's answers apart", async () => {
+    const onAnswer = vi.fn();
+    render(
+      <AssistantQuestionCard questions={[QUESTIONS[0], QUESTIONS[0]]} answerable onAnswer={onAnswer} />,
+    );
+
+    const [firstMena, secondMena] = screen.getAllByRole("radio", { name: /MENA/ });
+    await userEvent.click(firstMena);
+    await userEvent.click(screen.getAllByRole("radio", { name: /GCC only/ })[1]);
+    await userEvent.click(screen.getByRole("button", { name: "Send answers" }));
+
+    expect(secondMena).toHaveAttribute("aria-checked", "false");
+    expect(onAnswer).toHaveBeenCalledWith("Region: MENA · Region: GCC only");
+  });
+
   it("only reads once a later turn has answered it", () => {
     mount(false);
 
