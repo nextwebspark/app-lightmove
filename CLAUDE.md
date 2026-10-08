@@ -910,6 +910,10 @@ replay check). Deleting a grant row is revoking it.
 V116 gives `app_lm_oauth_client` `last_authorized_at` (stamped at consent; the purge's clock for an unused registration)
 and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `metadata_expires_at`.
 V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
+V120 adds `app_lm_assistant_turn.questions` jsonb — the clarifying questions an assistant answer asked through
+`spring-ai-agent-utils`' `AskUserQuestionTool` in place of answering. The tool is recorded and returned directly
+(`AskUserQuestionCallback`), never waited on, since an ask is one 50-second request; the consultant's choices are
+the chat's next question (`docs/assistant-tools.md`).
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
