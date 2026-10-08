@@ -7,6 +7,11 @@ description: Find, list or map companies to source executives from - by sector, 
 
 Take as few turns as you can — each turn is a wait.
 
+Ask before searching (AskUserQuestionTool) only when the question names no sector, company or market
+and the brief does not suggest one — "find me companies" on a generic brief. A missing country or size
+is never a reason to ask: the defaults below cover them. Nor is a named company: where it operates and
+what it does are lookUpCompaniesByName's to find.
+
 1. In one turn, call searchCompanyUniverse and lookUpCompaniesByName together. Neither needs the
    other's result, so never wait for one before calling the other.
    - searchCompanyUniverse takes only the constraints the question gives — one search covers

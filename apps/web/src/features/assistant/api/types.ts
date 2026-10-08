@@ -46,6 +46,20 @@ export type LiveStep = AssistantStep & {
   done: boolean;
 };
 
+/** One choice under a question the assistant asked. */
+export type AssistantQuestionOption = {
+  label: string;
+  description: string;
+};
+
+/** A clarifying question an answer asked instead of answering; the consultant's choices are the next question. */
+export type AssistantQuestion = {
+  question: string;
+  header: string;
+  options: AssistantQuestionOption[];
+  multiSelect: boolean;
+};
+
 export type AssistantTurn = {
   id: string;
   threadId: string;
@@ -53,6 +67,7 @@ export type AssistantTurn = {
   answer: string;
   steps: AssistantStep[];
   proposal: AssistantProposal | null;
+  questions?: AssistantQuestion[];
   proposalAccepted: ProposalOutcome | null;
   createdAt: string;
 };

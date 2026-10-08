@@ -7,9 +7,11 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.HiringSide;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.CandidateTools;
@@ -27,6 +29,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Firm;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -35,6 +38,27 @@ import org.springframework.ai.tool.ToolCallback;
 import tools.jackson.databind.ObjectMapper;
 
 class AssistantAgentTest {
+
+    private static final String TWO_QUESTIONS = """
+            {"questions":[
+              {"question":"Which markets should the companies operate in?","header":"Region","multiSelect":false,
+               "options":[{"label":"GCC only (Recommended)","description":"The six Gulf states"},
+                          {"label":"MENA","description":"Adds Egypt, Jordan and Morocco"}]},
+              {"question":"Which ownership types?","header":"Ownership","multiSelect":true,
+               "options":[{"label":"Listed","description":"On a public exchange"},
+                          {"label":"Family-owned","description":"Private family groups"}]}]}
+            """;
+
+    private static final String QUESTION_WITH_ONE_OPTION = """
+            {"questions":[{"question":"Which markets?","header":"Region",
+              "options":[{"label":"GCC only","description":"The six Gulf states"}]}]}
+            """;
+
+    private static final String QUESTION_WITH_A_BLANK_HEADER = """
+            {"questions":[{"question":"Which markets?","header":" ",
+              "options":[{"label":"GCC only","description":"The six Gulf states"},
+                         {"label":"MENA","description":"Adds Egypt"}]}]}
+            """;
 
     private final AssistantModelCall model = mock(AssistantModelCall.class);
     private final MandateTools mandateTools = mock(MandateTools.class);
@@ -59,13 +83,14 @@ class AssistantAgentTest {
     }
 
     @Test
-    @DisplayName("the model is offered the playbooks and the assistant's own tools, and nothing that reaches the host")
+    @DisplayName("the model is offered the playbooks, the question tool and the assistant's own tools, "
+            + "and nothing that reaches the host")
     void offersOnlyTheAssistantsTools() {
         List<String> offered = toolset.forAsk(recorder).stream()
                 .map(tool -> tool.getToolDefinition().name())
                 .toList();
 
-        assertThat(offered).containsExactlyInAnyOrder(AssistantSkills.TOOL_NAME,
+        assertThat(offered).containsExactlyInAnyOrder(AssistantSkills.TOOL_NAME, "AskUserQuestionTool",
                 "readMandateBrief", "searchCompanyUniverse", "describeMarket", "lookUpCompaniesByName",
                 "adjacentIndustries", "proposeCompanies",
                 "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives");
@@ -101,6 +126,79 @@ class AssistantAgentTest {
     }
 
     @Test
+    @DisplayName("the question tool is never offered an answers slot, so the model cannot answer its own questions")
+    void offersTheQuestionToolNoAnswersSlot() {
+        ToolCallback ask = questionTool();
+
+        assertThat(new ObjectMapper().readTree(ask.getToolDefinition().inputSchema()).path("properties")
+                .has("answers")).isFalse();
+        assertThat(ask.getToolMetadata().returnDirect()).isFalse();
+    }
+
+    @Test
+    @DisplayName("the questions the model asks are kept for the card, and the tool answers at once")
+    void recordsTheQuestionsAsked() {
+        recorder.usedSkill("find-companies");
+
+        String result = questionTool().call(TWO_QUESTIONS);
+
+        assertThat(result).isEqualTo(AskUserQuestionCallback.SHOWN_TO_CONSULTANT);
+        assertThat(recorder.questions()).hasSize(2);
+        assertThat(recorder.questions().getFirst().header()).isEqualTo("Region");
+        assertThat(recorder.questions().getFirst().options()).extracting("label")
+                .containsExactly("GCC only (Recommended)", "MENA");
+        assertThat(recorder.questions().get(1).multiSelect()).isTrue();
+        assertThat(recorder.steps()).extracting("label").containsExactly("Asking you some questions");
+    }
+
+    @Test
+    @DisplayName("a question asked before any playbook is turned away: the playbook may settle it")
+    void turnsAwayAQuestionBeforeAPlaybook() {
+        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(AskUserQuestionCallback.LOAD_A_PLAYBOOK_FIRST);
+
+        assertThat(recorder.askedQuestions()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a question asked after companies were suggested is turned away, so no card sits under the list")
+    void turnsAwayAQuestionAfterSuggestingCompanies() {
+        recorder.usedSkill("find-companies");
+        recorder.propose(new AssistantProposal("Two utilities", List.of(), Map.of()));
+
+        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(AskUserQuestionCallback.ALREADY_SUGGESTED);
+
+        assertThat(recorder.askedQuestions()).isFalse();
+    }
+
+    @Test
+    @DisplayName("an answer that asked shows its lead-in and suggests no companies")
+    void anAnswerThatAskedSuggestsNothing() {
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any())).thenAnswer(call -> {
+            recorder.usedSkill("find-companies");
+            questionTool().call(TWO_QUESTIONS);
+            return AskUserQuestionCallback.SHOWN_TO_CONSULTANT;
+        });
+
+        assertThat(agent.answer("Find me companies", List.of(), context)).isEqualTo(AssistantAgent.ASKED_LEAD_IN);
+
+        verify(proposalTools, never()).proposeWhatWasFound(any());
+    }
+
+    @Test
+    @DisplayName("a question the card cannot draw is not shown, and the model is told so")
+    void reportsQuestionsThatReachedNobody() {
+        recorder.usedSkill("find-companies");
+
+        assertThat(questionTool().call(QUESTION_WITH_ONE_OPTION)).isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+        assertThat(questionTool().call(QUESTION_WITH_A_BLANK_HEADER))
+                .isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+        assertThat(questionTool().call("not json")).isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+
+        assertThat(recorder.askedQuestions()).isFalse();
+        assertThat(recorder.steps()).isEmpty();
+    }
+
+    @Test
     @DisplayName("a failed model call is reported as the assistant being unavailable")
     void reportsAFailedModelCallAsUnavailable() {
         when(model.ask(anyMap(), anyList(), anyList(), anyString(), any()))
@@ -109,5 +207,12 @@ class AssistantAgentTest {
         assertThatThrownBy(() -> agent.answer("Find utilities", List.of(), context))
                 .isInstanceOfSatisfying(ApiException.class,
                         refused -> assertThat(refused.getCode()).isEqualTo(ErrorCode.ASSISTANT_UNAVAILABLE));
+    }
+
+    private ToolCallback questionTool() {
+        return toolset.forAsk(recorder).stream()
+                .filter(tool -> tool.getToolDefinition().name().equals("AskUserQuestionTool"))
+                .findFirst()
+                .orElseThrow();
     }
 }

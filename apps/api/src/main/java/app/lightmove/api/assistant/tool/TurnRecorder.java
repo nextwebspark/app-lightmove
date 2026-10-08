@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantQuestion;
 import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
@@ -37,6 +38,7 @@ public class TurnRecorder {
     private boolean namesLookedUp;
     private int vendorSearches;
     private AssistantProposal proposal;
+    private List<AssistantQuestion> questions = List.of();
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
         this(onStep, proposal -> { });
@@ -135,6 +137,27 @@ public class TurnRecorder {
     public void propose(AssistantProposal proposal) {
         this.proposal = proposal;
         onProposal.accept(proposal);
+    }
+
+    /**
+     * Keeps the questions for the card ({@link AssistantQuestions} has already held them to its limits). Only
+     * the first set an answer asks is kept; an empty one leaves the answer to carry on without asking.
+     */
+    public void ask(List<AssistantQuestion> asked) {
+        if (!questions.isEmpty() || asked.isEmpty()) {
+            return;
+        }
+        questions = List.copyOf(asked);
+        int step = startStep(questions.size() == 1 ? "Asking you a question" : "Asking you some questions");
+        finishStep(step, null);
+    }
+
+    public List<AssistantQuestion> questions() {
+        return questions;
+    }
+
+    public boolean askedQuestions() {
+        return !questions.isEmpty();
     }
 
     public List<AssistantStep> steps() {

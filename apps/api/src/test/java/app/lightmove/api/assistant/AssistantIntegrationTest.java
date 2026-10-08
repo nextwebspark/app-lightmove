@@ -199,6 +199,37 @@ class AssistantIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an answer that asked reads back with its questions, and the next ask replays them to the model")
+    void replaysTheQuestionsAskedToTheModel() throws Exception {
+        Firm firm = firm("Assistant Question Firm");
+        JsonNode asked = askAndAwait(firm.admin, firm.projectId, null, "Find me companies");
+        UUID turnId = UUID.fromString(asked.get("id").asText());
+        db.update("UPDATE app_lm_assistant_turn SET questions = ?::jsonb WHERE id = ?", """
+                [{"question":"Which markets should the companies operate in?","header":"Region","multiSelect":false,
+                  "options":[{"label":"GCC only","description":"The six Gulf states"},
+                             {"label":"MENA","description":"Adds Egypt, Jordan and Morocco"}]}]""", turnId);
+        String threadId = asked.get("threadId").asText();
+
+        mvc.perform(get("/api/v1/assistant/threads/" + threadId).header("Authorization", "Bearer " + firm.admin))
+                .andExpect(jsonPath("$.turns[0].questions[0].header").value("Region"))
+                .andExpect(jsonPath("$.turns[0].questions[0].options[1].label").value("MENA"));
+
+        askAndAwait(firm.admin, firm.projectId, threadId, "Region: GCC only");
+
+        assertThat(agentPrompt().getInstructions())
+                .filteredOn(message -> message.getMessageType() == MessageType.ASSISTANT)
+                .singleElement()
+                .extracting(Message::getText)
+                .asString()
+                .contains("<asked_consultant>")
+                .contains("- Region: Which markets should the companies operate in?")
+                .contains("  - MENA — Adds Egypt, Jordan and Morocco");
+        assertThat(agentPrompt().getInstructions().getLast().getText())
+                .startsWith("<consultant_answers>\nRegion: GCC only\n</consultant_answers>")
+                .contains("about my request: \"Find me companies\"");
+    }
+
+    @Test
     @DisplayName("a company the card showed as already filed keeps its stage when the card is filed")
     void leavesAHeldCompanyWhereItStands() throws Exception {
         Firm firm = firm("Assistant Held Firm");

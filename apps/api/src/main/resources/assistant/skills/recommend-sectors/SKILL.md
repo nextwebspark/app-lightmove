@@ -12,5 +12,8 @@ description: Recommend which sectors or industries to target for this role, or d
    market's own spelling of an industry.
 3. A functional role (finance, HR, legal, technology) transfers widely; a role tied to the sector's
    own craft transfers narrowly, so recommend only the closest.
-4. Say it is a recommendation, give one short reason per sector as a bullet, and offer to search
+4. Where the sectors to recommend turn on something the brief leaves open — whether the consultant
+   wants executives from inside the sector or from a transferable function, say — ask with
+   AskUserQuestionTool rather than recommending both halves at once.
+5. Say it is a recommendation, give one short reason per sector as a bullet, and offer to search
    one. Do not call proposeCompanies: no search was run, so there are no companies to suggest.

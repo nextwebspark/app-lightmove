@@ -22,13 +22,33 @@ a playbook only when its question needs it.
 | `earlier-list` | "what are these", "the first three", "more like these" | list or narrow from the `<suggested_companies>` block; for more, load `find-companies` |
 | `mapped-executives` | who the position has mapped | `listMappedExecutives`, `readExecutiveProfile`, `companiesWithoutExecutives` — read-only |
 
-- **The model is offered exactly `Skill` and the assistant's own `@Tool`s** (`AssistantToolset`, built once,
+- **The model is offered exactly `Skill`, `AskUserQuestionTool` and the assistant's own `@Tool`s** (`AssistantToolset`, built once,
   pinned by `AssistantAgentTest`). The library's shell, file, web and sub-agent tools are never registered:
   a playbook is text, with no scripts and no files beside it, and is registered by its text alone
   (`addSkill`), so the model is never told where it sits on disk.
 - A playbook load is a step of the answer ("Following the find companies playbook", `SkillStepListener`, a
   `ToolCallListener` around the `Skill` tool) and `ASSISTANT_ASKED` records the `skills` loaded. A name the
   library does not hold is answered "Skill not found" and recorded nowhere.
+- **Asking instead of guessing** (`AskUserQuestionCallback`): the library's `AskUserQuestionTool` lets the
+  model put one to four multiple-choice questions (a 12-character header, two to four options with a
+  description, single or multi select, and an "Other" box the panel always adds). The library's handler is
+  synchronous — it waits for the answers — and an ask cannot: it is one request closed at 50 seconds, holding
+  one of four slots, whose answer may reach another instance. So the handler records the questions on the
+  `TurnRecorder` and the tool tells the model to stop with one short line; the turn is saved with its
+  `questions` and a fixed lead-in as its answer, and no companies are suggested. The tool is deliberately not
+  `returnDirect`: Spring AI reads that before the call, so a question the tool turns away would have become the
+  answer. It turns one away when no playbook is loaded yet (the eval and a live chat both asked where a named
+  company operates, which a lookup finds), when this answer already suggested companies, and when
+  `AssistantQuestions` leaves nothing the card can draw (a question, a header of at most 12 characters and two
+  to four labelled options, four questions at most) — the model is then told to carry on without asking.
+  The panel draws them (`AssistantQuestionCard`); **Send answers** is the chat's next ask ("Region: GCC only ·
+  Ownership: Listed, Family-owned", without the model's "(Recommended)" mark), and `QuestionMemory` replays the
+  questions to the model as an `<asked_consultant>` block and sends that message inside `<consultant_answers>`
+  beside the request it answers. Sent bare, the answers read as a remark: the model answered from the chat's
+  earlier answers without searching and named companies no tool returned. The model may ask again on a later
+  turn when it judges it necessary; within one turn only the first set is kept. The library's `answers`
+  parameter is taken out of the schema the model sees, so it cannot answer its own questions.
+  `ASSISTANT_ASKED` records `questionsAsked`.
 - Every call is sent the earlier lists (`CardMemory`), so `AssistantModelCall` strips a
   `<suggested_companies>` block from the answer if the model echoes one.
 - The whole ask is one `LlmBudget.ASSISTANT` unit; the prompt id is still `assistant-turn`, so existing
@@ -102,7 +122,7 @@ by account id, else by name — the rule a capture uses), stored on the turn and
 | Table | Row |
 |---|---|
 | `app_lm_assistant_thread` | One chat: `workspace_id`, `user_id`, `project_id`, `title`. Private to its user. |
-| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V71), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome). |
+| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V71), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome), `questions` (jsonb, V120: the clarifying questions asked in place of an answer). |
 
 ## Security
 
@@ -152,7 +172,10 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   - `service/AssistantAgent` and `AssistantModelCall` run the one model call over `AssistantToolset`;
     `AssistantSkills` (built by `config/AssistantSkillsConfig`) holds the playbooks and
     `SkillStepListener` shows each one loaded as a step.
-  - `service/CardMemory` writes an earlier list back into the chat the model reads.
+  - `service/CardMemory` writes an earlier list back into the chat the model reads, and `QuestionMemory`
+    the questions an earlier answer asked.
+  - `service/AskUserQuestionCallback` offers the library's question tool, ending the answer rather than
+    waiting for one.
   - `service/AssistantProposalService` handles accept.
   - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
 - Frontend `apps/web/src/features/assistant`:
@@ -161,4 +184,6 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   - `components/AssistantTurnView` shows one question and answer and files the card.
   - `components/AssistantSteps` draws the step list, live and saved.
   - `components/AssistantProposalCard` draws the suggested companies.
+  - `components/AssistantQuestionCard` draws the questions an answer asked, and sends the choices as the
+    next ask while it is the chat's last turn.
   - `AssistantDock` / `AssistantLauncher` handle layout.
