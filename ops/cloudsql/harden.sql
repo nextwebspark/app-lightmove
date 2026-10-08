@@ -30,8 +30,8 @@ CREATE INDEX IF NOT EXISTS app_lm_audit_event_target_idx
     ON app_lm_audit_event (target_type, target_id, id DESC)
     WHERE outcome = 'SUCCESS';
 
--- 2b. The contact-credit ledger (V118) is append-only on the same terms: it is what a workspace was charged,
---     and a foothold in the app must not be able to rewrite a balance's history. V118's trigger refuses UPDATE
+-- 2b. The contact-credit ledger (V121) is append-only on the same terms: it is what a workspace was charged,
+--     and a foothold in the app must not be able to rewrite a balance's history. V121's trigger refuses UPDATE
 --     and DELETE for every role; this takes the privilege away besides.
 DO $$
 BEGIN

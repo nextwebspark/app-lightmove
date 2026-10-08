@@ -910,7 +910,7 @@ replay check). Deleting a grant row is revoking it.
 V116 gives `app_lm_oauth_client` `last_authorized_at` (stamped at consent; the purge's clock for an unused registration)
 and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `metadata_expires_at`.
 V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
-V118 is billing's first (epic #734): the plan catalogue (`app_lm_billing_plan`, Core / Pro / Enterprise priced per
+V121 is billing's first (epic #734): the plan catalogue (`app_lm_billing_plan`, Core / Pro / Enterprise priced per
 staff seat), one `app_lm_workspace_subscription` per workspace (every existing one backfilled Core, `INVOICED`, a seat per
 active staff member), and the contact-credit ledger — `app_lm_credit_grant` buckets a spend drains (plan, then given,
 then bought; soonest expiry first), `app_lm_credit_hold` (one per paid action, unique on its idempotency key per
@@ -921,13 +921,13 @@ spend the credits cannot cover with 402 `INSUFFICIENT_CREDITS`, and off records 
 never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
 releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
 A Find email or Find phone press (#737) holds its price before ContactOut is asked — keyed on the person, the channel
-and how many of their holds were released before (V119 indexes that count), so presses in flight together share one
+and how many of their holds were released before (V122 indexes that count), so presses in flight together share one
 hold — captures it only on a find and releases it on a miss or a failure; the answer carries `creditsSpent` and
 `creditsLeft`.
-Search and AI carry no price (#738): V120's `app_lm_usage_event` records each use with its estimated vendor cost once
+Search and AI carry no price (#738): V123's `app_lm_usage_event` records each use with its estimated vendor cost once
 the work succeeds (`UsageRecorder`) — a People Search page the first time *this workspace* reads it, bought or cached;
 a Find executives run's filed executives; an AI deep enrich press; the people an opener was written for; an assistant
-ask, whose turn also keeps its model and tokens (V120 re-adds the columns V70 dropped). `FairUseGuard` refuses a use that would pass the
+ask, whose turn also keeps its model and tokens (V123 re-adds the columns V70 dropped). `FairUseGuard` refuses a use that would pass the
 month's ceiling — staff seats × `lightmove.billing.fair-use.<kind>-per-seat`, `0` for none — with 429
 `FAIR_USE_REACHED` (`kind`, `resetsAt`), after `LlmBudgetGuard` and before any vendor or model is asked.
 **The billing month** (`BillingMonth`) is what both run over: monthly steps from the subscription's period start, so a
@@ -935,7 +935,7 @@ yearly plan still resets monthly, or the UTC calendar month without one. `Monthl
 `lightmove.billing.jobs.monthly-reset`, hourly) grants each live plan its month's credits expiring with the month —
 no rollover, the ledger expiring the old grant first — keyed `plan:<workspace>:<month start>`, the key Stripe's
 `invoice.paid` will use, so neither grants a month twice. Every spend claims the 80%, 90% and used-up thresholds of
-the month's plan credits it reached (V121 `app_lm_credit_threshold_crossing`, under the balance lock) and publishes
+the month's plan credits it reached (V124 `app_lm_credit_threshold_crossing`, under the balance lock) and publishes
 `ContactCreditThresholdCrossed` for the highest newly claimed. `CreditBalanceReconcile` checks nightly that each
 balance is its entries' and its grants' sum, audits a drift (`CREDIT_BALANCE_DRIFT`) and corrects nothing; a job
 that must run once across instances claims an `app_lm_billing_job_run` row first.
@@ -949,7 +949,7 @@ more credits an admin's) and as the topbar chip, absent below 80%. Every refused
 `onRequestRefused`, so a 402 `INSUFFICIENT_CREDITS` or a 429 `FAIR_USE_REACHED` from any screen opens one sheet
 (`BillingRefusalSheets`, mounted once in `main.tsx`) and its caller stays quiet (`isBillingRefusal`). Prices on the
 Find buttons are the read's `prices`, never literals; search carries none.
-**Stripe (#743, V122)** is `billing/payment`'s `PaymentGateway` (`StripePaymentGateway` over `stripe-java`, whose
+**Stripe (#743, V125)** is `billing/payment`'s `PaymentGateway` (`StripePaymentGateway` over `stripe-java`, whose
 release pins the API version the webhook endpoint must be made on; a blank `lightmove.billing.stripe.secret-key` leaves
 `UnconfiguredPaymentGateway`, every workspace invoiced and `stripeOffered` false). An admin (`BILLING_MANAGE`, audited)
 is sent to Checkout for a per-seat plan — quantity the workspace's staff, the price id a deployment's
@@ -965,7 +965,7 @@ tops the month up to the new plan at once (`upgrade:<workspace>:<month>:<plan>`)
 keyed on its payment intent, sized by the pack's configuration (never the session's metadata), valued at what was
 paid before VAT and kept a year; a price or pack this deployment does not sell is claimed and ignored, never retried. A failed payment is `PAST_DUE`
 (`past_due_since`); past `past-due-grace` (7d) the reset grants no further month until Stripe is paid.
-**Seats (#744, V123)** are staff — an active member holding ADMIN or MEMBER; CLIENT alone never takes one — and
+**Seats (#744, V126)** are staff — an active member holding ADMIN or MEMBER; CLIENT alone never takes one — and
 `billing/seat`'s `SeatAllowance` is the one door `workspace` calls (accepting a staff invitation, a rejoin, a role change
 across the staff line, a removal). An invoiced workspace is held to its agreed `seats` while enforcement is on — a staff
 invitation counting the ones still pending, an accept and a promotion each refused with 409 `SEAT_LIMIT_REACHED` until a
@@ -975,9 +975,9 @@ removed one billing no more from the next invoice), grants each added seat its s
 left (`seat:<workspace>:<month>:<seat number>`, so a seat removed and refilled in one month is granted once), audits
 `SEAT_ADDED`/`SEAT_REMOVED` and clears the mark — unless the staff moved again meanwhile. A sync Stripe refuses leaves
 the membership as it is and the mark for `lightmove.billing.jobs.seat-sync`.
-**Billing emails (#745, V124)** go to a workspace's `BILLING_MANAGE` holders alone — members see the chip and the
+**Billing emails (#745, V127)** go to a workspace's `BILLING_MANAGE` holders alone — members see the chip and the
 banner — from `billing/notice`'s `BillingNotices`, after the commit that caused them: a threshold crossing (80%, 90%,
-used up; V121's row is the claim, so concurrent spends send one email per admin) offers Buy more credits to a
+used up; V124's row is the claim, so concurrent spends send one email per admin) offers Buy more credits to a
 Stripe-billed workspace and Contact Uncava (`lightmove.billing.contact-email`) to an invoiced one; a failed invoice (`SubscriptionPaymentFailed`) and bought
 credits lapsing within a week (`lightmove.billing.jobs.purchased-credit-expiry`, daily) are each claimed in
 `app_lm_billing_notice` (per invoice, per grant) in a transaction of their own before anything is sent, so a replayed

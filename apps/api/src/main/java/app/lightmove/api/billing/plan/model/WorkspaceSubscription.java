@@ -15,7 +15,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** A workspace's plan, staff seats and status (V118); one per workspace. */
+/** A workspace's plan, staff seats and status (V121); one per workspace. */
 @Entity
 @Table(name = "app_lm_workspace_subscription")
 @Getter

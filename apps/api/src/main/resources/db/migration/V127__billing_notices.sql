@@ -2,7 +2,7 @@
 --
 -- A payment failing and bought credits about to expire are each announced once: the row is the claim, committed
 -- before any email goes, so of two deliveries or two instances only one sends. The 80/90/100% emails need none of
--- this — V121's threshold crossing is already their claim.
+-- this — V124's threshold crossing is already their claim.
 CREATE TABLE app_lm_billing_notice (
     kind          varchar(32)   NOT NULL
         CONSTRAINT app_lm_billing_notice_kind_chk CHECK (kind IN ('PAYMENT_FAILED', 'PURCHASED_CREDITS_EXPIRING')),

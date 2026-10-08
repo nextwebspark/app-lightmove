@@ -9,7 +9,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** What a workspace's ledger lines add up to (V118); its row is the lock every ledger write takes first. */
+/** What a workspace's ledger lines add up to (V121); its row is the lock every ledger write takes first. */
 @Entity
 @Table(name = "app_lm_credit_balance")
 @Getter

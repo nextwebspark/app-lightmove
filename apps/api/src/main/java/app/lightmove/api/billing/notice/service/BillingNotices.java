@@ -35,7 +35,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /**
  * Emails a workspace's billing managers — never its other members — as its contact credits run low, when a payment
  * fails, and a week before bought credits lapse. Each is claimed once before any email goes: the thresholds by the
- * ledger (V121), the rest here (V124), so two deliveries or two instances send once.
+ * ledger (V124), the rest here (V127), so two deliveries or two instances send once.
  */
 @Slf4j
 @Component

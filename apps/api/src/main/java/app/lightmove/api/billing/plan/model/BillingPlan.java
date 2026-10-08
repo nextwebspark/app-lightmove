@@ -12,7 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
-/** One plan of the catalogue (V118), seeded by migration and read-only to the application. */
+/** One plan of the catalogue (V121), seeded by migration and read-only to the application. */
 @Entity
 @Table(name = "app_lm_billing_plan")
 @Immutable
