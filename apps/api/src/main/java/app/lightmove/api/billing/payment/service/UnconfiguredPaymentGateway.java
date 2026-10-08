@@ -42,6 +42,11 @@ public class UnconfiguredPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public long seatsOf(String subscriptionId) {
+        throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
+    }
+
+    @Override
     public SeatQuantityChange updateSeats(String subscriptionId, long seats) {
         throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
     }

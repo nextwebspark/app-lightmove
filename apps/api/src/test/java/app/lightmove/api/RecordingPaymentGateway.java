@@ -78,6 +78,11 @@ public class RecordingPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public long seatsOf(String subscriptionId) {
+        return seats.getOrDefault(subscriptionId, 1L);
+    }
+
+    @Override
     public SeatQuantityChange updateSeats(String subscriptionId, long quantity) {
         if (refusingSeatUpdates) {
             seatUpdatesRefused.incrementAndGet();
@@ -102,10 +107,6 @@ public class RecordingPaymentGateway implements PaymentGateway {
 
     public void subscriptionHolds(String subscriptionId, long quantity) {
         seats.put(subscriptionId, quantity);
-    }
-
-    public Long seatsOf(String subscriptionId) {
-        return seats.get(subscriptionId);
     }
 
     public void refuseSeatUpdates(boolean refusing) {

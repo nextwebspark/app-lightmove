@@ -141,11 +141,20 @@ public class StripePaymentGateway implements PaymentGateway {
         }
     }
 
+    @Override
+    public long seatsOf(String subscriptionId) {
+        try {
+            return seatOf(subscriptionId).getQuantity();
+        } catch (StripeException failure) {
+            throw unavailable("read the seat quantity", failure);
+        }
+    }
+
     /** Absolute, so a sync run twice sets one quantity once; no idempotency key, which would replay a stale quantity. */
     @Override
     public SeatQuantityChange updateSeats(String subscriptionId, long seats) {
         try {
-            SubscriptionItem seat = client.v1().subscriptions().retrieve(subscriptionId).getItems().getData().getFirst();
+            SubscriptionItem seat = seatOf(subscriptionId);
             long previous = seat.getQuantity();
             if (previous == seats) {
                 return new SeatQuantityChange(previous, seats);
@@ -165,6 +174,10 @@ public class StripePaymentGateway implements PaymentGateway {
     @Override
     public PaymentEvent eventOf(byte[] payload, String signature) {
         return reader.read(payload, signature);
+    }
+
+    private SubscriptionItem seatOf(String subscriptionId) throws StripeException {
+        return client.v1().subscriptions().retrieve(subscriptionId).getItems().getData().getFirst();
     }
 
     private void expireOpenSubscriptionCheckouts(String customerId) {

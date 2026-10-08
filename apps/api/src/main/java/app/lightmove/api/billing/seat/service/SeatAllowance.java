@@ -30,13 +30,18 @@ public class SeatAllowance {
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
-    /** @param joining the staff about to take a seat, invitations still pending included */
-    @Transactional
+    /**
+     * Locks the subscription row until the caller's transaction ends, so two staff joining at once are counted one
+     * after the other.
+     *
+     * @param joining the staff about to take a seat, invitations still pending included
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void requireRoomFor(UUID workspaceId, int joining) {
         if (!properties.billing().enforce()) {
             return;
         }
-        subscriptions.findByWorkspaceId(workspaceId)
+        subscriptions.findForUpdate(workspaceId)
                 .filter(subscription -> subscription.getStatus() == SubscriptionStatus.INVOICED)
                 .filter(subscription -> access.activeStaff(workspaceId).size() + joining > subscription.getSeats())
                 .ifPresent(full -> {

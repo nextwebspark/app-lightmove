@@ -78,7 +78,7 @@ class SeatBillingIntegrationTest extends BillingFlowSupport {
     }
 
     @Test
-    @DisplayName("a sync Stripe refuses leaves the membership in place, and the job makes it once Stripe answers")
+    @DisplayName("a sync Stripe refuses keeps the membership and the seat's credits, and the job bills it once, granting nothing twice")
     void aRefusedSyncIsRetried() throws Exception {
         Firm firm = newFirm();
         String subscriptionId = subscribe(firm, Instant.now().minus(Duration.ofHours(1)));
@@ -93,6 +93,8 @@ class SeatBillingIntegrationTest extends BillingFlowSupport {
         assertThat(memberIdOf(firm.adminToken(), member)).isNotBlank();
         assertThat(stripe.seatsOf(subscriptionId)).isEqualTo(1);
         assertThat(seatSyncDueAt(firm.workspaceId())).isNotNull();
+        assertThat(seatGrantsOf(firm.workspaceId())).isEqualTo(1);
+        assertThat(auditsOf(firm.workspaceId(), "SEAT_ADDED")).isZero();
 
         stripe.refuseSeatUpdates(false);
         sync.syncDueAt(Instant.now().plus(Duration.ofMinutes(2)));
@@ -100,6 +102,8 @@ class SeatBillingIntegrationTest extends BillingFlowSupport {
         assertThat(stripe.seatsOf(subscriptionId)).isEqualTo(2);
         assertThat(seatSyncDueAt(firm.workspaceId())).isNull();
         assertThat(seatGrantsOf(firm.workspaceId())).isEqualTo(1);
+        assertThat(auditsOf(firm.workspaceId(), "SEAT_ADDED")).isEqualTo(1);
+        assertLedgerAddsUp(firm.workspaceId());
     }
 
     @Test

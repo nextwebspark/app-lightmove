@@ -107,7 +107,6 @@ public class MemberService {
         return member.getRoles().stream().anyMatch(r -> r.is(role));
     }
 
-    /** CLIENT beside a staff role is staff; CLIENT alone takes no seat. */
     private boolean holdsStaffRole(WorkspaceMember member) {
         return member.getRoles().stream().anyMatch(r -> !r.is(WorkspaceRole.CLIENT));
     }

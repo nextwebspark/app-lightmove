@@ -30,13 +30,16 @@ import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -66,6 +69,7 @@ public class InvitationService {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final SeatAllowance seats;
+    private final Clock clock;
 
     /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
     @Transactional
@@ -81,8 +85,10 @@ public class InvitationService {
         Workspace workspace = requireWorkspace(workspaceId);
         User inviter = requireUser(principal.userId());
 
-        Instant expiry = Instant.now().plus(properties.auth().invitationTtl());
+        Instant now = clock.instant();
+        Instant expiry = now.plus(properties.auth().invitationTtl());
         List<Invitation> issued = new ArrayList<>(commands.size());
+        Set<String> pendingStaff = pendingStaffInvitees(workspaceId, now);
 
         for (InviteCommand command : commands) {
             String email = EmailAddressValidator.normalise(command.email());
@@ -101,8 +107,9 @@ public class InvitationService {
                 continue;
             }
 
-            seats.requireRoomFor(workspaceId, 1 + pendingStaffInvitationsOtherThan(workspaceId, email));
+            seats.requireRoomFor(workspaceId, 1 + pendingStaff.size() - (pendingStaff.contains(key(email)) ? 1 : 0));
             issued.add(issueOrRefresh(workspace, inviter, email, command.role(), expiry, request));
+            pendingStaff.add(key(email));
         }
 
         return issued;
@@ -260,12 +267,16 @@ public class InvitationService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private int pendingStaffInvitationsOtherThan(UUID workspaceId, String email) {
-        Instant now = Instant.now();
-        return (int) invitations.findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING)
+    private Set<String> pendingStaffInvitees(UUID workspaceId, Instant now) {
+        return invitations.findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING)
                 .stream()
-                .filter(invitation -> invitation.isRedeemable(now) && !invitation.getEmail().equalsIgnoreCase(email))
-                .count();
+                .filter(invitation -> invitation.isRedeemable(now))
+                .map(invitation -> key(invitation.getEmail()))
+                .collect(Collectors.toCollection(HashSet::new));
+    }
+
+    private static String key(String email) {
+        return email.toLowerCase(Locale.ROOT);
     }
 
     private Optional<WorkspaceMember> activeMember(UUID workspaceId, String email) {

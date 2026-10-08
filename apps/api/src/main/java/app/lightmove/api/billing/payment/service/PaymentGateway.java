@@ -24,6 +24,8 @@ public interface PaymentGateway {
 
     String portal(String customerId, String returnUrl);
 
+    long seatsOf(String subscriptionId);
+
     /** Sets the subscription's seat quantity: an added seat is invoiced now, a removed one simply bills no more. */
     SeatQuantityChange updateSeats(String subscriptionId, long seats);
 

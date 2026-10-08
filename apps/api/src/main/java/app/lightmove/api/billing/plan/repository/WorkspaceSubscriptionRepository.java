@@ -1,11 +1,13 @@
 package app.lightmove.api.billing.plan.repository;
 
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Propagation;
@@ -14,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 public interface WorkspaceSubscriptionRepository extends JpaRepository<WorkspaceSubscription, UUID> {
 
     Optional<WorkspaceSubscription> findByWorkspaceId(UUID workspaceId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM WorkspaceSubscription s WHERE s.workspaceId = :workspaceId")
+    Optional<WorkspaceSubscription> findForUpdate(UUID workspaceId);
 
     /** 1 where Stripe bills the workspace and its quantity now owes a sync, 0 where nothing is billed per seat online. */
     @Transactional(propagation = Propagation.MANDATORY)

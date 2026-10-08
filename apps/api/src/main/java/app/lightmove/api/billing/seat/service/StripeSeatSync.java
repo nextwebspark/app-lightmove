@@ -104,8 +104,10 @@ public class StripeSeatSync {
 
     /**
      * Read in a transaction of its own: after a commit the finished one's persistence context is still bound, holding
-     * the row as it was before the mark. Re-counts after Stripe answers: a change committed while it was asked leaves
-     * the request standing, so a slower sync of an older count is never the last word.
+     * the row as it was before the mark. Added seats are granted before Stripe is asked, under keys a retry finds, so
+     * a failure after Stripe accepts can never lose them; one Stripe never accepts leaves that seat's credits given.
+     * Re-counts after Stripe answers: a change committed meanwhile leaves the request standing, so a slower sync of an
+     * older count is never the last word.
      */
     private boolean sync(UUID workspaceId) {
         WorkspaceSubscription subscription =
@@ -119,14 +121,9 @@ public class StripeSeatSync {
             return false;
         }
         long seats = staffSeatsOf(workspaceId);
+        long billed = gateway.seatsOf(subscription.getStripeSubscriptionId());
+        transactions.executeWithoutResult(status -> grantSeats(subscription, billed + 1, seats));
         SeatQuantityChange change = gateway.updateSeats(subscription.getStripeSubscriptionId(), seats);
-        transactions.executeWithoutResult(status -> {
-            grantAddedSeats(subscription, change);
-            subscriptions.clearSeatSync(workspaceId, dueAt);
-            if (staffSeatsOf(workspaceId) != seats) {
-                subscriptions.markSeatSyncDue(workspaceId, clock.instant());
-            }
-        });
         if (change.added() || change.removed()) {
             audit.event(change.added() ? WorkspaceEventType.SEAT_ADDED : WorkspaceEventType.SEAT_REMOVED)
                     .workspace(workspaceId)
@@ -135,11 +132,17 @@ public class StripeSeatSync {
                     .detail("previousSeats", change.previous())
                     .record();
         }
+        transactions.executeWithoutResult(status -> {
+            subscriptions.clearSeatSync(workspaceId, dueAt);
+            if (staffSeatsOf(workspaceId) != seats) {
+                subscriptions.markSeatSyncDue(workspaceId, clock.instant());
+            }
+        });
         return true;
     }
 
-    private void grantAddedSeats(WorkspaceSubscription subscription, SeatQuantityChange change) {
-        if (!change.added()) {
+    private void grantSeats(WorkspaceSubscription subscription, long firstSeat, long lastSeat) {
+        if (firstSeat > lastSeat) {
             return;
         }
         BillingPlan plan = plans.findById(subscription.getPlanCode()).orElseThrow(() -> new IllegalStateException(
@@ -151,7 +154,7 @@ public class StripeSeatSync {
             return;
         }
         UUID workspaceId = subscription.getWorkspaceId();
-        for (long seat = change.previous() + 1; seat <= change.current(); seat++) {
+        for (long seat = firstSeat; seat <= lastSeat; seat++) {
             ledger.grant(new CreditGrantCommand(workspaceId, CreditGrantSource.PLAN, credits, now, month.end(),
                     BigDecimal.ZERO, seatGrantKey(workspaceId, month.start(), seat), null, "Seat " + seat));
         }
