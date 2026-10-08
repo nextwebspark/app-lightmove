@@ -34,13 +34,13 @@ public sealed interface PaymentEvent {
     }
 
     /**
-     * A paid checkout for a pack of contact credits.
+     * A paid checkout for a pack of contact credits; how many the pack holds is {@code lightmove.billing.packs}'.
      *
      * @param paymentRef the payment intent, which a grant is keyed on so a pack is granted once
      * @param netFils what was paid before VAT, in fils
      */
     record CreditsPaid(String eventId, String type, Instant createdAt, String customerId, String paymentRef,
-                       String packCode, long credits, long netFils) implements PaymentEvent {
+                       String packCode, long netFils) implements PaymentEvent {
     }
 
     record Ignored(String eventId, String type, Instant createdAt) implements PaymentEvent {

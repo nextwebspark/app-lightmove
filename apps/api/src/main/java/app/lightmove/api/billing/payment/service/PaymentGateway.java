@@ -13,6 +13,10 @@ public interface PaymentGateway {
     /** @return the new customer's id */
     String createCustomer(UUID workspaceId, String name);
 
+    /** Whether the customer already pays for a subscription Stripe has not yet told us about. */
+    boolean hasLiveSubscription(String customerId);
+
+    /** Expires the customer's subscription Checkouts still open, so two never both get paid. */
     String subscriptionCheckout(SubscriptionCheckout checkout);
 
     String creditsCheckout(CreditsCheckout checkout);

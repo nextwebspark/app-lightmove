@@ -1,7 +1,5 @@
 package app.lightmove.api.billing.plan.model;
 
-import app.lightmove.api.billing.payment.model.PlanPrice;
-import app.lightmove.api.billing.payment.model.StripeSubscriptionState;
 import app.lightmove.api.billing.plan.constant.BillingInterval;
 import app.lightmove.api.billing.plan.constant.PlanCode;
 import app.lightmove.api.billing.plan.constant.SubscriptionStatus;
@@ -86,23 +84,22 @@ public class WorkspaceSubscription extends BaseEntity {
     }
 
     /**
-     * Takes Stripe's word on the plan, seats, period and status. Changes nothing, and answers false, while Stripe still
-     * waits for a first payment, for news older than the event the row last followed, or for a subscription other
-     * than the live one, such as a late event about one cancelled since.
+     * Takes Stripe's word on the subscription. False, changing nothing, for news older than the event last followed
+     * or about a subscription other than the live one.
      */
-    public boolean followStripe(StripeSubscriptionState state, PlanPrice price, Instant eventAt) {
-        if (state.status() == null || !follows(state.subscriptionId(), eventAt)) {
+    public boolean followStripe(PaidSubscription paid, Instant eventAt) {
+        if (!follows(paid.subscriptionId(), eventAt)) {
             return false;
         }
-        this.planCode = price.plan();
-        this.billingInterval = price.interval();
-        this.seats = Math.toIntExact(state.seats());
+        this.planCode = paid.plan();
+        this.billingInterval = paid.interval();
+        this.seats = paid.seats();
         this.contactCreditPool = null;
-        this.stripeCustomerId = state.customerId();
-        this.stripeSubscriptionId = state.subscriptionId();
-        this.currentPeriodStart = state.periodStart();
-        this.currentPeriodEnd = state.periodEnd();
-        moveTo(state.status(), eventAt);
+        this.stripeCustomerId = paid.customerId();
+        this.stripeSubscriptionId = paid.subscriptionId();
+        this.currentPeriodStart = paid.periodStart();
+        this.currentPeriodEnd = paid.periodEnd();
+        moveTo(paid.status(), eventAt);
         return true;
     }
 

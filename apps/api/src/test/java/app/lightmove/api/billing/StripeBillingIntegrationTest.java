@@ -53,6 +53,33 @@ class StripeBillingIntegrationTest extends BillingFlowSupport {
         assertThat(asked.seats()).isEqualTo(2);
         assertThat(asked.successUrl()).endsWith("/settings/billing?checkout=subscribed");
         assertThat(asked.customerId()).isEqualTo(stripe.subscriptionCheckoutsOf(firm.workspaceId()).get(1).customerId());
+        assertThat(stripe.wasExpired(first)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a customer Stripe already bills is sent to the portal even before its webhook arrives")
+    void aSubscriptionStripeHasNotReportedStillBlocksASecond() throws Exception {
+        Firm firm = newFirm();
+        stripe.customerPays(customerOf(firm));
+
+        assertThat(codeOf(checkout(firm.adminToken(), "PRO", "MONTHLY")
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("SUBSCRIPTION_BILLED_BY_STRIPE");
+    }
+
+    @Test
+    @DisplayName("an event for a price or pack this deployment does not sell is taken and ignored, never retried")
+    void ignoresWhatItCannotPlace() throws Exception {
+        Firm firm = newFirm();
+        String customer = customerOf(firm);
+
+        deliver(invoicePaid(customer, "sub_" + SEQUENCE.incrementAndGet(), "price_another_product", 2, periodStart()));
+        deliver(new PaymentEvent.CreditsPaid("evt_" + UUID.randomUUID(), "checkout.session.completed", Instant.now(),
+                customer, "pi_" + SEQUENCE.incrementAndGet(), "contact-9000", 15_000));
+
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_workspace_subscription WHERE workspace_id = ?",
+                Long.class, firm.workspaceId())).isZero();
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_credit_grant WHERE workspace_id = ?",
+                Long.class, firm.workspaceId())).isZero();
     }
 
     @Test
@@ -89,7 +116,7 @@ class StripeBillingIntegrationTest extends BillingFlowSupport {
     void refusesAnUnsignedDelivery() throws Exception {
         String eventId = "evt_" + UUID.randomUUID();
         stripe.nextEvent(new PaymentEvent.CreditsPaid(eventId, "checkout.session.completed", Instant.now(), "cus_x",
-                "pi_x", "contact-100", 100, 15_000));
+                "pi_x", "contact-100", 15_000));
 
         mvc.perform(post("/api/v1/billing/webhooks/stripe").header("Stripe-Signature", "t=1,v1=forged")
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
@@ -134,9 +161,9 @@ class StripeBillingIntegrationTest extends BillingFlowSupport {
         String paymentIntent = "pi_" + SEQUENCE.incrementAndGet();
 
         deliver(new PaymentEvent.CreditsPaid("evt_" + UUID.randomUUID(), "checkout.session.completed",
-                Instant.now(), customer, paymentIntent, "contact-100", 100, 15_000));
+                Instant.now(), customer, paymentIntent, "contact-100", 15_000));
         deliver(new PaymentEvent.CreditsPaid("evt_" + UUID.randomUUID(), "checkout.session.async_payment_succeeded",
-                Instant.now(), customer, paymentIntent, "contact-100", 100, 15_000));
+                Instant.now(), customer, paymentIntent, "contact-100", 15_000));
 
         Map<String, Object> grant = db.queryForMap("""
                 SELECT source, amount, fils_per_credit, expires_at FROM app_lm_credit_grant WHERE workspace_id = ?""",

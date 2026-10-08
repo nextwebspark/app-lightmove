@@ -21,6 +21,11 @@ public class UnconfiguredPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public boolean hasLiveSubscription(String customerId) {
+        throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
+    }
+
+    @Override
     public String subscriptionCheckout(SubscriptionCheckout checkout) {
         throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
     }

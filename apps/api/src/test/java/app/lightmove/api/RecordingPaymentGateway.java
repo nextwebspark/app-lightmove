@@ -7,7 +7,10 @@ import app.lightmove.api.billing.payment.service.PaymentGateway;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -25,6 +28,9 @@ public class RecordingPaymentGateway implements PaymentGateway {
     private final List<UUID> customersCreated = new CopyOnWriteArrayList<>();
     private final List<SubscriptionCheckout> subscriptionCheckouts = new CopyOnWriteArrayList<>();
     private final List<CreditsCheckout> creditsCheckouts = new CopyOnWriteArrayList<>();
+    private final Map<String, String> openSubscriptionCheckouts = new ConcurrentHashMap<>();
+    private final List<String> expiredCheckouts = new CopyOnWriteArrayList<>();
+    private final Set<String> customersPaying = ConcurrentHashMap.newKeySet();
     private final AtomicInteger sequence = new AtomicInteger();
     private volatile PaymentEvent nextEvent;
 
@@ -40,9 +46,19 @@ public class RecordingPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public boolean hasLiveSubscription(String customerId) {
+        return customersPaying.contains(customerId);
+    }
+
+    @Override
     public String subscriptionCheckout(SubscriptionCheckout checkout) {
         subscriptionCheckouts.add(checkout);
-        return "https://checkout.stripe.test/c/" + sequence.incrementAndGet();
+        String url = "https://checkout.stripe.test/c/" + sequence.incrementAndGet();
+        String replaced = openSubscriptionCheckouts.put(checkout.customerId(), url);
+        if (replaced != null) {
+            expiredCheckouts.add(replaced);
+        }
+        return url;
     }
 
     @Override
@@ -62,6 +78,15 @@ public class RecordingPaymentGateway implements PaymentGateway {
             throw ApiException.of(ErrorCode.BILLING_WEBHOOK_REJECTED);
         }
         return nextEvent;
+    }
+
+    /** A subscription Stripe has made for the customer but whose events have not reached us. */
+    public void customerPays(String customerId) {
+        customersPaying.add(customerId);
+    }
+
+    public boolean wasExpired(String checkoutUrl) {
+        return expiredCheckouts.contains(checkoutUrl);
     }
 
     public void nextEvent(PaymentEvent event) {

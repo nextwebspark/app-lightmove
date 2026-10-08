@@ -3,8 +3,10 @@ package app.lightmove.api.billing.payment.service;
 import app.lightmove.api.billing.payment.dto.BillingRedirectResponse;
 import app.lightmove.api.billing.payment.dto.CreditsCheckoutRequest;
 import app.lightmove.api.billing.payment.dto.SubscriptionCheckoutRequest;
+import app.lightmove.api.billing.payment.model.BillingCustomer;
 import app.lightmove.api.billing.payment.model.CreditsCheckout;
 import app.lightmove.api.billing.payment.model.SubscriptionCheckout;
+import app.lightmove.api.billing.payment.repository.BillingCustomerRepository;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.billing.plan.service.BillingWorkspaces;
@@ -21,9 +23,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * Sends an admin to Stripe: Checkout for a subscription or a pack of credits, or the Customer Portal. Nothing is
- * granted here — only the webhook, once Stripe says it was paid, grants credits. Stripe is called outside any
- * transaction, and the workspace's customer is made the first time one is needed.
+ * Sends an admin to Stripe's Checkout or Customer Portal, outside any transaction. Nothing is granted here: only the
+ * webhook, once Stripe says it was paid, grants credits.
  */
 @Service
 @RequiredArgsConstructor
@@ -32,7 +33,7 @@ public class BillingCheckoutService {
     private static final String BILLING_PAGE = "/settings/billing";
 
     private final PaymentGateway gateway;
-    private final BillingCustomers customers;
+    private final BillingCustomerRepository customers;
     private final PlanPrices prices;
     private final WorkspaceSubscriptionRepository subscriptions;
     private final BillingWorkspaces workspaces;
@@ -49,9 +50,13 @@ public class BillingCheckoutService {
         if (subscriptions.findByWorkspaceId(workspaceId).filter(WorkspaceSubscription::isBilledByStripe).isPresent()) {
             throw ApiException.of(ErrorCode.SUBSCRIPTION_BILLED_BY_STRIPE);
         }
+        String customerId = customerOf(workspaceId);
+        if (gateway.hasLiveSubscription(customerId)) {
+            throw ApiException.of(ErrorCode.SUBSCRIPTION_BILLED_BY_STRIPE);
+        }
         long seats = Math.max(1, access.activeStaff(workspaceId).size());
-        String url = gateway.subscriptionCheckout(new SubscriptionCheckout(workspaceId, customerOf(workspaceId),
-                priceId, seats, returnUrl("?checkout=subscribed"), returnUrl("?checkout=cancelled")));
+        String url = gateway.subscriptionCheckout(new SubscriptionCheckout(workspaceId, customerId, priceId, seats,
+                returnUrl("?checkout=subscribed"), returnUrl("?checkout=cancelled")));
         audit.event(WorkspaceEventType.BILLING_CHECKOUT_STARTED).actor(actorId).workspace(workspaceId)
                 .target("workspace", workspaceId)
                 .detail("plan", request.planCode().name())
@@ -70,8 +75,7 @@ public class BillingCheckoutService {
             throw ApiException.of(ErrorCode.BILLING_PACK_UNKNOWN);
         }
         String url = gateway.creditsCheckout(new CreditsCheckout(workspaceId, customerOf(workspaceId), request.pack(),
-                pack.credits(), pack.stripePriceId(), returnUrl("?checkout=credits"),
-                returnUrl("?checkout=cancelled")));
+                pack.stripePriceId(), returnUrl("?checkout=credits"), returnUrl("?checkout=cancelled")));
         audit.event(WorkspaceEventType.BILLING_CHECKOUT_STARTED).actor(actorId).workspace(workspaceId)
                 .target("workspace", workspaceId)
                 .detail("pack", request.pack())
@@ -92,8 +96,10 @@ public class BillingCheckoutService {
     }
 
     private String customerOf(UUID workspaceId) {
-        return customers.customerOf(workspaceId).orElseGet(() -> customers.record(workspaceId,
-                gateway.createCustomer(workspaceId, workspaces.nameOf(workspaceId))));
+        return customers.findById(workspaceId).map(BillingCustomer::getStripeCustomerId).orElseGet(() -> {
+            customers.insertIfAbsent(workspaceId, gateway.createCustomer(workspaceId, workspaces.nameOf(workspaceId)));
+            return customers.findById(workspaceId).orElseThrow().getStripeCustomerId();
+        });
     }
 
     private void requireOffered() {
