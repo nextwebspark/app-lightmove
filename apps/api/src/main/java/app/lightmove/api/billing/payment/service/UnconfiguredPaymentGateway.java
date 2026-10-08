@@ -2,6 +2,7 @@ package app.lightmove.api.billing.payment.service;
 
 import app.lightmove.api.billing.payment.model.CreditsCheckout;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
+import app.lightmove.api.billing.payment.model.SeatQuantityChange;
 import app.lightmove.api.billing.payment.model.SubscriptionCheckout;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -37,6 +38,11 @@ public class UnconfiguredPaymentGateway implements PaymentGateway {
 
     @Override
     public String portal(String customerId, String returnUrl) {
+        throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
+    }
+
+    @Override
+    public SeatQuantityChange updateSeats(String subscriptionId, long seats) {
         throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
     }
 

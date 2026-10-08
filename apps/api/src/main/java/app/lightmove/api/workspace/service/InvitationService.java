@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.billing.seat.service.SeatAllowance;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -64,6 +65,7 @@ public class InvitationService {
     private final EmailTemplates templates;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final SeatAllowance seats;
 
     /** Invites colleagues. Skippable — the wizard's "Skip for now" simply sends an empty list. */
     @Transactional
@@ -99,6 +101,7 @@ public class InvitationService {
                 continue;
             }
 
+            seats.requireRoomFor(workspaceId, 1 + pendingStaffInvitationsOtherThan(workspaceId, email));
             issued.add(issueOrRefresh(workspace, inviter, email, command.role(), expiry, request));
         }
 
@@ -255,6 +258,14 @@ public class InvitationService {
                 // A client-rep invitation's id is invisible here, exactly like a foreign workspace's.
                 .filter(inv -> inv.getClientId() == null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    private int pendingStaffInvitationsOtherThan(UUID workspaceId, String email) {
+        Instant now = Instant.now();
+        return (int) invitations.findByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING)
+                .stream()
+                .filter(invitation -> invitation.isRedeemable(now) && !invitation.getEmail().equalsIgnoreCase(email))
+                .count();
     }
 
     private Optional<WorkspaceMember> activeMember(UUID workspaceId, String email) {

@@ -414,6 +414,9 @@ public enum ErrorCode {
 
     BILLING_PACK_UNKNOWN(HttpStatus.BAD_REQUEST, "That credit pack does not exist"),
 
+    /** Staff past an invoiced workspace's agreed seats; the body carries {@code seats}. */
+    SEAT_LIMIT_REACHED(HttpStatus.CONFLICT, "Every seat your workspace pays for is taken. Ask Uncava to add seats"),
+
     /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
     BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
 

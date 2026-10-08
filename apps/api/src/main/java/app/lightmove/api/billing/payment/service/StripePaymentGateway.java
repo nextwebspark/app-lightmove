@@ -2,16 +2,19 @@ package app.lightmove.api.billing.payment.service;
 
 import app.lightmove.api.billing.payment.model.CreditsCheckout;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
+import app.lightmove.api.billing.payment.model.SeatQuantityChange;
 import app.lightmove.api.billing.payment.model.SubscriptionCheckout;
 import app.lightmove.api.core.config.StripeSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import com.stripe.StripeClient;
 import com.stripe.exception.StripeException;
+import com.stripe.model.SubscriptionItem;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.RequestOptions;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.SubscriptionListParams;
+import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import com.stripe.param.checkout.SessionListParams;
 import java.nio.charset.StandardCharsets;
@@ -135,6 +138,27 @@ public class StripePaymentGateway implements PaymentGateway {
             return client.v1().billingPortal().sessions().create(params).getUrl();
         } catch (StripeException failure) {
             throw unavailable("open the customer portal", failure);
+        }
+    }
+
+    /** Absolute, so a sync run twice sets one quantity once; no idempotency key, which would replay a stale quantity. */
+    @Override
+    public SeatQuantityChange updateSeats(String subscriptionId, long seats) {
+        try {
+            SubscriptionItem seat = client.v1().subscriptions().retrieve(subscriptionId).getItems().getData().getFirst();
+            long previous = seat.getQuantity();
+            if (previous == seats) {
+                return new SeatQuantityChange(previous, seats);
+            }
+            client.v1().subscriptions().update(subscriptionId, SubscriptionUpdateParams.builder()
+                    .addItem(SubscriptionUpdateParams.Item.builder().setId(seat.getId()).setQuantity(seats).build())
+                    .setProrationBehavior(seats > previous
+                            ? SubscriptionUpdateParams.ProrationBehavior.ALWAYS_INVOICE
+                            : SubscriptionUpdateParams.ProrationBehavior.NONE)
+                    .build());
+            return new SeatQuantityChange(previous, seats);
+        } catch (StripeException failure) {
+            throw unavailable("change the seat quantity", failure);
         }
     }
 

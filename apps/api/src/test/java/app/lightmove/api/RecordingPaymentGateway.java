@@ -2,6 +2,7 @@ package app.lightmove.api;
 
 import app.lightmove.api.billing.payment.model.CreditsCheckout;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
+import app.lightmove.api.billing.payment.model.SeatQuantityChange;
 import app.lightmove.api.billing.payment.model.SubscriptionCheckout;
 import app.lightmove.api.billing.payment.service.PaymentGateway;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -19,7 +20,8 @@ import org.springframework.context.annotation.Primary;
 
 /**
  * A Stripe that never leaves the JVM: it remembers every customer and Checkout asked of it, and a webhook delivery
- * signed {@link #VALID_SIGNATURE} reads as whichever event a test queued with {@link #nextEvent}.
+ * signed {@link #VALID_SIGNATURE} reads as whichever event a test queued with {@link #nextEvent}. A subscription's
+ * seat quantity is whatever a test said it holds, then whatever the app last set.
  */
 public class RecordingPaymentGateway implements PaymentGateway {
 
@@ -31,6 +33,9 @@ public class RecordingPaymentGateway implements PaymentGateway {
     private final Map<String, String> openSubscriptionCheckouts = new ConcurrentHashMap<>();
     private final List<String> expiredCheckouts = new CopyOnWriteArrayList<>();
     private final Set<String> customersPaying = ConcurrentHashMap.newKeySet();
+    private final Map<String, Long> seats = new ConcurrentHashMap<>();
+    private final AtomicInteger seatUpdatesRefused = new AtomicInteger();
+    private volatile boolean refusingSeatUpdates;
     private final AtomicInteger sequence = new AtomicInteger();
     private volatile PaymentEvent nextEvent;
 
@@ -42,7 +47,7 @@ public class RecordingPaymentGateway implements PaymentGateway {
     @Override
     public String createCustomer(UUID workspaceId, String name) {
         customersCreated.add(workspaceId);
-        return "cus_" + sequence.incrementAndGet();
+        return "cus_" + UUID.randomUUID();
     }
 
     @Override
@@ -73,6 +78,16 @@ public class RecordingPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public SeatQuantityChange updateSeats(String subscriptionId, long quantity) {
+        if (refusingSeatUpdates) {
+            seatUpdatesRefused.incrementAndGet();
+            throw ApiException.of(ErrorCode.BILLING_UNAVAILABLE);
+        }
+        Long previous = seats.put(subscriptionId, quantity);
+        return new SeatQuantityChange(previous == null ? quantity : previous, quantity);
+    }
+
+    @Override
     public PaymentEvent eventOf(byte[] payload, String signature) {
         if (!VALID_SIGNATURE.equals(signature) || nextEvent == null) {
             throw ApiException.of(ErrorCode.BILLING_WEBHOOK_REJECTED);
@@ -83,6 +98,22 @@ public class RecordingPaymentGateway implements PaymentGateway {
     /** A subscription Stripe has made for the customer but whose events have not reached us. */
     public void customerPays(String customerId) {
         customersPaying.add(customerId);
+    }
+
+    public void subscriptionHolds(String subscriptionId, long quantity) {
+        seats.put(subscriptionId, quantity);
+    }
+
+    public Long seatsOf(String subscriptionId) {
+        return seats.get(subscriptionId);
+    }
+
+    public void refuseSeatUpdates(boolean refusing) {
+        this.refusingSeatUpdates = refusing;
+    }
+
+    public int seatUpdatesRefused() {
+        return seatUpdatesRefused.get();
     }
 
     public boolean wasExpired(String checkoutUrl) {
