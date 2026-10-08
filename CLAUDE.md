@@ -653,6 +653,7 @@ and smoke-tests the 401 and both metadata documents. `ops/eval/mcp` asks Claude 
 
 ```bash
 npm run dev                  # docker postgres (:55433) + api (:8080) + web (:5173)
+npm run dev:stop             # free :8080 and :5173 when Ctrl+C left them held (Git Bash's own window)
 npm run dev:db:reset         # drop the local database; next boot re-runs every migration from V1
 npm run dev:db:psql          # psql shell in the local container
 npm run dev:db:apollo        # copy the Apollo company universe down from Cloud SQL into it
