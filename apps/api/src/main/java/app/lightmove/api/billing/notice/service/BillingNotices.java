@@ -22,6 +22,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +35,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * Emails a workspace's billing managers — never its other members — as its contact credits run low, when a payment
- * fails, and a week before bought credits lapse. Each is claimed once before any email goes: the thresholds by the
- * ledger (V124), the rest here (V127), so two deliveries or two instances send once.
+ * fails, a week before bought credits lapse, and as a trial ends unpaid. Each is claimed once before any email goes:
+ * the thresholds by the ledger (V124), the rest here (V127), so two deliveries or two instances send once.
  */
 @Slf4j
 @Component
@@ -43,6 +44,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class BillingNotices {
 
     static final Duration EXPIRY_WARNING = Duration.ofDays(7);
+    static final Duration TRIAL_WARNING = Duration.ofDays(3);
+    /** How far back an ended trial is still announced, so a job missed for a day or two catches up. */
+    static final Duration TRIAL_ENDED_LOOKBACK = Duration.ofDays(3);
 
     private static final DateTimeFormatter DATE =
             DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH).withZone(ZoneOffset.UTC);
@@ -112,10 +116,55 @@ public class BillingNotices {
         return true;
     }
 
-    /** A card customer buys more in Settings → Billing; an invoiced one asks Uncava, as the page says. */
+    @Scheduled(cron = "${lightmove.billing.jobs.trial-notices}", zone = "UTC")
+    public void scheduledTrialNotices() {
+        noticeTrialsAt(clock.instant());
+    }
+
+    /** One pass: trials ending within three days, then those that have just ended, each announced once. */
+    public int noticeTrialsAt(Instant now) {
+        int sent = 0;
+        for (WorkspaceSubscription trial : subscriptions.findAppTrialsEndingBetween(now, now.plus(TRIAL_WARNING))) {
+            sent += noticeTrial(trial, BillingNoticeKind.TRIAL_ENDING) ? 1 : 0;
+        }
+        for (WorkspaceSubscription trial : subscriptions.findAppTrialsEndingBetween(now.minus(TRIAL_ENDED_LOOKBACK),
+                now)) {
+            sent += noticeTrial(trial, BillingNoticeKind.TRIAL_ENDED) ? 1 : 0;
+        }
+        return sent;
+    }
+
+    private boolean noticeTrial(WorkspaceSubscription trial, BillingNoticeKind kind) {
+        UUID workspaceId = trial.getWorkspaceId();
+        try {
+            if (!claims.claim(kind, workspaceId.toString(), workspaceId)) {
+                return false;
+            }
+            String workspaceName = workspaces.nameOf(workspaceId);
+            String endsOn = DATE.format(trial.getTrialEndsAt());
+            sendToManagers(workspaceId, manager -> kind == BillingNoticeKind.TRIAL_ENDING
+                    ? templates.buildTrialEndingEmail(manager.email(), manager.fullName(), workspaceName, endsOn,
+                            billingLink())
+                    : templates.buildTrialEndedEmail(manager.email(), manager.fullName(), workspaceName,
+                            billingLink()));
+            return true;
+        } catch (RuntimeException failure) {
+            log.error("The {} notice for workspace {} failed", kind, workspaceId, failure);
+            return false;
+        }
+    }
+
+    /**
+     * A card customer buys more in Settings → Billing, as does a trial, by choosing a plan; an invoiced one asks
+     * Uncava, as the page says.
+     */
     private EmailAction moreCreditsFor(UUID workspaceId) {
-        boolean buysByCard = gateway.isOffered() && subscriptions.findByWorkspaceId(workspaceId)
-                .map(WorkspaceSubscription::isBilledByStripe).orElse(false);
+        Optional<WorkspaceSubscription> subscription = subscriptions.findByWorkspaceId(workspaceId);
+        if (gateway.isOffered() && subscription.map(WorkspaceSubscription::isAppTrial).orElse(false)) {
+            return new EmailAction("Choose a plan", billingLink());
+        }
+        boolean buysByCard = gateway.isOffered() && subscription.map(WorkspaceSubscription::isBilledByStripe)
+                .orElse(false);
         return buysByCard
                 ? new EmailAction("Buy more credits", billingLink())
                 : new EmailAction("Contact Uncava",

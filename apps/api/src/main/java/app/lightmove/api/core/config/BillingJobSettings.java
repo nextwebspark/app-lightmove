@@ -9,5 +9,7 @@ public record BillingJobSettings(
         /** Retries the Stripe seat quantities a membership change could not sync. */
         @DefaultValue("0 */5 * * * *") String seatSync,
         /** Warns of bought credits lapsing within a week. */
-        @DefaultValue("0 20 6 * * *") String purchasedCreditExpiry
+        @DefaultValue("0 20 6 * * *") String purchasedCreditExpiry,
+        /** Warns of a trial ending within three days, and says when it has. */
+        @DefaultValue("0 30 6 * * *") String trialNotices
 ) {}

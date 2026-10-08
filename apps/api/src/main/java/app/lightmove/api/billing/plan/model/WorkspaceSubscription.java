@@ -65,6 +65,13 @@ public class WorkspaceSubscription extends BaseEntity {
     @Column(name = "stripe_synced_at")
     private Instant stripeSyncedAt;
 
+    /** Set on a trial the app started (V128); Stripe's own trialing status never writes it. */
+    @Column(name = "trial_ends_at")
+    private Instant trialEndsAt;
+
+    @Column(name = "trial_started_by", updatable = false)
+    private UUID trialStartedBy;
+
     /** Written only by {@code WorkspaceSubscriptionRepository}'s seat-sync queries, never by saving the row. */
     @Column(name = "seat_sync_due_at", insertable = false, updatable = false)
     private Instant seatSyncDueAt;
@@ -81,6 +88,46 @@ public class WorkspaceSubscription extends BaseEntity {
         WorkspaceSubscription subscription = new WorkspaceSubscription();
         subscription.workspaceId = workspaceId;
         return subscription;
+    }
+
+    /**
+     * Pro until {@code endsAt}, with no seats of its own: fair use counts the workspace's staff, and no month of plan
+     * credits is granted. The trial's period is what marks it as one that ran (V128's unique index, the end notices).
+     */
+    public static WorkspaceSubscription trial(UUID workspaceId, UUID founderId, Instant startsAt, Instant endsAt) {
+        WorkspaceSubscription subscription = trialEndedAt(workspaceId, founderId, endsAt);
+        subscription.currentPeriodStart = startsAt;
+        subscription.currentPeriodEnd = endsAt;
+        return subscription;
+    }
+
+    /**
+     * A founder's later workspace: its trial already over. No period, deliberately: that keeps it out of
+     * {@code WorkspaceSubscriptionRepository.findAppTrialsEndingBetween}, so nobody is told a trial they never had has
+     * ended, and out of V128's one-trial-per-founder index.
+     */
+    public static WorkspaceSubscription trialAlreadySpent(UUID workspaceId, UUID founderId, Instant now) {
+        return trialEndedAt(workspaceId, founderId, now);
+    }
+
+    private static WorkspaceSubscription trialEndedAt(UUID workspaceId, UUID founderId, Instant endsAt) {
+        WorkspaceSubscription subscription = new WorkspaceSubscription();
+        subscription.workspaceId = workspaceId;
+        subscription.planCode = PlanCode.PRO;
+        subscription.billingInterval = BillingInterval.MONTHLY;
+        subscription.status = SubscriptionStatus.TRIALING;
+        subscription.trialStartedBy = founderId;
+        subscription.trialEndsAt = endsAt;
+        return subscription;
+    }
+
+    /** On a trial the app started and nobody has paid to leave. */
+    public boolean isAppTrial() {
+        return status == SubscriptionStatus.TRIALING && stripeSubscriptionId == null && trialEndsAt != null;
+    }
+
+    public boolean trialEndedAt(Instant now) {
+        return isAppTrial() && !now.isBefore(trialEndsAt);
     }
 
     public boolean isBilledByStripe() {

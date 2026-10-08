@@ -21,6 +21,7 @@ import {
   formatResetDate,
   paysByCard,
   planOptionOf,
+  trialOf,
   type BannerTone,
   type BuyOption,
   type PlanOption,
@@ -72,11 +73,21 @@ export function SettingsBillingPage() {
       ) : (
         <>
           {awaiting && <AwaitingStripe kind={awaiting.kind} />}
-          <Banner billing={billing.data} isAdmin={isAdmin} onBuy={() => setDialog("buy")} />
+          <Banner
+            billing={billing.data}
+            isAdmin={isAdmin}
+            onBuy={() => setDialog("buy")}
+            onPlans={() => setDialog("plans")}
+          />
           {billing.data.plan ? (
             <>
               <PlanCard billing={billing.data} isAdmin={isAdmin} onPlans={() => setDialog("plans")} />
-              <CreditMeter billing={billing.data} isAdmin={isAdmin} onBuy={() => setDialog("buy")} />
+              <CreditMeter
+                billing={billing.data}
+                isAdmin={isAdmin}
+                onBuy={() => setDialog("buy")}
+                onPlans={() => setDialog("plans")}
+              />
               <UsedThisMonth members={usage.data?.members} failed={usage.isError} />
             </>
           ) : (
@@ -164,7 +175,17 @@ const BANNER_TONES: Record<BannerTone, { box: string; icon: string; glyph: strin
   info: { box: "border-u-accent/35 bg-u-accent-tint", icon: "text-u-accent", glyph: ICONS.info },
 };
 
-function Banner({ billing, isAdmin, onBuy }: { billing: Billing; isAdmin: boolean; onBuy: () => void }) {
+function Banner({
+  billing,
+  isAdmin,
+  onBuy,
+  onPlans,
+}: {
+  billing: Billing;
+  isAdmin: boolean;
+  onBuy: () => void;
+  onPlans: () => void;
+}) {
   const banner = billingBannerOf(billing, isAdmin);
   if (!banner) return null;
   const tone = BANNER_TONES[banner.tone];
@@ -176,20 +197,26 @@ function Banner({ billing, isAdmin, onBuy }: { billing: Billing; isAdmin: boolea
         <div className="text-[13px] font-semibold">{banner.title}</div>
         <div className="mt-0.5 font-mono text-xs/[1.5] text-u-text2">{banner.body}</div>
       </div>
-      {banner.action && <BuyControl option={banner.action} onBuy={onBuy} small className="flex-none self-center" />}
+      {banner.action && (
+        <BuyControl option={banner.action} onBuy={onBuy} onPlans={onPlans} small className="flex-none self-center" />
+      )}
     </div>
   );
 }
 
 function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: boolean; onPlans: () => void }) {
   const { plan, seats, seatPriceFils, interval, status, renewsAt, credits } = billing;
-  const seatLine = [
-    `${seats} staff ${seats === 1 ? "seat" : "seats"}`,
-    seatPriceFils === null ? "Agreed price" : `${formatAed(seatPriceFils)} per seat`,
-    ...(seatPriceFils !== null && interval ? [interval === "ANNUAL" ? "billed yearly" : "billed monthly"] : []),
-  ].join(" · ");
-  const renewLine =
-    status === "PAST_DUE"
+  const trial = trialOf(billing);
+  const seatLine = trial
+    ? `${seats} staff ${seats === 1 ? "seat" : "seats"} · free while the trial lasts`
+    : [
+        `${seats} staff ${seats === 1 ? "seat" : "seats"}`,
+        seatPriceFils === null ? "Agreed price" : `${formatAed(seatPriceFils)} per seat`,
+        ...(seatPriceFils !== null && interval ? [interval === "ANNUAL" ? "billed yearly" : "billed monthly"] : []),
+      ].join(" · ");
+  const renewLine = trial
+    ? `${trial.ended ? "Trial ended" : "Trial ends"} ${formatBillingDate(trial.endsAt)}`
+    : status === "PAST_DUE"
       ? "Payment due"
       : status === "INVOICED"
         ? "Invoiced monthly by Uncava"
@@ -199,7 +226,9 @@ function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bo
   const planOption = planOptionOf(billing, isAdmin);
   const includes = [
     "Search and AI included",
-    ...(credits.monthly > 0 ? [`${formatNumber(credits.monthly)} contact credits a month`] : []),
+    ...(credits.monthly > 0
+      ? [`${formatNumber(credits.monthly)} contact credits ${trial ? "for the trial" : "a month"}`]
+      : []),
     "Client contacts free",
   ];
 
@@ -209,6 +238,11 @@ function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bo
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-xl font-semibold">{plan?.name}</span>
+            {trial && (
+              <span className="rounded-full bg-u-accent-tint px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">
+                Trial
+              </span>
+            )}
             {status === "PAST_DUE" && (
               <span className="rounded-full bg-u-offlimits-tint px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-offlimits">
                 Payment due
@@ -218,7 +252,7 @@ function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bo
           <div className="mt-1 text-[13px] text-u-text2">{seatLine}</div>
           {renewLine && <div className="mt-0.5 font-mono text-xs text-u-text3">{renewLine}</div>}
         </div>
-        {seatPriceFils !== null && (
+        {seatPriceFils !== null && !trial && (
           <div className="text-right">
             <div className="font-u-num text-xl font-medium">{formatAed(seatPriceFils * seats)}</div>
             <div className="font-mono text-[11.5px] text-u-text3">a month, before VAT</div>
@@ -245,8 +279,19 @@ function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bo
   );
 }
 
-function CreditMeter({ billing, isAdmin, onBuy }: { billing: Billing; isAdmin: boolean; onBuy: () => void }) {
+function CreditMeter({
+  billing,
+  isAdmin,
+  onBuy,
+  onPlans,
+}: {
+  billing: Billing;
+  isAdmin: boolean;
+  onBuy: () => void;
+  onPlans: () => void;
+}) {
   const { credits, prices } = billing;
+  const trial = trialOf(billing);
   const total = credits.monthly + credits.bought + credits.given;
   const out = credits.level === "OUT";
   const warn = credits.level === "EIGHTY" || credits.level === "NINETY";
@@ -271,7 +316,9 @@ function CreditMeter({ billing, isAdmin, onBuy }: { billing: Billing; isAdmin: b
         <span className={cn("font-u-num text-[30px] font-medium", out ? "text-u-offlimits" : warn ? "text-u-signal" : "text-u-text")}>
           {formatNumber(credits.left)}
         </span>
-        <span className="font-mono text-[13px] text-u-text3">of {formatNumber(total)} left this month</span>
+        <span className="font-mono text-[13px] text-u-text3">
+          of {formatNumber(total)} left {trial ? "in your trial" : "this month"}
+        </span>
       </div>
       <div
         role="meter"
@@ -288,14 +335,16 @@ function CreditMeter({ billing, isAdmin, onBuy }: { billing: Billing; isAdmin: b
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-u-text3">
         <span>
-          {credits.monthly > 0
-            ? `Resets to ${formatNumber(credits.monthly)} on ${formatResetDate(credits.resetsAt)} · unused credits don't carry over`
-            : `The month resets on ${formatResetDate(credits.resetsAt)}`}
+          {trial
+            ? `Trial credits lapse when the trial ends on ${formatResetDate(trial.endsAt)}`
+            : credits.monthly > 0
+              ? `Resets to ${formatNumber(credits.monthly)} on ${formatResetDate(credits.resetsAt)} · unused credits don't carry over`
+              : `The month resets on ${formatResetDate(credits.resetsAt)}`}
         </span>
         {credits.bought > 0 && <span>Includes {formatNumber(credits.bought)} bought credits</span>}
         {credits.given > 0 && <span>Includes {formatNumber(credits.given)} credits from Uncava</span>}
       </div>
-      {buy && <BuyControl option={buy} onBuy={onBuy} className="mt-3.5" />}
+      {buy && <BuyControl option={buy} onBuy={onBuy} onPlans={onPlans} className="mt-3.5" />}
     </section>
   );
 }
@@ -434,15 +483,17 @@ function PlanControl({ option, onPlans }: { option: PlanOption; onPlans: () => v
   );
 }
 
-/** Buy more credits opens the packs dialog on a card account; an invoiced one writes to Uncava. */
+/** Buy more credits opens the packs dialog on a card account, a trial's the plans; an invoiced one writes to Uncava. */
 function BuyControl({
   option,
   onBuy,
+  onPlans,
   small = false,
   className,
 }: {
   option: BuyOption;
   onBuy: () => void;
+  onPlans: () => void;
   small?: boolean;
   className?: string;
 }) {
@@ -462,7 +513,7 @@ function BuyControl({
     );
   }
   return (
-    <Button type="button" onClick={onBuy} className={cn("inline-flex", size, className)}>
+    <Button type="button" onClick={option.kind === "plans" ? onPlans : onBuy} className={cn("inline-flex", size, className)}>
       {option.label}
     </Button>
   );

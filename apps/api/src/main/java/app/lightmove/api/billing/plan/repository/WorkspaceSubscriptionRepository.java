@@ -17,6 +17,18 @@ public interface WorkspaceSubscriptionRepository extends JpaRepository<Workspace
 
     Optional<WorkspaceSubscription> findByWorkspaceId(UUID workspaceId);
 
+    boolean existsByTrialStartedBy(UUID userId);
+
+    /**
+     * Trials the app started, still unpaid, ending in {@code [from, to)}. One that started already ended — a founder's
+     * second, {@code WorkspaceSubscription.trialAlreadySpent} — has no period and is never listed.
+     */
+    @Query(nativeQuery = true, value = """
+            SELECT * FROM app_lm_workspace_subscription
+            WHERE status = 'TRIALING' AND stripe_subscription_id IS NULL AND current_period_start IS NOT NULL
+              AND trial_ends_at >= :from AND trial_ends_at < :to""")
+    List<WorkspaceSubscription> findAppTrialsEndingBetween(Instant from, Instant to);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM WorkspaceSubscription s WHERE s.workspaceId = :workspaceId")
     Optional<WorkspaceSubscription> findForUpdate(UUID workspaceId);

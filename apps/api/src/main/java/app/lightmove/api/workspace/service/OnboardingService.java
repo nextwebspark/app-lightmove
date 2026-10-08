@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.billing.trial.service.WorkspaceTrials;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
@@ -45,6 +46,7 @@ public class OnboardingService {
     private final WorkspaceSelection selection;
     private final RateLimitGuard rateLimit;
     private final WorkspaceSettingsService settings;
+    private final WorkspaceTrials trials;
 
     /** Signup's door, gated on verification alone — so shut to anyone already in a workspace. */
     @Transactional
@@ -73,6 +75,7 @@ public class OnboardingService {
 
         selection.remember(user, members.save(WorkspaceMember.invite(
                 workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId)));
+        trials.start(workspace.getId(), userId);
 
         log.info("Workspace {} ({}) created by user {} on domain {}", workspace.getId(), slug, userId, domain);
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)

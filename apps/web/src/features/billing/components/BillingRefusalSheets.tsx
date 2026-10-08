@@ -4,28 +4,32 @@ import { Button, Modal } from "../../../components/ui";
 import { onRequestRefused } from "../../../lib/apiClient";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import type { Member } from "../../workspace/api/types";
+import type { Billing } from "../api/types";
 import * as billingApi from "../api/billingApi";
 import { BuyCreditsDialog } from "./BuyCreditsDialog";
+import { PlansDialog } from "./PlansDialog";
 import {
   billingRefusalOf,
   buyOptionOf,
   creditsLabel,
   FAIR_USE_FEATURES,
+  formatBillingDate,
   formatResetDate,
   mailtoBilling,
+  trialOf,
   type BillingRefusal,
-  type BuyOption,
 } from "../lib/billingView";
 import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
 
 /**
- * The out-of-credits and fair-use sheets, opened by a 402 `INSUFFICIENT_CREDITS` or a 429 `FAIR_USE_REACHED` from
- * any request on any screen. Mounted once, above the routes; a caller that meets either refusal leaves it to this.
+ * The out-of-credits, trial-ended and fair-use sheets, opened by a 402 `INSUFFICIENT_CREDITS` or `TRIAL_ENDED`, or a
+ * 429 `FAIR_USE_REACHED`, from any request on any screen. Mounted once, above the routes; a caller that meets any of
+ * them leaves it to this.
  */
 export function BillingRefusalSheets() {
   const queryClient = useQueryClient();
   const [refusal, setRefusal] = useState<BillingRefusal | null>(null);
-  const [buying, setBuying] = useState(false);
+  const [next, setNext] = useState<NextDialog | null>(null);
 
   useEffect(
     () =>
@@ -39,31 +43,28 @@ export function BillingRefusalSheets() {
   );
 
   const close = () => setRefusal(null);
-  if (buying) return <BuyFromSheet onClose={() => setBuying(false)} />;
-  if (refusal?.kind === "credits") {
-    return (
-      <OutOfCreditsSheet
-        refusal={refusal}
-        onClose={close}
-        onBuy={() => {
-          close();
-          setBuying(true);
-        }}
-      />
-    );
-  }
+  const open = (dialog: NextDialog) => {
+    close();
+    setNext(dialog);
+  };
+  if (next) return <DialogFromSheet dialog={next} onClose={() => setNext(null)} />;
+  if (refusal?.kind === "credits") return <OutOfCreditsSheet refusal={refusal} onClose={close} onOpen={open} />;
+  if (refusal?.kind === "trialEnded") return <TrialEndedSheet refusal={refusal} onClose={close} onOpen={open} />;
   if (refusal?.kind === "fairUse") return <FairUseSheet refusal={refusal} onClose={close} />;
   return null;
 }
 
+/** Where a sheet's primary action leads: the packs, or the plans. */
+type NextDialog = "buy" | "plans";
+
 function OutOfCreditsSheet({
   refusal,
   onClose,
-  onBuy,
+  onOpen,
 }: {
   refusal: Extract<BillingRefusal, { kind: "credits" }>;
   onClose: () => void;
-  onBuy: () => void;
+  onOpen: (dialog: NextDialog) => void;
 }) {
   const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
@@ -76,39 +77,75 @@ function OutOfCreditsSheet({
     (resetsAt ? ` They reset on ${formatResetDate(resetsAt)}.` : "") +
     (isAdmin ? "" : ` Only an admin can add more${admin ? ` — ${admin.fullName}` : ""}.`);
 
-  const buy = billing.data ? buyOptionOf(billing.data, isAdmin) : null;
-  const primary = <MoreCreditsAction isAdmin={isAdmin} buy={buy} admin={admin} onClose={onClose} onBuy={onBuy} />;
+  const primary = (
+    <MoreCreditsAction isAdmin={isAdmin} billing={billing.data} admin={admin} onClose={onClose} onOpen={onOpen} />
+  );
 
   return <RefusalSheet title="No contact credits left" body={body} primary={primary} onClose={onClose} />;
 }
 
-function BuyFromSheet({ onClose }: { onClose: () => void }) {
+function TrialEndedSheet({
+  refusal,
+  onClose,
+  onOpen,
+}: {
+  refusal: Extract<BillingRefusal, { kind: "trialEnded" }>;
+  onClose: () => void;
+  onOpen: (dialog: NextDialog) => void;
+}) {
+  const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
-  return billing.data ? <BuyCreditsDialog billing={billing.data} onClose={onClose} /> : null;
+  const admin = useFirstAdmin(!isAdmin);
+  const endedAt = billing.data?.trialEndsAt ?? refusal.endedAt;
+
+  const body =
+    `Your trial ended${endedAt ? ` on ${formatBillingDate(endedAt)}` : ""}. Everything your team mapped is still ` +
+    "here; finding contacts, search and AI start again once " +
+    (isAdmin ? "you choose a plan." : `an admin chooses a plan${admin ? ` — ${admin.fullName}` : ""}.`);
+
+  const primary = (
+    <MoreCreditsAction isAdmin={isAdmin} billing={billing.data} admin={admin} onClose={onClose} onOpen={onOpen} />
+  );
+
+  return <RefusalSheet title="Your trial has ended" body={body} primary={primary} onClose={onClose} />;
 }
 
-/** An admin's way to more credits, or a member's way to ask an admin for them. */
+function DialogFromSheet({ dialog, onClose }: { dialog: NextDialog; onClose: () => void }) {
+  const billing = useBilling();
+  if (!billing.data) return null;
+  return dialog === "plans" ? (
+    <PlansDialog billing={billing.data} onClose={onClose} />
+  ) : (
+    <BuyCreditsDialog billing={billing.data} onClose={onClose} />
+  );
+}
+
+/**
+ * An admin's way to more credits — the packs, or the plans on a trial — or a member's way to ask an admin for them.
+ */
 function MoreCreditsAction({
   isAdmin,
-  buy,
+  billing,
   admin,
   onClose,
-  onBuy,
+  onOpen,
 }: {
   isAdmin: boolean;
-  buy: BuyOption | null;
+  billing: Billing | undefined;
   admin: Member | null;
   onClose: () => void;
-  onBuy: () => void;
+  onOpen: (dialog: NextDialog) => void;
 }) {
   if (!isAdmin) {
     if (!admin) return null;
+    const askFor = billing && trialOf(billing) ? "choose a plan" : "add more";
     return (
       <PrimaryLink href={askAdminHref(admin.email)} onClick={onClose}>
-        Ask {admin.fullName.split(" ")[0]} to add more
+        Ask {admin.fullName.split(" ")[0]} to {askFor}
       </PrimaryLink>
     );
   }
+  const buy = billing ? buyOptionOf(billing, isAdmin) : null;
   if (!buy) return null;
   if (buy.kind === "contact") {
     return (
@@ -118,7 +155,7 @@ function MoreCreditsAction({
     );
   }
   return (
-    <Button type="button" onClick={onBuy}>
+    <Button type="button" onClick={() => onOpen(buy.kind === "plans" ? "plans" : "buy")}>
       {buy.label}
     </Button>
   );

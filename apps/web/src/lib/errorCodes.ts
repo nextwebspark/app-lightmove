@@ -67,6 +67,7 @@ export type ApiErrorCode =
   | "CONTACT_LIMIT_REACHED"
   | "INSUFFICIENT_CREDITS"
   | "FAIR_USE_REACHED"
+  | "TRIAL_ENDED"
   | "BILLING_UNAVAILABLE"
   | "BILLING_PLAN_UNKNOWN"
   | "BILLING_PACK_UNKNOWN"
@@ -186,6 +187,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
   INSUFFICIENT_CREDITS: "Your workspace is out of contact credits. Nothing was spent.",
   FAIR_USE_REACHED: "Your team has reached this month's fair use for this feature.",
+  TRIAL_ENDED: "Your workspace's trial has ended. Choose a plan to carry on.",
   BILLING_UNAVAILABLE: "Paying online isn't available right now. Write to billing@uncava.com instead.",
   BILLING_PLAN_UNKNOWN: "That plan can't be bought online. Write to billing@uncava.com to choose it.",
   BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",

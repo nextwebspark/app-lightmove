@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as billingApi from "../api/billingApi";
-import { aBilling, someCredits } from "../test/fixtures";
+import { aBilling, aTrialBilling, someCredits } from "../test/fixtures";
 import { CreditChip } from "./CreditChip";
 
 vi.mock("../api/billingApi", async (importOriginal) => ({
@@ -59,6 +59,14 @@ describe("CreditChip", () => {
     renderChip();
 
     expect(await screen.findByRole("link", { name: "Out of contact credits" })).toBeInTheDocument();
+  });
+
+  it("counts a trial's days down", async () => {
+    const endsAt = new Date(Date.now() + 9 * 86_400_000 - 3_600_000).toISOString();
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling(endsAt));
+    renderChip();
+
+    expect(await screen.findByRole("link", { name: "Trial · 9 days left" })).toHaveAttribute("title", "Trial");
   });
 
   it("never asks for a pure client, who is answered 404", () => {

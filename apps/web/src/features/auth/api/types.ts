@@ -203,4 +203,6 @@ export interface ApiError {
   resetsAt?: string;
   /** Present on FAIR_USE_REACHED: which use reached its ceiling. */
   kind?: string;
+  /** Present on TRIAL_ENDED: when the workspace's trial ended. */
+  trialEndedAt?: string;
 }

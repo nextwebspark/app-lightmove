@@ -1,6 +1,7 @@
 package app.lightmove.api.billing.usage.service;
 
 import app.lightmove.api.billing.plan.service.BillingSeats;
+import app.lightmove.api.billing.plan.service.TrialGate;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.FairUseAllowance;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
@@ -33,23 +34,29 @@ public class FairUseGuard {
 
     private final UsageEventStore events;
     private final BillingSeats seats;
+    private final TrialGate trialGate;
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final Clock clock;
     private final Cache<String, Boolean> reported;
 
-    public FairUseGuard(UsageEventStore events, BillingSeats seats, AuditService audit,
+    public FairUseGuard(UsageEventStore events, BillingSeats seats, TrialGate trialGate, AuditService audit,
                         LightMoveProperties properties, Clock clock) {
         this.events = events;
         this.seats = seats;
+        this.trialGate = trialGate;
         this.audit = audit;
         this.properties = properties;
         this.clock = clock;
         this.reported = Caffeine.newBuilder().expireAfterWrite(Duration.ofDays(1)).maximumSize(10_000).build();
     }
 
-    /** @throws ApiException {@code FAIR_USE_REACHED}, carrying {@code kind} and {@code resetsAt} */
+    /**
+     * @throws ApiException {@code TRIAL_ENDED} once an unpaid trial has, or {@code FAIR_USE_REACHED}, carrying
+     *                      {@code kind} and {@code resetsAt}
+     */
     public void check(UUID workspaceId, UUID userId, UsageKind kind, long units) {
+        trialGate.requireOpen(workspaceId);
         long perSeat = kind.perSeatIn(properties.billing().fairUse());
         if (perSeat == 0) {
             return;

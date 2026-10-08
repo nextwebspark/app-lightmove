@@ -712,6 +712,7 @@ lightmove:
       reconcile: ${BILLING_RECONCILE_CRON:0 40 2 * * *}
       seat-sync: ${BILLING_SEAT_SYNC_CRON:0 */5 * * * *}
       purchased-credit-expiry: ${BILLING_PURCHASED_CREDIT_EXPIRY_CRON:0 20 6 * * *}
+      trial-notices: ${BILLING_TRIAL_NOTICES_CRON:0 30 6 * * *}
     prices:
       email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
       phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
@@ -731,6 +732,11 @@ lightmove:
     grandfather:
       credits: ${BILLING_GRANDFATHER_CREDITS:200}
       valid-for: ${BILLING_GRANDFATHER_VALID_FOR:90d}
+    # A newly founded workspace is on Pro this long, with these credits and no card; then its paid features lock.
+    trial:
+      enabled: ${BILLING_TRIAL_ENABLED:true}
+      length: ${BILLING_TRIAL_LENGTH:14d}
+      credits: ${BILLING_TRIAL_CREDITS:50}
     # After a payment fails, the month's credits keep coming for this long; past it, none until Stripe is paid.
     past-due-grace: ${BILLING_PAST_DUE_GRACE:7d}
     # Where an invoiced workspace's billing emails send it for more credits.

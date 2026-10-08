@@ -248,6 +248,30 @@ public class EmailTemplates {
                         EmailNote.of("You get this because you manage billing for the workspace.")));
     }
 
+    /** Once per trial, a few days before it ends. */
+    public EmailMessage buildTrialEndingEmail(String recipient, String recipientName, String workspaceName,
+                                              String endsOn, String billingLink) {
+        return renderer.render(recipient, "Your Uncava trial ends on %s".formatted(endsOn), EmailContent.of(
+                "Your trial ends soon",
+                EmailParagraph.of("Hi %s — %s's Uncava trial ends on %s. Choose a plan before then and your team "
+                                + "keeps finding contacts, searching and using AI without a break.",
+                        plain(firstName(recipientName)), strong(workspaceName), strong(endsOn)),
+                new EmailAction("Choose a plan", billingLink),
+                EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    /** Once per trial, the day it ends unpaid. */
+    public EmailMessage buildTrialEndedEmail(String recipient, String recipientName, String workspaceName,
+                                             String billingLink) {
+        return renderer.render(recipient, "Your Uncava trial has ended", EmailContent.of(
+                "Your trial has ended",
+                EmailParagraph.of("Hi %s — %s's Uncava trial has ended. Everything your team mapped is still there; "
+                                + "finding contacts, searching and AI resume once a plan is chosen.",
+                        plain(firstName(recipientName)), strong(workspaceName)),
+                new EmailAction("Choose a plan", billingLink),
+                EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
     private static String creditsLeftOf(long credits) {
         return credits == 1 ? "1 credit" : String.format(Locale.ENGLISH, "%,d credits", credits);
     }

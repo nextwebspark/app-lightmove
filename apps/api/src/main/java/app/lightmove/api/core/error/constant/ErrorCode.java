@@ -395,6 +395,9 @@ public enum ErrorCode {
     FAIR_USE_REACHED(HttpStatus.TOO_MANY_REQUESTS,
             "Your workspace has reached this month's fair-use limit for this feature"),
 
+    /** A paid action after the workspace's trial ended with no plan bought; the body carries {@code trialEndedAt}. */
+    TRIAL_ENDED(HttpStatus.PAYMENT_REQUIRED, "Your workspace's trial has ended. Choose a plan to carry on"),
+
     CREDIT_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "That credit hold does not exist"),
 
     /** A capture of a released hold, or a release or refund of one already settled the other way. */
