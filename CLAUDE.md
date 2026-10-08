@@ -944,6 +944,11 @@ pure client: the plan, seats and seat price, the credits (`monthly`, `left`, `bo
 `level`, `resetsAt`), the prices, and this billing month's finds and credits per member. `GrandfatherCredits` gives
 every workspace that exists the first time a release boots with enforcement on `lightmove.billing.grandfather.credits`
 promotional credits, keyed `grandfather:<workspace>`, under a job claim nothing prunes, so none founded later gets them.
+The SPA's `features/billing` (#742) draws them as Settings → Billing (`Billing.dc.html`, every staff member's; seats and
+more credits an admin's) and as the topbar chip, absent below 80%. Every refused request passes `apiClient`'s
+`onRequestRefused`, so a 402 `INSUFFICIENT_CREDITS` or a 429 `FAIR_USE_REACHED` from any screen opens one sheet
+(`BillingRefusalSheets`, mounted once in `main.tsx`) and its caller stays quiet (`isBillingRefusal`). Prices on the
+Find buttons are the read's `prices`, never literals; search carries none.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

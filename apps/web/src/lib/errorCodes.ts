@@ -65,6 +65,8 @@ export type ApiErrorCode =
   | "CONTACT_LOOKUP_FAILED"
   | "CONTACT_LOOKUP_NO_PROFILE"
   | "CONTACT_LIMIT_REACHED"
+  | "INSUFFICIENT_CREDITS"
+  | "FAIR_USE_REACHED"
   | "CANDIDATE_PROFILE_URL_LOCKED"
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
@@ -177,6 +179,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LOOKUP_FAILED: "Contact lookup didn't answer. Try again in a moment.",
   CONTACT_LOOKUP_NO_PROFILE: "Add this person's LinkedIn profile URL first.",
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
+  INSUFFICIENT_CREDITS: "Your workspace is out of contact credits. Nothing was spent.",
+  FAIR_USE_REACHED: "Your team has reached this month's fair use for this feature.",
   CANDIDATE_PROFILE_URL_LOCKED:
     "This profile was captured from LinkedIn, so its URL is not editable.",
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives is not set up on this deployment.",

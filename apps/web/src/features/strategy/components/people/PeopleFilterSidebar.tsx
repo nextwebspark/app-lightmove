@@ -512,7 +512,7 @@ export function PeopleFilterSidebar({
           {searching ? "Searching…" : "Search"}
         </button>
         <p className="mt-1.5 text-center text-meta text-u-text3">
-          The top 25 · up to 25 search credits, none for a page already fetched
+          The top 25
         </p>
       </div>
     </FilterRail>
