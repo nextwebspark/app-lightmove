@@ -21,7 +21,7 @@ public interface WorkspaceSubscriptionRepository extends JpaRepository<Workspace
 
     /**
      * Trials the app started, still unpaid, ending in {@code [from, to)}. One that started already ended — a founder's
-     * second — has no period and is never listed.
+     * second, {@code WorkspaceSubscription.trialAlreadySpent} — has no period and is never listed.
      */
     @Query(nativeQuery = true, value = """
             SELECT * FROM app_lm_workspace_subscription

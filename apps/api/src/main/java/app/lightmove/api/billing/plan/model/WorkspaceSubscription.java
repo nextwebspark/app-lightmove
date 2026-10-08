@@ -92,9 +92,25 @@ public class WorkspaceSubscription extends BaseEntity {
 
     /**
      * Pro until {@code endsAt}, with no seats of its own: fair use counts the workspace's staff, and no month of plan
-     * credits is granted.
+     * credits is granted. The trial's period is what marks it as one that ran (V128's unique index, the end notices).
      */
     public static WorkspaceSubscription trial(UUID workspaceId, UUID founderId, Instant startsAt, Instant endsAt) {
+        WorkspaceSubscription subscription = trialEndedAt(workspaceId, founderId, endsAt);
+        subscription.currentPeriodStart = startsAt;
+        subscription.currentPeriodEnd = endsAt;
+        return subscription;
+    }
+
+    /**
+     * A founder's later workspace: its trial already over. No period, deliberately: that keeps it out of
+     * {@code WorkspaceSubscriptionRepository.findAppTrialsEndingBetween}, so nobody is told a trial they never had has
+     * ended, and out of V128's one-trial-per-founder index.
+     */
+    public static WorkspaceSubscription trialAlreadySpent(UUID workspaceId, UUID founderId, Instant now) {
+        return trialEndedAt(workspaceId, founderId, now);
+    }
+
+    private static WorkspaceSubscription trialEndedAt(UUID workspaceId, UUID founderId, Instant endsAt) {
         WorkspaceSubscription subscription = new WorkspaceSubscription();
         subscription.workspaceId = workspaceId;
         subscription.planCode = PlanCode.PRO;
@@ -102,10 +118,6 @@ public class WorkspaceSubscription extends BaseEntity {
         subscription.status = SubscriptionStatus.TRIALING;
         subscription.trialStartedBy = founderId;
         subscription.trialEndsAt = endsAt;
-        if (endsAt.isAfter(startsAt)) {
-            subscription.currentPeriodStart = startsAt;
-            subscription.currentPeriodEnd = endsAt;
-        }
         return subscription;
     }
 

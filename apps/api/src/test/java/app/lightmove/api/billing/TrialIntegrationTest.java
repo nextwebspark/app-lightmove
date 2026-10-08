@@ -80,6 +80,21 @@ class TrialIntegrationTest extends BillingFlowSupport {
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_credit_grant WHERE workspace_id = ?", Long.class,
                 second)).isZero();
         assertRefusedAsEnded(() -> ledger.hold(emailFound(second, "second-find")));
+        int before = email.subjectsFor(firm.owner()).size();
+        notices.noticeTrialsAt(Instant.now());
+        assertThat(email.subjectsFor(firm.owner())).as("no email for a trial that never ran").hasSize(before);
+    }
+
+    @Test
+    @DisplayName("a trial Stripe runs on its own subscription is never locked by the app's trial end")
+    void stripesOwnTrialIsNotLocked() throws Exception {
+        Firm firm = newFirm();
+        endTrial(firm.workspaceId());
+        db.update("UPDATE app_lm_workspace_subscription SET stripe_subscription_id = 'sub_stripe_trial' "
+                + "WHERE workspace_id = ?", firm.workspaceId());
+
+        ledger.hold(emailFound(firm.workspaceId(), "stripe-trial-find"));
+        fairUse.check(firm.workspaceId(), null, UsageKind.PEOPLE_SEARCH_PAGE, 1);
     }
 
     @Test

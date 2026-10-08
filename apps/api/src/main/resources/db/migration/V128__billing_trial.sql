@@ -10,6 +10,12 @@ ALTER TABLE app_lm_workspace_subscription
 CREATE INDEX app_lm_workspace_subscription_trial_by_idx
     ON app_lm_workspace_subscription (trial_started_by) WHERE trial_started_by IS NOT NULL;
 
+-- The backstop to WorkspaceTrials' check: one trial that ran per founder. A founder's later workspaces carry
+-- trial_started_by too, but started ended, with no period.
+CREATE UNIQUE INDEX app_lm_workspace_subscription_one_trial_uk
+    ON app_lm_workspace_subscription (trial_started_by)
+    WHERE trial_started_by IS NOT NULL AND current_period_start IS NOT NULL;
+
 CREATE INDEX app_lm_workspace_subscription_trial_end_idx
     ON app_lm_workspace_subscription (trial_ends_at)
     WHERE status = 'TRIALING' AND stripe_subscription_id IS NULL;

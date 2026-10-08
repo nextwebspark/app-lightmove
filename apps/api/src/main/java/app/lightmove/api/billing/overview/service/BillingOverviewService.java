@@ -62,8 +62,7 @@ public class BillingOverviewService {
         return new BillingResponse(
                 plan == null ? null : new BillingPlanSummary(plan.getCode(), plan.getName()),
                 subscription == null ? null : subscription.getBillingInterval(),
-                trial ? Math.toIntExact(seats.allowanceOf(workspaceId, now).staffSeats())
-                        : subscription == null ? 0 : subscription.getSeats(),
+                seatsOf(workspaceId, subscription, now),
                 plan == null ? null : seatPriceOf(plan, subscription.getBillingInterval()),
                 subscription == null ? null : subscription.getStatus(),
                 subscription == null ? null : subscription.getCurrentPeriodEnd(),
@@ -95,6 +94,15 @@ public class BillingOverviewService {
                 .mapToLong(SourceCredits::remaining).sum();
         return new ContactCreditsResponse(monthly.granted(), left, bought, given, monthly.usedPercent(),
                 monthly.levelAt(left), resetsAtOf(subscription, now));
+    }
+
+    /** A trial has no seats of its own: it shows the staff fair use counts, which never passes an int. */
+    private int seatsOf(UUID workspaceId, WorkspaceSubscription subscription, Instant now) {
+        if (subscription == null) {
+            return 0;
+        }
+        return subscription.isAppTrial()
+                ? Math.toIntExact(seats.allowanceOf(workspaceId, now).staffSeats()) : subscription.getSeats();
     }
 
     /** A trial's credits do not reset: they lapse with it. */

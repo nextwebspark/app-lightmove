@@ -12,6 +12,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Billing's door for {@code workspace}'s founding: a new workspace starts on a Pro trial with a few contact credits,
  * expiring with it. One trial per founder — a second workspace they found starts with its trial already ended, so
- * founding another is never a way to a fresh one.
+ * founding another is never a way to a fresh one. Two foundings by one founder at once are taken one after the other
+ * under a lock on the founder, with V128's unique index behind it.
  */
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class WorkspaceTrials {
 
     private final WorkspaceSubscriptionRepository subscriptions;
     private final CreditLedger ledger;
+    private final JdbcTemplate jdbc;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -41,8 +44,9 @@ public class WorkspaceTrials {
             return;
         }
         Instant now = clock.instant();
+        jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", "trial:" + founderId);
         if (subscriptions.existsByTrialStartedBy(founderId)) {
-            subscriptions.save(WorkspaceSubscription.trial(workspaceId, founderId, now, now));
+            subscriptions.save(WorkspaceSubscription.trialAlreadySpent(workspaceId, founderId, now));
             return;
         }
         Instant endsAt = now.plus(settings.length());
