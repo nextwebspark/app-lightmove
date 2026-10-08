@@ -12,7 +12,9 @@ import app.lightmove.api.billing.overview.dto.BillingUsageResponse;
 import app.lightmove.api.billing.overview.dto.ContactCreditsResponse;
 import app.lightmove.api.billing.overview.dto.CreditPricesResponse;
 import app.lightmove.api.billing.overview.dto.PaymentMethodResponse;
+import app.lightmove.api.billing.payment.service.PaymentGateway;
 import app.lightmove.api.billing.plan.constant.BillingInterval;
+import app.lightmove.api.billing.plan.constant.SubscriptionStatus;
 import app.lightmove.api.billing.plan.model.BillingMonth;
 import app.lightmove.api.billing.plan.model.BillingPlan;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
@@ -33,13 +35,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class BillingOverviewService {
 
-    /** Flipped by the payment gateway (#743); until then every workspace is invoiced. */
-    private static final boolean STRIPE_OFFERED = false;
-
     private final WorkspaceSubscriptionRepository subscriptions;
     private final BillingPlanRepository plans;
     private final CreditGrantRepository grants;
     private final CreditSpendReport spend;
+    private final PaymentGateway gateway;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -59,7 +59,7 @@ public class BillingOverviewService {
                 creditsOf(workspaceId, subscription, now),
                 new CreditPricesResponse(prices.emailFound(), prices.phoneFound()),
                 paymentMethodOf(subscription),
-                STRIPE_OFFERED);
+                gateway.isOffered());
     }
 
     @Transactional(readOnly = true)
@@ -88,7 +88,7 @@ public class BillingOverviewService {
     }
 
     private static PaymentMethodResponse paymentMethodOf(WorkspaceSubscription subscription) {
-        if (subscription == null) {
+        if (subscription == null || subscription.getStatus() == SubscriptionStatus.CANCELLED) {
             return new PaymentMethodResponse(PaymentMethodKind.NONE, null, null);
         }
         PaymentMethodKind kind = subscription.isBilledByStripe() ? PaymentMethodKind.CARD : PaymentMethodKind.INVOICED;

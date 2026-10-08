@@ -729,6 +729,32 @@ lightmove:
     grandfather:
       credits: ${BILLING_GRANDFATHER_CREDITS:200}
       valid-for: ${BILLING_GRANDFATHER_VALID_FOR:90d}
+    # After a payment fails, the month's credits keep coming for this long; past it, none until Stripe is paid.
+    past-due-grace: ${BILLING_PAST_DUE_GRACE:7d}
+    # Credits a workspace can buy, kept 12 months. Prices are in fils before VAT; each id is a one-off Stripe price.
+    packs:
+      contact-100:
+        credits: 100
+        price-fils: 15000
+        stripe-price-id: ${STRIPE_PRICE_PACK_100:}
+      contact-500:
+        credits: 500
+        price-fils: 65000
+        stripe-price-id: ${STRIPE_PRICE_PACK_500:}
+    # Blank secret key: no payment is taken and every workspace is invoiced. The webhook is
+    # <web.base-url>/api/v1/billing/webhooks/stripe, created on the API version stripe-java pins (pom.xml), and
+    # subscribed to invoice.paid, invoice.payment_failed, checkout.session.completed,
+    # checkout.session.async_payment_succeeded and customer.subscription.created / updated / deleted. The Customer
+    # Portal is set to invoice an upgrade at once and to move a downgrade to the end of the period.
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      # Recurring per-seat prices, one per plan and interval; Enterprise is agreed by hand and has none.
+      prices:
+        core-monthly: ${STRIPE_PRICE_CORE_MONTHLY:}
+        core-annual: ${STRIPE_PRICE_CORE_ANNUAL:}
+        pro-monthly: ${STRIPE_PRICE_PRO_MONTHLY:}
+        pro-annual: ${STRIPE_PRICE_PRO_ANNUAL:}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move

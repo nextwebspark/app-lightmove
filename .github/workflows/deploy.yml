@@ -377,6 +377,21 @@ jobs:
             RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
           fi
 
+          # Stripe (epic #734). Off unless BILLING_ENABLED=true, for the secret-must-exist reason above; off, every
+          # workspace is invoiced. Prerequisites:
+          #   gcloud secrets create lightmove-stripe-secret-key     --data-file=-   (sk_live_… or sk_test_…)
+          #   gcloud secrets create lightmove-stripe-webhook-secret --data-file=-   (the endpoint's whsec_… secret)
+          #   repo variables with the price ids of that mode: STRIPE_PRICE_CORE_MONTHLY, STRIPE_PRICE_CORE_ANNUAL,
+          #   STRIPE_PRICE_PRO_MONTHLY, STRIPE_PRICE_PRO_ANNUAL, STRIPE_PRICE_PACK_100, STRIPE_PRICE_PACK_500
+          BILLING_SECRETS=""
+          BILLING_ENV=""
+          if [ "${{ vars.BILLING_ENABLED }}" = "true" ]; then
+            BILLING_SECRETS=",STRIPE_SECRET_KEY=lightmove-stripe-secret-key:latest,STRIPE_WEBHOOK_SECRET=lightmove-stripe-webhook-secret:latest"
+            BILLING_ENV="|STRIPE_PRICE_CORE_MONTHLY=${{ vars.STRIPE_PRICE_CORE_MONTHLY }}|STRIPE_PRICE_CORE_ANNUAL=${{ vars.STRIPE_PRICE_CORE_ANNUAL }}"
+            BILLING_ENV="${BILLING_ENV}|STRIPE_PRICE_PRO_MONTHLY=${{ vars.STRIPE_PRICE_PRO_MONTHLY }}|STRIPE_PRICE_PRO_ANNUAL=${{ vars.STRIPE_PRICE_PRO_ANNUAL }}"
+            BILLING_ENV="${BILLING_ENV}|STRIPE_PRICE_PACK_100=${{ vars.STRIPE_PRICE_PACK_100 }}|STRIPE_PRICE_PACK_500=${{ vars.STRIPE_PRICE_PACK_500 }}"
+          fi
+
           # The MCP server and its OAuth authorization server (docs/mcp.md). Off unless MCP_ENABLED=true, for the
           # secret-must-exist reason above: its access tokens are signed by their own keypair, never the session's.
           # Prerequisites (ops/gcp/bootstrap.sh, step 2):
@@ -418,8 +433,8 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 60s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${MCP_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${MCP_SECRETS}"
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}"
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not
       # the placeholder we booted with. Verification emails and the OAuth redirect are built from

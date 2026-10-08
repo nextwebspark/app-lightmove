@@ -23,6 +23,10 @@ public class BillingWorkspaces {
         }
     }
 
+    public String nameOf(UUID workspaceId) {
+        return jdbc.queryForObject("SELECT name FROM app_lm_workspace WHERE id = ?", String.class, workspaceId);
+    }
+
     public List<UUID> activeIds() {
         return jdbc.queryForList("SELECT id FROM app_lm_workspace WHERE status = 'ACTIVE' ORDER BY id", UUID.class);
     }

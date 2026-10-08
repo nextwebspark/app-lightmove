@@ -59,6 +59,12 @@ public class WorkspaceSubscription extends BaseEntity {
     @Column(name = "tax_registration_number", length = 32)
     private String taxRegistrationNumber;
 
+    @Column(name = "past_due_since")
+    private Instant pastDueSince;
+
+    @Column(name = "stripe_synced_at")
+    private Instant stripeSyncedAt;
+
     public static WorkspaceSubscription invoiced(UUID workspaceId) {
         WorkspaceSubscription subscription = new WorkspaceSubscription();
         subscription.workspaceId = workspaceId;
@@ -66,8 +72,60 @@ public class WorkspaceSubscription extends BaseEntity {
         return subscription;
     }
 
+    /** A row a first Stripe event makes for a workspace that subscribed with no plan before. */
+    public static WorkspaceSubscription forStripe(UUID workspaceId) {
+        WorkspaceSubscription subscription = new WorkspaceSubscription();
+        subscription.workspaceId = workspaceId;
+        return subscription;
+    }
+
     public boolean isBilledByStripe() {
-        return stripeSubscriptionId != null;
+        return stripeSubscriptionId != null && status != SubscriptionStatus.CANCELLED;
+    }
+
+    /**
+     * Takes Stripe's word on the subscription. False, changing nothing, for news older than the event last followed
+     * or about a subscription other than the live one.
+     */
+    public boolean followStripe(PaidSubscription paid, Instant eventAt) {
+        if (!follows(paid.subscriptionId(), eventAt)) {
+            return false;
+        }
+        this.planCode = paid.plan();
+        this.billingInterval = paid.interval();
+        this.seats = paid.seats();
+        this.contactCreditPool = null;
+        this.stripeCustomerId = paid.customerId();
+        this.stripeSubscriptionId = paid.subscriptionId();
+        this.currentPeriodStart = paid.periodStart();
+        this.currentPeriodEnd = paid.periodEnd();
+        moveTo(paid.status(), eventAt);
+        return true;
+    }
+
+    public boolean markPastDue(String subscriptionId, Instant eventAt) {
+        if (stripeSubscriptionId == null || status == SubscriptionStatus.CANCELLED || !follows(subscriptionId, eventAt)) {
+            return false;
+        }
+        moveTo(SubscriptionStatus.PAST_DUE, eventAt);
+        return true;
+    }
+
+    private boolean follows(String subscriptionId, Instant eventAt) {
+        if (stripeSubscriptionId != null && !stripeSubscriptionId.equals(subscriptionId)) {
+            return status == SubscriptionStatus.CANCELLED;
+        }
+        return stripeSyncedAt == null || !eventAt.isBefore(stripeSyncedAt);
+    }
+
+    private void moveTo(SubscriptionStatus next, Instant eventAt) {
+        if (next != SubscriptionStatus.PAST_DUE) {
+            pastDueSince = null;
+        } else if (status != SubscriptionStatus.PAST_DUE || pastDueSince == null) {
+            pastDueSince = eventAt;
+        }
+        this.status = next;
+        this.stripeSyncedAt = eventAt;
     }
 
     public void invoice(BillingPlan plan, BillingInterval interval, int seats, Integer contactCreditPool,
@@ -77,6 +135,8 @@ public class WorkspaceSubscription extends BaseEntity {
         this.seats = seats;
         this.contactCreditPool = plan.isCustom() ? contactCreditPool : null;
         this.status = SubscriptionStatus.INVOICED;
+        this.stripeSubscriptionId = null;
+        this.stripeSyncedAt = null;
         this.currentPeriodStart = periodStart;
         this.currentPeriodEnd = periodEnd;
     }
