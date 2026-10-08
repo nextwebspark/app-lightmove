@@ -1,6 +1,9 @@
 package app.lightmove.api.assistant.service;
 
+import app.lightmove.api.assistant.tool.AssistantQuestions;
 import app.lightmove.api.assistant.tool.TurnRecorder;
+import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springaicommunity.agent.tools.AskUserQuestionTool;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.support.ToolCallbacks;
@@ -17,25 +20,39 @@ import tools.jackson.databind.node.ObjectNode;
  * for the panel's card and the loop returns directly; the consultant's choices are the thread's next
  * question.
  */
+@Slf4j
 final class AskUserQuestionCallback implements ToolCallback {
 
     /** Read by the model only when it called this beside another tool, so the loop could not end here. */
     static final String SHOWN_TO_CONSULTANT = "The questions are on screen for the consultant. End your answer "
             + "now with one short line; their choices arrive as their next message.";
 
+    /**
+     * Nothing reached the card: the call did not parse, or no question had a header and two to four labelled
+     * options. The loop still returns this directly — Spring AI reads {@code returnDirect} before the call — so
+     * {@link AssistantAgent} asks again without this tool rather than show it as the answer.
+     */
+    static final String NOTHING_SHOWN = "No question reached the consultant: each needs the question, a header of "
+            + "at most 12 characters and two to four options with labels. Answer without asking.";
+
     private static final String ANSWERS_PARAMETER = "answers";
 
     private final ToolCallback delegate;
     private final ToolDefinition definition;
+    private final TurnRecorder recorder;
 
-    private AskUserQuestionCallback(ToolCallback delegate, ToolDefinition definition) {
+    private AskUserQuestionCallback(ToolCallback delegate, ToolDefinition definition, TurnRecorder recorder) {
         this.delegate = delegate;
         this.definition = definition;
+        this.recorder = recorder;
     }
 
     static ToolCallback forAsk(TurnRecorder recorder, ObjectMapper json) {
         ToolCallback library = ToolCallbacks.from(AskUserQuestionTool.builder()
-                .questionHandler(recorder::ask)
+                .questionHandler(asked -> {
+                    recorder.ask(AssistantQuestions.from(asked));
+                    return Map.of();
+                })
                 .answersValidation(false)
                 .build())[0];
         ToolDefinition original = library.getToolDefinition();
@@ -43,7 +60,7 @@ final class AskUserQuestionCallback implements ToolCallback {
                 .name(original.name())
                 .description(original.description())
                 .inputSchema(withoutAnswers(original.inputSchema(), json))
-                .build());
+                .build(), recorder);
     }
 
     /**
@@ -77,12 +94,17 @@ final class AskUserQuestionCallback implements ToolCallback {
 
     @Override
     public String call(String toolInput) {
-        return call(toolInput, null);
+        return call(toolInput, new ToolContext(Map.of()));
     }
 
+    /** The library throws on a question it cannot read (a blank header, a missing label); that shows nothing. */
     @Override
     public String call(String toolInput, ToolContext toolContext) {
-        delegate.call(toolInput, toolContext);
-        return SHOWN_TO_CONSULTANT;
+        try {
+            delegate.call(toolInput, toolContext);
+        } catch (RuntimeException unreadable) {
+            log.info("Assistant questions could not be read: {}", unreadable.getMessage());
+        }
+        return recorder.askedQuestions() ? SHOWN_TO_CONSULTANT : NOTHING_SHOWN;
     }
 }

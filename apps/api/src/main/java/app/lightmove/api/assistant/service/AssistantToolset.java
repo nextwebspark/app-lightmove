@@ -17,8 +17,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Every tool the assistant's model is offered, and nothing else: the playbooks' {@code Skill} tool, the
- * library's question tool ({@link AskUserQuestionCallback}) and the assistant's own {@code @Tool}s. The library's shell, file and
- * web tools are never among them.
+ * library's question tool ({@link AskUserQuestionCallback}) and the assistant's own {@code @Tool}s. The
+ * library's shell, file and web tools are never among them.
  */
 @Component
 public class AssistantToolset {
@@ -38,9 +38,15 @@ public class AssistantToolset {
 
     /** The {@code Skill} tool and the question tool are per ask: both write to that ask's recorder. */
     public List<ToolCallback> forAsk(TurnRecorder recorder) {
+        List<ToolCallback> tools = new ArrayList<>(withoutQuestions(recorder));
+        tools.add(1, AskUserQuestionCallback.forAsk(recorder, json));
+        return tools;
+    }
+
+    /** For an answer whose questions reached nobody: it must answer this time. */
+    public List<ToolCallback> withoutQuestions(TurnRecorder recorder) {
         List<ToolCallback> tools = new ArrayList<>(assistantTools.size() + 2);
         tools.add(ToolCallListeners.wrap(skills.tool(), new SkillStepListener(recorder, skills.names(), json)));
-        tools.add(AskUserQuestionCallback.forAsk(recorder, json));
         tools.addAll(assistantTools);
         return tools;
     }

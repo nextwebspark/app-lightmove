@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,10 +33,32 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.tool.ToolCallback;
 import tools.jackson.databind.ObjectMapper;
 
 class AssistantAgentTest {
+
+    private static final String TWO_QUESTIONS = """
+            {"questions":[
+              {"question":"Which markets should the companies operate in?","header":"Region","multiSelect":false,
+               "options":[{"label":"GCC only (Recommended)","description":"The six Gulf states"},
+                          {"label":"MENA","description":"Adds Egypt, Jordan and Morocco"}]},
+              {"question":"Which ownership types?","header":"Ownership","multiSelect":true,
+               "options":[{"label":"Listed","description":"On a public exchange"},
+                          {"label":"Family-owned","description":"Private family groups"}]}]}
+            """;
+
+    private static final String QUESTION_WITH_ONE_OPTION = """
+            {"questions":[{"question":"Which markets?","header":"Region",
+              "options":[{"label":"GCC only","description":"The six Gulf states"}]}]}
+            """;
+
+    private static final String QUESTION_WITH_A_BLANK_HEADER = """
+            {"questions":[{"question":"Which markets?","header":" ",
+              "options":[{"label":"GCC only","description":"The six Gulf states"},
+                         {"label":"MENA","description":"Adds Egypt"}]}]}
+            """;
 
     private final AssistantModelCall model = mock(AssistantModelCall.class);
     private final MandateTools mandateTools = mock(MandateTools.class);
@@ -49,16 +72,6 @@ class AssistantAgentTest {
             proposalTools, mock(CandidateTools.class));
     private final AssistantAgent agent = new AssistantAgent(model, toolset, mandateTools, proposalTools, hiringSides);
 
-    private static final String TWO_QUESTIONS = """
-            {"questions":[
-              {"question":"Which markets should the companies operate in?","header":"Region","multiSelect":false,
-               "options":[{"label":"GCC only (Recommended)","description":"The six Gulf states"},
-                          {"label":"MENA","description":"Adds Egypt, Jordan and Morocco"}]},
-              {"question":"Which ownership types?","header":"Ownership","multiSelect":true,
-               "options":[{"label":"Listed","description":"On a public exchange"},
-                          {"label":"Family-owned","description":"Private family groups"}]}]}
-            """;
-
     @BeforeEach
     void aMandateWithAFirm() {
         HiringCompanyProfile firm = new HiringCompanyProfile("Kalem Group", null, null, null, null, null,
@@ -70,7 +83,8 @@ class AssistantAgentTest {
     }
 
     @Test
-    @DisplayName("the model is offered the playbooks, the question tool and the assistant's own tools, and nothing that reaches the host")
+    @DisplayName("the model is offered the playbooks, the question tool and the assistant's own tools, "
+            + "and nothing that reaches the host")
     void offersOnlyTheAssistantsTools() {
         List<String> offered = toolset.forAsk(recorder).stream()
                 .map(tool -> tool.getToolDefinition().name())
@@ -80,13 +94,6 @@ class AssistantAgentTest {
                 "readMandateBrief", "searchCompanyUniverse", "describeMarket", "lookUpCompaniesByName",
                 "adjacentIndustries", "proposeCompanies",
                 "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives");
-    }
-
-    private ToolCallback questionTool() {
-        return toolset.forAsk(recorder).stream()
-                .filter(tool -> tool.getToolDefinition().name().equals("AskUserQuestionTool"))
-                .findFirst()
-                .orElseThrow();
     }
 
     @Test
@@ -156,6 +163,34 @@ class AssistantAgentTest {
     }
 
     @Test
+    @DisplayName("a question the card cannot draw is not shown, and the model is told so")
+    void reportsQuestionsThatReachedNobody() {
+        assertThat(questionTool().call(QUESTION_WITH_ONE_OPTION)).isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+        assertThat(questionTool().call(QUESTION_WITH_A_BLANK_HEADER))
+                .isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+        assertThat(questionTool().call("not json")).isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
+
+        assertThat(recorder.askedQuestions()).isFalse();
+        assertThat(recorder.steps()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("an answer whose questions reached nobody is asked again without the question tool")
+    void answersWhenTheQuestionsReachedNobody() {
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any()))
+                .thenReturn(AskUserQuestionCallback.NOTHING_SHOWN, "Four utilities");
+
+        assertThat(agent.answer("Find utilities", List.of(), context)).isEqualTo("Four utilities");
+
+        ArgumentCaptor<List<ToolCallback>> offered = ArgumentCaptor.captor();
+        verify(model, times(2)).ask(anyMap(), offered.capture(), anyList(), anyString(), any());
+        assertThat(offered.getAllValues().getLast()).extracting(tool -> tool.getToolDefinition().name())
+                .doesNotContain("AskUserQuestionTool")
+                .contains(AssistantSkills.TOOL_NAME, "searchCompanyUniverse");
+        verify(proposalTools).proposeWhatWasFound(context);
+    }
+
+    @Test
     @DisplayName("a failed model call is reported as the assistant being unavailable")
     void reportsAFailedModelCallAsUnavailable() {
         when(model.ask(anyMap(), anyList(), anyList(), anyString(), any()))
@@ -164,5 +199,12 @@ class AssistantAgentTest {
         assertThatThrownBy(() -> agent.answer("Find utilities", List.of(), context))
                 .isInstanceOfSatisfying(ApiException.class,
                         refused -> assertThat(refused.getCode()).isEqualTo(ErrorCode.ASSISTANT_UNAVAILABLE));
+    }
+
+    private ToolCallback questionTool() {
+        return toolset.forAsk(recorder).stream()
+                .filter(tool -> tool.getToolDefinition().name().equals("AskUserQuestionTool"))
+                .findFirst()
+                .orElseThrow();
     }
 }

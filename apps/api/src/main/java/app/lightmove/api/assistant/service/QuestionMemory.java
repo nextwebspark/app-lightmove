@@ -17,6 +17,8 @@ final class QuestionMemory {
     private static final Pattern QUESTIONS_BLOCK =
             Pattern.compile("(?s)<asked_consultant\\b[^>]*>.*?</asked_consultant>");
 
+    private static final Pattern ANGLE_BRACKETS = Pattern.compile("[<>]");
+
     private QuestionMemory() {
     }
 
@@ -49,9 +51,15 @@ final class QuestionMemory {
         while (asked > 0 && !history.get(asked - 1).getQuestions().isEmpty()) {
             asked--;
         }
-        return "<consultant_answers>\n" + question + "\n</consultant_answers>\n"
-                + "These answer the questions you asked about my request: \"" + history.get(asked).getQuestion()
+        return "<consultant_answers>\n" + framed(question) + "\n</consultant_answers>\n"
+                + "These answer the questions you asked about my request: \""
+                + framed(history.get(asked).getQuestion()).replace('"', '\'')
                 + "\". Carry on with that request now — load its playbook and run its tools as you would have.";
+    }
+
+    /** Typed text, the "Other…" box included, kept from closing the block it is framed in. */
+    private static String framed(String typed) {
+        return ANGLE_BRACKETS.matcher(typed).replaceAll("");
     }
 
     /** A model that copies the block into its own answer would show the consultant raw markup. */

@@ -40,10 +40,14 @@ a playbook only when its question needs it.
   ("Region: GCC only · Ownership: Listed, Family-owned", without the model's "(Recommended)" mark), and
   `QuestionMemory` replays the questions to the model as an `<asked_consultant>` block and sends that message
   inside `<consultant_answers>` beside the request it answers. Sent bare, the answers read as a remark: the
-  model answered from the chat's earlier answers without searching and named companies no tool returned. The model may ask again on a
-  later turn when it judges it necessary; within one turn only the first set is kept. The library's
-  `answers` parameter is taken out of the schema the model sees, so it cannot answer its own questions.
-  `ASSISTANT_ASKED` records `questionsAsked`.
+  model answered from the chat's earlier answers without searching and named companies no tool returned. The
+  model may ask again on a later turn when it judges it necessary; within one turn only the first set is kept.
+  The library's `answers` parameter is taken out of the schema the model sees, so it cannot answer its own
+  questions. `AssistantQuestions` holds what the model sent to what the card can draw (a question, a header of
+  at most 12 characters and two to four labelled options, four questions at most) and drops the rest. When
+  nothing is left, or the call does not parse, the tool says so — and since Spring AI reads `returnDirect`
+  before the call, `AssistantAgent` asks once more without the question tool rather than show that as the
+  answer. `ASSISTANT_ASKED` records `questionsAsked`.
 - Every call is sent the earlier lists (`CardMemory`), so `AssistantModelCall` strips a
   `<suggested_companies>` block from the answer if the model echoes one.
 - The whole ask is one `LlmBudget.ASSISTANT` unit; the prompt id is still `assistant-turn`, so existing
