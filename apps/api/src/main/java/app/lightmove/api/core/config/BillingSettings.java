@@ -4,8 +4,8 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * Billing and the contact-credit ledger — {@code lightmove.billing.*}. While {@code enforce} is off a spend the
- * credits cannot cover is recorded as an overdraft rather than refused.
+ * Billing and the contact-credit ledger — {@code lightmove.billing.*}. A spend the credits cannot cover is refused
+ * while {@code enforce} is on, and recorded as an overdraft with it off.
  */
 public record BillingSettings(
         @DefaultValue("true") boolean enforce,

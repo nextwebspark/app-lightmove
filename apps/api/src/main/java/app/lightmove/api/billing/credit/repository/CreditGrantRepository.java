@@ -3,8 +3,8 @@ package app.lightmove.api.billing.credit.repository;
 import app.lightmove.api.billing.credit.constant.CreditGrantSource;
 import app.lightmove.api.billing.credit.model.CreditGrant;
 import app.lightmove.api.billing.credit.model.MonthlyCredits;
+import app.lightmove.api.billing.credit.model.SourceCredits;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,10 +22,12 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
     List<CreditGrant> findSpendable(UUID workspaceId, Instant now);
 
     @Query("""
-            SELECT coalesce(sum(g.remaining), 0) FROM CreditGrant g
-            WHERE g.workspaceId = :workspaceId AND g.source IN :sources AND g.remaining > 0 AND g.effectiveAt <= :now
-              AND (g.expiresAt IS NULL OR g.expiresAt > :now)""")
-    long sumSpendable(UUID workspaceId, Collection<CreditGrantSource> sources, Instant now);
+            SELECT new app.lightmove.api.billing.credit.model.SourceCredits(g.source, sum(g.remaining))
+            FROM CreditGrant g
+            WHERE g.workspaceId = :workspaceId AND g.remaining > 0 AND g.effectiveAt <= :now
+              AND (g.expiresAt IS NULL OR g.expiresAt > :now)
+            GROUP BY g.source""")
+    List<SourceCredits> spendableBySource(UUID workspaceId, Instant now);
 
     @Query("""
             SELECT g FROM CreditGrant g

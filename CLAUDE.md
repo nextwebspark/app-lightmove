@@ -942,7 +942,7 @@ that must run once across instances claims an `app_lm_billing_job_run` row first
 `GET /api/v1/billing` and `…/billing/usage` (#741) are Settings → Billing's reads, any staff member's and a 404 to a
 pure client: the plan, seats and seat price, the credits (`monthly`, `left`, `bought`, `given`, `usedPercent`,
 `level`, `resetsAt`), the prices, and this billing month's finds and credits per member. `GrandfatherCredits` gives
-every workspace that exists the first time a release with enforcement boots `lightmove.billing.grandfather.credits`
+every workspace that exists the first time a release boots with enforcement on `lightmove.billing.grandfather.credits`
 promotional credits, keyed `grandfather:<workspace>`, under a job claim nothing prunes, so none founded later gets them.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no

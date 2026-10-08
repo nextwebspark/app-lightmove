@@ -700,7 +700,7 @@ lightmove:
     max-documents-per-person: ${PERSON_DOCUMENT_MAX_PER_PERSON:50}
     max-versions-per-document: ${PERSON_DOCUMENT_MAX_VERSIONS:20}
 
-  # Contact credits (epic #734). Off, a spend the credits cannot cover is recorded as an overdraft, never refused.
+  # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:
     enforce: ${BILLING_ENFORCE:true}
     hold-ttl: ${BILLING_HOLD_TTL:15m}

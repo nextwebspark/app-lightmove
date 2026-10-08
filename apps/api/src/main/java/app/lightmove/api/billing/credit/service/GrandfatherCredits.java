@@ -8,6 +8,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,9 +17,10 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 /**
- * Gives every workspace that exists when enforcement first boots its one-off promotional credits, keyed
- * {@code grandfather:<workspace>}. The first instance to claim the run grants; a workspace founded later never
- * gets them. A run that fails anywhere gives its claim back, so the next boot finishes it without granting twice.
+ * Gives every workspace that exists the first time a release boots with enforcement on its one-off promotional
+ * credits, keyed {@code grandfather:<workspace>}. The first instance to claim the run grants; a workspace founded
+ * later never gets them. A run that fails anywhere gives its claim back, so the next boot finishes it without
+ * granting twice.
  */
 @Slf4j
 @Component
@@ -43,31 +45,39 @@ public class GrandfatherCredits implements ApplicationRunner {
         grantAt(clock.instant());
     }
 
-    /** @return how many workspaces this call granted to */
+    /** @return how many workspaces this call granted to; none while enforcement is off or the size is 0 */
     public int grantAt(Instant now) {
         GrandfatherSettings settings = properties.billing().grandfather();
-        if (settings.credits() <= 0 || !jobRuns.claimForGood(JOB, RUN_KEY)) {
+        if (!properties.billing().enforce() || settings.credits() <= 0 || !jobRuns.claimForGood(JOB, RUN_KEY)) {
             return 0;
         }
-        int granted = 0;
-        boolean failed = false;
+        List<UUID> workspaceIds;
         try {
-            for (UUID workspaceId : workspaces.activeIds()) {
-                try {
-                    granted += grant(workspaceId, settings, now) ? 1 : 0;
-                } catch (RuntimeException failure) {
-                    failed = true;
-                    log.error("Could not grant the grandfathered credits of workspace {}", workspaceId, failure);
-                }
-            }
+            workspaceIds = workspaces.activeIds();
         } catch (RuntimeException failure) {
-            failed = true;
-            log.error("Could not list the workspaces to grandfather", failure);
-        }
-        if (failed) {
             jobRuns.giveBack(JOB, RUN_KEY);
+            log.error("Could not list the workspaces to grandfather; the next boot retries", failure);
+            return 0;
         }
-        log.info("Granted grandfathered contact credits to {} workspaces", granted);
+        log.info("Grandfathering {} workspaces with {} contact credits valid for {}", workspaceIds.size(),
+                settings.credits(), settings.validFor());
+        int granted = 0;
+        int failed = 0;
+        for (UUID workspaceId : workspaceIds) {
+            try {
+                granted += grant(workspaceId, settings, now) ? 1 : 0;
+            } catch (RuntimeException failure) {
+                failed++;
+                log.error("Could not grant the grandfathered credits of workspace {}", workspaceId, failure);
+            }
+        }
+        if (failed > 0) {
+            jobRuns.giveBack(JOB, RUN_KEY);
+            log.error("Grandfathering failed for {} workspaces after granting {}; the next boot retries", failed,
+                    granted);
+        } else {
+            log.info("Granted grandfathered contact credits to {} workspaces", granted);
+        }
         return granted;
     }
 

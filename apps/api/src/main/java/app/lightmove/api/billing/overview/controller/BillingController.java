@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Settings → Billing and the credit chip, read by any staff member of the caller's workspace. */
+/** Settings → Billing and the credit chip, read by any staff member of the caller's workspace; a 404 to a pure client. */
 @RestController
 @RequestMapping("/api/v1/billing")
 @RequiredArgsConstructor
@@ -20,14 +20,14 @@ public class BillingController {
     private final BillingOverviewService billing;
 
     @GetMapping
-    @PreAuthorize("@workspaceAuthorizer.member(principal)")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
     public BillingResponse get(@AuthenticationPrincipal AuthPrincipal principal) {
-        return billing.overview(principal.userId(), principal.requireWorkspaceId());
+        return billing.overview(principal.requireWorkspaceId());
     }
 
     @GetMapping("/usage")
-    @PreAuthorize("@workspaceAuthorizer.member(principal)")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
     public BillingUsageResponse usage(@AuthenticationPrincipal AuthPrincipal principal) {
-        return billing.usage(principal.userId(), principal.requireWorkspaceId());
+        return billing.usage(principal.requireWorkspaceId());
     }
 }

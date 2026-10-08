@@ -11,6 +11,7 @@ import app.lightmove.api.billing.credit.model.CreditBalanceDrift;
 import app.lightmove.api.billing.credit.model.CreditGrantCommand;
 import app.lightmove.api.billing.credit.service.CreditBalanceReconcile;
 import app.lightmove.api.billing.credit.service.CreditLedgerSweeper;
+import app.lightmove.api.billing.credit.service.GrandfatherCredits;
 import app.lightmove.api.billing.credit.service.MonthlyCreditReset;
 import app.lightmove.api.billing.plan.model.BillingMonth;
 import java.math.BigDecimal;
@@ -39,6 +40,7 @@ class CreditJobsIntegrationTest extends BillingFlowSupport {
     @Autowired private CreditLedgerSweeper sweeper;
     @Autowired private CreditBalanceReconcile reconcile;
     @Autowired private RecordingCreditThresholds thresholds;
+    @Autowired private GrandfatherCredits grandfather;
 
     @Test
     @DisplayName("a reset expires what is left of last month's plan credits and grants the new month once, run twice")
@@ -206,6 +208,19 @@ class CreditJobsIntegrationTest extends BillingFlowSupport {
 
         assertThat(thresholds.of(workspace)).extracting(ContactCreditThresholdCrossed::level)
                 .containsExactly(ContactCreditLevel.OUT);
+    }
+
+    @Test
+    @DisplayName("while enforcement is off the grandfather grant waits, its run left unclaimed")
+    void grandfatherWaitsForEnforcement() throws Exception {
+        UUID workspace = newWorkspace();
+        db.update("DELETE FROM app_lm_billing_job_run WHERE job = 'grandfather-credits'");
+
+        assertThat(grandfather.grantAt(Instant.now())).isZero();
+
+        assertThat(ledger.balanceOf(workspace).available()).isZero();
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_billing_job_run WHERE job = 'grandfather-credits'",
+                Long.class)).isZero();
     }
 
     private void subscribe(UUID workspaceId, String plan, int seats, Integer pool, Instant periodStart) {
