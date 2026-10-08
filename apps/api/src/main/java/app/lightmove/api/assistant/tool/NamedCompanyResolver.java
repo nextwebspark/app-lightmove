@@ -10,6 +10,7 @@ import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.logging.service.MdcPropagation;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
 import app.lightmove.api.enrichment.company.service.CompanyResearch;
@@ -95,6 +96,11 @@ public class NamedCompanyResolver {
         } catch (CancellationException timedOut) {
             return Lookup.unresolved(name, NOT_CHECKED);
         } catch (ExecutionException failed) {
+            if (failed.getCause() instanceof VendorException refused) {
+                // A vendor's 429 or bad minute is an answer, not a fault: the name is reported unchecked.
+                log.warn("Looking up company {} was not checked: {}", name, refused.getMessage());
+                return Lookup.unresolved(name, NOT_CHECKED);
+            }
             log.warn("Looking up company {} failed", name, failed.getCause());
             return Lookup.unresolved(name, NOT_CHECKED);
         } catch (InterruptedException interrupted) {
