@@ -101,7 +101,8 @@ public class AssistantService {
                     : threads.save(AssistantThread.of(workspaceId, userId, projectId,
                             titleOf(question)));
             AssistantTurn turn = turns.saveAndFlush(AssistantTurn.answered(thread, question, answer,
-                    recorder.steps(), recorder.proposal(), recorder.questions()));
+                    recorder.steps(), recorder.askedQuestions() ? null : recorder.proposal(),
+                    recorder.questions()));
             threads.touch(thread.getId(), Instant.now());
             return AssistantTurnResponse.of(turn);
         });

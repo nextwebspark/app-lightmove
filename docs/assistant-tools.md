@@ -34,20 +34,21 @@ a playbook only when its question needs it.
   description, single or multi select, and an "Other" box the panel always adds). The library's handler is
   synchronous — it waits for the answers — and an ask cannot: it is one request closed at 50 seconds, holding
   one of four slots, whose answer may reach another instance. So the handler records the questions on the
-  `TurnRecorder` and returns at once, the tool is `returnDirect` (Spring AI ends the loop without another model
-  call), the turn is saved with its `questions` and a fixed lead-in as its answer, and no companies are
-  suggested. The panel draws them (`AssistantQuestionCard`); **Send answers** is the chat's next ask
-  ("Region: GCC only · Ownership: Listed, Family-owned", without the model's "(Recommended)" mark), and
-  `QuestionMemory` replays the questions to the model as an `<asked_consultant>` block and sends that message
-  inside `<consultant_answers>` beside the request it answers. Sent bare, the answers read as a remark: the
-  model answered from the chat's earlier answers without searching and named companies no tool returned. The
-  model may ask again on a later turn when it judges it necessary; within one turn only the first set is kept.
-  The library's `answers` parameter is taken out of the schema the model sees, so it cannot answer its own
-  questions. `AssistantQuestions` holds what the model sent to what the card can draw (a question, a header of
-  at most 12 characters and two to four labelled options, four questions at most) and drops the rest. When
-  nothing is left, or the call does not parse, the tool says so — and since Spring AI reads `returnDirect`
-  before the call, `AssistantAgent` asks once more without the question tool rather than show that as the
-  answer. `ASSISTANT_ASKED` records `questionsAsked`.
+  `TurnRecorder` and the tool tells the model to stop with one short line; the turn is saved with its
+  `questions` and a fixed lead-in as its answer, and no companies are suggested. The tool is deliberately not
+  `returnDirect`: Spring AI reads that before the call, so a question the tool turns away would have become the
+  answer. It turns one away when no playbook is loaded yet (the eval and a live chat both asked where a named
+  company operates, which a lookup finds), when this answer already suggested companies, and when
+  `AssistantQuestions` leaves nothing the card can draw (a question, a header of at most 12 characters and two
+  to four labelled options, four questions at most) — the model is then told to carry on without asking.
+  The panel draws them (`AssistantQuestionCard`); **Send answers** is the chat's next ask ("Region: GCC only ·
+  Ownership: Listed, Family-owned", without the model's "(Recommended)" mark), and `QuestionMemory` replays the
+  questions to the model as an `<asked_consultant>` block and sends that message inside `<consultant_answers>`
+  beside the request it answers. Sent bare, the answers read as a remark: the model answered from the chat's
+  earlier answers without searching and named companies no tool returned. The model may ask again on a later
+  turn when it judges it necessary; within one turn only the first set is kept. The library's `answers`
+  parameter is taken out of the schema the model sees, so it cannot answer its own questions.
+  `ASSISTANT_ASKED` records `questionsAsked`.
 - Every call is sent the earlier lists (`CardMemory`), so `AssistantModelCall` strips a
   `<suggested_companies>` block from the answer if the model echoes one.
 - The whole ask is one `LlmBudget.ASSISTANT` unit; the prompt id is still `assistant-turn`, so existing

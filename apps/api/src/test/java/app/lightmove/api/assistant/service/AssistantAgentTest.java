@@ -8,10 +8,10 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.HiringSide;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.CandidateTools;
@@ -29,11 +29,11 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Firm;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.ai.tool.ToolCallback;
 import tools.jackson.databind.ObjectMapper;
 
@@ -126,18 +126,20 @@ class AssistantAgentTest {
     }
 
     @Test
-    @DisplayName("asking ends the loop: the question tool returns directly and is never offered an answers slot")
-    void theQuestionToolEndsTheAnswer() {
+    @DisplayName("the question tool is never offered an answers slot, so the model cannot answer its own questions")
+    void offersTheQuestionToolNoAnswersSlot() {
         ToolCallback ask = questionTool();
 
-        assertThat(ask.getToolMetadata().returnDirect()).isTrue();
         assertThat(new ObjectMapper().readTree(ask.getToolDefinition().inputSchema()).path("properties")
                 .has("answers")).isFalse();
+        assertThat(ask.getToolMetadata().returnDirect()).isFalse();
     }
 
     @Test
     @DisplayName("the questions the model asks are kept for the card, and the tool answers at once")
     void recordsTheQuestionsAsked() {
+        recorder.usedSkill("find-companies");
+
         String result = questionTool().call(TWO_QUESTIONS);
 
         assertThat(result).isEqualTo(AskUserQuestionCallback.SHOWN_TO_CONSULTANT);
@@ -150,9 +152,29 @@ class AssistantAgentTest {
     }
 
     @Test
+    @DisplayName("a question asked before any playbook is turned away: the playbook may settle it")
+    void turnsAwayAQuestionBeforeAPlaybook() {
+        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(AskUserQuestionCallback.LOAD_A_PLAYBOOK_FIRST);
+
+        assertThat(recorder.askedQuestions()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a question asked after companies were suggested is turned away, so no card sits under the list")
+    void turnsAwayAQuestionAfterSuggestingCompanies() {
+        recorder.usedSkill("find-companies");
+        recorder.propose(new AssistantProposal("Two utilities", List.of(), Map.of()));
+
+        assertThat(questionTool().call(TWO_QUESTIONS)).isEqualTo(AskUserQuestionCallback.ALREADY_SUGGESTED);
+
+        assertThat(recorder.askedQuestions()).isFalse();
+    }
+
+    @Test
     @DisplayName("an answer that asked shows its lead-in and suggests no companies")
     void anAnswerThatAskedSuggestsNothing() {
         when(model.ask(anyMap(), anyList(), anyList(), anyString(), any())).thenAnswer(call -> {
+            recorder.usedSkill("find-companies");
             questionTool().call(TWO_QUESTIONS);
             return AskUserQuestionCallback.SHOWN_TO_CONSULTANT;
         });
@@ -165,6 +187,8 @@ class AssistantAgentTest {
     @Test
     @DisplayName("a question the card cannot draw is not shown, and the model is told so")
     void reportsQuestionsThatReachedNobody() {
+        recorder.usedSkill("find-companies");
+
         assertThat(questionTool().call(QUESTION_WITH_ONE_OPTION)).isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
         assertThat(questionTool().call(QUESTION_WITH_A_BLANK_HEADER))
                 .isEqualTo(AskUserQuestionCallback.NOTHING_SHOWN);
@@ -172,22 +196,6 @@ class AssistantAgentTest {
 
         assertThat(recorder.askedQuestions()).isFalse();
         assertThat(recorder.steps()).isEmpty();
-    }
-
-    @Test
-    @DisplayName("an answer whose questions reached nobody is asked again without the question tool")
-    void answersWhenTheQuestionsReachedNobody() {
-        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any()))
-                .thenReturn(AskUserQuestionCallback.NOTHING_SHOWN, "Four utilities");
-
-        assertThat(agent.answer("Find utilities", List.of(), context)).isEqualTo("Four utilities");
-
-        ArgumentCaptor<List<ToolCallback>> offered = ArgumentCaptor.captor();
-        verify(model, times(2)).ask(anyMap(), offered.capture(), anyList(), anyString(), any());
-        assertThat(offered.getAllValues().getLast()).extracting(tool -> tool.getToolDefinition().name())
-                .doesNotContain("AskUserQuestionTool")
-                .contains(AssistantSkills.TOOL_NAME, "searchCompanyUniverse");
-        verify(proposalTools).proposeWhatWasFound(context);
     }
 
     @Test

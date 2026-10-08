@@ -36,10 +36,6 @@ public class AssistantAgent {
         String answer;
         try {
             answer = model.ask(systemParams, toolset.forAsk(context.recorder()), history, question, context);
-            if (AskUserQuestionCallback.NOTHING_SHOWN.equals(answer)) {
-                answer = model.ask(systemParams, toolset.withoutQuestions(context.recorder()), history, question,
-                        context);
-            }
         } catch (RuntimeException failed) {
             log.warn("Assistant model call failed", failed);
             throw ApiException.of(ErrorCode.ASSISTANT_UNAVAILABLE);
