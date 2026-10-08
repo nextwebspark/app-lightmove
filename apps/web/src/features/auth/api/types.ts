@@ -196,4 +196,11 @@ export interface ApiError {
   personIds?: string[];
   /** Present on PERSON_DOCUMENT_DUPLICATE: the file already holding the same bytes. */
   duplicateOf?: { documentId: string; versionNo: number };
+  /** Present on INSUFFICIENT_CREDITS: what the find costs and what the workspace has. */
+  required?: number;
+  available?: number;
+  /** Present on INSUFFICIENT_CREDITS and FAIR_USE_REACHED: when the month's allowance starts again. */
+  resetsAt?: string;
+  /** Present on FAIR_USE_REACHED: which use reached its ceiling. */
+  kind?: string;
 }

@@ -53,6 +53,15 @@ function workspaceClaimOf(token: string | null): string | null {
   }
 }
 
+/** Told of every refused request, before its caller is: how a refusal any screen can meet opens one sheet. */
+type RefusalListener = (error: ApiRequestError) => void;
+const refusalListeners = new Set<RefusalListener>();
+
+export function onRequestRefused(listener: RefusalListener): () => void {
+  refusalListeners.add(listener);
+  return () => refusalListeners.delete(listener);
+}
+
 /** Thrown for any non-2xx. Carries the server's own ProblemDetail so a form can render field errors. */
 export class ApiRequestError extends Error {
   // Declared, not a constructor parameter property: `erasableSyntaxOnly` requires that stripping the
@@ -339,7 +348,9 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
   }
 
   if (!response.ok) {
-    throw new ApiRequestError(await problemFrom(response));
+    const refused = new ApiRequestError(await problemFrom(response));
+    refusalListeners.forEach((listener) => listener(refused));
+    throw refused;
   }
 
   return response;

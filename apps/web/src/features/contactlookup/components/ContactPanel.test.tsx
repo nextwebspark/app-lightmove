@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { copyText } from "../../../lib/clipboard";
+import * as billingApi from "../../billing/api/billingApi";
+import { aBilling } from "../../billing/test/fixtures";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidateContacts, CandidateEmail } from "../../candidates/api/types";
 import * as contactLookupApi from "../api/contactLookupApi";
@@ -17,6 +19,11 @@ vi.mock("../api/contactLookupApi", async (importOriginal) => ({
 }));
 
 vi.mock("../../../lib/clipboard", () => ({ copyText: vi.fn() }));
+
+vi.mock("../../billing/api/billingApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof billingApi>()),
+  getBilling: vi.fn(),
+}));
 
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof candidatesApi>()),
@@ -203,11 +210,13 @@ describe("ContactPanel", () => {
     expect(screen.getByRole("button", { name: "Find phone" })).toBeInTheDocument();
   });
 
-  it("offers Find email on an empty channel and Find more beside a typed one", () => {
+  it("offers Find email on an empty channel and Find more beside a typed one", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aBilling());
     const { rerender } = renderPanel(hakan);
     expect(screen.getByRole("button", { name: "Find email" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Find phone" })).toBeEnabled();
-    expect(screen.getAllByText("Spends 1 credit")).toHaveLength(2);
+    expect(await screen.findByText("1 credit")).toBeInTheDocument();
+    expect(screen.getByText("5 credits")).toBeInTheDocument();
 
     rerender(
       <QueryClientProvider client={new QueryClient()}>
@@ -227,7 +236,7 @@ describe("ContactPanel", () => {
     );
     expect(screen.getByRole("button", { name: "Find more" })).toHaveAttribute(
       "title",
-      expect.stringContaining("your entry is kept"),
+      expect.stringContaining("Your entry is kept"),
     );
   });
 
@@ -307,6 +316,25 @@ describe("ContactPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Find phone" }));
     expect(await screen.findByRole("status")).toHaveTextContent(/No contact lookup credits left/);
     expect(screen.getByRole("button", { name: "Find phone" })).toBeEnabled();
+  });
+
+  it("leaves running out of credits to the out-of-credits sheet rather than toasting it", async () => {
+    vi.mocked(contactLookupApi.findPhone).mockRejectedValueOnce(
+      new ApiRequestError({
+        code: "INSUFFICIENT_CREDITS",
+        detail: "Your workspace is out of contact credits",
+        status: 402,
+        correlationId: "x",
+        required: 5,
+        available: 0,
+      }),
+    );
+    renderPanel(hakan);
+
+    await userEvent.click(screen.getByRole("button", { name: "Find phone" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Find phone" })).toBeEnabled());
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   /**

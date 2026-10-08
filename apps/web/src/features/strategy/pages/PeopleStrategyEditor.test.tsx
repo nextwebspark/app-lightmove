@@ -210,7 +210,6 @@ describe("StrategyPage — People mode", () => {
 
     expect((await screen.findAllByText("Person first")).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Person second").length).toBeGreaterThan(0);
-    expect(screen.getByText("Answered from the cache — no credits spent")).toBeInTheDocument();
     expect(peopleApi.searchPeople).not.toHaveBeenCalled();
 
     vi.mocked(peopleApi.searchPeople).mockResolvedValueOnce(pageOf(3, [personOf("third")]));
