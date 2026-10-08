@@ -69,6 +69,7 @@ class AssistantEval extends FlowTestSupport {
     private static final Path REPORT = Path.of("..", "..", "docs", "eval", "assistant-eval.md");
     private static final Pattern COMPLETE_DONE_EVENT = Pattern.compile("event:done\\ndata:(.+)\\n\\n");
     private static final Duration ANSWER_WAIT = Duration.ofSeconds(90);
+    private static final int ANSWER_EXCERPT = 400;
 
     @Autowired
     private JdbcTemplate db;
@@ -144,7 +145,7 @@ class AssistantEval extends FlowTestSupport {
                         .contains(name.toLowerCase(Locale.ROOT))).count();
         return new TurnResult(question, turn.path("threadId").asText(), playbooksOf(turn.path("id").asText()),
                 tools, names, keys, held, earlierNames == null ? null : earlierNames.size(), listed,
-                answer.toLowerCase(Locale.ROOT).contains("card"), ms, null);
+                answer.toLowerCase(Locale.ROOT).contains("card"), ms, null, answer);
     }
 
     /** {@code skills} on this build, {@code specialists} on one from before the playbooks. */
@@ -169,7 +170,8 @@ class AssistantEval extends FlowTestSupport {
         String data = Awaitility.await()
                 .atMost(ANSWER_WAIT)
                 .pollInterval(Duration.ofMillis(200))
-                .until(() -> COMPLETE_DONE_EVENT.matcher(stream.getResponse().getContentAsString()), Matcher::find)
+                .until(() -> COMPLETE_DONE_EVENT.matcher(
+                        stream.getResponse().getContentAsString(StandardCharsets.UTF_8)), Matcher::find)
                 .group(1);
         return json.readTree(data);
     }
@@ -259,13 +261,19 @@ class AssistantEval extends FlowTestSupport {
         }
         for (Map.Entry<String, List<TurnResult>> conversation : results.entrySet()) {
             for (TurnResult turn : conversation.getValue()) {
+                out.append("\n- **").append(conversation.getKey()).append(" · ").append(turn.question())
+                        .append("**: ").append(oneLine(turn.answer()));
                 if (!turn.suggestedNames().isEmpty()) {
-                    out.append("\n- ").append(conversation.getKey()).append(" · ").append(turn.question())
-                            .append(": ").append(String.join(", ", turn.suggestedNames()));
+                    out.append(" — suggested: ").append(String.join(", ", turn.suggestedNames()));
                 }
             }
         }
         return out.append("\n").toString();
+    }
+
+    private static String oneLine(String answer) {
+        String flat = answer == null ? "" : answer.replaceAll("\\s+", " ").strip();
+        return flat.length() <= ANSWER_EXCERPT ? flat : flat.substring(0, ANSWER_EXCERPT) + "…";
     }
 
     private static String blankAsDash(String value) {
@@ -283,11 +291,11 @@ class AssistantEval extends FlowTestSupport {
 
     private record TurnResult(String question, String threadId, String playbooks, List<String> steps,
                               List<String> suggestedNames, List<String> keys, int held, Integer earlierCount,
-                              Integer earlierListed, boolean saysCard, long ms, String failure) {
+                              Integer earlierListed, boolean saysCard, long ms, String failure, String answer) {
 
         static TurnResult failed(String question, String threadId, String failure) {
             return new TurnResult(question, threadId, null, List.of(), List.of(), List.of(), 0, null, null, false, 0,
-                    failure);
+                    failure, "");
         }
     }
 
