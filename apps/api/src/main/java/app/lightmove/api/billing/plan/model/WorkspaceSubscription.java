@@ -65,6 +65,10 @@ public class WorkspaceSubscription extends BaseEntity {
     @Column(name = "stripe_synced_at")
     private Instant stripeSyncedAt;
 
+    /** Written only by {@code WorkspaceSubscriptionRepository}'s seat-sync queries, never by saving the row. */
+    @Column(name = "seat_sync_due_at", insertable = false, updatable = false)
+    private Instant seatSyncDueAt;
+
     public static WorkspaceSubscription invoiced(UUID workspaceId) {
         WorkspaceSubscription subscription = new WorkspaceSubscription();
         subscription.workspaceId = workspaceId;

@@ -47,7 +47,9 @@ public enum WorkspaceEventType implements AuditEventType {
     BILLING_CHECKOUT_STARTED,
     BILLING_PORTAL_OPENED,
     SUBSCRIPTION_CHANGED,
-    CREDITS_PURCHASED;
+    CREDITS_PURCHASED,
+    SEAT_ADDED,
+    SEAT_REMOVED;
 
     @Override
     public String code() {

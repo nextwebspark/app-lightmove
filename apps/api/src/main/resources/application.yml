@@ -710,6 +710,7 @@ lightmove:
     jobs:
       monthly-reset: ${BILLING_MONTHLY_RESET_CRON:0 7 * * * *}
       reconcile: ${BILLING_RECONCILE_CRON:0 40 2 * * *}
+      seat-sync: ${BILLING_SEAT_SYNC_CRON:0 */5 * * * *}
     prices:
       email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
       phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
@@ -745,7 +746,8 @@ lightmove:
     # <web.base-url>/api/v1/billing/webhooks/stripe, created on the API version stripe-java pins (pom.xml), and
     # subscribed to invoice.paid, invoice.payment_failed, checkout.session.completed,
     # checkout.session.async_payment_succeeded and customer.subscription.created / updated / deleted. The Customer
-    # Portal is set to invoice an upgrade at once and to move a downgrade to the end of the period.
+    # Portal is set to invoice an upgrade at once and to move a downgrade to the end of the period, and does not let a
+    # customer change the quantity: the seats are the workspace's staff, synced by the app.
     stripe:
       secret-key: ${STRIPE_SECRET_KEY:}
       webhook-secret: ${STRIPE_WEBHOOK_SECRET:}

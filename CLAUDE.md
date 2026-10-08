@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, and Stripe, `payment`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, and staff seats, `seat`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -965,6 +965,16 @@ tops the month up to the new plan at once (`upgrade:<workspace>:<month>:<plan>`)
 keyed on its payment intent, sized by the pack's configuration (never the session's metadata), valued at what was
 paid before VAT and kept a year; a price or pack this deployment does not sell is claimed and ignored, never retried. A failed payment is `PAST_DUE`
 (`past_due_since`); past `past-due-grace` (7d) the reset grants no further month until Stripe is paid.
+**Seats (#744, V123)** are staff — an active member holding ADMIN or MEMBER; CLIENT alone never takes one — and
+`billing/seat`'s `SeatAllowance` is the one door `workspace` calls (accepting a staff invitation, a rejoin, a role change
+across the staff line, a removal). An invoiced workspace is held to its agreed `seats` while enforcement is on — a staff
+invitation counting the ones still pending, an accept and a promotion each refused with 409 `SEAT_LIMIT_REACHED` until a
+platform admin raises it. A Stripe-billed one is never refused: the change marks `seat_sync_due_at` in its own
+transaction and, once that commits, `StripeSeatSync` sets the subscription's quantity (an added seat invoiced at once, a
+removed one billing no more from the next invoice), grants each added seat its share of the month's credits for the time
+left (`seat:<workspace>:<month>:<seat number>`, so a seat removed and refilled in one month is granted once), audits
+`SEAT_ADDED`/`SEAT_REMOVED` and clears the mark — unless the staff moved again meanwhile. A sync Stripe refuses leaves
+the membership as it is and the mark for `lightmove.billing.jobs.seat-sync`.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and
