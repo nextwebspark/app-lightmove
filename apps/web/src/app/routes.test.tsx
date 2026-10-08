@@ -349,7 +349,10 @@ describe("routes — returning to where the guard interrupted", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/oauth/consent"));
-    expect(consentApi.getConsentContext).toHaveBeenCalledWith("claude", "https://claude.ai/cb", "projects:read");
+    // The path changes on navigate; the consent form mounts and asks a tick later, which a slow CI runner shows.
+    await waitFor(() =>
+      expect(consentApi.getConsentContext).toHaveBeenCalledWith("claude", "https://claude.ai/cb", "projects:read"),
+    );
   });
 });
 
