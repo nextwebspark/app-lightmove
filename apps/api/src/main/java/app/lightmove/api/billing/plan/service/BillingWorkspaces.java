@@ -40,7 +40,7 @@ public class BillingWorkspaces {
                 JOIN app_lm_role_action ra ON ra.role_id = mr.role_id
                 JOIN app_lm_action a ON a.id = ra.action_id
                 JOIN app_lm_user u ON u.id = m.user_id
-                WHERE m.workspace_id = ? AND m.status = 'ACTIVE' AND a.name = 'BILLING_MANAGE'
+                WHERE m.workspace_id = ? AND m.status = 'ACTIVE' AND u.status = 'ACTIVE' AND a.name = 'BILLING_MANAGE'
                 ORDER BY u.email""",
                 (row, rowNum) -> new BillingManager(row.getString("email"), row.getString("full_name")), workspaceId);
     }

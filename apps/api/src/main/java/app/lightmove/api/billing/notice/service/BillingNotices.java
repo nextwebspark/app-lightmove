@@ -43,7 +43,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class BillingNotices {
 
     static final Duration EXPIRY_WARNING = Duration.ofDays(7);
-    static final String BILLING_CONTACT = "billing@uncava.com";
 
     private static final DateTimeFormatter DATE =
             DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH).withZone(ZoneOffset.UTC);
@@ -68,8 +67,7 @@ public class BillingNotices {
                 ? templates.buildContactCreditsUsedUpEmail(manager.email(), manager.fullName(), workspaceName,
                         resetsOn, moreCredits)
                 : templates.buildContactCreditsLowEmail(manager.email(), manager.fullName(), workspaceName,
-                        crossed.level() == ContactCreditLevel.NINETY ? 90 : 80, crossed.creditsLeft(), resetsOn,
-                        moreCredits));
+                        crossed.level().usedPercent(), crossed.creditsLeft(), resetsOn, moreCredits));
     }
 
     @Async
@@ -120,12 +118,18 @@ public class BillingNotices {
                 .map(WorkspaceSubscription::isBilledByStripe).orElse(false);
         return buysByCard
                 ? new EmailAction("Buy more credits", billingLink())
-                : new EmailAction("Contact Uncava", "mailto:" + BILLING_CONTACT + "?subject=More%20contact%20credits");
+                : new EmailAction("Contact Uncava",
+                        "mailto:" + properties.billing().contactEmail() + "?subject=More%20contact%20credits");
     }
 
+    /** One manager's failed send never costs the others theirs: the claim has committed, so nothing retries. */
     private void sendToManagers(UUID workspaceId, Function<BillingManager, EmailMessage> email) {
         for (BillingManager manager : workspaces.managersOf(workspaceId)) {
-            emailSender.send(email.apply(manager));
+            try {
+                emailSender.send(email.apply(manager));
+            } catch (RuntimeException failure) {
+                log.error("A billing email to a manager of workspace {} could not be sent", workspaceId, failure);
+            }
         }
     }
 

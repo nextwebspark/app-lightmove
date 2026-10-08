@@ -20,7 +20,9 @@ public record BillingSettings(
         /** How long the month's credits keep being granted after a payment fails. */
         @DefaultValue("7d") Duration pastDueGrace,
         Map<String, CreditPackSettings> packs,
-        @DefaultValue StripeSettings stripe
+        @DefaultValue StripeSettings stripe,
+        /** Where an invoiced workspace is sent for more credits or a change of plan. */
+        @DefaultValue("billing@uncava.com") String contactEmail
 ) {
 
     public Map<String, CreditPackSettings> packs() {
