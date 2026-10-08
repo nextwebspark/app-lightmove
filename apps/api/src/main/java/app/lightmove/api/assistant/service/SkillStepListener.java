@@ -9,10 +9,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Shows each playbook the model loads as a step of the answer, and records it for the audit event.
- * Built per ask around that ask's recorder. Only a playbook that exists is recorded: the name is the
- * model's to write. Never throws — the library's decorator does not guard a listener, and a throwing one
- * would stop the playbook reaching the model.
+ * Each playbook loaded becomes a step and an audit entry — only one that exists, since the model writes
+ * the name. Never throws: the library does not guard a listener, and a throw would lose the playbook.
  */
 @RequiredArgsConstructor
 class SkillStepListener implements ToolCallListener {

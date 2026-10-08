@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 class AssistantSkillsTest {
 
-    private final AssistantSkills shipped = new AssistantSkills();
+    private final AssistantSkills shipped = AssistantSkills.fromClasspath();
 
     @Test
     @DisplayName("the shipped playbooks are offered by name and description, never by where they sit on disk")

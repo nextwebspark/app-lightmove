@@ -22,7 +22,7 @@ a playbook only when its question needs it.
 | `earlier-list` | "what are these", "the first three", "more like these" | list or narrow from the `<suggested_companies>` block; for more, load `find-companies` |
 | `mapped-executives` | who the position has mapped | `listMappedExecutives`, `readExecutiveProfile`, `companiesWithoutExecutives` — read-only |
 
-- **The model is offered exactly `Skill` and the assistant's own `@Tool`s** (`AssistantAgent.toolsFor`,
+- **The model is offered exactly `Skill` and the assistant's own `@Tool`s** (`AssistantToolset`, built once,
   pinned by `AssistantAgentTest`). The library's shell, file, web and sub-agent tools are never registered:
   a playbook is text, with no scripts and no files beside it, and is registered by its text alone
   (`addSkill`), so the model is never told where it sits on disk.
@@ -129,7 +129,7 @@ by account id, else by name — the rule a capture uses), stored on the turn and
    `AssistantToolContext.from(toolContext)`, never from an argument. Report what it does with
    `recorder().startStep("Searching …")` and `finishStep(index, "342 matched")`, so the person
    waiting sees it.
-2. Add its bean to `AssistantAgent.toolsFor` and its name to `AssistantAgentTest`'s allowlist.
+2. Add its bean to `AssistantToolset` and its name to `AssistantAgentTest`'s allowlist.
 3. Tell the model when to use it in the playbook that needs it, never in the core prompt.
 4. If it writes anything, it must propose rather than write. A person confirms every change.
 
@@ -137,7 +137,7 @@ by account id, else by name — the rule a capture uses), stored on the turn and
 
 1. Add `resources/assistant/skills/<name>/SKILL.md`: front matter with a lower-case hyphenated `name` and a
    one-line `description` (at most 1024 characters, the words a consultant would use), then the
-   instructions. A malformed one stops the start (`AssistantSkills`).
+   instructions. A malformed or missing one stops the start (`AssistantSkills`; the boot log lists the playbooks found).
 2. Keep it to one kind of question, and name only tools the agent already offers.
 3. Add the questions it answers to `eval/assistant-cases.json` and compare the eval before and after.
 4. Integration tests load it with `StubChatModel.callToolWhenSystemContains(agent marker, "Skill",
@@ -149,8 +149,9 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   - `controller/AssistantController` has the four endpoints.
   - `service/AssistantAskStream` streams an ask's steps and result.
   - `service/AssistantService` handles ask, the history list and reading a chat.
-  - `service/AssistantAgent` and `AssistantModelCall` run the one model call; `AssistantSkills` loads the
-    playbooks and `SkillStepListener` shows each one loaded as a step.
+  - `service/AssistantAgent` and `AssistantModelCall` run the one model call over `AssistantToolset`;
+    `AssistantSkills` (built by `config/AssistantSkillsConfig`) holds the playbooks and
+    `SkillStepListener` shows each one loaded as a step.
   - `service/CardMemory` writes an earlier list back into the chat the model reads.
   - `service/AssistantProposalService` handles accept.
   - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.

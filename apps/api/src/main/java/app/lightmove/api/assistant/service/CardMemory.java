@@ -1,8 +1,10 @@
 package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.model.ProposalOutcome;
 import app.lightmove.api.assistant.model.ProposedCompany;
+import app.lightmove.api.assistant.tool.TurnRecorder;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +56,20 @@ final class CardMemory {
         }
         lines.add("</suggested_companies>");
         return String.join("\n", lines);
+    }
+
+    /** Researched pages ride on the stored list, so an earlier company can be proposed again unbilled. */
+    static void rememberResearchOf(List<AssistantTurn> history, TurnRecorder recorder) {
+        for (AssistantTurn turn : history) {
+            AssistantProposal suggested = turn.getProposal();
+            if (suggested == null) {
+                continue;
+            }
+            suggested.researched().forEach(recorder::remember);
+            suggested.companies().stream()
+                    .filter(company -> company.operates() != null && company.key() != null)
+                    .forEach(company -> recorder.operates(company.key(), company.operates()));
+        }
     }
 
     /** A model that copies the block into its own answer would show the consultant raw markup. */

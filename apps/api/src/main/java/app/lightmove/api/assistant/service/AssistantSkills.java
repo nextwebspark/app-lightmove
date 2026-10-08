@@ -15,17 +15,11 @@ import org.springaicommunity.agent.utils.MarkdownParser;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.stereotype.Component;
 
 /**
- * The assistant's playbooks ({@code assistant/skills/<name>/SKILL.md}), offered to the model as one
- * {@code Skill} tool that returns a playbook's text by name. Read once at boot; a malformed playbook
- * fails the start rather than being offered half-written.
- *
- * <p>Each is registered by its text alone, never by its directory: the library would otherwise tell the
- * model where the playbook sits on disk and invite it to read the files beside it.
+ * The playbooks as one {@code Skill} tool. Each is registered by its text alone: by directory, the
+ * library would tell the model where it sits on disk and invite it to read the files beside it.
  */
-@Component
 public class AssistantSkills {
 
     public static final String TOOL_NAME = "Skill";
@@ -49,8 +43,9 @@ public class AssistantSkills {
     private final ToolCallback tool;
     private final List<String> names;
 
-    public AssistantSkills() {
-        this(playbooksAt(LOCATION));
+    /** Read once at boot; a malformed or missing playbook fails the start rather than being offered. */
+    public static AssistantSkills fromClasspath() {
+        return new AssistantSkills(playbooksAt(LOCATION));
     }
 
     AssistantSkills(List<String> playbooks) {

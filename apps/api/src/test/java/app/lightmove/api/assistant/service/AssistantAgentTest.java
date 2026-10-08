@@ -43,9 +43,10 @@ class AssistantAgentTest {
     private final TurnRecorder recorder = new TurnRecorder(step -> { });
     private final AssistantToolContext context = new AssistantToolContext(UUID.randomUUID(), UUID.randomUUID(),
             recorder);
-    private final AssistantAgent agent = new AssistantAgent(model, new AssistantSkills(), mandateTools,
-            mock(CompanySearchTools.class), mock(NamedCompanyTools.class), mock(SectorTools.class), proposalTools,
-            mock(CandidateTools.class), hiringSides, new ObjectMapper());
+    private final AssistantToolset toolset = new AssistantToolset(AssistantSkills.fromClasspath(), new ObjectMapper(),
+            mandateTools, mock(CompanySearchTools.class), mock(NamedCompanyTools.class), mock(SectorTools.class),
+            proposalTools, mock(CandidateTools.class));
+    private final AssistantAgent agent = new AssistantAgent(model, toolset, mandateTools, proposalTools, hiringSides);
 
     @BeforeEach
     void aMandateWithAFirm() {
@@ -60,7 +61,7 @@ class AssistantAgentTest {
     @Test
     @DisplayName("the model is offered the playbooks and the assistant's own tools, and nothing that reaches the host")
     void offersOnlyTheAssistantsTools() {
-        List<String> offered = agent.toolsFor(recorder).stream()
+        List<String> offered = toolset.forAsk(recorder).stream()
                 .map(tool -> tool.getToolDefinition().name())
                 .toList();
 
@@ -73,7 +74,7 @@ class AssistantAgentTest {
     @Test
     @DisplayName("loading a playbook is a step of the answer, and recorded once however often it is loaded")
     void recordsEachPlaybookLoaded() {
-        ToolCallback skill = agent.toolsFor(recorder).stream()
+        ToolCallback skill = toolset.forAsk(recorder).stream()
                 .filter(tool -> tool.getToolDefinition().name().equals(AssistantSkills.TOOL_NAME))
                 .findFirst()
                 .orElseThrow();

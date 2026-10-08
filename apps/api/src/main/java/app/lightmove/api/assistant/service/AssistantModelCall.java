@@ -19,13 +19,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * The assistant's one model call: the core prompt, the chat's recent turns and the tools, run through
- * Spring AI's tool loop until the model answers. The tools see only the server's
- * {@link AssistantToolContext}.
- *
- * <p>Deliberately not {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor phrase list would refuse
- * ordinary conversation ("ignore the declined ones"); #429 owns the replacement. The ChatCallLog
- * attribution is kept, since that keeps prompt and answer content out of the logs.
+ * The assistant's one model call, run through Spring AI's tool loop. Deliberately not
+ * {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor would refuse "ignore the declined ones" (#429).
  */
 @Service
 public class AssistantModelCall {
