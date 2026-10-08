@@ -7,10 +7,24 @@ import * as assistantApi from "../api/assistantApi";
 import type { AssistantTurn, ProposalOutcome } from "../api/types";
 import { AssistantAnswer } from "./AssistantAnswer";
 import { AssistantProposalCard, outcomeLine } from "./AssistantProposalCard";
+import { AssistantQuestionCard } from "./AssistantQuestionCard";
 import { AssistantSteps } from "./AssistantSteps";
 
-/** One question and its answer, with the card it proposed. Filing the card happens here. */
-export function AssistantTurnView({ turn, projectId }: { turn: AssistantTurn; projectId: string }) {
+/**
+ * One question and its answer, with the card it proposed or the questions it asked. Filing the card happens
+ * here; answering the questions is the panel's next ask, offered only while this is the chat's last turn.
+ */
+export function AssistantTurnView({
+  turn,
+  projectId,
+  answerable = false,
+  onAnswer,
+}: {
+  turn: AssistantTurn;
+  projectId: string;
+  answerable?: boolean;
+  onAnswer?: (answers: string) => void;
+}) {
   const queryClient = useQueryClient();
   const rowsChanged = useProjectRowsChanged();
   const toast = useToast();
@@ -38,6 +52,16 @@ export function AssistantTurnView({ turn, projectId }: { turn: AssistantTurn; pr
       <AssistantSteps steps={turn.steps} />
 
       {turn.answer && <AssistantAnswer text={turn.answer} />}
+
+      {turn.questions && turn.questions.length > 0 && (
+        <div className="mt-3">
+          <AssistantQuestionCard
+            questions={turn.questions}
+            answerable={answerable && Boolean(onAnswer)}
+            onAnswer={(answers) => onAnswer?.(answers)}
+          />
+        </div>
+      )}
 
       {turn.proposal && (
         <div className="mt-3">
