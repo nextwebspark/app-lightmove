@@ -28,8 +28,8 @@ public sealed interface PaymentEvent {
             implements PaymentEvent {
     }
 
-    /** {@code invoice.payment_failed} on a subscription. */
-    record InvoicePaymentFailed(String eventId, String type, Instant createdAt, String customerId,
+    /** {@code invoice.payment_failed} on a subscription; Stripe sends one per attempt at the same invoice. */
+    record InvoicePaymentFailed(String eventId, String type, Instant createdAt, String invoiceId, String customerId,
                                 String subscriptionId) implements PaymentEvent {
     }
 

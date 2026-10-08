@@ -97,8 +97,8 @@ class StripeEventReader {
         if (subscriptionId == null) {
             return ignored(event, at);
         }
-        return new PaymentEvent.InvoicePaymentFailed(event.getId(), event.getType(), at, invoice.getCustomer(),
-                subscriptionId);
+        return new PaymentEvent.InvoicePaymentFailed(event.getId(), event.getType(), at, invoice.getId(),
+                invoice.getCustomer(), subscriptionId);
     }
 
     /** A subscription's own Checkout completes too; only a paid pack of ours is read. */

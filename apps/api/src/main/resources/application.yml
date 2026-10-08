@@ -711,6 +711,7 @@ lightmove:
       monthly-reset: ${BILLING_MONTHLY_RESET_CRON:0 7 * * * *}
       reconcile: ${BILLING_RECONCILE_CRON:0 40 2 * * *}
       seat-sync: ${BILLING_SEAT_SYNC_CRON:0 */5 * * * *}
+      purchased-credit-expiry: ${BILLING_PURCHASED_CREDIT_EXPIRY_CRON:0 20 6 * * *}
     prices:
       email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
       phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
@@ -732,6 +733,8 @@ lightmove:
       valid-for: ${BILLING_GRANDFATHER_VALID_FOR:90d}
     # After a payment fails, the month's credits keep coming for this long; past it, none until Stripe is paid.
     past-due-grace: ${BILLING_PAST_DUE_GRACE:7d}
+    # Where an invoiced workspace's billing emails send it for more credits.
+    contact-email: ${BILLING_CONTACT_EMAIL:billing@uncava.com}
     # Credits a workspace can buy, kept 12 months. Prices are in fils before VAT; each id is a one-off Stripe price.
     packs:
       contact-100:

@@ -39,6 +39,14 @@ public interface CreditGrantRepository extends JpaRepository<CreditGrant, UUID> 
             WHERE g.workspaceId = :workspaceId AND g.remaining > 0 AND g.expiresAt <= :now""")
     long sumLapsedRemaining(UUID workspaceId, Instant now);
 
+    /** Bought credits still unspent that lapse after {@code now} and by {@code horizon}, soonest first. */
+    @Query("""
+            SELECT g FROM CreditGrant g
+            WHERE g.source = app.lightmove.api.billing.credit.constant.CreditGrantSource.PURCHASED
+              AND g.remaining > 0 AND g.expiresAt > :now AND g.expiresAt <= :horizon
+            ORDER BY g.expiresAt, g.id""")
+    List<CreditGrant> findPurchasedExpiring(Instant now, Instant horizon);
+
     /** The plan credits in force now: the month's grant, and any a seat added during it. */
     @Query("""
             SELECT new app.lightmove.api.billing.credit.model.MonthlyCredits(

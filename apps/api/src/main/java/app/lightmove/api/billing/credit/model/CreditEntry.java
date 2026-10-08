@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
 /**
- * One line of the contact-credit ledger (V118), never updated: a trigger refuses it, so {@code @Immutable} keeps
+ * One line of the contact-credit ledger (V121), never updated: a trigger refuses it, so {@code @Immutable} keeps
  * Hibernate from ever flushing one.
  */
 @Entity

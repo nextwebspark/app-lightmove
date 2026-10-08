@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
-/** A workspace's one Stripe customer (V122), which every webhook names. */
+/** A workspace's one Stripe customer (V125), which every webhook names. */
 @Entity
 @Table(name = "app_lm_billing_customer")
 @Immutable

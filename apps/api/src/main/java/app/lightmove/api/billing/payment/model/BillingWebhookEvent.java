@@ -9,7 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.Immutable;
 
-/** A Stripe event already handled (V122). */
+/** A Stripe event already handled (V125). */
 @Entity
 @Table(name = "app_lm_billing_webhook_event")
 @Immutable

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A workspace's staff seats and billing month as fair use counts them. A workspace founded after V118 has no
+ * A workspace's staff seats and billing month as fair use counts them. A workspace founded after V121 has no
  * subscription yet, so its active staff are counted instead; never fewer than one seat.
  */
 @Service

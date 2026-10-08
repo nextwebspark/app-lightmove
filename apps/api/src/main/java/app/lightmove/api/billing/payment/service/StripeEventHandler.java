@@ -10,6 +10,7 @@ import app.lightmove.api.billing.payment.model.BillingCustomer;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
 import app.lightmove.api.billing.payment.model.PlanPrice;
 import app.lightmove.api.billing.payment.model.StripeSubscriptionState;
+import app.lightmove.api.billing.payment.model.SubscriptionPaymentFailed;
 import app.lightmove.api.billing.payment.repository.BillingCustomerRepository;
 import app.lightmove.api.billing.payment.repository.BillingWebhookEventRepository;
 import app.lightmove.api.billing.plan.constant.BillingInterval;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +62,7 @@ public class StripeEventHandler {
     private final CreditLedger ledger;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final ApplicationEventPublisher publisher;
     private final Clock clock;
 
     @Transactional
@@ -163,6 +166,7 @@ public class StripeEventHandler {
                             .target("workspace", workspaceId)
                             .detail("status", SubscriptionStatus.PAST_DUE.name())
                             .record();
+                    publisher.publishEvent(new SubscriptionPaymentFailed(workspaceId, failed.invoiceId()));
                 });
     }
 

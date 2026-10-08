@@ -14,7 +14,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** Credits reserved for one paid action until it is captured, released or refunded (V118). */
+/** Credits reserved for one paid action until it is captured, released or refunded (V121). */
 @Entity
 @Table(name = "app_lm_credit_hold")
 @Getter

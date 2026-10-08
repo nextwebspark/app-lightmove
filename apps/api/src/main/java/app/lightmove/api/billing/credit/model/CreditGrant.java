@@ -14,7 +14,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** One bucket of contact credits a spend drains (V118); only {@code CreditLedger} changes what remains. */
+/** One bucket of contact credits a spend drains (V121); only {@code CreditLedger} changes what remains. */
 @Entity
 @Table(name = "app_lm_credit_grant")
 @Getter
