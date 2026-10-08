@@ -27,8 +27,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Answers a question in one request: {@link AssistantSupervisor} has the right specialist answer it,
- * and the answer is saved as a turn of the chat. Nothing is written when the model call fails.
+ * Answers a question in one request through {@link AssistantAgent}, and saves the answer as a turn of
+ * the chat. Nothing is written when the model call fails.
  */
 @Slf4j
 @Service
@@ -39,17 +39,17 @@ public class AssistantService {
 
     private final AssistantThreadRepository threads;
     private final AssistantTurnRepository turns;
-    private final AssistantSupervisor supervisor;
+    private final AssistantAgent agent;
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final AssistantSettings settings;
 
     public AssistantService(AssistantThreadRepository threads, AssistantTurnRepository turns,
-                            AssistantSupervisor supervisor, TransactionTemplate transactions, AuditService audit,
+                            AssistantAgent agent, TransactionTemplate transactions, AuditService audit,
                             LightMoveProperties properties) {
         this.threads = threads;
         this.turns = turns;
-        this.supervisor = supervisor;
+        this.agent = agent;
         this.transactions = transactions;
         this.audit = audit;
         this.settings = properties.assistant();
@@ -94,14 +94,15 @@ public class AssistantService {
 
         TurnRecorder recorder = new TurnRecorder(onStep, onProposal);
         AssistantToolContext context = new AssistantToolContext(workspaceId, projectId, recorder);
-        String answer = supervisor.answer(question, history, context);
+        String answer = agent.answer(question, history, context);
 
         AssistantTurnResponse saved = transactions.execute(status -> {
             AssistantThread thread = existing != null ? existing
                     : threads.save(AssistantThread.of(workspaceId, userId, projectId,
                             titleOf(question)));
             AssistantTurn turn = turns.saveAndFlush(AssistantTurn.answered(thread, question, answer,
-                    recorder.steps(), recorder.proposal()));
+                    recorder.steps(), recorder.askedQuestions() ? null : recorder.proposal(),
+                    recorder.questions()));
             threads.touch(thread.getId(), Instant.now());
             return AssistantTurnResponse.of(turn);
         });
@@ -114,7 +115,8 @@ public class AssistantService {
                 .detail("vendorSearches", String.valueOf(recorder.vendorSearches()))
                 .detail("answerMs", String.valueOf(answerMs))
                 .detail("toolSteps", String.valueOf(recorder.steps().size()))
-                .detail("specialists", String.join(",", recorder.consultedSpecialists()))
+                .detail("skills", String.join(",", recorder.skillsUsed()))
+                .detail("questionsAsked", String.valueOf(recorder.questions().size()))
                 .detail("companiesOnCard", String.valueOf(
                         recorder.proposal() == null ? 0 : recorder.proposal().companies().size()))
                 .record();

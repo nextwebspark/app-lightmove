@@ -1,35 +1,63 @@
 # The Uncava Assistant
 
 A chat inside a project. You ask for companies ("top 10 retail companies in the UAE"). The assistant
-searches the company universe (`app_lm_apollo_companies`) and answers with a **card** of companies
-that you tick and file into the mandate as In universe, Shortlisted or Declined. You can also ask about
+searches the company universe (`app_lm_apollo_companies`) and answers with **suggested companies**,
+listed under the answer, that you tick and file into the mandate as In universe, Shortlisted or Declined. You can also ask about
 the executives the mandate has mapped ("who have we mapped at Aldar?"); that answer is text only.
 
-## Supervisor and specialists ("agent as a tool")
+## One agent, playbooks on demand
 
-Each domain is a **specialist** (`AssistantSpecialist`): its own system prompt and its own few tools,
-run as a nested model call by `AssistantModelCall.askSpecialist`. `AssistantSupervisor` picks who answers:
+One model call answers every question (`AssistantAgent` → `AssistantModelCall.ask`). Its system prompt is
+short and always on — `prompts/assistant-core.st`: who the assistant is, the data and injection guards,
+what it may never say about a person, and the hiring company and brief last. Everything that applies to one
+kind of question lives in a **playbook**, `resources/assistant/skills/<name>/SKILL.md`, which the model loads
+by name through the `Skill` tool (`AssistantSkills`, over `spring-ai-agent-utils`' `SkillsTool`) before it
+does anything else. The tool's description lists every playbook's name and description, so the model reads
+a playbook only when its question needs it.
 
-- **One specialist available** → it answers directly. There is no supervisor round, so one domain costs
-  what it did before specialists existed.
-- **Several** → one supervisor call (`prompts/assistant-supervisor.st`, no thinking budget) whose tools
-  are the specialists, each wrapped per ask as a `SpecialistToolCallback` taking `{task}`. The callback
-  reads whom it acts for from the server's `ToolContext`, never from the model's input. It re-checks
-  `availableTo`, runs each specialist once per ask (asked again, it hands back its first answer with no
-  second nested call), refuses past `max-specialist-calls-per-ask` (3) distinct specialists, keeps only
-  the first 300 characters of `task` (and ignores one that is not JSON), and records an "Asking the …
-  specialist" step. The supervisor passes one specialist's answer back unchanged.
-- Every model call is sent the earlier cards (`CardMemory`), so `AssistantModelCall` strips a card block
-  from every answer it returns, whoever wrote it.
+| Playbook | When | What it tells the model |
+|---|---|---|
+| `find-companies` | companies by sector, country, size, what they do ("watch distributors"), "top N" | search + name lookup (+ `searchCompaniesByActivity` for an activity) in one turn, `proposeCompanies`, a two-sentence answer, adjacent industries |
+| `similar-companies` | a named company's competitors, peers, "companies like X" | `identifyCompany`; ask which one when several share the name; `findSimilarCompanies` + name lookup in one turn; say what was loosened |
+| `recommend-sectors` | which sectors to target | reason from the brief, name only what `describeMarket` / `adjacentIndustries` report, propose nothing |
+| `earlier-list` | "what are these", "the first three", "more like these" | list or narrow from the `<suggested_companies>` block; for more, load `find-companies` |
+| `mapped-executives` | who the position has mapped | `listMappedExecutives`, `readExecutiveProfile`, `companiesWithoutExecutives` — read-only |
 
-| Specialist | Prompt id | Tools | Available |
-|---|---|---|---|
-| `CompanySpecialist` | `assistant-turn` (kept, so existing dashboards still match) | the company tools below | on a project |
-| `CandidateSpecialist` | `assistant-candidates` | `CandidateTools`: `listMappedExecutives`, `readExecutiveProfile`, `companiesWithoutExecutives` — read-only | on a project |
-
-The supervisor's prompt id is `assistant-supervisor`. The whole ask is still one `LlmBudget.ASSISTANT`
-unit, and `ASSISTANT_ASKED` records the `specialists` consulted. Spring AI runs a response's tool calls
-one after another, so a question needing two specialists waits for both.
+- **The model is offered exactly `Skill`, `AskUserQuestionTool` and the assistant's own `@Tool`s** (`AssistantToolset`, built once,
+  pinned by `AssistantAgentTest`). The library's shell, file, web and sub-agent tools are never registered:
+  a playbook is text, with no scripts and no files beside it, and is registered by its text alone
+  (`addSkill`), so the model is never told where it sits on disk.
+- A playbook load is a step of the answer ("Following the find companies playbook", `SkillStepListener`, a
+  `ToolCallListener` around the `Skill` tool) and `ASSISTANT_ASKED` records the `skills` loaded. A name the
+  library does not hold is answered "Skill not found" and recorded nowhere.
+- **Asking instead of guessing** (`AskUserQuestionCallback`): the library's `AskUserQuestionTool` lets the
+  model put one to four multiple-choice questions (a 12-character header, two to four options with a
+  description, single or multi select, and an "Other" box the panel always adds). The library's handler is
+  synchronous — it waits for the answers — and an ask cannot: it is one request closed at 50 seconds, holding
+  one of four slots, whose answer may reach another instance. So the handler records the questions on the
+  `TurnRecorder` and the tool tells the model to stop with one short line; the turn is saved with its
+  `questions` and a fixed lead-in as its answer, and no companies are suggested. The tool is deliberately not
+  `returnDirect`: Spring AI reads that before the call, so a question the tool turns away would have become the
+  answer. It turns one away when no playbook is loaded yet (the eval and a live chat both asked where a named
+  company operates, which a lookup finds), when this answer already suggested companies, and when
+  `AssistantQuestions` leaves nothing the card can draw (a question, a header of at most 12 characters and two
+  to four labelled options, four questions at most) — the model is then told to carry on without asking.
+  The panel draws them (`AssistantQuestionCard`); **Send answers** is the chat's next ask ("Region: GCC only ·
+  Ownership: Listed, Family-owned", without the model's "(Recommended)" mark), and `QuestionMemory` replays the
+  questions to the model as an `<asked_consultant>` block and sends that message inside `<consultant_answers>`
+  beside the request it answers. Sent bare, the answers read as a remark: the model answered from the chat's
+  earlier answers without searching and named companies no tool returned. The model may ask again on a later
+  turn when it judges it necessary; within one turn only the first set is kept. The library's `answers`
+  parameter is taken out of the schema the model sees, so it cannot answer its own questions.
+  `ASSISTANT_ASKED` records `questionsAsked`.
+- Every call is sent the earlier lists (`CardMemory`), so `AssistantModelCall` strips a
+  `<suggested_companies>` block from the answer if the model echoes one.
+- The whole ask is one `LlmBudget.ASSISTANT` unit; the prompt id is still `assistant-turn`, so existing
+  dashboards match. Loading a playbook is one extra round of the same call.
+- Answers never call the suggested companies a "card": the panel draws them under the answer with a line
+  saying what they are ("6 suggested · 2 already in this position · 1 from LinkedIn").
+- `AssistantEval` (`@Tag("eval")`) asks the real model the questions in `eval/assistant-cases.json` over a
+  seeded universe and appends what it loaded, ran and suggested to `docs/eval/assistant-eval.md`.
 
 ## One question, one request
 
@@ -41,7 +69,8 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
       thread; at 50s an unfinished answer closes the stream as ASSISTANT_STILL_ANSWERING and is
       still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
         ├─ find my chat in this project (or start one titled from the question)
-        ├─ last N question/answer pairs → history; each answer carries its card as a <card> block
+        ├─ last N question/answer pairs → history; each answer carries its list as a
+        │  <suggested_companies> block
         │  (CardMemory: "[new|already <stage>] key · name · country · staff", and what was filed;
         │  the newest three cards row by row, older ones as title + count only), because the
         │  answer text never lists the companies. Researched pages on those cards are remembered,
@@ -50,9 +79,9 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │  the workspace's company (V68) and the persona its admins wrote in Settings → General (V69);
         │  at an agency (V84), the mandate's client and the persona recorded in its drawer (V85), with
         │  the agency named in one line. Framed as data, never instructions
-        ├─ AssistantSupervisor → the company specialist's ChatClient.call() with the tools +
-        │  ToolContext {workspaceId, projectId, TurnRecorder} (through the supervisor when several
-        │  specialists are available)
+        ├─ AssistantAgent → one ChatClient.call() with assistant-core.st, the Skill tool and the
+        │  tools below + ToolContext {workspaceId, projectId, TurnRecorder}
+        │     Skill(name)            → the playbook for this kind of question
         │     readMandateBrief       → the position only (never compensation or internal notes)
         │     describeMarket         → exact country / industry spellings
         │     searchCompanyUniverse  → top 25 by headcount, with the total matched; up to five
@@ -62,6 +91,18 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │                              operator first, then the universe, then LinkedIn in the
         │                              country via Bright Data, then the brand's own page anywhere
         │                              (cached per page, 30 days)
+        │     identifyCompany        → every company a name could mean (database by every name word,
+        │                              else one Bright Data name search), each with its niche
+        │     findSimilarCompanies   → the same niche (rare keywords shared, weighted by rarity),
+        │                              then sector, then headcount ¼–4×; headcount widened to
+        │                              ⅒–10×, then dropped, then the sector, until enough are found
+        │                              — never the country; a shortfall goes to Bright Data's
+        │                              company dataset in the same countries (country_codes_array)
+        │                              and headcount ⅒–10×, by the niche's words in specialties /
+        │                              about: first in the sector's V2 industries, then without
+        │                              (≤10 hits in all; a search finding nobody costs nothing)
+        │     searchCompaniesByActivity → companies by what they do: the database's keywords for
+        │                              each word, then Bright Data's specialties / about text
         │     adjacentIndustries     → the sectors beside one, from industry-adjacency.json
         │     proposeCompanies(ids)  → account ids from the universe, LinkedIn slugs this answer or
         │                              an earlier card researched; drops off-limits, stamps each
@@ -94,7 +135,7 @@ by account id, else by name — the rule a capture uses), stored on the turn and
 | Table | Row |
 |---|---|
 | `app_lm_assistant_thread` | One chat: `workspace_id`, `user_id`, `project_id`, `title`. Private to its user. |
-| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V71), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome). |
+| `app_lm_assistant_turn` | One answered question: `question`, `answer`, `steps` (jsonb, V71), `proposal` (jsonb card), `proposal_accepted` (jsonb outcome), `questions` (jsonb, V120: the clarifying questions asked in place of an answer). |
 
 ## Security
 
@@ -108,11 +149,11 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   account ids and reads every name and figure from the universe row. Accept files only ids that the
   stored card holds.
 - A chat that is not yours answers 404.
-- **What a model may read about a person is an allowlist.** The candidates specialist's tools return
+- **What a model may read about a person is an allowlist.** The mapped-executives tools return
   `MappedExecutiveSummary` (name, title, company, seniority, status, location, years) and
   `CandidateDossier`. Contacts, compensation, notes, custom fields, nationality and gender never reach
   its prompt.
-- Tool output is data. The system prompt (`prompts/assistant-system.st`) says so. The real guard is
+- Tool output is data. The core prompt (`prompts/assistant-core.st`) says so. The real guard is
   the rule above, not the sentence.
 
 ## Adding a tool
@@ -121,19 +162,19 @@ by account id, else by name — the rule a capture uses), stored on the turn and
    `AssistantToolContext.from(toolContext)`, never from an argument. Report what it does with
    `recorder().startStep("Searching …")` and `finishStep(index, "342 matched")`, so the person
    waiting sees it.
-2. Return it from the owning specialist's `tools()`.
-3. Tell the model when to use it in that specialist's prompt.
+2. Add its bean to `AssistantToolset` and its name to `AssistantAgentTest`'s allowlist.
+3. Tell the model when to use it in the playbook that needs it, never in the core prompt.
 4. If it writes anything, it must propose rather than write. A person confirms every change.
 
-## Adding a specialist
+## Adding a playbook
 
-1. Implement `AssistantSpecialist` as a `@Service` in `assistant/service/`. Give it a `toolName`, a
-   `description` the supervisor decides by, a `promptId` of its own, and an `availableTo` that checks
-   the action its data needs. The check is the server's; the model only ever sees specialists that
-   pass it.
-2. Its tools return an allowlisted record, never a DTO a screen reads.
-3. Give its prompt a marker sentence. Integration tests route to it with
-   `StubChatModel.callToolWhenSystemContains(supervisor marker, toolName, …)`.
+1. Add `resources/assistant/skills/<name>/SKILL.md`: front matter with a lower-case hyphenated `name` and a
+   one-line `description` (at most 1024 characters, the words a consultant would use), then the
+   instructions. A malformed or missing one stops the start (`AssistantSkills`; the boot log lists the playbooks found).
+2. Keep it to one kind of question, and name only tools the agent already offers.
+3. Add the questions it answers to `eval/assistant-cases.json` and compare the eval before and after.
+4. Integration tests load it with `StubChatModel.callToolWhenSystemContains(agent marker, "Skill",
+   "{\"command\":\"<name>\"}")`.
 
 ## Code map
 
@@ -141,15 +182,25 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   - `controller/AssistantController` has the four endpoints.
   - `service/AssistantAskStream` streams an ask's steps and result.
   - `service/AssistantService` handles ask, the history list and reading a chat.
-  - `service/AssistantSupervisor`, `AssistantModelCall`, `SpecialistToolCallback` and the specialists
-    (`CompanySpecialist`, `CandidateSpecialist`) choose and run who answers.
-  - `service/CardMemory` writes an earlier card back into the chat the model reads.
+  - `service/AssistantAgent` and `AssistantModelCall` run the one model call over `AssistantToolset`;
+    `AssistantSkills` (built by `config/AssistantSkillsConfig`) holds the playbooks and
+    `SkillStepListener` shows each one loaded as a step.
+  - `service/CardMemory` writes an earlier list back into the chat the model reads, and `QuestionMemory`
+    the questions an earlier answer asked.
+  - `service/AskUserQuestionCallback` offers the library's question tool, ending the answer rather than
+    waiting for one.
   - `service/AssistantProposalService` handles accept.
-  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `CompanyDiscoveryTools` (over `CompanyDiscovery`), `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - The niche read is `ApolloCompanyQueryService.similarTo` / `distinctiveKeywords` / `namedLike` (`strategy`), over V33's
+    `app_lm_apollo_keywords`: a keyword on more than 3% of the universe distinguishes nothing and is not counted. The
+    LinkedIn half is `CompanyResearch.pagesNamed` / `byActivity` over the company dataset's synchronous search, every
+    hit cached in `app_lm_vendor_company`.
 - Frontend `apps/web/src/features/assistant`:
   - `AssistantProvider` holds whether the panel is open and the chat shown per project.
   - `components/AssistantPanel` has the history list, New chat, the transcript and the composer.
   - `components/AssistantTurnView` shows one question and answer and files the card.
   - `components/AssistantSteps` draws the step list, live and saved.
-  - `components/AssistantProposalCard` draws the card.
+  - `components/AssistantProposalCard` draws the suggested companies.
+  - `components/AssistantQuestionCard` draws the questions an answer asked, and sends the choices as the
+    next ask while it is the chat's last turn.
   - `AssistantDock` / `AssistantLauncher` handle layout.

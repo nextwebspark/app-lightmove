@@ -69,7 +69,7 @@ class ProposalToolsTest {
         assertThat(recorder.steps()).singleElement().satisfies(step -> {
             assertThat(step.label()).isEqualTo("Preparing 3 companies");
             assertThat(step.detail())
-                    .isEqualTo("1 on the card, 2 left out (off limits or not found)");
+                    .isEqualTo("1 suggested, 2 left out (off limits or not found)");
         });
     }
 
@@ -84,7 +84,7 @@ class ProposalToolsTest {
         CardResult carried = tools().proposeCompanies("Many",
                 many.stream().map(CompanyRow::apolloAccountId).toList(), context());
 
-        assertThat(carried.onCard()).isEqualTo(CAP);
+        assertThat(carried.suggested()).isEqualTo(CAP);
     }
 
     @Test
@@ -139,7 +139,7 @@ class ProposalToolsTest {
     }
 
     @Test
-    @DisplayName("a company the mandate already filed stays on the card with its stage, after the new ones")
+    @DisplayName("a company the mandate already filed stays suggested with its stage, after the new ones")
     void keepsWhatTheMandateHoldsWithItsStage() {
         marketHolding(row("a1", "ACWA Power", "Saudi Arabia", 4_000),
                 row("a2", "Marafiq", "Saudi Arabia", 2_400));
@@ -154,7 +154,7 @@ class ProposalToolsTest {
         assertThat(recorder.proposal().companies()).extracting("companyName", "stage").containsExactly(
                 tuple("Marafiq", null), tuple("IKEA", "declined"), tuple("ACWA Power", "shortlisted"));
         assertThat(recorder.steps()).singleElement().extracting(AssistantStep::detail)
-                .isEqualTo("3 on the card, 2 already in the mandate");
+                .isEqualTo("3 suggested, 2 already in the mandate");
     }
 
     @Test

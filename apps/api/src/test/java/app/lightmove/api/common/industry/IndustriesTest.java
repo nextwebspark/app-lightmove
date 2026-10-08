@@ -124,6 +124,14 @@ class IndustriesTest {
                 assertThat(grouped).as("sector for '%s'", label).contains(label));
     }
 
+    @Test
+    @DisplayName("a universe industry is asked of LinkedIn as every V2 industry it covers, finer leaves included")
+    void namesEveryLinkedInIndustryALabelCovers() {
+        assertThat(Industries.linkedInLabelsOf("Retail")).contains("Retail", "Retail Pharmacies", "Online and Mail Order Retail");
+        assertThat(Industries.linkedInLabelsOf("luxury goods & jewelry")).containsExactly("Retail Luxury Goods and Jewelry");
+        assertThat(Industries.linkedInLabelsOf("not an industry")).isEmpty();
+    }
+
     /** The label every entry of the map resolves to — read from the file, not from the resolver. */
     private static List<String> universeLabels() {
         try (InputStream in = new ClassPathResource("data/industry-map.json").getInputStream()) {

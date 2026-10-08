@@ -13,6 +13,7 @@
   "scripts": {
     "dev": "npm run dev:db && concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "./ops/dev/api.sh",
+    "dev:stop": "./ops/dev/stop.sh",
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:db": "./ops/dev/db.sh up",
     "dev:db:down": "./ops/dev/db.sh down",
