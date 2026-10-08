@@ -42,7 +42,12 @@ public enum WorkspaceEventType implements AuditEventType {
     OAUTH_CLIENT_REGISTERED,
 
     FAIR_USE_REACHED,
-    CREDIT_BALANCE_DRIFT;
+    CREDIT_BALANCE_DRIFT,
+
+    BILLING_CHECKOUT_STARTED,
+    BILLING_PORTAL_OPENED,
+    SUBSCRIPTION_CHANGED,
+    CREDITS_PURCHASED;
 
     @Override
     public String code() {

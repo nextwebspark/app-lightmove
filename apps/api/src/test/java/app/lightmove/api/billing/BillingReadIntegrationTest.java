@@ -65,7 +65,7 @@ class BillingReadIntegrationTest extends BillingFlowSupport {
         assertThat(billing.at("/prices/email").asLong()).isEqualTo(1);
         assertThat(billing.at("/prices/phone").asLong()).isEqualTo(5);
         assertThat(billing.at("/paymentMethod/kind").asText()).isEqualTo("INVOICED");
-        assertThat(billing.get("stripeOffered").asBoolean()).isFalse();
+        assertThat(billing.get("stripeOffered").asBoolean()).isTrue();
     }
 
     @Test

@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, and the Settings → Billing reads, `overview`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, and Stripe, `payment`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -949,6 +949,20 @@ more credits an admin's) and as the topbar chip, absent below 80%. Every refused
 `onRequestRefused`, so a 402 `INSUFFICIENT_CREDITS` or a 429 `FAIR_USE_REACHED` from any screen opens one sheet
 (`BillingRefusalSheets`, mounted once in `main.tsx`) and its caller stays quiet (`isBillingRefusal`). Prices on the
 Find buttons are the read's `prices`, never literals; search carries none.
+**Stripe (#743, V122)** is `billing/payment`'s `PaymentGateway` (`StripePaymentGateway` over `stripe-java`, whose
+release pins the API version the webhook endpoint must be made on; a blank `lightmove.billing.stripe.secret-key` leaves
+`UnconfiguredPaymentGateway`, every workspace invoiced and `stripeOffered` false). An admin (`BILLING_MANAGE`, audited)
+is sent to Checkout for a per-seat plan — quantity the workspace's staff, the price id a deployment's
+(`…stripe.prices.*`, test and live differ) — or a pack (`…billing.packs`), or to the Customer Portal, which is where a
+Stripe subscriber changes plan; Checkout collects the address and TRN for Stripe Tax's 5% VAT. One customer per
+workspace (`app_lm_billing_customer`), made on first need, is how a webhook finds its workspace. The webhook
+(`/api/v1/billing/webhooks/stripe`, public, the signature its credential, a 400 with nothing written otherwise) claims
+each event in `app_lm_billing_webhook_event` in the transaction that handles it (`StripeEventHandler`): a subscription
+event or paid invoice sets plan, seats, period and status unless an event created later already did
+(`stripe_synced_at`); a paid invoice opening a period grants its month under the monthly reset's own key; an upgrade
+tops the month up to the new plan at once (`upgrade:<workspace>:<month>:<plan>`); a paid pack is a `PURCHASED` grant
+keyed on its payment intent, valued at what was paid before VAT and kept a year. A failed payment is `PAST_DUE`
+(`past_due_since`); past `past-due-grace` (7d) the reset grants no further month until Stripe is paid.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

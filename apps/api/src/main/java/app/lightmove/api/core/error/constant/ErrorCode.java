@@ -406,6 +406,17 @@ public enum ErrorCode {
     /** A platform edit to a subscription Stripe bills: Stripe's webhooks own its plan and seats. */
     SUBSCRIPTION_BILLED_BY_STRIPE(HttpStatus.CONFLICT, "This workspace pays through Stripe, so its plan is changed there"),
 
+    /** Checkout or the portal on a deployment without Stripe, or Stripe refusing the request. */
+    BILLING_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Paying online is not available right now"),
+
+    /** A plan with no Stripe price for the interval asked, Enterprise included: its price is agreed, not bought. */
+    BILLING_PLAN_UNKNOWN(HttpStatus.BAD_REQUEST, "That plan cannot be bought online"),
+
+    BILLING_PACK_UNKNOWN(HttpStatus.BAD_REQUEST, "That credit pack does not exist"),
+
+    /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
+    BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

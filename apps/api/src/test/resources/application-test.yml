@@ -67,6 +67,18 @@ lightmove:
   # so they run as before enforcement; the classes testing enforcement switch it back on.
   billing:
     enforce: false
+    # Ids the recording payment gateway is handed; no test reaches Stripe.
+    packs:
+      contact-100:
+        stripe-price-id: price_test_pack_100
+      contact-500:
+        stripe-price-id: price_test_pack_500
+    stripe:
+      prices:
+        core-monthly: price_test_core_monthly
+        core-annual: price_test_core_annual
+        pro-monthly: price_test_pro_monthly
+        pro-annual: price_test_pro_annual
 
   # Small, so the size refusal is reachable with a fixture of a few kilobytes.
   person-documents:

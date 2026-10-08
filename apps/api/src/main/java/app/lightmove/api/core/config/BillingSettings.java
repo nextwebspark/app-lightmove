@@ -1,6 +1,7 @@
 package app.lightmove.api.core.config;
 
 import java.time.Duration;
+import java.util.Map;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
@@ -15,5 +16,14 @@ public record BillingSettings(
         @DefaultValue BillingJobSettings jobs,
         @DefaultValue CreditPriceSettings prices,
         @DefaultValue FairUseSettings fairUse,
-        @DefaultValue GrandfatherSettings grandfather
-) {}
+        @DefaultValue GrandfatherSettings grandfather,
+        /** How long the month's credits keep being granted after a payment fails. */
+        @DefaultValue("7d") Duration pastDueGrace,
+        Map<String, CreditPackSettings> packs,
+        @DefaultValue StripeSettings stripe
+) {
+
+    public Map<String, CreditPackSettings> packs() {
+        return packs == null ? Map.of() : packs;
+    }
+}

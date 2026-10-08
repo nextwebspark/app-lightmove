@@ -8,6 +8,7 @@ import app.lightmove.api.billing.plan.model.BillingPlan;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.BillingPlanRepository;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
+import app.lightmove.api.core.config.LightMoveProperties;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -23,7 +24,8 @@ import org.springframework.stereotype.Component;
  * Grants each workspace on a live plan its month's contact credits, expiring with the month: no rollover, since the
  * ledger expires the old month's grant before it writes the new one. Keyed {@code plan:<workspace>:<month start>},
  * the key Stripe's {@code invoice.paid} grants under, so a webhook and this job never both grant a month, and two
- * instances running it at once grant it once.
+ * instances running it at once grant it once. A subscription whose payment failed keeps its months coming for
+ * {@code lightmove.billing.past-due-grace}, and none after it until Stripe is paid.
  */
 @Slf4j
 @Component
@@ -37,6 +39,7 @@ public class MonthlyCreditReset {
     private final WorkspaceSubscriptionRepository subscriptions;
     private final BillingPlanRepository plans;
     private final CreditLedger ledger;
+    private final LightMoveProperties properties;
     private final Clock clock;
 
     /** To the second: the period start Stripe sends has no finer part, and Postgres keeps only microseconds. */
@@ -55,7 +58,8 @@ public class MonthlyCreditReset {
         UUID after = FIRST;
         List<UUID> due;
         do {
-            due = grants.findWorkspacesDueMonthlyCredits(now, after, WORKSPACES_PER_PAGE);
+            due = grants.findWorkspacesDueMonthlyCredits(now, now.minus(properties.billing().pastDueGrace()), after,
+                    WORKSPACES_PER_PAGE);
             for (UUID workspaceId : due) {
                 try {
                     granted += grantMonth(workspaceId, now) ? 1 : 0;
