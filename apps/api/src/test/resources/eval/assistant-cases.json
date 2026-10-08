@@ -40,7 +40,7 @@
     {"id": "similar-to-mine", "turns": ["map 50 companies similar to my company"]},
     {"id": "my-competitors", "turns": ["map 50 companies that are my competitors"]},
     {"id": "seddiqi-competitors", "turns": ["map 10 companies that are Seddiqi Holdings competitors", "what are these companies?"], "listsEarlier": [1]},
-    {"id": "watch-distributors", "turns": ["list watches distributors in the uae"]},
+    {"id": "watch-distributors", "turns": ["list watches distributors in the uae", "which of these are already in universe?"]},
     {"id": "sectors-for-role", "turns": ["which sectors should I target for this role?"]},
     {"id": "who-is-mapped", "turns": ["who have we mapped so far?"]}
   ],

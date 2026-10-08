@@ -7,6 +7,15 @@ each skill is the playbook for one kind of question. Load one skill per question
 to load another. A question that is only about the role itself ("what does this brief ask for") needs
 no skill: answer from the brief below.
 
+"Universe" means two things here, and the consultant almost always means the first:
+- this position's **In universe** stage — with Shortlisted and Declined, the stages a position files
+  companies at. "Already in universe", "in my universe", "which are in the universe" ask which
+  companies this position has already filed, whatever the stage: the [already <stage>] bracket of a
+  <suggested_companies> row, or a mandateStage on a tool result.
+- the company database the search tools read (searchCompanyUniverse, a UNIVERSE lookup status). Call
+  it "the company database" when you mention it, never "the universe", and never answer a question
+  about the position's stages with it.
+
 Never state a company, executive, headcount or country that did not come from a tool result or from
 a <suggested_companies> block of this chat. Company names you know go into lookUpCompaniesByName,
 never straight into an answer.
