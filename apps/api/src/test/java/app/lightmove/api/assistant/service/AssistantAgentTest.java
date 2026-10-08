@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +49,16 @@ class AssistantAgentTest {
             proposalTools, mock(CandidateTools.class));
     private final AssistantAgent agent = new AssistantAgent(model, toolset, mandateTools, proposalTools, hiringSides);
 
+    private static final String TWO_QUESTIONS = """
+            {"questions":[
+              {"question":"Which markets should the companies operate in?","header":"Region","multiSelect":false,
+               "options":[{"label":"GCC only (Recommended)","description":"The six Gulf states"},
+                          {"label":"MENA","description":"Adds Egypt, Jordan and Morocco"}]},
+              {"question":"Which ownership types?","header":"Ownership","multiSelect":true,
+               "options":[{"label":"Listed","description":"On a public exchange"},
+                          {"label":"Family-owned","description":"Private family groups"}]}]}
+            """;
+
     @BeforeEach
     void aMandateWithAFirm() {
         HiringCompanyProfile firm = new HiringCompanyProfile("Kalem Group", null, null, null, null, null,
@@ -59,16 +70,23 @@ class AssistantAgentTest {
     }
 
     @Test
-    @DisplayName("the model is offered the playbooks and the assistant's own tools, and nothing that reaches the host")
+    @DisplayName("the model is offered the playbooks, the question tool and the assistant's own tools, and nothing that reaches the host")
     void offersOnlyTheAssistantsTools() {
         List<String> offered = toolset.forAsk(recorder).stream()
                 .map(tool -> tool.getToolDefinition().name())
                 .toList();
 
-        assertThat(offered).containsExactlyInAnyOrder(AssistantSkills.TOOL_NAME,
+        assertThat(offered).containsExactlyInAnyOrder(AssistantSkills.TOOL_NAME, "AskUserQuestionTool",
                 "readMandateBrief", "searchCompanyUniverse", "describeMarket", "lookUpCompaniesByName",
                 "adjacentIndustries", "proposeCompanies",
                 "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives");
+    }
+
+    private ToolCallback questionTool() {
+        return toolset.forAsk(recorder).stream()
+                .filter(tool -> tool.getToolDefinition().name().equals("AskUserQuestionTool"))
+                .findFirst()
+                .orElseThrow();
     }
 
     @Test
@@ -98,6 +116,43 @@ class AssistantAgentTest {
         assertThat(agent.answer("Find utilities", List.of(), context)).isEqualTo("Four utilities");
 
         verify(proposalTools).proposeWhatWasFound(context);
+    }
+
+    @Test
+    @DisplayName("asking ends the loop: the question tool returns directly and is never offered an answers slot")
+    void theQuestionToolEndsTheAnswer() {
+        ToolCallback ask = questionTool();
+
+        assertThat(ask.getToolMetadata().returnDirect()).isTrue();
+        assertThat(new ObjectMapper().readTree(ask.getToolDefinition().inputSchema()).path("properties")
+                .has("answers")).isFalse();
+    }
+
+    @Test
+    @DisplayName("the questions the model asks are kept for the card, and the tool answers at once")
+    void recordsTheQuestionsAsked() {
+        String result = questionTool().call(TWO_QUESTIONS);
+
+        assertThat(result).isEqualTo(AskUserQuestionCallback.SHOWN_TO_CONSULTANT);
+        assertThat(recorder.questions()).hasSize(2);
+        assertThat(recorder.questions().getFirst().header()).isEqualTo("Region");
+        assertThat(recorder.questions().getFirst().options()).extracting("label")
+                .containsExactly("GCC only (Recommended)", "MENA");
+        assertThat(recorder.questions().get(1).multiSelect()).isTrue();
+        assertThat(recorder.steps()).extracting("label").containsExactly("Asking you some questions");
+    }
+
+    @Test
+    @DisplayName("an answer that asked shows its lead-in and suggests no companies")
+    void anAnswerThatAskedSuggestsNothing() {
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any())).thenAnswer(call -> {
+            questionTool().call(TWO_QUESTIONS);
+            return AskUserQuestionCallback.SHOWN_TO_CONSULTANT;
+        });
+
+        assertThat(agent.answer("Find me companies", List.of(), context)).isEqualTo(AssistantAgent.ASKED_LEAD_IN);
+
+        verify(proposalTools, never()).proposeWhatWasFound(any());
     }
 
     @Test

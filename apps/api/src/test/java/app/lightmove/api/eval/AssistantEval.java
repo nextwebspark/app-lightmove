@@ -223,11 +223,13 @@ class AssistantEval extends FlowTestSupport {
         int turns = 0;
         int withPlaybook = 0;
         int saidCard = 0;
+        int asked = 0;
         for (Map.Entry<String, List<TurnResult>> conversation : results.entrySet()) {
             for (TurnResult turn : conversation.getValue()) {
                 turns++;
                 withPlaybook += turn.playbooks() == null || turn.playbooks().isBlank() ? 0 : 1;
                 saidCard += turn.saysCard() ? 1 : 0;
+                asked += turn.steps().stream().anyMatch(step -> step.startsWith("Asking you")) ? 1 : 0;
                 out.append("| ").append(conversation.getKey())
                         .append(" | ").append(turn.question())
                         .append(" | ").append(turn.failure() != null ? "**failed: " + turn.failure() + "**"
@@ -243,7 +245,8 @@ class AssistantEval extends FlowTestSupport {
             }
         }
         out.append("\nPlaybook loaded on ").append(withPlaybook).append(" of ").append(turns)
-                .append(" turns; \"card\" said in ").append(saidCard).append(".\n");
+                .append(" turns; \"card\" said in ").append(saidCard)
+                .append("; asked the consultant on ").append(asked).append(".\n");
         for (JsonNode pair : overlaps) {
             List<TurnResult> first = results.get(pair.get(0).asText());
             List<TurnResult> second = results.get(pair.get(1).asText());

@@ -18,6 +18,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AssistantAgent {
 
+    /** What a turn that asked says above its questions; the card under it is the answer. */
+    static final String ASKED_LEAD_IN = "Before I go on, help me narrow this down:";
+
     private final AssistantModelCall model;
     private final AssistantToolset toolset;
     private final MandateTools mandateTools;
@@ -36,6 +39,9 @@ public class AssistantAgent {
         } catch (RuntimeException failed) {
             log.warn("Assistant model call failed", failed);
             throw ApiException.of(ErrorCode.ASSISTANT_UNAVAILABLE);
+        }
+        if (context.recorder().askedQuestions()) {
+            return ASKED_LEAD_IN;
         }
         proposalTools.proposeWhatWasFound(context);
         return answer;

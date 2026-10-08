@@ -1,6 +1,8 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantQuestion;
+import app.lightmove.api.assistant.model.AssistantQuestionOption;
 import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
@@ -15,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
+import org.springaicommunity.agent.tools.AskUserQuestionTool.Question;
 
 /**
  * What the tools did during one ask: the steps they reported, the companies they found or researched
@@ -24,6 +27,10 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class TurnRecorder {
+
+    private static final int MAX_QUESTIONS = 4;
+    private static final int MAX_OPTIONS = 4;
+    private static final int MAX_HEADER = 12;
 
     private final List<AssistantStep> steps = new ArrayList<>();
     private final Map<Integer, Long> openStepStartedAt = new HashMap<>();
@@ -37,6 +44,7 @@ public class TurnRecorder {
     private boolean namesLookedUp;
     private int vendorSearches;
     private AssistantProposal proposal;
+    private List<AssistantQuestion> questions = List.of();
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
         this(onStep, proposal -> { });
@@ -135,6 +143,39 @@ public class TurnRecorder {
     public void propose(AssistantProposal proposal) {
         this.proposal = proposal;
         onProposal.accept(proposal);
+    }
+
+    /**
+     * Keeps the questions for the card and answers the tool at once: the consultant replies with the
+     * thread's next question, so nothing waits here. Only the first set an answer asks is kept, held to
+     * the card's limits whatever the model sent.
+     */
+    public Map<String, String> ask(List<Question> asked) {
+        if (questions.isEmpty() && asked != null) {
+            questions = asked.stream().limit(MAX_QUESTIONS).map(TurnRecorder::toCard).toList();
+            int step = startStep(questions.size() == 1 ? "Asking you a question" : "Asking you some questions");
+            finishStep(step, null);
+        }
+        return Map.of();
+    }
+
+    public List<AssistantQuestion> questions() {
+        return questions;
+    }
+
+    public boolean askedQuestions() {
+        return !questions.isEmpty();
+    }
+
+    private static AssistantQuestion toCard(Question asked) {
+        String header = asked.header().strip();
+        List<AssistantQuestionOption> options = asked.options().stream()
+                .limit(MAX_OPTIONS)
+                .map(option -> new AssistantQuestionOption(option.label().strip(), option.description().strip()))
+                .toList();
+        return new AssistantQuestion(asked.question().strip(),
+                header.length() <= MAX_HEADER ? header : header.substring(0, MAX_HEADER).strip(),
+                options, Boolean.TRUE.equals(asked.multiSelect()));
     }
 
     public List<AssistantStep> steps() {

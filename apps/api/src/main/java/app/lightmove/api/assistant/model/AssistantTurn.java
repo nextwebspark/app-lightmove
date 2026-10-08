@@ -12,7 +12,10 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** One answered question in a chat: the steps taken, the company card proposed and what was filed from it. */
+/**
+ * One answered question in a chat: the steps taken, the company card proposed and what was filed from it,
+ * or the clarifying questions asked in its place.
+ */
 @Entity
 @Table(name = "app_lm_assistant_turn")
 @Getter
@@ -43,11 +46,16 @@ public class AssistantTurn extends BaseEntity {
     private List<AssistantStep> steps = List.of();
 
     @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "questions", updatable = false)
+    private List<AssistantQuestion> questions;
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "proposal_accepted")
     private ProposalOutcome proposalAccepted;
 
     public static AssistantTurn answered(AssistantThread thread, String question, String answer,
-                                         List<AssistantStep> steps, AssistantProposal proposal) {
+                                         List<AssistantStep> steps, AssistantProposal proposal,
+                                         List<AssistantQuestion> questions) {
         AssistantTurn turn = new AssistantTurn();
         turn.threadId = thread.getId();
         turn.actorUserId = thread.getUserId();
@@ -56,7 +64,12 @@ public class AssistantTurn extends BaseEntity {
         turn.answer = answer;
         turn.steps = List.copyOf(steps);
         turn.proposal = proposal;
+        turn.questions = questions.isEmpty() ? null : List.copyOf(questions);
         return turn;
+    }
+
+    public List<AssistantQuestion> getQuestions() {
+        return questions == null ? List.of() : questions;
     }
 
     public void recordAccepted(ProposalOutcome outcome) {

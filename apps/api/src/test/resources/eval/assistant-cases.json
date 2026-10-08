@@ -42,7 +42,9 @@
     {"id": "seddiqi-competitors", "turns": ["map 10 companies that are Seddiqi Holdings competitors", "what are these companies?"], "listsEarlier": [1]},
     {"id": "watch-distributors", "turns": ["list watches distributors in the uae", "which of these are already in universe?"]},
     {"id": "sectors-for-role", "turns": ["which sectors should I target for this role?"]},
-    {"id": "who-is-mapped", "turns": ["who have we mapped so far?"]}
+    {"id": "who-is-mapped", "turns": ["who have we mapped so far?"]},
+    {"id": "vague-should-ask", "turns": ["find me some companies", "Sector: Luxury retail · Size: Any size"]},
+    {"id": "precise-should-not-ask", "turns": ["list 20 luxury watch retailers in the UAE"]}
   ],
   "overlaps": [["seddiqi-competitors", "watch-distributors"], ["uae-retail-role", "uae-retail-500"]]
 }
