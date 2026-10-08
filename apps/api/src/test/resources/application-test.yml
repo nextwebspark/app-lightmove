@@ -63,6 +63,11 @@ lightmove:
         client-id: uncava-microsoft-client
         client-secret: uncava-microsoft-secret
 
+  # Production refuses a find the credits cannot cover. Tests of other features press Find without granting any,
+  # so they run as before enforcement; the classes testing enforcement switch it back on.
+  billing:
+    enforce: false
+
   # Small, so the size refusal is reachable with a fixture of a few kilobytes.
   person-documents:
     max-file-size-bytes: 4096

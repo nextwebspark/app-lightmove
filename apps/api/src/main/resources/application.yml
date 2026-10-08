@@ -702,7 +702,7 @@ lightmove:
 
   # Contact credits (epic #734). Off, a spend the credits cannot cover is recorded as an overdraft, never refused.
   billing:
-    enforce: ${BILLING_ENFORCE:false}
+    enforce: ${BILLING_ENFORCE:true}
     hold-ttl: ${BILLING_HOLD_TTL:15m}
     # How often lapsed grants are expired and unsettled holds released. Spelled out: @Scheduled reads it.
     sweep-interval: ${BILLING_SWEEP_INTERVAL:PT5M}
@@ -725,6 +725,10 @@ lightmove:
       outreach-opener-cost-fils: ${FAIR_USE_OUTREACH_OPENER_COST_FILS:2}
       assistant-ask-per-seat: ${FAIR_USE_ASSISTANT_ASK_PER_SEAT:1500}
       assistant-ask-cost-fils: ${FAIR_USE_ASSISTANT_ASK_COST_FILS:15}
+    # Given once, to every workspace that exists the first time a release with enforcement boots; 0 gives none.
+    grandfather:
+      credits: ${BILLING_GRANDFATHER_CREDITS:200}
+      valid-for: ${BILLING_GRANDFATHER_VALID_FOR:90d}
 
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move

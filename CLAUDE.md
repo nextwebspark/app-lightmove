@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, and fair use, `usage`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, and the Settings → Billing reads, `overview`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -916,8 +916,8 @@ active staff member), and the contact-credit ledger — `app_lm_credit_grant` bu
 then bought; soonest expiry first), `app_lm_credit_hold` (one per paid action, unique on its idempotency key per
 workspace), `app_lm_credit_entry` (append-only by trigger, and by `harden.sql` like the audit trail) and
 `app_lm_credit_balance`, the per-workspace sum of the entries whose row every ledger write locks first.
-`CreditLedger` is the only door; `lightmove.billing.enforce` (off) records a spend the credits cannot cover as an
-overdraft rather than refusing it. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
+`CreditLedger` is the only door; `lightmove.billing.enforce` (on since #741; the test profile turns it off) refuses a
+spend the credits cannot cover with 402 `INSUFFICIENT_CREDITS`, and off records it as an overdraft. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
 never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
 releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
 A Find email or Find phone press (#737) holds its price before ContactOut is asked — keyed on the person, the channel
@@ -939,6 +939,11 @@ the month's plan credits it reached (V121 `app_lm_credit_threshold_crossing`, un
 `ContactCreditThresholdCrossed` for the highest newly claimed. `CreditBalanceReconcile` checks nightly that each
 balance is its entries' and its grants' sum, audits a drift (`CREDIT_BALANCE_DRIFT`) and corrects nothing; a job
 that must run once across instances claims an `app_lm_billing_job_run` row first.
+`GET /api/v1/billing` and `…/billing/usage` (#741) are Settings → Billing's reads, any staff member's and a 404 to a
+pure client: the plan, seats and seat price, the credits (`monthly`, `left`, `bought`, `given`, `usedPercent`,
+`level`, `resetsAt`), the prices, and this billing month's finds and credits per member. `GrandfatherCredits` gives
+every workspace that exists the first time a release with enforcement boots `lightmove.billing.grandfather.credits`
+promotional credits, keyed `grandfather:<workspace>`, under a job claim nothing prunes, so none founded later gets them.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

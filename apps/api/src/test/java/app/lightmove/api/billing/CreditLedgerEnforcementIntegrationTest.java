@@ -19,7 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
-/** The ledger with enforcement on, as #741 will run it: a spend the credits cannot cover is refused. */
+/** The ledger with enforcement on, as production runs it: a spend the credits cannot cover is refused. */
 @IntegrationTest
 @TestPropertySource(properties = "lightmove.billing.enforce=true")
 class CreditLedgerEnforcementIntegrationTest extends BillingFlowSupport {
