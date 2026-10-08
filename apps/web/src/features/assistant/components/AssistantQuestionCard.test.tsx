@@ -10,7 +10,7 @@ const QUESTIONS: AssistantQuestion[] = [
     header: "Region",
     multiSelect: false,
     options: [
-      { label: "GCC only", description: "The six Gulf states" },
+      { label: "GCC only (Recommended)", description: "The six Gulf states" },
       { label: "MENA", description: "Adds Egypt, Jordan and Morocco" },
     ],
   },
@@ -51,6 +51,16 @@ describe("the assistant's question card", () => {
     await userEvent.click(screen.getByRole("button", { name: "Send answers" }));
 
     expect(onAnswer).toHaveBeenCalledWith("Region: MENA · Ownership: Listed, Family-owned");
+  });
+
+  it("leaves the recommendation mark out of the answer it sends", async () => {
+    const { onAnswer } = mount();
+
+    await userEvent.click(screen.getByRole("radio", { name: /GCC only/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Listed/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Send answers" }));
+
+    expect(onAnswer).toHaveBeenCalledWith("Region: GCC only · Ownership: Listed");
   });
 
   it("takes typed text as the answer, in place of a single choice and beside multiple ones", async () => {

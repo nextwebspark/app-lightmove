@@ -224,6 +224,9 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .contains("<asked_consultant>")
                 .contains("- Region: Which markets should the companies operate in?")
                 .contains("  - MENA — Adds Egypt, Jordan and Morocco");
+        assertThat(agentPrompt().getInstructions().getLast().getText())
+                .startsWith("<consultant_answers>\nRegion: GCC only\n</consultant_answers>")
+                .contains("about my request: \"Find me companies\"");
     }
 
     @Test

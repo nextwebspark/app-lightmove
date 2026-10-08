@@ -37,8 +37,10 @@ a playbook only when its question needs it.
   `TurnRecorder` and returns at once, the tool is `returnDirect` (Spring AI ends the loop without another model
   call), the turn is saved with its `questions` and a fixed lead-in as its answer, and no companies are
   suggested. The panel draws them (`AssistantQuestionCard`); **Send answers** is the chat's next ask
-  ("Region: GCC only · Ownership: Listed, Family-owned"), and `QuestionMemory` replays the questions to the
-  model as an `<asked_consultant>` block so that message reads as their answers. The model may ask again on a
+  ("Region: GCC only · Ownership: Listed, Family-owned", without the model's "(Recommended)" mark), and
+  `QuestionMemory` replays the questions to the model as an `<asked_consultant>` block and sends that message
+  inside `<consultant_answers>` beside the request it answers. Sent bare, the answers read as a remark: the
+  model answered from the chat's earlier answers without searching and named companies no tool returned. The model may ask again on a
   later turn when it judges it necessary; within one turn only the first set is kept. The library's
   `answers` parameter is taken out of the schema the model sees, so it cannot answer its own questions.
   `ASSISTANT_ASKED` records `questionsAsked`.

@@ -60,13 +60,15 @@ public class AssistantModelCall {
     /**
      * Each earlier answer carries the companies it suggested, which the answer's own text never lists —
      * the newest {@link CardMemory#CARDS_LISTED_IN_FULL} row by row, older ones as a title and a count —
-     * or the questions it asked instead, which the consultant's next message answers.
+     * or the questions it asked instead, which the consultant's next message answers and is sent with the
+     * request they answer ({@link QuestionMemory#answering}).
      */
     static List<Message> conversation(List<AssistantTurn> history, String question) {
         List<Message> messages = new ArrayList<>(history.size() * 2 + 1);
         int cardsLeft = (int) history.stream().filter(AssistantModelCall::hasCard).count();
-        for (AssistantTurn turn : history) {
-            messages.add(new UserMessage(turn.getQuestion()));
+        for (int index = 0; index < history.size(); index++) {
+            AssistantTurn turn = history.get(index);
+            messages.add(new UserMessage(QuestionMemory.answering(history, index, turn.getQuestion())));
             if (!turn.getQuestions().isEmpty()) {
                 messages.add(new AssistantMessage(turn.getAnswer() + "\n\n"
                         + QuestionMemory.render(turn.getQuestions())));
@@ -80,7 +82,7 @@ public class AssistantModelCall {
             messages.add(new AssistantMessage(turn.getAnswer() + "\n\n"
                     + CardMemory.render(turn.getProposal(), turn.getProposalAccepted(), listed)));
         }
-        messages.add(new UserMessage(question));
+        messages.add(new UserMessage(QuestionMemory.answering(history, history.size(), question)));
         return messages;
     }
 

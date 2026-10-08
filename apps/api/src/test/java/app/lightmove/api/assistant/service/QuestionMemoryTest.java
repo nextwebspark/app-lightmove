@@ -4,7 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.assistant.model.AssistantQuestion;
 import app.lightmove.api.assistant.model.AssistantQuestionOption;
+import app.lightmove.api.assistant.model.AssistantThread;
+import app.lightmove.api.assistant.model.AssistantTurn;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -32,5 +35,45 @@ class QuestionMemoryTest {
     void stripsAnEchoedBlock() {
         assertThat(QuestionMemory.stripFrom("Searching the GCC.\n\n" + QuestionMemory.render(ASKED)))
                 .isEqualTo("Searching the GCC.");
+    }
+
+    @Test
+    @DisplayName("a message after a question is sent as its answers, beside the request they answer")
+    void restatesTheRequestBesideTheAnswers() {
+        List<AssistantTurn> history = List.of(
+                turn("Top utilities in Saudi Arabia", List.of()),
+                turn("Map 50 of Choithrams' competitors", ASKED));
+
+        assertThat(QuestionMemory.answering(history, 2, "Region: GCC only")).isEqualTo("""
+                <consultant_answers>
+                Region: GCC only
+                </consultant_answers>
+                These answer the questions you asked about my request: "Map 50 of Choithrams' competitors". \
+                Carry on with that request now — load its playbook and run its tools as you would have.""");
+    }
+
+    @Test
+    @DisplayName("answers to a second round of questions are sent beside the request that started the first")
+    void followsTheRequestBackThroughEveryRound() {
+        List<AssistantTurn> history = List.of(
+                turn("Map 50 of Choithrams' competitors", ASKED),
+                turn("Region: GCC only", ASKED));
+
+        assertThat(QuestionMemory.answering(history, 2, "Size: 500+"))
+                .contains("about my request: \"Map 50 of Choithrams' competitors\"");
+    }
+
+    @Test
+    @DisplayName("a message after an ordinary answer goes as it was typed")
+    void leavesAnOrdinaryFollowUpAlone() {
+        List<AssistantTurn> history = List.of(turn("Top utilities in Saudi Arabia", List.of()));
+
+        assertThat(QuestionMemory.answering(history, 1, "And in Kuwait?")).isEqualTo("And in Kuwait?");
+        assertThat(QuestionMemory.answering(List.of(), 0, "Top utilities")).isEqualTo("Top utilities");
+    }
+
+    private static AssistantTurn turn(String question, List<AssistantQuestion> asked) {
+        AssistantThread thread = AssistantThread.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Chat");
+        return AssistantTurn.answered(thread, question, "answer", List.of(), null, asked);
     }
 }

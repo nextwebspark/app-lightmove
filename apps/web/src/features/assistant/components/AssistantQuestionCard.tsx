@@ -129,11 +129,18 @@ export function AssistantQuestionCard({
   );
 }
 
+const RECOMMENDED_MARK = /\s*\(recommended\)\s*$/i;
+
+/** The model marks the option it recommends; the mark is advice to the consultant, not part of their answer. */
+function withoutRecommendation(label: string): string {
+  return label.replace(RECOMMENDED_MARK, "");
+}
+
 /** Every question needs a choice or typed text; one left open sends nothing. */
 export function composeAnswers(questions: AssistantQuestion[], picks: Picks, typed: Typed): string {
   const parts = questions.map((question, index) => {
     const other = (typed[index] ?? "").trim();
-    const chosen = [...(picks[index] ?? []), ...(other ? [other] : [])];
+    const chosen = [...(picks[index] ?? []).map(withoutRecommendation), ...(other ? [other] : [])];
     return chosen.length > 0 ? `${question.header}: ${chosen.join(", ")}` : null;
   });
   return parts.every(Boolean) ? parts.join(" · ") : "";
