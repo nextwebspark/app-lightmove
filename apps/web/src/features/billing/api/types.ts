@@ -29,7 +29,28 @@ export interface CreditPrices {
   phone: number;
 }
 
-/** `GET /billing`. The plan's fields are null for a workspace with no subscription. */
+/**
+ * A plan the dialog offers: prices per staff seat a month before VAT, null with the credits on a plan agreed per
+ * workspace; `checkoutIntervals` are the ones Stripe sells it in.
+ */
+export interface BillingPlanOffer {
+  code: PlanCode;
+  name: string;
+  seatPriceMonthlyFils: number | null;
+  seatPriceAnnualFils: number | null;
+  contactCreditsPerSeat: number | null;
+  custom: boolean;
+  checkoutIntervals: BillingInterval[];
+}
+
+/** A pack of contact credits Checkout sells, priced before VAT. */
+export interface CreditPackOffer {
+  code: string;
+  credits: number;
+  priceFils: number;
+}
+
+/** `GET /billing`. The plan's fields are null for a workspace with no subscription; `plans` and `packs` are empty where Stripe is not offered. */
 export interface Billing {
   plan: { code: PlanCode; name: string } | null;
   interval: BillingInterval | null;
@@ -42,6 +63,8 @@ export interface Billing {
   prices: CreditPrices;
   paymentMethod: { kind: PaymentMethodKind; brand: string | null; last4: string | null };
   stripeOffered: boolean;
+  plans: BillingPlanOffer[];
+  packs: CreditPackOffer[];
 }
 
 /** One member's captured finds this billing month; a spend no member made has a null `userId`. */
@@ -51,6 +74,11 @@ export interface MemberCreditSpend {
   emailsFound: number;
   phonesFound: number;
   creditsSpent: number;
+}
+
+/** A Stripe page to send the admin to: Checkout or the Customer Portal. */
+export interface BillingRedirect {
+  url: string;
 }
 
 /** `GET /billing/usage`. */

@@ -7,7 +7,7 @@ import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as billingApi from "../api/billingApi";
-import { aBilling } from "../test/fixtures";
+import { aBilling, aCardBilling } from "../test/fixtures";
 import { BillingRefusalSheets } from "./BillingRefusalSheets";
 
 let refused: ((error: ApiRequestError) => void) | null = null;
@@ -81,14 +81,20 @@ describe("BillingRefusalSheets", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("offers an admin on a card Buy more credits, disabled until checkout exists", async () => {
+  it("takes an admin on a card from the sheet to Buy more credits", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    const user = userEvent.setup();
     renderSheets();
     refuse(outOfCredits());
 
-    expect(await screen.findByRole("button", { name: "Buy more credits" })).toBeDisabled();
+    const buy = await screen.findByRole("button", { name: "Buy more credits" });
     expect(screen.getByRole("dialog", { name: "No contact credits left" })).toHaveTextContent(
       "This find needs 5 credits and this month's are used up. Nothing was spent. They reset on 1 Nov.",
     );
+    await user.click(buy);
+
+    expect(await screen.findByRole("dialog", { name: "Buy more credits" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "No contact credits left" })).not.toBeInTheDocument();
   });
 
   it("sends an invoiced admin to Uncava", async () => {

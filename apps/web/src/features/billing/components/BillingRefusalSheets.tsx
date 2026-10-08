@@ -5,6 +5,7 @@ import { onRequestRefused } from "../../../lib/apiClient";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import type { Member } from "../../workspace/api/types";
 import * as billingApi from "../api/billingApi";
+import { BuyCreditsDialog } from "./BuyCreditsDialog";
 import {
   billingRefusalOf,
   buyOptionOf,
@@ -24,6 +25,7 @@ import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
 export function BillingRefusalSheets() {
   const queryClient = useQueryClient();
   const [refusal, setRefusal] = useState<BillingRefusal | null>(null);
+  const [buying, setBuying] = useState(false);
 
   useEffect(
     () =>
@@ -37,7 +39,19 @@ export function BillingRefusalSheets() {
   );
 
   const close = () => setRefusal(null);
-  if (refusal?.kind === "credits") return <OutOfCreditsSheet refusal={refusal} onClose={close} />;
+  if (buying) return <BuyFromSheet onClose={() => setBuying(false)} />;
+  if (refusal?.kind === "credits") {
+    return (
+      <OutOfCreditsSheet
+        refusal={refusal}
+        onClose={close}
+        onBuy={() => {
+          close();
+          setBuying(true);
+        }}
+      />
+    );
+  }
   if (refusal?.kind === "fairUse") return <FairUseSheet refusal={refusal} onClose={close} />;
   return null;
 }
@@ -45,9 +59,11 @@ export function BillingRefusalSheets() {
 function OutOfCreditsSheet({
   refusal,
   onClose,
+  onBuy,
 }: {
   refusal: Extract<BillingRefusal, { kind: "credits" }>;
   onClose: () => void;
+  onBuy: () => void;
 }) {
   const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
@@ -61,9 +77,14 @@ function OutOfCreditsSheet({
     (isAdmin ? "" : ` Only an admin can add more${admin ? ` — ${admin.fullName}` : ""}.`);
 
   const buy = billing.data ? buyOptionOf(billing.data, isAdmin) : null;
-  const primary = <MoreCreditsAction isAdmin={isAdmin} buy={buy} admin={admin} onClose={onClose} />;
+  const primary = <MoreCreditsAction isAdmin={isAdmin} buy={buy} admin={admin} onClose={onClose} onBuy={onBuy} />;
 
   return <RefusalSheet title="No contact credits left" body={body} primary={primary} onClose={onClose} />;
+}
+
+function BuyFromSheet({ onClose }: { onClose: () => void }) {
+  const billing = useBilling();
+  return billing.data ? <BuyCreditsDialog billing={billing.data} onClose={onClose} /> : null;
 }
 
 /** An admin's way to more credits, or a member's way to ask an admin for them. */
@@ -72,11 +93,13 @@ function MoreCreditsAction({
   buy,
   admin,
   onClose,
+  onBuy,
 }: {
   isAdmin: boolean;
   buy: BuyOption | null;
   admin: Member | null;
   onClose: () => void;
+  onBuy: () => void;
 }) {
   if (!isAdmin) {
     if (!admin) return null;
@@ -95,7 +118,7 @@ function MoreCreditsAction({
     );
   }
   return (
-    <Button type="button" disabled={buy.disabled} title={buy.disabled ? "Buying credits is coming soon" : undefined}>
+    <Button type="button" onClick={onBuy}>
       {buy.label}
     </Button>
   );

@@ -1,6 +1,6 @@
 import { ApiRequestError } from "../../../lib/apiClient";
 import { formatNumber } from "../../../lib/format";
-import type { Billing, ContactCredits, FairUseKind } from "../api/types";
+import type { Billing, BillingInterval, BillingPlanOffer, ContactCredits, FairUseKind } from "../api/types";
 
 /** Where an invoiced workspace writes to change its plan or add credits, and where anyone asks for more fair use. */
 export const BILLING_CONTACT_EMAIL = "billing@uncava.com";
@@ -20,19 +20,66 @@ export function creditChipOf(credits: ContactCredits): { tone: CreditTone; label
 }
 
 /**
- * How an admin gets more credits: Stripe's checkout once it is offered on a card account (disabled until then), or
- * a word to Uncava on an invoiced one. A member is offered neither — only an admin buys.
+ * How an admin gets more credits: the Buy more credits dialog on a workspace paying Stripe by card, or a word to
+ * Uncava wherever Stripe is not offered or the workspace is invoiced. A member is offered neither — only an admin buys.
  */
-export type BuyOption =
-  | { kind: "buy"; label: string; disabled: boolean }
-  | { kind: "contact"; label: string; href: string };
+export type BuyOption = { kind: "buy"; label: string } | { kind: "contact"; label: string; href: string };
 
 export function buyOptionOf(billing: Billing, isAdmin: boolean): BuyOption | null {
   if (!isAdmin || !billing.plan) return null;
-  if (billing.paymentMethod.kind === "CARD") {
-    return { kind: "buy", label: "Buy more credits", disabled: !billing.stripeOffered };
+  if (paysByCard(billing) && billing.packs.length > 0) {
+    return { kind: "buy", label: "Buy more credits" };
   }
   return { kind: "contact", label: "Contact Uncava", href: mailtoBilling("More contact credits") };
+}
+
+/** How an admin changes the plan: the plans dialog where Stripe takes payment, or a word to Uncava where it does not. */
+export type PlanOption = { kind: "plans"; label: string } | { kind: "contact"; label: string; href: string };
+
+export function planOptionOf(billing: Billing, isAdmin: boolean): PlanOption | null {
+  if (!isAdmin) return null;
+  if (!billing.stripeOffered || billing.status === "INVOICED" || billing.plans.length === 0) {
+    return { kind: "contact", label: "Contact Uncava", href: mailtoBilling(billing.plan ? "Change plan" : "Choose a plan") };
+  }
+  return { kind: "plans", label: hasLivePlan(billing) ? "Change plan" : "See plans" };
+}
+
+/** Whether Stripe bills this workspace by card now: its plan is then changed in the Customer Portal. */
+export function paysByCard(billing: Billing): boolean {
+  return billing.stripeOffered && billing.paymentMethod.kind === "CARD";
+}
+
+function hasLivePlan(billing: Billing): boolean {
+  return billing.plan !== null && billing.status !== "CANCELLED";
+}
+
+/** What a plan card offers: the plan in force, Enterprise's conversation, or a move Stripe takes payment for. */
+export type PlanChoice =
+  | { kind: "current"; label: string }
+  | { kind: "talk"; label: string; href: string }
+  | { kind: "checkout"; label: string; available: boolean }
+  | { kind: "portal"; label: string };
+
+export function planChoiceOf(billing: Billing, offer: BillingPlanOffer, interval: BillingInterval): PlanChoice {
+  if (offer.custom) return { kind: "talk", label: "Talk to us", href: mailtoBilling(`${offer.name} plan`) };
+  if (paysByCard(billing)) {
+    if (billing.plan?.code !== offer.code) return { kind: "portal", label: `Switch to ${offer.name}` };
+    if (billing.interval === interval) return { kind: "current", label: "Current plan" };
+    return { kind: "portal", label: interval === "ANNUAL" ? "Switch to yearly" : "Switch to monthly" };
+  }
+  return { kind: "checkout", label: `Choose ${offer.name}`, available: offer.checkoutIntervals.includes(interval) };
+}
+
+/** A staff seat's price a month on the workspace's plan, or null where its price is agreed with Uncava. */
+export function seatCostOf(billing: Billing): number | null {
+  return billing.plan && billing.status !== "CANCELLED" ? billing.seatPriceFils : null;
+}
+
+/** UAE VAT, which Stripe Tax adds at checkout on top of every price shown. */
+export const VAT_RATE = 0.05;
+
+export function withVat(fils: number): number {
+  return Math.round(fils * (1 + VAT_RATE));
 }
 
 export type BannerTone = "red" | "warn" | "info";

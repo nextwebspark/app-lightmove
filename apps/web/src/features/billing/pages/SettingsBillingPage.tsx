@@ -1,14 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Avatar, Button } from "../../../components/ui";
+import { Avatar, Button, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import * as billingApi from "../api/billingApi";
 import type { Billing, MemberCreditSpend } from "../api/types";
+import { BuyCreditsDialog } from "../components/BuyCreditsDialog";
+import { PlansDialog } from "../components/PlansDialog";
 import {
   BILLING_CONTACT_EMAIL,
   billingBannerOf,
@@ -16,10 +19,24 @@ import {
   formatAed,
   formatBillingDate,
   formatResetDate,
+  paysByCard,
+  planOptionOf,
   type BannerTone,
   type BuyOption,
+  type PlanOption,
 } from "../lib/billingView";
+import {
+  CHECKOUT_POLL_MS,
+  CHECKOUT_WAIT_MS,
+  checkoutReturnOf,
+  hasLanded,
+  boughtBeforeCheckout,
+  type CheckoutReturn,
+} from "../lib/checkoutReturn";
 import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
+import { useStripeRedirect } from "../lib/useStripeRedirect";
+
+type Dialog = "plans" | "buy" | null;
 
 /**
  * Settings → Billing (`Billing.dc.html`): the plan, this month's contact credits, who spent them, and how the
@@ -28,7 +45,10 @@ import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
  */
 export function SettingsBillingPage() {
   const isAdmin = useIsWorkspaceAdmin();
-  const billing = useBilling();
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const { awaiting, settle } = useCheckoutReturn();
+  const billing = useBilling(awaiting ? CHECKOUT_POLL_MS : false);
+  useCheckoutLanding(awaiting, billing.data, settle);
   const usage = useQuery({
     queryKey: billingApi.BILLING_USAGE_KEY,
     queryFn: ({ signal }) => billingApi.getBillingUsage(signal),
@@ -51,20 +71,90 @@ export function SettingsBillingPage() {
         <p className="text-[13px] text-u-text3">Loading…</p>
       ) : (
         <>
-          <Banner billing={billing.data} isAdmin={isAdmin} />
+          {awaiting && <AwaitingStripe kind={awaiting.kind} />}
+          <Banner billing={billing.data} isAdmin={isAdmin} onBuy={() => setDialog("buy")} />
           {billing.data.plan ? (
             <>
-              <PlanCard billing={billing.data} isAdmin={isAdmin} />
-              <CreditMeter billing={billing.data} isAdmin={isAdmin} />
+              <PlanCard billing={billing.data} isAdmin={isAdmin} onPlans={() => setDialog("plans")} />
+              <CreditMeter billing={billing.data} isAdmin={isAdmin} onBuy={() => setDialog("buy")} />
               <UsedThisMonth members={usage.data?.members} failed={usage.isError} />
             </>
           ) : (
-            <NoPlan isAdmin={isAdmin} />
+            <NoPlan billing={billing.data} isAdmin={isAdmin} onPlans={() => setDialog("plans")} />
           )}
-          <PaymentRow billing={billing.data} />
+          <PaymentRow billing={billing.data} isAdmin={isAdmin} />
+          {dialog === "plans" && <PlansDialog billing={billing.data} onClose={() => setDialog(null)} />}
+          {dialog === "buy" && <BuyCreditsDialog billing={billing.data} onClose={() => setDialog(null)} />}
         </>
       )}
     </>
+  );
+}
+
+interface AwaitedCheckout {
+  kind: Exclude<CheckoutReturn, "cancelled">;
+  boughtBefore: number | null;
+  since: number;
+}
+
+/**
+ * Reads `?checkout=` once Stripe sends the admin back, and drops it so a reload does not replay it. A cancelled
+ * Checkout is only a toast; a paid one is awaited until the webhook's change reaches the billing read.
+ */
+function useCheckoutReturn() {
+  const toast = useToast();
+  const [params, setParams] = useSearchParams();
+  const [awaited, setAwaited] = useState<AwaitedCheckout | null>(null);
+  const returned = checkoutReturnOf(params.get("checkout"));
+
+  useEffect(() => {
+    if (!returned) return;
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("checkout");
+        return next;
+      },
+      { replace: true },
+    );
+    if (returned === "cancelled") {
+      toast("Checkout cancelled — nothing was charged");
+      return;
+    }
+    setAwaited({ kind: returned, boughtBefore: returned === "credits" ? boughtBeforeCheckout() : null, since: Date.now() });
+  }, [returned, setParams, toast]);
+
+  useEffect(() => {
+    if (!awaited) return;
+    const timer = window.setTimeout(() => {
+      setAwaited(null);
+      toast("Stripe has not confirmed the payment yet. It will show here once it does.");
+    }, CHECKOUT_WAIT_MS - (Date.now() - awaited.since));
+    return () => window.clearTimeout(timer);
+  }, [awaited, toast]);
+
+  const settle = useCallback(() => setAwaited(null), []);
+  return { awaiting: awaited, settle };
+}
+
+/** Ends the wait as soon as the billing read shows what was paid for. */
+function useCheckoutLanding(awaited: AwaitedCheckout | null, billing: Billing | undefined, settle: () => void) {
+  const toast = useToast();
+  const landed = !!awaited && !!billing && hasLanded(awaited.kind, billing, awaited.boughtBefore);
+  useEffect(() => {
+    if (!landed || !awaited) return;
+    toast(awaited.kind === "subscribed" ? "Your plan is active" : "Credits added");
+    settle();
+  }, [landed, awaited, toast, settle]);
+}
+
+function AwaitingStripe({ kind }: { kind: AwaitedCheckout["kind"] }) {
+  return (
+    <div role="status" className="mb-3 rounded-[10px] border border-u-accent/35 bg-u-accent-tint px-3.5 py-3 text-[13px]">
+      {kind === "subscribed"
+        ? "Payment received — waiting for Stripe to confirm the plan…"
+        : "Payment received — waiting for Stripe to confirm the credits…"}
+    </div>
   );
 }
 
@@ -74,7 +164,7 @@ const BANNER_TONES: Record<BannerTone, { box: string; icon: string; glyph: strin
   info: { box: "border-u-accent/35 bg-u-accent-tint", icon: "text-u-accent", glyph: ICONS.info },
 };
 
-function Banner({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) {
+function Banner({ billing, isAdmin, onBuy }: { billing: Billing; isAdmin: boolean; onBuy: () => void }) {
   const banner = billingBannerOf(billing, isAdmin);
   if (!banner) return null;
   const tone = BANNER_TONES[banner.tone];
@@ -86,12 +176,12 @@ function Banner({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) {
         <div className="text-[13px] font-semibold">{banner.title}</div>
         <div className="mt-0.5 font-mono text-xs/[1.5] text-u-text2">{banner.body}</div>
       </div>
-      {banner.action && <BuyControl option={banner.action} small className="flex-none self-center" />}
+      {banner.action && <BuyControl option={banner.action} onBuy={onBuy} small className="flex-none self-center" />}
     </div>
   );
 }
 
-function PlanCard({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) {
+function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: boolean; onPlans: () => void }) {
   const { plan, seats, seatPriceFils, interval, status, renewsAt, credits } = billing;
   const seatLine = [
     `${seats} staff ${seats === 1 ? "seat" : "seats"}`,
@@ -106,6 +196,7 @@ function PlanCard({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) 
         : renewsAt
           ? `Renews ${formatBillingDate(renewsAt)}`
           : null;
+  const planOption = planOptionOf(billing, isAdmin);
   const includes = [
     "Search and AI included",
     ...(credits.monthly > 0 ? [`${formatNumber(credits.monthly)} contact credits a month`] : []),
@@ -142,19 +233,19 @@ function PlanCard({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) 
           </span>
         ))}
         {isAdmin && (
-          <Link
-            to="/settings/members"
-            className="ml-auto inline-flex items-center rounded-[6px] border border-u-border-strong bg-u-surface px-3 py-1.5 text-[12.5px] font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text"
-          >
-            Add seats
-          </Link>
+          <span className="ml-auto flex gap-2">
+            <Link to="/settings/members" className={SECONDARY_SMALL}>
+              Add seats
+            </Link>
+            {planOption && <PlanControl option={planOption} onPlans={onPlans} />}
+          </span>
         )}
       </div>
     </section>
   );
 }
 
-function CreditMeter({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) {
+function CreditMeter({ billing, isAdmin, onBuy }: { billing: Billing; isAdmin: boolean; onBuy: () => void }) {
   const { credits, prices } = billing;
   const total = credits.monthly + credits.bought + credits.given;
   const out = credits.level === "OUT";
@@ -204,7 +295,7 @@ function CreditMeter({ billing, isAdmin }: { billing: Billing; isAdmin: boolean 
         {credits.bought > 0 && <span>Includes {formatNumber(credits.bought)} bought credits</span>}
         {credits.given > 0 && <span>Includes {formatNumber(credits.given)} credits from Uncava</span>}
       </div>
-      {buy && <BuyControl option={buy} className="mt-3.5" />}
+      {buy && <BuyControl option={buy} onBuy={onBuy} className="mt-3.5" />}
     </section>
   );
 }
@@ -261,7 +352,8 @@ function UsedThisMonth({ members, failed }: { members: MemberCreditSpend[] | und
   );
 }
 
-function NoPlan({ isAdmin }: { isAdmin: boolean }) {
+function NoPlan({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: boolean; onPlans: () => void }) {
+  const planOption = planOptionOf(billing, isAdmin);
   return (
     <section
       aria-label="No plan yet"
@@ -269,15 +361,23 @@ function NoPlan({ isAdmin }: { isAdmin: boolean }) {
     >
       <div className="text-[15px] font-semibold">Choose a plan</div>
       <div className="mx-auto mt-1.5 max-w-[440px] font-mono text-xs/[1.55] text-u-text3">
-        {isAdmin
-          ? `Every plan includes search and AI; the plan sets how many contact credits your team gets each month. Write to ${BILLING_CONTACT_EMAIL} to choose one.`
-          : "An admin hasn't chosen a plan yet."}
+        {!isAdmin
+          ? "An admin hasn't chosen a plan yet."
+          : planOption?.kind === "plans"
+            ? "Pick Core, Pro or Enterprise. Every plan includes search and AI; the plan sets how many contact credits your team gets each month."
+            : `Every plan includes search and AI; the plan sets how many contact credits your team gets each month. Write to ${BILLING_CONTACT_EMAIL} to choose one.`}
       </div>
+      {planOption?.kind === "plans" && (
+        <Button type="button" onClick={onPlans} className="mx-auto mt-4 inline-flex">
+          See plans
+        </Button>
+      )}
     </section>
   );
 }
 
-function PaymentRow({ billing }: { billing: Billing }) {
+function PaymentRow({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) {
+  const portal = useStripeRedirect(() => billingApi.openPortal());
   const { kind, brand, last4 } = billing.paymentMethod;
   const pastDue = billing.status === "PAST_DUE";
   const { title, sub } =
@@ -300,12 +400,52 @@ function PaymentRow({ billing }: { billing: Billing }) {
         <div className="text-[13px] font-medium">{title}</div>
         {sub && <div className={cn("mt-0.5 font-mono text-xs", pastDue ? "text-u-offlimits" : "text-u-text3")}>{sub}</div>}
       </div>
+      {isAdmin && paysByCard(billing) && (
+        <button
+          type="button"
+          disabled={portal.isPending}
+          onClick={() => portal.mutate(undefined)}
+          className={cn(SECONDARY_SMALL, "gap-1.5 disabled:opacity-60")}
+        >
+          Invoices &amp; card
+          <Icon d={ICONS.externalLink} size={12} />
+        </button>
+      )}
     </section>
   );
 }
 
-/** Buy more credits, disabled until checkout is offered, or a word to Uncava on an invoiced workspace. */
-function BuyControl({ option, small = false, className }: { option: BuyOption; small?: boolean; className?: string }) {
+const SECONDARY_SMALL =
+  "inline-flex items-center rounded-[6px] border border-u-border-strong bg-u-surface px-3 py-1.5 text-[12.5px] font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text";
+
+/** Change plan opens the plans dialog where Stripe takes payment, and writes to Uncava where it does not. */
+function PlanControl({ option, onPlans }: { option: PlanOption; onPlans: () => void }) {
+  if (option.kind === "contact") {
+    return (
+      <a href={option.href} className={SECONDARY_SMALL}>
+        {option.label}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onPlans} className={SECONDARY_SMALL}>
+      {option.label}
+    </button>
+  );
+}
+
+/** Buy more credits opens the packs dialog on a card account; an invoiced one writes to Uncava. */
+function BuyControl({
+  option,
+  onBuy,
+  small = false,
+  className,
+}: {
+  option: BuyOption;
+  onBuy: () => void;
+  small?: boolean;
+  className?: string;
+}) {
   const size = small ? "px-3 py-1.5 text-[12.5px]" : "px-3.5 py-2 text-[13px]";
   if (option.kind === "contact") {
     return (
@@ -322,12 +462,7 @@ function BuyControl({ option, small = false, className }: { option: BuyOption; s
     );
   }
   return (
-    <Button
-      type="button"
-      disabled={option.disabled}
-      title={option.disabled ? "Buying credits is coming soon" : undefined}
-      className={cn("inline-flex", size, className)}
-    >
+    <Button type="button" onClick={onBuy} className={cn("inline-flex", size, className)}>
       {option.label}
     </Button>
   );

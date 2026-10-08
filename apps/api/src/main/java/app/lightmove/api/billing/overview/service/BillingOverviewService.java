@@ -6,13 +6,16 @@ import app.lightmove.api.billing.credit.model.SourceCredits;
 import app.lightmove.api.billing.credit.repository.CreditGrantRepository;
 import app.lightmove.api.billing.credit.service.CreditSpendReport;
 import app.lightmove.api.billing.overview.constant.PaymentMethodKind;
+import app.lightmove.api.billing.overview.dto.BillingPlanOffer;
 import app.lightmove.api.billing.overview.dto.BillingPlanSummary;
 import app.lightmove.api.billing.overview.dto.BillingResponse;
 import app.lightmove.api.billing.overview.dto.BillingUsageResponse;
 import app.lightmove.api.billing.overview.dto.ContactCreditsResponse;
+import app.lightmove.api.billing.overview.dto.CreditPackOffer;
 import app.lightmove.api.billing.overview.dto.CreditPricesResponse;
 import app.lightmove.api.billing.overview.dto.PaymentMethodResponse;
 import app.lightmove.api.billing.payment.service.PaymentGateway;
+import app.lightmove.api.billing.payment.service.PlanPrices;
 import app.lightmove.api.billing.plan.constant.BillingInterval;
 import app.lightmove.api.billing.plan.constant.SubscriptionStatus;
 import app.lightmove.api.billing.plan.model.BillingMonth;
@@ -24,6 +27,8 @@ import app.lightmove.api.core.config.CreditPriceSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +45,7 @@ public class BillingOverviewService {
     private final CreditGrantRepository grants;
     private final CreditSpendReport spend;
     private final PaymentGateway gateway;
+    private final PlanPrices planPrices;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -49,6 +55,7 @@ public class BillingOverviewService {
         WorkspaceSubscription subscription = subscriptions.findByWorkspaceId(workspaceId).orElse(null);
         BillingPlan plan = subscription == null ? null : plans.findById(subscription.getPlanCode()).orElseThrow();
         CreditPriceSettings prices = properties.billing().prices();
+        boolean offered = gateway.isOffered();
         return new BillingResponse(
                 plan == null ? null : new BillingPlanSummary(plan.getCode(), plan.getName()),
                 subscription == null ? null : subscription.getBillingInterval(),
@@ -59,7 +66,9 @@ public class BillingOverviewService {
                 creditsOf(workspaceId, subscription, now),
                 new CreditPricesResponse(prices.emailFound(), prices.phoneFound()),
                 paymentMethodOf(subscription),
-                gateway.isOffered());
+                offered,
+                offered ? planOffers() : List.of(),
+                offered ? packOffers() : List.of());
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +90,24 @@ public class BillingOverviewService {
                 .mapToLong(SourceCredits::remaining).sum();
         return new ContactCreditsResponse(monthly.granted(), left, bought, given, monthly.usedPercent(),
                 monthly.levelAt(left), BillingMonth.of(subscription, now).end());
+    }
+
+    private List<BillingPlanOffer> planOffers() {
+        return plans.findAllByOrderBySortOrder().stream()
+                .map(plan -> new BillingPlanOffer(plan.getCode(), plan.getName(), plan.getSeatPriceMonthlyFils(),
+                        plan.getSeatPriceAnnualFils(), plan.getContactCreditsPerSeat(), plan.isCustom(),
+                        Arrays.stream(BillingInterval.values())
+                                .filter(interval -> planPrices.priceOf(plan.getCode(), interval).isPresent())
+                                .toList()))
+                .toList();
+    }
+
+    private List<CreditPackOffer> packOffers() {
+        return properties.billing().packs().entrySet().stream()
+                .filter(pack -> pack.getValue().stripePriceId() != null && !pack.getValue().stripePriceId().isBlank())
+                .map(pack -> new CreditPackOffer(pack.getKey(), pack.getValue().credits(), pack.getValue().priceFils()))
+                .sorted(Comparator.comparingLong(CreditPackOffer::credits))
+                .toList();
     }
 
     private static Long seatPriceOf(BillingPlan plan, BillingInterval interval) {

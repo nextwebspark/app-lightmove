@@ -6,6 +6,7 @@ import { fieldErrorsFrom } from "../../../lib/formErrors";
 import { titleCase } from "../../../lib/format";
 import type { WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES } from "../../auth/schemas";
+import { SeatCostNotice } from "../../billing/components/SeatCostNotice";
 import * as workspaceApi from "../api/workspaceApi";
 
 /** Invite one colleague from the Team or Members screens. Batch rows live in signup step 3. */
@@ -102,6 +103,8 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
           ))}
         </Select>
       </Field>
+
+      <SeatCostNotice role={role} />
     </Modal>
   );
 }
