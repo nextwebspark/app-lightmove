@@ -423,7 +423,7 @@ describe("routes — an unknown address with no session", () => {
 
     expect(await screen.findByText("We couldn’t find that page")).toBeInTheDocument();
     expect(screen.getByTestId("pathname").textContent).toBe("/terms");
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
     expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
   });
 

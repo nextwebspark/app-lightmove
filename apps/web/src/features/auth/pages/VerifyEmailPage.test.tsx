@@ -146,4 +146,18 @@ describe("VerifyEmailPage", () => {
     expect(authApi.resendVerification).toHaveBeenCalledWith("alok@nextwebspark.com");
     expect(await screen.findByRole("status")).toHaveTextContent("a new link is on its way");
   });
+
+  it("checks the address before asking the server", async () => {
+    vi.mocked(authApi.verifyEmail).mockRejectedValue(
+      new ApiRequestError({ code: "TOKEN_EXPIRED", detail: "That link has expired.", status: 400, correlationId: "abc" }),
+    );
+
+    renderAt("?token=old");
+
+    await userEvent.type(await screen.findByLabelText("Your email"), "alok@");
+    await userEvent.click(screen.getByRole("button", { name: "Send a new link" }));
+
+    expect(await screen.findByText("That doesn't look like a valid email")).toBeInTheDocument();
+    expect(authApi.resendVerification).not.toHaveBeenCalled();
+  });
 });

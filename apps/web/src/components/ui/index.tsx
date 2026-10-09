@@ -57,6 +57,15 @@ const BUTTON_STYLES: Record<ButtonVariant, string> = {
     "disabled:opacity-50 disabled:hover:brightness-100",
 };
 
+/** A button's look for an element that is not a button — a router `Link` that navigates, so it stays a link. */
+export function buttonClassName(variant: ButtonVariant = "primary", className = ""): string {
+  return cn(
+    "flex items-center justify-center gap-2 rounded-[6px] px-3.5 py-2.5 text-[13.5px] transition",
+    BUTTON_STYLES[variant],
+    className,
+  );
+}
+
 export function Button({
   variant = "primary",
   loading = false,

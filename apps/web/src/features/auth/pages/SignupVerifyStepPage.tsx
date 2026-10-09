@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthLogo, Button, Card, FormError } from "../../../components/ui";
+import { AuthLogo, Button, Card } from "../../../components/ui";
+import { SendFailedNotice } from "../components/SendFailedNotice";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
@@ -58,15 +59,13 @@ export function SignupVerifyStepPage() {
     if (!user) return;
     setResending(true);
     setResendFeedback(null);
+    setNotYetSeen(false);
     try {
       await authApi.resendVerification(user.email);
       setResendFeedback({ kind: "sent", message: `Sent to ${user.email} — it can take a minute. Check spam and promotions.` });
       setCooldown(RESEND_COOLDOWN_SECONDS);
     } catch {
-      setResendFeedback({
-        kind: "failed",
-        message: "We couldn't send the email. Try again in a minute, or contact Uncava support.",
-      });
+      setResendFeedback({ kind: "failed" });
     } finally {
       setResending(false);
     }
@@ -75,6 +74,7 @@ export function SignupVerifyStepPage() {
   const handleCheck = async () => {
     setChecking(true);
     setNotYetSeen(false);
+    setResendFeedback(null);
     try {
       const fresh = await reload();
       if (fresh && !fresh.emailVerified) setNotYetSeen(true);
@@ -88,8 +88,12 @@ export function SignupVerifyStepPage() {
   const handleChangeEmail = async () => {
     const fullName = user?.fullName ?? "";
     setLeaving(true);
-    await signOut();
-    navigate("/signup", { replace: true, state: { fullName } });
+    try {
+      await signOut();
+    } finally {
+      // signOut clears this browser's session even when the server call fails; step 1 is still the way on.
+      navigate("/signup", { replace: true, state: { fullName } });
+    }
   };
 
   return (
@@ -128,7 +132,7 @@ export function SignupVerifyStepPage() {
             disabled={leaving}
             className="font-medium text-u-accent hover:underline disabled:opacity-60"
           >
-            Change email
+            {leaving ? "Signing out…" : "Change email"}
           </button>
         </p>
 
@@ -150,9 +154,11 @@ export function SignupVerifyStepPage() {
             </p>
           )}
         </div>
-        <div className="text-left">
-          <FormError message={resendFeedback?.kind === "failed" ? resendFeedback.message : null} />
-        </div>
+        {resendFeedback?.kind === "failed" && (
+          <div className="text-left">
+            <SendFailedNotice />
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <Button onClick={handleCheck} disabled={checking}>
@@ -172,7 +178,4 @@ export function SignupVerifyStepPage() {
   );
 }
 
-interface Feedback {
-  kind: "sent" | "failed";
-  message: string;
-}
+type Feedback = { kind: "sent"; message: string } | { kind: "failed" };

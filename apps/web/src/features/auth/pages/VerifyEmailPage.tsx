@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
+import { Button, Card, Field, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
+import { SendFailedNotice } from "../components/SendFailedNotice";
 import { homeFor } from "../homeFor";
 
 type State = "verifying" | "success" | "failed";
@@ -146,22 +147,24 @@ function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
   const [email, setEmail] = useState(knownEmail ?? "");
   const [sending, setSending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [sendFailed, setSendFailed] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const address = email.trim();
-    if (!address) {
-      setError("Enter the email you signed up with.");
+    if (!EMAIL_SHAPE.test(address)) {
+      setFieldError(address ? "That doesn't look like a valid email" : "Enter the email you signed up with");
       return;
     }
     setSending(true);
-    setError(null);
+    setFieldError(null);
+    setSendFailed(false);
     try {
       await authApi.resendVerification(address);
       setSentTo(address);
     } catch {
-      setError("We couldn't send the email. Try again in a minute, or contact Uncava support.");
+      setSendFailed(true);
     } finally {
       setSending(false);
     }
@@ -178,10 +181,21 @@ function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="text-left">
-      <FormError message={error} />
-      {!knownEmail && (
-        <Field label="Your email">
-          <Input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+      {sendFailed && <SendFailedNotice />}
+      {knownEmail ? (
+        <p className="mb-3 text-center text-[12.5px] text-u-text2">
+          We&rsquo;ll send it to <span className="font-medium text-u-text">{knownEmail}</span>.
+        </p>
+      ) : (
+        <Field label="Your email" error={fieldError ?? undefined}>
+          <Input
+            type="email"
+            autoComplete="email"
+            autoFocus
+            invalid={!!fieldError}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
         </Field>
       )}
       <Button type="submit" loading={sending} className="w-full">
@@ -190,3 +204,6 @@ function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
     </form>
   );
 }
+
+/** Enough to catch a slip before asking the server, which holds the real rule. */
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

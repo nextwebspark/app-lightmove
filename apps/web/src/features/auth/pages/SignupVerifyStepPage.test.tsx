@@ -140,7 +140,7 @@ describe("SignupVerifyStepPage", () => {
     await screen.findByText("alok@nextwebspark.com");
     await userEvent.click(screen.getByRole("button", { name: /resend the link/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn't send the email");
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn’t send the email");
     expect(screen.getByRole("button", { name: /resend the link/i })).toBeEnabled();
   });
 

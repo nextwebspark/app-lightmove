@@ -7,10 +7,12 @@ export function LegalConsent({ className }: { className?: string }) {
       By continuing you agree to the{" "}
       <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className="text-u-accent hover:underline">
         Terms
+        <span className="sr-only"> (opens in a new tab)</span>
       </a>{" "}
       and{" "}
       <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className="text-u-accent hover:underline">
         Privacy Policy
+        <span className="sr-only"> (opens in a new tab)</span>
       </a>
       .
     </p>
