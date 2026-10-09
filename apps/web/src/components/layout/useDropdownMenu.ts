@@ -23,7 +23,9 @@ export function useDropdownMenu() {
   // beneath it as well.
   useEscapeKey(open, () => close(true));
 
-  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!open) return;

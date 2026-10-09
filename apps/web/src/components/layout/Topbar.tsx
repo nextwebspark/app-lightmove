@@ -104,11 +104,12 @@ export function SettingsBreadcrumb({ section }: { section: string }) {
       <WorkspaceMenu compact />
       <Link
         to="/"
-        className="hidden max-w-[200px] truncate whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline"
+        className="hidden max-w-[200px] truncate whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline xl:hidden"
       >
         {user?.workspace?.name ?? "Workspace"}
       </Link>
-      <span className="hidden text-xs text-u-text3 opacity-40 md:inline">/</span>
+      {/* From xl the trigger beside it carries the name, so the crumb steps aside rather than say it twice. */}
+      <span className="hidden text-xs text-u-text3 opacity-40 md:inline xl:hidden">/</span>
       <span className="hidden whitespace-nowrap text-sm font-semibold text-u-text sm:inline">Settings</span>
       <span className="hidden text-xs text-u-text3 opacity-40 sm:inline">/</span>
       <span className="truncate font-mono text-[13px] font-medium text-u-text2">{section}</span>
@@ -178,7 +179,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
           {invitations.length > 0 && (
             <span
               aria-hidden="true"
-              className="absolute -right-2 -top-2 grid min-w-4 place-items-center rounded-full bg-u-offlimits px-1 text-[9.5px] font-semibold leading-4 text-white ring-2 ring-u-bg"
+              className="absolute -right-2 -top-2 grid min-w-4 place-items-center rounded-full bg-u-signal px-1 text-[9.5px] font-semibold leading-4 text-white ring-2 ring-u-bg"
             >
               {invitations.length}
             </span>
