@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName, EmptyState, TableSkeleton } from "../../../components/ui";
@@ -47,8 +47,22 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   // The registry and roster are staff surfaces a pure client can't read; the server already scopes
   // their project list to the mandates they're attached to, so that list IS "my projects" for them.
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
-  const [query, setQuery] = useState("");
-  const [chip, setChip] = useState<ChipKey>(DEFAULT_CHIP);
+  // In the address, so the back link from a position returns to the list as it was left.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get("q") ?? "";
+  const chip = chipOf(searchParams.get("stage"));
+  const setFilter = (key: "q" | "stage", value: string, isDefault: boolean) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (isDefault) next.delete(key);
+        else next.set(key, value);
+        return next;
+      },
+      { replace: true },
+    );
+  const setQuery = (next: string) => setFilter("q", next, next === "");
+  const setChip = (next: ChipKey) => setFilter("stage", next, next === DEFAULT_CHIP);
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [sort, setSort] = useGridSort<ProjectSortField>(
@@ -249,10 +263,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           firstUse={firstUse}
           openCount={projects.filter(isActive).length}
           filtered={filtered}
-          onClearFilters={() => {
-            setQuery("");
-            setChip(DEFAULT_CHIP);
-          }}
+          onClearFilters={() => setSearchParams(new URLSearchParams(), { replace: true })}
           onShowAllStages={() => setChip("allstages")}
         />
       ) : (
@@ -350,4 +361,8 @@ function ListEmptyState({
 function countLabel(shown: number, total: number, filtered: boolean): string {
   const noun = (filtered ? total : shown) === 1 ? "position" : "positions";
   return filtered ? `${shown} of ${total} ${noun}` : `${shown} ${noun}`;
+}
+
+function chipOf(value: string | null): ChipKey {
+  return CHIPS.find((candidate) => candidate.key === value)?.key ?? DEFAULT_CHIP;
 }

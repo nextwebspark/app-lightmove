@@ -12,6 +12,7 @@ import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
 import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
 import { ProjectBreadcrumb } from "./Topbar";
+import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin";
 
 /**
  * Tabs whose own content scrolls, so the shell must not. They need a *definite* height to size that
@@ -44,6 +45,7 @@ const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
  */
 export function ProjectLayout() {
   const { projectId } = useParams();
+  const origin = usePositionsOrigin(projectId);
   const { pathname } = useLocation();
   // `includes`, not `endsWith`: the Companies stages are a path segment deep (/companies/universe),
   // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
@@ -122,11 +124,15 @@ export function ProjectLayout() {
   return (
     <AppShell
       breadcrumb={
-        <ProjectBreadcrumb clientName={project.clientName} positionTitle={project.positionTitle} />
+        <ProjectBreadcrumb
+          clientName={project.clientName}
+          positionTitle={project.positionTitle}
+          positionsHref={origin.path}
+        />
       }
       topbarActions={<ProjectPeopleBar project={project} />}
       navGroups={groups}
-      navBackLink={{ to: "/", label: "All positions", icon: ICONS.back }}
+      navBackLink={{ to: origin.path, label: `Back to ${origin.label}`, icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
       assistantProjectId={project.id}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */

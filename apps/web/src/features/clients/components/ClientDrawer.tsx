@@ -21,6 +21,7 @@ import { openPositionsLabel } from "../lib/openPositions";
 import { AgencyClientView } from "./AgencyClientView";
 import { ClientMark } from "./ClientMark";
 import { ClientDrawerFoot, ClientPositions, DrawerField, Representatives, SectionLabel } from "./ClientRecordParts";
+import { usePositionsOriginState } from "../../projects/lib/positionsOrigin";
 
 /**
  * The client record drawer (`Clients.dc.html`): an agency's client as a company panel, an in-house
@@ -203,6 +204,7 @@ function MandateView({
   onBack: () => void;
 }) {
   const navigate = useNavigate();
+  const originState = usePositionsOriginState();
   const currentStage = STAGE_ORDER.indexOf(mandate.stage);
   const gates = STAGE_ORDER.filter((stage) => stage !== "CLOSED");
 
@@ -221,7 +223,7 @@ function MandateView({
         </div>
         <div className="mt-1 text-[17px] font-semibold">{mandate.positionTitle}</div>
         <div className="mt-0.5 font-mono text-[11px] text-u-text3">Lead · {mandate.leadName ?? "—"}</div>
-        <Button className="mt-3 w-full" onClick={() => navigate(`/projects/${mandate.id}`)}>
+        <Button className="mt-3 w-full" onClick={() => navigate(`/projects/${mandate.id}`, { state: originState })}>
           Open position →
         </Button>
       </div>

@@ -72,15 +72,18 @@ export function Topbar({
 export function ProjectBreadcrumb({
   clientName,
   positionTitle,
+  positionsHref,
 }: {
   clientName: string;
   positionTitle: string;
+  /** The list the position was opened from, where "Positions" leads back to. */
+  positionsHref: string;
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
       <WorkspaceMenu compact />
       <Link
-        to="/"
+        to={positionsHref}
         className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text lg:inline"
       >
         Positions

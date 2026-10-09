@@ -337,9 +337,9 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
   });
   const me = { memberId: "m-me", userId: "u1", fullName: "Mona Member", email: "mona@firm.example", avatarUrl: null, roles: ["MEMBER"], joinedAt: null };
 
-  const renderPage = (view: "my" | "all" = "my") =>
+  const renderPage = (view: "my" | "all" = "my", entry = view === "my" ? "/" : "/all") =>
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
             <ToastProvider>
@@ -392,6 +392,21 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     expect(screen.getByPlaceholderText(/Search business unit or position/)).toHaveValue("");
     // Back on the default stage: the subtitle stops counting "of".
     expect(screen.getByText(/^1 position ·/)).toBeInTheDocument();
+  });
+
+  it("reads its stage and search from the address, so a return finds the list as it was left", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      position("p1", "CFO Search", [seatOf("m-me", "u1")]),
+      position("p2", "COO Search", [seatOf("m-me", "u1")], "DELIVERED"),
+    ]);
+
+    renderPage("all", "/all?stage=DELIVERED&q=coo");
+
+    expect(await screen.findAllByText("COO Search")).not.toHaveLength(0);
+    expect(screen.queryByText("CFO Search")).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Search business unit or position/)).toHaveValue("coo");
   });
 
   it("never says there are none when the roster could not be read", async () => {
