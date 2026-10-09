@@ -16,6 +16,7 @@ import {
   BILLING_CONTACT_EMAIL,
   billingBannerOf,
   buyOptionOf,
+  cardBrandLabel,
   formatAed,
   formatBillingDate,
   formatResetDate,
@@ -38,6 +39,9 @@ import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
 import { useStripeRedirect } from "../lib/useStripeRedirect";
 
 type Dialog = "plans" | "buy" | null;
+
+/** Each card read is a Stripe call: a remount or a refocus within the minute does not make another. */
+const CARD_STALE_MS = 60_000;
 
 /**
  * Settings → Billing (`Billing.dc.html`): the plan, this month's contact credits, who spent them, and how the
@@ -208,7 +212,7 @@ function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bo
   const { plan, seats, seatPriceFils, interval, status, renewsAt, credits } = billing;
   const trial = trialOf(billing);
   const seatLine = trial
-    ? `${seats} staff ${seats === 1 ? "seat" : "seats"} · free while the trial lasts`
+    ? `${seats} staff ${seats === 1 ? "seat" : "seats"}${trial.ended ? "" : " · free while the trial lasts"}`
     : [
         `${seats} staff ${seats === 1 ? "seat" : "seats"}`,
         seatPriceFils === null ? "Agreed price" : `${formatAed(seatPriceFils)} per seat`,
@@ -268,9 +272,11 @@ function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bo
         ))}
         {isAdmin && (
           <span className="ml-auto flex gap-2">
-            <Link to="/settings/members" className={SECONDARY_SMALL}>
-              Add seats
-            </Link>
+            {!trial?.ended && (
+              <Link to="/settings/members" className={SECONDARY_SMALL}>
+                Add seats
+              </Link>
+            )}
             {planOption && <PlanControl option={planOption} onPlans={onPlans} />}
           </span>
         )}
@@ -336,7 +342,9 @@ function CreditMeter({
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-u-text3">
         <span>
           {trial
-            ? `Trial credits lapse when the trial ends on ${formatResetDate(trial.endsAt)}`
+            ? trial.ended
+              ? `Trial credits lapsed when the trial ended on ${formatResetDate(trial.endsAt)}`
+              : `Trial credits lapse when the trial ends on ${formatResetDate(trial.endsAt)}`
             : credits.monthly > 0
               ? `Resets to ${formatNumber(credits.monthly)} on ${formatResetDate(credits.resetsAt)} · unused credits don't carry over`
               : `The month resets on ${formatResetDate(credits.resetsAt)}`}
@@ -427,12 +435,19 @@ function NoPlan({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bool
 
 function PaymentRow({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }) {
   const portal = useStripeRedirect(() => billingApi.openPortal());
-  const { kind, brand, last4 } = billing.paymentMethod;
+  const { kind } = billing.paymentMethod;
+  const card = useQuery({
+    queryKey: billingApi.BILLING_CARD_KEY,
+    queryFn: ({ signal }) => billingApi.getBillingCard(signal),
+    enabled: isAdmin && paysByCard(billing),
+    staleTime: CARD_STALE_MS,
+    retry: false,
+  }).data;
   const pastDue = billing.status === "PAST_DUE";
   const { title, sub } =
     kind === "CARD"
       ? {
-          title: brand && last4 ? `${brand} •••• ${last4}` : "Paid by card",
+          title: card?.brand && card.last4 ? `${cardBrandLabel(card.brand)} •••• ${card.last4}` : "Paid by card",
           sub: pastDue ? "The last payment failed — update the card" : null,
         }
       : kind === "INVOICED"

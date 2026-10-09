@@ -983,14 +983,17 @@ credits lapsing within a week (`lightmove.billing.jobs.purchased-credit-expiry`,
 `app_lm_billing_notice` (per invoice, per grant) in a transaction of their own before anything is sent, so a replayed
 or retried event, or a second instance, sends nothing more.
 **Buying (#747)**: `GET /billing` also carries the catalogue an admin may buy — `plans` (per-seat prices, credits per
-seat, and the `checkoutIntervals` Stripe sells each in) and `packs` — both empty where Stripe is not offered. Settings →
-Billing's **Change plan** / **See plans** opens the plans dialog: a workspace with no card goes to Checkout, one Stripe
-already bills to the Customer Portal (the API refuses it a second Checkout), Enterprise is "Talk to us". **Buy more
-credits** (banner, meter, out-of-credits sheet) is the packs dialog with VAT shown; **Invoices & card** is the portal.
-Stripe sends the admin back to `?checkout=subscribed|credits|cancelled`, and the page polls the read until the webhook's
-change shows (`lib/checkoutReturn.ts`; bought credits before Checkout are kept in `sessionStorage` to tell). An invoiced
-workspace, or a deployment without Stripe, gets Contact Uncava in place of every buying control, and the invite dialog
-says what a staff seat adds to a Stripe bill (`SeatCostNotice`).
+seat, and the `checkoutIntervals` Stripe sells each in) and `packs` — both empty where Stripe is not offered, and to
+anyone without `BILLING_MANAGE`. Settings → Billing's **Change plan** / **See plans** opens the plans dialog: a
+workspace with no card goes to Checkout, one Stripe already bills to the Customer Portal (the API refuses it a second
+Checkout), Enterprise is "Talk to us". **Buy more credits** (banner, meter, out-of-credits sheet) is the packs dialog
+with VAT shown; **Invoices & card** is the portal. The card it names ("Visa •••• 4242") is `GET /billing/card`, a
+billing manager's like the portal, asked of Stripe and never stored — an answer held a minute per instance, the page's
+query a minute more — and the chip's polled read never asks Stripe. Stripe sends the admin back to
+`?checkout=subscribed|credits|cancelled`, and the page polls the read until the webhook's change shows
+(`lib/checkoutReturn.ts`; bought credits before Checkout are kept in `sessionStorage` to tell). An invoiced workspace,
+or a deployment without Stripe, gets Contact Uncava in place of every buying control, and the invite dialog says what a
+staff seat adds to a Stripe bill (`SeatCostNotice`).
 **Trial (#771, V128)**: founding a workspace (`OnboardingService` → `billing/trial`'s `WorkspaceTrials`, in the same
 transaction) puts it on Pro, `TRIALING`, until `trial_ends_at` (`lightmove.billing.trial.length`, 14d) with a `PLAN` grant
 of `trial.credits` (50) keyed `trial:<workspace>` and expiring with it — no card, no Stripe, no seats of its own (fair use

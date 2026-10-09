@@ -1,6 +1,7 @@
 package app.lightmove.api;
 
 import app.lightmove.api.billing.payment.model.CreditsCheckout;
+import app.lightmove.api.billing.payment.model.PaymentCard;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
 import app.lightmove.api.billing.payment.model.SeatQuantityChange;
 import app.lightmove.api.billing.payment.model.SubscriptionCheckout;
@@ -9,6 +10,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +36,7 @@ public class RecordingPaymentGateway implements PaymentGateway {
     private final List<String> expiredCheckouts = new CopyOnWriteArrayList<>();
     private final Set<String> customersPaying = ConcurrentHashMap.newKeySet();
     private final Map<String, Long> seats = new ConcurrentHashMap<>();
+    private final Map<String, PaymentCard> cards = new ConcurrentHashMap<>();
     private final AtomicInteger seatUpdatesRefused = new AtomicInteger();
     private volatile boolean refusingSeatUpdates;
     private final AtomicInteger sequence = new AtomicInteger();
@@ -93,6 +96,11 @@ public class RecordingPaymentGateway implements PaymentGateway {
     }
 
     @Override
+    public Optional<PaymentCard> cardOf(String subscriptionId) {
+        return Optional.ofNullable(cards.get(subscriptionId));
+    }
+
+    @Override
     public PaymentEvent eventOf(byte[] payload, String signature) {
         if (!VALID_SIGNATURE.equals(signature) || nextEvent == null) {
             throw ApiException.of(ErrorCode.BILLING_WEBHOOK_REJECTED);
@@ -107,6 +115,10 @@ public class RecordingPaymentGateway implements PaymentGateway {
 
     public void subscriptionHolds(String subscriptionId, long quantity) {
         seats.put(subscriptionId, quantity);
+    }
+
+    public void chargesCard(String subscriptionId, PaymentCard card) {
+        cards.put(subscriptionId, card);
     }
 
     public void refuseSeatUpdates(boolean refusing) {

@@ -123,6 +123,20 @@ export function seatCostOf(billing: Billing): number | null {
   return billing.plan && billing.status !== "CANCELLED" ? billing.seatPriceFils : null;
 }
 
+const CARD_BRANDS: Record<string, string> = {
+  american_express: "Amex",
+  cartes_bancaires: "Cartes Bancaires",
+  diners_club: "Diners Club",
+  eftpos_australia: "eftpos",
+  jcb: "JCB",
+  union_pay: "UnionPay",
+};
+
+/** Stripe's display brand → what the card says: "visa" → "Visa", "american_express" → "Amex". */
+export function cardBrandLabel(brand: string): string {
+  return CARD_BRANDS[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1).replaceAll("_", " ");
+}
+
 /** UAE VAT, which Stripe Tax adds at checkout on top of every price shown. */
 export const VAT_RATE = 0.05;
 

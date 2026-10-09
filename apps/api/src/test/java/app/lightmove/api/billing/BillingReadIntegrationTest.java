@@ -5,10 +5,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.RecordingPaymentGateway;
 import app.lightmove.api.billing.credit.constant.CreditAction;
 import app.lightmove.api.billing.credit.constant.CreditGrantSource;
 import app.lightmove.api.billing.credit.model.CreditCharge;
 import app.lightmove.api.billing.credit.service.GrandfatherCredits;
+import app.lightmove.api.billing.payment.model.PaymentCard;
 import app.lightmove.api.core.config.LightMoveProperties;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -35,6 +37,7 @@ class BillingReadIntegrationTest extends BillingFlowSupport {
 
     @Autowired private GrandfatherCredits grandfather;
     @Autowired private LightMoveProperties properties;
+    @Autowired private RecordingPaymentGateway stripe;
 
     @Test
     @DisplayName("the billing read carries the plan, its seat price, the credits by where they came from, and the prices")
@@ -89,6 +92,63 @@ class BillingReadIntegrationTest extends BillingFlowSupport {
         assertThat(enterprise.get("checkoutIntervals")).isEmpty();
         assertThat(billing.get("packs")).extracting(pack -> pack.get("code").asText() + ":" + pack.get("credits")
                 + ":" + pack.get("priceFils")).containsExactly("contact-100:100:15000", "contact-500:500:65000");
+    }
+
+    @Test
+    @DisplayName("a member reads the plan and the credits but no catalogue: only a billing manager buys")
+    void aMemberGetsNoCatalogue() throws Exception {
+        String owner = "buyer@" + domain;
+        String colleague = "looker@" + domain;
+        createWorkspace(verifiedUser("Yara Haddad", owner), "Member Catalogue Firm");
+        inviteAndAccept(login(owner), "Sara Al-Mansour", colleague, "MEMBER");
+
+        JsonNode billing = body(read(login(colleague), "/api/v1/billing").andExpect(status().isOk()).andReturn());
+
+        assertThat(billing.get("stripeOffered").asBoolean()).isTrue();
+        assertThat(billing.get("plans")).isEmpty();
+        assertThat(billing.get("packs")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("the card read names the card Stripe charges, and nothing for a workspace Stripe does not bill")
+    void readsTheCardStripeCharges() throws Exception {
+        String owner = "card@" + domain;
+        UUID workspace = UUID.fromString(createWorkspace(verifiedUser("Yara Haddad", owner), "Card Firm"));
+        String token = login(owner);
+        subscribe(workspace, "PRO", 1, Instant.now().truncatedTo(ChronoUnit.SECONDS));
+
+        JsonNode invoiced = body(read(token, "/api/v1/billing/card").andExpect(status().isOk()).andReturn());
+        assertThat(invoiced.get("brand").isNull()).isTrue();
+        assertThat(invoiced.get("last4").isNull()).isTrue();
+
+        db.update("""
+                UPDATE app_lm_workspace_subscription SET status = 'ACTIVE', stripe_subscription_id = 'sub_card_firm'
+                WHERE workspace_id = ?""", workspace);
+        stripe.chargesCard("sub_card_firm", new PaymentCard("visa", "4242"));
+
+        JsonNode card = body(read(token, "/api/v1/billing/card").andExpect(status().isOk()).andReturn());
+        assertThat(card.get("brand").asText()).isEqualTo("visa");
+        assertThat(card.get("last4").asText()).isEqualTo("4242");
+        assertThat(body(read(token, "/api/v1/billing").andExpect(status().isOk()).andReturn())
+                .at("/paymentMethod/kind").asText()).isEqualTo("CARD");
+    }
+
+    @Test
+    @DisplayName("the card read answers nothing where Stripe cannot name the card, and is a billing manager's alone")
+    void theCardReadIsQuietAndABillingManagers() throws Exception {
+        String owner = "nocard@" + domain;
+        String colleague = "nocard-member@" + domain;
+        UUID workspace = UUID.fromString(createWorkspace(verifiedUser("Yara Haddad", owner), "No Card Firm"));
+        inviteAndAccept(login(owner), "Sara Al-Mansour", colleague, "MEMBER");
+        subscribe(workspace, "PRO", 2, Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        db.update("""
+                UPDATE app_lm_workspace_subscription SET status = 'ACTIVE', stripe_subscription_id = 'sub_no_card'
+                WHERE workspace_id = ?""", workspace);
+
+        JsonNode card = body(read(login(owner), "/api/v1/billing/card").andExpect(status().isOk()).andReturn());
+        assertThat(card.get("brand").isNull()).isTrue();
+        assertThat(card.get("last4").isNull()).isTrue();
+        read(login(colleague), "/api/v1/billing/card").andExpect(status().isForbidden());
     }
 
     @Test

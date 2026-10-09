@@ -5,6 +5,7 @@ import {
   billingBannerOf,
   billingRefusalOf,
   buyOptionOf,
+  cardBrandLabel,
   creditChipOf,
   formatAed,
   planChoiceOf,
@@ -87,7 +88,7 @@ describe("buyOptionOf", () => {
   });
 
   it("sends an invoiced admin to Uncava", () => {
-    const option = buyOptionOf(aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED", brand: null, last4: null } }), true);
+    const option = buyOptionOf(aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED" } }), true);
     expect(option).toMatchObject({ kind: "contact", label: "Contact Uncava" });
     expect(option?.kind === "contact" && option.href).toMatch(/^mailto:billing@uncava\.com/);
   });
@@ -125,7 +126,7 @@ describe("planChoiceOf", () => {
   });
 
   it("sends a workspace with no card to Checkout, only in a period Stripe sells", () => {
-    const billing = aCardBilling({ plan: null, status: null, paymentMethod: { kind: "NONE", brand: null, last4: null } });
+    const billing = aCardBilling({ plan: null, status: null, paymentMethod: { kind: "NONE" } });
     expect(planChoiceOf(billing, core, "ANNUAL")).toEqual({ kind: "checkout", label: "Choose Core", available: true });
     expect(planChoiceOf(billing, { ...core, checkoutIntervals: ["MONTHLY"] }, "ANNUAL")).toMatchObject({ available: false });
   });
@@ -215,6 +216,15 @@ describe("billingRefusalOf", () => {
   it("leaves every other refusal to its caller", () => {
     expect(billingRefusalOf(refused({ code: "RATE_LIMITED", status: 429 }))).toBeNull();
     expect(billingRefusalOf(new Error("network"))).toBeNull();
+  });
+});
+
+describe("cardBrandLabel", () => {
+  it("spells Stripe's display brand as the card does", () => {
+    expect(cardBrandLabel("visa")).toBe("Visa");
+    expect(cardBrandLabel("mastercard")).toBe("Mastercard");
+    expect(cardBrandLabel("american_express")).toBe("Amex");
+    expect(cardBrandLabel("some_new_brand")).toBe("Some new brand");
   });
 });
 

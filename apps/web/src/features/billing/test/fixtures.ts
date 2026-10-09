@@ -23,7 +23,7 @@ export function aBilling(overrides: Partial<Billing> = {}): Billing {
     renewsAt: "2026-11-01T00:00:00Z",
     credits: someCredits(),
     prices: { email: 1, phone: 5 },
-    paymentMethod: { kind: "CARD", brand: null, last4: null },
+    paymentMethod: { kind: "CARD" },
     stripeOffered: false,
     plans: [],
     packs: [],
@@ -53,7 +53,7 @@ export function aTrialBilling(endsAt: string, overrides: Partial<Billing> = {}):
   return aCardBilling({
     status: "TRIALING",
     seats: 1,
-    paymentMethod: { kind: "NONE", brand: null, last4: null },
+    paymentMethod: { kind: "NONE" },
     renewsAt: endsAt,
     trialEndsAt: endsAt,
     credits: someCredits({ monthly: 50, left: 50, usedPercent: 0, resetsAt: endsAt }),
@@ -63,5 +63,5 @@ export function aTrialBilling(endsAt: string, overrides: Partial<Billing> = {}):
 
 /** A workspace Uncava invoices, on the same deployment. */
 export function anInvoicedBilling(overrides: Partial<Billing> = {}): Billing {
-  return aCardBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED", brand: null, last4: null }, ...overrides });
+  return aCardBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED" }, ...overrides });
 }

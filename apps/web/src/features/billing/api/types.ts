@@ -52,7 +52,7 @@ export interface CreditPackOffer {
 
 /**
  * `GET /billing`. The plan's fields are null for a workspace with no subscription; `plans` and `packs` are empty where
- * Stripe is not offered. `trialEndsAt` is set only on the app's own trial, still unpaid, and passed once it has ended.
+ * Stripe is not offered, and for anyone but an admin. `trialEndsAt` is set only on the app's own trial, still unpaid, and passed once it has ended.
  */
 export interface Billing {
   plan: { code: PlanCode; name: string } | null;
@@ -64,11 +64,18 @@ export interface Billing {
   renewsAt: string | null;
   credits: ContactCredits;
   prices: CreditPrices;
-  paymentMethod: { kind: PaymentMethodKind; brand: string | null; last4: string | null };
+  paymentMethod: { kind: PaymentMethodKind };
   stripeOffered: boolean;
   plans: BillingPlanOffer[];
   packs: CreditPackOffer[];
   trialEndsAt: string | null;
+}
+
+/** `GET /billing/card`: the card Stripe charges, asked of Stripe on each read; both null where it cannot say. */
+export interface PaymentCard {
+  /** Stripe's display brand: `visa`, `mastercard`, `american_express`, … */
+  brand: string | null;
+  last4: string | null;
 }
 
 /** One member's captured finds this billing month; a spend no member made has a null `userId`. */
