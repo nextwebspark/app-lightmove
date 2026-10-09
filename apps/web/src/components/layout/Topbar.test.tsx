@@ -154,6 +154,30 @@ describe("Topbar — workspace menu", () => {
     expect(trigger).toHaveFocus();
   });
 
+  it("offers a pure client only Manage workspaces", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: aWorkspace({ roles: ["CLIENT"] }) }));
+    renderAt();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
+
+    expect(screen.getByRole("menuitem", { name: "Manage workspaces" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Team" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Create workspace" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "Workspace settings" })).not.toBeInTheDocument();
+  });
+
+  it("closes on Escape even when a click left focus outside the menu", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home, workspaces: [home, second] }));
+    const user = userEvent.setup();
+    renderAt();
+
+    await user.click(await screen.findByRole("button", { name: /^Workspace:/ }));
+    await user.click(screen.getByText("Current workspace"));
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
   it("offers Team, workspace settings and Create workspace to an admin", async () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home }));
     renderAt();
@@ -213,7 +237,7 @@ describe("Topbar — account menu", () => {
 
     expect(screen.getByRole("menuitem", { name: "Your profile" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Security" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /mode$/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemcheckbox", { name: /Dark mode/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
     await waitFor(() => expect(authApi.logout).toHaveBeenCalled());
   });

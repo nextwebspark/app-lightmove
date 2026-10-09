@@ -27,7 +27,7 @@ export function Topbar({
   onMenuClick,
 }: {
   breadcrumb?: ReactNode;
-  /** Drawn in place of the user's avatar — a project header's people. */
+  /** Drawn beside the avatar — a project header's people. */
   actions?: ReactNode;
   navOpen?: boolean;
   onMenuClick?: () => void;
@@ -98,14 +98,15 @@ export function ProjectBreadcrumb({
 
 /** The breadcrumb variant: `[mark] Workspace / Settings / {section}`. */
 export function SettingsBreadcrumb({ section }: { section: string }) {
+  const { user } = useAuth();
   return (
     <div className="flex min-w-0 items-center gap-2">
       <WorkspaceMenu compact />
       <Link
         to="/"
-        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline"
+        className="hidden max-w-[200px] truncate whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline"
       >
-        Workspace
+        {user?.workspace?.name ?? "Workspace"}
       </Link>
       <span className="hidden text-xs text-u-text3 opacity-40 md:inline">/</span>
       <span className="hidden whitespace-nowrap text-sm font-semibold text-u-text sm:inline">Settings</span>
@@ -165,28 +166,33 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
         aria-label={`Workspace: ${workspace.name}${invitations.length > 0 ? ` · ${invitationCount}` : ""}`}
         title={workspace.name}
         className={cn(
-          "flex min-w-0 items-center gap-2 rounded-lg hover:bg-u-raised",
+          "flex min-w-0 items-center gap-2 rounded-lg hover:bg-u-raised aria-expanded:bg-u-raised",
+          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent",
           compact ? "py-1 pl-1 pr-2" : "py-[5px] pl-1.5 pr-2",
         )}
       >
         <AppIcon className="h-[22px]" />
-        <span aria-hidden="true" className="h-5 w-px flex-none bg-u-border" />
+        <span aria-hidden="true" className="hidden h-5 w-px flex-none bg-u-border sm:block" />
         <span className="relative flex-none">
           <WorkspaceMark workspace={workspace} size={22} />
           {invitations.length > 0 && (
             <span
               aria-hidden="true"
-              className="absolute -right-1.5 -top-1.5 grid min-w-4 place-items-center rounded-full bg-u-accent-solid px-1 text-[9.5px] font-semibold leading-4 text-white"
+              className="absolute -right-2 -top-2 grid min-w-4 place-items-center rounded-full bg-u-offlimits px-1 text-[9.5px] font-semibold leading-4 text-white ring-2 ring-u-bg"
             >
               {invitations.length}
             </span>
           )}
         </span>
-        {!compact && (
-          <span className="hidden min-w-0 truncate text-body font-semibold text-u-text sm:block sm:max-w-[240px]">
-            {workspace.name}
-          </span>
-        )}
+        <span
+          className={cn(
+            "min-w-0 truncate text-body font-semibold text-u-text",
+            // A position's breadcrumb has room for the name only on a wide screen; a list page always shows it.
+            compact ? "hidden max-w-[160px] xl:block" : "block max-w-[120px] sm:max-w-[240px]",
+          )}
+        >
+          {workspace.name}
+        </span>
         <Icon d={ICONS.chevronDown} size={13} className="flex-none text-u-text3" />
       </button>
 
@@ -197,7 +203,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
           aria-label="Workspace"
           className="absolute left-0 top-10 z-[80] w-[min(280px,calc(100vw-24px))] rounded-[10px] border border-u-border-strong bg-u-surface p-1.5 shadow-u-e3"
         >
-          <div className="mb-1.5 flex items-center gap-2.5 border-b border-u-border p-2.5">
+          <div role="presentation" className="mb-1.5 flex items-center gap-2.5 border-b border-u-border p-2.5">
             <WorkspaceMark workspace={workspace} size={30} />
             <div className="min-w-0">
               <div className="truncate text-body font-semibold">{workspace.name}</div>
@@ -205,20 +211,26 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
             </div>
           </div>
 
-          {(others.length > 0 || invitations.length > 0) && (
+          {invitations.length > 0 && (
+            <>
+              <MenuHeading>Invitations</MenuHeading>
+              {invitations.map((invitation) => (
+                <MenuItem key={invitation.id} disabled={busy} onClick={() => void handleAccept(invitation)}>
+                  <Icon d={ICONS.userPlus} size={15} className="flex-none" />
+                  <span className="min-w-0 flex-1 truncate">Invited to {invitation.workspaceName}</span>
+                  <span className="flex-none text-meta font-medium text-u-accent">Accept</span>
+                </MenuItem>
+              ))}
+              <MenuDivider />
+            </>
+          )}
+          {others.length > 0 && (
             <>
               <MenuHeading>Switch to</MenuHeading>
               {others.map((other) => (
                 <MenuItem key={other.id} disabled={busy} onClick={() => void handleSwitch(other)}>
                   <WorkspaceMark workspace={other} size={20} />
                   <span className="min-w-0 flex-1 truncate">{other.name}</span>
-                </MenuItem>
-              ))}
-              {invitations.map((invitation) => (
-                <MenuItem key={invitation.id} disabled={busy} onClick={() => void handleAccept(invitation)}>
-                  <Icon d={ICONS.userPlus} size={15} className="flex-none" />
-                  <span className="min-w-0 flex-1 truncate">Invited to {invitation.workspaceName}</span>
-                  <span className="flex-none text-meta font-medium text-u-accent">Accept</span>
                 </MenuItem>
               ))}
               <MenuDivider />
@@ -274,7 +286,7 @@ function AccountMenu() {
         onClick={menu.toggle}
         {...menu.triggerProps}
         aria-label={`Account: ${user.fullName}`}
-        className="flex rounded-full outline-offset-2 hover:ring-2 hover:ring-u-border-strong focus-visible:outline-2 focus-visible:outline-u-accent"
+        className="flex rounded-full outline-offset-2 hover:ring-2 hover:ring-u-border-strong focus-visible:outline-2 focus-visible:outline-u-accent aria-expanded:ring-2 aria-expanded:ring-u-border-strong"
       >
         <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />
       </button>
@@ -286,7 +298,7 @@ function AccountMenu() {
           aria-label="Account"
           className="absolute right-0 top-10 z-[80] w-[min(260px,calc(100vw-24px))] rounded-[10px] border border-u-border-strong bg-u-surface p-1.5 shadow-u-e3"
         >
-          <div className="mb-1.5 border-b border-u-border p-2.5">
+          <div role="presentation" className="mb-1.5 border-b border-u-border p-2.5">
             <div className="truncate text-body font-semibold">{user.fullName}</div>
             <div className="truncate text-meta text-u-text3">{user.email}</div>
           </div>
@@ -298,9 +310,10 @@ function AccountMenu() {
             <Icon d={ICONS.lock} size={15} className="flex-none" />
             Security
           </MenuItem>
-          <MenuItem onClick={toggleTheme}>
-            <Icon d={theme === "dark" ? ICONS.sun : ICONS.moon} size={15} className="flex-none" />
-            {theme === "dark" ? "Light mode" : "Dark mode"}
+          <MenuItem role="menuitemcheckbox" checked={theme === "dark"} onClick={toggleTheme}>
+            <Icon d={ICONS.moon} size={15} className="flex-none" />
+            <span className="flex-1">Dark mode</span>
+            <span aria-hidden="true" className="text-meta text-u-text3">{theme === "dark" ? "On" : "Off"}</span>
           </MenuItem>
           <MenuDivider />
           <MenuItem onClick={() => void signOut()}>
@@ -313,16 +326,32 @@ function AccountMenu() {
   );
 }
 
-function MenuItem({ onClick, disabled, children }: { onClick: () => void; disabled?: boolean; children: ReactNode }) {
+function MenuItem({
+  onClick,
+  disabled = false,
+  role = "menuitem",
+  checked,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  role?: "menuitem" | "menuitemcheckbox";
+  checked?: boolean;
+  children: ReactNode;
+}) {
   return (
     <button
       type="button"
-      role="menuitem"
-      onClick={onClick}
-      disabled={disabled}
+      role={role}
+      aria-checked={role === "menuitemcheckbox" ? checked : undefined}
+      // aria-disabled, not disabled: a busy item keeps its focus, so Escape and the arrows still reach the menu.
+      aria-disabled={disabled || undefined}
+      onClick={() => {
+        if (!disabled) onClick();
+      }}
       className={
         "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13px] text-u-text2 outline-none " +
-        "transition hover:bg-u-raised hover:text-u-text focus-visible:bg-u-raised focus-visible:text-u-text disabled:opacity-60"
+        "transition hover:bg-u-raised hover:text-u-text focus-visible:bg-u-raised focus-visible:text-u-text aria-disabled:opacity-60"
       }
     >
       {children}
@@ -332,7 +361,7 @@ function MenuItem({ onClick, disabled, children }: { onClick: () => void; disabl
 
 function MenuHeading({ children }: { children: ReactNode }) {
   return (
-    <div className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
+    <div role="presentation" className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3">
       {children}
     </div>
   );
