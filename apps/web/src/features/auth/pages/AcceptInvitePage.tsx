@@ -13,6 +13,7 @@ import { acceptInviteSchema, type AcceptInviteValues } from "../schemas";
 import { titleCase } from "../../../lib/format";
 import { LegalConsent } from "../components/LegalConsent";
 import { landingAfterJoining } from "../../projects/lib/landingAfterJoining";
+import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
 
 /**
  * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
@@ -131,7 +132,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
     setAlreadyRegistered(false);
     try {
       const joined = await acceptInviteSignup(token, values.fullName, values.password);
-      navigate(await landingAfterJoining(joined, queryClient), { replace: true });
+      navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (error) {
       // The one failure with a way forward: this address already has an account, so log in and accept
       // from there. The address prefills the login form — and deliberately nothing else is revealed.
@@ -225,7 +226,7 @@ function ServerDerivedArrival() {
     setError(null);
     try {
       const joined = await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
-      navigate(await landingAfterJoining(joined, queryClient), { replace: true });
+      navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (err) {
       setError(messageFor(err));
       setAccepting(null);
@@ -325,7 +326,7 @@ function SignedInBody({
       // The switch mints a token carrying the joined workspace's claim. Without it the token in memory
       // still names wherever they were — or nothing — and the workspace they just joined refuses them.
       const joined = await acceptAndSwitch(() => authApi.acceptInvitation(token));
-      navigate(await landingAfterJoining(joined, queryClient), { replace: true });
+      navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (err) {
       setError(messageFor(err));
       setAccepting(false);

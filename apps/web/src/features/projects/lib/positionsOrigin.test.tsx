@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Link, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { usePositionsOrigin, usePositionsOriginState } from "./positionsOrigin";
+import { NO_POSITIONS_ORIGIN, usePositionsOrigin, usePositionsOriginState } from "./positionsOrigin";
 
 vi.mock("../../workspace/lib/vocabulary", () => ({ useWorkspaceVocabulary: () => ({ units: "Clients" }) }));
 
@@ -34,6 +34,14 @@ const renderFrom = (entry: string) =>
         <Route path="/" element={<OpenLink />} />
         <Route path="/all" element={<OpenLink />} />
         <Route path="/clients" element={<OpenLink />} />
+        <Route
+          path="/candidates"
+          element={
+            <Link to="/projects/p1" state={NO_POSITIONS_ORIGIN}>
+              Open
+            </Link>
+          }
+        />
         <Route path="/projects/p1/*" element={<Position />} />
       </Routes>
     </MemoryRouter>,
@@ -62,16 +70,25 @@ describe("the list a position was opened from", () => {
     expect(screen.getByRole("link", { name: "Back to All positions" })).toHaveAttribute("href", "/all?q=cfo");
   });
 
-  it("falls back to the positions home when nothing says where it came from", () => {
+  it("falls back to My positions when nothing says where it came from", () => {
     renderFrom("/projects/p1");
 
-    expect(screen.getByRole("link", { name: "Back to positions" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Back to My positions" })).toHaveAttribute("href", "/");
   });
 
-  it("never follows a kept origin off the app", () => {
-    sessionStorage.setItem("lightmove.positionsOrigin.p1", JSON.stringify({ path: "//evil.example", label: "x" }));
+  it("forgets an earlier list once the position is opened from somewhere else", async () => {
+    sessionStorage.setItem("lightmove.positionsOrigin.p1", "/all?q=cfo");
+    renderFrom("/candidates");
+    await userEvent.click(screen.getByRole("link", { name: "Open" }));
+
+    expect(screen.getByRole("link", { name: "Back to My positions" })).toHaveAttribute("href", "/");
+    expect(sessionStorage.getItem("lightmove.positionsOrigin.p1")).toBeNull();
+  });
+
+  it.each(["//evil.example", "/\\evil.example", "/projects/p2"])("never follows a kept origin to %s", (kept) => {
+    sessionStorage.setItem("lightmove.positionsOrigin.p1", kept);
     renderFrom("/projects/p1");
 
-    expect(screen.getByRole("link", { name: "Back to positions" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Back to My positions" })).toHaveAttribute("href", "/");
   });
 });

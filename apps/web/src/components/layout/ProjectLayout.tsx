@@ -127,7 +127,8 @@ export function ProjectLayout() {
         <ProjectBreadcrumb
           clientName={project.clientName}
           positionTitle={project.positionTitle}
-          positionsHref={origin.path}
+          // The crumb says Positions, so it leads to a list of them, never the business units it might have come from.
+          positionsHref={origin.path.startsWith("/clients") ? "/" : origin.path}
         />
       }
       topbarActions={<ProjectPeopleBar project={project} />}

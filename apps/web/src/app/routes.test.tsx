@@ -494,3 +494,51 @@ describe("routes — changing a mistyped address on the verify step", () => {
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/signup"));
   });
 });
+
+/** The way back out of a position goes to the list it was opened from, and says so. */
+describe("routes — back from a position", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    sessionStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      {
+        id: "p1",
+        clientId: "c1",
+        clientName: "Beta Client",
+        clientLogoUrl: null,
+        positionTitle: "CFO Search",
+        stage: "DELIVERED",
+        health: "OK",
+        targetDate: null,
+        projectType: "SEARCH",
+        startDate: null,
+        deliveryDate: null,
+        mappingTargetDate: null,
+        team: [],
+        representatives: [],
+        companies: 0,
+        candidates: 0,
+        mappedCandidates: 0,
+        engagedCandidates: 0,
+        mappedCompanies: 0,
+        createdAt: "2026-07-13T10:00:00Z",
+      },
+    ]);
+  });
+
+  it("returns to All positions with its stage and search, from the rail and the crumb", async () => {
+    renderAt("/all?stage=DELIVERED&q=cfo");
+
+    await userEvent.click((await screen.findAllByRole("link", { name: "Open CFO Search" }))[0]);
+
+    expect(await screen.findByRole("link", { name: /Back to All positions/ })).toHaveAttribute(
+      "href",
+      "/all?stage=DELIVERED&q=cfo",
+    );
+    expect(screen.getByRole("link", { name: "Positions" })).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
+  });
+});

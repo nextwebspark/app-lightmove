@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useLocation } from "react-router-dom";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
@@ -8,58 +8,75 @@ export interface PositionsOrigin {
   label: string;
 }
 
+/**
+ * Router state on every link that opens a position: the list's address, or null from anywhere that is not a list
+ * of positions, which forgets an origin kept from an earlier visit.
+ */
 interface OriginState {
-  positionsOrigin?: PositionsOrigin;
+  positionsOrigin: string | null;
 }
 
-const FALLBACK: PositionsOrigin = { path: "/", label: "positions" };
+const HOME = "/";
 
 const storageKey = (projectId: string) => `lightmove.positionsOrigin.${projectId}`;
 
 /** Router state for a link that opens a position from the page this is called on. */
 export function usePositionsOriginState(): OriginState {
   const { pathname, search } = useLocation();
-  const { units } = useWorkspaceVocabulary();
-  return useMemo(() => {
-    const label = labelOf(pathname, units);
-    return label ? { positionsOrigin: { path: `${pathname}${search}`, label } } : {};
-  }, [pathname, search, units]);
+  return useMemo(
+    () => ({ positionsOrigin: listPathOf(pathname) ? `${pathname}${search}` : null }),
+    [pathname, search],
+  );
 }
+
+/** Router state for opening a position from somewhere that is not a list, such as a redirect after joining. */
+export const NO_POSITIONS_ORIGIN: OriginState = { positionsOrigin: null };
 
 /**
  * The origin of the position on screen. The opening link's state lives only on that one navigation, and moving
- * between the position's tabs drops it, so the first sight of it is kept for the tab's session, per position.
+ * between the position's tabs drops it, so it is kept for the tab's session, per position, until the next opening.
  */
 export function usePositionsOrigin(projectId: string | undefined): PositionsOrigin {
   const { state } = useLocation();
-  const arrived = (state as OriginState | null)?.positionsOrigin;
-  return useMemo(() => {
-    if (!projectId) return FALLBACK;
-    if (arrived && isInApp(arrived.path)) {
-      try {
-        sessionStorage.setItem(storageKey(projectId), JSON.stringify(arrived));
-      } catch {
-        // Blocked storage only costs the origin on the next tab change.
-      }
-      return arrived;
-    }
+  const { units } = useWorkspaceVocabulary();
+  const opened = (state as Partial<OriginState> | null) ?? {};
+  const isOpening = "positionsOrigin" in opened;
+  const arrived = isOpening && isInApp(opened.positionsOrigin) ? opened.positionsOrigin : null;
+
+  useEffect(() => {
+    if (!projectId || !isOpening) return;
     try {
-      const kept = JSON.parse(sessionStorage.getItem(storageKey(projectId)) ?? "null") as PositionsOrigin | null;
-      if (kept && typeof kept.label === "string" && isInApp(kept.path)) return kept;
+      if (arrived) sessionStorage.setItem(storageKey(projectId), arrived);
+      else sessionStorage.removeItem(storageKey(projectId));
+    } catch {
+      // Blocked storage only costs the origin on the next tab change.
+    }
+  }, [projectId, isOpening, arrived]);
+
+  let path = arrived;
+  if (!isOpening && projectId) {
+    try {
+      const kept = sessionStorage.getItem(storageKey(projectId));
+      if (isInApp(kept)) path = kept;
     } catch {
       // Unreadable is the same as never opened from a list.
     }
-    return FALLBACK;
-  }, [projectId, arrived]);
+  }
+  path ??= HOME;
+  return { path, label: labelOf(path, units) };
 }
 
-function labelOf(pathname: string, units: string): string | null {
-  if (pathname === "/") return "My positions";
+function listPathOf(pathname: string): boolean {
+  return pathname === "/" || pathname === "/all" || pathname === "/clients";
+}
+
+function labelOf(path: string, units: string): string {
+  const pathname = path.split(/[?#]/)[0];
   if (pathname === "/all") return "All positions";
-  if (pathname === "/clients" || pathname.startsWith("/clients/")) return units;
-  return null;
+  if (pathname === "/clients") return units;
+  return "My positions";
 }
 
 function isInApp(path: unknown): path is string {
-  return typeof path === "string" && path.startsWith("/") && !path.startsWith("//");
+  return typeof path === "string" && /^\/(?![\\/])/.test(path) && listPathOf(path.split(/[?#]/)[0]);
 }

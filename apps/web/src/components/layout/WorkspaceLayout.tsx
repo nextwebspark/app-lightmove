@@ -38,7 +38,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const roles = user?.workspace?.roles ?? [];
   const clientOnly = isPureClient(roles);
   const vocabulary = useWorkspaceVocabulary();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // My and All are one list seen two ways, so moving between them keeps its stage and search.
+  const listSearch = pathname === "/" || pathname === "/all" ? search : "";
   const fullBleed = FULL_BLEED_ROUTES.some((route) => matchPath(route, pathname));
 
   const { data: projects } = useQuery({
@@ -75,8 +77,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     : {
         label: "Positions",
         items: [
-          { to: "/", label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
-          { to: "/all", label: "All positions", icon: ICONS.allProjects, count: projects?.length },
+          { to: `/${listSearch}`, label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
+          { to: `/all${listSearch}`, label: "All positions", icon: ICONS.allProjects, count: projects?.length },
         ],
       };
 

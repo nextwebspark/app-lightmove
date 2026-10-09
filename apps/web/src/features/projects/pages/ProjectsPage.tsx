@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName, EmptyState, TableSkeleton } from "../../../components/ui";
@@ -28,9 +28,12 @@ import {
   type ProjectSortField,
 } from "../lib/projectColumns";
 import { CHIPS, filterProjects, isActive, type ChipKey } from "../lib/filtering";
+import { useAddressedSearch } from "../../../lib/useAddressedSearch";
 
 const PROJECT_LAYOUT_COLUMNS = layoutColumnsOf(projectColumns);
 const HIDEABLE_PROJECT_COLUMNS = hideableColumnsOf(projectColumns);
+
+const CHIP_KEYS: ChipKey[] = CHIPS.map((candidate) => candidate.key);
 
 const DEFAULT_CHIP: ChipKey = "active";
 
@@ -48,21 +51,11 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   // their project list to the mandates they're attached to, so that list IS "my projects" for them.
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   // In the address, so the back link from a position returns to the list as it was left.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const query = searchParams.get("q") ?? "";
-  const chip = chipOf(searchParams.get("stage"));
-  const setFilter = (key: "q" | "stage", value: string, isDefault: boolean) =>
-    setSearchParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        if (isDefault) next.delete(key);
-        else next.set(key, value);
-        return next;
-      },
-      { replace: true },
-    );
-  const setQuery = (next: string) => setFilter("q", next, next === "");
-  const setChip = (next: ChipKey) => setFilter("stage", next, next === DEFAULT_CHIP);
+  const { query, setQuery, chip, setChip, clear: clearFilters } = useAddressedSearch(
+    "stage",
+    CHIP_KEYS,
+    DEFAULT_CHIP,
+  );
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [sort, setSort] = useGridSort<ProjectSortField>(
@@ -263,7 +256,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           firstUse={firstUse}
           openCount={projects.filter(isActive).length}
           filtered={filtered}
-          onClearFilters={() => setSearchParams(new URLSearchParams(), { replace: true })}
+          onClearFilters={clearFilters}
           onShowAllStages={() => setChip("allstages")}
         />
       ) : (
@@ -363,6 +356,3 @@ function countLabel(shown: number, total: number, filtered: boolean): string {
   return filtered ? `${shown} of ${total} ${noun}` : `${shown} ${noun}`;
 }
 
-function chipOf(value: string | null): ChipKey {
-  return CHIPS.find((candidate) => candidate.key === value)?.key ?? DEFAULT_CHIP;
-}

@@ -23,6 +23,10 @@ import {
   type ClientSortField,
 } from "../lib/clientColumns";
 import { chipsFor, filterClients, type ChipKey } from "../lib/filtering";
+import { useAddressedSearch } from "../../../lib/useAddressedSearch";
+import { useSearchParams } from "react-router-dom";
+
+const CHIP_KEYS: ChipKey[] = ["all", "active", "noreps"];
 
 const DEFAULT_CLIENT_SORT = { field: "name", direction: "asc" } as const;
 
@@ -36,9 +40,20 @@ export function ClientsPage() {
   const layoutColumns = useMemo(() => layoutColumnsOf(columns), [columns]);
   const hideableColumns = useMemo(() => hideableColumnsOf(columns), [columns]);
   const chips = useMemo(() => chipsFor(vocabulary), [vocabulary]);
-  const [query, setQuery] = useState("");
-  const [chip, setChip] = useState<ChipKey>("all");
-  const [openClientId, setOpenClientId] = useState<string | null>(null);
+  // In the address, with the open record, so the way back from a position opened here finds the page as left.
+  const { query, setQuery, chip, setChip } = useAddressedSearch<ChipKey>("show", CHIP_KEYS, "all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openClientId = searchParams.get("client");
+  const setOpenClientId = (id: string | null) =>
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (id) next.set("client", id);
+        else next.delete("client");
+        return next;
+      },
+      { replace: true },
+    );
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newMandateOpen, setNewMandateOpen] = useState(false);
   const [sort, setSort] = useGridSort<ClientSortField>(

@@ -12,6 +12,7 @@ import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as gettingStartedApi from "../api/gettingStartedApi";
 import type { GettingStarted, GettingStartedStep } from "../api/gettingStartedApi";
 import { stepCopyOf } from "../lib/steps";
+import { usePositionsOriginState } from "../../projects/lib/positionsOrigin";
 
 /** Endowed progress: the two steps signup already did are shown done, so nobody starts at zero. */
 const ALREADY_DONE = ["Create your account", "Set up your workspace"] as const;
@@ -252,6 +253,7 @@ function StepAction({
       <Icon d={ICONS.arrowRight} size={13} />
     </>
   );
+  const originState = usePositionsOriginState();
   switch (target.kind) {
     case "newPosition":
       return offersNewPosition ? (
@@ -267,7 +269,7 @@ function StepAction({
       );
     case "position":
       return focusProjectId ? (
-        <Link to={target.pathFor(focusProjectId)} className={className}>
+        <Link to={target.pathFor(focusProjectId)} state={originState} className={className}>
           {label}
         </Link>
       ) : null;

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
@@ -409,6 +409,37 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     expect(screen.getByPlaceholderText(/Search business unit or position/)).toHaveValue("coo");
   });
 
+  it("filters as you type and writes the search into the address a moment later", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      position("p1", "CFO Search", [seatOf("m-me", "u1")]),
+      position("p2", "COO Search", [seatOf("m-me", "u1")]),
+    ]);
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={["/all"]}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <ToastProvider>
+              <ProjectsPage view="all" />
+              <Address />
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    await screen.findAllByText("CFO Search");
+    await user.type(screen.getByPlaceholderText(/Search business unit or position/), "coo");
+
+    expect(screen.getByPlaceholderText(/Search business unit or position/)).toHaveValue("coo");
+    expect(screen.queryByText("CFO Search")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("address")).toHaveTextContent("?q=coo"));
+    await user.click(screen.getByRole("button", { name: "Delivered" }));
+    await waitFor(() => expect(screen.getByTestId("address")).toHaveTextContent("?q=coo&stage=DELIVERED"));
+  });
+
   it("never says there are none when the roster could not be read", async () => {
     vi.mocked(authApi.me).mockResolvedValue(staff());
     vi.mocked(workspaceApi.members).mockRejectedValue(new Error("403"));
@@ -468,3 +499,8 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     ).toBeInTheDocument();
   });
 });
+
+function Address() {
+  const { search } = useLocation();
+  return <div data-testid="address">{search}</div>;
+}

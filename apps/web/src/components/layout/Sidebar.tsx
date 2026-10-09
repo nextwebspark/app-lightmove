@@ -101,7 +101,7 @@ export function Sidebar({
             className={rowClass("mb-1.5 font-medium text-u-text2")}
           >
             <Icon d={backLink.icon} className="flex-none" />
-            <span className={cn("whitespace-nowrap", labelsHidden)}>{backLink.label}</span>
+            <span className={cn("min-w-0 truncate whitespace-nowrap", labelsHidden)}>{backLink.label}</span>
           </NavLink>
           <div className="mx-1 mb-1.5 h-px bg-u-border" />
         </>
