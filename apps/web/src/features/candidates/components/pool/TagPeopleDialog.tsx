@@ -46,7 +46,7 @@ export function TagPeopleDialog({
       onDone?.();
       onClose();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const toggle = (tagId: string) =>

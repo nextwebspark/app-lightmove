@@ -194,7 +194,7 @@ export function CandidateProfile({
       toast("Nationality saved");
       onSaved(saved);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const nationalityReading = canWrite && !candidate.nationality ? aiEnrichment.nationalityReading : null;
 
@@ -270,6 +270,7 @@ export function CandidateProfile({
                     changeStatus.mutate({
                       candidateId: candidate.id,
                       status: event.target.value as CandidateStatus,
+                      previous: candidate.status,
                     })
                   }
                   className="w-auto px-2 py-1 text-[12px]"
@@ -603,7 +604,7 @@ export function CandidateProfile({
               open={sections.isOpen("outreach")}
               onToggle={() => sections.toggle("outreach")}
               isSettingStatus={changeStatus.isPending}
-              onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status })}
+              onSetStatus={(status) => changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })}
             />
           )}
           {canWrite && (

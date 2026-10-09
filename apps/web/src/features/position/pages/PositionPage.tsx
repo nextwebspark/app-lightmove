@@ -194,7 +194,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       queryClient.setQueryData(key, await call(payload));
       onSaved?.();
     };
-  const autosaveOptions = { onError: (error: unknown) => toast(messageFor(error)) };
+  const autosaveOptions = { onError: (error: unknown) => toast.error(messageFor(error)) };
 
   const detailsSave = useAutosave(
     // The Role Brief writes the mandate's own role title, so the projects list's Role column goes stale.
@@ -460,7 +460,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
       toast(`Brief drafted from the ${template.title} template.`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const publish = useMutation({
@@ -473,7 +473,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setReopened(false);
       toast("Position profile published");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const withdraw = useMutation({
@@ -482,7 +482,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       queryClient.setQueryData(key, saved);
       toast("Publication withdrawn");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   /**
@@ -498,7 +498,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     try {
       await flushAll();
     } catch (error) {
-      toast(messageFor(error));
+      toast.error(messageFor(error));
       return;
     }
     setReopened(false);
@@ -509,7 +509,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     try {
       await flushAll();
     } catch (error) {
-      toast(messageFor(error));
+      toast.error(messageFor(error));
       return;
     }
     toast("Draft saved");
@@ -660,7 +660,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setUsualDirectReports(null);
       if (saved.document) startReading(saved.document.fileName);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const removeDocument = useMutation({
     mutationFn: () => positionApi.removeDocument(projectId),
@@ -670,12 +670,12 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setReadProblem(null);
       setUsualDirectReports(null);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const downloadDocument = useMutation({
     mutationFn: () =>
       positionApi.saveDocument(projectId, position.document?.fileName ?? "position-description"),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   /**
@@ -691,7 +691,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       );
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   // The rail and the review cards read a brief, not six drafts, so the edits in flight are folded

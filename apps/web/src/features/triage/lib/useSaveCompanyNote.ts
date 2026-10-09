@@ -17,6 +17,6 @@ export function useSaveCompanyNote(projectId: string, onSaved: () => void) {
       onSaved();
       toast("Note saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 }

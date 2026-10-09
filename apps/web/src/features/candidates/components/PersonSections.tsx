@@ -80,7 +80,7 @@ export function NotesSection({ projectId, candidateId }: PersonSectionProps) {
         queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId),
       });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const canSave = text.trim().length > 0 && !saving.isPending;
   const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate());

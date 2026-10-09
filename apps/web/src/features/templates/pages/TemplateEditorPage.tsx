@@ -176,7 +176,7 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
     },
     onError: (error) => {
       setConfirming(null);
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     },
   });
 

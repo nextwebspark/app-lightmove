@@ -166,7 +166,7 @@ export function EnrolDialog({
         );
       } catch (error) {
         if (!isOpen.current) return received;
-        toast(messageFor(error));
+        toast.error(messageFor(error));
         setReviewed((current) =>
           withEach(current, candidateIds.slice(at), (email) => ({ ...email, isDrafting: false, draftFailed: true })),
         );
@@ -223,7 +223,7 @@ export function EnrolDialog({
       onClose();
     },
     onError: (error) => {
-      toast(messageFor(error));
+      toast.error(messageFor(error));
       const code = codeOf(error);
       if (code === "OUTREACH_PERSON_SKIPPED" || code === "OUTREACH_ALREADY_ENROLLED") {
         void people.refetch();

@@ -50,7 +50,7 @@ function StaffOutreachPage() {
     mutationFn: mailboxApi.sendMailboxTest,
     onSuccess: () => toast("Test email sent. Check your inbox."),
     onError: (error) => {
-      toast(messageFor(error));
+      toast.error(messageFor(error));
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
     },
   });
@@ -61,7 +61,7 @@ function StaffOutreachPage() {
       toast("Mailbox disconnected.");
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const handleConnect = (provider: string) => {
@@ -78,7 +78,7 @@ function StaffOutreachPage() {
         },
         onError: (code) => {
           finish();
-          toast(messageForCode(code));
+          toast.error(messageForCode(code));
         },
         onCancel: finish,
       },

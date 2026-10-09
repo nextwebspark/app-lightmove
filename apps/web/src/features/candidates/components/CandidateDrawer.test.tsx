@@ -898,6 +898,22 @@ describe("CandidateDrawer", () => {
     expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
   });
 
+  it("offers an Undo that puts the status back to the one it left", async () => {
+    vi.mocked(candidatesApi.changeCandidateStatus)
+      .mockResolvedValueOnce({ ...yasmin, status: "contacted" })
+      .mockResolvedValueOnce(yasmin);
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await userEvent.selectOptions(screen.getByLabelText(/^Status$/i), "contacted");
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await waitFor(() =>
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenLastCalledWith("p1", "c1", "interested"),
+    );
+    expect(await screen.findByText("Yasmin El-Sayed is now interested")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  });
+
   it("gives a reader who cannot write the profile and neither control", async () => {
     renderDrawer({ candidate: yasmin, company: null, canWrite: false });
 

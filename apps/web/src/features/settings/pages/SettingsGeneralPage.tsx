@@ -64,7 +64,7 @@ export function SettingsGeneralPage() {
       await reload();
       toast("Workspace settings saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   if (!workspace) return null;

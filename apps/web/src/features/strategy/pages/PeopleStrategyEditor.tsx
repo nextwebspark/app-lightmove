@@ -128,7 +128,7 @@ export function PeopleStrategyEditor({
     },
   });
   const autosave = useAutosave<PeopleFilter>((payload) => filterWrite.mutateAsync(payload), {
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const applyFilter = (next: PeopleFilter) => {
@@ -182,7 +182,7 @@ export function PeopleStrategyEditor({
   });
 
   useEffect(() => {
-    if (results.error) toast(messageFor(results.error));
+    if (results.error) toast.error(messageFor(results.error));
   }, [results.error, toast]);
 
   const people = results.data?.pages.flatMap((page) => page.people) ?? [];
@@ -195,7 +195,7 @@ export function PeopleStrategyEditor({
     try {
       await autosave.flush();
     } catch (error) {
-      toast(messageFor(error));
+      toast.error(messageFor(error));
       return;
     }
     setRowSelection({});
@@ -235,7 +235,7 @@ export function PeopleStrategyEditor({
           (result.unavailable > 0 ? `, ${result.unavailable} need a fresh search` : ""),
       );
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const saveSearch = useMutation({
@@ -247,13 +247,13 @@ export function PeopleStrategyEditor({
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(projectId) });
       toast("Search saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const editSearch = useMutation({
     mutationFn: ({ searchId, ...patch }: { searchId: string; name?: string; visibility?: SearchVisibility }) =>
       strategyApi.patchSearch(projectId, searchId, patch),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(projectId) }),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const overwriteSearch = useMutation({
     mutationFn: async (searchId: string) => {
@@ -264,7 +264,7 @@ export function PeopleStrategyEditor({
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(projectId) });
       toast(`${search.name} updated`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const deleteSearch = useMutation({
     mutationFn: (searchId: string) => strategyApi.deleteSearch(projectId, searchId),
@@ -272,7 +272,7 @@ export function PeopleStrategyEditor({
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(projectId) });
       toast("Search deleted");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   if (strategy.isError) {

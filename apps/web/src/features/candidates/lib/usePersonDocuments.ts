@@ -25,7 +25,7 @@ export function usePersonDocuments(scope: DocumentScope, enabled = true) {
     mutationFn: ({ documentId, patch }: { documentId: string; patch: UpdatePersonDocumentPayload }) =>
       documentsApi.updateDocument(scope, documentId, patch),
     onSuccess: refresh,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const removing = useMutation({
     mutationFn: (documentId: string) => documentsApi.removeDocument(scope, documentId),
@@ -33,20 +33,20 @@ export function usePersonDocuments(scope: DocumentScope, enabled = true) {
       toast("Document deleted — the timeline keeps a line, without its name");
       refresh();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const removingVersion = useMutation({
     mutationFn: ({ documentId, versionId }: { documentId: string; versionId: string }) =>
       documentsApi.removeVersion(scope, documentId, versionId),
     onSuccess: refresh,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const download = async (document: PersonDocument, version: PersonDocumentVersion) => {
     try {
       saveBlob(await documentsApi.documentContent(scope, document.id, version.id, false), version.fileName);
     } catch (error) {
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     }
   };
 

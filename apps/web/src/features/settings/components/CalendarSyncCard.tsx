@@ -23,7 +23,7 @@ export function CalendarSyncCard({ calendarSync, recallOffered }: { calendarSync
       queryClient.setQueryData(workspaceApi.WORKSPACE_KEY, saved);
       toast(saved.calendarSync === "RECALL" ? "Calendars sync through Recall" : "Calendars are read directly");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const handleChoose = (next: CalendarSync) => {

@@ -44,7 +44,7 @@ export function TagPicker({
         ? poolApi.untagPerson(person.personId, tag.id)
         : poolApi.tagPerson(person.personId, tag.id),
     onSuccess: refresh,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const creating = useMutation({
     mutationFn: async (label: string) => {
@@ -56,7 +56,7 @@ export function TagPicker({
       setQuery("");
       refresh(updated);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

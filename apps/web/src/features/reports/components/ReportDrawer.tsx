@@ -43,6 +43,7 @@ export function ReportDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        data-edge-panel="report"
         className="fixed inset-y-0 right-0 z-[95] flex w-[384px] max-w-[92vw] animate-slide-in-end flex-col border-l border-u-border bg-u-surface text-u-text shadow-u-e3"
       >
         <div className="flex flex-none items-start justify-between gap-2.5 border-b border-u-border px-6 py-[22px]">

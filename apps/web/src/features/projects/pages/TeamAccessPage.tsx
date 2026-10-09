@@ -89,7 +89,7 @@ export function TeamAccessPage() {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
       toast("Contact removed from this mandate");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   // Staff only: a seat holding nothing but CLIENT belongs to the section below, not this table.
@@ -122,7 +122,7 @@ export function TeamAccessPage() {
           : `${member.fullName} is now a researcher`,
       );
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const remove = useMutation({
@@ -133,7 +133,7 @@ export function TeamAccessPage() {
       // Removing your own seat can take the mandate with it — a non-lead loses WORK_VIEW entirely.
       if (member.userId === user?.id) navigate("/projects");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const busyMemberId =

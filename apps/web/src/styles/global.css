@@ -109,6 +109,49 @@ body {
   animation: dot-pop 0.28s ease both;
 }
 
+/* Toasts stack in the bottom-right corner, clear of any panel docked on the right: a drawer's footer
+   holds its Save and Remove, and an error that stays must never sit on the button that answers it. */
+.toast-stack {
+  --toast-clearance: 0px;
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+}
+
+@media (min-width: 640px) {
+  .toast-stack {
+    bottom: 24px;
+    left: auto;
+    right: max(24px, min(calc(24px + var(--toast-clearance)), calc(100vw - 384px)));
+    width: 360px;
+  }
+  body:has([data-edge-panel="drawer"]) .toast-stack {
+    --toast-clearance: 430px;
+  }
+  body:has([data-edge-panel="drawer-wide"]) .toast-stack {
+    --toast-clearance: 570px;
+  }
+  body:has([data-edge-panel="report"]) .toast-stack {
+    --toast-clearance: 384px;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 /* The report drawer sliding in from the edge it is anchored to. */
 @keyframes slide-in-end {
   from {

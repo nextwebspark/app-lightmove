@@ -133,7 +133,7 @@ describe("SettingsMembersPage — the roster", () => {
     const picker = await screen.findByLabelText("Role for Sara Al-Mansour");
     await user.selectOptions(picker, "ADMIN");
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "A workspace must keep at least one admin.",
     );
     await waitFor(() => expect(picker).toHaveValue("MEMBER"));
