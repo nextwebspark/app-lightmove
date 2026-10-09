@@ -2,10 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
-import { useAutosave } from "../../../lib/useAutosave";
+import { useAutosave, type SaveStatus } from "../../../lib/useAutosave";
 import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
 import { canExecuteProjectWork } from "../../projects/lib/access";
@@ -186,57 +187,76 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     staleTime: 5 * 60 * 1000,
   });
 
-  /** Shared persistence shape: cache the returned snapshot and toast failures. */
+  /** Shared persistence shape: cache the returned snapshot. A refusal is the autosave's to report. */
   const persist =
     <T,>(call: (payload: T) => Promise<Position>, onSaved?: () => void) =>
     async (payload: T) => {
-      try {
-        queryClient.setQueryData(key, await call(payload));
-        onSaved?.();
-      } catch (error) {
-        toast(messageFor(error));
-        throw error;
-      }
+      queryClient.setQueryData(key, await call(payload));
+      onSaved?.();
     };
+  const autosaveOptions = { onError: (error: unknown) => toast(messageFor(error)) };
 
   const detailsSave = useAutosave(
     // The Role Brief writes the mandate's own role title, so the projects list's Role column goes stale.
     persist((next: PositionDetails) => positionApi.putDetails(projectId, next), () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
     }),
+    autosaveOptions,
   );
   const contextSave = useAutosave(
     persist((next: MandateContext) => positionApi.putContext(projectId, next)),
+    autosaveOptions,
   );
   const reportingSave = useAutosave(
     persist((next: ReportingStructure) => positionApi.putReporting(projectId, next)),
+    autosaveOptions,
   );
   const compensationSave = useAutosave(
     persist((next: Compensation) => positionApi.putCompensation(projectId, next)),
+    autosaveOptions,
   );
   const criteriaSave = useAutosave(
     persist((next: Criterion[]) => positionApi.putCriteria(projectId, next)),
+    autosaveOptions,
   );
   const competenciesSave = useAutosave(
     persist((panels: { technical: Competency[]; behavioural: Competency[]; technicalShare: number }) =>
       positionApi.putCompetencies(projectId, panels.technical, panels.behavioural, panels.technicalShare),
     ),
+    autosaveOptions,
   );
 
   const channels = [detailsSave, contextSave, reportingSave, compensationSave, criteriaSave, competenciesSave];
   const statuses = channels.map((channel) => channel.status);
-  const saveStatus = statuses.includes("saving") ? "saving" : statuses.includes("saved") ? "saved" : "idle";
+  const saveStatus: SaveStatus = statuses.includes("error")
+    ? "error"
+    : statuses.includes("saving")
+      ? "saving"
+      : statuses.includes("saved")
+        ? "saved"
+        : "idle";
+  const hasUnsavedChanges = channels.some((channel) => channel.hasUnsavedChanges);
 
   /**
    * Drains every channel, one after another. `BaseEntity` carries `@Version` and every section PUT
    * rewrites the same row, so two flushes racing each other is an optimistic-lock 409 — the hook
-   * serialises within a channel only.
+   * serialises within a channel only. A refused channel holds back no other: all are drained, then
+   * the first refusal is thrown.
    */
-  const flushAll = async () => {
+  const drainInOrder = async (drain: (channel: (typeof channels)[number]) => Promise<void>) => {
+    let refusal: unknown = null;
     for (const channel of channels) {
-      await channel.flush();
+      try {
+        await drain(channel);
+      } catch (error) {
+        refusal ??= error;
+      }
     }
+    if (refusal !== null) throw refusal;
   };
+
+  const flushAll = () => drainInOrder((channel) => channel.flush());
+  const retryAll = () => void drainInOrder((channel) => channel.retry()).catch(() => {});
 
   /**
    * The narrower drain a document fill uses: only the channels the screens `fillBrief` actually
@@ -271,7 +291,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     // The mandate cannot be untitled, so a blank title is held back rather than sent and refused.
     if (!next.roleTitle.trim()) return;
     detailsSave.schedule(next);
-    if (immediate) void detailsSave.flush();
+    if (immediate) detailsSave.saveNow();
   };
   const changeContext = (patch: Partial<MandateContext>, immediate = false) => {
     const next = {
@@ -281,7 +301,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     };
     setContext(next);
     contextSave.schedule(next);
-    if (immediate) void contextSave.flush();
+    if (immediate) contextSave.saveNow();
   };
   const changeReporting = (patch: Partial<ReportingStructure>, immediate = false) => {
     const next = {
@@ -291,13 +311,13 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     };
     setReporting(next);
     reportingSave.schedule(next);
-    if (immediate) void reportingSave.flush();
+    if (immediate) reportingSave.saveNow();
   };
   const changeCompensation = (patch: Partial<Compensation>, immediate = false) => {
     const next = { ...compensation, ...patch };
     setCompensation(next);
     compensationSave.schedule(next);
-    if (immediate) void compensationSave.flush();
+    if (immediate) compensationSave.saveNow();
   };
   const changeCriteria = (next: Criterion[]) => {
     setCriteria(next);
@@ -324,7 +344,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       behavioural: forWire(nextBehavioural),
       technicalShare: nextShare,
     });
-    if (immediate) void competenciesSave.flush();
+    if (immediate) competenciesSave.saveNow();
   };
   const changePanel = (panel: CompetencyPanelKey) => (rows: IdentifiedCompetency[]) =>
     changeAssessment(panel === "technical" ? { technical: rows } : { behavioural: rows });
@@ -436,7 +456,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     onSuccess: ({ brief, titled }, template) => {
       adoptBrief(brief);
       detailsSave.schedule(titled);
-      void detailsSave.flush();
+      detailsSave.saveNow();
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
       toast(`Brief drafted from the ${template.title} template.`);
     },
@@ -475,13 +495,23 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       publish.mutate();
       return;
     }
-    await flushAll();
+    try {
+      await flushAll();
+    } catch (error) {
+      toast(messageFor(error));
+      return;
+    }
     setReopened(false);
     toast("Changes published");
   };
 
   const saveDraft = async () => {
-    await flushAll();
+    try {
+      await flushAll();
+    } catch (error) {
+      toast(messageFor(error));
+      return;
+    }
     toast("Draft saved");
   };
 
@@ -575,7 +605,8 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
           technicalShare: outcome.next.technicalShare,
         });
       }
-      void flushDocumentFill(outcome.changed);
+      // A refused section reports itself through its autosave.
+      flushDocumentFill(outcome.changed).catch(() => {});
 
       const filled = Object.values(outcome.receipts).reduce((sum, receipt) => sum + fieldCountOf(receipt), 0);
       // The title carries no receipt, so `filled` never counts it — but a rename is the most visible
@@ -710,7 +741,9 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
         onPublish={() => void publishNow()}
         onEditPosition={() => setReopened(true)}
         onSaveDraft={() => void saveDraft()}
+        onRetrySave={retryAll}
       />
+      <LeaveGuard hasUnsavedChanges={hasUnsavedChanges} flush={flushAll} />
 
       <div className="min-w-0 flex-1">
         <div className="px-4 pb-[100px] pt-[30px] sm:px-10">

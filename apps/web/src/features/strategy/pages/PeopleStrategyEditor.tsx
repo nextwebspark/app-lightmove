@@ -16,6 +16,7 @@ import { SelectionAction, SelectionActionBar } from "../../../components/ui/Sele
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { hasRoomForRails } from "../../../lib/viewport";
@@ -122,16 +123,13 @@ export function PeopleStrategyEditor({
   const filterWrite = useMutation({
     mutationKey: strategyApi.STRATEGY_WRITE_KEY(projectId),
     mutationFn: async (payload: PeopleFilter) => {
-      try {
-        queryClient.setQueryData(strategyApi.STRATEGY_KEY(projectId), await peopleApi.putPeopleFilter(projectId, payload));
-        await queryClient.invalidateQueries({ queryKey: peopleApi.PEOPLE_COUNT_KEY(projectId) });
-      } catch (error) {
-        toast(messageFor(error));
-        throw error;
-      }
+      queryClient.setQueryData(strategyApi.STRATEGY_KEY(projectId), await peopleApi.putPeopleFilter(projectId, payload));
+      await queryClient.invalidateQueries({ queryKey: peopleApi.PEOPLE_COUNT_KEY(projectId) });
     },
   });
-  const autosave = useAutosave<PeopleFilter>((payload) => filterWrite.mutateAsync(payload));
+  const autosave = useAutosave<PeopleFilter>((payload) => filterWrite.mutateAsync(payload), {
+    onError: (error) => toast(messageFor(error)),
+  });
 
   const applyFilter = (next: PeopleFilter) => {
     setFilter(next);
@@ -192,8 +190,14 @@ export function PeopleStrategyEditor({
   const billed = results.data?.pages.reduce((sum, page) => sum + page.billed, 0) ?? 0;
 
   const handleSearch = async () => {
-    // The server searches the stored filter, so the last chip click must reach it first.
-    await autosave.flush();
+    // The server searches the stored filter, so the last chip click must reach it first — and a
+    // search is billed, so one over a filter the server never took is not run at all.
+    try {
+      await autosave.flush();
+    } catch (error) {
+      toast(messageFor(error));
+      return;
+    }
     setRowSelection({});
     setRun((current) => current + 1);
   };
@@ -300,6 +304,7 @@ export function PeopleStrategyEditor({
 
   return (
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
+      <LeaveGuard hasUnsavedChanges={autosave.hasUnsavedChanges} flush={autosave.flush} />
       <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
         {toggle}
         <SaveSearchMenu
