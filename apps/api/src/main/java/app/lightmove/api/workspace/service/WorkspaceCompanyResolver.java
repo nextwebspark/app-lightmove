@@ -25,6 +25,6 @@ class WorkspaceCompanyResolver {
         return companies.byAccountIds(List.of(apolloAccountId)).stream().findFirst()
                 .map(row -> new WorkspaceIdentity(row.companyName().trim(), WorkspaceCompany.of(row)))
                 .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "That company is no longer listed — type your firm's name instead"));
+                        "That company is no longer listed — choose Not us and continue with your name"));
     }
 }
