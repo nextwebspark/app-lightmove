@@ -69,6 +69,8 @@ export interface Billing {
   plans: BillingPlanOffer[];
   packs: CreditPackOffer[];
   trialEndsAt: string | null;
+  /** Where a workspace writes to Uncava about billing. */
+  contactEmail: string;
 }
 
 /** `GET /billing/card`: the card Stripe charges, asked of Stripe on each read; both null where it cannot say. */

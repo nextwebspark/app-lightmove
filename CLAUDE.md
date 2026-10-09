@@ -983,7 +983,7 @@ the membership as it is and the mark for `lightmove.billing.jobs.seat-sync`.
 **Billing emails (#745, V127)** go to a workspace's `BILLING_MANAGE` holders alone — members see the chip and the
 banner — from `billing/notice`'s `BillingNotices`, after the commit that caused them: a threshold crossing (80%, 90%,
 used up; V124's row is the claim, so concurrent spends send one email per admin) offers Buy more credits to a
-Stripe-billed workspace and Contact Uncava (`lightmove.billing.contact-email`) to an invoiced one; a failed invoice (`SubscriptionPaymentFailed`) and bought
+Stripe-billed workspace and Contact Uncava (`lightmove.billing.contact-email`, which `GET /billing` also carries as `contactEmail` for every Contact Uncava link in the SPA) to an invoiced one; a failed invoice (`SubscriptionPaymentFailed`) and bought
 credits lapsing within a week (`lightmove.billing.jobs.purchased-credit-expiry`, daily) are each claimed in
 `app_lm_billing_notice` (per invoice, per grant) in a transaction of their own before anything is sent, so a replayed
 or retried event, or a second instance, sends nothing more.

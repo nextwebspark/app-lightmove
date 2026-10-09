@@ -168,6 +168,7 @@ function FairUseSheet({
   refusal: Extract<BillingRefusal, { kind: "fairUse" }>;
   onClose: () => void;
 }) {
+  const billing = useBilling();
   const feature = refusal.use ? FAIR_USE_FEATURES[refusal.use] : "This feature";
   const body =
     `${feature} is part of your plan, up to a generous monthly amount per seat. Your team has gone past it this ` +
@@ -180,9 +181,11 @@ function FairUseSheet({
       title="You've reached this month's fair use"
       body={body}
       primary={
-        <PrimaryLink href={mailtoBilling(`More fair use for ${feature}`)} onClick={onClose}>
-          Talk to us
-        </PrimaryLink>
+        billing.data && (
+          <PrimaryLink href={mailtoBilling(billing.data, `More fair use for ${feature}`)} onClick={onClose}>
+            Talk to us
+          </PrimaryLink>
+        )
       }
       onClose={onClose}
     />

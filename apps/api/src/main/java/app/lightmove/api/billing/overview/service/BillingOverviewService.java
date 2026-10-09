@@ -87,7 +87,8 @@ public class BillingOverviewService {
                 offered,
                 buys ? planOffers() : List.of(),
                 buys ? packOffers() : List.of(),
-                trial ? subscription.getTrialEndsAt() : null);
+                trial ? subscription.getTrialEndsAt() : null,
+                properties.billing().contactEmail());
     }
 
     /** Asked of Stripe outside any transaction and never stored; an answer, a miss included, is held a minute. */
