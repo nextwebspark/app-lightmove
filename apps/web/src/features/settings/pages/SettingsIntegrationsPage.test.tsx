@@ -124,7 +124,7 @@ describe("SettingsIntegrationsPage", () => {
     const microsoft = await card("Microsoft 365");
     expect(within(microsoft).getByText(/adminconsent\?client_id=uncava-microsoft-client/)).toBeInTheDocument();
     expect(within(microsoft).getByRole("button", { name: "Copy admin consent link" })).toBeInTheDocument();
-    expect(within(await card("Zoom")).getByText(/shared app isn't available on this deployment/)).toBeInTheDocument();
+    expect(within(await card("Zoom")).getByText(/shared app isn't available for this provider/)).toBeInTheDocument();
   });
 
   it("saves an own app's keys, telling the admin what to register and that Recall will receive them", async () => {
@@ -283,7 +283,7 @@ describe("SettingsIntegrationsPage", () => {
 
     await userEvent.click(within(google).getByRole("radio", { name: "Your own app" }));
 
-    expect(within(google).getByRole("alert")).toHaveTextContent("can't be stored on this deployment");
+    expect(within(google).getByRole("alert")).toHaveTextContent("can't be stored for your workspace");
     expect(within(google).getByRole("button", { name: "Save" })).toBeDisabled();
   });
 

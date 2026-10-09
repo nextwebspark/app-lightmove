@@ -137,7 +137,7 @@ describe("Topbar — workspace menu", () => {
 
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalled());
     expect(screen.getByTestId("pathname").textContent).toBe("/projects/p1");
-    expect(await screen.findByText(/Workspace not found/)).toBeInTheDocument();
+    expect(await screen.findByText(/That workspace isn't available to you any more/)).toBeInTheDocument();
   });
 });
 

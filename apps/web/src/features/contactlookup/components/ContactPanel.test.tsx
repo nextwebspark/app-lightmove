@@ -305,7 +305,7 @@ describe("ContactPanel", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/LinkedIn profile URL first/);
 
     await userEvent.click(screen.getByRole("button", { name: "Find phone" }));
-    expect((await screen.findByText(/No contact lookup credits left/)).closest('[role="alert"]')).not.toBeNull();
+    expect((await screen.findByText(/used this period's contact lookup credits/)).closest('[role="alert"]')).not.toBeNull();
     expect(screen.getByRole("button", { name: "Find phone" })).toBeEnabled();
   });
 

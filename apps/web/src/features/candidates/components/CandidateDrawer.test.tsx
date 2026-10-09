@@ -1154,7 +1154,7 @@ describe("CandidateDrawer", () => {
 
       await userEvent.click(await screen.findByRole("button", { name: /Find email/i }));
 
-      expect(await screen.findByText(/No contact lookup credits left/i)).toBeInTheDocument();
+      expect(await screen.findByText(/used this period's contact lookup credits/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Find email/i })).toBeEnabled();
     });
   });

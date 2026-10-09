@@ -236,7 +236,7 @@ describe("OutreachPage", () => {
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue({ offered: false, providers: [], connection: null, bookingLinkOffered: false });
     renderPage();
 
-    expect(await screen.findByText("Outreach email is not set up on this deployment.")).toBeInTheDocument();
+    expect(await screen.findByText("Outreach email isn't switched on for your workspace. Contact Uncava support to turn it on.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Connect/ })).not.toBeInTheDocument();
   });
 

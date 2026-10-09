@@ -254,7 +254,7 @@ function MailboxState({
   if (!mailbox.offered) {
     return (
       <p className="mb-[18px] rounded-[10px] border border-u-border bg-u-raised px-5 py-4 text-[13px] text-u-text2">
-        Outreach email is not set up on this deployment.
+        Outreach email isn't switched on for your workspace. Contact Uncava support to turn it on.
       </p>
     );
   }

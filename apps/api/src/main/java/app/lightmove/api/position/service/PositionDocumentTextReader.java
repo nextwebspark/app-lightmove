@@ -41,7 +41,7 @@ public class PositionDocumentTextReader {
             // Refused whole: taking the first N characters would silently decide what mattered.
             throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
                     "That document has more than " + settings.maxCharacters() + " characters. "
-                            + "Extraction only works on a mandate-length brief.");
+                            + "Shorten it to the role description and attach it again.");
         }
         return trimmed;
     }

@@ -119,7 +119,7 @@ public class TriageCompanyService {
         CompanyScope scope = strategy.scopeOf(workspaceId, projectId);
         if (scope.offLimitsAccountIds().contains(accountId)) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "This company is off-limits for this mandate.");
+                    "This company is off-limits for this position.");
         }
 
         CompanyRow row = market.byAccountIds(List.of(accountId)).stream().findFirst()
