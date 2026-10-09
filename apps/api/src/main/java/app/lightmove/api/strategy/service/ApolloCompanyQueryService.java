@@ -21,6 +21,7 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -276,24 +278,41 @@ public class ApolloCompanyQueryService {
 
     /** The keywords that place a company in a niche, most widely used first: "luxury watches" before a one-off phrasing. */
     public List<String> distinctiveKeywords(List<String> keywords, int limit) {
+        return distinctiveOf(keywords, nicheKeywordCounts(keywords), limit);
+    }
+
+    /**
+     * How many companies use each of {@code keywords} that marks a niche — shared by at least two, used by
+     * too few to be a commonplace — so one query serves a whole list of companies.
+     */
+    public Map<String, Long> nicheKeywordCounts(Collection<String> keywords) {
         if (keywords.isEmpty()) {
-            return List.of();
+            return Map.of();
         }
         return jdbc.sql("""
-                        SELECT k.keyword
+                        SELECT k.keyword, k.company_count
                         FROM app_lm_apollo_keywords k,
                              (SELECT count(*)::float8 AS companies FROM app_lm_apollo_companies) u
                         WHERE k.keyword IN (:keywords)
                           AND k.company_count >= 2
                           AND k.company_count <= greatest(3, u.companies * :commonestShare)
-                        ORDER BY k.company_count DESC, k.keyword
-                        LIMIT :limit
                         """)
-                .param("keywords", lowered(keywords))
+                .param("keywords", lowered(keywords.stream().distinct().toList()))
                 .param("commonestShare", COMMONEST_KEYWORD_SHARE)
-                .param("limit", limit)
-                .query(String.class)
-                .list();
+                .query((rs, rowNumber) -> Map.entry(rs.getString("keyword"), rs.getLong("company_count")))
+                .list().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    }
+
+    /** {@code keywords} found in {@code nicheCounts}, most widely used first, ties by spelling. */
+    public static List<String> distinctiveOf(List<String> keywords, Map<String, Long> nicheCounts, int limit) {
+        return lowered(keywords).stream()
+                .distinct()
+                .filter(nicheCounts::containsKey)
+                .sorted(Comparator.comparing((String keyword) -> nicheCounts.get(keyword)).reversed()
+                        .thenComparing(Comparator.naturalOrder()))
+                .limit(limit)
+                .toList();
     }
 
     /**

@@ -15,6 +15,7 @@ import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.HiringSide;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.CandidateTools;
+import app.lightmove.api.assistant.tool.CompanyDetailTools;
 import app.lightmove.api.assistant.tool.CompanyDiscoveryTools;
 import app.lightmove.api.assistant.tool.CompanySearchTools;
 import app.lightmove.api.assistant.tool.MandateBrief;
@@ -71,7 +72,7 @@ class AssistantAgentTest {
     private final AssistantToolset toolset = new AssistantToolset(AssistantSkills.fromClasspath(), new ObjectMapper(),
             mandateTools, mock(CompanySearchTools.class), mock(NamedCompanyTools.class),
             mock(CompanyDiscoveryTools.class), mock(SectorTools.class),
-            proposalTools, mock(CandidateTools.class));
+            proposalTools, mock(CandidateTools.class), mock(CompanyDetailTools.class));
     private final AssistantAgent agent = new AssistantAgent(model, toolset, mandateTools, proposalTools, hiringSides);
 
     @BeforeEach
@@ -96,7 +97,8 @@ class AssistantAgentTest {
                 "readMandateBrief", "searchCompanyUniverse", "describeMarket", "lookUpCompaniesByName",
                 "identifyCompany", "findSimilarCompanies", "searchCompaniesByActivity",
                 "adjacentIndustries", "proposeCompanies",
-                "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives");
+                "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives",
+                "readCompanyDetails", "listMandateCompanies");
     }
 
     @Test

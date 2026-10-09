@@ -45,6 +45,11 @@ public class CompanyResearch {
         return recordOf(linkedinSlug).flatMap(VendorCompanyRecord::asCapturedDetails);
     }
 
+    /** What the cache holds however old, never asking the vendor: a read that must cost nothing. */
+    public Optional<VendorCompanyRecord> heldRecordOf(String linkedinSlug) {
+        return store.find(linkedinSlug).flatMap(CachedCompany::found);
+    }
+
     /** The whole record, specialties included. */
     public Optional<VendorCompanyRecord> recordOf(String linkedinSlug) {
         Instant staleBefore = Instant.now().minus(cacheTtl);
