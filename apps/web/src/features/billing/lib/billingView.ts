@@ -137,6 +137,54 @@ export function cardBrandLabel(brand: string): string {
   return CARD_BRANDS[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1).replaceAll("_", " ");
 }
 
+/** What one more staff seat costs a workspace Stripe bills by card, said before an admin adds it. */
+export interface SeatCharge {
+  planName: string;
+  /** A seat a month in fils; on a yearly plan, its monthly share of the year. */
+  monthlyFils: number;
+  annual: boolean;
+  /** Stripe's proration were the seat added now, to the whole dirham; null without a period end or once it passed. */
+  nowFils: number | null;
+  until: string | null;
+  seatsAfter: number;
+  monthlyTotalFils: number;
+}
+
+export function seatChargeOf(billing: Billing, now: number = Date.now()): SeatCharge | null {
+  const monthlyFils = paysByCard(billing) ? seatCostOf(billing) : null;
+  if (monthlyFils === null || !billing.plan) return null;
+  const annual = billing.interval === "ANNUAL";
+  const seatsAfter = billing.seats + 1;
+  return {
+    planName: billing.plan.name,
+    monthlyFils,
+    annual,
+    nowFils: billing.renewsAt ? proratedFils(monthlyFils * (annual ? 12 : 1), billing.renewsAt, annual, now) : null,
+    until: billing.renewsAt,
+    seatsAfter,
+    monthlyTotalFils: monthlyFils * seatsAfter,
+  };
+}
+
+function proratedFils(periodFils: number, endsAt: string, annual: boolean, now: number): number | null {
+  const end = new Date(endsAt);
+  const start = periodStartOf(end, annual);
+  const left = end.getTime() - now;
+  if (left <= 0) return null;
+  const share = Math.min(left, end.getTime() - start.getTime()) / (end.getTime() - start.getTime());
+  return Math.round((periodFils * share) / 100) * 100;
+}
+
+/** The anchor one period before `end`, held to the month's last day as Stripe holds it: Mar 31 → Feb 28. */
+function periodStartOf(end: Date, annual: boolean): Date {
+  const year = end.getUTCFullYear() - (annual ? 1 : 0);
+  const month = end.getUTCMonth() - (annual ? 0 : 1);
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const start = new Date(end);
+  start.setUTCFullYear(year, month, Math.min(end.getUTCDate(), lastDay));
+  return start;
+}
+
 /** UAE VAT, which Stripe Tax adds at checkout on top of every price shown. */
 export const VAT_RATE = 0.05;
 

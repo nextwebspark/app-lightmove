@@ -124,6 +124,48 @@ describe("InviteModal — what a staff seat costs", () => {
     expect(await screen.findByText(/Adds AED 499 a month, before VAT/)).toBeInTheDocument();
   });
 
+  it("asks before a staff invitation adds a paid seat, then sends it", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    vi.mocked(workspaceApi.invite).mockResolvedValue({ sent: 1 });
+    const user = userEvent.setup();
+    open();
+    await screen.findByText(/Adds AED 499 a month/);
+
+    await user.type(screen.getByPlaceholderText("colleague@firm.com"), "sara@firm.com");
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Add a paid seat?" });
+    expect(dialog).toHaveTextContent("sara@firm.com joins as Member");
+    expect(dialog).toHaveTextContent("AED 499 a month, before VAT");
+    expect(dialog).toHaveTextContent("This seat takes your bill to 6 seats · AED 2,994 a month");
+    expect(workspaceApi.invite).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Send and add seat" }));
+
+    expect(workspaceApi.invite).toHaveBeenCalledWith([{ email: "sara@firm.com", role: "MEMBER" }]);
+  });
+
+  it("goes back to the form from the confirm step without sending", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    const user = userEvent.setup();
+    open();
+    await screen.findByText(/Adds AED 499 a month/);
+
+    await user.type(screen.getByPlaceholderText("colleague@firm.com"), "sara@firm.com");
+    await user.click(screen.getByRole("button", { name: "Send invite" }));
+    await user.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(screen.getByPlaceholderText("colleague@firm.com")).toHaveValue("sara@firm.com");
+    expect(workspaceApi.invite).not.toHaveBeenCalled();
+  });
+
+  it("holds a staff invitation until the seat's price is known", async () => {
+    vi.mocked(billingApi.getBilling).mockReturnValue(new Promise(() => {}));
+    open();
+
+    expect(screen.getByRole("button", { name: "Send invite" })).toBeDisabled();
+  });
+
   it("says nothing on an invoiced workspace, whose seats are agreed with Uncava", async () => {
     open();
 
