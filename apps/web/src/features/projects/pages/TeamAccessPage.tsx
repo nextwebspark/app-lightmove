@@ -14,6 +14,7 @@ import { useGridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import type { AttachedRepresentative, StaffRole, TeamMember } from "../api/types";
 import { AddClientContactModal } from "../components/AddClientContactModal";
@@ -48,6 +49,7 @@ export function TeamAccessPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
+  const vocabulary = useWorkspaceVocabulary();
   const [addTeamOpen, setAddTeamOpen] = useState(false);
   const [addContactOpen, setAddContactOpen] = useState(false);
   const [pendingRemoval, setPendingRemoval] = useState<TeamMember | null>(null);
@@ -122,7 +124,7 @@ export function TeamAccessPage() {
       await refresh(member);
       toast(
         role === "LEAD"
-          ? `${member.fullName} is now a lead on this project`
+          ? `${member.fullName} is now a lead on this position`
           : `${member.fullName} is now a researcher`,
       );
     },
@@ -134,7 +136,7 @@ export function TeamAccessPage() {
     onSuccess: async (_project, member) => {
       setPendingRemoval(null);
       await refresh(member);
-      toast(`${member.fullName} removed from project`);
+      toast(`${member.fullName} removed from this position`);
       // Removing your own seat can take the mandate with it — a non-lead loses WORK_VIEW entirely.
       if (member.userId === user?.id) navigate("/projects");
     },
@@ -211,10 +213,8 @@ export function TeamAccessPage() {
 
         <div className="mb-3.5 mt-8 flex items-start gap-4">
           <div>
-            <h2 className="text-base font-semibold leading-tight">Client</h2>
-            <p className="mt-1 font-mono text-xs text-u-text3">
-              The client organisation and the people we report to on their side
-            </p>
+            <h2 className="text-base font-semibold leading-tight">{vocabulary.unit}</h2>
+            <p className="mt-1 font-mono text-xs text-u-text3">{vocabulary.unitReportingLine}</p>
           </div>
         </div>
 
