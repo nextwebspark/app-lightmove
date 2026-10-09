@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
 import { homeFor } from "../homeFor";
 
@@ -55,7 +56,7 @@ export function VerifyEmailPage() {
         setState("failed");
         setMessage(
           error instanceof ApiRequestError
-            ? error.problem.detail
+            ? messageFor(error)
             : "Could not verify your email. Please try again.",
         );
       }

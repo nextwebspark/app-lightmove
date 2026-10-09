@@ -96,6 +96,8 @@ export type ApiErrorCode =
   | "OUTREACH_ALREADY_ENROLLED"
   | "OUTREACH_ADDRESS_NOT_ON_FILE"
   | "OUTREACH_NOT_RUNNING"
+  | "OUTREACH_BOOKING_LINK_UNAVAILABLE"
+  | "OUTREACH_BOOKING_LINK_FAILED"
   | "MEETING_DO_NOT_CONTACT"
   | "MEETING_SLOT_TAKEN"
   | "MEETING_SLOT_INVALID"
@@ -116,13 +118,9 @@ export type ApiErrorCode =
   | "API_KEY_NOT_FOUND"
   | "API_KEY_LIMIT_REACHED"
   | "API_KEY_READS_NOTHING"
+  | "OAUTH_GRANT_NOT_FOUND"
   | "INTERNAL_ERROR";
 
-// BULK_ADD_SCOPE_TOO_LARGE is deliberately absent: its server detail names how many companies matched
-// and how many may be added, which no fixed sentence here could. Adding it would lose both numbers.
-// FILE_TOO_LARGE, IMPORT_TOO_MANY_ROWS and CUSTOM_COLUMN_LIMIT_REACHED are absent for the same reason
-// — each names its configured ceiling, and the ceiling is the part the reader needs.
-// TEMPLATE_FILE_UNREADABLE likewise: its detail may name the template limit or the format version.
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   ASSISTANT_UNAVAILABLE: "The assistant could not answer just now. Try again in a moment.",
   ASSISTANT_BUSY: "The assistant is busy answering other questions. Try again in a moment.",
@@ -142,7 +140,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   API_KEY_NOT_FOUND: "That key no longer exists. Reload to see the current list.",
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
   API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
-  RATE_LIMITED: "Too many requests — slow down a little.",
+  RATE_LIMITED: "Too many requests in a short time. Wait a minute and try again.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
   EMAIL_NOT_VERIFIED: "Verify your email address to continue.",
   ACCOUNT_SUSPENDED: "This account has been suspended.",
@@ -168,36 +166,36 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.
   UNSUPPORTED_FILE_TYPE: "That file type is not supported.",
-  CUSTOM_COLUMN_NAME_TAKEN: "This mandate already has a column with that name — map onto it instead.",
+  CUSTOM_COLUMN_NAME_TAKEN: "This position already has a column with that name. Map onto that column instead.",
   TRIAGE_COMPANY_NOT_EDITABLE:
     "This company came from the market export, so its details are not yours to edit.",
-  CONTACT_LOOKUP_UNAVAILABLE: "Contact lookup is not set up on this deployment.",
+  CONTACT_LOOKUP_UNAVAILABLE: "Contact lookup isn't switched on for your workspace. Contact Uncava support to turn it on.",
   // Distinct from a failure on purpose: nothing was written, so the same button works once the
   // account is topped up.
-  CONTACT_LOOKUP_NO_CREDITS: "No contact lookup credits left this period.",
-  CONTACT_LOOKUP_FAILED: "Contact lookup didn't answer. Try again in a moment.",
+  CONTACT_LOOKUP_NO_CREDITS: "Your workspace has used this period's contact lookup credits. Ask an admin to top them up.",
+  CONTACT_LOOKUP_FAILED: "Contact lookup didn't respond — the provider may be busy. Try again in a minute.",
   CONTACT_LOOKUP_NO_PROFILE: "Add this person's LinkedIn profile URL first.",
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
   CANDIDATE_PROFILE_URL_LOCKED:
     "This profile was captured from LinkedIn, so its URL is not editable.",
-  EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives is not set up on this deployment.",
-  EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked — Find executives takes a limited batch at a time.",
+  EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",
+  EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked. Find executives takes a limited batch — untick some and try again.",
   EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",
-  PEOPLE_SEARCH_UNAVAILABLE: "People search is not set up on this deployment.",
+  PEOPLE_SEARCH_UNAVAILABLE: "People search isn't switched on for your workspace. Contact Uncava support to turn it on.",
   // Nothing was bought, so the same button works once the account is topped up.
-  PEOPLE_SEARCH_NO_CREDITS: "No people search credits left this period.",
-  PEOPLE_SEARCH_FAILED: "People search didn't answer. Try again in a moment.",
+  PEOPLE_SEARCH_NO_CREDITS: "Your workspace has used this period's people search credits. Ask an admin to top them up.",
+  PEOPLE_SEARCH_FAILED: "People search didn't respond — the provider may be busy. Try again in a minute.",
   PEOPLE_SEARCH_REJECTED: "People search couldn't run that filter. Loosen or change it and try again.",
   PEOPLE_SEARCH_EMPTY_FILTER: "Add at least one filter before searching.",
   PEOPLE_SEARCH_PERSON_UNKNOWN: "That person is no longer in the results. Search again and add them from there.",
-  MAILBOX_UNAVAILABLE: "Outreach email is not set up on this deployment.",
-  ZOOM_UNAVAILABLE: "Zoom is not set up for your workspace.",
+  MAILBOX_UNAVAILABLE: "Outreach email isn't switched on for your workspace. Contact Uncava support to turn it on.",
+  ZOOM_UNAVAILABLE: "Zoom isn't set up for your workspace. Ask an admin to set it up in Settings → Integrations.",
   ZOOM_NOT_CONNECTED: "Connect Zoom first.",
   ZOOM_RECONNECT_NEEDED: "Your Zoom account needs reconnecting.",
   ZOOM_CONNECT_CANCELLED: "Zoom was not connected.",
   ZOOM_CONNECT_FAILED: "Zoom could not be connected. Try again.",
-  INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored on this deployment. Use the shared app.",
-  INTEGRATION_SHARED_APP_UNAVAILABLE: "Uncava's shared app isn't offered on this deployment.",
+  INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored for your workspace yet. Use the shared app for now, or contact Uncava support.",
+  INTEGRATION_SHARED_APP_UNAVAILABLE: "Uncava's shared app isn't available for this provider yet. Use your own app instead.",
   MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
   MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
   MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",
@@ -213,7 +211,17 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MEETING_SLOT_TAKEN: "That time is no longer free. Pick another.",
   MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
   MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
-  MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again.",
+  MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again in a moment, or reconnect your mailbox if it keeps failing.",
+  WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
+  NOT_A_MEMBER: "That workspace isn't available to you any more.",
+  NOT_FOUND: "That item no longer exists. Reload to see the latest.",
+  TRIAGE_COMPANY_ALREADY_HELD: "This position already has a company with that name.",
+  IMPORT_FILE_UNREADABLE: "That file couldn't be read as a table. Check it has a header row, then try again.",
+  MAILBOX_CONNECT_CANCELLED: "Your mailbox was not connected.",
+  OUTREACH_BOOKING_LINK_UNAVAILABLE:
+    "Booking links aren't available for your mailbox. Remove the booking link from the emails to start this sequence.",
+  OUTREACH_BOOKING_LINK_FAILED: "Your booking page couldn't be set up, so nothing was sent. Try again in a moment.",
+  OAUTH_GRANT_NOT_FOUND: "That app is already disconnected. Reload to see the current list.",
 };
 
 /**
@@ -232,22 +240,56 @@ export const EMAIL_FIELD_ERROR_CODES: readonly ApiErrorCode[] = [
 export const UNSAVED_CHANGES_MESSAGE = "Couldn't save your last change. Check your connection and try again.";
 
 /**
- * Wording for a failure, in preference order: our copy for the code, the server's own detail, then a
- * generic line for anything unrecognisable (network failures, HTML error pages…).
+ * Codes whose server detail is itself the message: a fixed sentence the server opts in
+ * (`ApiException.userFacing`) because it names a number or a reason no fixed line here could — a limit,
+ * a count, which part of a file failed — or an auth sentence kept deliberately vague in one place.
+ */
+export const DETAIL_ALLOWED: ReadonlySet<ApiErrorCode> = new Set<ApiErrorCode>([
+  "VALIDATION_FAILED",
+  "CONFLICT",
+  "BULK_ADD_SCOPE_TOO_LARGE",
+  "FILE_TOO_LARGE",
+  "IMPORT_TOO_MANY_ROWS",
+  "CUSTOM_COLUMN_LIMIT_REACHED",
+  "TEMPLATE_FILE_UNREADABLE",
+  "POSITION_DOCUMENT_UNREADABLE",
+  "INVALID_CREDENTIALS",
+  "ACCOUNT_LOCKED",
+  "EMAIL_ALREADY_REGISTERED",
+  "EMAIL_UNDELIVERABLE",
+  "EMAIL_DISPOSABLE",
+  "TOKEN_INVALID",
+  "TOKEN_EXPIRED",
+  "INVITATION_INVALID",
+  "INVITATION_EXPIRED",
+  "REFRESH_TOKEN_INVALID",
+  "REFRESH_TOKEN_REUSED",
+  "CSRF_TOKEN_INVALID",
+]);
+
+const GENERIC_MESSAGE = "Something went wrong. Try again.";
+
+/**
+ * Wording for a failure: our copy for the code, the server's detail only for an allow-listed code, and
+ * otherwise a line carrying the request's reference so support can find it in the logs.
  */
 export function messageFor(error: unknown): string {
   if (error instanceof AutosaveFailedError) return UNSAVED_CHANGES_MESSAGE;
-  if (error instanceof ApiRequestError) {
-    const known = MESSAGES[error.code as ApiErrorCode];
-    if (known) return known;
-    if (error.problem.detail) return error.problem.detail;
-  }
-  return "Something went wrong. Try again.";
+  if (!(error instanceof ApiRequestError)) return GENERIC_MESSAGE;
+  const known = MESSAGES[error.code as ApiErrorCode];
+  if (known) return known;
+  if (DETAIL_ALLOWED.has(error.code as ApiErrorCode) && error.problem.detail) return error.problem.detail;
+  return unexpectedFailureMessage(error.problem.correlationId);
+}
+
+function unexpectedFailureMessage(correlationId: string | undefined): string {
+  if (!correlationId || correlationId === "none") return GENERIC_MESSAGE;
+  return `Something went wrong on our side. Try again, or contact support and quote reference ${correlationId}.`;
 }
 
 /** The sentence for a code that arrived without a response, such as a redirect's `?error=`. */
 export function messageForCode(code: string): string {
-  return MESSAGES[code as ApiErrorCode] ?? "Something went wrong. Try again.";
+  return MESSAGES[code as ApiErrorCode] ?? GENERIC_MESSAGE;
 }
 
 /** The code of a failed request, if it was one — for switching on special-cased failures. */

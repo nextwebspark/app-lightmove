@@ -127,7 +127,7 @@ describe("SignupPage", () => {
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
-    expect(await screen.findByText("Please sign up with your work email.")).toBeInTheDocument();
+    expect(await screen.findByText("Use your work email — the domain identifies your organization.")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("you@firm.com")).toHaveAttribute("aria-invalid", "true");
     expect(navigate).not.toHaveBeenCalled();
   });
