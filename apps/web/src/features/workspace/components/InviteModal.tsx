@@ -107,7 +107,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
           <Field
             label="Email"
             error={emailError ?? undefined}
-            hint="Invitees get access immediately — your naming them is the approval."
+            hint="They'll get access when they accept."
           >
             <Input
               type="email"

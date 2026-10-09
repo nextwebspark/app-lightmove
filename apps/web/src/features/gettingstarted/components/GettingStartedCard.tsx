@@ -5,6 +5,8 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
+import { daysLeftLabel, trialOf } from "../../billing/lib/billingView";
+import { useBilling } from "../../billing/lib/useBilling";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as gettingStartedApi from "../api/gettingStartedApi";
 import type { GettingStarted, GettingStartedStep } from "../api/gettingStartedApi";
@@ -59,6 +61,8 @@ export function GettingStartedCard({
     onError: (error) => toast.error(messageFor(error)),
   });
 
+  const billing = useBilling();
+
   if (isPending) return null;
   if (!data || data.dismissed || data.steps.every((step) => step.done || step.skipped)) return <>{fallback}</>;
 
@@ -104,6 +108,7 @@ export function GettingStartedCard({
             <span className="text-body text-u-text3">{title}</span>
           </li>
         ))}
+        {billing.data && <TrialRow billing={billing.data} />}
         {data.steps.map((step) => (
           <StepRow
             key={step.step}
@@ -197,6 +202,35 @@ function StepRow({
           )}
         </div>
       )}
+    </li>
+  );
+}
+
+/** Sets out what the trial includes before anything is refused for want of it. Not a step: nothing to tick. */
+function TrialRow({ billing }: { billing: NonNullable<ReturnType<typeof useBilling>["data"]> }) {
+  const trial = trialOf(billing);
+  if (!trial || trial.ended) return null;
+  const plan = billing.plan ? `${billing.plan.name} trial` : "trial";
+
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
+      <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center text-u-accent">
+        <Icon d={ICONS.clock} size={16} />
+      </span>
+      <div className="min-w-0 flex-1 basis-[220px]">
+        <div className="text-body font-medium">
+          Your {plan}: {daysLeftLabel(trial.daysLeft)}
+        </div>
+        <div className="text-note text-u-text3">
+          Search, AI and {billing.credits.monthly} contact credits are included while it runs.
+        </div>
+      </div>
+      <div className="pl-8 sm:pl-0">
+        <Link to="/settings/billing" className={cn(TEXT_ACTION, "inline-flex items-center gap-1 font-medium text-u-accent")}>
+          See your plan
+          <Icon d={ICONS.arrowRight} size={13} />
+        </Link>
+      </div>
     </li>
   );
 }

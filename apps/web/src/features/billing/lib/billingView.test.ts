@@ -40,6 +40,8 @@ describe("creditChipOf", () => {
     expect(creditChipOf(withCredits({ level: "EIGHTY", left: 1350 }))).toEqual({
       tone: "warn",
       label: "1,350 contact credits left",
+      shortLabel: "1,350",
+      detail: null,
       about: "Contact credits",
     });
     expect(creditChipOf(withCredits({ level: "NINETY", left: 60 }))?.tone).toBe("warn");
@@ -53,9 +55,27 @@ describe("creditChipOf", () => {
   });
 
   it("counts a trial's days down, warning in its last three, and says when it has ended", () => {
-    expect(creditChipOf(aTrialBilling(IN_NINE_DAYS))).toEqual({ tone: "trial", label: "Trial · 9 days left", about: "Trial" });
+    expect(creditChipOf(aTrialBilling(IN_NINE_DAYS))).toEqual({
+      tone: "trial",
+      label: "Trial · 9 days left",
+      shortLabel: "9d",
+      detail: null,
+      about: "Trial",
+    });
     expect(creditChipOf(aTrialBilling(IN_TWO_DAYS))).toMatchObject({ tone: "warn", label: "Trial · 2 days left" });
     expect(creditChipOf(aTrialBilling(AN_HOUR_AGO))).toMatchObject({ tone: "out", label: "Trial ended" });
+  });
+
+  it("keeps a trial's days left in front when its credits run low, and names them second", () => {
+    const low = aTrialBilling(IN_NINE_DAYS, { credits: someCredits({ level: "NINETY", left: 4 }) });
+    expect(creditChipOf(low)).toMatchObject({
+      tone: "warn",
+      label: "Trial · 9 days left",
+      detail: "4 contact credits left",
+      about: "Trial",
+    });
+    const out = aTrialBilling(IN_NINE_DAYS, { credits: someCredits({ level: "OUT", left: 0 }) });
+    expect(creditChipOf(out)).toMatchObject({ tone: "out", label: "Trial · 9 days left", detail: "Out of contact credits" });
   });
 });
 

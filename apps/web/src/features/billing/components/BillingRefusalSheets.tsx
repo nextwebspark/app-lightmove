@@ -75,10 +75,21 @@ function OutOfCreditsSheet({
   const body =
     `${cost} and this month's are used up. Nothing was spent.` +
     (resetsAt ? ` They reset on ${formatResetDate(resetsAt)}.` : "") +
-    (isAdmin ? "" : ` Only an admin can add more${admin ? ` — ${admin.fullName}` : ""}.`);
+    (isAdmin
+      ? ""
+      : admin
+        ? ` Only an admin can add more — ${admin.fullName}.`
+        : " Ask your workspace admin to add more, or contact us.");
 
   const primary = (
-    <MoreCreditsAction isAdmin={isAdmin} billing={billing.data} admin={admin} onClose={onClose} onOpen={onOpen} />
+    <MoreCreditsAction
+      isAdmin={isAdmin}
+      billing={billing.data}
+      admin={admin}
+      subject="Contact credits are used up"
+      onClose={onClose}
+      onOpen={onOpen}
+    />
   );
 
   return <RefusalSheet title="No contact credits left" body={body} primary={primary} onClose={onClose} />;
@@ -101,10 +112,21 @@ function TrialEndedSheet({
   const body =
     `Your trial ended${endedAt ? ` on ${formatBillingDate(endedAt)}` : ""}. Everything your team mapped is still ` +
     "here; finding contacts, search and AI start again once " +
-    (isAdmin ? "you choose a plan." : `an admin chooses a plan${admin ? ` — ${admin.fullName}` : ""}.`);
+    (isAdmin
+      ? "you choose a plan."
+      : admin
+        ? `an admin chooses a plan — ${admin.fullName}.`
+        : "your workspace admin chooses a plan. Ask them, or contact us.");
 
   const primary = (
-    <MoreCreditsAction isAdmin={isAdmin} billing={billing.data} admin={admin} onClose={onClose} onOpen={onOpen} />
+    <MoreCreditsAction
+      isAdmin={isAdmin}
+      billing={billing.data}
+      admin={admin}
+      subject="Our Uncava trial has ended"
+      onClose={onClose}
+      onOpen={onOpen}
+    />
   );
 
   return <RefusalSheet title="Your trial has ended" body={body} primary={primary} onClose={onClose} />;
@@ -121,32 +143,48 @@ function DialogFromSheet({ dialog, onClose }: { dialog: NextDialog; onClose: () 
 }
 
 /**
- * An admin's way to more credits — the packs, or the plans on a trial — or a member's way to ask an admin for them.
+ * An admin's way to more credits — the packs, or the plans on a trial — or a member's way to ask an admin for them;
+ * with no admin to ask, Uncava, so the sheet never offers only "Not now".
  */
 function MoreCreditsAction({
   isAdmin,
   billing,
   admin,
+  subject,
   onClose,
   onOpen,
 }: {
   isAdmin: boolean;
   billing: Billing | undefined;
   admin: Member | null;
+  /** The email's subject, saying which refusal it is about. */
+  subject: string;
   onClose: () => void;
   onOpen: (dialog: NextDialog) => void;
 }) {
   if (!isAdmin) {
-    if (!admin) return null;
+    if (!admin) {
+      return (
+        <PrimaryLink href={mailtoBilling(subject)} onClick={onClose}>
+          Contact Uncava
+        </PrimaryLink>
+      );
+    }
     const askFor = billing && trialOf(billing) ? "choose a plan" : "add more";
     return (
-      <PrimaryLink href={askAdminHref(admin.email)} onClick={onClose}>
+      <PrimaryLink href={askAdminHref(admin.email, subject)} onClick={onClose}>
         Ask {admin.fullName.split(" ")[0]} to {askFor}
       </PrimaryLink>
     );
   }
   const buy = billing ? buyOptionOf(billing, isAdmin) : null;
-  if (!buy) return null;
+  if (!buy) {
+    return (
+      <PrimaryLink href={mailtoBilling(subject)} onClick={onClose}>
+        Contact Uncava
+      </PrimaryLink>
+    );
+  }
   if (buy.kind === "contact") {
     return (
       <PrimaryLink href={buy.href} onClick={onClose}>
@@ -242,6 +280,6 @@ function useFirstAdmin(enabled: boolean) {
   return members.data?.find((member) => member.roles.includes("ADMIN")) ?? null;
 }
 
-function askAdminHref(email: string): string {
-  return `mailto:${email}?subject=${encodeURIComponent("Contact credits for Uncava")}`;
+function askAdminHref(email: string, subject: string): string {
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}`;
 }

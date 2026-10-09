@@ -120,6 +120,7 @@ export const ICONS = {
   /** An arrow into a tray — writing what is on screen onto something already saved. */
   recapture: "M12 3v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2",
   /** An envelope — the Contact section's email channel. */
+  clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2",
   mail: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6",
   card: "M2 5h20v14H2zM2 10h20M6 15h4",
   /** A camera — a meeting's join link. */

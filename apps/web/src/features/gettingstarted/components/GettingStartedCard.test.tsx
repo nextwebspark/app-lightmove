@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as gettingStartedApi from "../api/gettingStartedApi";
 import type { GettingStarted, GettingStartedStepKey } from "../api/gettingStartedApi";
+import type { Billing } from "../../billing/api/types";
+import { aTrialBilling } from "../../billing/test/fixtures";
 import { GettingStartedCard } from "./GettingStartedCard";
 
 vi.mock("../api/gettingStartedApi", async (importOriginal) => ({
@@ -14,6 +16,8 @@ vi.mock("../api/gettingStartedApi", async (importOriginal) => ({
   setDismissed: vi.fn(),
   setSkipped: vi.fn(),
 }));
+let billing: Billing | undefined;
+vi.mock("../../billing/lib/useBilling", () => ({ useBilling: () => ({ data: billing }) }));
 vi.mock("../../workspace/lib/vocabulary", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../workspace/lib/vocabulary")>();
   return { ...actual, useWorkspaceVocabulary: () => actual.vocabularyFor("AGENCY") };
@@ -49,7 +53,22 @@ const renderCard = (onOpenPosition = vi.fn()) =>
   );
 
 describe("GettingStartedCard", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    billing = undefined;
+  });
+
+  it("sets out the trial before anything is refused, without counting it as a step", async () => {
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(stateWith([]));
+    billing = aTrialBilling(new Date(Date.now() + 12 * 86_400_000 - 3_600_000).toISOString());
+
+    renderCard();
+
+    expect(await screen.findByText("Your Pro trial: 12 days left")).toBeInTheDocument();
+    expect(screen.getByText(/50 contact credits are included/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /see your plan/i })).toHaveAttribute("href", "/settings/billing");
+    expect(screen.getByText("2 of 8")).toBeInTheDocument();
+  });
 
   it("starts with signup's two steps already done", async () => {
     vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(stateWith([]));

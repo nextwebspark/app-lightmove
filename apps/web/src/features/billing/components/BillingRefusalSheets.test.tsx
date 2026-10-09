@@ -152,8 +152,34 @@ describe("BillingRefusalSheets", () => {
     renderSheets();
     refuse(trialEnded());
 
-    expect(await screen.findByRole("link", { name: "Ask Yara to choose a plan" })).toBeInTheDocument();
+    const ask = await screen.findByRole("link", { name: "Ask Yara to choose a plan" });
+    expect(ask).toHaveAttribute("href", expect.stringContaining(`subject=${encodeURIComponent("Our Uncava trial has ended")}`));
     expect(screen.getByRole("dialog")).toHaveTextContent("once an admin chooses a plan — Yara Haddad.");
+  });
+
+  it("names the refusal in the email a member sends an admin", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
+    renderSheets();
+    refuse(outOfCredits());
+
+    expect(await screen.findByRole("link", { name: "Ask Yara to add more" })).toHaveAttribute(
+      "href",
+      expect.stringContaining(`subject=${encodeURIComponent("Contact credits are used up")}`),
+    );
+  });
+
+  it("offers Uncava when no admin can be found, never only Not now", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling("2026-10-08T09:00:00Z"));
+    renderSheets();
+    refuse(trialEnded());
+
+    expect(await screen.findByRole("link", { name: "Contact Uncava" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^mailto:billing@uncava\.com/),
+    );
+    expect(screen.getByRole("dialog")).toHaveTextContent("once your workspace admin chooses a plan. Ask them, or contact us.");
   });
 
   it("opens the fair-use sheet for the use that reached its ceiling", async () => {
