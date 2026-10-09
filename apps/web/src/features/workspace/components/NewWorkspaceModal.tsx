@@ -50,7 +50,7 @@ export function NewWorkspaceModal({ onClose }: { onClose: () => void }) {
         />
       ) : (
         <InviteTeamForm
-          subtitle="Optional — invite people later from Members"
+          subtitle="Optional — invite people later from Team"
           submit={workspaceApi.invite}
           onDone={finish}
           onSkip={finish}

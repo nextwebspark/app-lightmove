@@ -88,7 +88,7 @@ describe("NewWorkspaceModal", () => {
     expect(await screen.findByText("Invite your team")).toBeInTheDocument();
 
     await user.type(screen.getAllByLabelText("Colleague's email")[0], "sara@meridian.example");
-    await user.click(screen.getByRole("button", { name: /send invites/i }));
+    await user.click(screen.getByRole("button", { name: "Send 1 invite & finish" }));
 
     await waitFor(() =>
       expect(workspaceApi.invite).toHaveBeenCalledWith([{ email: "sara@meridian.example", role: "MEMBER" }]),

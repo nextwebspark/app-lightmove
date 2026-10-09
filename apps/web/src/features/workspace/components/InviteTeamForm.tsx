@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Button, FormError, Input, Notice, Select } from "../../../components/ui";
+import { useId, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
+import { Button, FormError, Input, Select } from "../../../components/ui";
 import { titleCase } from "../../../lib/format";
 import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES, inviteSchema } from "../../auth/schemas";
@@ -14,7 +14,7 @@ interface InviteRow {
 /**
  * "Invite your team" — Signup.dc.html's final step, and the second stage of the New workspace modal.
  * Rows of address + role, validated before anything is sent, and skippable: blank rows are an empty
- * form, not an error, and "Skip for now" sends nothing at all.
+ * form, not an error, and "Skip for now" sends nothing at all. The button says how many it will send.
  *
  * People invited here skip any approval: an admin naming a colleague *is* the decision, made up front.
  */
@@ -24,7 +24,6 @@ export function InviteTeamForm({
   onDone,
   onSkip,
   before,
-  finishLabel = "Send invites & finish",
 }: {
   subtitle: string;
   submit: (invites: InviteRequest[]) => Promise<unknown>;
@@ -33,12 +32,13 @@ export function InviteTeamForm({
   onSkip: () => void;
   /** Rendered beside the finish button — the wizard's Back. */
   before?: (submitting: boolean) => ReactNode;
-  finishLabel?: string;
 }) {
   const [rows, setRows] = useState<InviteRow[]>([
     { id: 1, email: "", role: "MEMBER" },
     { id: 2, email: "", role: "MEMBER" },
   ]);
+  const nextId = useRef(3);
+  const roleHelpId = useId();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Map<number, string>>(new Map());
@@ -54,11 +54,34 @@ export function InviteTeamForm({
     });
   };
 
-  const addRow = () =>
-    setRows((current) => [...current, { id: Date.now(), email: "", role: "MEMBER" }]);
+  const addRow = () => setRows((current) => [...current, { id: nextId.current++, email: "", role: "MEMBER" }]);
 
-  const removeRow = (id: number) =>
-    setRows((current) => current.filter((row) => row.id !== id));
+  const removeRow = (id: number) => setRows((current) => current.filter((row) => row.id !== id));
+
+  // A list copied from an email or a sheet lands as one row per address, each taking the role of the row it was
+  // pasted into; the blank rows after it make way, so the form does not end with empties to skip past.
+  const handlePaste = (id: number, event: ClipboardEvent<HTMLInputElement>) => {
+    const text = event.clipboardData.getData("text");
+    const addresses = addressesIn(text);
+    if (addresses.length === 0 || (addresses.length === 1 && addresses[0] === text.trim())) return;
+    event.preventDefault();
+    setRows((current) => {
+      const at = current.findIndex((row) => row.id === id);
+      const into = current[at];
+      const pasted = addresses.map((email, index) => ({
+        id: index === 0 ? into.id : nextId.current++,
+        email,
+        role: into.role,
+      }));
+      const after = current.slice(at + 1).filter((row) => row.email.trim() !== "");
+      return [...current.slice(0, at), ...pasted, ...after];
+    });
+    setRowErrors(new Map());
+  };
+
+  const filledCount = rows.filter((row) => row.email.trim() !== "").length;
+  const finishLabel =
+    filledCount === 0 ? "Finish" : `Send ${filledCount} ${filledCount === 1 ? "invite" : "invites"} & finish`;
 
   const finish = async () => {
     // A typo'd address is not a harmless mistake here: the invitation is sent, the colleague never
@@ -113,6 +136,7 @@ export function InviteTeamForm({
               type="email"
               value={row.email}
               onChange={(event) => update(row.id, { email: event.target.value })}
+              onPaste={(event) => handlePaste(row.id, event)}
               placeholder="colleague@firm.com"
               aria-label="Colleague's email"
               invalid={rowErrors.has(row.id)}
@@ -123,6 +147,7 @@ export function InviteTeamForm({
               value={row.role}
               onChange={(event) => update(row.id, { role: event.target.value as WorkspaceRole })}
               aria-label="Role"
+              aria-describedby={roleHelpId}
               className="w-[130px] shrink-0"
             >
               {INVITE_ROLES.map((role) => (
@@ -154,13 +179,31 @@ export function InviteTeamForm({
         onClick={addRow}
         className="mb-5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-u-accent hover:underline"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          aria-hidden="true"
+        >
           <path d="M12 5v14M5 12h14" />
         </svg>
         Add another
       </button>
 
-      <Notice>Invitees get access to projects you add them to — roles apply per project.</Notice>
+      <div id={roleHelpId} className="mb-5 rounded-[8px] border border-u-border bg-u-raised px-3.5 py-3 text-note">
+        <dl className="flex flex-col gap-1.5">
+          {INVITE_ROLES.map((role) => (
+            <div key={role} className="flex gap-2">
+              <dt className="w-[52px] flex-none font-medium text-u-text">{titleCase(role)}</dt>
+              <dd className="text-u-text2">{ROLE_DESCRIPTIONS[role]}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 text-u-text3">You'll choose who leads each position when you open it.</p>
+      </div>
 
       <div className="flex items-center gap-2.5">
         {before?.(submitting)}
@@ -178,4 +221,15 @@ export function InviteTeamForm({
       </button>
     </>
   );
+}
+
+const ROLE_DESCRIPTIONS: Record<(typeof INVITE_ROLES)[number], string> = {
+  MEMBER: "Works on the positions they're added to, and sees every position the workspace has.",
+  ADMIN:
+    "Everything a Member can do, plus opening any position, the team, billing, templates, integrations and workspace settings.",
+};
+
+/** The addresses in pasted text — "a@x.com, b@x.com", one per line, or "Name <a@x.com>" as a mail client copies them. */
+export function addressesIn(text: string): string[] {
+  return text.match(/[^\s<>,;"'()]+@[^\s<>,;"'()]+/g) ?? [];
 }
