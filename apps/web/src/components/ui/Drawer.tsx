@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { cn } from "../../lib/cn";
 import { useEscapeKey } from "../../lib/useEscapeKey";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 
 /** The mockups' right slide-over: floating rounded panel, overlay and Escape to dismiss. */
 export function Drawer({
@@ -23,6 +24,8 @@ export function Drawer({
   children: ReactNode;
 }) {
   useEscapeKey(open, onClose);
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(panelRef, open, { startAt: "panel" });
 
   if (!open) return null;
 
@@ -30,12 +33,14 @@ export function Drawer({
     <>
       <div className="fixed inset-0 z-[90] bg-u-scrim" onClick={onClose} />
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={label}
         data-edge-panel={wide ? "drawer-wide" : "drawer"}
         className={cn(
-          "fixed inset-x-2.5 bottom-2.5 top-14 z-[95] flex animate-fade-up flex-col rounded-[10px]",
+          "fixed inset-x-2.5 bottom-2.5 top-14 z-[95] flex animate-fade-up flex-col rounded-[10px] outline-none",
           "border border-u-border-strong bg-u-surface shadow-u-e3 sm:inset-x-auto sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",
           wide ? "sm:w-[560px]" : "sm:w-[420px]",
         )}

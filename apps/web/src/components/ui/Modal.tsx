@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../../lib/cn";
 import { useEscapeKey } from "../../lib/useEscapeKey";
+import { useFocusTrap } from "../../lib/useFocusTrap";
 import { PanelCloseButton } from "./PanelCloseButton";
 
 /**
@@ -21,6 +31,8 @@ export function Modal({
   headerAside,
   closeButton = false,
   dismissible = true,
+  initialFocusRef,
+  onSubmit,
   className,
 }: {
   open: boolean;
@@ -37,14 +49,25 @@ export function Modal({
   closeButton?: boolean;
   /** False keeps the overlay and Escape from closing it, for a dialog that must be acknowledged by its own button. */
   dismissible?: boolean;
+  /** Where focus lands on open; by default the first field, else the first control. */
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  /**
+   * Makes the dialog a form, so Enter in a field submits it: the footer's `type="submit"` button is
+   * inside it, which a form wrapped round the children alone could not reach.
+   */
+  onSubmit?: () => void;
   className?: string;
 }) {
   // Through the shared stack rather than its own listener: a modal opened over a drawer or the
   // assistant panel must take Escape from it, not fire alongside it.
   useEscapeKey(open && dismissible, onClose);
   const { bodyRef, hiddenAbove, hiddenBelow, measure } = useScrollEdges(open);
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(panelRef, open, { initialFocusRef });
 
   if (!open) return null;
+
+  const Panel = onSubmit ? "form" : "div";
 
   // Portalled: the drawer's fade-up keeps a transform, which pinned this "full-screen" overlay inside
   // the drawer panel whenever a modal was opened from an executive's drawer.
@@ -56,14 +79,23 @@ export function Modal({
         if (dismissible) onClose();
       }}
     >
-      <div
+      <Panel
+        ref={panelRef as RefObject<HTMLDivElement & HTMLFormElement>}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        onClick={(event) => event.stopPropagation()}
+        tabIndex={-1}
+        onClick={(event: MouseEvent) => event.stopPropagation()}
+        {...(onSubmit && {
+          noValidate: true,
+          onSubmit: (event: FormEvent) => {
+            event.preventDefault();
+            onSubmit();
+          },
+        })}
         className={cn(
           "flex max-h-[90dvh] w-full max-w-[94vw] flex-col rounded-xl border border-u-border-strong bg-u-surface text-u-text shadow-u-e3",
-          "animate-fade-up md:w-[440px]",
+          "animate-fade-up outline-none md:w-[440px]",
           className,
         )}
       >
@@ -109,7 +141,7 @@ export function Modal({
             {footer}
           </div>
         )}
-      </div>
+      </Panel>
     </div>,
     document.body,
   );
