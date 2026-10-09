@@ -24,5 +24,7 @@ ops/
 !README.md
 # The SPA's /docs/mcp page is built from it.
 !docs/mcp.md
+# The assistant's playbooks, read from the classpath at boot: without them the API does not start.
+!apps/api/src/main/resources/assistant/skills/**/SKILL.md
 .editorconfig
 .gitignore

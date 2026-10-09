@@ -63,9 +63,9 @@ record ClientMetadataDocument(String clientId, String clientName, String clientU
         if (claims.containsKey("client_secret") || claims.containsKey("jwks") || claims.containsKey("jwks_uri")) {
             throw invalid("a public client publishes no secret and no keys");
         }
-        if (!ClientMetadataRules.isAllowedGrantTypes(stringsOrNull(claims, "grant_types"))
+        if (!ClientMetadataRules.offersAuthorizationCode(stringsOrNull(claims, "grant_types"))
                 || !ClientMetadataRules.isAllowedResponseTypes(stringsOrNull(claims, "response_types"))) {
-            throw invalid("only the authorization_code and refresh_token grants are allowed");
+            throw invalid("the authorization_code grant and the code response type are required");
         }
         List<String> redirectUris = stringsOrNull(claims, "redirect_uris");
         if (!RedirectUriRules.acceptable(redirectUris)) {

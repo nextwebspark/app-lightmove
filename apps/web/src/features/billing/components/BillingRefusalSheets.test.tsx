@@ -219,7 +219,10 @@ describe("BillingRefusalSheets", () => {
     const sheet = await screen.findByRole("dialog", { name: "You've reached this month's fair use" });
     expect(sheet).toHaveTextContent("People Search is part of your plan");
     expect(sheet).toHaveTextContent("until 1 Nov. Pages you already have stay open.");
-    expect(screen.getByRole("link", { name: "Talk to us" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Talk to us" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^mailto:billing@uncava\.com\?subject=/),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Not now" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
