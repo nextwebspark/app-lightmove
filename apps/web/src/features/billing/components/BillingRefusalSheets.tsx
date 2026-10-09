@@ -173,9 +173,9 @@ function MoreCreditsAction({
 }) {
   if (!isAdmin) {
     if (!admin) {
-      if (!adminSettled) return null;
+      if (!adminSettled || !billing) return null;
       return (
-        <PrimaryLink href={mailtoBilling(subject)} onClick={onClose}>
+        <PrimaryLink href={mailtoBilling(billing, subject)} onClick={onClose}>
           Contact Uncava
         </PrimaryLink>
       );
@@ -192,7 +192,7 @@ function MoreCreditsAction({
   const buy = buyOptionOf(billing, isAdmin) ?? planOptionOf(billing, isAdmin);
   if (!buy) {
     return (
-      <PrimaryLink href={mailtoBilling(subject)} onClick={onClose}>
+      <PrimaryLink href={mailtoBilling(billing, subject)} onClick={onClose}>
         Contact Uncava
       </PrimaryLink>
     );
