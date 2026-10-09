@@ -33,6 +33,14 @@ final class ClientMetadataRules {
         return grantTypes == null || GRANT_TYPES.containsAll(grantTypes);
     }
 
+    /**
+     * A metadata document is published once for every server its client talks to, so it may list grants we do not
+     * offer (Claude's names {@code jwt-bearer}); it needs only the code grant, and is registered for ours alone.
+     */
+    static boolean offersAuthorizationCode(Collection<String> grantTypes) {
+        return grantTypes == null || grantTypes.contains(AuthorizationGrantType.AUTHORIZATION_CODE.getValue());
+    }
+
     static boolean isAllowedResponseTypes(Collection<String> responseTypes) {
         return responseTypes == null || responseTypes.stream().allMatch("code"::equals);
     }
