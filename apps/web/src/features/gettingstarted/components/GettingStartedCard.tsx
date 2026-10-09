@@ -5,7 +5,8 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { daysLeftLabel, trialOf } from "../../billing/lib/billingView";
+import type { Billing } from "../../billing/api/types";
+import { daysLeftLabel, formatResetDate, trialOf } from "../../billing/lib/billingView";
 import { useBilling } from "../../billing/lib/useBilling";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as gettingStartedApi from "../api/gettingStartedApi";
@@ -101,6 +102,8 @@ export function GettingStartedCard({
         </div>
       </div>
 
+      {billing.data && <TrialNote billing={billing.data} />}
+
       <ol className="divide-y divide-u-border">
         {ALREADY_DONE.map((title) => (
           <li key={title} className="flex items-center gap-3 py-2.5">
@@ -108,7 +111,6 @@ export function GettingStartedCard({
             <span className="text-body text-u-text3">{title}</span>
           </li>
         ))}
-        {billing.data && <TrialRow billing={billing.data} />}
         {data.steps.map((step) => (
           <StepRow
             key={step.step}
@@ -206,32 +208,27 @@ function StepRow({
   );
 }
 
-/** Sets out what the trial includes before anything is refused for want of it. Not a step: nothing to tick. */
-function TrialRow({ billing }: { billing: NonNullable<ReturnType<typeof useBilling>["data"]> }) {
+/** Sets out what the trial includes before anything is refused for want of it. Not a step: nothing ticks it. */
+function TrialNote({ billing }: { billing: Billing }) {
   const trial = trialOf(billing);
   if (!trial || trial.ended) return null;
   const plan = billing.plan ? `${billing.plan.name} trial` : "trial";
 
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5">
-      <span aria-hidden="true" className="grid size-5 shrink-0 place-items-center text-u-accent">
-        <Icon d={ICONS.clock} size={16} />
-      </span>
-      <div className="min-w-0 flex-1 basis-[220px]">
-        <div className="text-body font-medium">
-          Your {plan}: {daysLeftLabel(trial.daysLeft)}
-        </div>
-        <div className="text-note text-u-text3">
-          Search, AI and {billing.credits.monthly} contact credits are included while it runs.
-        </div>
-      </div>
-      <div className="pl-8 sm:pl-0">
-        <Link to="/settings/billing" className={cn(TEXT_ACTION, "inline-flex items-center gap-1 font-medium text-u-accent")}>
-          See your plan
-          <Icon d={ICONS.arrowRight} size={13} />
-        </Link>
-      </div>
-    </li>
+    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-u-accent-tint px-3 py-2.5">
+      <Icon d={ICONS.clock} size={15} className="shrink-0 text-u-accent" />
+      <p className="min-w-0 flex-1 basis-[240px] text-note text-u-text2">
+        <span className="font-medium text-u-text">
+          Your {plan}: {daysLeftLabel(trial.daysLeft)}.
+        </span>{" "}
+        Search, AI and {billing.credits.monthly} contact credits are included until {formatResetDate(trial.endsAt)}.
+        Choose a plan to keep them.
+      </p>
+      <Link to="/settings/billing" className={cn(TEXT_ACTION, "inline-flex items-center gap-1 font-medium text-u-accent")}>
+        See your plan
+        <Icon d={ICONS.arrowRight} size={13} />
+      </Link>
+    </div>
   );
 }
 

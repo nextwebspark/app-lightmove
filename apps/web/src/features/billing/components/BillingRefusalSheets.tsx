@@ -11,6 +11,7 @@ import { PlansDialog } from "./PlansDialog";
 import {
   billingRefusalOf,
   buyOptionOf,
+  planOptionOf,
   creditsLabel,
   FAIR_USE_FEATURES,
   formatBillingDate,
@@ -68,7 +69,7 @@ function OutOfCreditsSheet({
 }) {
   const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
-  const admin = useFirstAdmin(!isAdmin);
+  const { admin, settled } = useFirstAdmin(!isAdmin);
   const resetsAt = billing.data?.credits.resetsAt ?? refusal.resetsAt;
 
   const cost = refusal.required !== null ? `This find needs ${creditsLabel(refusal.required)}` : "This find needs credits";
@@ -79,13 +80,16 @@ function OutOfCreditsSheet({
       ? ""
       : admin
         ? ` Only an admin can add more — ${admin.fullName}.`
-        : " Ask your workspace admin to add more, or contact us.");
+        : settled
+          ? " Only your workspace admin can add more. If you can't reach them, contact us."
+          : " Only an admin can add more.");
 
   const primary = (
     <MoreCreditsAction
       isAdmin={isAdmin}
       billing={billing.data}
       admin={admin}
+      adminSettled={settled}
       subject="Contact credits are used up"
       onClose={onClose}
       onOpen={onOpen}
@@ -106,7 +110,7 @@ function TrialEndedSheet({
 }) {
   const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
-  const admin = useFirstAdmin(!isAdmin);
+  const { admin, settled } = useFirstAdmin(!isAdmin);
   const endedAt = billing.data?.trialEndsAt ?? refusal.endedAt;
 
   const body =
@@ -116,13 +120,16 @@ function TrialEndedSheet({
       ? "you choose a plan."
       : admin
         ? `an admin chooses a plan — ${admin.fullName}.`
-        : "your workspace admin chooses a plan. Ask them, or contact us.");
+        : settled
+          ? "your workspace admin chooses a plan. If you can't reach them, contact us."
+          : "an admin chooses a plan.");
 
   const primary = (
     <MoreCreditsAction
       isAdmin={isAdmin}
       billing={billing.data}
       admin={admin}
+      adminSettled={settled}
       subject="Our Uncava trial has ended"
       onClose={onClose}
       onOpen={onOpen}
@@ -150,6 +157,7 @@ function MoreCreditsAction({
   isAdmin,
   billing,
   admin,
+  adminSettled,
   subject,
   onClose,
   onOpen,
@@ -157,6 +165,7 @@ function MoreCreditsAction({
   isAdmin: boolean;
   billing: Billing | undefined;
   admin: Member | null;
+  adminSettled: boolean;
   /** The email's subject, saying which refusal it is about. */
   subject: string;
   onClose: () => void;
@@ -164,6 +173,7 @@ function MoreCreditsAction({
 }) {
   if (!isAdmin) {
     if (!admin) {
+      if (!adminSettled) return null;
       return (
         <PrimaryLink href={mailtoBilling(subject)} onClick={onClose}>
           Contact Uncava
@@ -177,7 +187,9 @@ function MoreCreditsAction({
       </PrimaryLink>
     );
   }
-  const buy = billing ? buyOptionOf(billing, isAdmin) : null;
+  if (!billing) return null;
+  // A trial with no plan on record has nothing to buy, but it can still choose one.
+  const buy = buyOptionOf(billing, isAdmin) ?? planOptionOf(billing, isAdmin);
   if (!buy) {
     return (
       <PrimaryLink href={mailtoBilling(subject)} onClick={onClose}>
@@ -270,14 +282,25 @@ function PrimaryLink({ href, onClick, children }: { href: string; onClick: () =>
   );
 }
 
-/** The admin a member asks: the roster's first, read only when a member's sheet opens. */
-function useFirstAdmin(enabled: boolean) {
+/**
+ * The admin a member asks: the roster's first, read only when a member's sheet opens. `settled` tells "no admin" from
+ * "not read yet", so a member is never pointed at Uncava for the moment the roster takes to arrive.
+ */
+function useFirstAdmin(enabled: boolean): AdminLookup {
   const members = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: () => workspaceApi.members(),
     enabled,
   });
-  return members.data?.find((member) => member.roles.includes("ADMIN")) ?? null;
+  return {
+    admin: members.data?.find((member) => member.roles.includes("ADMIN")) ?? null,
+    settled: members.isSuccess || members.isError,
+  };
+}
+
+interface AdminLookup {
+  admin: Member | null;
+  settled: boolean;
 }
 
 function askAdminHref(email: string, subject: string): string {

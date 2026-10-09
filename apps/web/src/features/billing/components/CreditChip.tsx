@@ -1,15 +1,17 @@
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import { creditChipOf } from "../lib/billingView";
+import { creditChipOf, type CreditTone } from "../lib/billingView";
 import { useBilling } from "../lib/useBilling";
+
+const TONE_TEXT: Record<CreditTone, string> = { warn: "text-u-signal", out: "text-u-offlimits" };
 
 /** The topbar's trial and contact-credit chip, as {@link creditChipOf} reads it; it opens Settings → Billing. */
 export function CreditChip() {
   const billing = useBilling();
   const chip = billing.data ? creditChipOf(billing.data) : null;
   if (!chip) return null;
-  const spoken = chip.detail ? `${chip.label} · ${chip.detail}` : chip.label;
+  const spoken = chip.credits ? `${chip.label} · ${chip.credits.label}` : chip.label;
 
   return (
     <Link
@@ -25,10 +27,18 @@ export function CreditChip() {
             : "border-u-signal bg-u-signal-tint text-u-signal",
       )}
     >
-      <Icon d={chip.about === "Trial" ? ICONS.clock : ICONS.mail} size={13} />
+      <Icon d={chip.kind === "trial" ? ICONS.clock : ICONS.mail} size={13} />
       <span className="sm:hidden">{chip.shortLabel}</span>
       <span className="hidden sm:inline">{chip.label}</span>
-      {chip.detail && <span className="hidden font-normal opacity-80 lg:inline">· {chip.detail}</span>}
+      {chip.credits && (
+        <>
+          {/* Narrow screens carry the credit level as its own glyph, so it is never colour alone. */}
+          <span className={cn("inline-flex xl:hidden", TONE_TEXT[chip.credits.tone])}>
+            <Icon d={ICONS.mail} size={12} />
+          </span>
+          <span className={cn("hidden xl:inline", TONE_TEXT[chip.credits.tone])}>· {chip.credits.label}</span>
+        </>
+      )}
     </Link>
   );
 }

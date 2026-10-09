@@ -179,7 +179,28 @@ describe("BillingRefusalSheets", () => {
       "href",
       expect.stringMatching(/^mailto:billing@uncava\.com/),
     );
-    expect(screen.getByRole("dialog")).toHaveTextContent("once your workspace admin chooses a plan. Ask them, or contact us.");
+    expect(screen.getByRole("dialog")).toHaveTextContent("once your workspace admin chooses a plan. If you can't reach them, contact us.");
+  });
+
+  it("points a member at nobody while the roster is still being read", async () => {
+    currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
+    vi.mocked(workspaceApi.members).mockReturnValue(new Promise(() => {}));
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling("2026-10-08T09:00:00Z"));
+    renderSheets();
+    refuse(trialEnded());
+
+    expect(await screen.findByRole("dialog", { name: "Your trial has ended" })).toHaveTextContent(
+      "once an admin chooses a plan.",
+    );
+    expect(screen.queryByRole("link", { name: "Contact Uncava" })).not.toBeInTheDocument();
+  });
+
+  it("offers an admin on a trial with no plan on record the plans, not a dead end", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling("2026-10-08T09:00:00Z", { plan: null }));
+    renderSheets();
+    refuse(trialEnded());
+
+    expect(await screen.findByRole("button", { name: "Choose a plan" })).toBeInTheDocument();
   });
 
   it("opens the fair-use sheet for the use that reached its ceiling", async () => {

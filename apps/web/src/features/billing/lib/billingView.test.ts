@@ -38,44 +38,48 @@ describe("creditChipOf", () => {
 
   it("names what is left at 80% and 90%", () => {
     expect(creditChipOf(withCredits({ level: "EIGHTY", left: 1350 }))).toEqual({
+      kind: "credits",
       tone: "warn",
       label: "1,350 contact credits left",
       shortLabel: "1,350",
-      detail: null,
-      about: "Contact credits",
+      credits: null,
     });
     expect(creditChipOf(withCredits({ level: "NINETY", left: 60 }))?.tone).toBe("warn");
   });
 
   it("says used up once nothing is left", () => {
     expect(creditChipOf(withCredits({ level: "OUT", left: 0 }))).toMatchObject({
+      kind: "credits",
       tone: "out",
       label: "Out of contact credits",
+      shortLabel: "0",
     });
   });
 
   it("counts a trial's days down, warning in its last three, and says when it has ended", () => {
     expect(creditChipOf(aTrialBilling(IN_NINE_DAYS))).toEqual({
+      kind: "trial",
       tone: "trial",
       label: "Trial · 9 days left",
       shortLabel: "9d",
-      detail: null,
-      about: "Trial",
+      credits: null,
     });
     expect(creditChipOf(aTrialBilling(IN_TWO_DAYS))).toMatchObject({ tone: "warn", label: "Trial · 2 days left" });
     expect(creditChipOf(aTrialBilling(AN_HOUR_AGO))).toMatchObject({ tone: "out", label: "Trial ended" });
   });
 
-  it("keeps a trial's days left in front when its credits run low, and names them second", () => {
+  it("keeps a trial's days left in front, coloured by the deadline, with the credit level beside it", () => {
     const low = aTrialBilling(IN_NINE_DAYS, { credits: someCredits({ level: "NINETY", left: 4 }) });
     expect(creditChipOf(low)).toMatchObject({
-      tone: "warn",
+      kind: "trial",
+      tone: "trial",
       label: "Trial · 9 days left",
-      detail: "4 contact credits left",
-      about: "Trial",
+      credits: { tone: "warn", label: "4 contact credits left" },
     });
     const out = aTrialBilling(IN_NINE_DAYS, { credits: someCredits({ level: "OUT", left: 0 }) });
-    expect(creditChipOf(out)).toMatchObject({ tone: "out", label: "Trial · 9 days left", detail: "Out of contact credits" });
+    expect(creditChipOf(out)).toMatchObject({ tone: "trial", credits: { tone: "out", label: "Out of contact credits" } });
+    const lastDaysLow = aTrialBilling(IN_TWO_DAYS, { credits: someCredits({ level: "EIGHTY", left: 9 }) });
+    expect(creditChipOf(lastDaysLow)).toMatchObject({ tone: "warn", credits: { tone: "warn" } });
   });
 });
 

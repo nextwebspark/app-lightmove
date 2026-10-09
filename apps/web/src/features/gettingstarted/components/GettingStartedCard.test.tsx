@@ -64,8 +64,10 @@ describe("GettingStartedCard", () => {
 
     renderCard();
 
-    expect(await screen.findByText("Your Pro trial: 12 days left")).toBeInTheDocument();
-    expect(screen.getByText(/50 contact credits are included/)).toBeInTheDocument();
+    expect(await screen.findByText("Your Pro trial: 12 days left.")).toBeInTheDocument();
+    expect(screen.getByText(/50 contact credits are included until/)).toBeInTheDocument();
+    // A note above the steps, not one of them.
+    expect(screen.getAllByRole("listitem")).toHaveLength(8);
     expect(screen.getByRole("link", { name: /see your plan/i })).toHaveAttribute("href", "/settings/billing");
     expect(screen.getByText("2 of 8")).toBeInTheDocument();
   });
