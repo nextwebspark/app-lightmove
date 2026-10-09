@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { messageFor } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { messageForOAuthError } from "../oauthErrors";
@@ -76,7 +77,7 @@ export function LoginPage() {
     } catch (error) {
       setFormError(
         error instanceof ApiRequestError
-          ? error.problem.detail
+          ? messageFor(error)
           : "Could not reach Uncava. Check your connection and try again.",
       );
     }

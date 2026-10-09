@@ -92,7 +92,7 @@ function ClientDetailsSection({ client, editsCompanyFacts }: { client: ClientDet
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
       toast("Client saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (
@@ -164,7 +164,7 @@ function ClientPersonaSection({ client }: { client: ClientDetail }) {
       setDraft(updated.persona);
       toast("Client persona saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

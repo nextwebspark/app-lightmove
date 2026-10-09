@@ -60,7 +60,7 @@ export function SettingsApiKeysPage() {
       toast(`${key.name} revoked`);
       refresh();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const handleOpenCreate = () => {

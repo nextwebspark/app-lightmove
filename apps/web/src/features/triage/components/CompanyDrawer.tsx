@@ -94,7 +94,7 @@ export function CompanyDrawer({
       onSaved();
       toast("Columns saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const saveNote = useSaveCompanyNote(projectId, onSaved);

@@ -110,7 +110,7 @@ export function BookCallDialog({
         setSlot(null);
         void slots.refetch();
       }
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     },
   });
 

@@ -5,6 +5,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Avatar, CompanyLogo, useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { messageFor } from "../../../lib/errorCodes";
 import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -13,6 +14,7 @@ import { useGridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import type { AttachedRepresentative, StaffRole, TeamMember } from "../api/types";
 import { AddClientContactModal } from "../components/AddClientContactModal";
@@ -47,8 +49,11 @@ export function TeamAccessPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
+  const vocabulary = useWorkspaceVocabulary();
   const [addTeamOpen, setAddTeamOpen] = useState(false);
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<TeamMember | null>(null);
+  const [pendingDetach, setPendingDetach] = useState<AttachedRepresentative | null>(null);
   const [sort, setSort] = useGridSort<ProjectTeamSortField>(
     "projectTeam",
     project.id,
@@ -87,9 +92,10 @@ export function TeamAccessPage() {
       projectsApi.detachRepresentative(project.id, representativeId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      setPendingDetach(null);
       toast("Contact removed from this mandate");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   // Staff only: a seat holding nothing but CLIENT belongs to the section below, not this table.
@@ -118,22 +124,23 @@ export function TeamAccessPage() {
       await refresh(member);
       toast(
         role === "LEAD"
-          ? `${member.fullName} is now a lead on this project`
+          ? `${member.fullName} is now a lead on this position`
           : `${member.fullName} is now a researcher`,
       );
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const remove = useMutation({
     mutationFn: (member: TeamMember) => projectsApi.removeProjectMember(project.id, member.memberId),
     onSuccess: async (_project, member) => {
+      setPendingRemoval(null);
       await refresh(member);
-      toast(`${member.fullName} removed from project`);
+      toast(`${member.fullName} removed from this position`);
       // Removing your own seat can take the mandate with it — a non-lead loses WORK_VIEW entirely.
       if (member.userId === user?.id) navigate("/projects");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const busyMemberId =
@@ -147,7 +154,7 @@ export function TeamAccessPage() {
     soleLeadMemberId: leads.length === 1 ? leads[0]!.memberId : null,
     busyMemberId,
     onChangeRole: (member, role) => changeRole.mutate({ member, role }),
-    onRemove: (member) => remove.mutate(member),
+    onRemove: setPendingRemoval,
   };
 
   const contacts = project.representatives;
@@ -206,10 +213,8 @@ export function TeamAccessPage() {
 
         <div className="mb-3.5 mt-8 flex items-start gap-4">
           <div>
-            <h2 className="text-base font-semibold leading-tight">Client</h2>
-            <p className="mt-1 font-mono text-xs text-u-text3">
-              The client organisation and the people we report to on their side
-            </p>
+            <h2 className="text-base font-semibold leading-tight">{vocabulary.unit}</h2>
+            <p className="mt-1 font-mono text-xs text-u-text3">{vocabulary.unitReportingLine}</p>
           </div>
         </div>
 
@@ -240,7 +245,7 @@ export function TeamAccessPage() {
               contact={contact}
               canRemove={canManage}
               removing={detach.isPending}
-              onRemove={() => detach.mutate(contact.representativeId)}
+              onRemove={() => setPendingDetach(contact)}
             />
           ))}
 
@@ -255,6 +260,36 @@ export function TeamAccessPage() {
       {addTeamOpen && (
         <AddTeamMemberModal project={project} onClose={() => setAddTeamOpen(false)} />
       )}
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        title={
+          pendingRemoval?.userId === user?.id
+            ? `Remove yourself from ${project.positionTitle}?`
+            : `Remove ${pendingRemoval?.fullName} from ${project.positionTitle}?`
+        }
+        confirmLabel="Remove"
+        pending={remove.isPending}
+        onConfirm={() => pendingRemoval && remove.mutate(pendingRemoval)}
+        onClose={() => setPendingRemoval(null)}
+      >
+        {pendingRemoval?.userId === user?.id ? (
+          <p>
+            <strong className="font-semibold text-u-text">You'll lose access to this position immediately.</strong>
+          </p>
+        ) : (
+          <p>They'll lose access to this position.</p>
+        )}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={pendingDetach !== null}
+        title={`Remove ${pendingDetach?.fullName} from ${project.positionTitle}?`}
+        confirmLabel="Remove"
+        pending={detach.isPending}
+        onConfirm={() => pendingDetach && detach.mutate(pendingDetach.representativeId)}
+        onClose={() => setPendingDetach(null)}
+      >
+        <p>They'll no longer be able to read this position.</p>
+      </ConfirmDialog>
       {addContactOpen && (
         <AddClientContactModal
           project={project}

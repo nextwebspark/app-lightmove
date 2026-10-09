@@ -132,6 +132,22 @@ describe("NewProjectModal — the business unit the entrance already decided", (
     );
   });
 
+  it("starts in the first field it can type in, and creates the position on Enter", async () => {
+    const user = userEvent.setup();
+    vi.mocked(projectsApi.createProject).mockResolvedValue(created("acme"));
+
+    render(wrap(modal("acme")));
+
+    expect(screen.getByPlaceholderText(/Chief Financial Officer/)).toHaveFocus();
+    await user.keyboard("CFO{Enter}");
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ clientId: "acme", positionTitle: "CFO" }),
+      ),
+    );
+  });
+
   it("offers every business unit on focus, and filters as a name is typed", async () => {
     const user = userEvent.setup();
 

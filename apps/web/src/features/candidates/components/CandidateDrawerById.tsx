@@ -61,7 +61,7 @@ export function CandidateDrawerById({
 
   useEffect(() => {
     if (candidateId !== null && candidate.isError) {
-      toast(messageFor(candidate.error));
+      toast.error(messageFor(candidate.error));
       onClose();
     }
   }, [candidateId, candidate.isError, candidate.error, toast, onClose]);
@@ -79,7 +79,7 @@ export function CandidateDrawerById({
       refreshRows();
       toast(`${removed.fullName} removed from this mandate`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const shown = candidateId !== null && candidate.data?.id === candidateId ? candidate.data : null;

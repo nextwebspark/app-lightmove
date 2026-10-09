@@ -43,7 +43,7 @@ export function AddClientContactModal({
       invalidate();
       toast("Contact added to this mandate");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const attachedIds = new Set(project.representatives.map((rep) => rep.representativeId));
@@ -169,7 +169,13 @@ function InviteByEmail({
   };
 
   return (
-    <>
+    <form
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit();
+      }}
+    >
       {error && <p className="mb-2 font-mono text-[11px] text-u-offlimits">{error}</p>}
       <Field label="Full name">
         <Input
@@ -197,14 +203,14 @@ function InviteByEmail({
         We&apos;ll email an invite. They join the project as a client contact once they accept.
       </p>
       <div className="mt-[18px] flex justify-end gap-2">
-        <Button variant="secondary" onClick={onDone}>
+        <Button type="button" variant="secondary" onClick={onDone}>
           Cancel
         </Button>
-        <Button loading={invite.isPending} onClick={submit}>
+        <Button type="submit" loading={invite.isPending}>
           Send invite
         </Button>
       </div>
-    </>
+    </form>
   );
 }
 

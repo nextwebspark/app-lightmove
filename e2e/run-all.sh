@@ -109,6 +109,8 @@ step_node spa/import-export.mjs
 step_node spa/reports.mjs
 # Stubs /api/v1 itself and needs only Vite: every screen at phone, tablet and desktop width.
 step_node spa/responsive.mjs
+# The same stubs: dialogs and drawers keep Tab inside and hand focus back on close.
+step_node spa/a11y-dialogs.mjs
 
 # The mandate's own work, over the API: the brief, companies and executives, the spreadsheet in and the
 # stage out, and the report, map, activity and template reads. After the SPA phase because 16 and 17

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
@@ -78,6 +78,10 @@ describe("OutreachSection", () => {
     expect(screen.getByText("CFO — first approach · from Yara Haddad")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Stop sequence" }));
+    const dialog = await screen.findByRole("dialog", { name: /^Stop .*'s sequence\?$/ });
+    expect(dialog).toHaveTextContent("Remaining emails won't be sent. This can't be resumed.");
+    expect(runApi.stopRun).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Stop sequence" }));
     await waitFor(() => expect(runApi.stopRun).toHaveBeenCalledWith("p1", "r1"));
     expect(await screen.findByText("Sequence stopped.")).toBeInTheDocument();
   });

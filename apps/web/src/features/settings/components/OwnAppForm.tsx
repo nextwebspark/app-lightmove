@@ -119,7 +119,7 @@ export function OwnAppForm({
 
       {!canStoreKeys && (
         <p role="alert" className="font-mono text-[11.5px] text-u-offlimits">
-          Your own app's keys can't be stored on this deployment yet. Use the shared app for now.
+          Your own app's keys can't be stored for your workspace yet. Use the shared app for now, or contact Uncava support.
         </p>
       )}
 

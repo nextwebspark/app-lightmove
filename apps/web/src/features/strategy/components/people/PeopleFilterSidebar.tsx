@@ -524,7 +524,7 @@ function MatchCount({ count, pending, isEmpty }: { count: PeopleCount | undefine
   if (count?.offered === false) {
     return (
       <div className="border-b border-u-border px-4 py-3 text-note text-u-text3">
-        People search is not set up on this deployment.
+        People search isn't switched on for your workspace. Contact Uncava support to turn it on.
       </div>
     );
   }

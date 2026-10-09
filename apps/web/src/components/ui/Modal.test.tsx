@@ -1,8 +1,8 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Modal } from "./Modal";
-import { ToastProvider, useToast } from "./Toast";
 
 /** Both dismissal paths must work — a modal that traps the user eats whatever they typed elsewhere. */
 describe("Modal", () => {
@@ -113,27 +113,43 @@ describe("Modal — header", () => {
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
-});
 
-describe("Toast", () => {
-  function Trigger({ message }: { message: string }) {
-    const toast = useToast();
-    return <button onClick={() => toast(message)}>fire</button>;
-  }
-
-  it("shows a toast and auto-dismisses it", () => {
-    vi.useFakeTimers();
+  it("is a form when given onSubmit, so Enter in a field presses the footer's submit button", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
     render(
-      <ToastProvider>
-        <Trigger message="first" />
-      </ToastProvider>,
+      <Modal open onClose={vi.fn()} title="Rename" onSubmit={onSubmit} footer={<button type="submit">Save</button>}>
+        <input aria-label="Name" />
+      </Modal>,
     );
 
-    fireEvent.click(screen.getByText("fire"));
-    expect(screen.getByRole("status")).toHaveTextContent("first");
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveFocus();
+    await user.keyboard("Board{Enter}");
 
-    act(() => vi.advanceTimersByTime(2300));
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
-    vi.useRealTimers();
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Tab inside, and hands focus back to the opener on close", async () => {
+    const user = userEvent.setup();
+    function Opener() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>New</button>
+          <button>Behind</button>
+          <Modal open={open} onClose={() => setOpen(false)} title="New" footer={<button>Create</button>}>
+            <input aria-label="Title" />
+          </Modal>
+        </>
+      );
+    }
+    render(<Opener />);
+    await user.click(screen.getByRole("button", { name: "New" }));
+
+    for (let press = 0; press < 5; press++) await user.tab();
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: "New" })).toHaveFocus();
   });
 });

@@ -47,7 +47,7 @@ export function useAiEnrichment(projectId: string, candidateId: string, canWrite
   useEffect(() => {
     if (!failed) return;
     setPressedOver(null);
-    toast("The AI enrichment failed — try again");
+    toast.error("The AI enrichment failed — try again");
   }, [failed, toast]);
 
   const isRunning = pressedOver !== null && !landed && !failed;
@@ -67,7 +67,7 @@ export function useAiEnrichment(projectId: string, candidateId: string, canWrite
     onSuccess: () => toast("Enriching with AI…"),
     onError: (error) => {
       setPressedOver(null);
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     },
   });
 

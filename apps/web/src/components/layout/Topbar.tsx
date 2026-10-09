@@ -165,7 +165,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
       setOpen(false);
       navigate("/");
     } catch (error) {
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     } finally {
       setBusy(false);
     }

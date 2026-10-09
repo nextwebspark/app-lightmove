@@ -78,7 +78,7 @@ export function IntegrationCard({
       setOpenedOwn(false);
       toast(`${copy.title} uses the shared app`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const handleChooseMode = (next: CredentialMode) => {
@@ -194,7 +194,7 @@ function SharedAppDetails({ integration, setup }: { integration: WorkspaceIntegr
   if (!integration.sharedOffered) {
     return (
       <p className="font-mono text-[11.5px] text-u-text3">
-        Uncava's shared app isn't available on this deployment yet. Use your own app to connect now.
+        Uncava's shared app isn't available for this provider yet. Use your own app to connect now.
       </p>
     );
   }

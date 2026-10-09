@@ -28,7 +28,7 @@ export function WorkspaceModeCard({ mode }: { mode: WorkspaceMode }) {
       await reload();
       toast("Workspace type changed");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const handleChoose = (next: WorkspaceMode) => {

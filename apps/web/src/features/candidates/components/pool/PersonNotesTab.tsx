@@ -33,7 +33,7 @@ export function PersonNotesTab({
       toast("Note saved — your team sees it on every position");
       refresh();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const canSave = text.trim().length > 0 && !saving.isPending;
   const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate());
@@ -101,13 +101,13 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
   const pinning = useMutation({
     mutationFn: () => poolApi.pinPoolNote(personId, note.id, !note.pinned),
     onSuccess: refresh,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const revising = useMutation({
     mutationFn: (body: string) =>
       poolApi.revisePoolNote(personId, note.id, { kind: note.kind, body, projectId: note.projectId }),
     onSuccess: refresh,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const removing = useMutation({
     mutationFn: () => poolApi.removePoolNote(personId, note.id),
@@ -115,7 +115,7 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
       toast("Note deleted — the timeline keeps a line saying so");
       refresh();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

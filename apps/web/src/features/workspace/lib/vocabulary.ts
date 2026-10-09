@@ -11,6 +11,8 @@ export interface WorkspaceVocabulary {
   contacts: string;
   contactLower: string;
   contactsLower: string;
+  /** Team & access's line under the unit heading. */
+  unitReportingLine: string;
   /** The registry's empty state: what one of these is, for someone who has none yet. */
   unitExplainer: string;
   /** Whose profile the assistant's starters are drawn from — the firm in-house, the client at an agency. */
@@ -29,6 +31,7 @@ const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   contacts: "Hiring managers",
   contactLower: "hiring manager",
   contactsLower: "hiring managers",
+  unitReportingLine: "The business unit and the hiring managers we report to there",
   unitExplainer:
     "A business unit groups the hiring managers and open positions for one part of the org — Engineering, Sales, and so on.",
   hiringCompanyPossessive: "your firm's",
@@ -45,6 +48,7 @@ const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   contacts: "Client contacts",
   contactLower: "client contact",
   contactsLower: "client contacts",
+  unitReportingLine: "The client organisation and the people we report to on their side",
   unitExplainer: "A client is a company you search for — its contacts and open positions live here.",
   hiringCompanyPossessive: "your client's",
   sectorStarterTag: "Client's sector",

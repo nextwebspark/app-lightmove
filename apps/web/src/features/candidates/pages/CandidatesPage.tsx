@@ -65,7 +65,7 @@ export function CandidatesPage() {
           ? `Exported ${count} ${count === 1 ? "person" : "people"} as a CSV — recorded in the audit trail`
           : "Exported as a CSV — recorded in the audit trail",
       ),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const toggle = (

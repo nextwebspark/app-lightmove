@@ -41,7 +41,7 @@ export function SettingsAiAppsPage() {
       toast(`${grant.clientName} disconnected`);
       void queryClient.invalidateQueries({ queryKey: oauthGrantsApi.OAUTH_GRANTS_KEY });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const rows = grants.data ?? [];

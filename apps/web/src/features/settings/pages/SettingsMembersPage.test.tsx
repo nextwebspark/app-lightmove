@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +18,7 @@ vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   invitations: vi.fn(),
   changeMemberRoles: vi.fn(),
   removeMember: vi.fn(),
+  revokeInvitation: vi.fn(),
 }));
 
 // AuthProvider exchanges the refresh cookie for a token before it will ask who the user is, so a test
@@ -133,9 +134,32 @@ describe("SettingsMembersPage — the roster", () => {
     const picker = await screen.findByLabelText("Role for Sara Al-Mansour");
     await user.selectOptions(picker, "ADMIN");
 
-    expect(await screen.findByRole("status")).toHaveTextContent(
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "A workspace must keep at least one admin.",
     );
     await waitFor(() => expect(picker).toHaveValue("MEMBER"));
+  });
+
+  it("asks before revoking an invitation, naming whose link stops working", async () => {
+    vi.mocked(workspaceApi.invitations).mockResolvedValue([
+      {
+        id: "i1",
+        email: "mel@nextwebspark.com",
+        role: "MEMBER",
+        invitedByName: "Alok Kumar",
+        createdAt: "2026-10-01T09:00:00Z",
+        expiresAt: "2026-10-08T09:00:00Z",
+      },
+    ]);
+    vi.mocked(workspaceApi.revokeInvitation).mockResolvedValue(undefined);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Revoke" }));
+    const dialog = await screen.findByRole("dialog", { name: "Revoke the invitation to mel@nextwebspark.com?" });
+    expect(dialog).toHaveTextContent("The link in their email will stop working.");
+    expect(workspaceApi.revokeInvitation).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
+    await waitFor(() => expect(workspaceApi.revokeInvitation).toHaveBeenCalledWith("i1"));
   });
 });

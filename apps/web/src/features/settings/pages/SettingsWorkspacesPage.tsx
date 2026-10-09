@@ -74,7 +74,7 @@ function WorkspaceRow({ workspace, current }: { workspace: WorkspaceSummary; cur
   const open = useMutation({
     mutationFn: () => switchWorkspace(workspace.id),
     onSuccess: () => navigate("/"),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (
@@ -108,7 +108,7 @@ function InvitationRow({ invitation }: { invitation: PendingInvitation }) {
   const accept = useMutation({
     mutationFn: () => acceptAndSwitch(() => authApi.acceptInvitationById(invitation.id)),
     onSuccess: () => navigate("/"),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

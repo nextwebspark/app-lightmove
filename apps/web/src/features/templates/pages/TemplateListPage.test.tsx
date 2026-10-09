@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -150,5 +150,19 @@ describe("TemplateListPage — the library", () => {
     expect(within(table).getByText("Fallback")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Archive Senior Executive (generic)" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Hide/ })).not.toBeInTheDocument();
+  });
+
+  it("archives at once and offers Undo, which restores the template", async () => {
+    vi.mocked(templateApi.listTemplates).mockResolvedValue([row({ origin: null })]);
+    vi.mocked(templateApi.setTemplateActive).mockResolvedValue({} as TemplateDetail);
+
+    renderPage("library");
+    const table = grid();
+    await userEvent.click(await within(table).findByRole("button", { name: "Archive Chief Executive Officer" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await waitFor(() =>
+      expect(templateApi.setTemplateActive).toHaveBeenLastCalledWith("chief-executive-officer", true),
+    );
   });
 });
