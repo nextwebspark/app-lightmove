@@ -40,7 +40,7 @@ public class CreditGrant extends BaseEntity {
     @Column(name = "effective_at", nullable = false, updatable = false)
     private Instant effectiveAt;
 
-    @Column(name = "expires_at", updatable = false)
+    @Column(name = "expires_at")
     private Instant expiresAt;
 
     @Column(name = "fils_per_credit", nullable = false, precision = 14, scale = 6, updatable = false)
@@ -83,6 +83,20 @@ public class CreditGrant extends BaseEntity {
         long lapsed = remaining;
         remaining = 0;
         return lapsed;
+    }
+
+    /**
+     * In force and begun strictly before {@code now}: ending one that begins at {@code now} would break V121's
+     * {@code expires_at > effective_at}.
+     */
+    public boolean canEndAt(Instant now) {
+        return now.isAfter(effectiveAt) && (expiresAt == null || expiresAt.isAfter(now));
+    }
+
+    /** Ends the grant at {@code now}, ahead of its own expiry; @return the credits that lapsed */
+    public long endAt(Instant now) {
+        expiresAt = now;
+        return expire();
     }
 
     public void giveBack(long credits) {

@@ -2,6 +2,7 @@ package app.lightmove.api.billing.plan.service;
 
 import app.lightmove.api.billing.plan.dto.InvoicedSubscriptionRequest;
 import app.lightmove.api.billing.plan.dto.SubscriptionResponse;
+import app.lightmove.api.billing.plan.model.AppTrialConverted;
 import app.lightmove.api.billing.plan.model.BillingPlan;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.BillingPlanRepository;
@@ -13,6 +14,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ public class InvoicedSubscriptionService {
     private final BillingPlanRepository plans;
     private final BillingWorkspaces workspaces;
     private final AuditService audit;
+    private final ApplicationEventPublisher publisher;
 
     @Transactional
     public SubscriptionResponse set(UUID actorId, UUID workspaceId, InvoicedSubscriptionRequest request,
@@ -52,9 +55,13 @@ public class InvoicedSubscriptionService {
         if (subscription.isBilledByStripe()) {
             throw ApiException.of(ErrorCode.SUBSCRIPTION_BILLED_BY_STRIPE);
         }
+        boolean wasAppTrial = subscription.isAppTrial();
         subscription.invoice(plan, request.billingInterval(), request.seats(), request.contactCreditPool(),
                 request.currentPeriodStart(), request.currentPeriodEnd());
         subscriptions.saveAndFlush(subscription);
+        if (wasAppTrial) {
+            publisher.publishEvent(new AppTrialConverted(workspaceId));
+        }
 
         audit.event(PlatformEventType.INVOICED_SUBSCRIPTION_SET).actor(actorId).workspace(workspaceId)
                 .target("workspace", workspaceId)

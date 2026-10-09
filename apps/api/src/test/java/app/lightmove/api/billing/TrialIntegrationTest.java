@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
@@ -142,6 +143,73 @@ class TrialIntegrationTest extends BillingFlowSupport {
     }
 
     @Test
+    @DisplayName("converting ends the trial's credits, so the month's allowance is the plan's alone")
+    void convertingEndsTheTrialCredits() throws Exception {
+        Firm firm = newFirm();
+        ledger.charge(emailFound(firm.workspaceId(), "trial-spend"));
+
+        subscribeToCore(firm);
+
+        JsonNode credits = billingOf(firm).get("credits");
+        assertThat(credits.get("monthly").asLong()).isEqualTo(50);
+        assertThat(credits.get("left").asLong()).isEqualTo(50);
+        assertThat(credits.get("usedPercent").asLong()).isZero();
+        assertThat(trialGrantOf(firm.workspaceId())).containsEntry("remaining", 0L).containsEntry("ended", true)
+                .containsEntry("expiries", 1L);
+        assertLedgerAddsUp(firm.workspaceId());
+    }
+
+    @Test
+    @DisplayName("an upgrade after converting tops the month up to the new plan in full")
+    void anUpgradeAfterConvertingTopsUpInFull() throws Exception {
+        Firm firm = newFirm();
+        StripeSubscriptionState core = subscribeToCore(firm);
+
+        deliver(new PaymentEvent.SubscriptionChanged("evt_" + UUID.randomUUID(), "customer.subscription.updated",
+                Instant.now().plusSeconds(5), new StripeSubscriptionState(core.customerId(), core.subscriptionId(),
+                        SubscriptionStatus.ACTIVE, "price_test_pro_monthly", 1, core.periodStart(),
+                        core.periodEnd())));
+
+        assertThat(db.queryForObject("SELECT amount FROM app_lm_credit_grant WHERE workspace_id = ? "
+                + "AND external_ref LIKE 'upgrade:%'", Long.class, firm.workspaceId())).isEqualTo(100);
+        assertThat(billingOf(firm).at("/credits/monthly").asLong()).isEqualTo(150);
+        assertLedgerAddsUp(firm.workspaceId());
+    }
+
+    @Test
+    @DisplayName("a platform admin invoicing a trial ends its credits too")
+    void invoicingEndsTheTrialCredits() throws Exception {
+        Firm firm = newFirm();
+
+        mvc.perform(put("/api/v1/platform/workspaces/" + firm.workspaceId() + "/subscription")
+                        .header("Authorization", "Bearer " + superAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"plan":"CORE","billingInterval":"ANNUAL","seats":2}"""))
+                .andExpect(status().isOk());
+
+        assertThat(trialGrantOf(firm.workspaceId())).containsEntry("remaining", 0L).containsEntry("ended", true)
+                .containsEntry("expiries", 1L);
+        assertLedgerAddsUp(firm.workspaceId());
+    }
+
+    @Test
+    @DisplayName("a trial whose credits already lapsed converts with no second expiry")
+    void aLapsedTrialConvertsWithNoSecondExpiry() throws Exception {
+        Firm firm = newFirm();
+        endTrial(firm.workspaceId());
+        db.update("UPDATE app_lm_credit_grant SET effective_at = ?, expires_at = ? WHERE external_ref = ?",
+                Timestamp.from(Instant.now().minus(Duration.ofDays(15))),
+                Timestamp.from(Instant.now().minus(Duration.ofDays(1))), "trial:" + firm.workspaceId());
+
+        subscribeToCore(firm);
+
+        assertThat(trialGrantOf(firm.workspaceId())).containsEntry("remaining", 0L).containsEntry("expiries", 1L);
+        assertThat(billingOf(firm).at("/credits/monthly").asLong()).isEqualTo(50);
+        assertLedgerAddsUp(firm.workspaceId());
+    }
+
+    @Test
     @DisplayName("a founder's second workspace converts through Checkout while their first is still on its trial")
     void aSecondWorkspaceConverts() throws Exception {
         Firm first = newFirm();
@@ -228,7 +296,7 @@ class TrialIntegrationTest extends BillingFlowSupport {
     }
 
     /** Checkout for Core, then the two webhooks Stripe sends once it is paid. */
-    private void subscribeToCore(Firm firm) throws Exception {
+    private StripeSubscriptionState subscribeToCore(Firm firm) throws Exception {
         mvc.perform(post("/api/v1/billing/checkout/subscription")
                         .header("Authorization", "Bearer " + firm.adminToken())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -244,6 +312,16 @@ class TrialIntegrationTest extends BillingFlowSupport {
                 start, paid));
         deliver(new PaymentEvent.InvoicePaid("evt_" + UUID.randomUUID(), "invoice.paid", start.plusSeconds(1),
                 "in_" + UUID.randomUUID(), customer, subscriptionId, paid, true));
+        return paid;
+    }
+
+    private Map<String, Object> trialGrantOf(UUID workspaceId) {
+        return db.queryForMap("""
+                SELECT remaining, expires_at <= now() AS ended,
+                       (SELECT count(*) FROM app_lm_credit_entry e WHERE e.grant_id = g.id AND e.kind = 'EXPIRE')
+                           AS expiries
+                FROM app_lm_credit_grant g WHERE workspace_id = ? AND external_ref = ?""",
+                workspaceId, "trial:" + workspaceId);
     }
 
     private JsonNode billingOf(Firm firm) throws Exception {

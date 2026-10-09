@@ -3,6 +3,7 @@ package app.lightmove.api.billing.trial.service;
 import app.lightmove.api.billing.credit.constant.CreditGrantSource;
 import app.lightmove.api.billing.credit.model.CreditGrantCommand;
 import app.lightmove.api.billing.credit.service.CreditLedger;
+import app.lightmove.api.billing.plan.model.AppTrialConverted;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -12,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -55,5 +57,14 @@ public class WorkspaceTrials {
             ledger.grant(new CreditGrantCommand(workspaceId, CreditGrantSource.PLAN, settings.credits(), now, endsAt,
                     BigDecimal.ZERO, grantKey(workspaceId), null, "Trial"));
         }
+    }
+
+    /**
+     * A paid plan ends the trial and its credits with it, so the month's credits are the plan's alone: the allowance
+     * Settings → Billing shows, the thresholds and an upgrade's top-up are all counted from them.
+     */
+    @EventListener
+    public void endCreditsOnConversion(AppTrialConverted converted) {
+        ledger.endEarly(converted.workspaceId(), CreditGrantSource.PLAN, grantKey(converted.workspaceId()));
     }
 }

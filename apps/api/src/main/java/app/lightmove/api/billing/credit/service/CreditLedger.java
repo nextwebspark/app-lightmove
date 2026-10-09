@@ -2,6 +2,7 @@ package app.lightmove.api.billing.credit.service;
 
 import app.lightmove.api.billing.credit.constant.CreditAction;
 import app.lightmove.api.billing.credit.constant.CreditEntryKind;
+import app.lightmove.api.billing.credit.constant.CreditGrantSource;
 import app.lightmove.api.billing.credit.constant.CreditHoldStatus;
 import app.lightmove.api.billing.credit.model.ContactCreditThresholdCrossed;
 import app.lightmove.api.billing.credit.model.CreditBalance;
@@ -130,6 +131,26 @@ public class CreditLedger {
         CreditGrant grant = grants.saveAndFlush(CreditGrant.issued(command, now));
         record(CreditEntry.granted(grant, now), balance);
         return receiptOf(grant, false);
+    }
+
+    /**
+     * Ends a grant still in force at once, as if it had lapsed now: its unspent credits expire and it no longer counts
+     * as the month's. Nothing for a grant that does not exist or has already ended.
+     */
+    @Transactional
+    public long endEarly(UUID workspaceId, CreditGrantSource source, String externalRef) {
+        CreditBalance balance = begin(workspaceId);
+        Instant now = clock.instant();
+        return grants.findByWorkspaceIdAndSourceAndExternalRef(workspaceId, source, externalRef)
+                .filter(grant -> grant.canEndAt(now))
+                .map(grant -> {
+                    long lapsed = grant.endAt(now);
+                    if (lapsed > 0) {
+                        record(CreditEntry.expired(grant, lapsed, now), balance);
+                    }
+                    return lapsed;
+                })
+                .orElse(0L);
     }
 
     /** Expires lapsed grants and releases holds nobody settled within {@code hold-ttl}: the sweeper's work. */
