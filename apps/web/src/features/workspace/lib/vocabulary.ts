@@ -20,6 +20,8 @@ export interface WorkspaceVocabulary {
   sectorStarterTag: string;
   /** Where to record that profile when the starters had to assume a sector. */
   hiringProfileHint: string;
+  /** Who shares a position with a client contact; null at an agency, which is named instead. */
+  positionSharer: string | null;
 }
 
 const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
@@ -37,6 +39,7 @@ const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   hiringCompanyPossessive: "your firm's",
   sectorStarterTag: "Your sector",
   hiringProfileHint: "add your company in Settings → General",
+  positionSharer: "your talent team",
 });
 
 const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
@@ -53,6 +56,7 @@ const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   hiringCompanyPossessive: "your client's",
   sectorStarterTag: "Client's sector",
   hiringProfileHint: "add sectors to this client's persona under Clients",
+  positionSharer: null,
 });
 
 export function vocabularyFor(mode: WorkspaceMode): WorkspaceVocabulary {

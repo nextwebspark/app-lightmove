@@ -76,7 +76,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     queryFn: clientsApi.clients,
     enabled: Boolean(user) && !clientOnly,
   });
-  const { data: members = [], isPending: membersPending } = useQuery({
+  const { data: members = [], isPending: membersPending, isError: membersRefused } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
     enabled: Boolean(user) && !clientOnly,
@@ -102,6 +102,10 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 
   const openProject = projects.find((p) => p.id === openProjectId) ?? null;
   const filtered = query.trim() !== "" || chip !== DEFAULT_CHIP;
+  const unfilteredCount = useMemo(
+    () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip: "allstages", query: "" }).length,
+    [projects, view, clientOnly, myMemberId],
+  );
   // Nothing on My positions because nobody has seated them yet — not because a filter found nothing.
   const firstUse =
     view === "my" &&
@@ -167,7 +171,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           <EmptyState
             icon={<Icon d={ICONS.briefcase} size={24} />}
             title="No positions shared with you yet"
-            body={`When ${sharerOf(user?.workspace?.name, user?.workspace?.mode)} shares a position with you, it'll appear here.`}
+            body={`When ${vocabulary.positionSharer ?? user?.workspace?.name ?? "your search firm"} shares a position with you, it'll appear here.`}
           />
         </>
       );
@@ -200,7 +204,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     <>
       <PageHeader
         title={view === "my" ? "My positions" : "All positions"}
-        subtitle={`${rows.length} ${rows.length === 1 ? "position" : "positions"} · workspace ${user?.workspace?.name ?? ""}`}
+        subtitle={`${filtered ? `${rows.length} of ${unfilteredCount}` : rows.length} ${(filtered ? unfilteredCount : rows.length) === 1 ? "position" : "positions"} · workspace ${user?.workspace?.name ?? ""}`}
         action={clientOnly ? undefined : newProjectButton}
       />
 
@@ -229,6 +233,17 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       {rows.length === 0 && view === "my" && !clientOnly && membersPending ? (
         // Whose positions are "mine" is read off the roster; until it arrives, nothing can be said about none.
         <TableSkeleton columns={["Position", "Stage", "Health", "Team", "Target", "Pipeline"]} />
+      ) : rows.length === 0 && view === "my" && !clientOnly && membersRefused ? (
+        // Without the roster nothing can be said about which positions are yours — least of all that there are none.
+        <EmptyState
+          icon={<Icon d={ICONS.lock} size={24} />}
+          title="Couldn't tell which positions are yours"
+          body="The team list didn't load. Reload the page, or browse every position in the meantime."
+        >
+          <Link to="/all" className={buttonClassName("secondary")}>
+            Browse all positions
+          </Link>
+        </EmptyState>
       ) : rows.length === 0 ? (
         <ListEmptyState
           firstUse={firstUse}
@@ -297,12 +312,14 @@ function ListEmptyState({
         body={
           openCount > 0
             ? `Your team has ${positions}. Ask a lead to add you, or browse them.`
-            : "Your team has no open positions right now. Browse the closed ones, or open a new one."
+            : "Your team has no open positions right now. Open one with New position to get started."
         }
       >
-        <Link to="/all" className={buttonClassName("secondary")}>
-          Browse all positions{openCount > 0 ? ` (${openCount})` : ""}
-        </Link>
+        {openCount > 0 && (
+          <Link to="/all" className={buttonClassName("primary")}>
+            Browse open positions ({openCount})
+          </Link>
+        )}
       </EmptyState>
     );
   }
@@ -328,8 +345,3 @@ function ListEmptyState({
   );
 }
 
-/** Who shares a position with a client contact: the firm by name at an agency, the talent team in-house. */
-function sharerOf(workspaceName: string | undefined, mode: string | undefined): string {
-  if (mode === "AGENCY" && workspaceName) return workspaceName;
-  return "your talent team";
-}

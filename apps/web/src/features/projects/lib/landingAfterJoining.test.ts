@@ -1,3 +1,4 @@
+import { QueryClient } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import * as projectsApi from "../api/projectsApi";
@@ -27,28 +28,28 @@ describe("landingAfterJoining", () => {
       position("p3", [user.id], "CLOSED"),
     ]);
 
-    expect(await landingAfterJoining(user)).toBe("/projects/p1");
+    expect(await landingAfterJoining(user, new QueryClient())).toBe("/projects/p1");
   });
 
   it("lands on My positions with none, or more than one", async () => {
     const user = aUser();
     vi.mocked(projectsApi.projects).mockResolvedValueOnce([position("p1", ["someone-else"])]);
-    expect(await landingAfterJoining(user)).toBe("/");
+    expect(await landingAfterJoining(user, new QueryClient())).toBe("/");
 
     vi.mocked(projectsApi.projects).mockResolvedValueOnce([position("p1", [user.id]), position("p2", [user.id])]);
-    expect(await landingAfterJoining(user)).toBe("/");
+    expect(await landingAfterJoining(user, new QueryClient())).toBe("/");
   });
 
   it("takes a client contact's list as already theirs", async () => {
     const user = aUser({ workspace: aWorkspace({ roles: ["CLIENT"] }) });
     vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", [])]);
 
-    expect(await landingAfterJoining(user)).toBe("/projects/p1");
+    expect(await landingAfterJoining(user, new QueryClient())).toBe("/projects/p1");
   });
 
   it("falls back to My positions when the list can't be read", async () => {
     vi.mocked(projectsApi.projects).mockRejectedValue(new Error("503"));
 
-    expect(await landingAfterJoining(aUser())).toBe("/");
+    expect(await landingAfterJoining(aUser(), new QueryClient())).toBe("/");
   });
 });

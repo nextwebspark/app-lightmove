@@ -370,7 +370,7 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
 
     expect(await screen.findByText("You're not on any position yet")).toBeInTheDocument();
     expect(screen.getByText("Your team has 2 open positions. Ask a lead to add you, or browse them.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Browse all positions (2)" })).toHaveAttribute("href", "/all");
+    expect(screen.getByRole("link", { name: "Browse open positions (2)" })).toHaveAttribute("href", "/all");
     expect(screen.queryByText(/No positions match/)).not.toBeInTheDocument();
   });
 
@@ -382,13 +382,52 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
 
     renderPage();
     await screen.findAllByText("CFO Search");
-    await user.type(screen.getByPlaceholderText(/Search business unit or position/), "nothing like it");
-
+    await user.click(screen.getByRole("button", { name: "Delivered" }));
     expect(await screen.findByText("No positions match")).toBeInTheDocument();
+    expect(screen.getByText(/0 of 1 position/)).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText(/Search business unit or position/), "nothing like it");
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
 
     expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
     expect(screen.getByPlaceholderText(/Search business unit or position/)).toHaveValue("");
+    // Back on the default stage: the subtitle stops counting "of".
+    expect(screen.getByText(/^1 position ·/)).toBeInTheDocument();
+  });
+
+  it("never says there are none when the roster could not be read", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockRejectedValue(new Error("403"));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "CFO Search", [seatOf("m-me", "u1")])]);
+
+    renderPage();
+
+    expect(await screen.findByText("Couldn't tell which positions are yours")).toBeInTheDocument();
+    expect(screen.queryByText("No active positions")).not.toBeInTheDocument();
+    expect(screen.queryByText("You're not on any position yet")).not.toBeInTheDocument();
+  });
+
+  it("says when everything of theirs is delivered or closed, and offers every stage", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Old Search", [seatOf("m-me", "u1")], "DELIVERED")]);
+    const user = userEvent.setup();
+
+    renderPage();
+    expect(await screen.findByText("No active positions")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show all stages" }));
+
+    expect(await screen.findAllByText("Old Search")).not.toHaveLength(0);
+  });
+
+  it("offers nothing to browse when the team has no open position", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Old Search", [seatOf("m-lead", "u9")], "CLOSED")]);
+
+    renderPage();
+
+    expect(await screen.findByText(/Your team has no open positions right now/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Browse open positions/ })).not.toBeInTheDocument();
   });
 
   it("names the agency to a client contact with nothing shared yet, and keeps the page header", async () => {
