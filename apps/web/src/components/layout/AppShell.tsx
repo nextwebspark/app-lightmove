@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import { useAssistant } from "../../features/assistant/AssistantProvider";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
+import { HelpProvider } from "../../features/help/HelpProvider";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -47,6 +48,7 @@ export function AppShell({
   }, [navOpen]);
 
   return (
+    <HelpProvider>
     <div className="flex h-dvh flex-col overflow-hidden">
       <Topbar breadcrumb={breadcrumb} actions={topbarActions} navOpen={navOpen} onMenuClick={() => setNavOpen(true)} />
 
@@ -80,5 +82,6 @@ export function AppShell({
         )}
       </div>
     </div>
+    </HelpProvider>
   );
 }

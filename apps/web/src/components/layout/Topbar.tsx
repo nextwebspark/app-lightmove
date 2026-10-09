@@ -6,6 +6,7 @@ import * as authApi from "../../features/auth/api/authApi";
 import { isPureClient } from "../../features/auth/roles";
 import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
 import { CreditChip } from "../../features/billing/components/CreditChip";
+import { useHelp } from "../../features/help/HelpProvider";
 import { useTheme } from "../../features/theme/useTheme";
 import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
 import { AppIcon, Avatar, useToast } from "../ui";
@@ -60,6 +61,7 @@ export function Topbar({
       <div className="flex flex-none items-center gap-2.5">
         <CreditChip />
         {actions}
+        <HelpButton />
         {user && <AccountMenu />}
       </div>
     </header>
@@ -179,7 +181,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
           {invitations.length > 0 && (
             <span
               aria-hidden="true"
-              className="absolute -right-2 -top-2 grid min-w-4 place-items-center rounded-full bg-u-signal px-1 text-[9.5px] font-semibold leading-4 text-white ring-2 ring-u-bg"
+              className="absolute -right-2 -top-2 grid min-w-4 place-items-center rounded-full bg-u-signal px-1 text-[9.5px] font-semibold leading-4 text-u-bg ring-2 ring-u-bg"
             >
               {invitations.length}
             </span>
@@ -269,6 +271,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
 /** The avatar's menu: the person, not the workspace — their profile, security, theme, and signing out. */
 function AccountMenu() {
   const { user, signOut } = useAuth();
+  const { openHelp } = useHelp();
   const navigate = useNavigate();
   const menu = useDropdownMenu();
   const { theme, toggle: toggleTheme } = useTheme();
@@ -316,6 +319,16 @@ function AccountMenu() {
             <span className="flex-1">Dark mode</span>
             <span aria-hidden="true" className="text-meta text-u-text3">{theme === "dark" ? "On" : "Off"}</span>
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              menu.close();
+              openHelp();
+            }}
+          >
+            <Icon d={ICONS.help} size={15} className="flex-none" />
+            <span className="flex-1">Help &amp; shortcuts</span>
+            <kbd aria-hidden="true" className="font-mono text-meta text-u-text3">?</kbd>
+          </MenuItem>
           <MenuDivider />
           <MenuItem onClick={() => void signOut()}>
             <Icon d={ICONS.signOut} size={15} className="flex-none" />
@@ -324,6 +337,25 @@ function AccountMenu() {
         </div>
       )}
     </div>
+  );
+}
+
+/** The ? in the topbar: help for the page you're on, with a dot while something new is unread. */
+function HelpButton() {
+  const { openHelp, hasUnseenNews } = useHelp();
+  return (
+    <button
+      type="button"
+      onClick={() => openHelp()}
+      aria-label={hasUnseenNews ? "Help — something new to read" : "Help"}
+      title="Help (?)"
+      className="relative grid size-8 flex-none place-items-center rounded-full text-u-text2 transition hover:bg-u-raised hover:text-u-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent"
+    >
+      <Icon d={ICONS.help} size={17} />
+      {hasUnseenNews && (
+        <span aria-hidden="true" className="absolute right-1 top-1 size-2 rounded-full bg-u-accent ring-2 ring-u-bg" />
+      )}
+    </button>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { cn } from "../../lib/cn";
+import { useHelp } from "../../features/help/HelpProvider";
 import { APP_VERSION } from "../../lib/version";
 import { Icon, ICONS } from "./Icon";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
@@ -45,6 +46,7 @@ export function Sidebar({
   assistantOpen?: boolean;
 }) {
   const preference = useSidebarCollapsed();
+  const { openHelp } = useHelp();
   const [expandedBesideAssistant, setExpandedBesideAssistant] = useState(false);
   const [assistantWasOpen, setAssistantWasOpen] = useState(assistantOpen);
   if (assistantWasOpen !== assistantOpen) {
@@ -158,9 +160,15 @@ export function Sidebar({
           <Icon d={ICONS.close} className="flex-none" />
           <span className="whitespace-nowrap">Close menu</span>
         </button>
-        <p className={cn("px-2.5 pt-2 font-mono text-[11px] text-u-text3", labelsHidden)}>
+        <button
+          type="button"
+          onClick={() => openHelp("whatsNew")}
+          title="What's new"
+          className={cn("px-2.5 pt-2 text-left font-mono text-[11px] text-u-text3 hover:text-u-accent hover:underline", labelsHidden)}
+        >
           {APP_VERSION}
-        </p>
+          <span className="sr-only"> — what's new</span>
+        </button>
       </div>
     </nav>
   );

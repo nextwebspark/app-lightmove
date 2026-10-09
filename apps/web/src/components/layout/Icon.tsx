@@ -119,6 +119,8 @@ export const ICONS = {
   fullscreenExit: "M20 10h-6V4M4 14h6v6M14 10l7-7M3 21l7-7",
   /** An arrow into a tray — writing what is on screen onto something already saved. */
   recapture: "M12 3v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2",
+  /** A question mark in a circle — Help. */
+  help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01",
   /** A clock — a trial's days left. */
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2",
   /** An envelope — the Contact section's email channel. */
