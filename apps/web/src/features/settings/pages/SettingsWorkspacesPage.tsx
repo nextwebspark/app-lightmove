@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Button, useToast } from "../../../components/ui";
@@ -21,11 +21,17 @@ import { WorkspaceMark } from "../../workspace/components/WorkspaceMark";
  */
 export function SettingsWorkspacesPage() {
   const { user } = useAuth();
-  const [createOpen, setCreateOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const canCreate = !isPureClient(user?.workspace?.roles ?? []);
+  // The topbar's Create workspace lands here with ?create=1, so the dialog opens on arrival.
+  const [createOpen, setCreateOpen] = useState(() => canCreate && searchParams.get("create") === "1");
 
   if (!user) return null;
   const workspaces = user.workspaces;
-  const canCreate = !isPureClient(user.workspace?.roles ?? []);
+  const closeCreate = () => {
+    setCreateOpen(false);
+    if (searchParams.has("create")) setSearchParams({}, { replace: true });
+  };
 
   return (
     <>
@@ -61,7 +67,7 @@ export function SettingsWorkspacesPage() {
         </section>
       )}
 
-      {createOpen && <NewWorkspaceModal onClose={() => setCreateOpen(false)} />}
+      {createOpen && <NewWorkspaceModal onClose={closeCreate} />}
     </>
   );
 }

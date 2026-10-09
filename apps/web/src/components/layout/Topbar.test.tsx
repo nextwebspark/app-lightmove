@@ -23,7 +23,7 @@ function Pathname() {
   return <span data-testid="pathname">{useLocation().pathname}</span>;
 }
 
-/** The workspace menu under the mark: the switcher, and the door to managing workspaces. */
+/** The workspace menu on the workspace's name: the switcher, the workspace's own pages, and managing workspaces. */
 describe("Topbar — workspace menu", () => {
   const home = aWorkspace();
   const second = aWorkspace({ id: "w2", name: "Meridian Search Partners", logoMark: "M", roles: ["MEMBER"] });
@@ -53,11 +53,12 @@ describe("Topbar — workspace menu", () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home }));
     renderAt();
 
-    await userEvent.click(await screen.findByRole("button", { name: /uncava/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
 
-    expect(screen.getByText("Manage workspaces")).toBeInTheDocument();
-    expect(screen.queryByText("Workspaces")).not.toBeInTheDocument();
-    expect(screen.queryByText("Current workspace")).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Manage workspaces" })).toBeInTheDocument();
+    expect(screen.queryByText("Switch to")).not.toBeInTheDocument();
+    // Personal items live on the avatar now.
+    expect(screen.queryByRole("menuitem", { name: "Sign out" })).not.toBeInTheDocument();
   });
 
   it("lists the other workspaces and switches the session into the one picked", async () => {
@@ -69,12 +70,12 @@ describe("Topbar — workspace menu", () => {
     });
     renderAt();
 
-    await userEvent.click(await screen.findByRole("button", { name: /uncava/i }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
     expect(screen.getByText("Current workspace")).toBeInTheDocument();
     // The current one heads the menu; only the others are offered as a move.
-    expect(screen.queryByRole("button", { name: /NextWebSpark Search/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /NextWebSpark Search/ })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Meridian Search Partners/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /Meridian Search Partners/ }));
 
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalledWith("w2"));
     // A project route of the old workspace means nothing in the new one: the switch lands on home.
@@ -99,14 +100,14 @@ describe("Topbar — workspace menu", () => {
     });
     renderAt();
 
-    await userEvent.click(await screen.findByRole("button", { name: /uncava/i }));
-    await userEvent.click(screen.getByRole("button", { name: /Invited to Northgate Search/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /Invited to Northgate Search/ }));
 
     await waitFor(() => expect(authApi.acceptInvitationById).toHaveBeenCalledWith("inv-1"));
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalledWith("w3"));
   });
 
-  it("names the current workspace beside the avatar, and follows a switch", async () => {
+  it("names the current workspace on its trigger, and follows a switch", async () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home, workspaces: [home, second] }));
     vi.mocked(switchWorkspaceSession).mockResolvedValue({
       accessToken: "in-w2",
@@ -115,13 +116,52 @@ describe("Topbar — workspace menu", () => {
     });
     renderAt();
 
-    expect(await screen.findByTitle(`Current workspace: ${home.name}`)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: `Workspace: ${home.name}` }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /Meridian Search Partners/ }));
 
-    await userEvent.click(screen.getByRole("button", { name: /uncava/i }));
-    await userEvent.click(screen.getByRole("button", { name: /Meridian Search Partners/ }));
+    expect(await screen.findByRole("button", { name: "Workspace: Meridian Search Partners" })).toBeInTheDocument();
+  });
 
-    expect(await screen.findByTitle("Current workspace: Meridian Search Partners")).toBeInTheDocument();
-    expect(screen.queryByTitle(`Current workspace: ${home.name}`)).not.toBeInTheDocument();
+  it("shows a pending invitation on the closed trigger", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(
+      aUser({
+        workspace: home,
+        pendingInvitations: [{ id: "inv-1", workspaceName: "Northgate Search", role: "MEMBER", inviterName: "Omar" }],
+      }),
+    );
+    renderAt();
+
+    expect(
+      await screen.findByRole("button", { name: `Workspace: ${home.name} · 1 invitation to another workspace` }),
+    ).toBeInTheDocument();
+  });
+
+  it("is a keyboard menu: opening focuses the first item, arrows move, Escape returns to the trigger", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home, workspaces: [home, second] }));
+    const user = userEvent.setup();
+    renderAt();
+
+    const trigger = await screen.findByRole("button", { name: /^Workspace:/ });
+    expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+    await user.click(trigger);
+    const items = screen.getAllByRole("menuitem");
+    expect(items[0]).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(items[1]).toHaveFocus();
+    await user.keyboard("{Escape}");
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
+  it("offers Team, workspace settings and Create workspace to an admin", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home }));
+    renderAt();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Create workspace" }));
+
+    expect(screen.getByTestId("pathname").textContent).toBe("/settings/workspaces");
   });
 
   it("leaves the session where it was when the switch is refused", async () => {
@@ -132,8 +172,8 @@ describe("Topbar — workspace menu", () => {
     );
     renderAt();
 
-    await userEvent.click(await screen.findByRole("button", { name: /uncava/i }));
-    await userEvent.click(screen.getByRole("button", { name: /Meridian Search Partners/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Workspace:/ }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /Meridian Search Partners/ }));
 
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalled());
     expect(screen.getByTestId("pathname").textContent).toBe("/projects/p1");
@@ -141,8 +181,8 @@ describe("Topbar — workspace menu", () => {
   });
 });
 
-/** A project header draws its people where every other screen draws the user's own avatar. */
-describe("Topbar — actions", () => {
+/** The avatar opens the person's own menu, on every screen — a project's people are drawn beside it. */
+describe("Topbar — account menu", () => {
   const renderWith = (actions?: React.ReactNode) =>
     render(
       <MemoryRouter>
@@ -150,6 +190,9 @@ describe("Topbar — actions", () => {
           <AuthProvider>
             <ToastProvider>
               <Topbar actions={actions} />
+              <Routes>
+                <Route path="*" element={<Pathname />} />
+              </Routes>
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
@@ -162,17 +205,23 @@ describe("Topbar — actions", () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ fullName: "Alok Kumar" }));
   });
 
-  it("draws the user's avatar when no screen supplies actions", async () => {
+  it("opens the person's menu from the avatar, with Sign out", async () => {
+    vi.mocked(authApi.logout).mockResolvedValue(undefined);
     renderWith();
 
-    expect(await screen.findByTitle("Alok Kumar")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Account: Alok Kumar" }));
+
+    expect(screen.getByRole("menuitem", { name: "Your profile" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Security" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /mode$/ })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+    await waitFor(() => expect(authApi.logout).toHaveBeenCalled());
   });
 
-  it("draws the actions in its place, keeping the workspace label", async () => {
+  it("keeps the avatar beside a project's people", async () => {
     renderWith(<span>People bar</span>);
 
-    expect(await screen.findByTitle(/^Current workspace:/)).toBeInTheDocument();
-    expect(screen.getByText("People bar")).toBeInTheDocument();
-    expect(screen.queryByTitle("Alok Kumar")).not.toBeInTheDocument();
+    expect(await screen.findByText("People bar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Account: Alok Kumar" })).toBeInTheDocument();
   });
 });

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { useTheme } from "../../features/theme/useTheme";
 import { cn } from "../../lib/cn";
 import { APP_VERSION } from "../../lib/version";
 import { Icon, ICONS } from "./Icon";
@@ -21,7 +20,7 @@ export interface SidebarGroup {
 }
 
 /**
- * The mockups' left rail: grouped nav links with theme and collapse rows pinned to the bottom, 210px
+ * The mockups' left rail: grouped nav links with the collapse row pinned to the bottom, 210px
  * wide or 56px collapsed (labels, group headers and counts disappear). On desktop it is a bare column
  * on the page ground, not a card — the main panel is the only card the mockups draw.
  *
@@ -54,8 +53,6 @@ export function Sidebar({
   }
   const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
   const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
-  const { theme, toggle: toggleTheme } = useTheme();
-  const dark = theme === "dark";
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -144,17 +141,6 @@ export function Sidebar({
       ))}
 
       <div className="mt-auto border-t border-u-border pt-3">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={dark ? "Light mode" : "Dark mode"}
-          className={rowClass("text-u-text2")}
-        >
-          <Icon d={dark ? ICONS.sun : ICONS.moon} className="flex-none" />
-          <span className={cn("whitespace-nowrap", labelsHidden)}>
-            {dark ? "Light mode" : "Dark mode"}
-          </span>
-        </button>
         <button
           type="button"
           onClick={toggle}
