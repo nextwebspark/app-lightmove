@@ -284,6 +284,22 @@ describe("OutreachPage", () => {
     expect(screen.getByRole("dialog", { name: "Drawer for c2" })).toBeInTheDocument();
   });
 
+  it("reaches a run's row with Tab and opens it with Enter", async () => {
+    const user = userEvent.setup();
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(connected);
+    vi.mocked(runApi.getOutreachPeople).mockResolvedValue(WITH_PEOPLE);
+    renderPage();
+
+    const table = await screen.findByRole("table", { name: "People in outreach" });
+    const row = within(table).getByText("Omar Farouk").closest<HTMLElement>('[role="row"]')!;
+    row.focus();
+    expect(row).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("dialog", { name: "Drawer for c1" })).toBeInTheDocument();
+  });
+
   it("shows no counts or table before anyone is on a sequence", async () => {
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue(connected);
     renderPage();

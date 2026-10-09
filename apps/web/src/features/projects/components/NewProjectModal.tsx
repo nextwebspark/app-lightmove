@@ -288,12 +288,13 @@ export function NewProjectModal({
       open={open}
       onClose={onClose}
       title="New position"
+      onSubmit={submit}
       footer={
         <>
-          <Button variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button loading={create.isPending} onClick={submit}>
+          <Button type="submit" loading={create.isPending}>
             Create position
           </Button>
         </>

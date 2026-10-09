@@ -190,11 +190,23 @@ function RunRow({
   return (
     <div
       role="row"
+      tabIndex={candidateId ? 0 : undefined}
       onClick={candidateId ? () => onOpen(candidateId) : undefined}
+      onKeyDown={
+        candidateId
+          ? (event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key !== "Enter" && event.key !== " ") return;
+              event.preventDefault();
+              onOpen(candidateId);
+            }
+          : undefined
+      }
       className={cn(
         ROW_GRID,
         "border-b border-u-border px-3.5 py-2.5 last:border-b-0",
-        candidateId && "cursor-pointer hover:bg-u-raised",
+        candidateId &&
+          "cursor-pointer hover:bg-u-raised focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-u-accent",
       )}
     >
       <span role="cell" className="flex min-w-0 items-center gap-2.5">
@@ -208,6 +220,8 @@ function RunRow({
           {candidateId ? (
             <button
               type="button"
+              // The row is the tab stop; the name stays a button for the pointer and the screen reader.
+              tabIndex={-1}
               onClick={(event) => {
                 event.stopPropagation();
                 onOpen(candidateId);

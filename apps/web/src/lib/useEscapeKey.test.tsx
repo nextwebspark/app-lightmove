@@ -65,6 +65,28 @@ describe("useEscapeKey", () => {
     expect(closeUnder).toHaveBeenCalledOnce();
   });
 
+  it("keeps the top overlay on top when the one beneath re-renders with a new handler", async () => {
+    const closeUnder = vi.fn();
+    const closeOver = vi.fn();
+    const { rerender } = render(
+      <>
+        <Layer name="under" onClose={() => closeUnder()} />
+        <Layer name="over" onClose={closeOver} />
+      </>,
+    );
+
+    rerender(
+      <>
+        <Layer name="under" onClose={() => closeUnder()} />
+        <Layer name="over" onClose={closeOver} />
+      </>,
+    );
+    await userEvent.keyboard("{Escape}");
+
+    expect(closeOver).toHaveBeenCalledOnce();
+    expect(closeUnder).not.toHaveBeenCalled();
+  });
+
   it("ignores a layer that is not active", async () => {
     const closeInactive = vi.fn();
     function Inactive() {

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 /**
  * Dismisses a panel on Escape while it is open — and only the topmost one.
@@ -9,34 +9,40 @@ import { useEffect } from "react";
  * docks beside the page precisely so a drawer can be opened from the grid while it is open, which
  * made "Escape closes the drawer *and* the panel behind it" the ordinary case.
  *
- * <p>Last registered wins, because that is what "on top" means for overlays that mount in order.
+ * <p>Last opened wins, because that is what "on top" means. A layer keeps its place while its handler
+ * changes: re-registering on every new callback once lifted a drawer above the sheet opened over it.
  */
-const handlers: Array<() => void> = [];
+const handlers: Array<RefObject<() => void>> = [];
 
 let listening = false;
 
 function handleKey(event: KeyboardEvent) {
   if (event.key !== "Escape") return;
-  handlers.at(-1)?.();
+  handlers.at(-1)?.current();
 }
 
 export function useEscapeKey(active: boolean, onEscape: () => void) {
+  const handler = useRef(onEscape);
+  useEffect(() => {
+    handler.current = onEscape;
+  });
+
   useEffect(() => {
     if (!active) return;
 
-    handlers.push(onEscape);
+    handlers.push(handler);
     if (!listening) {
       document.addEventListener("keydown", handleKey);
       listening = true;
     }
 
     return () => {
-      const index = handlers.lastIndexOf(onEscape);
+      const index = handlers.lastIndexOf(handler);
       if (index >= 0) handlers.splice(index, 1);
       if (handlers.length === 0 && listening) {
         document.removeEventListener("keydown", handleKey);
         listening = false;
       }
     };
-  }, [active, onEscape]);
+  }, [active]);
 }
