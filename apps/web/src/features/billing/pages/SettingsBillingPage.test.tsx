@@ -228,6 +228,8 @@ describe("SettingsBillingPage", () => {
     expect(screen.queryByRole("link", { name: "Add seats" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Change plan" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Invoices & card" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Payment and invoices" })).toHaveTextContent("Paid by card");
+    expect(billingApi.getBillingCard).not.toHaveBeenCalled();
   });
 
   it("lists this month's spend per member, the caller marked", async () => {

@@ -176,7 +176,10 @@ public class StripePaymentGateway implements PaymentGateway {
         }
     }
 
-    /** Quiet on a failure: the page then says "Paid by card", which is still true. */
+    /**
+     * Quiet on any failure: the page then says "Paid by card", which is still true. A legacy {@code default_source}
+     * card is not read and reads the same way.
+     */
     @Override
     public Optional<PaymentCard> cardOf(String subscriptionId) {
         SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
@@ -184,23 +187,28 @@ public class StripePaymentGateway implements PaymentGateway {
                 .addExpand("customer.invoice_settings.default_payment_method")
                 .build();
         try {
-            Subscription subscription = client.v1().subscriptions().retrieve(subscriptionId, params);
-            PaymentMethod method = subscription.getDefaultPaymentMethodObject();
-            if (method == null && subscription.getCustomerObject() != null
-                    && subscription.getCustomerObject().getInvoiceSettings() != null) {
-                method = subscription.getCustomerObject().getInvoiceSettings().getDefaultPaymentMethodObject();
-            }
-            if (method == null || method.getCard() == null) {
-                return Optional.empty();
-            }
-            PaymentMethod.Card card = method.getCard();
-            String brand = card.getDisplayBrand() != null ? card.getDisplayBrand() : card.getBrand();
-            return Optional.of(new PaymentCard(brand, card.getLast4()));
+            return chargedMethodOf(client.v1().subscriptions().retrieve(subscriptionId, params))
+                    .map(PaymentMethod::getCard)
+                    .map(card -> new PaymentCard(card.getDisplayBrand() != null ? card.getDisplayBrand()
+                            : card.getBrand(), card.getLast4()));
         } catch (StripeException failure) {
             log.warn("Stripe refused to read the card of {}: {} (request {})", subscriptionId, failure.getMessage(),
                     failure.getRequestId());
             return Optional.empty();
+        } catch (RuntimeException failure) {
+            log.warn("Could not read the card of {}", subscriptionId, failure);
+            return Optional.empty();
         }
+    }
+
+    /** The subscription's own default method, else its customer's invoice default: the order Stripe charges in. */
+    private static Optional<PaymentMethod> chargedMethodOf(Subscription subscription) {
+        if (subscription.getDefaultPaymentMethodObject() != null) {
+            return Optional.of(subscription.getDefaultPaymentMethodObject());
+        }
+        return Optional.ofNullable(subscription.getCustomerObject())
+                .map(customer -> customer.getInvoiceSettings())
+                .map(settings -> settings.getDefaultPaymentMethodObject());
     }
 
     @Override

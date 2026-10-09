@@ -40,6 +40,9 @@ import { useStripeRedirect } from "../lib/useStripeRedirect";
 
 type Dialog = "plans" | "buy" | null;
 
+/** Each card read is a Stripe call: a remount or a refocus within the minute does not make another. */
+const CARD_STALE_MS = 60_000;
+
 /**
  * Settings → Billing (`Billing.dc.html`): the plan, this month's contact credits, who spent them, and how the
  * workspace pays. Every staff member reads it; only an admin is offered seats or more credits. Quiet until 80% of
@@ -436,7 +439,9 @@ function PaymentRow({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }
   const card = useQuery({
     queryKey: billingApi.BILLING_CARD_KEY,
     queryFn: ({ signal }) => billingApi.getBillingCard(signal),
-    enabled: paysByCard(billing),
+    enabled: isAdmin && paysByCard(billing),
+    staleTime: CARD_STALE_MS,
+    retry: false,
   }).data;
   const pastDue = billing.status === "PAST_DUE";
   const { title, sub } =

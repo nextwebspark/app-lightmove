@@ -134,6 +134,24 @@ class BillingReadIntegrationTest extends BillingFlowSupport {
     }
 
     @Test
+    @DisplayName("the card read answers nothing where Stripe cannot name the card, and is a billing manager's alone")
+    void theCardReadIsQuietAndABillingManagers() throws Exception {
+        String owner = "nocard@" + domain;
+        String colleague = "nocard-member@" + domain;
+        UUID workspace = UUID.fromString(createWorkspace(verifiedUser("Yara Haddad", owner), "No Card Firm"));
+        inviteAndAccept(login(owner), "Sara Al-Mansour", colleague, "MEMBER");
+        subscribe(workspace, "PRO", 2, Instant.now().truncatedTo(ChronoUnit.SECONDS));
+        db.update("""
+                UPDATE app_lm_workspace_subscription SET status = 'ACTIVE', stripe_subscription_id = 'sub_no_card'
+                WHERE workspace_id = ?""", workspace);
+
+        JsonNode card = body(read(login(owner), "/api/v1/billing/card").andExpect(status().isOk()).andReturn());
+        assertThat(card.get("brand").isNull()).isTrue();
+        assertThat(card.get("last4").isNull()).isTrue();
+        read(login(colleague), "/api/v1/billing/card").andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("the level moves OK, 80%, 90%, then used up as the month's credits are spent")
     void theLevelFollowsTheSpend() throws Exception {
         String owner = "owner@" + domain;

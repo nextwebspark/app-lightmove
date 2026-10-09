@@ -15,6 +15,7 @@ import app.lightmove.api.billing.overview.dto.CreditPackOffer;
 import app.lightmove.api.billing.overview.dto.CreditPricesResponse;
 import app.lightmove.api.billing.overview.dto.PaymentCardResponse;
 import app.lightmove.api.billing.overview.dto.PaymentMethodResponse;
+import app.lightmove.api.billing.payment.model.PaymentCard;
 import app.lightmove.api.billing.payment.service.PaymentGateway;
 import app.lightmove.api.billing.payment.service.PlanPrices;
 import app.lightmove.api.billing.plan.constant.BillingInterval;
@@ -29,11 +30,15 @@ import app.lightmove.api.core.config.CreditPriceSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -43,6 +48,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class BillingOverviewService {
+
+    private static final Duration CARD_TTL = Duration.ofMinutes(1);
 
     private final WorkspaceSubscriptionRepository subscriptions;
     private final BillingPlanRepository plans;
@@ -54,6 +61,8 @@ public class BillingOverviewService {
     private final LightMoveProperties properties;
     private final WorkspaceAccess access;
     private final Clock clock;
+    private final Cache<String, Optional<PaymentCard>> cards =
+            Caffeine.newBuilder().expireAfterWrite(CARD_TTL).maximumSize(10_000).build();
 
     /** The catalogue goes only to whoever may buy from it. */
     @Transactional(readOnly = true)
@@ -81,11 +90,11 @@ public class BillingOverviewService {
                 trial ? subscription.getTrialEndsAt() : null);
     }
 
-    /** Asked of Stripe each time, outside any transaction, and never stored. */
+    /** Asked of Stripe outside any transaction and never stored; an answer, a miss included, is held a minute. */
     public PaymentCardResponse card(UUID workspaceId) {
         return subscriptions.findByWorkspaceId(workspaceId)
                 .filter(WorkspaceSubscription::isBilledByStripe)
-                .flatMap(subscription -> gateway.cardOf(subscription.getStripeSubscriptionId()))
+                .flatMap(subscription -> cards.get(subscription.getStripeSubscriptionId(), gateway::cardOf))
                 .map(card -> new PaymentCardResponse(card.brand(), card.last4()))
                 .orElseGet(() -> new PaymentCardResponse(null, null));
     }
