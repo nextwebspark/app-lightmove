@@ -998,7 +998,8 @@ counts the staff) and no monthly reset. One trial per founder (`trial_started_by
 Once an app trial ends unpaid, `TrialGate` — asked first by `CreditLedger.hold`/`charge` and `FairUseGuard.check`, so
 every contact find, search and AI use — refuses with 402 `TRIAL_ENDED` while enforcement is on; nothing else locks and
 nothing is deleted. Checkout from the plans dialog converts it (Stripe's webhook overwrites the row), as does a platform
-admin's invoicing. Billing managers are emailed 3 days before the end and once it has (`TRIAL_ENDING`/`TRIAL_ENDED`
+admin's invoicing; either ends the trial's grant there and then (`AppTrialConverted` → `CreditLedger.endEarly`, an
+`EXPIRE` line), so the month's credits are the plan's alone. Billing managers are emailed 3 days before the end and once it has (`TRIAL_ENDING`/`TRIAL_ENDED`
 claims). The SPA counts it down in the banner and the topbar chip, and the ended sheet offers Choose a plan.
 `trial.enabled: false` (the test profile's) founds workspaces with no subscription, as before.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

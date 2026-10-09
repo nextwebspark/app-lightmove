@@ -40,7 +40,7 @@ public class CreditGrant extends BaseEntity {
     @Column(name = "effective_at", nullable = false, updatable = false)
     private Instant effectiveAt;
 
-    @Column(name = "expires_at", updatable = false)
+    @Column(name = "expires_at")
     private Instant expiresAt;
 
     @Column(name = "fils_per_credit", nullable = false, precision = 14, scale = 6, updatable = false)
@@ -83,6 +83,12 @@ public class CreditGrant extends BaseEntity {
         long lapsed = remaining;
         remaining = 0;
         return lapsed;
+    }
+
+    /** Ends the grant at {@code now}, ahead of its own expiry; @return the credits that lapsed */
+    public long endAt(Instant now) {
+        expiresAt = now;
+        return expire();
     }
 
     public void giveBack(long credits) {

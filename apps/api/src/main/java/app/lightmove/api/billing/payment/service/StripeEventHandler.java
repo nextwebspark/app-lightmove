@@ -16,6 +16,7 @@ import app.lightmove.api.billing.payment.repository.BillingWebhookEventRepositor
 import app.lightmove.api.billing.plan.constant.BillingInterval;
 import app.lightmove.api.billing.plan.constant.PlanCode;
 import app.lightmove.api.billing.plan.constant.SubscriptionStatus;
+import app.lightmove.api.billing.plan.model.AppTrialConverted;
 import app.lightmove.api.billing.plan.model.BillingMonth;
 import app.lightmove.api.billing.plan.model.BillingPlan;
 import app.lightmove.api.billing.plan.model.PaidSubscription;
@@ -89,10 +90,14 @@ public class StripeEventHandler {
         WorkspaceSubscription subscription = subscriptions.findByWorkspaceId(workspaceId)
                 .orElseGet(() -> WorkspaceSubscription.forStripe(workspaceId));
         Terms before = Terms.of(subscription);
+        boolean wasAppTrial = subscription.isAppTrial();
         if (!subscription.followStripe(paid, eventAt)) {
             return;
         }
         subscriptions.saveAndFlush(subscription);
+        if (wasAppTrial && !subscription.isAppTrial()) {
+            publisher.publishEvent(new AppTrialConverted(workspaceId));
+        }
         Terms after = Terms.of(subscription);
         if (after.equals(before)) {
             return;
