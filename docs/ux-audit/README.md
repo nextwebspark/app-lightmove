@@ -12,3 +12,4 @@ referenced by a sub-issue of the epic.
 | Folder | Batch |
 |---|---|
 | `00-foundations/` | Feedback, errors, vocabulary, confirmation, visual system, focus |
+| `01-first-run/` | Signup, first landing, the shell, settings entry, rosters |
