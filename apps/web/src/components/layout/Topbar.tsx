@@ -4,6 +4,7 @@ import { useAuth } from "../../features/auth/AuthProvider";
 import type { PendingInvitation, WorkspaceSummary } from "../../features/auth/api/types";
 import * as authApi from "../../features/auth/api/authApi";
 import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
+import { CreditChip } from "../../features/billing/components/CreditChip";
 import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
 import { AppIcon, Avatar, useToast } from "../ui";
 import { messageFor } from "../../lib/errorCodes";
@@ -52,6 +53,7 @@ export function Topbar({
       <div className="flex min-w-0 flex-1 items-center">{breadcrumb ?? <WorkspaceMenu />}</div>
 
       <div className="flex min-w-0 flex-none items-center gap-2.5">
+        <CreditChip />
         {actions}
         {user?.workspace && <CurrentWorkspaceLabel workspace={user.workspace} />}
         {!actions && user && <Avatar id={user.id} name={user.fullName} src={user.avatarUrl} />}

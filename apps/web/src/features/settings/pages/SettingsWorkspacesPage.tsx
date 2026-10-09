@@ -34,7 +34,7 @@ export function SettingsWorkspacesPage() {
         subtitle={`${workspaces.length} ${workspaces.length === 1 ? "workspace" : "workspaces"} · each with its own positions, team and settings`}
         action={
           canCreate ? (
-            <Button className="!px-3.5 !py-[7px] !text-body" onClick={() => setCreateOpen(true)}>
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Icon d={ICONS.plus} size={15} />
               Create workspace
             </Button>
@@ -92,7 +92,7 @@ function WorkspaceRow({ workspace, current }: { workspace: WorkspaceSummary; cur
           Current
         </span>
       ) : (
-        <Button variant="secondary" className="!px-3.5 !py-[6px] !text-note" loading={open.isPending} onClick={() => open.mutate()}>
+        <Button variant="secondary" size="xs" loading={open.isPending} onClick={() => open.mutate()}>
           Open
         </Button>
       )}
@@ -120,7 +120,7 @@ function InvitationRow({ invitation }: { invitation: PendingInvitation }) {
           {titleCase(invitation.role)}
         </div>
       </div>
-      <Button className="!px-3.5 !py-[6px] !text-note" loading={accept.isPending} onClick={() => accept.mutate()}>
+      <Button size="xs" loading={accept.isPending} onClick={() => accept.mutate()}>
         Accept
       </Button>
     </div>

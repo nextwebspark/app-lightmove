@@ -6,6 +6,7 @@ import app.lightmove.api.assistant.model.AssistantQuestion;
 import app.lightmove.api.assistant.model.AssistantQuestionOption;
 import app.lightmove.api.assistant.model.AssistantThread;
 import app.lightmove.api.assistant.model.AssistantTurn;
+import app.lightmove.api.assistant.model.ModelSpend;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -86,6 +87,6 @@ class QuestionMemoryTest {
 
     private static AssistantTurn turn(String question, List<AssistantQuestion> asked) {
         AssistantThread thread = AssistantThread.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Chat");
-        return AssistantTurn.answered(thread, question, "answer", List.of(), null, asked);
+        return AssistantTurn.answered(thread, question, "answer", List.of(), null, asked, ModelSpend.NONE);
     }
 }

@@ -12,6 +12,9 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,7 +44,7 @@ public class AssistantModelCall {
 
     public String ask(Map<String, Object> systemParams, List<ToolCallback> tools, List<AssistantTurn> history,
                       String question, AssistantToolContext context) {
-        String answer = chatClient.prompt()
+        ChatResponse response = chatClient.prompt()
                 .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID))
                 .options(GoogleGenAiChatOptions.builder()
                         .model(settings.model())
@@ -53,7 +56,24 @@ public class AssistantModelCall {
                 .tools(tools.toArray())
                 .toolContext(context.asMap())
                 .call()
-                .content();
+                .chatResponse();
+        return answerOf(response, context);
+    }
+
+    /**
+     * Every call is sent {@link #conversation}'s card and question blocks, so any answer may echo one back. The
+     * tokens are Spring AI's sum over the call's tool rounds.
+     */
+    private String answerOf(ChatResponse response, AssistantToolContext context) {
+        if (response == null) {
+            return "";
+        }
+        Usage usage = response.getMetadata().getUsage();
+        String model = response.getMetadata().getModel();
+        context.recorder().spent(model == null || model.isBlank() ? settings.model() : model,
+                usage.getPromptTokens(), usage.getCompletionTokens());
+        Generation result = response.getResult();
+        String answer = result == null ? null : result.getOutput().getText();
         return answer == null ? "" : QuestionMemory.stripFrom(CardMemory.stripFrom(answer));
     }
 

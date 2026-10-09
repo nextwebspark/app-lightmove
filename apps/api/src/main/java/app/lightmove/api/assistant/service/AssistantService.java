@@ -11,6 +11,9 @@ import app.lightmove.api.assistant.repository.AssistantThreadRepository;
 import app.lightmove.api.assistant.repository.AssistantTurnRepository;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.TurnRecorder;
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.model.MeteredUse;
+import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.AssistantSettings;
@@ -42,16 +45,18 @@ public class AssistantService {
     private final AssistantAgent agent;
     private final TransactionTemplate transactions;
     private final AuditService audit;
+    private final UsageRecorder usage;
     private final AssistantSettings settings;
 
     public AssistantService(AssistantThreadRepository threads, AssistantTurnRepository turns,
                             AssistantAgent agent, TransactionTemplate transactions, AuditService audit,
-                            LightMoveProperties properties) {
+                            UsageRecorder usage, LightMoveProperties properties) {
         this.threads = threads;
         this.turns = turns;
         this.agent = agent;
         this.transactions = transactions;
         this.audit = audit;
+        this.usage = usage;
         this.settings = properties.assistant();
     }
 
@@ -102,7 +107,7 @@ public class AssistantService {
                             titleOf(question)));
             AssistantTurn turn = turns.saveAndFlush(AssistantTurn.answered(thread, question, answer,
                     recorder.steps(), recorder.askedQuestions() ? null : recorder.proposal(),
-                    recorder.questions()));
+                    recorder.questions(), recorder.spend()));
             threads.touch(thread.getId(), Instant.now());
             return AssistantTurnResponse.of(turn);
         });
@@ -120,6 +125,7 @@ public class AssistantService {
                 .detail("companiesOnCard", String.valueOf(
                         recorder.proposal() == null ? 0 : recorder.proposal().companies().size()))
                 .record();
+        usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.ASSISTANT_ASK, 1));
         return saved;
     }
 

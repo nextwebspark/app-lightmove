@@ -37,4 +37,18 @@ describe("ui primitives merge classes in the caller's favour", () => {
     expect(button.className).not.toContain("px-3.5");
     expect(button.className).toContain("border-u-border-strong");
   });
+
+  it("sizes a button from its size, and a caller's colour leaves the size standing", () => {
+    render(
+      <Button variant="ghost" size="xs" className="text-u-offlimits">
+        Revoke
+      </Button>,
+    );
+
+    const button = screen.getByRole("button");
+    expect(button.className).toContain("text-note");
+    expect(button.className).toContain("py-[6px]");
+    expect(button.className).toContain("text-u-offlimits");
+    expect(button.className).not.toContain("text-[13.5px]");
+  });
 });

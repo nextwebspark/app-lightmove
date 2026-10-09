@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { FullscreenButton } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { useToast } from "../../../components/ui/Toast";
 import { useAssistant } from "../../assistant/AssistantProvider";
 import { useAuth } from "../../auth/AuthProvider";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
+import { formatNumber } from "../../../lib/format";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
@@ -64,7 +66,7 @@ export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  // People mode spends search credits, so it is staff-only like every other WORK_EXECUTE surface.
+  // People mode buys pages from ContactOut, so it is staff-only like every other WORK_EXECUTE surface.
   const canSearchPeople = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
   const mode: StrategyMode = canSearchPeople && searchParams.get("mode") === "people" ? "people" : "companies";
 
@@ -339,6 +341,8 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
     onError: (error) => toast.error(messageFor(error)),
   });
 
+  const [confirmingAddAll, setConfirmingAddAll] = useState(false);
+  const matchingCount = companies.data?.totalCount;
   const addAll = useMutation({
     mutationFn: async () => {
       // Flush first: "Add all" acts on the *stored* filter, and a debounced edit still in the
@@ -347,13 +351,17 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       return triageApi.addAllInScope(project.id);
     },
     onSuccess: (result) => {
+      setConfirmingAddAll(false);
       // Every company just taken in stops matching the search that found it.
       void refreshScopedReads();
       toast(
         `Added ${result.added} companies to universe${result.skipped > 0 ? `, ${result.skipped} already there` : ""}`,
       );
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      setConfirmingAddAll(false);
+      toast.error(messageFor(error));
+    },
   });
 
   /**
@@ -412,7 +420,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
         onSetSearchVisibility={(searchId, visibility) => editSearch.mutate({ searchId, visibility })}
         onOverwriteSearch={(searchId) => overwriteSearch.mutate(searchId)}
         onDeleteSearch={(searchId) => deleteSearch.mutate(searchId)}
-        onAddAll={() => addAll.mutate()}
+        onAddAll={() => setConfirmingAddAll(true)}
         onAiResearch={() => openAssistant(project.id)}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
@@ -420,6 +428,21 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
         savingSearch={saveSearch.isPending}
         addingAll={addAll.isPending}
       />
+      <ConfirmDialog
+        open={confirmingAddAll}
+        title={
+          matchingCount === undefined
+            ? "Add every matching company to universe?"
+            : `Add all ${formatNumber(matchingCount)} companies to universe?`
+        }
+        confirmLabel="Add all"
+        tone="primary"
+        pending={addAll.isPending}
+        onConfirm={() => addAll.mutate()}
+        onClose={() => setConfirmingAddAll(false)}
+      >
+        Every company this filter finds joins the position&apos;s universe. Companies already in it are skipped.
+      </ConfirmDialog>
 
       <div className="flex min-h-0 flex-1">
         {showFilters &&

@@ -1,5 +1,8 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.model.MeteredUse;
+import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
@@ -64,11 +67,13 @@ class ExecutiveSourcingWorker {
     private final PositionService positions;
     private final ProfilePhotoDownloader photos;
     private final AuditService audit;
+    private final UsageRecorder usage;
     private final ExecutiveSourcingSettings settings;
 
     ExecutiveSourcingWorker(SourcingRunStore store, ChainedPeopleSearch peopleSearch, SourcingSpecProposer specs,
                             SourcingSpecRefiner refiner, CandidateService candidates, PositionService positions,
-                            ProfilePhotoDownloader photos, AuditService audit, LightMoveProperties properties) {
+                            ProfilePhotoDownloader photos, AuditService audit, UsageRecorder usage,
+                            LightMoveProperties properties) {
         this.store = store;
         this.peopleSearch = peopleSearch;
         this.specs = specs;
@@ -77,6 +82,7 @@ class ExecutiveSourcingWorker {
         this.positions = positions;
         this.photos = photos;
         this.audit = audit;
+        this.usage = usage;
         this.settings = properties.enrichment().sourcing();
     }
 
@@ -92,7 +98,8 @@ class ExecutiveSourcingWorker {
             execute(request, started.get().getCompanies());
         } catch (RuntimeException failed) {
             log.error("Sourcing run {} failed", request.runId(), failed);
-            store.fail(request.runId(), "The run stopped unexpectedly");
+            store.fail(request.runId(), "The run stopped unexpectedly")
+                    .ifPresent(stopped -> recordUsage(request, stopped));
         }
     }
 
@@ -115,17 +122,28 @@ class ExecutiveSourcingWorker {
             companies.forEach(company -> pool.execute(MdcPropagation.wrap(() -> run.record(company, run.sourceOne(company)))));
         }
 
-        store.finish(request.runId()).ifPresent(finished -> audit
-                .event(ProjectEventType.EXECUTIVE_SOURCING_COMPLETED)
-                .actor(request.requestedBy()).workspace(request.workspaceId())
-                .target(AuditService.PROJECT_TARGET, request.projectId())
-                .detail("runId", finished.getId().toString())
-                .detail("companies", finished.getCompanies().size())
-                .detail("filed", finished.getExecutivesFiled())
-                .detail("vendorHits", finished.getVendorHits())
-                .detail("cachedHits", finished.getCachedHits())
-                .detail("modelCalls", finished.getModelCalls())
-                .record());
+        store.finish(request.runId()).ifPresent(finished -> {
+            audit.event(ProjectEventType.EXECUTIVE_SOURCING_COMPLETED)
+                    .actor(request.requestedBy()).workspace(request.workspaceId())
+                    .target(AuditService.PROJECT_TARGET, request.projectId())
+                    .detail("runId", finished.getId().toString())
+                    .detail("companies", finished.getCompanies().size())
+                    .detail("filed", finished.getExecutivesFiled())
+                    .detail("vendorHits", finished.getVendorHits())
+                    .detail("cachedHits", finished.getCachedHits())
+                    .detail("modelCalls", finished.getModelCalls())
+                    .record();
+            recordUsage(request, finished);
+        });
+    }
+
+    /** Whatever a run filed before it ended, once per run; a run that filed nobody used nothing. */
+    private void recordUsage(ExecutiveSourcingRequested request, ExecutiveSourcingRun ended) {
+        if (ended.getExecutivesFiled() == 0) {
+            return;
+        }
+        usage.record(new MeteredUse(request.workspaceId(), request.requestedBy(), request.projectId(),
+                UsageKind.SOURCING_RUN, ended.getExecutivesFiled(), "sourcing-run:" + ended.getId()));
     }
 
     /** The position's country and the configured neighbours; nothing — anywhere — when the brief names no country. */

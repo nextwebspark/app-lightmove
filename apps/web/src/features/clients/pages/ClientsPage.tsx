@@ -73,7 +73,7 @@ export function ClientsPage() {
   }, [clampTo, rows.length]);
 
   const newClientButton = (
-    <Button onClick={() => setNewClientOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
+    <Button onClick={() => setNewClientOpen(true)} size="sm">
       <Icon d={ICONS.plus} size={15} />
       New {vocabulary.unitLower}
     </Button>

@@ -699,6 +699,73 @@ lightmove:
     max-documents-per-person: ${PERSON_DOCUMENT_MAX_PER_PERSON:50}
     max-versions-per-document: ${PERSON_DOCUMENT_MAX_VERSIONS:20}
 
+  # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
+  billing:
+    enforce: ${BILLING_ENFORCE:true}
+    hold-ttl: ${BILLING_HOLD_TTL:15m}
+    # How often lapsed grants are expired and unsettled holds released. Spelled out: @Scheduled reads it.
+    sweep-interval: ${BILLING_SWEEP_INTERVAL:PT5M}
+    # UTC crons: the month's credits are granted within the hour a billing month starts; the books checked nightly.
+    jobs:
+      monthly-reset: ${BILLING_MONTHLY_RESET_CRON:0 7 * * * *}
+      reconcile: ${BILLING_RECONCILE_CRON:0 40 2 * * *}
+      seat-sync: ${BILLING_SEAT_SYNC_CRON:0 */5 * * * *}
+      purchased-credit-expiry: ${BILLING_PURCHASED_CREDIT_EXPIRY_CRON:0 20 6 * * *}
+      trial-notices: ${BILLING_TRIAL_NOTICES_CRON:0 30 6 * * *}
+    prices:
+      email-found: ${BILLING_PRICE_EMAIL_FOUND:1}
+      phone-found: ${BILLING_PRICE_PHONE_FOUND:5}
+    # Search and AI: a month's units per staff seat (0 lifts the ceiling) and each unit's estimated cost in fils.
+    fair-use:
+      people-search-page-per-seat: ${FAIR_USE_PEOPLE_SEARCH_PAGE_PER_SEAT:20000}
+      people-search-page-cost-fils: ${FAIR_USE_PEOPLE_SEARCH_PAGE_COST_FILS:4}
+      sourcing-run-per-seat: ${FAIR_USE_SOURCING_RUN_PER_SEAT:2000}
+      sourcing-run-cost-fils: ${FAIR_USE_SOURCING_RUN_COST_FILS:8}
+      ai-enrich-per-seat: ${FAIR_USE_AI_ENRICH_PER_SEAT:2000}
+      ai-enrich-cost-fils: ${FAIR_USE_AI_ENRICH_COST_FILS:6}
+      outreach-opener-per-seat: ${FAIR_USE_OUTREACH_OPENER_PER_SEAT:5000}
+      outreach-opener-cost-fils: ${FAIR_USE_OUTREACH_OPENER_COST_FILS:2}
+      assistant-ask-per-seat: ${FAIR_USE_ASSISTANT_ASK_PER_SEAT:1500}
+      assistant-ask-cost-fils: ${FAIR_USE_ASSISTANT_ASK_COST_FILS:15}
+    # Given once, to every workspace that exists the first time a release with enforcement boots; 0 gives none.
+    grandfather:
+      credits: ${BILLING_GRANDFATHER_CREDITS:200}
+      valid-for: ${BILLING_GRANDFATHER_VALID_FOR:90d}
+    # A newly founded workspace is on Pro this long, with these credits and no card; then its paid features lock.
+    trial:
+      enabled: ${BILLING_TRIAL_ENABLED:true}
+      length: ${BILLING_TRIAL_LENGTH:14d}
+      credits: ${BILLING_TRIAL_CREDITS:50}
+    # After a payment fails, the month's credits keep coming for this long; past it, none until Stripe is paid.
+    past-due-grace: ${BILLING_PAST_DUE_GRACE:7d}
+    # Where an invoiced workspace's billing emails send it for more credits.
+    contact-email: ${BILLING_CONTACT_EMAIL:billing@uncava.com}
+    # Credits a workspace can buy, kept 12 months. Prices are in fils before VAT; each id is a one-off Stripe price.
+    packs:
+      contact-100:
+        credits: 100
+        price-fils: 15000
+        stripe-price-id: ${STRIPE_PRICE_PACK_100:}
+      contact-500:
+        credits: 500
+        price-fils: 65000
+        stripe-price-id: ${STRIPE_PRICE_PACK_500:}
+    # Blank secret key: no payment is taken and every workspace is invoiced. The webhook is
+    # <web.base-url>/api/v1/billing/webhooks/stripe, created on the API version stripe-java pins (pom.xml), and
+    # subscribed to invoice.paid, invoice.payment_failed, checkout.session.completed,
+    # checkout.session.async_payment_succeeded and customer.subscription.created / updated / deleted. The Customer
+    # Portal is set to invoice an upgrade at once and to move a downgrade to the end of the period, and does not let a
+    # customer change the quantity: the seats are the workspace's staff, synced by the app.
+    stripe:
+      secret-key: ${STRIPE_SECRET_KEY:}
+      webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
+      # Recurring per-seat prices, one per plan and interval; Enterprise is agreed by hand and has none.
+      prices:
+        core-monthly: ${STRIPE_PRICE_CORE_MONTHLY:}
+        core-annual: ${STRIPE_PRICE_CORE_ANNUAL:}
+        pro-monthly: ${STRIPE_PRICE_PRO_MONTHLY:}
+        pro-annual: ${STRIPE_PRICE_PRO_ANNUAL:}
+
 # What /actuator/info reports. APP_VERSION is baked into the image by the Dockerfile's build arg, so
 # this is the same release the SPA bundle was built with — one input, and nothing at runtime can move
 # one half without the other.

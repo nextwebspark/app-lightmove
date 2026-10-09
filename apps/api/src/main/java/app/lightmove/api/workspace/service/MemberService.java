@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.billing.seat.service.SeatAllowance;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -37,6 +38,7 @@ public class MemberService {
     private final MemberDetachment detachment;
     private final ApiKeyService apiKeys;
     private final OAuthGrantService oauthGrants;
+    private final SeatAllowance seats;
     private final AuditService audit;
 
     /** Replace-set semantics; self-demotion is allowed under the same last-admin rule. */
@@ -55,9 +57,17 @@ public class MemberService {
         if (isAdmin && !newRoles.contains(WorkspaceRole.ADMIN)) {
             requireAnotherAdmin(workspaceId);
         }
+        boolean wasStaff = holdsStaffRole(member);
+        boolean staffAfter = !newRoles.isEmpty();
+        if (staffAfter && !wasStaff) {
+            seats.requireRoomFor(workspaceId, 1);
+        }
 
         String previous = roleNames(member);
         member.changeRoles(rbac.workspaceRoles(newRoles));
+        if (staffAfter != wasStaff) {
+            seats.onStaffSeatsChanged(workspaceId);
+        }
 
         audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
@@ -80,6 +90,9 @@ public class MemberService {
 
         member.remove();
         detachment.detach(memberId);
+        if (holdsStaffRole(member)) {
+            seats.onStaffSeatsChanged(workspaceId);
+        }
         apiKeys.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
         oauthGrants.revokeOnMembershipEnd(actorId, workspaceId, member.getUserId(), request);
 
@@ -92,6 +105,10 @@ public class MemberService {
 
     private boolean holds(WorkspaceMember member, WorkspaceRole role) {
         return member.getRoles().stream().anyMatch(r -> r.is(role));
+    }
+
+    private boolean holdsStaffRole(WorkspaceMember member) {
+        return member.getRoles().stream().anyMatch(r -> !r.is(WorkspaceRole.CLIENT));
     }
 
     private String roleNames(WorkspaceMember member) {

@@ -368,6 +368,60 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.places.length()").value(0));
     }
 
+    @Test
+    @DisplayName("a page counts towards fair use the first time each workspace reads it, whoever bought it")
+    void aPageCountsOncePerWorkspace() throws Exception {
+        String projectId = mandate("Metered Firm");
+        saveFilter(projectId, CFO_FILTER);
+
+        search(projectId, 1);
+        search(projectId, 1);
+        results(projectId);
+
+        assertThat(pageUnitsOf(projectId)).containsExactly(1);
+
+        String otherProject = mandate("Second Metered Firm");
+        saveFilter(otherProject, CFO_FILTER);
+        assertThat(search(otherProject, 1).get("billed").asInt()).isZero();
+        assertThat(pageUnitsOf(otherProject)).as("a page from the shared cache is still new to this workspace")
+                .containsExactly(1);
+    }
+
+    @Test
+    @DisplayName("past the fair-use ceiling a new page is refused before ContactOut is asked, a read one is not")
+    void aNewPagePastTheCeilingIsRefused() throws Exception {
+        String projectId = mandate("Ceiling Firm");
+        saveFilter(projectId, CFO_FILTER);
+        search(projectId, 1);
+        db.update("""
+                INSERT INTO app_lm_usage_event (workspace_id, kind, units, est_cost_fils)
+                SELECT workspace_id, 'PEOPLE_SEARCH_PAGE', 20000, 0 FROM app_lm_project WHERE id = ?::uuid""",
+                projectId);
+
+        search(projectId, 1);
+        JsonNode refusal = body(mvc.perform(post(peopleUrl(projectId) + "/search").param("page", "2")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isTooManyRequests())
+                .andReturn());
+
+        assertThat(refusal.get("code").asText()).isEqualTo("FAIR_USE_REACHED");
+        assertThat(refusal.get("kind").asText()).isEqualTo("PEOPLE_SEARCH_PAGE");
+        assertThat(contactOut.searches()).hasSize(1);
+        assertThat(db.queryForObject("""
+                SELECT count(*) FROM app_lm_audit_event
+                WHERE event_type = 'FAIR_USE_REACHED'
+                  AND workspace_id = (SELECT workspace_id FROM app_lm_project WHERE id = ?::uuid)""",
+                Integer.class, projectId)).isEqualTo(1);
+    }
+
+    private List<Integer> pageUnitsOf(String projectId) {
+        return db.queryForList("""
+                SELECT units FROM app_lm_usage_event
+                WHERE kind = 'PEOPLE_SEARCH_PAGE'
+                  AND workspace_id = (SELECT workspace_id FROM app_lm_project WHERE id = ?::uuid)""",
+                Integer.class, projectId);
+    }
+
     private JsonNode search(String projectId, int page) throws Exception {
         return body(mvc.perform(post(peopleUrl(projectId) + "/search").param("page", Integer.toString(page))
                         .header("Authorization", "Bearer " + adminToken))

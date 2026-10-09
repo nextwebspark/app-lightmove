@@ -1473,7 +1473,7 @@ class Component extends DCLogic {
     const liHandle = x.li ? `${x.name.toLowerCase().replace(/[^a-z]+/g, "-")}` : "";
     const kindStyle = (k) => `display:inline-flex;align-items:center;border-radius:4px;padding:1px 6px;font:700 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:${k.fg};background:${k.bg}`;
     const lookupOff = !!x.dnc;
-    const findBtn = (label, icon, show) => ({ show, label, icon, disabled: lookupOff, title: lookupOff ? "Do not contact is set — lookups are off for this person" : `Spends one ContactOut credit`,
+    const findBtn = (label, icon, show) => ({ show, label, icon, disabled: lookupOff, title: lookupOff ? "Do not contact is set — lookups are off for this person" : `Spends ${/phone/i.test(label) ? "5 credits" : "1 credit"} if one is found`,
       style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 12px var(--sans);color:var(--text2);cursor:${lookupOff ? "not-allowed" : "pointer"};opacity:${lookupOff ? 0.5 : 1}` });
     return {
       name: x.name, initials: initials(x.name), avStyle: avatar(x.id, 44, "border-radius:10px;border:1px solid var(--line)"),

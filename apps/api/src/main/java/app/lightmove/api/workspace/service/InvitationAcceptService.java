@@ -1,5 +1,6 @@
 package app.lightmove.api.workspace.service;
 
+import app.lightmove.api.billing.seat.service.SeatAllowance;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -7,6 +8,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
@@ -21,6 +23,7 @@ import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +51,7 @@ public class InvitationAcceptService {
     private final RateLimitGuard rateLimit;
     private final ApplicationEventPublisher events;
     private final WorkspaceSelection selection;
+    private final SeatAllowance seats;
 
     /**
      * Unauthenticated, since the invitee usually has no account yet. Discloses only what the email
@@ -135,15 +139,26 @@ public class InvitationAcceptService {
             throw ApiException.of(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
+        Optional<WorkspaceMember> existing =
+                members.findByWorkspaceIdAndUserId(invitation.getWorkspaceId(), user.getId());
+        boolean takesStaffSeat = !invitation.getRole().is(WorkspaceRole.CLIENT)
+                && existing.filter(WorkspaceMember::isActive).isEmpty();
+        if (takesStaffSeat) {
+            seats.requireRoomFor(invitation.getWorkspaceId(), 1);
+        }
+
         invitation.accept(user.getId(), now);
         // One row per person per workspace: a removed member rejoins theirs; an active one is moot.
-        WorkspaceMember member = members.findByWorkspaceIdAndUserId(invitation.getWorkspaceId(), user.getId())
-                .map(existing -> existing.isActive() ? existing
-                        : existing.rejoin(Set.of(invitation.getRole()), invitation.getInvitedBy()))
+        WorkspaceMember member = existing
+                .map(found -> found.isActive() ? found
+                        : found.rejoin(Set.of(invitation.getRole()), invitation.getInvitedBy()))
                 .orElseGet(() -> members.save(WorkspaceMember.invite(
                         invitation.getWorkspaceId(), user.getId(), Set.of(invitation.getRole()),
                         invitation.getInvitedBy())));
         selection.remember(user, member);
+        if (takesStaffSeat) {
+            seats.onStaffSeatsChanged(invitation.getWorkspaceId());
+        }
 
         log.info("User {} accepted invitation to workspace {} as {}",
                 user.getId(), invitation.getWorkspaceId(), invitation.getRole().getName());
