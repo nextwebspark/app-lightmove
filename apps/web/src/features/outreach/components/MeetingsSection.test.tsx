@@ -91,6 +91,8 @@ function renderSection({
       connectedAt: "2026-09-01T00:00:00Z",
       movesOffNylas: false,
       runsStoppedByMove: 0,
+      liveSequences: 0,
+      livePeople: 0,
     },
   });
   vi.mocked(poolApi.getPerson).mockResolvedValue({

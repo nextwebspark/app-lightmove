@@ -1,5 +1,9 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.model.MeteredUse;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
+import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
@@ -27,7 +31,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * The review's openers. One press — a batch on entering Review, or one Redraft — is one unit of
- * {@link LlmBudget#OUTREACH_DRAFT}, whatever it holds, so reviewing ten people costs what one does.
+ * {@link LlmBudget#OUTREACH_DRAFT}, whatever it holds, so reviewing ten people costs what one does; fair use
+ * counts the people an opener was written for.
  * The model is called outside any transaction, each person on its own thread.
  */
 @Service
@@ -40,6 +45,8 @@ public class OutreachOpenerService {
     private final OutreachOpenerDrafter drafter;
     private final OutreachEligibility eligibility;
     private final LlmBudgetGuard llmBudget;
+    private final FairUseGuard fairUse;
+    private final UsageRecorder usage;
     private final AuditService audit;
 
     public List<DraftedOpener> draft(UUID userId, UUID workspaceId, UUID projectId, List<UUID> candidateIds,
@@ -51,11 +58,17 @@ public class OutreachOpenerService {
             dossiers.put(candidateId, people.dossierOf(workspaceId, projectId, candidateId));
         }
         llmBudget.require(LlmBudget.OUTREACH_DRAFT, userId);
+        fairUse.check(workspaceId, userId, UsageKind.OUTREACH_OPENER, dossiers.size());
         OpenerBrief brief = briefOf(workspaceId, projectId);
         audit.projectEvent(ProjectEventType.OUTREACH_OPENERS_DRAFTED, userId, workspaceId, projectId, httpRequest)
                 .detail("count", dossiers.size())
                 .record();
-        return draftAll(dossiers, brief);
+        List<DraftedOpener> drafted = draftAll(dossiers, brief);
+        int written = Math.toIntExact(drafted.stream().filter(opener -> opener.opener() != null).count());
+        if (written > 0) {
+            usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.OUTREACH_OPENER, written));
+        }
+        return drafted;
     }
 
     /**

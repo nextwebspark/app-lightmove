@@ -35,5 +35,8 @@ public enum WorkspaceAction {
     CANDIDATE_POOL_MANAGE,
 
     /** Settings → API keys: one's own personal keys. A workspace key, or a colleague's, also asks {@link #WORKSPACE_MANAGE}. */
-    API_KEY_MANAGE
+    API_KEY_MANAGE,
+
+    /** Settings → Billing: the plan and seats, buying credits, the card and invoices. */
+    BILLING_MANAGE
 }

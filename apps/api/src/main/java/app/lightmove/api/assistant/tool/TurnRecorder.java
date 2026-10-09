@@ -4,6 +4,7 @@ import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.AssistantQuestion;
 import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
+import app.lightmove.api.assistant.model.ModelSpend;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,6 +39,7 @@ public class TurnRecorder {
     private boolean namesLookedUp;
     private int vendorSearches;
     private AssistantProposal proposal;
+    private ModelSpend spend = ModelSpend.NONE;
     private List<AssistantQuestion> questions = List.of();
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
@@ -137,6 +139,15 @@ public class TurnRecorder {
     public void propose(AssistantProposal proposal) {
         this.proposal = proposal;
         onProposal.accept(proposal);
+    }
+
+    public synchronized void spent(String model, Integer inputTokens, Integer outputTokens) {
+        spend = spend.plus(model, inputTokens, outputTokens);
+    }
+
+    /** The tokens every model call of this answer took — what its turn row records. */
+    public synchronized ModelSpend spend() {
+        return spend;
     }
 
     /**

@@ -238,6 +238,8 @@ Done. Three things remain, and all three are deliberately manual.
      PUBLIC_BASE_URL           https://<custom domain>, once one is mapped (README, "Custom domain")
      GOOGLE_OAUTH_CLIENT_ID    enables the "Continue with Google" button
      TRUSTED_PROXY_COUNT       see the README — measure it, do not guess it (default: 0)
+     BILLING_ENABLED           'true' takes payment through Stripe once lightmove-stripe-secret-key and
+                               lightmove-stripe-webhook-secret exist, with the STRIPE_PRICE_* variables deploy.yml names
 
    Variables, not secrets — none of these is one. A WIF provider path is not a credential; treating
    public identifiers as secrets only teaches people that the secrets list is full of things that

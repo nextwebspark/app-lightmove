@@ -87,7 +87,8 @@ public class MailboxService {
                 && gateway.holdsRefreshTokens(workspaceId, mailbox.getProvider()) && cipher.isAvailable();
         int runsStopped = movesOffNylas
                 ? (int) enrollments.countRunningThreadsOf(workspaceId, userId, MailboxGatewayKind.NYLAS) : 0;
-        return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped);
+        return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped,
+                enrollments.countLiveRunsOf(workspaceId, userId));
     }
 
     /**

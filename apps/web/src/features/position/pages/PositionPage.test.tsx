@@ -1089,6 +1089,9 @@ describe("PositionPage", () => {
       await screen.findByRole("heading", { name: "Review & publish" });
       await person.click(within(rail()).getByRole("button", { name: "Edit position" }));
       await person.click(screen.getByRole("button", { name: "Withdraw publication" }));
+      const dialog = await screen.findByRole("dialog", { name: "Withdraw publication?" });
+      expect(positionApi.withdrawPublication).not.toHaveBeenCalled();
+      await person.click(within(dialog).getByRole("button", { name: "Withdraw publication" }));
 
       expect(await within(rail()).findByRole("button", { name: "Publish profile" })).toBeInTheDocument();
     });

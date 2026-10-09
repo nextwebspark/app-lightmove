@@ -60,18 +60,21 @@ public class StrategyPeopleService {
     private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final RateLimiter limiter;
+    private final PeoplePageMeter meter;
     private final AuditService audit;
     private final ContactOutSettings config;
     private final ObjectMapper json;
 
     public StrategyPeopleService(CachedContactOutPeopleQuery contactOut, StrategyService strategy,
                                  TriageCompanyReadService triage, CandidateService candidates, RateLimiter limiter,
-                                 AuditService audit, LightMoveProperties properties, ObjectMapper json) {
+                                 PeoplePageMeter meter, AuditService audit, LightMoveProperties properties,
+                                 ObjectMapper json) {
         this.contactOut = contactOut;
         this.strategy = strategy;
         this.triage = triage;
         this.candidates = candidates;
         this.limiter = limiter;
+        this.meter = meter;
         this.audit = audit;
         this.config = properties.enrichment().contactout();
         this.json = json;
@@ -95,7 +98,7 @@ public class StrategyPeopleService {
      * A page already bought is answered free; only a page ContactOut must be asked for spends the budget.
      * The vendor is asked exactly the question the page is cached under — never this mandate's declined
      * companies, since the cache answers every workspace — and people at those companies are left out
-     * here instead.
+     * here instead. A page counts towards fair use the first time this workspace reads it, whoever bought it.
      */
     public PeopleSearchPageResponse search(UUID userId, UUID workspaceId, UUID projectId, int page,
                                            HttpServletRequest httpRequest) {
@@ -110,10 +113,14 @@ public class StrategyPeopleService {
             throw ApiException.of(ErrorCode.PEOPLE_SEARCH_EMPTY_FILTER);
         }
         Map<String, Object> question = PeopleFilterBody.searchBody(filter);
-        PeoplePage found = contactOut.cachedPage(question, page).orElseGet(() -> {
+        Optional<PeoplePage> cached = contactOut.cachedPage(question, page);
+        if (cached.isEmpty()) {
             requireBudget(userId);
-            return ask(() -> contactOut.buyPage(question, page));
-        });
+        }
+        Optional<String> newHere = meter.admit(workspaceId, userId, contactOut.queryKeyOf(question, page),
+                cached.map(known -> known.people().size()).orElse(ContactOutPeopleClient.MAX_PAGE_SIZE));
+        PeoplePage found = cached.orElseGet(() -> ask(() -> contactOut.buyPage(question, page)));
+        newHere.ifPresent(key -> meter.record(workspaceId, userId, projectId, key, found.people().size()));
 
         audit.projectEvent(ProjectEventType.PEOPLE_SEARCH_PAGE_FETCHED, userId, workspaceId, projectId, httpRequest)
                 .detail("page", Integer.toString(page))

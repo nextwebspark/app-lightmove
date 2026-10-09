@@ -1,5 +1,7 @@
 package app.lightmove.api.core.security.rbac;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -25,6 +27,14 @@ public class WorkspaceAuthorizer {
     /** Active, non-pure-client membership — the gate on staff-facing reads. */
     public boolean staff(AuthPrincipal principal) {
         access.requireStaff(principal.userId(), principal.requireWorkspaceId());
+        return true;
+    }
+
+    /** {@link #staff}, answered 404 rather than 403: a surface a pure client is not told exists. */
+    public boolean staffOnly(AuthPrincipal principal) {
+        if (!access.isStaff(principal.userId(), principal.requireWorkspaceId())) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
         return true;
     }
 

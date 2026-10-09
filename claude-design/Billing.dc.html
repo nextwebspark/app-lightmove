@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="uncava-tokens.css">
+  <style>
+    :root{
+      --amber:var(--u-accent);--amber-btn:var(--u-accent-solid);--amber-dim:var(--u-accent-tint);--on-amber:#ffffff;
+      --sky:var(--u-accent);--sky-dim:var(--u-accent-tint);
+      --red:var(--u-offlimits);--red-dim:var(--u-offlimits-tint);
+      --green:var(--u-direct);--green-dim:var(--u-direct-tint);
+      --warn:var(--u-signal);--warn-dim:var(--u-signal-tint);
+      --bg:var(--u-bg);--panel:var(--u-surface);--panel2:var(--u-raised);--sunken:var(--u-sunken);--line:var(--u-border-strong);--line-soft:var(--u-border);
+      --text:var(--u-text);--text2:var(--u-text2);--text3:var(--u-text3);
+      --shadow:var(--u-e3);
+      --mono:var(--u-font-ui);--sans:var(--u-font-ui);
+      --u-text2:var(--u-text-2);--u-text3:var(--u-text-3);--num:var(--u-font-num);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0}
+    body{background:var(--bg);color:var(--text);font:400 14px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+    a{color:var(--sky);text-decoration:none}
+    button{font-family:inherit}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  </style>
+  <script>try{var t=localStorage.getItem('lm-theme');document.documentElement.setAttribute('data-theme', t==='light'?'light':'dark');}catch(e){}</script>
+</helmet>
+<!--
+  Billing (epic #734, mockup #735). Priced per seat, like the market's ATS/CRMs. Search and AI are part of
+  every plan; the one thing a workspace counts is contact credits — an email found is 1, a phone found is 5 —
+  pooled across its seats and reset each month. The page stays quiet until 80% of the month's credits are
+  used: only then do a banner, the topbar chip and "Buy more credits" appear. Every staff member reads this
+  page; changing the plan and buying credits are an admin's. Prices here are illustrative until ContactOut's
+  unit costs are in.
+-->
+<div data-screen-label="Billing" style="height:100vh;display:flex;flex-direction:column;overflow:hidden">
+
+  <header style="position:relative;z-index:60;height:46px;flex:none;display:flex;align-items:center;gap:12px;padding:0 14px">
+    <div style="display:flex;min-width:0;flex:1;align-items:center;gap:8px">
+      <a href="Workspace.dc.html" title="Uncava" style="display:flex;align-items:center;padding:4px;border-radius:6px;color:var(--text)">
+        <svg viewBox="-36 -51 72 104" fill="none" stroke="currentColor" style="height:30px;width:auto;flex:none" aria-hidden="true"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="2.6" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="currentColor" stroke="none"></path></svg>
+      </a>
+      <a href="Workspace.dc.html" style="white-space:nowrap;border-radius:6px;padding:4px 6px;font:500 13px var(--mono);color:var(--text3)" style-hover="background:var(--panel2);color:var(--text)">Workspace</a>
+      <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+      <a href="Settings.dc.html" style="white-space:nowrap;border-radius:6px;padding:4px 6px;font:600 14px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">Settings</a>
+      <span style="font-size:12px;color:var(--text3);opacity:.4">/</span>
+      <span style="white-space:nowrap;font:500 13px var(--mono);color:var(--text2)">{{ crumb }}</span>
+    </div>
+    <div style="display:flex;flex:none;align-items:center;gap:10px">
+      <!-- The credit chip: absent below 80% used; then it names what is left, and opens the billing page. -->
+      <sc-if value="{{ chip.show }}" hint-placeholder-val="{{ false }}">
+        <button data-screen-label="Credit chip" onClick="{{ goBilling }}" title="Contact credits" style="{{ chip.style }}" style-hover="filter:brightness(1.1)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.contact }}"></path></svg>{{ chip.label }}
+        </button>
+      </sc-if>
+      <span title="Current workspace: Al-Futtaim" style="display:flex;align-items:center;gap:8px;border:1px solid var(--line-soft);border-radius:7px;padding:4px 10px 4px 6px"><img src="assets/al-futtaim-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;flex:none"><span style="font:500 12px var(--mono);color:var(--text2)">Al-Futtaim</span></span>
+      <span title="{{ meName }}" style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 10px var(--mono)">{{ meInitials }}</span>
+    </div>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;padding:0 14px 14px">
+    <nav aria-label="Main" style="width:210px;flex:none;padding:14px 10px;display:flex;flex-direction:column;overflow-y:auto">
+      <a href="Workspace.dc.html" style="display:flex;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;margin-bottom:6px;font:500 13.5px var(--sans);color:var(--text2)" style-hover="background:var(--panel2);color:var(--text)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+        <span style="white-space:nowrap">Back to workspace</span>
+      </a>
+      <div style="margin:0 4px 6px;height:1px;background:var(--line-soft)"></div>
+      <sc-for list="{{ navGroups }}" as="g" hint-placeholder-count="2">
+        <div>
+          <div style="padding:14px 10px 6px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">{{ g.label }}</div>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+            <a href="{{ it.href }}" style="{{ it.style }}" style-hover="background:var(--panel2);color:var(--text)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:{{ it.iconColor }}"><path d="{{ it.icon }}"></path></svg>
+              <span style="white-space:nowrap">{{ it.label }}</span>
+            </a>
+          </sc-for>
+        </div>
+      </sc-for>
+      <div style="margin-top:auto;border-top:1px solid var(--line-soft);padding-top:12px">
+        <button onClick="{{ toggleTheme }}" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ themeIcon }}"></path></svg>
+          <span>{{ themeLabel }}</span>
+        </button>
+      </div>
+    </nav>
+
+    <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
+      <div style="max-width:760px;margin:0 auto;padding:28px 28px 60px">
+
+        <!-- ═════════════ SETTINGS → BILLING ═════════════ -->
+        <sc-if value="{{ isBilling }}" hint-placeholder-val="{{ true }}">
+          <div data-screen-label="Settings — Billing">
+            <div style="margin-bottom:18px">
+              <div style="font:600 19px/1.25 var(--sans)">Billing</div>
+              <div style="margin-top:4px;font:400 12px/1.5 var(--mono);color:var(--text3)">{{ subtitle }}</div>
+            </div>
+
+            <sc-if value="{{ banner.show }}" hint-placeholder-val="{{ false }}">
+              <div role="status" style="{{ banner.style }}">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:1px;color:{{ banner.color }}"><path d="{{ banner.icon }}"></path></svg>
+                <div style="min-width:0;flex:1">
+                  <div style="font:600 13px var(--sans)">{{ banner.title }}</div>
+                  <div style="margin-top:2px;font:400 12px/1.5 var(--mono);color:var(--text2)">{{ banner.body }}</div>
+                </div>
+                <sc-if value="{{ banner.hasAction }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ onBannerAction }}" style="flex:none;align-self:center;{{ btnPrimarySm }}" style-hover="filter:brightness(1.05)">{{ banner.actionLabel }}</button>
+                </sc-if>
+              </div>
+            </sc-if>
+
+            <!-- Plan -->
+            <sc-if value="{{ hasPlan }}" hint-placeholder-val="{{ true }}">
+              <section data-screen-label="Plan" style="border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+                <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
+                  <div style="min-width:0;flex:1">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font:600 20px var(--sans)">{{ plan.name }}</span>
+                      <sc-if value="{{ plan.hasStatus }}" hint-placeholder-val="{{ false }}"><span style="{{ plan.statusStyle }}">{{ plan.statusLabel }}</span></sc-if>
+                    </div>
+                    <div style="margin-top:4px;font:400 13px var(--sans);color:var(--text2)">{{ plan.seatsLine }}</div>
+                    <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">{{ plan.renewLine }}</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div style="font:500 20px var(--num)">{{ plan.total }}</div>
+                    <div style="font:400 11.5px var(--mono);color:var(--text3)">{{ plan.totalNote }}</div>
+                  </div>
+                </div>
+                <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line-soft);display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px">
+                  <sc-for list="{{ plan.includes }}" as="inc" hint-placeholder-count="3">
+                    <span style="display:inline-flex;align-items:center;gap:6px;font:400 12.5px var(--sans);color:var(--text2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--green)"><path d="{{ I.check }}"></path></svg>{{ inc }}</span>
+                  </sc-for>
+                  <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+                    <span style="margin-left:auto;display:flex;gap:8px">
+                      <a href="Settings.dc.html?section=members" style="{{ btnSecondarySm }}" style-hover="color:var(--text);border-color:var(--text3)">Add seats</a>
+                      <button onClick="{{ openPlans }}" style="{{ btnSecondarySm }}" style-hover="color:var(--text);border-color:var(--text3)">Change plan</button>
+                    </span>
+                  </sc-if>
+                </div>
+              </section>
+            </sc-if>
+
+            <sc-if value="{{ noPlan }}" hint-placeholder-val="{{ false }}">
+              <section data-screen-label="No plan yet" style="border-radius:12px;border:1px dashed var(--line);background:var(--panel2);padding:28px 24px;text-align:center">
+                <div style="font:600 15px var(--sans)">Choose a plan</div>
+                <div style="margin:6px auto 0;max-width:440px;font:400 12px/1.55 var(--mono);color:var(--text3)">{{ noPlanBody }}</div>
+                <sc-if value="{{ isAdmin }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ openPlans }}" style="margin-top:16px;{{ btnPrimary }}" style-hover="filter:brightness(1.05)">See plans</button>
+                </sc-if>
+              </section>
+            </sc-if>
+
+            <!-- Contact credits: the one meter -->
+            <sc-if value="{{ hasPlan }}" hint-placeholder-val="{{ true }}">
+              <section data-screen-label="Contact credits" style="margin-top:12px;border-radius:12px;border:1px solid {{ meter.border }};background:var(--panel2);padding:20px">
+                <div style="display:flex;align-items:baseline;gap:10px">
+                  <span style="font:600 14px var(--sans)">Contact credits</span>
+                  <span style="font:400 12px var(--mono);color:var(--text3)">Email found 1 · Phone found 5</span>
+                </div>
+                <div style="margin-top:10px;display:flex;align-items:baseline;gap:8px">
+                  <span style="font:500 30px var(--num);color:{{ meter.color }}">{{ meter.left }}</span>
+                  <span style="font:400 13px var(--mono);color:var(--text3)">of {{ meter.total }} left this month</span>
+                </div>
+                <div style="position:relative;margin-top:10px;height:8px;border-radius:4px;background:var(--sunken);overflow:hidden">
+                  <span style="{{ meter.barStyle }}"></span>
+                </div>
+                <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 16px;font:400 12px var(--mono);color:var(--text3)">
+                  <span>{{ meter.resetLine }}</span>
+                  <sc-if value="{{ meter.hasBought }}" hint-placeholder-val="{{ false }}"><span>{{ meter.boughtLine }}</span></sc-if>
+                </div>
+                <sc-if value="{{ meter.canBuy }}" hint-placeholder-val="{{ false }}">
+                  <button onClick="{{ openBuy }}" style="margin-top:14px;{{ btnPrimary }}" style-hover="filter:brightness(1.05)">Buy more credits</button>
+                </sc-if>
+              </section>
+            </sc-if>
+
+            <!-- Who used them -->
+            <sc-if value="{{ hasUsage }}" hint-placeholder-val="{{ true }}">
+              <section data-screen-label="Credits used this month" style="margin-top:20px">
+                <h3 style="margin:0 0 8px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Used this month</h3>
+                <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);overflow:hidden">
+                  <div style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:12px;padding:9px 16px;font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">
+                    <span>Member</span><span style="text-align:right">Emails</span><span style="text-align:right">Phones</span><span style="text-align:right">Credits</span>
+                  </div>
+                  <sc-for list="{{ usageRows }}" as="u" hint-placeholder-count="5">
+                    <div style="display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid var(--line-soft)">
+                      <span style="display:flex;align-items:center;gap:10px;min-width:0"><span style="{{ u.avatar }}">{{ u.initials }}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans)">{{ u.name }}</span></span>
+                      <span style="text-align:right;font:400 13px var(--num);color:var(--text2)">{{ u.emails }}</span>
+                      <span style="text-align:right;font:400 13px var(--num);color:var(--text2)">{{ u.phones }}</span>
+                      <span style="text-align:right;font:500 13px var(--num)">{{ u.credits }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <p style="margin:10px 2px 0;font:400 11.5px/1.55 var(--mono);color:var(--text3)">A credit is spent only when an email or phone is found. A lookup that finds nothing, or a contact already on file, is free.</p>
+              </section>
+            </sc-if>
+
+            <!-- Payment -->
+            <section data-screen-label="Payment and invoices" style="margin-top:20px;border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:16px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text2)"><path d="{{ I.card }}"></path></svg>
+              <div style="min-width:0;flex:1">
+                <div style="font:500 13px var(--sans)">{{ pay.title }}</div>
+                <div style="margin-top:2px;font:400 12px var(--mono);color:{{ pay.subColor }}">{{ pay.sub }}</div>
+              </div>
+              <sc-if value="{{ pay.hasPortal }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ openPortal }}" style="{{ btnSecondarySm }}" style-hover="color:var(--text);border-color:var(--text3)">Invoices &amp; card
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.external }}"></path></svg>
+                </button>
+              </sc-if>
+            </section>
+          </div>
+        </sc-if>
+
+        <!-- ═════════════ PAID ACTIONS — the hint each button carries ═════════════ -->
+        <sc-if value="{{ isPaidActions }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Paid actions">
+            <div style="margin-bottom:18px">
+              <div style="font:600 19px/1.25 var(--sans)">What costs credits</div>
+              <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Two buttons spend credits; they carry the price under them. Everything else in Uncava is part of the plan and carries no price at all — the copy that used to count search credits is gone.</div>
+            </div>
+            <section style="border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:16px 20px">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Executive drawer · Contact</div>
+              <sc-for list="{{ paidRows }}" as="a" hint-placeholder-count="2">
+                <div style="margin-top:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line-soft)">
+                  <div>
+                    <div style="font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ a.channel }}</div>
+                    <div style="margin-top:4px;font:400 13px var(--mono);color:var(--text3)">Not looked up yet</div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+                    <button data-id="{{ a.id }}" onClick="{{ tryAction }}" style="display:flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 12px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.search }}"></path></svg>{{ a.label }}
+                    </button>
+                    <span style="font:400 10px var(--mono);color:var(--text3)">{{ a.hint }}</span>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="margin-top:10px;font:400 11.5px/1.55 var(--mono);color:var(--text3)">At zero, pressing either opens the out-of-credits sheet; the button is never disabled ahead of time, because only the server knows whether the press will cost anything.</div>
+            </section>
+            <section style="margin-top:12px;border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:16px 20px">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Part of every plan — no price shown</div>
+              <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
+                <sc-for list="{{ includedActions }}" as="x" hint-placeholder-count="6">
+                  <span style="border-radius:999px;border:1px solid var(--line-soft);padding:4px 11px;font:400 12px var(--sans);color:var(--text2)">{{ x }}</span>
+                </sc-for>
+              </div>
+              <div style="margin-top:10px;font:400 11.5px/1.55 var(--mono);color:var(--text3)">Held to fair use: a monthly ceiling per seat set far above normal work, so nobody meets it doing their job. Reaching it shows the fair-use sheet.</div>
+            </section>
+            <section style="margin-top:12px;border-radius:12px;border:1px solid var(--line-soft);background:var(--panel2);padding:16px 20px">
+              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Topbar credit chip</div>
+              <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:16px">
+                <sc-for list="{{ chipSpecimens }}" as="cs" hint-placeholder-count="3">
+                  <div style="display:flex;flex-direction:column;gap:6px">
+                    <sc-if value="{{ cs.show }}" hint-placeholder-val="{{ true }}"><span style="{{ cs.style }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.contact }}"></path></svg>{{ cs.label }}</span></sc-if>
+                    <sc-if value="{{ cs.hidden }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;height:28px;align-items:center;border-radius:7px;border:1px dashed var(--line);padding:0 10px;font:400 11.5px var(--mono);color:var(--text3)">nothing shown</span></sc-if>
+                    <span style="font:400 11px var(--mono);color:var(--text3)">{{ cs.caption }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </section>
+          </div>
+        </sc-if>
+      </div>
+    </main>
+  </div>
+
+  <!-- ═════════════ PLANS ═════════════ -->
+  <sc-if value="{{ dlgPlans }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Plans" onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--u-scrim)">
+      <div role="dialog" aria-modal="true" aria-label="Plans" onClick="{{ stop }}" style="width:880px;max-width:96vw;max-height:92vh;overflow-y:auto;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:24px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1;font:600 17px var(--sans)">Plans</div>
+          <div role="radiogroup" aria-label="Billing period" style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:2px">
+            <sc-for list="{{ cycles }}" as="c" hint-placeholder-count="2">
+              <button role="radio" aria-checked="{{ c.on }}" data-cycle="{{ c.key }}" onClick="{{ setCycle }}" style="{{ c.style }}">{{ c.label }}</button>
+            </sc-for>
+          </div>
+          <button onClick="{{ closeDialog }}" aria-label="Close" style="border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer;font-size:14px" style-hover="background:var(--panel2);color:var(--text)">✕</button>
+        </div>
+        <div style="margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px">
+          <sc-for list="{{ planCards }}" as="p" hint-placeholder-count="3">
+            <div style="{{ p.cardStyle }}">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font:600 16px var(--sans)">{{ p.name }}</span>
+                <sc-if value="{{ p.current }}" hint-placeholder-val="{{ false }}"><span style="border-radius:999px;padding:2px 8px;font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--amber-dim);color:var(--amber)">Current</span></sc-if>
+              </div>
+              <div style="margin-top:12px;display:flex;align-items:baseline;gap:6px">
+                <span style="font:500 26px var(--num)">{{ p.price }}</span><span style="font:400 12px var(--mono);color:var(--text3)">{{ p.per }}</span>
+              </div>
+              <div style="margin-top:2px;min-height:16px;font:400 11px var(--mono);color:var(--text3)">{{ p.billedNote }}</div>
+              <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+                <sc-for list="{{ p.lines }}" as="l" hint-placeholder-count="5">
+                  <div style="display:flex;align-items:flex-start;gap:8px;font:400 12.5px/1.45 var(--sans);color:var(--text)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none;margin-top:2px;color:var(--green)"><path d="{{ I.check }}"></path></svg>
+                    <span>{{ l }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="margin-top:auto;padding-top:18px">
+                <button data-plan="{{ p.key }}" onClick="{{ choosePlan }}" disabled="{{ p.current }}" style="{{ p.ctaStyle }}">{{ p.cta }}</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <p style="margin:16px 2px 0;font:400 11.5px/1.55 var(--mono);color:var(--text3)">Prices in AED per staff seat, before 5% VAT. Client contacts are free. You confirm a change on Stripe's page; a move down starts at the end of the month.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ═════════════ BUY MORE CREDITS ═════════════ -->
+  <sc-if value="{{ dlgBuy }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Buy more credits" onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--u-scrim)">
+      <div role="dialog" aria-modal="true" aria-label="Buy more credits" onClick="{{ stop }}" style="width:460px;max-width:94vw;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">Buy more credits</div>
+        <div style="margin-top:4px;font:400 12px/1.5 var(--mono);color:var(--text3)">Used after this month's credits run out, and kept for 12 months.</div>
+        <div role="radiogroup" aria-label="Credits" style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ packs }}" as="pk" hint-placeholder-count="2">
+            <button role="radio" aria-checked="{{ pk.on }}" data-pack="{{ pk.index }}" onClick="{{ setPack }}" style="{{ pk.style }}" style-hover="border-color:var(--text3)">
+              <span style="{{ pk.radio }}"><span style="{{ pk.radioDot }}"></span></span>
+              <span style="flex:1;text-align:left">
+                <span style="display:block;font:500 14px var(--sans);color:var(--text)">{{ pk.credits }}</span>
+                <span style="display:block;margin-top:2px;font:400 11px var(--mono);color:var(--text3)">{{ pk.means }}</span>
+              </span>
+              <span style="font:500 14px var(--num);color:var(--text)">{{ pk.price }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="margin-top:12px;display:flex;justify-content:space-between;font:400 12px var(--mono);color:var(--text3)"><span>{{ buyVatLine }}</span><span style="font:600 13px var(--num);color:var(--text)">{{ buyTotal }}</span></div>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="{{ btnSecondary }}" style-hover="color:var(--text);border-color:var(--text3)">Cancel</button>
+          <button onClick="{{ payBuy }}" style="{{ btnPrimary }}" style-hover="filter:brightness(1.05)">{{ buyCta }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ═════════════ OUT OF CREDITS / FAIR USE — opened by a 402 from a paid button ═════════════ -->
+  <sc-if value="{{ dlgOut }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="{{ out.screenLabel }}" onClick="{{ closeDialog }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:var(--u-scrim)">
+      <div role="alertdialog" aria-modal="true" aria-label="{{ out.title }}" onClick="{{ stop }}" style="width:420px;max-width:94vw;border-radius:16px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="font:600 16px var(--sans)">{{ out.title }}</div>
+        <p style="margin:8px 0 0;font:400 13px/1.55 var(--sans);color:var(--text2)">{{ out.body }}</p>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ closeDialog }}" style="{{ btnSecondary }}" style-hover="color:var(--text);border-color:var(--text3)">Not now</button>
+          <button onClick="{{ out.onPrimary }}" style="{{ btnPrimary }}" style-hover="filter:brightness(1.05)">{{ out.primary }}</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toastVisible }}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
+  </sc-if>
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#6E79F2" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">BI</text></svg></template>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;billing&quot;,&quot;options&quot;:[&quot;billing&quot;,&quot;paid-actions&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;plan&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;pro&quot;,&quot;options&quot;:[&quot;core&quot;,&quot;pro&quot;,&quot;enterprise&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;used&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;normal&quot;,&quot;options&quot;:[&quot;normal&quot;,&quot;80&quot;,&quot;90&quot;,&quot;100&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;bought&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;account&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;active&quot;,&quot;options&quot;:[&quot;active&quot;,&quot;past-due&quot;,&quot;invoiced&quot;,&quot;none&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;plans&quot;,&quot;buy&quot;,&quot;out-of-credits&quot;,&quot;fair-use&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.I = {
+      search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM21 21l-4.3-4.3',
+      contact: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM22 6l-10 7L2 6',
+      card: 'M2 5h20v14H2zM2 10h20M6 15h4',
+      alert: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z',
+      info: 'M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z',
+      external: 'M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
+      check: 'M20 6 9 17l-5-5',
+      moon: 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z',
+      sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+      profile: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
+      lock: 'M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4',
+      key: 'M2.6 17.4A2 2 0 0 0 2 18.8V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.2a2 2 0 0 0 1.4-.6l.8-.8a6.5 6.5 0 1 0-4-4ZM16.5 7.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z',
+      settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1',
+      users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
+      file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6',
+    };
+    this.PLANS = {
+      core: { key: 'core', name: 'Core', monthly: 299, annual: 239, perSeat: 50, seats: 2 },
+      pro: { key: 'pro', name: 'Pro', monthly: 499, annual: 399, perSeat: 150, seats: 5 },
+      enterprise: { key: 'enterprise', name: 'Enterprise', custom: true, monthly: 450, annual: 450, pool: 2500, seats: 12 },
+    };
+    this.PLAN_ORDER = ['core', 'pro', 'enterprise'];
+    this.PACKS = [[100, 150], [500, 650]];
+    this.USERS = [
+      ['Yara Haddad', 'YH', 31, 12, ['var(--sky-dim)', 'var(--sky)']],
+      ['Yousef Iman', 'YI', 54, 19, ['var(--warn-dim)', 'var(--warn)']],
+      ['Sara Al-Mansour', 'SA', 22, 6, ['var(--green-dim)', 'var(--green)']],
+      ['Omar Khalil', 'OK', 40, 8, ['var(--u-inferred-tint)', 'var(--u-inferred)']],
+      ['Dana Aboud', 'DA', 6, 1, ['var(--panel)', 'var(--text2)']],
+    ];
+    const q = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(''); } })();
+    const pick = (k, d) => q.get(k) || (props[k] !== undefined ? String(props[k]) : d);
+    const dialog = pick('dialog', 'none');
+    let used = pick('used', 'normal');
+    if (dialog === 'out-of-credits' && used === 'normal') used = '100';
+    this.state = {
+      screen: pick('screen', 'billing'), planKey: pick('plan', 'pro'), used, bought: pick('bought', 'false') === 'true',
+      account: pick('account', 'active'), isAdmin: pick('isAdmin', 'true') !== 'false',
+      dialog, cycle: 'annual', pack: 0, dark: true, toast: '',
+    };
+  }
+
+  componentDidMount() { this.setState({ dark: document.documentElement.getAttribute('data-theme') !== 'light' }); }
+
+  showToast(msg) { this.setState({ toast: msg }); clearTimeout(this._tx); this._tx = setTimeout(() => this.setState({ toast: '' }), 2400); }
+
+  fmt(n) { return Math.round(n).toLocaleString('en-GB'); }
+  aed(n) { return 'AED ' + n.toLocaleString('en-GB', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 }); }
+
+  renderVals() {
+    const st = this.state, I = this.I, isAdmin = st.isAdmin;
+    const plan = this.PLANS[st.planKey] || this.PLANS.pro;
+    const hasPlan = st.account !== 'none';
+    const byCard = st.account === 'active' || st.account === 'past-due';
+    const monthTotal = plan.custom ? plan.pool : plan.perSeat * plan.seats;
+    const usedShare = { normal: 0.45, '80': 0.82, '90': 0.92, '100': 1 }[st.used] || 0.45;
+    const usedCredits = Math.round(monthTotal * usedShare);
+    const boughtLeft = st.bought ? 200 : 0;
+    const left = monthTotal - usedCredits + boughtLeft;
+    const level = !hasPlan ? 'none' : left === 0 ? 'out' : usedShare >= 0.9 ? 'ninety' : usedShare >= 0.8 ? 'eighty' : 'ok';
+    const warn = level === 'eighty' || level === 'ninety';
+    const toneColor = level === 'out' ? 'var(--red)' : warn ? 'var(--warn)' : 'var(--text)';
+
+    const btnPrimary = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer';
+    const btnSecondary = 'display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer';
+    const btnPrimarySm = btnPrimary.replace('padding:8px 14px;font:500 13px', 'padding:6px 12px;font:500 12.5px');
+    const btnSecondarySm = btnSecondary.replace('padding:8px 14px;font:500 13px', 'padding:6px 12px;font:500 12.5px');
+
+    const chipOf = (lvl, lft) => {
+      if (lvl === 'ok' || lvl === 'none') return { show: false, hidden: true, label: '', style: '' };
+      const out = lvl === 'out';
+      return { show: true, hidden: false, label: out ? 'Out of contact credits' : this.fmt(lft) + ' contact credits left',
+        style: 'display:inline-flex;align-items:center;gap:6px;height:28px;border-radius:7px;padding:0 10px;cursor:pointer;font:500 12px var(--sans);border:1px solid ' + (out ? 'var(--red)' : 'var(--warn)') + ';background:' + (out ? 'var(--red-dim)' : 'var(--warn-dim)') + ';color:' + (out ? 'var(--red)' : 'var(--warn)') };
+    };
+
+    const navItem = (key, label, icon, href) => {
+      const on = key === 'billing';
+      return { label, icon, href, iconColor: on ? 'var(--amber)' : 'currentColor',
+        style: 'display:flex;align-items:center;gap:10px;border-radius:6px;padding:8px 10px;font:400 13.5px var(--sans);background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
+    };
+    const S = (s) => 'Settings.dc.html?section=' + s;
+    const navGroups = [
+      { label: 'Account', items: [navItem('profile', 'Profile', I.profile, S('profile')), navItem('security', 'Security', I.lock, S('security')), navItem('api-keys', 'API keys', I.key, S('api-keys'))] },
+      { label: 'Workspace', items: isAdmin
+        ? [navItem('general', 'General', I.settings, S('general')), navItem('members', 'Members', I.users, S('members')), navItem('billing', 'Billing', I.card, 'Billing.dc.html'), navItem('templates', 'Templates', I.file, S('templates'))]
+        : [navItem('billing', 'Billing', I.card, 'Billing.dc.html')] },
+    ];
+
+    const banner = (() => {
+      const make = (tone, icon, title, body, actionLabel, action) => {
+        const c = { red: ['var(--red)', 'var(--red-dim)'], warn: ['var(--warn)', 'var(--warn-dim)'], info: ['var(--amber)', 'var(--amber-dim)'] }[tone];
+        return { show: true, icon, title, body, actionLabel: actionLabel || '', hasAction: !!actionLabel, action: action || '', color: c[0],
+          style: 'margin-bottom:12px;display:flex;gap:10px;border-radius:10px;border:1px solid color-mix(in srgb, ' + c[0] + ' 35%, transparent);background:' + c[1] + ';padding:12px 14px' };
+      };
+      if (st.account === 'past-due') return make('red', I.alert, "We couldn't take this month's payment", 'Stripe tries the card again on 10 Oct. Everything keeps working until then.' + (isAdmin ? '' : ' An admin can update the card.'), isAdmin ? 'Update card' : '', 'portal');
+      const canBuy = isAdmin && hasPlan;
+      if (level === 'out') return make('red', I.alert, "This month's contact credits are used up", 'Finding emails and phones is paused until ' + (isAdmin ? 'you buy more' : 'an admin buys more') + ' or the credits reset on 1 Nov. Everything else keeps working.', canBuy ? 'Buy more credits' : '', 'buy');
+      if (warn) return make('warn', I.alert, Math.round(usedShare * 100) + "% of this month's contact credits used", this.fmt(left) + ' left until they reset on 1 Nov.', canBuy ? 'Buy more credits' : '', 'buy');
+      if (st.account === 'invoiced') return make('info', I.info, 'Paid by invoice', 'Uncava invoices this workspace each month. Write to billing@uncava.com to change the plan or add credits.');
+      return { show: false, icon: '', title: '', body: '', actionLabel: '', hasAction: false, action: '', color: '', style: '' };
+    })();
+
+    const priceLine = plan.custom ? 'Agreed price' : this.aed(plan.annual) + ' per seat';
+    const planOut = {
+      name: plan.name,
+      seatsLine: plan.seats + ' staff seats · ' + priceLine + (plan.custom ? '' : ' · billed yearly'),
+      renewLine: st.account === 'past-due' ? 'Payment due · Stripe retries on 10 Oct' : st.account === 'invoiced' ? 'Invoiced monthly by Uncava' : 'Renews 1 Nov 2026',
+      total: this.aed((plan.custom ? 5400 : plan.annual * plan.seats)),
+      totalNote: 'a month, before VAT',
+      includes: ['Search and AI included', this.fmt(monthTotal) + ' contact credits a month', 'Client contacts free'],
+      hasStatus: st.account === 'past-due',
+      statusLabel: 'Payment due', statusStyle: 'border-radius:999px;padding:2px 8px;font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;background:var(--red-dim);color:var(--red)',
+    };
+
+    const meter = {
+      left: this.fmt(left), total: this.fmt(monthTotal + boughtLeft), color: toneColor,
+      border: level === 'out' ? 'color-mix(in srgb, var(--red) 45%, transparent)' : warn ? 'color-mix(in srgb, var(--warn) 45%, transparent)' : 'var(--line-soft)',
+      barStyle: 'position:absolute;left:0;top:0;bottom:0;border-radius:4px;width:' + (left / (monthTotal + boughtLeft) * 100) + '%;background:' + (level === 'out' ? 'var(--red)' : warn ? 'var(--warn)' : 'var(--green)'),
+      resetLine: 'Resets to ' + this.fmt(monthTotal) + ' on 1 Nov · unused credits don\'t carry over',
+      hasBought: st.bought, boughtLine: 'Includes 200 bought credits, kept until 12 Aug 2027',
+      canBuy: isAdmin && (warn || level === 'out'),
+    };
+
+    const usageRows = this.USERS.map(([name, initials, emails, phones, tint], i) => {
+      const scale = usedCredits / 391;
+      const e = Math.round(emails * scale), p = Math.round(phones * scale);
+      return { name: name + (i === 0 && isAdmin ? ' (you)' : ''), initials, emails: this.fmt(e), phones: this.fmt(p), credits: this.fmt(e + p * 5),
+        avatar: 'display:grid;width:26px;height:26px;flex:none;place-items:center;border-radius:50%;font:600 10px var(--mono);background:' + tint[0] + ';color:' + tint[1] };
+    });
+
+    const pay = byCard
+      ? { title: 'Visa •••• 4242', sub: st.account === 'past-due' ? 'The last payment failed — update the card' : 'Al-Futtaim Group LLC · TRN 100 2345 6789 0003', subColor: st.account === 'past-due' ? 'var(--red)' : 'var(--text3)', hasPortal: isAdmin }
+      : st.account === 'invoiced'
+        ? { title: 'Paid by bank transfer', sub: 'Invoices come from billing@uncava.com', subColor: 'var(--text3)', hasPortal: false }
+        : { title: 'No card yet', sub: 'Added when you choose a plan', subColor: 'var(--text3)', hasPortal: false };
+
+    const cycles = [['monthly', 'Monthly'], ['annual', 'Yearly · save 20%']].map(([key, label]) => ({ key, label, on: st.cycle === key,
+      style: 'border-radius:4px;border:none;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;background:' + (st.cycle === key ? 'var(--panel)' : 'transparent') + ';color:' + (st.cycle === key ? 'var(--text)' : 'var(--text3)') }));
+    const planCards = this.PLAN_ORDER.map((k) => {
+      const p = this.PLANS[k];
+      const current = hasPlan && k === plan.key;
+      const lines = p.custom
+        ? ['Contact credits sized to your team', 'Search and AI included', 'Pay by invoice', 'A named contact at Uncava', 'Client contacts free']
+        : [p.perSeat + ' contact credits per seat a month', 'Search and AI included', 'Credits shared by the whole team', 'Client contacts free'];
+      const cta = current ? 'Current plan' : p.custom ? 'Talk to us' : !hasPlan ? 'Choose ' + p.name : 'Switch to ' + p.name;
+      return { key: k, name: p.name, current, lines, cta,
+        price: p.custom ? 'Custom' : this.aed(st.cycle === 'annual' ? p.annual : p.monthly), per: p.custom ? '' : 'per seat / month',
+        billedNote: p.custom ? 'For larger firms' : st.cycle === 'annual' ? 'Billed yearly' : 'Billed monthly',
+        cardStyle: 'display:flex;flex-direction:column;border-radius:12px;padding:18px;background:var(--panel2);border:' + (current ? '1.5px solid var(--amber)' : '1px solid var(--line-soft)'),
+        ctaStyle: (current ? btnSecondary + ';opacity:.6;cursor:default' : k === 'pro' ? btnPrimary : btnSecondary) + ';width:100%' };
+    });
+
+    const pk = this.PACKS[st.pack];
+    const packs = this.PACKS.map(([credits, price], i) => {
+      const on = i === st.pack;
+      return { index: i, on, credits: this.fmt(credits) + ' credits', price: this.aed(price), means: 'About ' + this.fmt(credits) + ' emails or ' + this.fmt(credits / 5) + ' phones',
+        style: 'display:flex;align-items:center;gap:12px;width:100%;border-radius:10px;padding:12px 14px;background:' + (on ? 'var(--amber-dim)' : 'var(--panel2)') + ';border:1px solid ' + (on ? 'var(--amber)' : 'var(--line-soft)') + ';cursor:pointer',
+        radio: 'display:grid;width:16px;height:16px;flex:none;place-items:center;border-radius:50%;border:1.5px solid ' + (on ? 'var(--amber)' : 'var(--text3)'),
+        radioDot: 'width:8px;height:8px;border-radius:50%;background:' + (on ? 'var(--amber)' : 'transparent') };
+    });
+    const buyTotal = Math.round(pk[1] * 105) / 100;
+
+    const out = st.dialog === 'fair-use'
+      ? { screenLabel: 'Fair use reached', title: "You've reached this month's fair use",
+        body: 'People Search is part of your plan, up to a generous monthly amount per seat. Your team has gone past it this month, so new searches pause until 1 Nov. Pages you already have stay open. Talk to us if your team needs more.',
+        primary: 'Talk to us', onPrimary: () => { this.setState({ dialog: 'none' }); this.showToast('Uncava will be in touch today'); } }
+      : { screenLabel: 'Out of credits', title: 'No contact credits left',
+        body: "Finding a phone needs 5 credits and this month's are used up. Nothing was spent. They reset on 1 Nov." + (isAdmin ? '' : ' Only an admin can buy more — Yara Haddad.'),
+        primary: isAdmin ? 'Buy more credits' : 'Ask Yara to buy more',
+        onPrimary: isAdmin ? () => this.setState({ dialog: 'buy' }) : () => { this.setState({ dialog: 'none' }); this.showToast('Yara Haddad has been asked to buy more credits'); } };
+
+    return {
+      I, isAdmin, crumb: st.screen === 'paid-actions' ? 'Billing / What costs credits' : 'Billing',
+      meName: isAdmin ? 'Yara Haddad' : 'Omar Khalil', meInitials: isAdmin ? 'YH' : 'OK',
+      chip: chipOf(level, left), navGroups,
+      themeLabel: st.dark ? 'Light mode' : 'Dark mode', themeIcon: st.dark ? I.sun : I.moon,
+      btnPrimary, btnSecondary, btnPrimarySm, btnSecondarySm,
+      isBilling: st.screen === 'billing', isPaidActions: st.screen === 'paid-actions',
+      subtitle: isAdmin ? 'Your plan and this month\'s contact credits. Search and AI are part of the plan.' : 'Your team\'s plan and this month\'s contact credits. Only an admin can change the plan or buy credits.',
+      banner, hasPlan, noPlan: !hasPlan, plan: planOut, meter,
+      noPlanBody: isAdmin ? 'Pick Core, Pro or Enterprise. Every plan includes search and AI; the plan sets how many contact credits your team gets each month.' : 'An admin hasn\'t chosen a plan yet.',
+      usageRows, hasUsage: hasPlan, pay,
+      paidRows: [{ id: 'email', channel: 'Email', label: 'Find email', hint: '1 credit' }, { id: 'phone', channel: 'Phone', label: 'Find phone', hint: '5 credits' }],
+      includedActions: ['Strategy · People search', 'Find executives', 'AI deep enrich', 'Outreach openers', 'Assistant', 'Reports'],
+      chipSpecimens: [Object.assign(chipOf('ok', 0), { caption: 'Under 80% used' }), Object.assign(chipOf('eighty', 135), { caption: '80% used or more' }), Object.assign(chipOf('out', 0), { caption: 'Used up' })],
+      dlgPlans: st.dialog === 'plans', cycles, planCards,
+      dlgBuy: st.dialog === 'buy', packs, buyVatLine: this.aed(pk[1]) + ' + 5% VAT', buyTotal: this.aed(buyTotal),
+      buyCta: byCard ? 'Pay ' + this.aed(buyTotal) : 'Request an invoice',
+      dlgOut: st.dialog === 'out-of-credits' || st.dialog === 'fair-use', out,
+      toast: st.toast, toastVisible: !!st.toast,
+
+      stop: (e) => e.stopPropagation(),
+      toggleTheme: () => { const d = !st.dark; document.documentElement.setAttribute('data-theme', d ? 'dark' : 'light'); try { localStorage.setItem('lm-theme', d ? 'dark' : 'light'); } catch (e) {} this.setState({ dark: d }); },
+      goBilling: () => this.setState({ screen: 'billing' }),
+      openPlans: () => this.setState({ dialog: 'plans' }),
+      openBuy: () => this.setState({ dialog: 'buy', pack: 0 }),
+      openPortal: () => this.showToast('Opening Stripe\'s billing page in a new tab'),
+      closeDialog: () => this.setState({ dialog: 'none' }),
+      onBannerAction: () => (banner.action === 'buy' ? this.setState({ dialog: 'buy', pack: 0 }) : this.showToast('Opening Stripe\'s billing page in a new tab')),
+      setCycle: (e) => this.setState({ cycle: e.currentTarget.dataset.cycle }),
+      choosePlan: (e) => { const p = this.PLANS[e.currentTarget.dataset.plan]; this.setState({ dialog: 'none' }); this.showToast(p.custom ? 'Uncava will be in touch about Enterprise' : 'Continuing to Stripe to confirm ' + p.name); },
+      setPack: (e) => this.setState({ pack: Number(e.currentTarget.dataset.pack) }),
+      payBuy: () => { this.setState({ dialog: 'none' }); this.showToast(byCard ? 'Continuing to Stripe — ' + this.aed(buyTotal) : 'Uncava will invoice ' + this.fmt(pk[0]) + ' credits'); },
+      tryAction: (e) => {
+        const cost = e.currentTarget.dataset.id === 'phone' ? 5 : 1;
+        if (left < cost) { this.setState({ dialog: 'out-of-credits' }); return; }
+        this.showToast((cost === 5 ? 'Phone' : 'Email') + ' found — ' + cost + ' credit' + (cost === 1 ? '' : 's') + ' spent, ' + this.fmt(left - cost) + ' left');
+      },
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -27,7 +27,7 @@ export function DisconnectAiAppModal({
             Cancel
           </Button>
           <Button
-            className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
+            variant="danger"
             loading={disconnecting}
             onClick={onConfirm}
           >

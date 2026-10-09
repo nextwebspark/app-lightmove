@@ -1,5 +1,8 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.model.MeteredUse;
+import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
 import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
@@ -23,7 +26,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /**
  * Runs a candidate's AI enrichment after the request commits, off its thread: the assessment call,
  * and the nationality classifier while nationality is still empty. One budget unit covers both — one
- * press is one enrichment. Shaped like {@link CandidateEnrichmentWorker}, for its reasons.
+ * press is one enrichment, and only a press's counts towards fair use. Shaped like {@link CandidateEnrichmentWorker},
+ * for its reasons.
  */
 @Component
 @Slf4j
@@ -34,17 +38,19 @@ class CandidateAiEnrichWorker {
     private final CandidateService candidates;
     private final PositionService positions;
     private final LlmBudgetGuard llmBudget;
+    private final UsageRecorder usage;
     private final EnrichmentSettings settings;
 
     CandidateAiEnrichWorker(CandidateAiEnricher enricher, CandidateNationalityClassifier nationalityClassifier,
                             CandidateService candidates,
-                            PositionService positions, LlmBudgetGuard llmBudget,
+                            PositionService positions, LlmBudgetGuard llmBudget, UsageRecorder usage,
                             LightMoveProperties properties) {
         this.enricher = enricher;
         this.nationalityClassifier = nationalityClassifier;
         this.candidates = candidates;
         this.positions = positions;
         this.llmBudget = llmBudget;
+        this.usage = usage;
         this.settings = properties.enrichment();
     }
 
@@ -84,6 +90,10 @@ class CandidateAiEnrichWorker {
                 .map(found -> new CandidateAiEnrichment(found.background(), found.assessment(), reading))
                 .orElseGet(() -> new CandidateAiEnrichment(null, null, reading));
         candidates.applyAiEnrichment(request.projectId(), request.candidateId(), request.requestedBy(), enrichment);
+        if (request.trigger() == AiEnrichTrigger.BUTTON) {
+            usage.record(MeteredUse.of(request.workspaceId(), request.requestedBy(), request.projectId(),
+                    UsageKind.AI_ENRICH, 1));
+        }
     }
 
     /** Best-effort: the drawer waiting on this run is told it failed rather than left to time out. */

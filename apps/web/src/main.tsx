@@ -6,6 +6,7 @@ import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
 import { AssistantProvider } from "./features/assistant/AssistantProvider";
 import { AuthProvider } from "./features/auth/AuthProvider";
+import { BillingRefusalSheets } from "./features/billing/components/BillingRefusalSheets";
 import { applyStoredTheme } from "./features/theme/useTheme";
 import { redrawFaviconOnColorSchemeChange } from "./lib/favicon";
 import "./styles/global.css";
@@ -38,6 +39,7 @@ createRoot(document.getElementById("root")!).render(
             <AssistantProvider>
               <AppRoutes />
             </AssistantProvider>
+            <BillingRefusalSheets />
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

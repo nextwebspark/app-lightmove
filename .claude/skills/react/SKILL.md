@@ -131,6 +131,12 @@ the document sideways.
   asserting on a row matches twice — use `findAllByText`. jsdom also answers `false` to every media
   query, so `src/test/setup.ts` reports a desktop width; a test wanting the narrow layout overrides it.
 
+## Copy
+
+Copy no mockup draws — a toast, an error, a banner, an empty state — uses `docs/glossary.md`'s words:
+Position, the workspace's own unit and contact words from `useWorkspaceVocabulary`, never a vendor name,
+"this deployment" or "triage". `src/lib/copyGuard.test.ts` fails on the last three.
+
 ## Traps this codebase has already fallen into
 
 - **A refused read is not an empty list.** `useQuery` with `data: rows = []` renders the *empty state*

@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { initials } from "../../../lib/format";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
+import { useFocusTrap } from "../../../lib/useFocusTrap";
 import type { CandidateStatus } from "../../candidates/api/types";
 import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
 import { STATUS_TONES, statusTone } from "../lib/statusTone";
@@ -33,6 +34,8 @@ export function ReportDrawer({
   children: ReactNode;
 }) {
   useEscapeKey(open, onClose);
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(panelRef, open, { startAt: "panel" });
 
   if (!open) return null;
 
@@ -40,11 +43,13 @@ export function ReportDrawer({
     <>
       <div className="fixed inset-0 z-[90] bg-u-scrim" onClick={onClose} />
       <aside
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         data-edge-panel="report"
-        className="fixed inset-y-0 right-0 z-[95] flex w-[384px] max-w-[92vw] animate-slide-in-end flex-col border-l border-u-border bg-u-surface text-u-text shadow-u-e3"
+        className="fixed inset-y-0 right-0 z-[95] flex w-[384px] max-w-[92vw] animate-slide-in-end flex-col border-l border-u-border bg-u-surface text-u-text shadow-u-e3 outline-none"
       >
         <div className="flex flex-none items-start justify-between gap-2.5 border-b border-u-border px-6 py-[22px]">
           <div className="min-w-0">
