@@ -2,7 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Drawer, HealthPill, StagePill } from "../../../components/ui";
+import { Avatar, Drawer, HealthPill, Spinner, StagePill } from "../../../components/ui";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { cn } from "../../../lib/cn";
 import { formatDate, formatNumber } from "../../../lib/format";
@@ -329,9 +329,10 @@ function RecentActivity({ projectId }: { projectId: string }) {
                 setAutoFetchesLeft(AUTO_FETCH_PAGES);
               }}
               disabled={isFetchingNextPage}
-              className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
             >
-              {isFetchingNextPage ? "Loading…" : "See more"}
+              {isFetchingNextPage && <Spinner />}
+              See more
             </button>
           )}
         </>

@@ -5,7 +5,8 @@ import { Modal } from "./Modal";
 /**
  * The one question asked before an action that cannot be taken back: the title names the object, the
  * body the consequence, and the confirm button is the verb itself ("Stop sequence", never "OK").
- * A reversible action does not come here — it acts at once and offers Undo.
+ * A reversible action does not come here — it acts at once and offers Undo. `tone="primary"` is for one
+ * that destroys nothing but is too large to take back by hand, such as adding every company a filter finds.
  */
 export function ConfirmDialog({
   open,
@@ -14,6 +15,7 @@ export function ConfirmDialog({
   confirmLabel,
   pending = false,
   confirmDisabled = false,
+  tone = "danger",
   onConfirm,
   onClose,
 }: {
@@ -25,6 +27,7 @@ export function ConfirmDialog({
   pending?: boolean;
   /** The action cannot go ahead as things stand; the body says why. */
   confirmDisabled?: boolean;
+  tone?: "danger" | "primary";
   onConfirm: () => void;
   onClose: () => void;
 }) {
@@ -39,7 +42,7 @@ export function ConfirmDialog({
           <Button variant="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="danger" loading={pending} disabled={confirmDisabled} onClick={onConfirm}>
+          <Button variant={tone} loading={pending} disabled={confirmDisabled} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </>

@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { Button, TextArea, useToast } from "../../../components/ui";
+import { Button, LinesSkeleton, Spinner, TextArea, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
@@ -121,7 +121,7 @@ export function NotesSection({ projectId, candidateId }: PersonSectionProps) {
         {notes.isError ? (
           <p className="text-[13px] text-u-text3">{messageFor(notes.error)}</p>
         ) : notes.isPending ? (
-          <p className="text-[13px] text-u-text3">Loading…</p>
+          <LinesSkeleton />
         ) : list.length === 0 ? (
           <p className="text-[13px]/[1.6] text-u-text3">
             No notes yet. A note you save here is shared with the team on every position this person
@@ -202,7 +202,7 @@ export function TimelineFeed({ projectId, candidateId }: PersonSectionProps) {
   const cut = useTimelineCut(lines);
 
   if (timeline.isError) return <p className="text-[13px] text-u-text3">{messageFor(timeline.error)}</p>;
-  if (timeline.isPending) return <p className="text-[13px] text-u-text3">Loading…</p>;
+  if (timeline.isPending) return <LinesSkeleton />;
   if (lines.length === 0) return <p className="text-[13px] text-u-text3">Nothing recorded yet.</p>;
   return (
     <div>
@@ -227,9 +227,10 @@ export function TimelineFeed({ projectId, candidateId }: PersonSectionProps) {
             type="button"
             onClick={() => void fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
           >
-            {isFetchingNextPage ? "Loading…" : "Load more"}
+            {isFetchingNextPage && <Spinner />}
+            Load more
           </button>
         )
       )}

@@ -19,9 +19,8 @@ export function ConsentFrame({ children }: { children: ReactNode }) {
 
 export function ConsentLoading() {
   return (
-    <div className="flex items-center justify-center gap-2 py-6 font-mono text-xs text-u-text3">
+    <div role="status" aria-label="Loading" className="flex items-center justify-center py-6 text-u-text3">
       <Spinner />
-      Loading…
     </div>
   );
 }

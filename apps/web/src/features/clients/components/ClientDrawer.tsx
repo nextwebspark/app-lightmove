@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Button,
   Drawer,
+  DrawerSkeleton,
   HealthInline,
   Input,
   StagePill,
@@ -60,7 +61,7 @@ export function ClientDrawer({
   return (
     <Drawer open={clientId !== null} onClose={onClose} wide={isAgency} label={client?.name ?? vocabulary.unit}>
       {!client ? (
-        <div className="grid flex-1 place-items-center font-mono text-[12px] text-u-text3">Loading…</div>
+        <DrawerSkeleton />
       ) : mandate ? (
         <MandateView mandate={mandate} clientName={client.name} onBack={() => setMandateId(null)} />
       ) : (

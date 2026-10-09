@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { useToast } from "../../../components/ui";
+import { CardsSkeleton, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as integrationsApi from "../api/integrationsApi";
@@ -37,7 +37,7 @@ export function SettingsIntegrationsPage() {
       {integrations.isError || workspace.isError ? (
         <p className="text-body text-u-text3">{messageFor(integrations.error ?? workspace.error)}</p>
       ) : integrations.isPending || workspace.isPending ? (
-        <p className="text-body text-u-text3">Loading…</p>
+        <CardsSkeleton />
       ) : (
         <div className="space-y-4">
           <CalendarSyncCard

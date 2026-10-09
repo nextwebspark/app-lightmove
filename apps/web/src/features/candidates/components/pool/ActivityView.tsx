@@ -10,6 +10,7 @@ import { timelineLines } from "../../lib/candidateActivity";
 import { usePoolLookups } from "../../lib/usePoolLookups";
 import { groupByDay } from "../../lib/timelineGroups";
 import { GroupChips } from "./GroupChips";
+import { LinesSkeleton, Spinner } from "../../../../components/ui";
 
 const RANGES = [
   { value: "7", label: "Last 7 days" },
@@ -85,7 +86,7 @@ export function ActivityView({ toggle, onOpen }: { toggle: ReactNode; onOpen: (p
           {feed.isError ? (
             <p className="mt-4 text-[13px] text-u-text3">{messageFor(feed.error)}</p>
           ) : feed.isPending ? (
-            <p className="mt-4 text-[13px] text-u-text3">Loading…</p>
+            <LinesSkeleton className="mt-4" lines={5} />
           ) : entries.length === 0 ? (
             <p className="mt-4 text-[13px] text-u-text3">
               Nothing recorded for this filter. Widen the date range or pick everyone.
@@ -145,9 +146,10 @@ export function ActivityView({ toggle, onOpen }: { toggle: ReactNode; onOpen: (p
                   type="button"
                   onClick={() => void feed.fetchNextPage()}
                   disabled={feed.isFetchingNextPage}
-                  className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
                 >
-                  {feed.isFetchingNextPage ? "Loading…" : "Load older activity"}
+                  {feed.isFetchingNextPage && <Spinner />}
+                  Load older activity
                 </button>
               )}
             </div>

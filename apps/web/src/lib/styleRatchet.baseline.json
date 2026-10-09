@@ -1,0 +1,787 @@
+{
+  "components/layout/AppShell.tsx": {
+    "arbitraryRadius": 1
+  },
+  "components/layout/PageHeader.tsx": {
+    "arbitraryText": 1
+  },
+  "components/layout/Sidebar.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 4
+  },
+  "components/layout/Topbar.tsx": {
+    "arbitraryRadius": 5,
+    "arbitraryText": 8
+  },
+  "components/layout/UncavaRailNav.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/assistant/components/AssistantAnswer.tsx": {
+    "arbitraryText": 1
+  },
+  "features/assistant/components/AssistantPanel.tsx": {
+    "arbitraryRadius": 4,
+    "arbitraryText": 10
+  },
+  "features/assistant/components/AssistantProposalCard.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 10
+  },
+  "features/assistant/components/AssistantQuestionCard.tsx": {
+    "arbitraryRadius": 5,
+    "arbitraryText": 6
+  },
+  "features/assistant/components/AssistantStarters.tsx": {
+    "arbitraryText": 4
+  },
+  "features/assistant/components/AssistantSteps.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/assistant/components/AssistantTurnView.tsx": {
+    "arbitraryText": 2
+  },
+  "features/auth/components/OAuthButtons.tsx": {
+    "arbitraryText": 1
+  },
+  "features/auth/components/Stepper.tsx": {
+    "arbitraryText": 1
+  },
+  "features/auth/pages/AcceptInvitePage.tsx": {
+    "arbitraryText": 5
+  },
+  "features/auth/pages/ForgotPasswordPage.tsx": {
+    "arbitraryText": 4
+  },
+  "features/auth/pages/LoginPage.tsx": {
+    "arbitraryText": 3
+  },
+  "features/auth/pages/ResetPasswordPage.tsx": {
+    "arbitraryText": 4
+  },
+  "features/auth/pages/SignupPage.tsx": {
+    "arbitraryText": 4
+  },
+  "features/auth/pages/SignupVerifyStepPage.tsx": {
+    "arbitraryText": 1
+  },
+  "features/auth/pages/VerifyEmailPage.tsx": {
+    "arbitraryText": 4
+  },
+  "features/billing/components/BillingRefusalSheets.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/billing/components/BuyCreditsDialog.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/billing/components/CreditChip.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/billing/components/PlansDialog.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 1
+  },
+  "features/billing/pages/SettingsBillingPage.tsx": {
+    "arbitraryText": 23,
+    "arbitraryRadius": 5
+  },
+  "features/candidates/components/AddCandidateForm.tsx": {
+    "arbitraryText": 4
+  },
+  "features/candidates/components/AiAssessmentSection.tsx": {
+    "arbitraryText": 15,
+    "arbitraryRadius": 2
+  },
+  "features/candidates/components/CandidateFieldGroups.tsx": {
+    "arbitraryText": 26,
+    "arbitraryRadius": 8
+  },
+  "features/candidates/components/CandidateProfile.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 5
+  },
+  "features/candidates/components/CareerTimeline.tsx": {
+    "arbitraryText": 5
+  },
+  "features/candidates/components/CompensationSummary.tsx": {
+    "arbitraryText": 6,
+    "arbitraryRadius": 2
+  },
+  "features/candidates/components/documents/DocumentCard.tsx": {
+    "arbitraryRadius": 11,
+    "arbitraryText": 15
+  },
+  "features/candidates/components/documents/DocumentParts.tsx": {
+    "arbitraryRadius": 3,
+    "arbitraryText": 3
+  },
+  "features/candidates/components/documents/DocumentPreviewSheet.tsx": {
+    "arbitraryRadius": 4,
+    "arbitraryText": 7
+  },
+  "features/candidates/components/documents/DocumentsPanel.tsx": {
+    "arbitraryRadius": 7,
+    "arbitraryText": 18
+  },
+  "features/candidates/components/documents/PrimaryCvChip.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/candidates/components/NoteParts.tsx": {
+    "arbitraryText": 8,
+    "arbitraryRadius": 2
+  },
+  "features/candidates/components/PersonPositions.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 4
+  },
+  "features/candidates/components/PersonSections.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 8
+  },
+  "features/candidates/components/pool/ActivityView.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 1
+  },
+  "features/candidates/components/pool/AddToPositionDialog.tsx": {
+    "arbitraryText": 5,
+    "arbitraryRadius": 2
+  },
+  "features/candidates/components/pool/PeopleToolbar.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 1
+  },
+  "features/candidates/components/pool/PeopleView.tsx": {
+    "arbitraryText": 1
+  },
+  "features/candidates/components/pool/PersonDrawer.tsx": {
+    "arbitraryText": 11,
+    "arbitraryRadius": 2
+  },
+  "features/candidates/components/pool/PersonNotesTab.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 4
+  },
+  "features/candidates/components/pool/PersonProfileTab.tsx": {
+    "arbitraryText": 2
+  },
+  "features/candidates/components/pool/PersonTimelineTab.tsx": {
+    "arbitraryText": 4
+  },
+  "features/candidates/components/pool/PoolFilterRail.tsx": {
+    "arbitraryRadius": 2
+  },
+  "features/candidates/components/pool/SetOwnerDialog.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/candidates/components/pool/TagPeopleDialog.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 1
+  },
+  "features/candidates/components/pool/TagPicker.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 4
+  },
+  "features/candidates/components/pool/TagPill.tsx": {
+    "arbitraryText": 1
+  },
+  "features/candidates/components/PossibleDuplicateDialog.tsx": {
+    "arbitraryText": 6,
+    "arbitraryRadius": 3
+  },
+  "features/candidates/components/ProfileParts.tsx": {
+    "arbitraryText": 10
+  },
+  "features/candidates/components/ProfileSectionForm.tsx": {
+    "arbitraryText": 3
+  },
+  "features/candidates/lib/poolColumns.tsx": {
+    "arbitraryText": 9
+  },
+  "features/clients/components/AgencyClientView.tsx": {
+    "arbitraryText": 1
+  },
+  "features/clients/components/BusinessUnitCombobox.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/clients/components/ClientCombobox.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/clients/components/ClientDrawer.tsx": {
+    "arbitraryText": 12
+  },
+  "features/clients/components/ClientRecordParts.tsx": {
+    "arbitraryText": 11,
+    "arbitraryRadius": 1
+  },
+  "features/clients/components/ClientsList.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/clients/components/ComboboxRows.tsx": {
+    "arbitraryText": 2
+  },
+  "features/clients/components/CompanyPicker.tsx": {
+    "arbitraryText": 15
+  },
+  "features/clients/components/NewClientModal.tsx": {
+    "arbitraryText": 2
+  },
+  "features/clients/lib/clientColumns.tsx": {
+    "arbitraryText": 4
+  },
+  "features/contactlookup/components/ContactPanel.tsx": {
+    "arbitraryText": 8
+  },
+  "features/customcolumns/components/CustomFieldsFieldset.tsx": {
+    "arbitraryText": 1
+  },
+  "features/docs/components/GuideMarkdown.tsx": {
+    "arbitraryText": 7
+  },
+  "features/docs/pages/McpGuidePage.tsx": {
+    "arbitraryText": 2
+  },
+  "features/oauth/components/ClientMark.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/oauth/components/ConsentOutcomes.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/oauth/components/ScopeChoices.tsx": {
+    "arbitraryText": 3
+  },
+  "features/oauth/components/WorkspacePicker.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 1
+  },
+  "features/oauth/pages/OAuthConsentPage.tsx": {
+    "arbitraryText": 11
+  },
+  "features/outreach/components/AddToSequenceButton.tsx": {
+    "arbitraryText": 1
+  },
+  "features/outreach/components/BookCallDialog.tsx": {
+    "arbitraryText": 10,
+    "arbitraryRadius": 1
+  },
+  "features/outreach/components/BookCallTimes.tsx": {
+    "arbitraryText": 6,
+    "arbitraryRadius": 2
+  },
+  "features/outreach/components/DirectBookingForm.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 5
+  },
+  "features/outreach/components/EnrolDialog.tsx": {
+    "arbitraryText": 34,
+    "arbitraryRadius": 10
+  },
+  "features/outreach/components/MailboxTimeZoneSelect.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/outreach/components/MeetingsSection.tsx": {
+    "arbitraryText": 14,
+    "arbitraryRadius": 4
+  },
+  "features/outreach/components/OutreachSection.tsx": {
+    "arbitraryRadius": 4,
+    "arbitraryText": 6
+  },
+  "features/outreach/components/PeopleInOutreach.tsx": {
+    "arbitraryText": 19,
+    "arbitraryRadius": 4
+  },
+  "features/outreach/components/SequenceStatePill.tsx": {
+    "arbitraryText": 1
+  },
+  "features/outreach/components/ZoomConnectControl.tsx": {
+    "arbitraryText": 4
+  },
+  "features/outreach/pages/BookingPage.tsx": {
+    "arbitraryText": 2
+  },
+  "features/outreach/pages/MailboxCallbackPage.tsx": {
+    "arbitraryText": 1
+  },
+  "features/outreach/pages/OutreachPage.tsx": {
+    "arbitraryText": 18,
+    "arbitraryRadius": 10
+  },
+  "features/outreach/pages/SequenceEditorPage.tsx": {
+    "arbitraryText": 32,
+    "arbitraryRadius": 19
+  },
+  "features/position/components/BenefitsTable.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/BriefFields.tsx": {
+    "arbitraryRadius": 6
+  },
+  "features/position/components/CompetencyTable.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/CriteriaList.tsx": {
+    "arbitraryRadius": 2
+  },
+  "features/position/components/DocumentCard.tsx": {
+    "arbitraryRadius": 2
+  },
+  "features/position/components/DocumentReadNotice.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/IdealProfileField.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/OrgChartCanvas.tsx": {
+    "arbitraryRadius": 2,
+    "important": 5
+  },
+  "features/position/components/OrgSeatNode.tsx": {
+    "arbitraryRadius": 2,
+    "important": 6
+  },
+  "features/position/components/PackageSummary.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/ProvenanceMarker.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/ReviewCard.tsx": {
+    "arbitraryRadius": 2
+  },
+  "features/position/components/RoleTitleCombobox.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/RoleTitleField.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/steps/CompensationStep.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/steps/ReviewStep.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/components/steps/RoleBriefStep.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/position/pages/PositionPage.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/projects/components/AddClientContactModal.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 8
+  },
+  "features/projects/components/AddTeamMemberModal.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 3
+  },
+  "features/projects/components/NewProjectModal.tsx": {
+    "arbitraryText": 6
+  },
+  "features/projects/components/ProjectDrawer.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 3
+  },
+  "features/projects/components/ProjectPeopleBar.tsx": {
+    "arbitraryRadius": 2
+  },
+  "features/projects/components/ProjectRoleChips.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/projects/components/ProjectsList.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 5
+  },
+  "features/projects/components/ProjectTeamTable.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/projects/lib/projectColumns.tsx": {
+    "arbitraryText": 2,
+    "arbitraryRadius": 1
+  },
+  "features/projects/lib/projectTeamColumns.tsx": {
+    "arbitraryText": 2
+  },
+  "features/projects/pages/ProjectsPage.tsx": {
+    "arbitraryText": 1
+  },
+  "features/projects/pages/TeamAccessPage.tsx": {
+    "arbitraryText": 9,
+    "arbitraryRadius": 2
+  },
+  "features/reports/components/BarList.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 1
+  },
+  "features/reports/components/ChartEmpty.tsx": {
+    "arbitraryText": 1
+  },
+  "features/reports/components/CompensationStrip.tsx": {
+    "arbitraryText": 4
+  },
+  "features/reports/components/CoverageChart.tsx": {
+    "arbitraryText": 8
+  },
+  "features/reports/components/CoverageDonut.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/GenderPyramid.tsx": {
+    "arbitraryText": 7
+  },
+  "features/reports/components/HubMapPanel.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/KpiTiles.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 4
+  },
+  "features/reports/components/Legend.tsx": {
+    "arbitraryRadius": 3,
+    "arbitraryText": 1
+  },
+  "features/reports/components/LockedBenchmarkCard.tsx": {
+    "arbitraryText": 1
+  },
+  "features/reports/components/MomentumChart.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 2
+  },
+  "features/reports/components/NationalityDonut.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/NationalityDots.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/ReportCard.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/reports/components/ReportDrawer.tsx": {
+    "arbitraryText": 15,
+    "arbitraryRadius": 5
+  },
+  "features/reports/components/ReportNav.tsx": {
+    "arbitraryText": 1
+  },
+  "features/reports/components/ReportSection.tsx": {
+    "arbitraryText": 5,
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/ReportSelect.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/reports/components/ResearcherPerformanceCard.tsx": {
+    "arbitraryText": 13,
+    "arbitraryRadius": 9
+  },
+  "features/reports/components/SectorSeniorityHeatmap.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/SectorTreemap.tsx": {
+    "arbitraryText": 6,
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/StackedBar.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/reports/components/TeamDrawers.tsx": {
+    "arbitraryText": 5,
+    "arbitraryRadius": 5
+  },
+  "features/reports/pages/ReportsPage.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/settings/components/ActiveSessionsCard.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 5
+  },
+  "features/settings/components/ApiKeyRow.tsx": {
+    "arbitraryText": 2,
+    "arbitraryRadius": 1
+  },
+  "features/settings/components/CalendarSyncCard.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/settings/components/ChangePasswordForm.tsx": {
+    "important": 3
+  },
+  "features/settings/components/CopyableValue.tsx": {
+    "arbitraryText": 1,
+    "arbitraryRadius": 2
+  },
+  "features/settings/components/CreateApiKeyModal.tsx": {
+    "arbitraryText": 3
+  },
+  "features/settings/components/DisconnectAiAppModal.tsx": {
+    "arbitraryText": 1
+  },
+  "features/settings/components/IntegrationCard.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 4
+  },
+  "features/settings/components/OAuthGrantRow.tsx": {
+    "arbitraryText": 2,
+    "arbitraryRadius": 1
+  },
+  "features/settings/components/OwnAppForm.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/settings/components/ProfileForm.tsx": {
+    "important": 4,
+    "arbitraryText": 1
+  },
+  "features/settings/components/ProfileIdentityRow.tsx": {
+    "arbitraryText": 1
+  },
+  "features/settings/components/RevealApiKeyModal.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 3
+  },
+  "features/settings/components/RevokeApiKeyModal.tsx": {
+    "arbitraryText": 1
+  },
+  "features/settings/components/ScopeChips.tsx": {
+    "arbitraryText": 2,
+    "arbitraryRadius": 1
+  },
+  "features/settings/components/TwoFactorCard.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 3
+  },
+  "features/settings/components/WorkspaceModeCard.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 3
+  },
+  "features/settings/components/WorkspacePersonaCard.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1,
+    "important": 1
+  },
+  "features/settings/pages/SettingsAiAppsPage.tsx": {
+    "arbitraryRadius": 4,
+    "arbitraryText": 3
+  },
+  "features/settings/pages/SettingsApiKeysPage.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 3
+  },
+  "features/settings/pages/SettingsCandidateTagsPage.tsx": {
+    "arbitraryText": 6,
+    "arbitraryRadius": 1
+  },
+  "features/settings/pages/SettingsGeneralPage.tsx": {
+    "arbitraryRadius": 3,
+    "arbitraryText": 8,
+    "important": 6
+  },
+  "features/settings/pages/SettingsMembersPage.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 7,
+    "important": 1
+  },
+  "features/settings/pages/SettingsProfilePage.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/settings/pages/SettingsSecurityPage.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/settings/pages/SettingsWorkspacesPage.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 2
+  },
+  "features/strategy/components/CompanySearchCombobox.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 2
+  },
+  "features/strategy/components/FacetsUnavailable.tsx": {
+    "arbitraryText": 1
+  },
+  "features/strategy/components/FilterChip.tsx": {
+    "arbitraryText": 1
+  },
+  "features/strategy/components/FilterSidebar.tsx": {
+    "arbitraryText": 1
+  },
+  "features/strategy/components/IndustryFilter.tsx": {
+    "arbitraryText": 4
+  },
+  "features/strategy/components/KeywordFilter.tsx": {
+    "arbitraryText": 1
+  },
+  "features/strategy/components/MarketCompanyDrawer.tsx": {
+    "arbitraryText": 1
+  },
+  "features/strategy/components/OffLimitsFilter.tsx": {
+    "arbitraryText": 3
+  },
+  "features/strategy/components/people/PeopleFilterSidebar.tsx": {
+    "arbitraryRadius": 2
+  },
+  "features/strategy/components/people/PersonCard.tsx": {
+    "arbitraryRadius": 7,
+    "arbitraryText": 11
+  },
+  "features/strategy/components/people/PersonLinks.tsx": {
+    "arbitraryText": 2
+  },
+  "features/strategy/components/people/PersonPreviewDrawer.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 7
+  },
+  "features/strategy/components/RangeFilter.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/strategy/components/SavedSearchRow.tsx": {
+    "arbitraryRadius": 3,
+    "arbitraryText": 3
+  },
+  "features/strategy/components/SaveSearchMenu.tsx": {
+    "arbitraryRadius": 4,
+    "arbitraryText": 7
+  },
+  "features/strategy/components/StrategyToolbar.tsx": {
+    "arbitraryRadius": 4,
+    "arbitraryText": 4
+  },
+  "features/strategy/components/TagCombobox.tsx": {
+    "arbitraryText": 4
+  },
+  "features/strategy/lib/companyColumns.tsx": {
+    "arbitraryText": 2
+  },
+  "features/strategy/lib/personColumns.tsx": {
+    "arbitraryText": 2
+  },
+  "features/strategy/pages/PeopleStrategyEditor.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/strategy/pages/StrategyPage.tsx": {
+    "arbitraryText": 1
+  },
+  "features/talentmap/components/TalentMapGlobe.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/talentmap/components/TalentMapPopup.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 5
+  },
+  "features/talentmap/components/TalentMapTree.tsx": {
+    "arbitraryText": 4
+  },
+  "features/talentmap/components/TalentMapView.tsx": {
+    "arbitraryText": 8,
+    "arbitraryRadius": 3
+  },
+  "features/templates/components/BenefitLines.tsx": {
+    "arbitraryText": 1,
+    "arbitraryRadius": 1,
+    "important": 2
+  },
+  "features/templates/components/ChipListField.tsx": {
+    "arbitraryText": 3,
+    "arbitraryRadius": 1
+  },
+  "features/templates/components/CompetencyPanel.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 5
+  },
+  "features/templates/components/CriteriaCard.tsx": {
+    "arbitraryRadius": 3,
+    "arbitraryText": 3
+  },
+  "features/templates/components/fields.tsx": {
+    "arbitraryText": 5
+  },
+  "features/templates/components/ImportTemplatesDialog.tsx": {
+    "arbitraryText": 10,
+    "arbitraryRadius": 2
+  },
+  "features/templates/components/TemplateActions.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/templates/components/TemplateBadge.tsx": {
+    "arbitraryText": 1
+  },
+  "features/templates/components/TemplatesList.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 3
+  },
+  "features/templates/components/TemplateToolbar.tsx": {
+    "arbitraryRadius": 3,
+    "arbitraryText": 3
+  },
+  "features/templates/lib/templateColumns.tsx": {
+    "arbitraryText": 2
+  },
+  "features/templates/pages/TemplateEditorPage.tsx": {
+    "arbitraryText": 7,
+    "arbitraryRadius": 2,
+    "important": 17
+  },
+  "features/triage/components/AddCompanyPanel.tsx": {
+    "arbitraryText": 13
+  },
+  "features/triage/components/CompanyDrawer.tsx": {
+    "arbitraryText": 2
+  },
+  "features/triage/components/ExecutiveSourcingBanner.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/triage/components/ImportSpreadsheetDialog.tsx": {
+    "arbitraryText": 11,
+    "arbitraryRadius": 1
+  },
+  "features/triage/components/ManageColumnsDialog.tsx": {
+    "arbitraryText": 5,
+    "arbitraryRadius": 1
+  },
+  "features/triage/components/TriageToolbar.tsx": {
+    "arbitraryRadius": 2,
+    "arbitraryText": 2
+  },
+  "features/triage/lib/triageCompanyColumns.tsx": {
+    "arbitraryRadius": 3,
+    "arbitraryText": 10
+  },
+  "features/triage/pages/TriageStagePage.tsx": {
+    "arbitraryText": 1
+  },
+  "features/workspace/components/InviteTeamForm.tsx": {
+    "arbitraryText": 3
+  },
+  "features/workspace/components/MembersList.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 3
+  },
+  "features/workspace/components/OrganisationForm.tsx": {
+    "arbitraryText": 2
+  },
+  "features/workspace/components/PersonaFields.tsx": {
+    "arbitraryText": 1
+  },
+  "features/workspace/components/WorkspaceModeChoice.tsx": {
+    "arbitraryText": 2
+  },
+  "features/workspace/lib/memberColumns.tsx": {
+    "arbitraryText": 1
+  }
+}

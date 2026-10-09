@@ -121,7 +121,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     !projects.some((project) => project.team.some((seat) => seat.memberId === myMemberId));
 
   const newProjectButton = (
-    <Button onClick={() => setModalOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
+    <Button onClick={() => setModalOpen(true)} size="sm">
       <Icon d={ICONS.plus} size={15} />
       New position
     </Button>
