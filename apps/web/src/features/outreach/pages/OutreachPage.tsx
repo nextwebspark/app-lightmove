@@ -4,6 +4,7 @@ import { Link, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, EmptyState, Skeleton, useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { messageFor, messageForCode } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
@@ -55,9 +56,11 @@ function StaffOutreachPage() {
     },
   });
 
+  const [isConfirmingDisconnect, setIsConfirmingDisconnect] = useState(false);
   const disconnect = useMutation({
     mutationFn: mailboxApi.disconnectMailbox,
     onSuccess: () => {
+      setIsConfirmingDisconnect(false);
       toast("Mailbox disconnected.");
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
     },
@@ -102,8 +105,31 @@ function StaffOutreachPage() {
             isSendingTest={sendTest.isPending}
             isDisconnecting={disconnect.isPending}
             onSendTest={() => sendTest.mutate()}
-            onDisconnect={() => disconnect.mutate()}
+            onDisconnect={() => {
+              // Runs end without this page knowing — a stop here, a reply, a bounce — so the count is asked again.
+              void mailbox.refetch();
+              setIsConfirmingDisconnect(true);
+            }}
           />
+        )}
+        {connection && (
+          <ConfirmDialog
+            open={isConfirmingDisconnect}
+            title={`Disconnect ${connection.address}?`}
+            confirmLabel="Disconnect"
+            pending={disconnect.isPending}
+            onConfirm={() => disconnect.mutate()}
+            onClose={() => setIsConfirmingDisconnect(false)}
+          >
+            {connection.liveSequences > 0 && (
+              <p>
+                <strong className="font-semibold text-u-text">{liveRunsLine(connection)} will stop sending.</strong>
+              </p>
+            )}
+            <p>
+              You can reconnect later, but sequences that stop don&rsquo;t restart.
+            </p>
+          </ConfirmDialog>
         )}
         {connection?.status === "ACTIVE" && <ZoomConnectControl />}
       </div>
@@ -228,7 +254,7 @@ function MailboxState({
   if (!mailbox.offered) {
     return (
       <p className="mb-[18px] rounded-[10px] border border-u-border bg-u-raised px-5 py-4 text-[13px] text-u-text2">
-        Outreach email is not set up on this deployment.
+        Outreach email isn't switched on for your workspace. Contact Uncava support to turn it on.
       </p>
     );
   }
@@ -307,7 +333,7 @@ function MoveOffNylasBanner({
   return (
     <div className="mb-[18px] flex flex-wrap items-center gap-3 rounded-[8px] border border-u-border bg-u-raised px-3.5 py-2.5 text-[13px] text-u-text">
       <span className="min-w-[260px] flex-1">
-        <b>Reconnect to move off Nylas.</b> Uncava now connects to {providerLabel(connection.provider)} directly.
+        <b>Reconnect your mailbox.</b> Uncava now connects to {providerLabel(connection.provider)} directly.
         Reconnect {connection.address} once to keep sending from it.
         {runs > 0 && (
           <>
@@ -383,4 +409,9 @@ const PROVIDER_LABELS: Record<string, string> = { google: "Gmail", microsoft: "O
 
 function providerLabel(provider: string): string {
   return PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function liveRunsLine({ liveSequences, livePeople }: ConnectedMailbox): string {
+  const sequences = `${liveSequences} live ${liveSequences === 1 ? "sequence" : "sequences"}`;
+  return `${sequences} (${livePeople} ${livePeople === 1 ? "person" : "people"})`;
 }

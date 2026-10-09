@@ -103,7 +103,7 @@ class PositionTemplateExchange {
         }
         if (!(root.get("formatVersion") instanceof Number version) || version.intValue() != FORMAT_VERSION) {
             throw ApiException.userFacing(ErrorCode.TEMPLATE_FILE_UNREADABLE,
-                    "That template file is in a format version LightMove does not read");
+                    "That template file was made by a newer version of Uncava. Export it again and import the new file.");
         }
         if (!(root.get("templates") instanceof List<?> entries)) {
             throw new ApiException(ErrorCode.TEMPLATE_FILE_UNREADABLE, "Template import has no templates list");

@@ -170,6 +170,9 @@ can also be set as an environment variable.
 | `MANAGEMENT_PORT` | Actuator's port. `9090` locally; **`8080`** on Cloud Run, which routes only one port into a container |
 | `FLYWAY_ENABLED` | `true` locally and in tests. **`false`** in the deployed service — migrations are a deploy step, not a boot step |
 | `DB_POOL_MAX` | Hikari pool size, **per instance**. `bright-gcc` is a `db-f1-micro` (~25 connections) and the `brightdata` ETL shares it |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Billing's payments. Blank (the default) takes none: every workspace is invoiced. Locally, `stripe listen --forward-to localhost:8080/api/v1/billing/webhooks/stripe` prints the webhook secret to use |
+| `BILLING_CONTACT_EMAIL` | Where billing emails and the app's Contact Uncava links send a workspace (default `billing@uncava.com`). In production, the repo variable of that name (`deploy.yml`) |
+| `STRIPE_PRICE_*` | The Stripe price ids of the Core and Pro seat (`_CORE_MONTHLY`, `_CORE_ANNUAL`, `_PRO_MONTHLY`, `_PRO_ANNUAL`) and of the two credit packs (`_PACK_100`, `_PACK_500`), from the same mode as the key. In production, `BILLING_ENABLED=true` plus repo variables of these names (`deploy.yml`) |
 
 **Precedence.** An env var like `EMAIL_PROVIDER` only feeds a `${...}` placeholder in `application.yml`.
 If `application-local.yml` sets the property *literally*, the placeholder is never consulted and the env

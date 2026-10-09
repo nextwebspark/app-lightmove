@@ -30,7 +30,7 @@ export function RevokeApiKeyModal({
             Cancel
           </Button>
           <Button
-            className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
+            variant="danger"
             loading={revoking}
             onClick={onConfirm}
           >

@@ -64,7 +64,7 @@ export function StrategyPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  // People mode spends search credits, so it is staff-only like every other WORK_EXECUTE surface.
+  // People mode buys pages from ContactOut, so it is staff-only like every other WORK_EXECUTE surface.
   const canSearchPeople = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
   const mode: StrategyMode = canSearchPeople && searchParams.get("mode") === "people" ? "people" : "companies";
 

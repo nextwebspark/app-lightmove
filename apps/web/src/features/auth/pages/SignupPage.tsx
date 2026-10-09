@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { EMAIL_FIELD_ERROR_CODES, type ApiErrorCode } from "../../../lib/errorCodes";
+import { EMAIL_FIELD_ERROR_CODES, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { OAuthButtons } from "../components/OAuthButtons";
@@ -50,7 +50,7 @@ export function SignupPage() {
       }
 
       if (EMAIL_FIELD_ERROR_CODES.includes(error.code as ApiErrorCode)) {
-        setError("email", { message: error.problem.detail });
+        setError("email", { message: messageFor(error) });
         // Already registered is the one email problem with a way forward: log in. The CTA carries the
         // typed address to prefill the login form — and deliberately nothing more. Which workspace the
         // account belongs to is never revealed pre-auth; that would be an enumeration oracle.
@@ -68,7 +68,7 @@ export function SignupPage() {
         return;
       }
 
-      setFormError(error.problem.detail);
+      setFormError(messageFor(error));
     }
   };
 

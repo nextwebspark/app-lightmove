@@ -84,7 +84,10 @@ class MoveOffNylasIntegrationTest extends FlowTestSupport {
         as(consultant, get("/api/v1/outreach/mailbox"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.connection.movesOffNylas").value(true))
-                .andExpect(jsonPath("$.connection.runsStoppedByMove").value(1));
+                .andExpect(jsonPath("$.connection.runsStoppedByMove").value(1))
+                // What a disconnect would stop: both live runs, sent or not yet, whatever gateway threads them.
+                .andExpect(jsonPath("$.connection.liveSequences").value(1))
+                .andExpect(jsonPath("$.connection.livePeople").value(2));
     }
 
     @Test
@@ -97,7 +100,9 @@ class MoveOffNylasIntegrationTest extends FlowTestSupport {
         as(consultant, get("/api/v1/outreach/mailbox"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.connection.movesOffNylas").value(false))
-                .andExpect(jsonPath("$.connection.runsStoppedByMove").value(0));
+                .andExpect(jsonPath("$.connection.runsStoppedByMove").value(0))
+                .andExpect(jsonPath("$.connection.liveSequences").value(0))
+                .andExpect(jsonPath("$.connection.livePeople").value(0));
     }
 
     private void start(String sequenceId, String candidateId, String address) throws Exception {

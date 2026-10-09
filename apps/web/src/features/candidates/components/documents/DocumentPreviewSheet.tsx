@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, Select } from "../../../../components/ui";
 import { messageFor } from "../../../../lib/errorCodes";
+import { useFocusTrap } from "../../../../lib/useFocusTrap";
 import * as documentsApi from "../../api/documentsApi";
 import type { DocumentScope } from "../../api/documentsApi";
 import type { PersonDocument, PersonDocumentVersion } from "../../api/types";
@@ -36,6 +37,8 @@ export function DocumentPreviewSheet({
   const document = documents.documents.data?.find((candidate) => candidate.id === target?.documentId) ?? null;
   const version = document?.versions.find((candidate) => candidate.id === target?.versionId) ?? null;
   const shown = document !== null && version !== null;
+  const panelRef = useRef<HTMLElement>(null);
+  useFocusTrap(panelRef, shown, { startAt: "panel" });
 
   useEffect(() => {
     if (!shown) return;
@@ -58,10 +61,12 @@ export function DocumentPreviewSheet({
     <div className="fixed inset-0 z-[100] grid place-items-center p-2.5 sm:p-6">
       <div className="absolute inset-0 bg-u-scrim" onClick={onClose} />
       <section
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Preview ${document.title}`}
-        className="relative flex h-full max-h-[92dvh] w-full max-w-[1020px] animate-fade-up flex-col rounded-[10px] border border-u-border-strong bg-u-surface shadow-u-e3"
+        className="relative flex h-full max-h-[92dvh] w-full max-w-[1020px] animate-fade-up flex-col rounded-[10px] border border-u-border-strong bg-u-surface shadow-u-e3 outline-none"
       >
         <header className="flex flex-none items-center gap-3 border-b border-u-border px-4 py-3">
           <span className="grid size-[30px] flex-none place-items-center rounded-[7px] bg-u-raised text-u-text3">

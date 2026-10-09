@@ -66,4 +66,9 @@ public class ApiException extends RuntimeException {
     public static ApiException withProperty(ErrorCode code, String name, Object value) {
         return new ApiException(code, code.defaultMessage(), null, null, Map.of(name, value));
     }
+
+    /** {@link #withProperty} for several members. Never request input. */
+    public static ApiException withProperties(ErrorCode code, Map<String, Object> properties) {
+        return new ApiException(code, code.defaultMessage(), null, null, Map.copyOf(properties));
+    }
 }

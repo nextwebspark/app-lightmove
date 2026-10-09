@@ -40,7 +40,7 @@ class PdfFormatReader implements PositionDocumentFormatReader {
                 // the first N pages would silently decide which half of the document mattered.
                 throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
                         "That document has more than " + settings.maxPages() + " pages. "
-                                + "Extraction only works on a mandate-length brief.");
+                                + "Shorten it to the role description and attach it again.");
             }
             PDFTextStripper stripper = new PDFTextStripper();
             // What makes a multi-column layout read in reading order instead of column-interleaved.

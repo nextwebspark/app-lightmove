@@ -99,7 +99,7 @@ describe("ForgotPasswordPage", () => {
     await user.type(screen.getByPlaceholderText("you@firm.com"), "alok@nextwebspark.com");
     await user.click(screen.getByRole("button", { name: /send reset link/i }));
 
-    expect(await screen.findByText("Too many requests — slow down a little.")).toBeInTheDocument();
+    expect(await screen.findByText("Too many requests in a short time. Wait a minute and try again.")).toBeInTheDocument();
     // Still on the form — the user can wait and retry without starting over.
     expect(screen.getByRole("button", { name: /send reset link/i })).toBeInTheDocument();
   });

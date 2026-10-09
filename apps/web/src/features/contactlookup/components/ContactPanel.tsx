@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Button, FormError, useToast, type ToastFn } from "../../../components/ui";
@@ -10,6 +10,9 @@ import { cn } from "../../../lib/cn";
 import { copyText } from "../../../lib/clipboard";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { toBrowsableUrl, toReadableUrl } from "../../../lib/url";
+import { BILLING_KEY } from "../../billing/api/billingApi";
+import { creditsLabel, isBillingRefusal } from "../../billing/lib/billingView";
+import { useBillingRead } from "../../billing/lib/useBilling";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidateContacts, CandidateEmail, CandidatePhone } from "../../candidates/api/types";
 import { ContactEntriesFields, ContactFields } from "../../candidates/components/CandidateFieldGroups";
@@ -100,6 +103,7 @@ function ContactReadView({
 
   const email = useContactLookup("email", projectId, candidate.id, onSaved, toast);
   const phone = useContactLookup("phone", projectId, candidate.id, onSaved, toast);
+  const prices = useBillingRead(mayLookUp).data?.prices;
 
   return (
     <ContactChannels
@@ -109,6 +113,7 @@ function ContactReadView({
         mayLookUp && !contacts.emailsLookedUpAt ? (
           <FindButton
             channel="email"
+            price={prices?.email}
             held={contacts.emails.length > 0}
             hasProfile={hasProfile}
             pending={email.isPending}
@@ -122,6 +127,7 @@ function ContactReadView({
         mayLookUp && !contacts.phonesLookedUpAt ? (
           <FindButton
             channel="phone"
+            price={prices?.phone}
             held={contacts.phones.length > 0}
             hasProfile={hasProfile}
             pending={phone.isPending}
@@ -443,10 +449,12 @@ function EmptyLine({ asked, label }: { asked: boolean; label: string }) {
 /**
  * The button while the channel is worth pressing. It reads "Find more" beside a value a person
  * already supplied — the lookup adds what the provider holds and never overwrites what was typed —
- * and it is disabled, with the reason, until the person has a LinkedIn profile to look up.
+ * and it is disabled, with the reason, until the person has a LinkedIn profile to look up. Its price is the
+ * billing read's, and only a find spends it.
  */
 function FindButton({
   channel,
+  price,
   held,
   hasProfile,
   pending,
@@ -454,6 +462,7 @@ function FindButton({
   onFind,
 }: {
   channel: "email" | "phone";
+  price: number | undefined;
   held: boolean;
   hasProfile: boolean;
   pending: boolean;
@@ -469,22 +478,25 @@ function FindButton({
         loading={pending}
         disabled={disabled || !hasProfile}
         onClick={onFind}
-        title={`Spends one ContactOut ${channel} credit${held ? " · your entry is kept" : ""}`}
+        title={held ? "Your entry is kept" : undefined}
         className={cn("gap-1.5 whitespace-nowrap px-2.5 py-1.5 text-[12px]")}
       >
         {!pending && <Icon d={ICONS.search} size={13} />}
         {pending ? "Finding…" : label}
       </Button>
-      <span className="text-end font-mono text-[10px] text-u-text3">
-        {hasProfile ? "Spends 1 credit" : "Add a LinkedIn profile URL to look contacts up"}
-      </span>
+      {hasProfile ? (
+        price !== undefined && <span className="text-end font-mono text-[10px] text-u-text3">{creditsLabel(price)}</span>
+      ) : (
+        <span className="text-end font-mono text-[10px] text-u-text3">Add a LinkedIn profile URL to look contacts up</span>
+      )}
     </div>
   );
 }
 
 /**
  * One channel's lookup. A missing LinkedIn profile is the one refusal that belongs in the section —
- * the field it names is right there — so it stays inline; every other failure toasts.
+ * the field it names is right there — so it stays inline; running out of credits opens the out-of-credits
+ * sheet, and every other failure toasts.
  */
 function useContactLookup(
   channel: "email" | "phone",
@@ -493,6 +505,7 @@ function useContactLookup(
   onSaved: (saved: Candidate) => void,
   toast: ToastFn,
 ) {
+  const queryClient = useQueryClient();
   const [inlineError, setInlineError] = useState<string | null>(null);
   const lookup = useMutation({
     mutationFn: () =>
@@ -501,6 +514,7 @@ function useContactLookup(
         : contactLookupApi.findPhone(projectId, candidateId),
     onSuccess: (result) => {
       onSaved(result.candidate);
+      if (result.creditsSpent > 0) void queryClient.invalidateQueries({ queryKey: BILLING_KEY });
       if (result.outcome === "none") {
         toast(`No ${channel} on record for ${result.candidate.fullName}`);
       }
@@ -510,6 +524,7 @@ function useContactLookup(
         setInlineError(messageFor(error));
         return;
       }
+      if (isBillingRefusal(error)) return;
       toast.error(messageFor(error));
     },
   });

@@ -207,6 +207,7 @@ const BUILT_IN_COLUMNS = helper.columns([
               <Icon d={move.icon} size={14} />
             </button>
           ))}
+          <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />
           <button
             type="button"
             title={removeTooltip(company.companyName)}

@@ -24,6 +24,10 @@ export interface ConnectedMailbox {
   movesOffNylas: boolean;
   /** The running sequences that reconnect would stop. */
   runsStoppedByMove: number;
+  /** The sequences with someone still to be sent to from this mailbox: what a disconnect stops. */
+  liveSequences: number;
+  /** The people those live sequences are addressed to. */
+  livePeople: number;
 }
 
 export interface Mailbox {

@@ -174,12 +174,12 @@ public class StrategySearchService {
             if (searches.countByProjectIdAndVisibility(projectId, SearchVisibility.SHARED)
                     >= MAX_SHARED_SEARCHES_PER_PROJECT) {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                        "This mandate already has the maximum number of shared searches.");
+                        "This position already has the most shared searches it can hold. Delete one you no longer use.");
             }
         } else if (searches.countByProjectIdAndCreatedByAndVisibility(projectId, userId,
                 SearchVisibility.PRIVATE) >= MAX_PRIVATE_SEARCHES_PER_USER) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "You already have the maximum number of private searches on this mandate.");
+                    "You already have the most private searches this position allows. Delete one you no longer use.");
         }
     }
 

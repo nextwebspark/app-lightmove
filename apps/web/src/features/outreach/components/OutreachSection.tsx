@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { cn } from "../../../lib/cn";
 import type { CandidateStatus } from "../../candidates/api/types";
@@ -6,6 +7,7 @@ import * as runApi from "../api/runApi";
 import type { OutreachStep } from "../api/runApi";
 import { isLive, RUN_STATES, sendTimeOf, STOP_NOTES } from "../lib/runVocabulary";
 import { useStopRun } from "../lib/useStopRun";
+import { StopRunDialog } from "./StopRunDialog";
 
 /** What a reply asks the consultant to record. Uncava never infers it from what they wrote. */
 const REPLY_CHOICES: { value: CandidateStatus; label: string }[] = [
@@ -44,6 +46,7 @@ export function OutreachSection({
     queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidateId, signal),
   });
   const stop = useStopRun(projectId);
+  const [isConfirmingStop, setIsConfirmingStop] = useState(false);
   const run = outreach.data?.run ?? null;
   if (!run) {
     return null;
@@ -108,12 +111,21 @@ export function OutreachSection({
           <button
             type="button"
             disabled={stop.isPending}
-            onClick={() => stop.mutate({ id: run.id, fullName: null })}
+            onClick={() => setIsConfirmingStop(true)}
             className="mt-2 rounded-[6px] border border-u-border px-[11px] py-[5px] text-[12px] font-medium text-u-text2 hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-60"
           >
             Stop sequence
           </button>
         )}
+        <StopRunDialog
+          open={isConfirmingStop}
+          name={firstName}
+          pending={stop.isPending}
+          onConfirm={() =>
+            stop.mutate({ id: run.id, fullName: null }, { onSettled: () => setIsConfirmingStop(false) })
+          }
+          onClose={() => setIsConfirmingStop(false)}
+        />
       </div>
     </CollapsibleSection>
   );

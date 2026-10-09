@@ -145,7 +145,7 @@ public class PositionExtractionService {
     private LoadedDocument load(UUID workspaceId, UUID projectId) {
         if (!settings.enabled()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "Reading a position description is turned off for this deployment");
+                    "Reading position descriptions isn't switched on for your workspace. Fill in the brief by hand.");
         }
         return documentLoader.require(workspaceId, projectId);
     }

@@ -30,6 +30,20 @@ CREATE INDEX IF NOT EXISTS app_lm_audit_event_target_idx
     ON app_lm_audit_event (target_type, target_id, id DESC)
     WHERE outcome = 'SUCCESS';
 
+-- 2b. The contact-credit ledger (V121) is append-only on the same terms: it is what a workspace was charged,
+--     and a foothold in the app must not be able to rewrite a balance's history. V121's trigger refuses UPDATE
+--     and DELETE for every role; this takes the privilege away besides.
+DO $$
+BEGIN
+    IF to_regclass('public.app_lm_credit_entry') IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE app_lm_credit_entry OWNER TO postgres';
+        EXECUTE 'ALTER SEQUENCE app_lm_credit_entry_id_seq OWNER TO postgres';
+        EXECUTE 'REVOKE ALL ON app_lm_credit_entry FROM lm_app';
+        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_credit_entry TO lm_app';
+        EXECUTE 'GRANT  USAGE ON SEQUENCE app_lm_credit_entry_id_seq TO lm_app';
+    END IF;
+END $$;
+
 -- 3. The company universe is reference data: the brightdata pipeline writes it (through
 --    the pipeline), the application only reads it. Giving lm_app write access would buy nothing and
 --    would let a SQL-injection foothold in the app rewrite every company a consultant sees.

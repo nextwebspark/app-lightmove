@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { Modal } from "./Modal";
 
@@ -111,5 +112,44 @@ describe("Modal — header", () => {
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("is a form when given onSubmit, so Enter in a field presses the footer's submit button", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(
+      <Modal open onClose={vi.fn()} title="Rename" onSubmit={onSubmit} footer={<button type="submit">Save</button>}>
+        <input aria-label="Name" />
+      </Modal>,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Name" })).toHaveFocus();
+    await user.keyboard("Board{Enter}");
+
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Tab inside, and hands focus back to the opener on close", async () => {
+    const user = userEvent.setup();
+    function Opener() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>New</button>
+          <button>Behind</button>
+          <Modal open={open} onClose={() => setOpen(false)} title="New" footer={<button>Create</button>}>
+            <input aria-label="Title" />
+          </Modal>
+        </>
+      );
+    }
+    render(<Opener />);
+    await user.click(screen.getByRole("button", { name: "New" }));
+
+    for (let press = 0; press < 5; press++) await user.tab();
+    expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("button", { name: "New" })).toHaveFocus();
   });
 });

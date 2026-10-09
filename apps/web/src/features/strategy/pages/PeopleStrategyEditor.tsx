@@ -21,6 +21,7 @@ import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { useAuth } from "../../auth/AuthProvider";
+import { isBillingRefusal } from "../../billing/lib/billingView";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import { TRIAGE_KEY_PREFIX } from "../../triage/api/triageApi";
 import type { TriageCompanyStatus } from "../../triage/api/types";
@@ -74,9 +75,9 @@ export const NO_PEOPLE_FILTER: PeopleFilter = {
 
 /**
  * Strategy's People mode: the ContactOut filter rail on the left, the people a search returned on the
- * right. The filter autosaves and the count follows it, both free; a search is a deliberate press,
- * because every page not already fetched spends a search credit per person on it. The first press
- * brings the top 25, and Load more the next 25 — ContactOut's own order, the only one it offers.
+ * right. The filter autosaves and the count follows it; a search is a deliberate press, because every
+ * page not already fetched is bought from ContactOut and counts toward the workspace's fair use. The first
+ * press brings the top 25, and Load more the next 25 — ContactOut's own order, the only one it offers.
  *
  * <p>A page is answered from the server's people cache when anybody has asked the same question in the
  * last month, so paging back, reloading or a colleague repeating the search costs nothing — and the
@@ -182,12 +183,11 @@ export function PeopleStrategyEditor({
   });
 
   useEffect(() => {
-    if (results.error) toast.error(messageFor(results.error));
+    if (results.error && !isBillingRefusal(results.error)) toast.error(messageFor(results.error));
   }, [results.error, toast]);
 
   const people = results.data?.pages.flatMap((page) => page.people) ?? [];
   const total = results.data?.pages[0]?.total ?? 0;
-  const billed = results.data?.pages.reduce((sum, page) => sum + page.billed, 0) ?? 0;
 
   const handleSearch = async () => {
     // The server searches the stored filter, so the last chip click must reach it first — and a
@@ -327,11 +327,6 @@ export function PeopleStrategyEditor({
           onChange={setView}
           className="hidden md:inline-flex"
         />
-        {results.data && (
-          <span className="text-meta text-u-text3 sm:ml-auto">
-            {billed > 0 ? `${billed} search credits spent on this search` : "Answered from the cache — no credits spent"}
-          </span>
-        )}
       </div>
 
       <div className="flex min-h-0 flex-1">
@@ -359,15 +354,15 @@ export function PeopleStrategyEditor({
                 title="Search ContactOut for people"
                 body={
                   isEmptyFilter(filter)
-                    ? "Build a filter on the left — the count is free and follows every change."
-                    : "Press Search to bring in the top 25. A page already fetched by anyone is free."
+                    ? "Build a filter on the left — the count follows every change."
+                    : "Press Search to bring in the top 25."
                 }
               />
             ) : people.length === 0 ? (
               <EmptyState
                 icon={<Icon d={ICONS.search} size={22} />}
                 title="Nobody matched"
-                body="Loosen the filter and search again — a search finding nobody spends nothing."
+                body="Loosen the filter and search again."
               />
             ) : (
               renderResults(people, results.isFetchingNextPage)
@@ -404,7 +399,7 @@ export function PeopleStrategyEditor({
                   disabled={results.isFetchingNextPage}
                   className="rounded-[6px] border border-u-border-strong px-3 py-1.5 text-note font-medium text-u-text2 transition hover:text-u-text disabled:opacity-40"
                 >
-                  {results.isFetchingNextPage ? "Loading…" : "Load 25 more · up to 25 credits"}
+                  {results.isFetchingNextPage ? "Loading…" : "Load 25 more"}
                 </button>
               )}
               <FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />
