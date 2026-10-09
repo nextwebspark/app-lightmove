@@ -33,6 +33,7 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-label={label}
+        data-edge-panel={wide ? "drawer-wide" : "drawer"}
         className={cn(
           "fixed inset-x-2.5 bottom-2.5 top-14 z-[95] flex animate-fade-up flex-col rounded-[10px]",
           "border border-u-border-strong bg-u-surface shadow-u-e3 sm:inset-x-auto sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",

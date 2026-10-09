@@ -16,6 +16,7 @@ import {
   type RunFilter,
 } from "../lib/runVocabulary";
 import { useStopRun } from "../lib/useStopRun";
+import { StopRunDialog } from "./StopRunDialog";
 
 const ROW_GRID =
   "grid grid-cols-[minmax(240px,2.2fr)_minmax(150px,1.3fr)_110px_minmax(140px,1fr)_minmax(170px,1.3fr)_56px_90px] items-center gap-3";
@@ -42,6 +43,7 @@ export function PeopleInOutreach({
     queryFn: ({ signal }) => runApi.getOutreachPeople(projectId, signal),
   });
   const stop = useStopRun(projectId);
+  const [stopping, setStopping] = useState<OutreachRun | null>(null);
 
   const people = overview.data?.people ?? [];
   const hasPeople = (overview.data?.counts.enrolled ?? 0) > 0;
@@ -113,7 +115,7 @@ export function PeopleInOutreach({
                     run={run}
                     isStopping={stop.isPending && stop.variables?.id === run.id}
                     onOpen={onOpenCandidate}
-                    onStop={() => stop.mutate(run)}
+                    onStop={() => setStopping(run)}
                   />
                 ))
               )}
@@ -125,6 +127,13 @@ export function PeopleInOutreach({
           </p>
         </section>
       )}
+      <StopRunDialog
+        open={stopping !== null}
+        name={stopping?.fullName ?? null}
+        pending={stop.isPending}
+        onConfirm={() => stopping && stop.mutate(stopping, { onSettled: () => setStopping(null) })}
+        onClose={() => setStopping(null)}
+      />
     </>
   );
 }

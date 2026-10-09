@@ -35,6 +35,7 @@
 		<stripe-java.version>34.0.0</stripe-java.version>
 		<springdoc.version>3.1.1</springdoc.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
+		<spring-ai-agent-utils.version>0.13.0</spring-ai-agent-utils.version>
 		<!-- Overrides the 11.0.22 Boot 4.1.0 manages, which carries three critical
 		     authentication advisories (CVE-2026-65905, CVE-2026-65182, CVE-2026-68525).
 		     Remove once the parent manages 11.0.25 or later. -->
@@ -158,6 +159,20 @@
 		<dependency>
 			<groupId>org.springframework.ai</groupId>
 			<artifactId>spring-ai-starter-model-google-genai-embedding</artifactId>
+		</dependency>
+
+		<!-- The assistant's playbooks: SkillsTool only. Its shell, file and web tools are never registered
+		     (AssistantToolAllowlistTest), and flexmark serves only the web-fetch tool. -->
+		<dependency>
+			<groupId>org.springaicommunity</groupId>
+			<artifactId>spring-ai-agent-utils</artifactId>
+			<version>${spring-ai-agent-utils.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.vladsch.flexmark</groupId>
+					<artifactId>flexmark-html2md-converter</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
 		<!-- The MCP server at /api/v1/mcp: stateless Streamable HTTP over the official MCP Java SDK. -->

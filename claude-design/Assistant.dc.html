@@ -337,6 +337,36 @@
                 </div>
               </sc-if>
 
+              <sc-if value="{{ t.showQuestions }}" hint-placeholder-val="{{ false }}">
+                <div data-screen-label="Questions" style="margin-top:12px;overflow:hidden;border-radius:11px;border:1px solid {{ t.qBorder }};background:var(--panel)">
+                  <sc-for list="{{ t.qBlocks }}" as="b" hint-placeholder-count="2">
+                    <div style="border-bottom:1px solid var(--line-soft);padding:10px 12px">
+                      <div style="display:flex;align-items:center;gap:7px">
+                        <span style="flex:none;border-radius:4px;padding:2px 6px;font:600 9px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--ai);background:var(--ai-soft)">{{ b.header }}</span>
+                        <sc-if value="{{ b.multi }}" hint-placeholder-val="{{ false }}"><span style="font:400 10px var(--mono);color:var(--text3)">Pick any</span></sc-if>
+                      </div>
+                      <p style="margin:6px 0 8px;font:500 12.5px/1.45 var(--sans);color:var(--text)">{{ b.question }}</p>
+                      <sc-for list="{{ b.options }}" as="o" hint-placeholder-count="3">
+                        <button onClick="{{ pickOption }}" data-turn="{{ o.turn }}" data-q="{{ o.q }}" data-label="{{ o.label }}" aria-pressed="{{ o.pressed }}" style="display:flex;width:100%;gap:9px;align-items:flex-start;margin-bottom:5px;border-radius:7px;border:1px solid {{ o.border }};background:{{ o.bg }};padding:7px 9px;text-align:left;cursor:{{ o.cursor }};opacity:{{ o.opacity }}" style-hover="border-color:var(--ai)">
+                          <span style="margin-top:2px;width:13px;height:13px;flex:none;display:grid;place-items:center;border-radius:{{ o.markRadius }};box-shadow:inset 0 0 0 1.5px currentColor;color:{{ o.markColor }}"><span style="width:7px;height:7px;border-radius:{{ o.markRadius }};background:currentColor;opacity:{{ o.dotOpacity }}"></span></span>
+                          <span style="min-width:0">
+                            <span style="display:block;font:500 12px var(--sans);color:var(--text)">{{ o.label }}</span>
+                            <span style="display:block;font:400 11px/1.4 var(--sans);color:var(--text3)">{{ o.description }}</span>
+                          </span>
+                        </button>
+                      </sc-for>
+                      <input value="{{ b.other }}" onInput="{{ onOther }}" data-turn="{{ b.turn }}" data-q="{{ b.q }}" disabled="{{ b.locked }}" placeholder="Other…" aria-label="{{ b.otherAria }}" style="width:100%;box-sizing:border-box;border-radius:7px;border:1px dashed var(--line);background:transparent;padding:7px 9px;font:400 12px var(--sans);color:var(--text);outline:none" />
+                    </div>
+                  </sc-for>
+                  <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--panel2)">
+                    <p style="margin:0;font:400 11px var(--mono);color:var(--text3)">{{ t.qCaption }}</p>
+                    <sc-if value="{{ t.qLive }}" hint-placeholder-val="{{ true }}">
+                      <button onClick="{{ sendAnswers }}" data-turn="{{ t.idx }}" style="margin-left:auto;border-radius:6px;border:none;background:var(--ai);padding:6px 11px;font:500 11.5px var(--sans);color:#fff;cursor:{{ t.qSendCursor }};opacity:{{ t.qSendOpacity }}">Send answers</button>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-if>
+
               <sc-if value="{{ t.failed }}" hint-placeholder-val="{{ false }}">
                 <div data-screen-label="Turn failed" style="margin-top:12px;display:flex;gap:10px;border-radius:9px;border:1px solid color-mix(in srgb,var(--amber) 40%,transparent);background:var(--amber-dim);padding:10px 12px">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-top:2px;flex:none;color:var(--amber)"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path></svg>
@@ -377,7 +407,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">AI</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;panelOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;context&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;project&quot;,&quot;options&quot;:[&quot;project&quot;,&quot;workspace&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;turnState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;proposal&quot;,&quot;options&quot;:[&quot;empty&quot;,&quot;loading&quot;,&quot;streaming&quot;,&quot;answer&quot;,&quot;proposal&quot;,&quot;degraded&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;panelOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;context&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;project&quot;,&quot;options&quot;:[&quot;project&quot;,&quot;workspace&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;turnState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;proposal&quot;,&quot;options&quot;:[&quot;empty&quot;,&quot;loading&quot;,&quot;streaming&quot;,&quot;answer&quot;,&quot;proposal&quot;,&quot;question&quot;,&quot;degraded&quot;,&quot;error&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -438,6 +468,17 @@ class Component extends DCLogic {
         { ref: 'c6', origin: 'WEB', companyName: 'EDF Renewables ME', country: null, employees: null },
       ],
     };
+
+    this.QUESTIONS = [
+      { header: 'Sector', question: 'Which sector should the companies come from?', multiSelect: false, options: [
+        { label: 'Automotive retail (Recommended)', description: 'Dealer groups and distributors, closest to the brief' },
+        { label: 'Consumer retail', description: 'Large multi-brand retailers; the finance function transfers' },
+        { label: 'Any large group', description: 'Diversified conglomerates of every sector' } ] },
+      { header: 'Ownership', question: 'Which ownership types should be included?', multiSelect: true, options: [
+        { label: 'Family-owned', description: 'Private family groups, most of the market' },
+        { label: 'Listed', description: 'On a public exchange' },
+        { label: 'Government-related', description: 'State-owned and sovereign holdings' } ] },
+    ];
 
     this.ANSWERS = {
       proposal: 'Thirty-eight automotive dealership groups match this filter. Al Naboodah Group, Al Habtoor Group and Trading Enterprises are already in this position. Six of the larger groups are not, and they are below: two the universe already holds, two bought and verified, and two named only on the open web. Nothing is filed until you choose a stage.',
@@ -525,7 +566,7 @@ class Component extends DCLogic {
   }
 
   newTurn(question) {
-    return { question, steps: [], answer: '', status: 'RUNNING', errorCode: null, proposal: null, ticked: [], dismissed: false, accepted: null };
+    return { question, steps: [], answer: '', status: 'RUNNING', errorCode: null, proposal: null, ticked: [], dismissed: false, accepted: null, questions: null, picks: {}, other: {}, answered: false };
   }
 
   withProposal(turn) {
@@ -547,6 +588,12 @@ class Component extends DCLogic {
         steps: [s('listMandateCompanies'), s('listMandateExecutives')],
         answer: this.ANSWERS.unmapped, status: 'SUCCEEDED' }];
     }
+    if (state === 'question') {
+      return [{ ...this.newTurn('Find me companies for this role'),
+        steps: [{ tool: 'Skill', label: 'Following the find companies playbook', running: false },
+          { tool: 'AskUserQuestionTool', label: 'Asking you some questions', running: false }],
+        answer: 'Before I go on, help me narrow this down:', status: 'SUCCEEDED', questions: this.QUESTIONS }];
+    }
     if (state === 'degraded') {
       return [{ ...this.newTurn('Which companies in my universe have no executives mapped?'),
         steps: [s('listMandateCompanies'), s('listMandateExecutives')],
@@ -562,8 +609,8 @@ class Component extends DCLogic {
     this.setState(st => ({ turns: st.turns.map((t, i) => (i === index ? (typeof patch === 'function' ? patch(t) : { ...t, ...patch }) : t)) }));
   }
 
-  send() {
-    const asked = this.state.draft.trim();
+  send(answering) {
+    const asked = (typeof answering === 'string' ? answering : this.state.draft).trim();
     if (!asked || this.state.running) return;
     this.clearTimers();
     const index = this.state.turns.length;
@@ -602,6 +649,16 @@ class Component extends DCLogic {
   initials(name) {
     const parts = name.trim().split(/\s+/);
     return ((parts[0] || '?')[0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+  }
+
+  answersOf(t) {
+    if (!t.questions) return '';
+    const parts = t.questions.map((qq, qi) => {
+      const typed = (t.other[qi] || '').trim();
+      const chosen = (t.picks[qi] || []).concat(typed ? [typed] : []);
+      return chosen.length ? qq.header + ': ' + chosen.join(', ') : null;
+    });
+    return parts.every(Boolean) ? parts.join(' · ') : '';
   }
 
   turnVals(t, idx) {
@@ -654,6 +711,28 @@ class Component extends DCLogic {
       caption: running ? 'Waiting for the answer to finish' : (n === 0 ? 'Nothing selected' : 'File ' + n + ' ' + (n === 1 ? 'company' : 'companies') + ' as'),
       btnOpacity: disabled ? '.4' : '1',
       btnCursor: disabled ? 'default' : 'pointer',
+      showQuestions: !!t.questions,
+      qBorder: t.answered ? 'var(--line-soft)' : 'var(--ai)',
+      qBlocks: (t.questions || []).map((qq, qi) => {
+        const picked = t.picks[qi] || [];
+        return {
+          turn: String(idx), q: String(qi), header: qq.header, question: qq.question, multi: qq.multiSelect,
+          other: t.other[qi] || '', locked: t.answered, otherAria: 'Another answer to: ' + qq.question,
+          options: qq.options.map(o => {
+            const on = picked.includes(o.label);
+            return {
+              turn: String(idx), q: String(qi), label: o.label, description: o.description, pressed: String(on),
+              border: on ? 'var(--ai)' : 'var(--line-soft)', bg: on ? 'var(--ai-soft)' : 'transparent',
+              markRadius: qq.multiSelect ? '3px' : '50%', markColor: on ? 'var(--ai)' : 'var(--line)', dotOpacity: on ? '1' : '0',
+              cursor: t.answered ? 'default' : 'pointer', opacity: t.answered && !on ? '.5' : '1',
+            };
+          }),
+        };
+      }),
+      qLive: !!t.questions && !t.answered,
+      qCaption: t.answered ? 'Answered below' : (this.answersOf(t) ? 'Ready to send' : 'Pick an answer to each'),
+      qSendCursor: this.answersOf(t) ? 'pointer' : 'default',
+      qSendOpacity: this.answersOf(t) ? '1' : '.4',
       failed,
       failMsg: t.errorCode === 'ASSISTANT_TURN_STRANDED'
         ? 'That answer stopped part way through. Ask again.'
@@ -791,6 +870,32 @@ class Component extends DCLogic {
         const accepted = { status, refs: t.ticked.slice(), added: t.ticked.length, skipped: 0 };
         this.updateTurn(index, { accepted });
         this.showToast(this.outcomeLine(accepted));
+      },
+      pickOption: (e) => {
+        const index = Number(e.currentTarget.dataset.turn);
+        const qi = Number(e.currentTarget.dataset.q);
+        const label = e.currentTarget.dataset.label;
+        this.updateTurn(index, t => {
+          if (t.answered) return t;
+          const multi = t.questions[qi].multiSelect;
+          const held = t.picks[qi] || [];
+          const next = multi ? (held.includes(label) ? held.filter(l => l !== label) : held.concat(label)) : [label];
+          return { ...t, picks: { ...t.picks, [qi]: next }, other: multi ? t.other : { ...t.other, [qi]: '' } };
+        });
+      },
+      onOther: (e) => {
+        const index = Number(e.currentTarget.dataset.turn);
+        const qi = Number(e.currentTarget.dataset.q);
+        const text = e.target.value;
+        this.updateTurn(index, t => ({ ...t, other: { ...t.other, [qi]: text },
+          picks: t.questions[qi].multiSelect || !text ? t.picks : { ...t.picks, [qi]: [] } }));
+      },
+      sendAnswers: (e) => {
+        const index = Number(e.currentTarget.dataset.turn);
+        const composed = this.answersOf(this.state.turns[index]);
+        if (!composed || this.state.running) return;
+        this.updateTurn(index, { answered: true });
+        this.send(composed);
       },
       dismissProposal: (e) => this.updateTurn(Number(e.currentTarget.dataset.turn), { dismissed: true }),
 

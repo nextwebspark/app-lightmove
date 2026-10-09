@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantQuestion;
 import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
 import app.lightmove.api.assistant.model.ModelSpend;
@@ -34,11 +35,12 @@ public class TurnRecorder {
     private final Map<String, CapturedCompanyDetails> researched = new LinkedHashMap<>();
     private final Map<String, CapturedCompanyDetails> remembered = new LinkedHashMap<>();
     private final Map<String, String> operatedBrands = new LinkedHashMap<>();
-    private final List<String> consultedSpecialists = new ArrayList<>();
+    private final Set<String> skillsUsed = new LinkedHashSet<>();
     private boolean namesLookedUp;
     private int vendorSearches;
     private AssistantProposal proposal;
     private ModelSpend spend = ModelSpend.NONE;
+    private List<AssistantQuestion> questions = List.of();
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
         this(onStep, proposal -> { });
@@ -92,13 +94,13 @@ public class TurnRecorder {
         return vendorSearches;
     }
 
-    public void consulted(String specialist) {
-        consultedSpecialists.add(specialist);
+    public void usedSkill(String skill) {
+        skillsUsed.add(skill);
     }
 
-    /** Every specialist this answer asked, in order and once per ask — what its audit event records. */
-    public List<String> consultedSpecialists() {
-        return List.copyOf(consultedSpecialists);
+    /** Every playbook this answer loaded, in order, each once — what its audit event records. */
+    public List<String> skillsUsed() {
+        return List.copyOf(skillsUsed);
     }
 
     public void researched(String linkedinSlug, CapturedCompanyDetails details) {
@@ -146,6 +148,27 @@ public class TurnRecorder {
     /** The tokens every model call of this answer took — what its turn row records. */
     public synchronized ModelSpend spend() {
         return spend;
+    }
+
+    /**
+     * Keeps the questions for the card ({@link AssistantQuestions} has already held them to its limits). Only
+     * the first set an answer asks is kept; an empty one leaves the answer to carry on without asking.
+     */
+    public void ask(List<AssistantQuestion> asked) {
+        if (!questions.isEmpty() || asked.isEmpty()) {
+            return;
+        }
+        questions = List.copyOf(asked);
+        int step = startStep(questions.size() == 1 ? "Asking you a question" : "Asking you some questions");
+        finishStep(step, null);
+    }
+
+    public List<AssistantQuestion> questions() {
+        return questions;
+    }
+
+    public boolean askedQuestions() {
+        return !questions.isEmpty();
     }
 
     public List<AssistantStep> steps() {

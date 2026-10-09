@@ -113,6 +113,6 @@ Metrics are unreachable today; see `production-observability.md`, gap 4.
 | Shared | `core/llm/**`, `core/ratelimit/service/LlmBudgetGuard`, `application.yml` (`spring.ai.*`, `lightmove.llm.*`, `lightmove.assistant.*`) |
 | Position extraction | `position/service/Position*Proposer`, `PositionExtractionService`, `PositionDocumentRedactor`, `ExtractedFieldReader`, `prompts/position-extract-*` |
 | Candidate AI enrich | `enrichment/candidate/service/CandidateAiEnricher`, `CandidateAiEnrichWorker`, `candidate/model/CandidateDossier`, `prompts/candidate-ai-enrich-*` |
-| Assistant | `assistant/service/AssistantService`, `AssistantAskStream`, `assistant/tool/*`, `prompts/assistant-system.st` |
+| Assistant | `assistant/service/AssistantService`, `AssistantAskStream`, `assistant/tool/*`, `prompts/assistant-core.st`, `assistant/skills/*/SKILL.md` |
 
 Related: `llm-guardrails.md`, `llm-google-genai-integration.md`, `assistant-tools.md`, `production-observability.md`.

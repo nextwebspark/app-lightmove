@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { Button, FormError, useToast } from "../../../components/ui";
+import { Button, FormError, useToast, type ToastFn } from "../../../components/ui";
 import { DetailPill } from "../../../components/ui/DetailList";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { Icon, ICONS } from "../../../components/layout/Icon";
@@ -503,7 +503,7 @@ function useContactLookup(
   projectId: string,
   candidateId: string,
   onSaved: (saved: Candidate) => void,
-  toast: (message: string) => void,
+  toast: ToastFn,
 ) {
   const queryClient = useQueryClient();
   const [inlineError, setInlineError] = useState<string | null>(null);
@@ -525,7 +525,7 @@ function useContactLookup(
         return;
       }
       if (isBillingRefusal(error)) return;
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     },
   });
   return {

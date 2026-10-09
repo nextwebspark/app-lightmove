@@ -3,6 +3,7 @@ import { useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar, Button, Modal, Select, useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { messageFor } from "../../../lib/errorCodes";
 import { titleCase } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
@@ -91,7 +92,7 @@ function MemberRow({ member }: { member: Member }) {
       await refresh();
       toast("Role updated");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const remove = useMutation({
@@ -103,7 +104,7 @@ function MemberRow({ member }: { member: Member }) {
     },
     onError: (error) => {
       setConfirmRemove(false);
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     },
   });
 
@@ -153,7 +154,7 @@ function MemberRow({ member }: { member: Member }) {
               Cancel
             </Button>
             <Button
-              className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
+              variant="danger"
               loading={remove.isPending}
               onClick={() => remove.mutate()}
             >
@@ -174,7 +175,7 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: workspaceApi.INVITATIONS_KEY });
     },
-    onError: (error: unknown) => toast(messageFor(error)),
+    onError: (error: unknown) => toast.error(messageFor(error)),
   };
 
   const resend = useMutation({
@@ -185,10 +186,12 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
       toast("Invitation re-sent");
     },
   });
+  const [isConfirmingRevoke, setIsConfirmingRevoke] = useState(false);
   const revoke = useMutation({
     mutationFn: () => workspaceApi.revokeInvitation(invitation.id),
     ...settle,
     onSuccess: () => {
+      setIsConfirmingRevoke(false);
       settle.onSuccess();
       toast("Invitation revoked");
     },
@@ -208,9 +211,19 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
       <Button variant="secondary" className="!py-1.5 !text-xs" disabled={busy} loading={resend.isPending} onClick={() => resend.mutate()}>
         Resend
       </Button>
-      <Button variant="ghost" className="!py-1.5 !text-xs !text-u-offlimits" disabled={busy} onClick={() => revoke.mutate()}>
+      <Button variant="ghost" className="!py-1.5 !text-xs !text-u-offlimits" disabled={busy} onClick={() => setIsConfirmingRevoke(true)}>
         Revoke
       </Button>
+      <ConfirmDialog
+        open={isConfirmingRevoke}
+        title={`Revoke the invitation to ${invitation.email}?`}
+        confirmLabel="Revoke"
+        pending={revoke.isPending}
+        onConfirm={() => revoke.mutate()}
+        onClose={() => setIsConfirmingRevoke(false)}
+      >
+        <p>The link in their email will stop working. You can invite them again later.</p>
+      </ConfirmDialog>
     </div>
   );
 }

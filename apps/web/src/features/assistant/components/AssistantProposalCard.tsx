@@ -58,6 +58,7 @@ export function AssistantProposalCard({
     <div className="overflow-hidden rounded-[11px] border border-u-accent bg-u-surface shadow-u-e3">
       <div className="border-b border-u-border bg-u-inferred-tint px-3 py-2.5">
         <p className="font-sans text-[12.5px] font-semibold text-u-text">{proposal.title}</p>
+        <p className="mt-[3px] font-mono text-[11px] text-u-text3">{compositionLine(proposal.companies)}</p>
       </div>
 
       <ul className="max-h-[258px] overflow-y-auto">
@@ -155,6 +156,19 @@ export function outcomeLine(outcome: ProposalOutcome): string {
   const stage = TRIAGE_STAGES.find((one) => one.status === (outcome.status ?? "inUniverse"));
   const filed = `${outcome.added} ${outcome.added === 1 ? "company" : "companies"} filed to ${stage?.label ?? "In universe"}`;
   return outcome.skipped > 0 ? `${filed}, ${outcome.skipped} already in this mandate` : filed;
+}
+
+/** "6 suggested · 2 already in this position · 3 from LinkedIn", per the mockup's line under the title. */
+export function compositionLine(companies: ProposedCompany[]): string {
+  const held = companies.filter((company) => company.stage).length;
+  const researched = companies.filter((company) => !company.apolloAccountId).length;
+  return [
+    `${companies.length} suggested`,
+    held > 0 ? `${held} already in this position` : null,
+    researched > 0 ? `${researched} from LinkedIn` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** `!= null` because zero is a real headcount. */

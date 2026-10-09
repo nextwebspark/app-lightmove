@@ -33,7 +33,7 @@ export function SettingsSecurityPage() {
       await refreshSessions();
       toast("Session signed out");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const revokeOtherSessions = useMutation({
@@ -42,7 +42,7 @@ export function SettingsSecurityPage() {
       await refreshSessions();
       toast(revoked === 1 ? "1 other session signed out" : `${revoked} other sessions signed out`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   // RequireWorkspace has already resolved the session; this only satisfies the type.

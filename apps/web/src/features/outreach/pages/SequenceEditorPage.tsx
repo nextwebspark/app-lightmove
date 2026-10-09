@@ -147,7 +147,7 @@ function SequenceEditor({
           replace: true,
         });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const remove = useMutation({
@@ -159,7 +159,7 @@ function SequenceEditor({
     },
     onError: (error) => {
       setIsConfirmingDelete(false);
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     },
   });
 

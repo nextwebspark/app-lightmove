@@ -19,7 +19,7 @@ export function WorkspacePersonaCard({ persona }: { persona: HiringPersona }) {
       setDraft(saved.persona);
       toast("Firm persona saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

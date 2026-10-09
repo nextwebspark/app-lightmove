@@ -89,7 +89,7 @@ export function ManageColumnsDialog({
       setNewLabel("");
       toast(`${column.label} added to the grid`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const update = useMutation({
@@ -99,13 +99,13 @@ export function ManageColumnsDialog({
       refresh();
       setRenaming(null);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const reorder = useMutation({
     mutationFn: (columnIds: string[]) => customColumnsApi.reorderCustomColumns(projectId, columnIds),
     onSuccess: refresh,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const remove = useMutation({
@@ -114,7 +114,7 @@ export function ManageColumnsDialog({
       refresh();
       toast("Column removed. The values stay on the rows.");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   /**

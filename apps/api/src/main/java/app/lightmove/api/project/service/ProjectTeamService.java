@@ -165,7 +165,7 @@ public class ProjectTeamService {
                 }
             }
             case null -> throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
-                    "That representative cannot be added to a mandate in their current state");
+                    "That representative can't be added to a position in their current state");
         }
 
         return projectService.responseFor(workspaceId, project);

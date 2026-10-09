@@ -2,6 +2,7 @@ package app.lightmove.api.strategy.service;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -41,6 +42,18 @@ public class SectorTaxonomy {
     /** In file order. */
     public Map<String, List<String>> groups() {
         return industriesByGroup;
+    }
+
+    /** Every industry of the sector {@code industry} is filed under, itself included; empty when none is. */
+    public List<String> sectorOf(String industry) {
+        if (industry == null) {
+            return List.of();
+        }
+        String label = industry.strip().toLowerCase(Locale.ROOT);
+        return industriesByGroup.values().stream()
+                .filter(industries -> industries.contains(label))
+                .findFirst()
+                .orElse(List.of());
     }
 
 }

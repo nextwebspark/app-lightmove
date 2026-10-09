@@ -24,7 +24,7 @@ export function MailboxTimeZoneSelect({ timeZone }: { timeZone: string }) {
       queryClient.setQueryData(mailboxApi.MAILBOX_KEY, mailbox);
       toast("Time zone saved. Your sending hours now read in it.");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

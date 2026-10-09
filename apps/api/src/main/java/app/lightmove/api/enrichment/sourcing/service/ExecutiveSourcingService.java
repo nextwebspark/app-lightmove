@@ -172,7 +172,7 @@ public class ExecutiveSourcingService {
                 .collect(Collectors.toMap(TriageCompanyResponse::id, Function.identity()));
         if (byId.size() < asked.size()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "triageCompanyIds",
-                    "Only In-universe companies of this mandate can be searched");
+                    "Only In-universe companies of this position can be searched");
         }
         return asked.stream().map(byId::get).map(ExecutiveSourcingService::toSourcingCompany).toList();
     }

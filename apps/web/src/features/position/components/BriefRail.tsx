@@ -24,6 +24,7 @@ export function BriefRail({
   onPublish,
   onEditPosition,
   onSaveDraft,
+  onRetrySave,
 }: {
   position: Position;
   activeKey: StepKey;
@@ -34,6 +35,7 @@ export function BriefRail({
   onPublish: () => void;
   onEditPosition: () => void;
   onSaveDraft: () => void;
+  onRetrySave: () => void;
 }) {
   const published = Boolean(position.publication.publishedAt);
   const stepLinks = POSITION_STEPS.map((step) => ({ key: step.key, label: step.name, icon: step.icon }));
@@ -44,9 +46,7 @@ export function BriefRail({
         <UncavaRailNav label="Brief steps" param={STEP_PARAM} items={stepLinks} activeKey={activeKey} />
 
         <div className="flex flex-wrap items-center gap-2 lg:mt-auto lg:flex-col lg:items-stretch lg:pt-6">
-          <span aria-live="polite" className="text-meta text-u-text3 lg:mb-1 lg:text-center">
-            {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : " "}
-          </span>
+          <SaveStatusLine status={saveStatus} onRetry={onRetrySave} />
           <BriefButton
             onClick={readBack ? onEditPosition : onPublish}
             loading={publishing}
@@ -65,5 +65,31 @@ export function BriefRail({
         </div>
       </div>
     </aside>
+  );
+}
+
+/**
+ * Where the brief says whether it is stored. A refused save stays on screen until one lands — it is
+ * the only place a consultant learns their typing is not yet on the server.
+ */
+function SaveStatusLine({ status, onRetry }: { status: SaveStatus; onRetry: () => void }) {
+  return (
+    <span aria-live="polite" className="text-meta text-u-text3 lg:mb-1 lg:text-center">
+      {status === "error" ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="font-medium text-u-offlimits underline-offset-2 hover:underline"
+        >
+          Not saved — Retry
+        </button>
+      ) : status === "saving" ? (
+        "Saving…"
+      ) : status === "saved" ? (
+        "Saved"
+      ) : (
+        "\u00a0"
+      )}
+    </span>
   );
 }

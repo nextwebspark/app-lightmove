@@ -38,6 +38,21 @@ describe("the assistant's company card", () => {
     expect(screen.getByText("C")).toBeInTheDocument();
   });
 
+  it("says under the title what the list holds, so it reads as suggestions to file", () => {
+    mount({
+      proposal: {
+        title: "Watch distributors",
+        companies: [
+          company("a1"),
+          company("a2", { stage: "declined" }),
+          company("x", { apolloAccountId: null, linkedinSlug: "rivoli" }),
+        ],
+      },
+    });
+
+    expect(screen.getByText("3 suggested · 1 already in this position · 1 from LinkedIn")).toBeInTheDocument();
+  });
+
   it("files only the ticked companies, at the stage pressed", async () => {
     const { onAccept } = mount();
 

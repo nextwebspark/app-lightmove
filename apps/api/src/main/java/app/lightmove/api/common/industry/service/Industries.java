@@ -29,10 +29,12 @@ public final class Industries {
 
     private static final Map<String, String> INDUSTRY_BY_SPELLING;
     private static final Map<String, ResolvedIndustry> RESOLVED_BY_INDUSTRY;
+    private static final Map<String, List<String>> LINKEDIN_LABELS_BY_INDUSTRY;
 
     static {
         Map<String, String> bySpelling = new HashMap<>();
         Map<String, ResolvedIndustry> byIndustry = new HashMap<>();
+        Map<String, List<String>> linkedInLabels = new HashMap<>();
         read().forEach((code, entry) -> {
             for (String spelling : entry.spellings()) {
                 String previous = bySpelling.put(fold(spelling), entry.apollo());
@@ -44,9 +46,11 @@ public final class Industries {
             }
             byIndustry.put(entry.apollo(), new ResolvedIndustry(
                     entry.apollo(), linkedInCode(code), entry.v2Label(), entry.sectorGroup()));
+            linkedInLabels.put(entry.apollo(), entry.linkedInLabels());
         });
         INDUSTRY_BY_SPELLING = Map.copyOf(bySpelling);
         RESOLVED_BY_INDUSTRY = Map.copyOf(byIndustry);
+        LINKEDIN_LABELS_BY_INDUSTRY = Map.copyOf(linkedInLabels);
     }
 
     /** One entry is Apollo's own label, keyed by name, with no LinkedIn code. */
@@ -55,6 +59,16 @@ public final class Industries {
     }
 
     private Industries() {
+    }
+
+    /**
+     * Every V2 industry a LinkedIn page files under that this universe label covers — "retail" is
+     * "Retail" and fifteen finer leaves — which is what a Bright Data filter on {@code industries} must
+     * list. Empty for a label the map does not know.
+     */
+    public static List<String> linkedInLabelsOf(String label) {
+        String industry = nameOf(label);
+        return industry == null ? List.of() : LINKEDIN_LABELS_BY_INDUSTRY.getOrDefault(industry, List.of());
     }
 
     /** The universe's label where the map knows one, else the caller's own, trimmed; blank → null. */
@@ -133,6 +147,10 @@ public final class Industries {
 
         List<String> spellings() {
             return Stream.concat(Stream.of(apollo), aliases.stream()).toList();
+        }
+
+        List<String> linkedInLabels() {
+            return Stream.concat(Stream.ofNullable(v2Label), aliases.stream()).distinct().toList();
         }
     }
 }

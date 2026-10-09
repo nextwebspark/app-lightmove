@@ -64,7 +64,7 @@ export function SettingsGeneralPage() {
       await reload();
       toast("Workspace settings saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   if (!workspace) return null;
@@ -213,7 +213,7 @@ function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: strin
           Cancel
         </Button>
         <Button
-          className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
+          variant="danger"
           disabled={!matches}
           loading={destroy.isPending}
           onClick={() => destroy.mutate()}

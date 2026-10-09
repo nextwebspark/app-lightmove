@@ -16,58 +16,44 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * The assistant's two kinds of model call: a specialist with its own tools, and the supervisor whose
- * tools are specialists. Both send the chat's recent turns, and both hand the tools only the server's
- * {@link AssistantToolContext} — never a key Spring AI added to an outer call's context.
- *
- * <p>Deliberately not {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor phrase list would refuse
- * ordinary conversation ("ignore the declined ones"); #429 owns the replacement. The ChatCallLog
- * attribution is kept, since that keeps prompt and answer content out of the logs.
+ * The assistant's one model call, run through Spring AI's tool loop. Deliberately not
+ * {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor would refuse "ignore the declined ones" (#429).
  */
 @Service
 public class AssistantModelCall {
 
-    static final String SUPERVISOR_PROMPT_ID = "assistant-supervisor";
+    /** Kept from before playbooks existed, so the cost and log lines of an answer read as they did. */
+    static final String PROMPT_ID = "assistant-turn";
 
     private final ChatClient chatClient;
     private final AssistantSettings settings;
-    private final Resource supervisorPrompt;
+    private final Resource corePrompt;
 
     public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
-                              @Value("classpath:prompts/assistant-supervisor.st") Resource supervisorPrompt) {
+                              @Value("classpath:prompts/assistant-core.st") Resource corePrompt) {
         this.chatClient = chatClient;
         this.settings = properties.assistant();
-        this.supervisorPrompt = supervisorPrompt;
+        this.corePrompt = corePrompt;
     }
 
-    public String askSpecialist(AssistantSpecialist specialist, List<AssistantTurn> history, String question,
-                                AssistantToolContext context) {
+    public String ask(Map<String, Object> systemParams, List<ToolCallback> tools, List<AssistantTurn> history,
+                      String question, AssistantToolContext context) {
         ChatResponse response = chatClient.prompt()
-                .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, specialist.promptId()))
-                .options(options(specialist.promptId(), settings.thinkingBudget()))
-                .system(system -> system.text(specialist.systemPrompt()).params(specialist.systemParams(context)))
+                .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID))
+                .options(GoogleGenAiChatOptions.builder()
+                        .model(settings.model())
+                        .temperature(settings.temperature())
+                        .thinkingBudget(settings.thinkingBudget())
+                        .labels(Map.of("prompt", PROMPT_ID)))
+                .system(system -> system.text(corePrompt).params(systemParams))
                 .messages(conversation(history, question))
-                .tools(specialist.tools().toArray())
-                .toolContext(context.asMap())
-                .call()
-                .chatResponse();
-        return answerOf(response, context);
-    }
-
-    /** No thinking budget: the supervisor only chooses whom to ask and passes the answer on. */
-    public String askSupervisor(List<SpecialistToolCallback> specialists, List<AssistantTurn> history,
-                                String question, AssistantToolContext context) {
-        ChatResponse response = chatClient.prompt()
-                .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, SUPERVISOR_PROMPT_ID))
-                .options(options(SUPERVISOR_PROMPT_ID, 0))
-                .system(supervisorPrompt)
-                .messages(conversation(history, question))
-                .tools(specialists.toArray())
+                .tools(tools.toArray())
                 .toolContext(context.asMap())
                 .call()
                 .chatResponse();
@@ -75,8 +61,8 @@ public class AssistantModelCall {
     }
 
     /**
-     * Every call is sent {@link #conversation}'s card blocks, so any answer may echo one back. The tokens are
-     * Spring AI's sum over the call's tool rounds; a specialist's nested call reports its own.
+     * Every call is sent {@link #conversation}'s card and question blocks, so any answer may echo one back. The
+     * tokens are Spring AI's sum over the call's tool rounds.
      */
     private String answerOf(ChatResponse response, AssistantToolContext context) {
         if (response == null) {
@@ -88,26 +74,26 @@ public class AssistantModelCall {
                 usage.getPromptTokens(), usage.getCompletionTokens());
         Generation result = response.getResult();
         String answer = result == null ? null : result.getOutput().getText();
-        return answer == null ? "" : CardMemory.stripFrom(answer);
-    }
-
-    private GoogleGenAiChatOptions.Builder options(String promptId, int thinkingBudget) {
-        return GoogleGenAiChatOptions.builder()
-                .model(settings.model())
-                .temperature(settings.temperature())
-                .thinkingBudget(thinkingBudget)
-                .labels(Map.of("prompt", promptId));
+        return answer == null ? "" : QuestionMemory.stripFrom(CardMemory.stripFrom(answer));
     }
 
     /**
-     * Each earlier answer carries the card it showed, which the answer's own text never lists — the
-     * newest {@link CardMemory#CARDS_LISTED_IN_FULL} row by row, older ones as a title and a count.
+     * Each earlier answer carries the companies it suggested, which the answer's own text never lists —
+     * the newest {@link CardMemory#CARDS_LISTED_IN_FULL} row by row, older ones as a title and a count —
+     * or the questions it asked instead, which the consultant's next message answers and is sent with the
+     * request they answer ({@link QuestionMemory#answering}).
      */
     static List<Message> conversation(List<AssistantTurn> history, String question) {
         List<Message> messages = new ArrayList<>(history.size() * 2 + 1);
         int cardsLeft = (int) history.stream().filter(AssistantModelCall::hasCard).count();
-        for (AssistantTurn turn : history) {
-            messages.add(new UserMessage(turn.getQuestion()));
+        for (int index = 0; index < history.size(); index++) {
+            AssistantTurn turn = history.get(index);
+            messages.add(new UserMessage(QuestionMemory.answering(history, index, turn.getQuestion())));
+            if (!turn.getQuestions().isEmpty()) {
+                messages.add(new AssistantMessage(turn.getAnswer() + "\n\n"
+                        + QuestionMemory.render(turn.getQuestions())));
+                continue;
+            }
             if (!hasCard(turn)) {
                 messages.add(new AssistantMessage(turn.getAnswer()));
                 continue;
@@ -116,7 +102,7 @@ public class AssistantModelCall {
             messages.add(new AssistantMessage(turn.getAnswer() + "\n\n"
                     + CardMemory.render(turn.getProposal(), turn.getProposalAccepted(), listed)));
         }
-        messages.add(new UserMessage(question));
+        messages.add(new UserMessage(QuestionMemory.answering(history, history.size(), question)));
         return messages;
     }
 

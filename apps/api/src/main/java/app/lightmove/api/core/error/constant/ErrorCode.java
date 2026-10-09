@@ -145,7 +145,7 @@ public enum ErrorCode {
             "This mandate already has a column with that name"),
 
     CUSTOM_COLUMN_LIMIT_REACHED(HttpStatus.CONFLICT,
-            "This mandate has as many custom columns as it can hold"),
+            "This position has as many custom columns as it can hold"),
 
     /** A template save carrying an older version than the row's: someone else saved it first. */
     TEMPLATE_STALE(HttpStatus.CONFLICT,
@@ -156,7 +156,7 @@ public enum ErrorCode {
             "The fallback template cannot be archived or hidden"),
 
     TEMPLATE_FILE_UNREADABLE(HttpStatus.BAD_REQUEST,
-            "That file is not a LightMove template file"),
+            "That file isn't an Uncava template file. Export templates from Uncava and import that file"),
 
     /** All or nothing: no template in the file is written. */
     TEMPLATE_IMPORT_INVALID(HttpStatus.BAD_REQUEST,

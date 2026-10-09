@@ -59,7 +59,7 @@ function PositionCard({
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(position.projectId) });
       onStatusChanged?.();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

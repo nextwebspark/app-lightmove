@@ -88,6 +88,8 @@ describe("EnrolDialog", () => {
         connectedAt: "2026-10-01T09:00:00Z",
         movesOffNylas: false,
         runsStoppedByMove: 0,
+        liveSequences: 0,
+        livePeople: 0,
       },
     });
     vi.mocked(sequenceApi.getSequences).mockResolvedValue([SEQUENCE]);

@@ -81,7 +81,7 @@ export function useExecutiveSourcing(
       queryClient.setQueryData(sourcingApi.SOURCING_LATEST_KEY(projectId), started);
       toast(`Finding executives at ${companiesOf(started.companiesTotal)}…`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const isStale = run !== null && isSourcingInProgress(run) && isLost(run, lostAfterMs);

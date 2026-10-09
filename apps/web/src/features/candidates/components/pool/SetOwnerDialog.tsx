@@ -43,7 +43,7 @@ export function SetOwnerDialog({
       onDone?.();
       onClose();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const options = [...staff.map((member) => ({ id: member.userId, member })), { id: null, member: null }];

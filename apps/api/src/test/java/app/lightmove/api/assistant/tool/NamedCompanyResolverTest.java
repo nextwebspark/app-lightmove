@@ -16,6 +16,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorCall;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.enrichment.company.service.CompanyResearch;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
@@ -135,6 +138,19 @@ class NamedCompanyResolverTest {
         });
 
         assertThat(only(resolve(names("Slow Co"))).status()).isEqualTo(NOT_CHECKED);
+    }
+
+    @Test
+    @DisplayName("a name the vendor throttles is reported as not checked, and the other names still resolve")
+    void reportsAThrottledNameAsNotChecked() {
+        when(research.byName(eq("Busy Co"), anyString(), any())).thenThrow(new VendorException(
+                VendorCall.of("brightdata", "company-name-search"), VendorFailureKind.RATE_LIMITED, null));
+        when(market.largestNamed("Carrefour", UAE, 0)).thenReturn(Optional.of(row("a1", "Carrefour", UAE, 9_000)));
+
+        List<NamedCompanyResolver.ResolvedName> names = resolve(names("Busy Co", "Carrefour")).names();
+
+        assertThat(names.get(0).finding().status()).isEqualTo(NOT_CHECKED);
+        assertThat(names.get(1).finding().status()).isEqualTo(UNIVERSE);
     }
 
     private NamedCompanyResolver.Resolution resolve(List<NamedCompanyRequest> companies) {
