@@ -11,7 +11,7 @@ const MIN_QUERY_LENGTH = 2;
 const SUGGESTION_LIMIT = 3;
 
 const TEXT_BUTTON =
-  "rounded-[4px] py-1 text-note text-u-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent";
+  "rounded py-1 text-note text-u-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent";
 
 /**
  * The firm's name, typed — what the founder thinks they are being asked. Companies the market carries under a

@@ -119,7 +119,7 @@ export function SignupVerifyStepPage() {
           you will be signed in and brought straight to the next step — here, or in whichever browser
           opens the link.
         </p>
-        <p className="mb-6 text-[12.5px] text-u-text3">
+        <p className="mb-6 text-note text-u-text3">
           Wrong address?{" "}
           <button
             type="button"
@@ -138,13 +138,13 @@ export function SignupVerifyStepPage() {
 
         <div aria-live="polite" className="text-left">
           {notYetSeen && (
-            <p className="mb-4 rounded-lg bg-u-accent-tint px-3 py-2.5 font-mono text-[11.5px] text-u-accent">
+            <p className="mb-4 rounded-lg bg-u-accent-tint px-3 py-2.5 font-mono text-meta text-u-accent">
               We haven&rsquo;t seen the click yet. Open the newest email from Uncava — older links stop
               working.
             </p>
           )}
           {resendFeedback?.kind === "sent" && (
-            <p className="mb-4 rounded-lg bg-u-direct-tint px-3 py-2.5 font-mono text-[11.5px] text-u-direct">
+            <p className="mb-4 rounded-lg bg-u-direct-tint px-3 py-2.5 font-mono text-meta text-u-direct">
               {resendFeedback.message}
             </p>
           )}

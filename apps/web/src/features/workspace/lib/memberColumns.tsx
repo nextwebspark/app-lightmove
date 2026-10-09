@@ -112,5 +112,5 @@ export const MEMBER_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 export const MEMBER_COLUMN_PINNING: ColumnPinningState = { start: ["name"], end: [] };
 
 function YouMark() {
-  return <span className="flex-none font-mono text-[10px] text-u-text3">(you)</span>;
+  return <span className="flex-none font-mono text-eyebrow text-u-text3">(you)</span>;
 }

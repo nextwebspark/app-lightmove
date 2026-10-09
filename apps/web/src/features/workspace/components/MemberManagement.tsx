@@ -66,7 +66,8 @@ export function MemberRoleSelect({ member }: { member: Member }) {
         onChange={(event) => handleChange(event.target.value as WorkspaceRole)}
         disabled={changeRoles.isPending}
         aria-label={`Workspace role for ${member.fullName}`}
-        className="w-[120px] shrink-0 !py-1.5"
+        density="compact"
+        className="w-[120px] shrink-0"
       >
         {INVITE_ROLES.map((option) => (
           <option key={option} value={option}>
@@ -192,11 +193,11 @@ export function PendingInvitations({ canManage }: { canManage: boolean }) {
     <section className="mt-6" aria-labelledby="pending-invitations">
       <h2
         id="pending-invitations"
-        className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3"
+        className="type-micro-label mb-2 font-mono text-u-text3"
       >
         Outstanding invitations · {invitations.length}
       </h2>
-      <div className="rounded-[10px] border border-u-border bg-u-raised px-5 py-2">
+      <div className="rounded-u-card border border-u-border bg-u-raised px-5 py-2">
         {invitations.map((invitation) => (
           <InvitationRow key={invitation.id} invitation={invitation} />
         ))}
@@ -236,8 +237,8 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">
       <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
-        <div className="break-all font-mono text-[13px] sm:truncate">{invitation.email}</div>
-        <div className="mt-0.5 font-mono text-[11px] text-u-text3">
+        <div className="break-all font-mono text-body sm:truncate">{invitation.email}</div>
+        <div className="mt-0.5 font-mono text-meta text-u-text3">
           {titleCase(invitation.role)} · first sent {sentAgo(invitation.createdAt)}
           {invitation.invitedByName && ` by ${invitation.invitedByName}`}
           {new Date(invitation.expiresAt).getTime() < Date.now() && (
@@ -247,7 +248,7 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
       </div>
       <Button
         variant="secondary"
-        className="!py-1.5 !text-xs"
+        size="xs"
         disabled={busy}
         loading={resend.isPending}
         onClick={() => resend.mutate()}
@@ -256,7 +257,8 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
       </Button>
       <Button
         variant="ghost"
-        className="!py-1.5 !text-xs !text-u-offlimits"
+        size="xs"
+        className="text-u-offlimits hover:text-u-offlimits"
         disabled={busy}
         onClick={() => setIsConfirmingRevoke(true)}
       >

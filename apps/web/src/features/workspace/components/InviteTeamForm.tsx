@@ -218,7 +218,7 @@ export function InviteTeamForm({
         {pasteNote}
       </p>
 
-      <div className="mb-5 rounded-[8px] border border-u-border bg-u-raised px-3.5 py-3 text-note">
+      <div className="mb-5 rounded-u-chip border border-u-border bg-u-raised px-3.5 py-3 text-note">
         <dl id={roleHelpId} className="flex flex-col gap-1.5">
           {INVITE_ROLES.map((role) => (
             <div key={role} className="flex gap-2">

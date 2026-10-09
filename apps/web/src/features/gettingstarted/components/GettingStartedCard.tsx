@@ -18,7 +18,7 @@ import { usePositionsOriginState } from "../../projects/lib/positionsOrigin";
 const ALREADY_DONE = ["Create your account", "Set up your workspace"] as const;
 
 const TEXT_ACTION =
-  "rounded-[4px] py-1 text-note hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent";
+  "rounded py-1 text-note hover:underline focus-visible:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent";
 
 /**
  * My positions' "Get your first map" card. Rows tick from what the workspace holds, read by the server, never from
@@ -75,7 +75,7 @@ export function GettingStartedCard({
   return (
     <section
       aria-labelledby="getting-started-title"
-      className="mb-5 rounded-[10px] border border-u-border-strong bg-u-surface p-4 sm:p-5"
+      className="mb-5 rounded-u-card border border-u-border-strong bg-u-surface p-4 sm:p-5"
     >
       {intro && <div className="mb-4 border-b border-u-border pb-4">{intro}</div>}
       <div className="mb-3 flex flex-wrap items-start gap-x-4 gap-y-2">

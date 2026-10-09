@@ -129,7 +129,7 @@ export function VerifyEmailPage() {
 
             <SendNewLink knownEmail={user?.email ?? null} />
 
-            <Link to="/login" className="mt-4 inline-block text-[12.5px] text-u-accent hover:underline">
+            <Link to="/login" className="mt-4 inline-block text-note text-u-accent hover:underline">
               Back to sign in
             </Link>
           </>
@@ -173,7 +173,7 @@ function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
 
   if (sentTo) {
     return (
-      <p role="status" className="rounded-lg bg-u-direct-tint px-3 py-2.5 text-left font-mono text-[11.5px] text-u-direct">
+      <p role="status" className="rounded-lg bg-u-direct-tint px-3 py-2.5 text-left font-mono text-meta text-u-direct">
         If {sentTo} has an account waiting to be confirmed, a new link is on its way. Check spam and
         promotions too.
       </p>
@@ -184,7 +184,7 @@ function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
     <form onSubmit={handleSubmit} noValidate className="text-left">
       {sendFailed && <SendFailedNotice />}
       {knownEmail ? (
-        <p className="mb-3 text-center text-[12.5px] text-u-text2">
+        <p className="mb-3 text-center text-note text-u-text2">
           We&rsquo;ll send it to <span className="font-medium text-u-text">{knownEmail}</span>.
         </p>
       ) : (

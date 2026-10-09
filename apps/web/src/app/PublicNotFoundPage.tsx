@@ -13,7 +13,7 @@ export function PublicNotFoundPage() {
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
       <AuthLogo />
       <Card className="w-[420px] max-w-[94vw] text-center">
-        <h1 ref={heading} tabIndex={-1} className="text-[19px] font-semibold leading-tight outline-none">
+        <h1 ref={heading} tabIndex={-1} className="text-title font-semibold leading-tight outline-none">
           We couldn&rsquo;t find that page
         </h1>
         <p className="mb-6 mt-2 text-sm text-u-text2">
@@ -22,7 +22,7 @@ export function PublicNotFoundPage() {
         <Link to="/login" className={buttonClassName("primary", "w-full")}>
           Sign in
         </Link>
-        <p className="mt-4 text-[12.5px] text-u-text2">
+        <p className="mt-4 text-note text-u-text2">
           New to Uncava?{" "}
           <Link to="/signup" className="text-u-accent hover:underline">
             Create an account

@@ -3,7 +3,7 @@ import { PRIVACY_URL, TERMS_URL } from "../../../lib/links";
 
 export function LegalConsent({ className }: { className?: string }) {
   return (
-    <p className={cn("text-[11.5px] leading-relaxed text-u-text3", className)}>
+    <p className={cn("text-meta leading-relaxed text-u-text3", className)}>
       By continuing you agree to the{" "}
       <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className="text-u-accent hover:underline">
         Terms

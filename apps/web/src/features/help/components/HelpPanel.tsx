@@ -92,7 +92,7 @@ export default function HelpPanel({
             <button
               type="button"
               onClick={() => setArticle(null)}
-              className="mb-1 inline-flex items-center gap-1 rounded-[4px] text-note text-u-accent hover:underline"
+              className="mb-1 inline-flex items-center gap-1 rounded text-note text-u-accent hover:underline"
             >
               <Icon d={ICONS.arrowLeft} size={13} />
               Help
@@ -146,7 +146,7 @@ export default function HelpPanel({
                 <button
                   type="button"
                   onClick={showAllArticles}
-                  className="mt-1 rounded-[4px] text-note font-medium text-u-accent hover:underline"
+                  className="mt-1 rounded text-note font-medium text-u-accent hover:underline"
                 >
                   Show {others.length - ARTICLES_SHOWN} more
                 </button>
@@ -180,7 +180,7 @@ export default function HelpPanel({
         <button
           type="button"
           onClick={showWhatsNew}
-          className="rounded-[4px] font-mono text-meta text-u-text3 underline decoration-dotted underline-offset-2 hover:text-u-text2"
+          className="rounded font-mono text-meta text-u-text3 underline decoration-dotted underline-offset-2 hover:text-u-text2"
         >
           Version {APP_VERSION}
         </button>
@@ -239,7 +239,7 @@ function Section({
 }) {
   return (
     <section ref={sectionRef} id={id} className="mb-6 last:mb-0">
-      <h3 className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">{title}</h3>
+      <h3 className="type-micro-label mb-2 font-mono text-u-text3">{title}</h3>
       {children}
     </section>
   );
@@ -247,7 +247,7 @@ function Section({
 
 function ArticleList({ articles, onOpen }: { articles: HelpArticle[]; onOpen: (article: HelpArticle) => void }) {
   const rowClass =
-    "flex w-full items-start gap-2.5 rounded-[7px] px-2 py-2 text-left hover:bg-u-raised focus-visible:bg-u-raised focus-visible:outline-none";
+    "flex w-full items-start gap-2.5 rounded-u-chip px-2 py-2 text-left hover:bg-u-raised focus-visible:bg-u-raised focus-visible:outline-none";
   return (
     <ul className="-mx-2">
       {articles.map((article) => (

@@ -68,8 +68,8 @@ describe("Help", () => {
     await user.click(document.body);
     await user.keyboard("?");
     expect(await screen.findByRole("dialog", { name: "Help" })).toBeInTheDocument();
-    // Search first.
-    expect(screen.getByRole("searchbox", { name: "Search help" })).toHaveFocus();
+    // Search first — after the lazily loaded drawer has placed its own focus.
+    await waitFor(() => expect(screen.getByRole("searchbox", { name: "Search help" })).toHaveFocus());
   });
 
   it("leaves an open dialog the keyboard", async () => {
