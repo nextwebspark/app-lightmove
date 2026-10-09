@@ -14,7 +14,7 @@ interface InviteRow {
 /**
  * "Invite your team" — Signup.dc.html's final step, and the second stage of the New workspace modal.
  * Rows of address + role, validated before anything is sent, and skippable: blank rows are an empty
- * form, not an error, and "Skip for now" sends nothing at all. The button says how many it will send.
+ * form, not an error, and "Skip for now" sends nothing at all.
  *
  * People invited here skip any approval: an admin naming a colleague *is* the decision, made up front.
  */
@@ -39,6 +39,7 @@ export function InviteTeamForm({
   ]);
   const nextId = useRef(3);
   const roleHelpId = useId();
+  const [pasteNote, setPasteNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Map<number, string>>(new Map());
@@ -58,25 +59,37 @@ export function InviteTeamForm({
 
   const removeRow = (id: number) => setRows((current) => current.filter((row) => row.id !== id));
 
-  // A list copied from an email or a sheet lands as one row per address, each taking the role of the row it was
-  // pasted into; the blank rows after it make way, so the form does not end with empties to skip past.
+  // The blank rows after a pasted list make way, so the form does not end with empties to skip past.
   const handlePaste = (id: number, event: ClipboardEvent<HTMLInputElement>) => {
-    const text = event.clipboardData.getData("text");
-    const addresses = addressesIn(text);
-    if (addresses.length === 0 || (addresses.length === 1 && addresses[0] === text.trim())) return;
+    const at = rows.findIndex((row) => row.id === id);
+    const addresses = addressesIn(event.clipboardData.getData("text"));
+    if (at < 0 || addresses.length < 2) return;
     event.preventDefault();
-    setRows((current) => {
-      const at = current.findIndex((row) => row.id === id);
-      const into = current[at];
-      const pasted = addresses.map((email, index) => ({
-        id: index === 0 ? into.id : nextId.current++,
-        email,
-        role: into.role,
-      }));
-      const after = current.slice(at + 1).filter((row) => row.email.trim() !== "");
-      return [...current.slice(0, at), ...pasted, ...after];
+
+    const into = rows[at];
+    const keepsTyped = into.email.trim() !== "";
+    const held = new Set(
+      rows.filter((row) => row.id !== id || keepsTyped).map((row) => row.email.trim().toLowerCase()),
+    );
+    const fresh = addresses.filter((email) => {
+      const key = email.toLowerCase();
+      if (held.has(key)) return false;
+      held.add(key);
+      return true;
     });
-    setRowErrors(new Map());
+    const pasted = fresh.map((email, index) => ({
+      id: index === 0 && !keepsTyped ? into.id : nextId.current++,
+      email,
+      role: into.role,
+    }));
+    const after = rows.slice(at + 1);
+    const dropped = new Set(after.filter((row) => row.email.trim() === "").map((row) => row.id));
+
+    // A paste that brought nothing new leaves the row it landed in, so the form never runs out of rows.
+    const keepsInto = keepsTyped || pasted.length === 0;
+    setRows([...rows.slice(0, keepsInto ? at + 1 : at), ...pasted, ...after.filter((row) => !dropped.has(row.id))]);
+    setRowErrors((current) => new Map([...current].filter(([rowId]) => rowId !== into.id && !dropped.has(rowId))));
+    setPasteNote(`${pasted.length} ${pasted.length === 1 ? "address" : "addresses"} added`);
   };
 
   const filledCount = rows.filter((row) => row.email.trim() !== "").length;
@@ -148,7 +161,7 @@ export function InviteTeamForm({
               onChange={(event) => update(row.id, { role: event.target.value as WorkspaceRole })}
               aria-label="Role"
               aria-describedby={roleHelpId}
-              className="w-[130px] shrink-0"
+              className="w-[104px] shrink-0 sm:w-[130px]"
             >
               {INVITE_ROLES.map((role) => (
                 <option key={role} value={role}>
@@ -193,8 +206,12 @@ export function InviteTeamForm({
         Add another
       </button>
 
-      <div id={roleHelpId} className="mb-5 rounded-[8px] border border-u-border bg-u-raised px-3.5 py-3 text-note">
-        <dl className="flex flex-col gap-1.5">
+      <p role="status" className="sr-only">
+        {pasteNote}
+      </p>
+
+      <div className="mb-5 rounded-[8px] border border-u-border bg-u-raised px-3.5 py-3 text-note">
+        <dl id={roleHelpId} className="flex flex-col gap-1.5">
           {INVITE_ROLES.map((role) => (
             <div key={role} className="flex gap-2">
               <dt className="w-[52px] flex-none font-medium text-u-text">{titleCase(role)}</dt>
@@ -202,7 +219,7 @@ export function InviteTeamForm({
             </div>
           ))}
         </dl>
-        <p className="mt-2 text-u-text3">You'll choose who leads each position when you open it.</p>
+        <p className="mt-2 text-u-text3">Whoever creates a position leads it and adds its team.</p>
       </div>
 
       <div className="flex items-center gap-2.5">
@@ -224,12 +241,13 @@ export function InviteTeamForm({
 }
 
 const ROLE_DESCRIPTIONS: Record<(typeof INVITE_ROLES)[number], string> = {
-  MEMBER: "Works on the positions they're added to, and sees every position the workspace has.",
-  ADMIN:
-    "Everything a Member can do, plus opening any position, the team, billing, templates, integrations and workspace settings.",
+  MEMBER: "Sees every position; works on the ones they're added to.",
+  ADMIN: "Also opens any position, and manages the team, billing, templates, integrations and settings.",
 };
 
 /** The addresses in pasted text — "a@x.com, b@x.com", one per line, or "Name <a@x.com>" as a mail client copies them. */
 export function addressesIn(text: string): string[] {
-  return text.match(/[^\s<>,;"'()]+@[^\s<>,;"'()]+/g) ?? [];
+  return (text.match(/[^\s<>,;"()]+@[^\s<>,;"()]+/g) ?? []).map((match) =>
+    match.replace(/^mailto:/i, "").replace(/\.+$/, ""),
+  );
 }

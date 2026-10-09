@@ -15,11 +15,11 @@ describe("InviteTeamForm", () => {
   it("says what each workspace role can do, and nothing about projects", () => {
     renderForm();
 
-    expect(screen.getByText(/Works on the positions they're added to/)).toBeInTheDocument();
-    expect(screen.getByText(/Everything a Member can do/)).toBeInTheDocument();
-    expect(screen.getByText("You'll choose who leads each position when you open it.")).toBeInTheDocument();
+    expect(screen.getByText(/works on the ones they're added to/)).toBeInTheDocument();
+    expect(screen.getByText(/Also opens any position/)).toBeInTheDocument();
+    expect(screen.getByText("Whoever creates a position leads it and adds its team.")).toBeInTheDocument();
     expect(screen.queryByText(/project/i)).not.toBeInTheDocument();
-    expect(screen.getAllByRole("combobox", { name: "Role" })[0]).toHaveAccessibleDescription(/Everything a Member/);
+    expect(screen.getAllByRole("combobox", { name: "Role" })[0]).toHaveAccessibleDescription(/Also opens any position/);
   });
 
   it("labels the button by how many invites it will send", async () => {
@@ -52,6 +52,20 @@ describe("InviteTeamForm", () => {
     ]);
   });
 
+  it("keeps an address already typed into the row, and leaves out repeats", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    const [first, second] = screen.getAllByRole("textbox", { name: "Colleague's email" });
+    await user.type(first, "a@x.com");
+    await user.type(second, "keep@x.com");
+
+    paste(first, "b@x.com, A@x.com, c@x.com, b@x.com");
+
+    const rows = screen.getAllByRole("textbox", { name: "Colleague's email" });
+    expect(rows.map((row) => (row as HTMLInputElement).value)).toEqual(["a@x.com", "b@x.com", "c@x.com", "keep@x.com"]);
+    expect(screen.getByRole("status")).toHaveTextContent("2 addresses added");
+  });
+
   it("leaves an ordinary single-address paste to the browser", () => {
     renderForm();
     const [first] = screen.getAllByRole("textbox", { name: "Colleague's email" });
@@ -65,5 +79,6 @@ describe("addressesIn", () => {
   it("reads commas, semicolons, new lines and mail-client names", () => {
     expect(addressesIn("a@x.com; b@x.com\n\"Lee, Kim\" <c@x.com>")).toEqual(["a@x.com", "b@x.com", "c@x.com"]);
     expect(addressesIn("no addresses here")).toEqual([]);
+    expect(addressesIn("o'neill@firm.com, mailto:b@x.com and c@x.com.")).toEqual(["o'neill@firm.com", "b@x.com", "c@x.com"]);
   });
 });
