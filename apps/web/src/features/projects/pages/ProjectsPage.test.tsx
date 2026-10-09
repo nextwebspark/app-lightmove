@@ -157,6 +157,6 @@ describe("ProjectsPage — pure client", () => {
 
     expect(await screen.findByText("No positions shared with you yet")).toBeInTheDocument();
     expect(screen.queryByText("New position")).not.toBeInTheDocument();
-    expect(screen.queryByText("Open your first position")).not.toBeInTheDocument();
+    expect(screen.queryByText("Start your first search")).not.toBeInTheDocument();
   });
 });

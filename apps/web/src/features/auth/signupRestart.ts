@@ -1,8 +1,7 @@
 /**
- * "Change email" on the verify step signs out and starts signup again. Signing out makes the route guard
- * redirect at once, and in the real router that redirect beats any navigate queued after it, so the
- * restart is recorded first and the guard itself sends the visitor to step 1. Session storage, because
- * the guard and the signup form are separate renders.
+ * "Change email" signs out and restarts signup. Signing out makes RequireAuth redirect at once, and in the
+ * real router that redirect beats any navigate queued after it — so the restart is recorded first and the
+ * guard itself sends the visitor to step 1.
  */
 const RESTART_KEY = "lm.signup.restart";
 
@@ -30,7 +29,6 @@ export function signupRestartName(): string {
   }
 }
 
-/** Once step 1 has shown it: a later visit to signup starts blank. */
 export function clearSignupRestart(): void {
   try {
     sessionStorage.removeItem(RESTART_KEY);
