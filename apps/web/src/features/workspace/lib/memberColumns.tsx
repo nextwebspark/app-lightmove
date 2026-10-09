@@ -70,10 +70,7 @@ export const memberColumns = helper.columns([
     meta: { share: 20, min: 160 },
     cell: (info) =>
       info.table.options.meta?.canManage ? (
-        <span className="flex items-center gap-2">
-          <MemberRoleSelect member={info.row.original} />
-          <OtherRoles roles={info.row.original.roles} />
-        </span>
+        <MemberRoleSelect member={info.row.original} />
       ) : (
         <DataGridCell value={info.row.original.roles.map(titleCase).join(" · ")} />
       ),
@@ -114,13 +111,6 @@ export const MEMBER_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 
 export const MEMBER_COLUMN_PINNING: ColumnPinningState = { start: ["name"], end: [] };
 
-export function YouMark() {
+function YouMark() {
   return <span className="flex-none font-mono text-[10px] text-u-text3">(you)</span>;
-}
-
-/** Roles beside the staff one the picker sets — a client seat held alongside it — kept in view so a change is not blind. */
-export function OtherRoles({ roles }: { roles: Member["roles"] }) {
-  const others = roles.filter((role) => role !== "ADMIN" && role !== "MEMBER");
-  if (others.length === 0) return null;
-  return <span className="font-mono text-[11px] text-u-text3">+ {others.map(titleCase).join(", ")}</span>;
 }

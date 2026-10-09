@@ -173,7 +173,7 @@ describe("TeamPage — the one roster", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Couldn't load the invitations waiting to be accepted.")).toBeInTheDocument();
+    expect(await screen.findByText(/Couldn't load the invitations waiting to be accepted\./)).toBeInTheDocument();
   });
 
   it("asks before an admin makes themselves a Member", async () => {
@@ -189,5 +189,15 @@ describe("TeamPage — the one roster", () => {
     expect(await screen.findByRole("dialog", { name: "Make yourself a Member?" })).toBeInTheDocument();
     expect(workspaceApi.changeMemberRoles).not.toHaveBeenCalled();
     expect(screen.getAllByText("(you)").length).toBeGreaterThan(0);
+  });
+
+  it("tells a member a refused count failed, rather than that nobody is waiting", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    vi.mocked(workspaceApi.pendingInvitationCount).mockRejectedValue(new Error("403"));
+
+    renderPage();
+
+    expect(await screen.findByText(/Couldn't load the invitations waiting to be accepted\./)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 });

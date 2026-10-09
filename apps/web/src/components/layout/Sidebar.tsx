@@ -123,7 +123,6 @@ export function Sidebar({
               to={item.to}
               end={item.end}
               title={item.leavesShell ?? item.label}
-              aria-description={item.leavesShell}
               className={({ isActive }) =>
                 rowClass(isActive ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2")
               }
@@ -140,6 +139,7 @@ export function Sidebar({
                   {item.count}
                 </span>
               )}
+              {item.leavesShell && <span className="sr-only">{item.leavesShell}</span>}
               {item.leavesShell && (
                 <Icon d={ICONS.arrowRight} size={13} className={cn("ml-auto flex-none text-u-text3", labelsHidden)} />
               )}

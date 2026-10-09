@@ -11,8 +11,6 @@ import {
   MEMBER_COLUMN_PINNING,
   memberColumns,
   memberTableFeatures,
-  OtherRoles,
-  YouMark,
   type MemberSortField,
 } from "../lib/memberColumns";
 import { MemberRoleSelect, RemoveMemberButton } from "./MemberManagement";
@@ -103,11 +101,9 @@ function MemberCard({
       <div className="flex items-center gap-2.5">
         <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} />
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="truncate text-[13px]">{member.fullName}</span>
-            {isSelf && <YouMark />}
-          </div>
+          <div className="truncate text-[13px]">{member.fullName}</div>
           <div className="truncate font-mono text-[11px] text-u-text3">
+            {isSelf && "(you) · "}
             {canManage ? member.email : `${member.roles.map(titleCase).join(" · ")} · ${member.email}`}
           </div>
         </div>
@@ -117,10 +113,7 @@ function MemberCard({
       </div>
       {canManage && (
         <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-u-border pt-2.5">
-          <span className="flex items-center gap-2">
-            <MemberRoleSelect member={member} />
-            <OtherRoles roles={member.roles} />
-          </span>
+          <MemberRoleSelect member={member} />
           <RemoveMemberButton member={member} labelled />
         </div>
       )}

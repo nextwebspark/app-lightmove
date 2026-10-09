@@ -33,6 +33,8 @@ export function MemberRoleSelect({ member }: { member: Member }) {
   const toast = useToast();
   const { isSelf, refresh } = useRosterRefresh(member);
   const [confirmDemote, setConfirmDemote] = useState(false);
+  const { data: roster = [] } = useQuery({ queryKey: workspaceApi.MEMBERS_KEY, queryFn: workspaceApi.members });
+  const isLastAdmin = roster.filter((other) => other.roles.includes("ADMIN")).length <= 1;
   const primaryRole: WorkspaceRole = member.roles.includes("ADMIN") ? "ADMIN" : "MEMBER";
 
   const changeRoles = useMutation({
@@ -76,11 +78,16 @@ export function MemberRoleSelect({ member }: { member: Member }) {
         open={confirmDemote}
         title="Make yourself a Member?"
         confirmLabel="Make me a Member"
+        confirmDisabled={isLastAdmin}
         pending={changeRoles.isPending}
         onConfirm={() => changeRoles.mutate("MEMBER")}
         onClose={() => setConfirmDemote(false)}
       >
-        <p>You'll no longer manage the team, billing or workspace settings. Another admin can make you one again.</p>
+        <p>
+          {isLastAdmin
+            ? "You're the only admin. Make someone else an admin first, so the workspace keeps one."
+            : "You'll no longer manage the team, billing or workspace settings. Another admin can make you one again."}
+        </p>
       </ConfirmDialog>
     </>
   );
@@ -156,7 +163,18 @@ export function PendingInvitations({ canManage }: { canManage: boolean }) {
 
   // A refused or failed read is not "nobody is waiting": that is the one thing this section exists to say.
   if ((canManage ? list : pending).isError) {
-    return <p className="mt-5 text-note text-u-text3">Couldn't load the invitations waiting to be accepted.</p>;
+    return (
+      <p className="mt-5 text-note text-u-text3">
+        Couldn't load the invitations waiting to be accepted.{" "}
+        <button
+          type="button"
+          onClick={() => void (canManage ? list : pending).refetch()}
+          className="font-medium text-u-accent hover:underline"
+        >
+          Try again
+        </button>
+      </p>
+    );
   }
   if (!canManage) {
     const count = pending.data?.count ?? 0;
