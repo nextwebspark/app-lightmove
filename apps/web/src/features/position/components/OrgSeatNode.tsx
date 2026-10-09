@@ -9,6 +9,7 @@ export interface OrgSeatData extends Record<string, unknown> {
   seat: OrgNode;
   /** The mandate's own seat is drawn from the Role Brief's title rather than holding its own. */
   roleTitle: string;
+  showName: boolean;
   childCount: number;
   isRoot: boolean;
   canRemove: boolean;
@@ -26,7 +27,7 @@ export interface OrgSeatData extends Record<string, unknown> {
  * here or removed, because it is the mandate rather than a seat somebody drew.
  */
 export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
-  const { seat, roleTitle, childCount, isRoot, canRemove } = data;
+  const { seat, roleTitle, showName, childCount, isRoot, canRemove } = data;
   const isMandate = seat.mandateSeat;
   // Never on the mandate seat: it is the role being searched for, not a value a reading proposed.
   const filled = !isMandate && seat.source === "DOCUMENT";
@@ -69,13 +70,15 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
             onChange={(event) => data.onPatch(seat.nodeId, { title: event.target.value || null })}
             className="w-full bg-transparent type-heading text-u-text outline-none placeholder:font-normal placeholder:text-u-text3"
           />
-          <input
-            value={seat.name ?? ""}
-            aria-label="Seat holder name"
-            placeholder="Name"
-            onChange={(event) => data.onPatch(seat.nodeId, { name: event.target.value || null })}
-            className="w-full bg-transparent text-note text-u-text2 outline-none placeholder:text-u-text3/70"
-          />
+          {showName && (
+            <input
+              value={seat.name ?? ""}
+              aria-label="Seat holder name"
+              placeholder="Name"
+              onChange={(event) => data.onPatch(seat.nodeId, { name: event.target.value || null })}
+              className="w-full bg-transparent text-note text-u-text2 outline-none placeholder:text-u-text3/70"
+            />
+          )}
         </>
       )}
 

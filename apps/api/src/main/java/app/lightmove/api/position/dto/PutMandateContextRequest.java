@@ -1,7 +1,7 @@
 package app.lightmove.api.position.dto;
 
 import app.lightmove.api.position.constant.FieldSource;
-import app.lightmove.api.position.constant.MandateReason;
+import app.lightmove.api.common.constant.MandateReason;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;

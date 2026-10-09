@@ -15,6 +15,8 @@ import app.lightmove.api.position.model.ProposedPositionDetails;
 import app.lightmove.api.position.model.ProposedReportingStructure;
 import app.lightmove.api.position.service.ExtractionDocumentLoader.LoadedDocument;
 import app.lightmove.api.positiontemplate.dto.PositionTemplateSummary;
+import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
+import app.lightmove.api.positiontemplate.model.PositionTemplateSeat;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
@@ -120,6 +122,18 @@ public class PositionExtractionService {
      * For the reporting step's Suggested seats (#398), never from the generic fallback. De-duplicated,
      * since a template's list is workspace-writable text, not a verified reading.
      */
+    private static List<String> seatTitlesBeneathRole(PositionTemplateBody body) {
+        String roleSeatId = body.orgChart().stream()
+                .filter(PositionTemplateSeat::mandateSeat)
+                .map(PositionTemplateSeat::id)
+                .findFirst()
+                .orElse(null);
+        return body.orgChart().stream()
+                .filter(seat -> !seat.mandateSeat() && roleSeatId != null && roleSeatId.equals(seat.parentId()))
+                .map(PositionTemplateSeat::title)
+                .toList();
+    }
+
     private List<String> usualDirectReportsFor(UUID workspaceId, String roleTitle) {
         if (roleTitle == null || roleTitle.isBlank()) {
             return null;
@@ -128,7 +142,7 @@ public class PositionExtractionService {
                 .map(template -> {
                     Set<String> seenCaseInsensitive = new LinkedHashSet<>();
                     List<String> reports = new ArrayList<>();
-                    for (String title : template.getBody().directReports()) {
+                    for (String title : seatTitlesBeneathRole(template.getBody())) {
                         if (title == null || title.isBlank()) {
                             continue;
                         }

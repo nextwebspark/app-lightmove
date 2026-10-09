@@ -24,7 +24,7 @@ class PositionTemplateLibraryIntegrationTest extends PositionTemplateFlowSupport
         assertThat(revised.get("version").asLong()).isGreaterThan(created.get("version").asLong());
 
         Firm follower = firm("Follower Firm", "sara");
-        assertThat(draftedBrief(follower.token(), "Head of " + keyword).at("/details/department").asText())
+        assertThat(draftedBrief(follower.token(), "Head of " + keyword).at("/details/narrative").asText())
                 .isEqualTo("Group Quills");
     }
 
@@ -48,7 +48,7 @@ class PositionTemplateLibraryIntegrationTest extends PositionTemplateFlowSupport
 
         assertThat(getJson(firm.token(), FIRM_TEMPLATES + "/" + code).get("libraryChangedSinceCustomised").asBoolean())
                 .isTrue();
-        assertThat(draftedBrief(firm.token(), "Head of " + keyword).at("/details/department").asText())
+        assertThat(draftedBrief(firm.token(), "Head of " + keyword).at("/details/narrative").asText())
                 .isEqualTo("Our Quills");
         assertThat(getJson(admin, LIBRARY + "/" + code).get("customisedByWorkspaces").asLong()).isEqualTo(1);
 
@@ -71,7 +71,7 @@ class PositionTemplateLibraryIntegrationTest extends PositionTemplateFlowSupport
         expectRefused(409, "TEMPLATE_STALE",
                 putJson(admin, url, templateRequest(titleOf(keyword), keyword, "Second Save", opened)));
 
-        assertThat(getJson(admin, url).at("/body/department").asText()).isEqualTo("First Save");
+        assertThat(getJson(admin, url).at("/body/narrative").asText()).isEqualTo("First Save");
     }
 
     @Test

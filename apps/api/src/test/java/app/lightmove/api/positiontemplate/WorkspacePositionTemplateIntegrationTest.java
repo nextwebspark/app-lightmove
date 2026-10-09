@@ -39,15 +39,15 @@ class WorkspacePositionTemplateIntegrationTest extends PositionTemplateFlowSuppo
         JsonNode picker = getJson(firm.token(), PICKER);
         assertThat(codesIn(picker)).containsOnlyOnce("chief-financial-officer");
         assertThat(find(picker, "chief-financial-officer").get("shared").asBoolean()).isFalse();
-        assertThat(draftedBrief(firm.token(), "Chief Financial Officer").at("/details/department").asText())
+        assertThat(draftedBrief(firm.token(), "Chief Financial Officer").at("/details/narrative").asText())
                 .isEqualTo("Group Finance & Treasury");
 
         Firm neighbour = firm("Library Firm", "sara");
         assertThat(find(getJson(neighbour.token(), PICKER), "chief-financial-officer").get("shared").asBoolean())
                 .isTrue();
         assertThat(getJson(neighbour.token(), CFO).get("origin").asText()).isEqualTo("LIBRARY");
-        assertThat(draftedBrief(neighbour.token(), "Chief Financial Officer").at("/details/department").asText())
-                .isEqualTo("Finance");
+        assertThat(draftedBrief(neighbour.token(), "Chief Financial Officer").at("/details/narrative").asText())
+                .startsWith("The Chief Financial Officer");
     }
 
     @Test
@@ -113,7 +113,7 @@ class WorkspacePositionTemplateIntegrationTest extends PositionTemplateFlowSuppo
                 templateRequest(titleOf(keyword), keyword, "Quills", null)));
         assertThat(created.get("origin").asText()).isEqualTo("OWN");
         String code = created.get("code").asText();
-        assertThat(draftedBrief(firm.token(), "Head of " + keyword).at("/details/department").asText())
+        assertThat(draftedBrief(firm.token(), "Head of " + keyword).at("/details/narrative").asText())
                 .isEqualTo("Quills");
 
         mvc.perform(delete(FIRM_TEMPLATES + "/" + code).param("version", created.get("version").asText())

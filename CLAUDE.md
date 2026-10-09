@@ -276,7 +276,11 @@ firm's admin, **Settings → Template library** for a super admin): a LightMove 
 workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
-a template can be written outside the app, AI included, and previewed before anything is written.
+a template can be written outside the app, AI included, and previewed before anything is written. A
+template's body follows the brief's own steps (file format v2, V112): the reporting line is a tree of
+seat titles with the role's own seat flagged, it may state a reason for hire, a confidentiality level
+and the technical share, and it carries no department or strategic priorities, which the brief no
+longer edits. A version-1 file still imports, its two reporting titles drawn as that tree.
 The Role Brief's location is two halves (V66: `location_city` and `location_country`, the country
 settled by the same catalog every other country box reads), its target start is the project's own
 date written through `PATCH /projects/{id}`, and its notice period is the reporting section's —
@@ -964,6 +968,9 @@ company (`HiringSideResolver` → `HiringContext`, the agency named in one line)
 firm, as before. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and
 `CompanyFactsSections` from the universe (`GET /companies/{apolloAccountId}`, the id on the client
 detail), or editable basics for a client typed in by hand — never the business-unit record.
+V112 rewrites every template body (library and firm copies alike) into that five-step shape — `reportsTo` +
+`directReports` become `orgChart`, `technicalShare` arrives at 50 — leaving `revised_at` alone for V77's
+reason.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
 `grant-platform-role.sh`, never by the application.
 `app_lm_position_document` holds the attached position description inline (`bytea`) — one small file per

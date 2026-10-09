@@ -10,10 +10,12 @@ import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.common.constant.CriterionMode;
 import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.IncentiveType;
+import app.lightmove.api.common.constant.MandateReason;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.positiontemplate.constant.PositionDiscipline;
 import app.lightmove.api.positiontemplate.model.PositionTemplateBody;
+import app.lightmove.api.positiontemplate.model.PositionTemplateSeat;
 import java.lang.reflect.RecordComponent;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -68,7 +70,7 @@ class PositionTemplateExchangeIntegrationTest extends PositionTemplateFlowSuppor
                 templateEntry(titleOf(keyword), keyword, "Quills"),
                 """
                 {"title":"Head of Tax","discipline":"FINANCE","seniority":"N-1",
-                 "body":{"department":"Tax","bonusBais":20,"employmentType":"FOREVER"}}
+                 "body":{"narrative":"Tax","bonusBais":20,"employmentType":"FOREVER"}}
                 """,
                 """
                 {"title":"Head of Duty","discipline":"FINANCE","seniority":"N-1",
@@ -102,8 +104,59 @@ class PositionTemplateExchangeIntegrationTest extends PositionTemplateFlowSuppor
         assertThat(find(list, "chief-financial-officer").get("origin").asText()).isEqualTo("CUSTOMISED");
         assertThat(find(list, committed.get("rows").get(1).get("code").asText()).get("origin").asText())
                 .isEqualTo("OWN");
-        assertThat(draftedBrief(firm.token(), "Chief Financial Officer").at("/details/department").asText())
+        assertThat(draftedBrief(firm.token(), "Chief Financial Officer").at("/details/narrative").asText())
                 .isEqualTo("Finance & Strategy");
+    }
+
+    @Test
+    @DisplayName("a version-1 file still imports: its reporting titles become a chart and its retired fields go")
+    void versionOneFileIsUpgraded() throws Exception {
+        Firm firm = firm("Old File Firm", "alok");
+        String keyword = uniqueKeyword();
+        String file = """
+                {"format":"lightmove.position-templates","formatVersion":1,"templates":[
+                  {"title":"%s","discipline":"FINANCE","seniority":"C_SUITE","keywords":["%s"],
+                   "body":{"department":"Finance","reportsTo":"Chief Executive Officer",
+                     "directReports":["Group Treasurer","","Financial Controller"],
+                     "strategicPriorities":["Capital discipline"],"responsibilities":["Run the function"]}}]}
+                """.formatted(titleOf(keyword), keyword);
+
+        JsonNode committed = upload(firm.token(), FIRM_TEMPLATES + "/import/commit",
+                file.getBytes(StandardCharsets.UTF_8));
+
+        assertThat(actionsOf(committed)).containsExactly("CREATE");
+        JsonNode body = getJson(firm.token(), FIRM_TEMPLATES + "/" + committed.at("/rows/0/code").asText())
+                .get("body");
+        assertThat(body.has("department")).isFalse();
+        assertThat(body.has("strategicPriorities")).isFalse();
+        assertThat(body.get("technicalShare").asInt()).isEqualTo(50);
+        List<String> seats = new ArrayList<>();
+        for (JsonNode seat : body.get("orgChart")) {
+            seats.add(seat.get("id").asText() + "<" + seat.path("parentId").asText("") + ":"
+                    + seat.path("title").asText("") + (seat.get("mandateSeat").asBoolean() ? "*" : ""));
+        }
+        assertThat(seats).containsExactly("manager<:Chief Executive Officer", "role<manager:*",
+                "report-1<role:Group Treasurer", "report-3<role:Financial Controller");
+    }
+
+    @Test
+    @DisplayName("a chart the brief could not hold is refused on import")
+    void brokenChartIsRefused() throws Exception {
+        Firm firm = firm("Broken Chart Firm", "alok");
+        byte[] file = fileOf("""
+                {"title":"Head of Charts","discipline":"FINANCE","seniority":"N-1",
+                 "body":{"orgChart":[{"id":"role","mandateSeat":true},{"id":"twin","title":"Twin","mandateSeat":true}]}}
+                """, """
+                {"title":"Head of Loops","discipline":"FINANCE","seniority":"N-1",
+                 "body":{"orgChart":[{"id":"role","parentId":"a","mandateSeat":true},
+                   {"id":"a","parentId":"b","title":"A"},{"id":"b","parentId":"a","title":"B"}]}}
+                """).getBytes(StandardCharsets.UTF_8);
+
+        JsonNode preview = upload(firm.token(), FIRM_TEMPLATES + "/import/preview", file);
+
+        assertThat(actionsOf(preview)).containsExactly("INVALID", "INVALID");
+        assertThat(fieldsOf(preview.get("rows").get(0))).contains("body.orgChart");
+        assertThat(fieldsOf(preview.get("rows").get(1))).contains("body.orgChart");
     }
 
     @Test
@@ -149,6 +202,7 @@ class PositionTemplateExchangeIntegrationTest extends PositionTemplateFlowSuppor
         assertThat(enumOf(template.get("discipline"))).containsExactlyInAnyOrderElementsOf(names(PositionDiscipline.values()));
         assertThat(enumOf(template.get("seniority"))).containsExactlyInAnyOrderElementsOf(names(Seniority.values()));
         assertThat(enumOf(body.get("employmentType"))).containsExactlyInAnyOrderElementsOf(names(EmploymentType.values()));
+        assertThat(enumOf(body.get("mandateReason"))).containsExactlyInAnyOrderElementsOf(names(MandateReason.values()));
         assertThat(enumOf(body.get("noticeUnit"))).containsExactlyInAnyOrderElementsOf(names(NoticeUnit.values()));
         assertThat(enumOf(body.get("baseSalaryMode"))).containsExactlyInAnyOrderElementsOf(names(BaseSalaryMode.values()));
         assertThat(enumOf(body.get("bonusBasis"))).containsExactlyInAnyOrderElementsOf(names(BonusBasis.values()));
@@ -163,6 +217,10 @@ class PositionTemplateExchangeIntegrationTest extends PositionTemplateFlowSuppor
         Map<?, ?> bodyFields = json.convertValue(body, Map.class);
         assertThat(bodyFields.keySet().stream().map(String::valueOf).toList())
                 .containsExactlyInAnyOrderElementsOf(Arrays.stream(PositionTemplateBody.class.getRecordComponents())
+                        .map(RecordComponent::getName).toList());
+        Map<?, ?> seatFields = json.convertValue(schema.at("/$defs/seat/properties"), Map.class);
+        assertThat(seatFields.keySet().stream().map(String::valueOf).toList())
+                .containsExactlyInAnyOrderElementsOf(Arrays.stream(PositionTemplateSeat.class.getRecordComponents())
                         .map(RecordComponent::getName).toList());
     }
 

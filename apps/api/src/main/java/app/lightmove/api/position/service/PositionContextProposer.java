@@ -8,7 +8,7 @@ import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.position.constant.ExtractionSource;
-import app.lightmove.api.position.constant.MandateReason;
+import app.lightmove.api.common.constant.MandateReason;
 import app.lightmove.api.position.model.ExtractedField;
 import app.lightmove.api.position.model.ModelContextAnswer.ModelStrategicPriority;
 import app.lightmove.api.position.model.ModelContextAnswer;

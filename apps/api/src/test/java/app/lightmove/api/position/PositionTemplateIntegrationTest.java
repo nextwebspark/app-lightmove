@@ -29,7 +29,12 @@ import tools.jackson.databind.JsonNode;
 class PositionTemplateIntegrationTest extends FlowTestSupport {
 
     private static final String FIRM_TEMPLATE_BODY = """
-            {"department":"Group Treasury","reportsTo":"Chief Financial Officer",
+            {"mandateReason":"GROWTH_EXPANSION","confidential":true,
+             "narrative":"Runs group treasury for a listed holding company.",
+             "orgChart":[{"id":"cfo","title":"Chief Financial Officer"},
+                         {"id":"role","parentId":"cfo","mandateSeat":true},
+                         {"id":"desk","parentId":"role","title":"Head of Funding"}],
+             "technicalShare":70,
              "responsibilities":["Liquidity, funding and banking relationships"],
              "criteria":[{"text":"Corporate treasury leadership at comparable scale","mode":"REQUIRED"}],
              "competencies":[
@@ -82,11 +87,10 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         String projectId = createProject(admin, createClient(admin, "ADNOC", "UAE"), "Chief Financial Officer");
 
         // Seeded as a CFO from the title, then told it is really a compliance mandate.
-        assertThat(readBrief(admin, projectId).get("details").get("department").asString())
-                .isEqualTo("Finance");
+        assertThat(titlesOf(readBrief(admin, projectId).get("reporting").get("orgChart")))
+                .contains("Head of Treasury");
 
         JsonNode brief = applyTemplate(admin, projectId, idOf(admin, "chief-compliance-officer"));
-        assertThat(brief.get("details").get("department").asString()).isEqualTo("Compliance");
         assertThat(brief.get("details").get("seniority").asString()).isEqualTo("C_SUITE");
         assertThat(brief.get("details").get("narrative").asString()).contains("compliance framework");
         assertThat(brief.get("assessment").get("technical").get(0).get("name").asString())
@@ -94,6 +98,15 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         // The chart is rebuilt around the new role rather than merged with the old one.
         List<String> chart = titlesOf(brief.get("reporting").get("orgChart"));
         assertThat(chart).contains("Head of Financial Crime").doesNotContain("Head of Treasury");
+        // Drawn as the template's tree: the role beneath the seat it reports to, its reports beneath it.
+        JsonNode orgChart = brief.get("reporting").get("orgChart");
+        JsonNode roleSeat = orgChart.get(0);
+        assertThat(roleSeat.get("mandateSeat").asBoolean()).isTrue();
+        assertThat(titleOfNode(orgChart, roleSeat.get("parentNodeId").asString()))
+                .isEqualTo("Chief Executive Officer");
+        assertThat(parentOfTitled(orgChart, "Head of Financial Crime"))
+                .isEqualTo(roleSeat.get("nodeId").asString());
+        assertThat(brief.get("assessment").get("technicalShare").asInt()).isEqualTo(50);
         // The role title stays the mandate's — a template drafts the brief, it does not rename a search.
         assertThat(brief.get("details").get("roleTitle").asString()).isEqualTo("Chief Financial Officer");
         // As does the client's country, which no template has an opinion about.
@@ -106,6 +119,10 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Preserve Firm");
         String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
 
+        putStep(admin, projectId, "details", """
+                {"roleTitle":"CFO","department":"Group Finance","locationCity":"Abu Dhabi",
+                 "locationCountry":"United Arab Emirates","employmentType":null,"seniority":null,
+                 "responsibilities":[],"narrative":null}""");
         putStep(admin, projectId, "context", """
                 {"mandateReason":"SUCCESSION","businessDriver":"The incumbent retires in March.",
                  "strategicPriorities":[{"name":"Capital discipline","selected":true},
@@ -127,6 +144,11 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         JsonNode brief = applyTemplate(admin, projectId, idOf(admin, "chief-operating-officer"));
 
         // Everything a template cannot know about this mandate is left exactly where it was.
+        // Its provenance too: the step's write replaces its whole slice of sources, so the applier has
+        // to carry the ones it leaves alone or a typed department would lose its MANUAL tag.
+        assertThat(brief.get("details").get("department").asString()).isEqualTo("Group Finance");
+        assertThat(brief.get("details").get("fieldSources").get("department").asString()).isEqualTo("MANUAL");
+        assertThat(brief.get("details").get("fieldSources").get("locationCity").asString()).isEqualTo("MANUAL");
         assertThat(brief.get("context").get("mandateReason").asString()).isEqualTo("SUCCESSION");
         assertThat(brief.get("context").get("businessDriver").asString())
                 .isEqualTo("The incumbent retires in March.");
@@ -147,9 +169,9 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         assertThat(criteria).contains("Arabic language skills", "Read from the attached JD")
                 .doesNotContain("Drafted by the old template");
 
-        // The palette becomes the new role's, keeping what was lit and the chip nobody offered.
+        // A template no longer speaks for the strategic priorities: the brief's own are left as they were.
         JsonNode priorities = brief.get("context").get("strategicPriorities");
-        assertThat(priorities.get(0).get("name").asString()).isEqualTo("Operational excellence");
+        assertThat(priorities.size()).isEqualTo(2);
         assertThat(selectedNames(priorities)).containsExactlyInAnyOrder("Capital discipline",
                 "Lender confidence");
 
@@ -172,8 +194,8 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
 
         // The brief the refusal did not touch is still the one the title seeded.
-        assertThat(readBrief(admin, projectId).get("details").get("department").asString())
-                .isEqualTo("Finance");
+        assertThat(titlesOf(readBrief(admin, projectId).get("reporting").get("orgChart")))
+                .contains("Head of Treasury");
     }
 
     @Test
@@ -210,8 +232,13 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
         // a text box, so matching cannot depend on the writer having lower-cased it.
         String clientId = createClient(firm.token(), "Emirates NBD", "UAE");
         JsonNode brief = readBrief(firm.token(), createProject(firm.token(), clientId, "Treasury Lead"));
-        assertThat(brief.get("details").get("department").asString()).isEqualTo("Group Treasury");
-        assertThat(titlesOf(brief.get("reporting").get("orgChart"))).contains("Chief Financial Officer");
+        assertThat(brief.get("details").get("narrative").asString()).startsWith("Runs group treasury");
+        assertThat(titlesOf(brief.get("reporting").get("orgChart")))
+                .containsExactlyInAnyOrder("Chief Financial Officer", "Head of Funding");
+        // What only the new shape can say: the reason for hire, confidentiality and the split.
+        assertThat(brief.get("context").get("mandateReason").asString()).isEqualTo("GROWTH_EXPANSION");
+        assertThat(brief.get("context").get("confidential").asBoolean()).isTrue();
+        assertThat(brief.get("assessment").get("technicalShare").asInt()).isEqualTo(70);
 
         // The firm next door neither sees it nor can draft against it.
         Firm neighbour = firmOf("Neighbour Firm", "sara");
@@ -308,6 +335,24 @@ class PositionTemplateIntegrationTest extends FlowTestSupport {
             }
         }
         return titles;
+    }
+
+    private static String titleOfNode(JsonNode chart, String nodeId) {
+        for (JsonNode node : chart) {
+            if (node.get("nodeId").asString().equals(nodeId)) {
+                return node.get("title").isNull() ? null : node.get("title").asString();
+            }
+        }
+        throw new AssertionError("No seat " + nodeId);
+    }
+
+    private static String parentOfTitled(JsonNode chart, String title) {
+        for (JsonNode node : chart) {
+            if (!node.get("title").isNull() && node.get("title").asString().equals(title)) {
+                return node.get("parentNodeId").asString();
+            }
+        }
+        throw new AssertionError("No seat titled " + title);
     }
 
     private static List<String> selectedNames(JsonNode priorities) {

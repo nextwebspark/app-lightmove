@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://lightmove.app/schemas/position-templates.v1.json",
+  "$id": "https://lightmove.app/schemas/position-templates.v2.json",
   "title": "LightMove role templates",
   "description": "A file of role templates for LightMove's Templates import. A template drafts the position brief of every new executive-search mandate whose role title matches one of its keywords. It never states a mandate's role title, location, target date or salary band: those belong to each mandate.",
   "type": "object",
@@ -8,7 +8,7 @@
   "properties": {
     "$schema": { "type": "string" },
     "format": { "const": "lightmove.position-templates" },
-    "formatVersion": { "const": 1 },
+    "formatVersion": { "const": 2, "description": "Version 1 files, whose body carried reportsTo and directReports instead of orgChart, still import." },
     "exportedAt": { "type": "string" },
     "templates": {
       "type": "array",
@@ -51,16 +51,21 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "department": { "type": ["string", "null"], "maxLength": 160 },
         "employmentType": { "enum": ["FULL_TIME_PERMANENT", "FIXED_TERM_CONTRACT", "PART_TIME", "TEMPORARY", "INTERIM", "RETAINED_ADVISORY", null] },
-        "narrative": { "type": ["string", "null"], "maxLength": 4000, "description": "The ideal-profile paragraph a consultant starts the brief from." },
-        "responsibilities": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
-        "reportsTo": { "type": ["string", "null"], "maxLength": 160, "description": "The seat the role reports to; the root of the brief's org chart." },
-        "directReports": { "type": "array", "maxItems": 30, "items": { "type": "string", "minLength": 1, "maxLength": 160 }, "description": "Seat titles typically beneath the role." },
-        "strategicPriorities": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 120 }, "description": "The priorities a consultant chooses from for this mandate." },
+        "mandateReason": { "enum": ["NEW_ROLE", "BACKFILL", "SUCCESSION", "RESTRUCTURING", "GROWTH_EXPANSION", null], "description": "The reason for hire the brief opens with. Leave it out to keep each mandate's own." },
+        "confidential": { "type": ["boolean", "null"], "description": "True drafts the brief as Confidential (restricted until shortlist). Leave it out to keep each mandate's own." },
         "noticeValue": { "type": ["integer", "null"], "minimum": 0, "maximum": 999,
-          "description": "Step three offers None, 1, 2, 3 or 6 months; the range stays wider so a template written before that, or outside the app, still round-trips." },
+          "description": "The Role Brief offers None, 1, 2, 3 or 6 months; the range stays wider so a template written before that, or outside the app, still round-trips." },
         "noticeUnit": { "enum": ["DAYS", "WEEKS", "MONTHS", null] },
+        "responsibilities": { "type": "array", "maxItems": 20, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+        "narrative": { "type": ["string", "null"], "maxLength": 4000, "description": "The ideal-profile paragraph a consultant starts the brief from." },
+        "orgChart": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 60,
+          "description": "The reporting structure as a tree of seats. Exactly one seat has mandateSeat true: the role itself, which carries no title because it takes the mandate's. Every parentId names another seat's id; a seat with no parentId is a root. Seats hold titles only, never people's names.",
+          "items": { "$ref": "#/$defs/seat" }
+        },
         "currency": { "type": ["string", "null"], "pattern": "^[A-Z]{3}$", "description": "ISO 4217 code. Defaults to USD." },
         "baseSalaryMode": { "enum": ["ANNUAL", "MONTHLY", null], "description": "The period a salary band is quoted over. Defaults to ANNUAL." },
         "bonusValue": { "type": ["number", "null"], "minimum": 0, "maximum": 999999999999.99, "description": "The target bonus, read against bonusBasis — a proportion, or money for FIXED_AMOUNT. At most two decimal places." },
@@ -95,6 +100,7 @@
             }
           }
         },
+        "technicalShare": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "The technical panel's share of the assessment in percent; the behavioural panel takes the rest. Defaults to 50." },
         "competencies": {
           "type": "array",
           "maxItems": 20,
@@ -111,6 +117,17 @@
             }
           }
         }
+      }
+    },
+    "seat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 40, "description": "Any short name unique within the chart, e.g. \"ceo\", \"role\"." },
+        "parentId": { "type": ["string", "null"], "description": "The id of the seat this one reports to; null for a root." },
+        "title": { "type": ["string", "null"], "maxLength": 160, "description": "The seat's job title. Leave it out on the mandate seat." },
+        "mandateSeat": { "type": "boolean", "description": "True on exactly one seat: the role the template is for." }
       }
     }
   }
