@@ -1,4 +1,5 @@
 import { ApiRequestError } from "./apiClient";
+import { AutosaveFailedError } from "./useAutosave";
 
 /**
  * The backend's ErrorCode enum, mirrored — the machine-readable identity every failure carries.
@@ -227,11 +228,15 @@ export const EMAIL_FIELD_ERROR_CODES: readonly ApiErrorCode[] = [
   "EMAIL_ALREADY_REGISTERED",
 ];
 
+/** What an act that first had to save the screen's edits says when that save was refused. */
+export const UNSAVED_CHANGES_MESSAGE = "Couldn't save your last change. Check your connection and try again.";
+
 /**
  * Wording for a failure, in preference order: our copy for the code, the server's own detail, then a
  * generic line for anything unrecognisable (network failures, HTML error pages…).
  */
 export function messageFor(error: unknown): string {
+  if (error instanceof AutosaveFailedError) return UNSAVED_CHANGES_MESSAGE;
   if (error instanceof ApiRequestError) {
     const known = MESSAGES[error.code as ApiErrorCode];
     if (known) return known;

@@ -11,6 +11,7 @@ import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import * as triageApi from "../../triage/api/triageApi";
@@ -192,16 +193,13 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
     mutationKey: strategyApi.STRATEGY_WRITE_KEY(project.id),
     // The side effects live inside mutationFn so they still run when useAutosave flushes on unmount.
     mutationFn: async (payload: StrategyFilter) => {
-      try {
-        queryClient.setQueryData(strategyApi.STRATEGY_KEY(project.id), await strategyApi.putFilter(project.id, payload));
-        await refreshScopedReads();
-      } catch (error) {
-        toast(messageFor(error));
-        throw error;
-      }
+      queryClient.setQueryData(strategyApi.STRATEGY_KEY(project.id), await strategyApi.putFilter(project.id, payload));
+      await refreshScopedReads();
     },
   });
-  const autosave = useAutosave<StrategyFilter>((payload) => filterWrite.mutateAsync(payload));
+  const autosave = useAutosave<StrategyFilter>((payload) => filterWrite.mutateAsync(payload), {
+    onError: (error) => toast(messageFor(error)),
+  });
 
   const applyFilter = (next: StrategyFilter) => {
     setFilter(next);
@@ -397,6 +395,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded 98px of chrome that any topbar change would falsify. */
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
+      <LeaveGuard hasUnsavedChanges={autosave.hasUnsavedChanges} flush={autosave.flush} />
       <StrategyToolbar
         leading={toggle}
         filter={filter}

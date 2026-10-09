@@ -406,6 +406,56 @@ describe("PositionPage", () => {
     });
   });
 
+  describe("a section the server refuses", () => {
+    const unavailable = () =>
+      new ApiRequestError({ code: "INTERNAL_ERROR", detail: "Service unavailable", status: 503, correlationId: "c1" });
+
+    /** Types into City and waits for the refused save to reach the rail. */
+    const refuseAnEdit = async (person: ReturnType<typeof userEvent.setup>) => {
+      const city = await screen.findByRole("textbox", { name: "City" });
+      await person.clear(city);
+      await person.type(city, "Riyadh");
+      return within(rail()).findByRole("button", { name: "Not saved — Retry" });
+    };
+
+    it("says Not saved in the rail, and Retry resends the edit", async () => {
+      vi.mocked(positionApi.putDetails).mockRejectedValue(unavailable());
+      renderPage();
+      const person = userEvent.setup();
+
+      const retry = await refuseAnEdit(person);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      await person.click(retry);
+
+      expect(await within(rail()).findByText("Saved")).toBeInTheDocument();
+      expect(lastCall(positionApi.putDetails)[1]).toMatchObject({ locationCity: "Riyadh" });
+    });
+
+    it("never says Draft saved while the edit is refused", async () => {
+      vi.mocked(positionApi.putDetails).mockRejectedValue(unavailable());
+      renderPage();
+      const person = userEvent.setup();
+
+      await refuseAnEdit(person);
+      await person.click(within(rail()).getByRole("button", { name: "Save draft" }));
+
+      expect(await screen.findByText(/Couldn't save your last change/)).toBeInTheDocument();
+      expect(screen.queryByText("Draft saved")).not.toBeInTheDocument();
+    });
+
+    it("does not publish over an edit the server refused", async () => {
+      vi.mocked(positionApi.putDetails).mockRejectedValue(unavailable());
+      renderPage();
+      const person = userEvent.setup();
+
+      await refuseAnEdit(person);
+      await person.click(within(rail()).getByRole("button", { name: "Publish profile" }));
+
+      expect(await screen.findByText(/Couldn't save your last change/)).toBeInTheDocument();
+      expect(positionApi.publish).not.toHaveBeenCalled();
+    });
+  });
+
   describe("the role title and the template it suggests", () => {
     it("type-aheads the catalog and drafts the brief from the template picked", async () => {
       vi.mocked(positionApi.applyTemplate).mockResolvedValue(redrafted);
