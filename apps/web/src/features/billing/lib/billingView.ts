@@ -2,9 +2,6 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { formatNumber } from "../../../lib/format";
 import type { Billing, BillingInterval, BillingPlanOffer, FairUseKind } from "../api/types";
 
-/** Where an invoiced workspace writes to change its plan or add credits, and where anyone asks for more fair use. */
-export const BILLING_CONTACT_EMAIL = "billing@uncava.com";
-
 export type CreditTone = "warn" | "out";
 
 const DAY_MS = 86_400_000;
@@ -72,12 +69,12 @@ export function buyOptionOf(billing: Billing, isAdmin: boolean): BuyOption | nul
   if (billing.trialEndsAt) {
     return billing.stripeOffered && billing.plans.length > 0
       ? { kind: "plans", label: "Choose a plan" }
-      : { kind: "contact", label: "Contact Uncava", href: mailtoBilling("Choose a plan") };
+      : { kind: "contact", label: "Contact Uncava", href: mailtoBilling(billing, "Choose a plan") };
   }
   if (paysByCard(billing) && billing.packs.length > 0) {
     return { kind: "buy", label: "Buy more credits" };
   }
-  return { kind: "contact", label: "Contact Uncava", href: mailtoBilling("More contact credits") };
+  return { kind: "contact", label: "Contact Uncava", href: mailtoBilling(billing, "More contact credits") };
 }
 
 /** How an admin changes the plan: the plans dialog where Stripe takes payment, or a word to Uncava where it does not. */
@@ -86,7 +83,7 @@ export type PlanOption = { kind: "plans"; label: string } | { kind: "contact"; l
 export function planOptionOf(billing: Billing, isAdmin: boolean): PlanOption | null {
   if (!isAdmin) return null;
   if (!billing.stripeOffered || billing.status === "INVOICED" || billing.plans.length === 0) {
-    return { kind: "contact", label: "Contact Uncava", href: mailtoBilling(billing.plan ? "Change plan" : "Choose a plan") };
+    return { kind: "contact", label: "Contact Uncava", href: mailtoBilling(billing, billing.plan ? "Change plan" : "Choose a plan") };
   }
   if (billing.trialEndsAt) return { kind: "plans", label: "Choose a plan" };
   return { kind: "plans", label: hasLivePlan(billing) ? "Change plan" : "See plans" };
@@ -109,7 +106,7 @@ export type PlanChoice =
   | { kind: "portal"; label: string };
 
 export function planChoiceOf(billing: Billing, offer: BillingPlanOffer, interval: BillingInterval): PlanChoice {
-  if (offer.custom) return { kind: "talk", label: "Talk to us", href: mailtoBilling(`${offer.name} plan`) };
+  if (offer.custom) return { kind: "talk", label: "Talk to us", href: mailtoBilling(billing, `${offer.name} plan`) };
   if (paysByCard(billing)) {
     if (billing.plan?.code !== offer.code) return { kind: "portal", label: `Switch to ${offer.name}` };
     if (billing.interval === interval) return { kind: "current", label: "Current plan" };
@@ -269,7 +266,7 @@ export function billingBannerOf(billing: Billing, isAdmin: boolean): BillingBann
     return {
       tone: "info",
       title: "Paid by invoice",
-      body: `Uncava invoices this workspace each month. Write to ${BILLING_CONTACT_EMAIL} to change the plan or add credits.`,
+      body: `Uncava invoices this workspace each month. Write to ${billing.contactEmail} to change the plan or add credits.`,
       action: null,
     };
   }
@@ -300,8 +297,9 @@ export function formatBillingDate(isoInstant: string): string {
   });
 }
 
-export function mailtoBilling(subject: string): string {
-  return `mailto:${BILLING_CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+/** A message to Uncava about billing, to the address the billing read names. */
+export function mailtoBilling(billing: Billing, subject: string): string {
+  return `mailto:${billing.contactEmail}?subject=${encodeURIComponent(subject)}`;
 }
 
 /** What each fair-use kind is called where it is pressed. */

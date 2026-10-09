@@ -13,7 +13,6 @@ import type { Billing, MemberCreditSpend } from "../api/types";
 import { BuyCreditsDialog } from "../components/BuyCreditsDialog";
 import { PlansDialog } from "../components/PlansDialog";
 import {
-  BILLING_CONTACT_EMAIL,
   billingBannerOf,
   buyOptionOf,
   cardBrandLabel,
@@ -422,7 +421,7 @@ function NoPlan({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bool
           ? "An admin hasn't chosen a plan yet."
           : planOption?.kind === "plans"
             ? "Pick Core, Pro or Enterprise. Every plan includes search and AI; the plan sets how many contact credits your team gets each month."
-            : `Every plan includes search and AI; the plan sets how many contact credits your team gets each month. Write to ${BILLING_CONTACT_EMAIL} to choose one.`}
+            : `Every plan includes search and AI; the plan sets how many contact credits your team gets each month. Write to ${billing.contactEmail} to choose one.`}
       </div>
       {planOption?.kind === "plans" && (
         <Button type="button" onClick={onPlans} className="mx-auto mt-4 inline-flex">
@@ -451,7 +450,7 @@ function PaymentRow({ billing, isAdmin }: { billing: Billing; isAdmin: boolean }
           sub: pastDue ? "The last payment failed — update the card" : null,
         }
       : kind === "INVOICED"
-        ? { title: "Paid by bank transfer", sub: `Invoices come from ${BILLING_CONTACT_EMAIL}` }
+        ? { title: "Paid by bank transfer", sub: `Invoices come from ${billing.contactEmail}` }
         : { title: "No card yet", sub: "Added when you choose a plan" };
 
   return (
