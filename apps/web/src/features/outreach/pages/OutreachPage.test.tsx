@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -98,6 +98,8 @@ const connected: Mailbox = {
     connectedAt: "2026-10-01T09:00:00Z",
     movesOffNylas: false,
     runsStoppedByMove: 0,
+    liveSequences: 0,
+    livePeople: 0,
   },
 };
 
@@ -162,6 +164,45 @@ describe("OutreachPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Send a test email" }));
 
     expect(await screen.findByText("Test email sent. Check your inbox.")).toBeInTheDocument();
+  });
+
+  it("says how many live sequences a disconnect stops before it disconnects", async () => {
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
+      ...connected,
+      connection: { ...connected.connection!, liveSequences: 3, livePeople: 41 },
+    });
+    vi.mocked(mailboxApi.disconnectMailbox).mockResolvedValue(undefined);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("dialog", { name: "Disconnect yara@firm.example?" });
+    expect(dialog).toHaveTextContent("3 live sequences (41 people) will stop sending.");
+    expect(mailboxApi.disconnectMailbox).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(mailboxApi.disconnectMailbox).toHaveBeenCalled());
+  });
+
+  it("asks for the count again when the dialog opens, so runs ended since the page loaded are not counted", async () => {
+    vi.mocked(mailboxApi.getMailbox)
+      .mockResolvedValueOnce({ ...connected, connection: { ...connected.connection!, liveSequences: 5, livePeople: 5 } })
+      .mockResolvedValue({ ...connected, connection: { ...connected.connection!, liveSequences: 2, livePeople: 2 } });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("dialog", { name: "Disconnect yara@firm.example?" });
+
+    await waitFor(() => expect(dialog).toHaveTextContent("2 live sequences (2 people) will stop sending."));
+  });
+
+  it("leaves the count out when nothing is sending", async () => {
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(connected);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("dialog", { name: "Disconnect yara@firm.example?" });
+    expect(dialog).not.toHaveTextContent("will stop sending");
+    expect(dialog).toHaveTextContent("You can reconnect later");
   });
 
   it("asks for a reconnect when the provider withdrew access", async () => {
@@ -234,6 +275,8 @@ describe("OutreachPage", () => {
     const stops = await screen.findAllByRole("button", { name: "Stop" });
     expect(stops).toHaveLength(1);
     await userEvent.click(stops[0]);
+    const dialog = await screen.findByRole("dialog", { name: "Stop Omar Farouk's sequence?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Stop sequence" }));
     await waitFor(() => expect(runApi.stopRun).toHaveBeenCalledWith("p1", "r1"));
     expect(await screen.findByText("Stopped. Nothing more goes to Omar Farouk.")).toBeInTheDocument();
 

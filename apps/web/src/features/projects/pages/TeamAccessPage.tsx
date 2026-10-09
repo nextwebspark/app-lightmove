@@ -5,6 +5,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Avatar, CompanyLogo, useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { messageFor } from "../../../lib/errorCodes";
 import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -49,6 +50,8 @@ export function TeamAccessPage() {
   const navigate = useNavigate();
   const [addTeamOpen, setAddTeamOpen] = useState(false);
   const [addContactOpen, setAddContactOpen] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<TeamMember | null>(null);
+  const [pendingDetach, setPendingDetach] = useState<AttachedRepresentative | null>(null);
   const [sort, setSort] = useGridSort<ProjectTeamSortField>(
     "projectTeam",
     project.id,
@@ -87,6 +90,7 @@ export function TeamAccessPage() {
       projectsApi.detachRepresentative(project.id, representativeId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      setPendingDetach(null);
       toast("Contact removed from this mandate");
     },
     onError: (error) => toast.error(messageFor(error)),
@@ -128,6 +132,7 @@ export function TeamAccessPage() {
   const remove = useMutation({
     mutationFn: (member: TeamMember) => projectsApi.removeProjectMember(project.id, member.memberId),
     onSuccess: async (_project, member) => {
+      setPendingRemoval(null);
       await refresh(member);
       toast(`${member.fullName} removed from project`);
       // Removing your own seat can take the mandate with it — a non-lead loses WORK_VIEW entirely.
@@ -147,7 +152,7 @@ export function TeamAccessPage() {
     soleLeadMemberId: leads.length === 1 ? leads[0]!.memberId : null,
     busyMemberId,
     onChangeRole: (member, role) => changeRole.mutate({ member, role }),
-    onRemove: (member) => remove.mutate(member),
+    onRemove: setPendingRemoval,
   };
 
   const contacts = project.representatives;
@@ -240,7 +245,7 @@ export function TeamAccessPage() {
               contact={contact}
               canRemove={canManage}
               removing={detach.isPending}
-              onRemove={() => detach.mutate(contact.representativeId)}
+              onRemove={() => setPendingDetach(contact)}
             />
           ))}
 
@@ -255,6 +260,36 @@ export function TeamAccessPage() {
       {addTeamOpen && (
         <AddTeamMemberModal project={project} onClose={() => setAddTeamOpen(false)} />
       )}
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        title={
+          pendingRemoval?.userId === user?.id
+            ? `Remove yourself from ${project.positionTitle}?`
+            : `Remove ${pendingRemoval?.fullName} from ${project.positionTitle}?`
+        }
+        confirmLabel="Remove"
+        pending={remove.isPending}
+        onConfirm={() => pendingRemoval && remove.mutate(pendingRemoval)}
+        onClose={() => setPendingRemoval(null)}
+      >
+        {pendingRemoval?.userId === user?.id ? (
+          <p>
+            <strong className="font-semibold text-u-text">You'll lose access to this position immediately.</strong>
+          </p>
+        ) : (
+          <p>They'll lose access to this position.</p>
+        )}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={pendingDetach !== null}
+        title={`Remove ${pendingDetach?.fullName} from ${project.positionTitle}?`}
+        confirmLabel="Remove"
+        pending={detach.isPending}
+        onConfirm={() => pendingDetach && detach.mutate(pendingDetach.representativeId)}
+        onClose={() => setPendingDetach(null)}
+      >
+        <p>They'll no longer be able to read this position.</p>
+      </ConfirmDialog>
       {addContactOpen && (
         <AddClientContactModal
           project={project}

@@ -4,6 +4,7 @@ import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachRunTally;
+import app.lightmove.api.outreach.model.SenderLiveRunCount;
 import app.lightmove.api.outreach.model.SequenceEnrollmentCount;
 import java.time.Instant;
 import java.util.Collection;
@@ -53,6 +54,13 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
     /** Keyed on the sender's grant as well as the thread: a thread id is only unique within one mailbox. */
     List<OutreachEnrollment> findByWorkspaceIdAndSenderUserIdAndThreadId(UUID workspaceId, UUID senderUserId,
                                                                          String threadId);
+
+    /** One sender's live runs, whichever gateway made their threads: each stops at its next send without a mailbox. */
+    @Query("select count(distinct e.sequenceId) as sequences, count(distinct e.personId) as people "
+            + "from OutreachEnrollment e where e.workspaceId = :workspaceId and e.senderUserId = :senderUserId "
+            + "and e.status in (app.lightmove.api.outreach.constant.EnrollmentStatus.SCHEDULED, "
+            + "app.lightmove.api.outreach.constant.EnrollmentStatus.ACTIVE)")
+    SenderLiveRunCount countLiveRunsOf(UUID workspaceId, UUID senderUserId);
 
     /** One sender's runs still to send in a thread {@code gateway} made: what a move off it stops. */
     @Query("select count(e) from OutreachEnrollment e where e.workspaceId = :workspaceId "

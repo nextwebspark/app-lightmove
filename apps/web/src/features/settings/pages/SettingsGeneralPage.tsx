@@ -213,7 +213,7 @@ function DeleteWorkspaceModal({ workspaceName, onClose }: { workspaceName: strin
           Cancel
         </Button>
         <Button
-          className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
+          variant="danger"
           disabled={!matches}
           loading={destroy.isPending}
           onClick={() => destroy.mutate()}
