@@ -6,7 +6,7 @@ import { useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import type { Billing } from "../../billing/api/types";
-import { daysLeftLabel, formatResetDate, trialOf } from "../../billing/lib/billingView";
+import { daysLeftLabel, formatBillingDate, trialOf } from "../../billing/lib/billingView";
 import { useBilling } from "../../billing/lib/useBilling";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as gettingStartedApi from "../api/gettingStartedApi";
@@ -221,7 +221,7 @@ function TrialNote({ billing }: { billing: Billing }) {
         <span className="font-medium text-u-text">
           Your {plan}: {daysLeftLabel(trial.daysLeft)}.
         </span>{" "}
-        Search, AI and {billing.credits.monthly} contact credits are included until {formatResetDate(trial.endsAt)}.
+        Search, AI and {billing.credits.monthly} contact credits are included until {formatBillingDate(trial.endsAt).replaceAll(" ", "\u00a0")}.
         Choose a plan to keep them.
       </p>
       <Link to="/settings/billing" className={cn(TEXT_ACTION, "inline-flex items-center gap-1 font-medium text-u-accent")}>

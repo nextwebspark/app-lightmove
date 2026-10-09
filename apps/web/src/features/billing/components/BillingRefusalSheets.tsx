@@ -11,12 +11,12 @@ import { PlansDialog } from "./PlansDialog";
 import {
   billingRefusalOf,
   buyOptionOf,
-  planOptionOf,
   creditsLabel,
   FAIR_USE_FEATURES,
   formatBillingDate,
   formatResetDate,
   mailtoBilling,
+  planOptionOf,
   trialOf,
   type BillingRefusal,
 } from "../lib/billingView";
