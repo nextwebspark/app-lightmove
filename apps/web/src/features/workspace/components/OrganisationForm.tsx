@@ -59,7 +59,7 @@ export function OrganisationForm({
 
   const onSubmit = async (values: WorkspaceValues) => {
     setFormError(null);
-    const payload = { ...values, name: values.name.trim(), apolloAccountId: match?.apolloAccountId ?? null };
+    const payload = { ...values, apolloAccountId: match?.apolloAccountId ?? null };
     try {
       await onDone(await submit(payload));
     } catch (error) {
@@ -88,13 +88,14 @@ export function OrganisationForm({
         />
 
         <FirmNameField
-          label={mode === "AGENCY" ? "Your firm's name" : mode === "COMPANY" ? "Your company's name" : "Your firm or company's name"}
+          label={mode === "AGENCY" ? "Your firm's name" : mode === "COMPANY" ? "Your company's name" : "Your organization's name"}
           name={name}
           onNameChange={(next) => setValue("name", next, { shouldValidate: !!errors.name })}
           match={match}
           onMatch={setMatch}
           source={ONBOARDING_COMPANY_SEARCH}
           error={errors.name?.message}
+          autoFocus
         />
 
         <Button type="submit" loading={isSubmitting} className="w-full">
