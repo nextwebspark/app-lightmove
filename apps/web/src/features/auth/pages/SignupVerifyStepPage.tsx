@@ -6,8 +6,8 @@ import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { homeFor } from "../homeFor";
+import { markSignupRestart } from "../signupRestart";
 
-/** How long a sent link holds the Resend button before another may be asked for. */
 export const RESEND_COOLDOWN_SECONDS = 30;
 
 /** How often the tab re-asks the server whether the link has been clicked somewhere else. */
@@ -84,16 +84,11 @@ export function SignupVerifyStepPage() {
   };
 
   // The account at the mistyped address stays unverified and unusable; signing up again is the way to
-  // the right one, and the name has already been typed once.
-  const handleChangeEmail = async () => {
-    const fullName = user?.fullName ?? "";
+  // the right one. signOut clears this browser's session even when the server call fails.
+  const handleChangeEmail = () => {
+    markSignupRestart(user?.fullName ?? "");
     setLeaving(true);
-    try {
-      await signOut();
-    } finally {
-      // signOut clears this browser's session even when the server call fails; step 1 is still the way on.
-      navigate("/signup", { replace: true, state: { fullName } });
-    }
+    signOut().catch(() => {});
   };
 
   return (

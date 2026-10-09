@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { EMAIL_FIELD_ERROR_CODES, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
@@ -11,6 +11,7 @@ import { OAuthButtons } from "../components/OAuthButtons";
 import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { signupSchema, type SignupValues } from "../schemas";
+import { clearSignupRestart, signupRestartName } from "../signupRestart";
 
 /**
  * Signup step 1 — "Create your account". A port of Signup.dc.html's first step.
@@ -23,8 +24,8 @@ import { signupSchema, type SignupValues } from "../schemas";
 export function SignupPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const carriedFullName = fullNameCarriedFrom(location.state);
+  const [carriedFullName] = useState(signupRestartName);
+  useEffect(clearSignupRestart, []);
   const [formError, setFormError] = useState<string | null>(null);
   // The address that turned out to already have an account — the one state with a real way forward
   // (log in), so it gets a CTA rather than a dead-end field error.
@@ -177,8 +178,3 @@ export function SignupPage() {
   );
 }
 
-/** "Change email" on the verify step comes back here with the name already typed once. */
-function fullNameCarriedFrom(state: unknown): string {
-  const fullName = (state as { fullName?: unknown } | null)?.fullName;
-  return typeof fullName === "string" ? fullName : "";
-}

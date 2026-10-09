@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import type { User } from "../api/types";
-import { SignupVerifyStepPage } from "./SignupVerifyStepPage";
+import { RESEND_COOLDOWN_SECONDS, SignupVerifyStepPage } from "./SignupVerifyStepPage";
 
 vi.mock("../api/authApi");
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
@@ -129,7 +129,7 @@ describe("SignupVerifyStepPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /resend the link/i }));
 
     expect(await screen.findByText(/Sent to alok@nextwebspark.com/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /resend again in 30s/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: new RegExp(`resend again in ${RESEND_COOLDOWN_SECONDS}s`, "i") })).toBeDisabled();
   });
 
   it("says so when the resend fails, and lets it be tried again", async () => {
@@ -152,19 +152,5 @@ describe("SignupVerifyStepPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /i've confirmed it/i }));
 
     expect(await screen.findByText(/haven’t seen the click yet/)).toBeInTheDocument();
-  });
-
-  it("lets a mistyped address be changed, carrying the name back to step 1", async () => {
-    vi.mocked(authApi.me).mockResolvedValue(userAt(false));
-    vi.mocked(authApi.logout).mockResolvedValue(undefined);
-
-    renderPage();
-    await screen.findByText("alok@nextwebspark.com");
-    await userEvent.click(screen.getByRole("button", { name: "Change email" }));
-
-    await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith("/signup", { replace: true, state: { fullName: "Alok Kumar" } }),
-    );
-    expect(authApi.logout).toHaveBeenCalled();
   });
 });

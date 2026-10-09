@@ -410,7 +410,6 @@ describe("routes — the not-found screen", () => {
   });
 });
 
-/** A signed-out visitor to an unknown address — a Terms link before there was a Terms page — was sent to sign in. */
 describe("routes — an unknown address with no session", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -432,5 +431,33 @@ describe("routes — an unknown address with no session", () => {
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
     expect(screen.getByTestId("from")).toHaveTextContent("/projects/p1");
+  });
+});
+
+describe("routes — changing a mistyped address on the verify step", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    sessionStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(unverifiedUser());
+  });
+
+  it("lands on step 1 with the name kept, not on sign in", async () => {
+    vi.mocked(authApi.logout).mockResolvedValue(undefined);
+    renderAt("/signup/verify-email");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/signup"));
+    expect(await screen.findByLabelText("Full name")).toHaveValue("Someone");
+  });
+
+  it("still gets there when the server refuses the sign-out", async () => {
+    vi.mocked(authApi.logout).mockRejectedValue(new Error("503"));
+    renderAt("/signup/verify-email");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/signup"));
   });
 });

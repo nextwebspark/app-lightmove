@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { AuthLogo, buttonClassName, Card } from "../components/ui";
 
-/** An unknown address reached without a session: say so, rather than bouncing to a sign-in nobody asked for. */
 export function PublicNotFoundPage() {
   const heading = useRef<HTMLHeadingElement>(null);
 

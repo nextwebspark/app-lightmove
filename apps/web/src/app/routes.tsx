@@ -8,6 +8,7 @@ import { useAuth } from "../features/auth/AuthProvider";
 import type { PlatformAction } from "../features/auth/api/types";
 import { homeFor } from "../features/auth/homeFor";
 import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
+import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
@@ -217,7 +218,6 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
 
 export { homeFor };
 
-/** Signed out, an unknown address is a public 404; sending it to sign-in read as being asked to log in. */
 function UnknownAddress() {
   const { user, loading } = useAuth();
 
@@ -233,6 +233,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
   if (loading) return <Booting />;
 
+  if (!user && hasPendingSignupRestart()) return <Navigate to="/signup" replace />;
   if (!user) {
     // Remember where they were headed, so signing in returns them to it rather than dumping them on
     // the home page.

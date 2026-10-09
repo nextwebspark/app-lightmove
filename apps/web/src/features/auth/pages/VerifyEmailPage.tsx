@@ -144,7 +144,7 @@ export function VerifyEmailPage() {
  * the address is known; otherwise it is asked for. The server answers alike whether or not it exists.
  */
 function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
-  const [email, setEmail] = useState(knownEmail ?? "");
+  const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [sendFailed, setSendFailed] = useState(false);
@@ -152,7 +152,8 @@ function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const address = email.trim();
+    // The session restore can finish after this mounted, so the known address is read at submit.
+    const address = (knownEmail ?? email).trim();
     if (!EMAIL_SHAPE.test(address)) {
       setFieldError(address ? "That doesn't look like a valid email" : "Enter the email you signed up with");
       return;
@@ -205,5 +206,4 @@ function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
   );
 }
 
-/** Enough to catch a slip before asking the server, which holds the real rule. */
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
