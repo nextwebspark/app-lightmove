@@ -19,6 +19,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,7 +31,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Outstanding invitations, gated on MEMBER_INVITE. The service keeps imperative checks too, being
+ * Outstanding invitations, gated on MEMBER_INVITE but for their count. The service keeps imperative checks too, being
  * reachable from the anonymous accept-invitation-signup path.
  */
 @RestController
@@ -56,6 +57,16 @@ public class InvitationsController {
                         WorkspaceRole.valueOf(inv.getRole().getName()),
                         inviterNames.get(inv.getInvitedBy()), inv.getCreatedAt(), inv.getExpiresAt()))
                 .toList();
+    }
+
+    /**
+     * How many colleagues have been asked in and not yet answered — for the Team page every staff member reads.
+     * A count and nothing more: who was invited stays with whoever may invite.
+     */
+    @GetMapping("/pending-count")
+    @PreAuthorize("@workspaceAuthorizer.staff(principal)")
+    public Map<String, Long> pendingCount(@AuthenticationPrincipal AuthPrincipal principal) {
+        return Map.of("count", invitations.countPendingStaff(principal.requireWorkspaceId()));
     }
 
     @PostMapping

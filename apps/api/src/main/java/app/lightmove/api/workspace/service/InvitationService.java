@@ -230,6 +230,11 @@ public class InvitationService {
         return invitations.existsByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING);
     }
 
+    @Transactional(readOnly = true)
+    public long countPendingStaff(UUID workspaceId) {
+        return invitations.countByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING);
+    }
+
     /** Staff invitations only: a client-rep invitation never surfaces, nor is reachable by revoke/resend. */
     @Transactional(readOnly = true)
     public List<Invitation> pending(UUID userId, UUID workspaceId) {

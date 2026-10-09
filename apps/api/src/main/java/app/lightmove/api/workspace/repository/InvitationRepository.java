@@ -28,6 +28,8 @@ public interface InvitationRepository extends JpaRepository<Invitation, UUID> {
 
     boolean existsByWorkspaceIdAndClientIdIsNullAndStatus(UUID workspaceId, InvitationStatus status);
 
+    long countByWorkspaceIdAndClientIdIsNullAndStatus(UUID workspaceId, InvitationStatus status);
+
     /** Scoped by client too, so it never collides with a staff invite to the same email. */
     Optional<Invitation> findByWorkspaceIdAndClientIdAndEmailAndStatus(
             UUID workspaceId, UUID clientId, String email, InvitationStatus status);

@@ -39,6 +39,27 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("every staff member reads how many invitations are pending, and nothing more; a client reads nothing")
+    void pendingCountIsStaffs() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Count Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        invite(admin, "omar@" + domain, "MEMBER");
+        invite(admin, "lina@" + domain, "ADMIN");
+        String client = clientRepresentative(admin, "Rana Client", "rana@client-" + domain);
+
+        mvc.perform(get("/api/v1/invitations/pending-count").header("Authorization", "Bearer " + login(sara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(2))
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mvc.perform(get("/api/v1/invitations/pending-count").header("Authorization", "Bearer " + client))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("revoking an invitation kills the emailed link")
     void revokeKillsTheLink() throws Exception {
         String alok = "alok@" + domain;
