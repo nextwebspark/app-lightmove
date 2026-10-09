@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 /**
@@ -16,11 +16,13 @@ export function useAddressedSearch<Chip extends string>(chipKey: string, chips: 
   const chip = chips.find((candidate) => candidate === addressChip) ?? defaultChip;
   const [query, setQuery] = useState(addressQuery);
   const [seenAddressQuery, setSeenAddressQuery] = useState(addressQuery);
-  const writtenQuery = useRef(addressQuery);
+  // What this hook last wrote and the address has yet to show; anything else arriving there is someone else's.
+  const [pendingQuery, setPendingQuery] = useState<string | null>(null);
 
   if (addressQuery !== seenAddressQuery) {
     setSeenAddressQuery(addressQuery);
-    if (addressQuery !== writtenQuery.current) setQuery(addressQuery);
+    if (addressQuery === pendingQuery) setPendingQuery(null);
+    else setQuery(addressQuery);
   }
 
   const setParam = useCallback(
@@ -37,18 +39,20 @@ export function useAddressedSearch<Chip extends string>(chipKey: string, chips: 
     [setSearchParams],
   );
 
-  useEffect(() => {
+  const writeQuery = useCallback(() => {
     if (query === addressQuery) return;
-    const timer = window.setTimeout(() => {
-      writtenQuery.current = query;
-      setParam("q", query, query === "");
-    }, 300);
-    return () => window.clearTimeout(timer);
+    setPendingQuery(query);
+    setParam("q", query, query === "");
   }, [query, addressQuery, setParam]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(writeQuery, 300);
+    return () => window.clearTimeout(timer);
+  }, [writeQuery]);
 
   const setChip = (next: Chip) => setParam(chipKey, next, next === defaultChip);
   const clear = () => {
-    writtenQuery.current = "";
+    setPendingQuery("");
     setQuery("");
     setSearchParams(
       (current) => {
@@ -61,5 +65,6 @@ export function useAddressedSearch<Chip extends string>(chipKey: string, chips: 
     );
   };
 
-  return { query, setQuery, chip, setChip, clear };
+  // Flushed on leaving the box, so a row opened straight after typing carries the search into its way back.
+  return { query, setQuery, flushQuery: writeQuery, chip, setChip, clear };
 }

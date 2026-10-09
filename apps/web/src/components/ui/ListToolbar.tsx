@@ -12,6 +12,7 @@ import { Chip } from "./Chip";
 export function ListToolbar<TChip extends string>({
   query,
   onQueryChange,
+  onQueryBlur,
   placeholder,
   chips,
   activeChip,
@@ -20,6 +21,8 @@ export function ListToolbar<TChip extends string>({
 }: {
   query: string;
   onQueryChange: (query: string) => void;
+  /** Leaving the box, which a click on a row does first. */
+  onQueryBlur?: () => void;
   placeholder: string;
   chips: readonly { key: TChip; label: string }[];
   activeChip: TChip;
@@ -34,6 +37,7 @@ export function ListToolbar<TChip extends string>({
         <input
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
+          onBlur={onQueryBlur}
           placeholder={placeholder}
           // A placeholder is a hint, not a name: it is gone the moment a letter is typed.
           aria-label={placeholder}

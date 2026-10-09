@@ -133,7 +133,7 @@ export function ProjectLayout() {
       }
       topbarActions={<ProjectPeopleBar project={project} />}
       navGroups={groups}
-      navBackLink={{ to: origin.path, label: `Back to ${origin.label}`, icon: ICONS.back }}
+      navBackLink={{ to: origin.path, label: origin.label, title: `Back to ${origin.label}`, icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
       assistantProjectId={project.id}
       /* Wider than the mockups' 1160px on purpose — see WorkspaceLayout for the reasoning. */

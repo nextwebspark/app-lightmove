@@ -103,6 +103,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
         {canManageAccess && (
           <Link
             to={`/projects/${project.id}/team`}
+            state={originState}
             className="mt-3 inline-flex items-center gap-1.5 text-note font-medium text-u-text2 hover:text-u-text hover:underline"
           >
             <Icon d={ICONS.settings} size={13} />
@@ -391,9 +392,11 @@ function HiringManagerRow({ representative }: { representative: AttachedRepresen
 }
 
 function InviteLink({ projectId }: { projectId: string }) {
+  const originState = usePositionsOriginState();
   return (
     <Link
       to={`/projects/${projectId}/team`}
+      state={originState}
       className="text-note font-medium normal-case tracking-normal text-u-accent hover:underline"
     >
       + Invite

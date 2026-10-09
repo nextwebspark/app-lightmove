@@ -51,7 +51,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   // their project list to the mandates they're attached to, so that list IS "my projects" for them.
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   // In the address, so the back link from a position returns to the list as it was left.
-  const { query, setQuery, chip, setChip, clear: clearFilters } = useAddressedSearch(
+  const { query, setQuery, flushQuery, chip, setChip, clear: clearFilters } = useAddressedSearch(
     "stage",
     CHIP_KEYS,
     DEFAULT_CHIP,
@@ -221,6 +221,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         <ListToolbar
           query={query}
           onQueryChange={setQuery}
+          onQueryBlur={flushQuery}
           placeholder={`Search ${vocabulary.unitLower} or position…`}
           chips={CHIPS}
           activeChip={chip}

@@ -13,6 +13,8 @@ export interface SidebarItem {
   count?: number;
   /** Ends the NavLink match at the exact path — "/" would otherwise match everything. */
   end?: boolean;
+  /** The tooltip, where the label alone is shorter than what the link promises. */
+  title?: string;
   /** Said of an item that leads out of the shell it sits in, which it marks with an arrow. */
   leavesShell?: string;
 }
@@ -97,7 +99,7 @@ export function Sidebar({
         <>
           <NavLink
             to={backLink.to}
-            title={backLink.label}
+            title={backLink.title ?? backLink.label}
             className={rowClass("mb-1.5 font-medium text-u-text2")}
           >
             <Icon d={backLink.icon} className="flex-none" />

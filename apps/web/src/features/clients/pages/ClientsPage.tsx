@@ -22,11 +22,10 @@ import {
   clientColumnsFor,
   type ClientSortField,
 } from "../lib/clientColumns";
-import { chipsFor, filterClients, type ChipKey } from "../lib/filtering";
+import { chipsFor, CLIENT_CHIP_KEYS, filterClients, type ChipKey } from "../lib/filtering";
 import { useAddressedSearch } from "../../../lib/useAddressedSearch";
 import { useSearchParams } from "react-router-dom";
 
-const CHIP_KEYS: ChipKey[] = ["all", "active", "noreps"];
 
 const DEFAULT_CLIENT_SORT = { field: "name", direction: "asc" } as const;
 
@@ -41,7 +40,7 @@ export function ClientsPage() {
   const hideableColumns = useMemo(() => hideableColumnsOf(columns), [columns]);
   const chips = useMemo(() => chipsFor(vocabulary), [vocabulary]);
   // In the address, with the open record, so the way back from a position opened here finds the page as left.
-  const { query, setQuery, chip, setChip } = useAddressedSearch<ChipKey>("show", CHIP_KEYS, "all");
+  const { query, setQuery, flushQuery, chip, setChip } = useAddressedSearch<ChipKey>("show", CLIENT_CHIP_KEYS, "all");
   const [searchParams, setSearchParams] = useSearchParams();
   const openClientId = searchParams.get("client");
   const setOpenClientId = (id: string | null) =>
@@ -146,6 +145,7 @@ export function ClientsPage() {
           <ListToolbar
             query={query}
             onQueryChange={setQuery}
+            onQueryBlur={flushQuery}
             placeholder={`Search ${vocabulary.unitsLower}…`}
             chips={chips}
             activeChip={chip}

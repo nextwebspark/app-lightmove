@@ -6,7 +6,9 @@ import type { Client } from "../api/types";
  * mirroring the projects feature's own filtering module.
  */
 
-export type ChipKey = "all" | "active" | "noreps";
+export const CLIENT_CHIP_KEYS = ["all", "active", "noreps"] as const;
+
+export type ChipKey = (typeof CLIENT_CHIP_KEYS)[number];
 
 export function chipsFor(vocabulary: WorkspaceVocabulary): { key: ChipKey; label: string }[] {
   return [

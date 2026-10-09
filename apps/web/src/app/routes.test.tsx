@@ -535,10 +535,9 @@ describe("routes — back from a position", () => {
 
     await userEvent.click((await screen.findAllByRole("link", { name: "Open CFO Search" }))[0]);
 
-    expect(await screen.findByRole("link", { name: /Back to All positions/ })).toHaveAttribute(
-      "href",
-      "/all?stage=DELIVERED&q=cfo",
-    );
+    const back = await screen.findByRole("link", { name: "All positions" });
+    expect(back).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
+    expect(back).toHaveAttribute("title", "Back to All positions");
     expect(screen.getByRole("link", { name: "Positions" })).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
   });
 });
