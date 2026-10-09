@@ -66,6 +66,14 @@ export type ApiErrorCode =
   | "CONTACT_LOOKUP_FAILED"
   | "CONTACT_LOOKUP_NO_PROFILE"
   | "CONTACT_LIMIT_REACHED"
+  | "INSUFFICIENT_CREDITS"
+  | "FAIR_USE_REACHED"
+  | "TRIAL_ENDED"
+  | "BILLING_UNAVAILABLE"
+  | "BILLING_PLAN_UNKNOWN"
+  | "BILLING_PACK_UNKNOWN"
+  | "SUBSCRIPTION_BILLED_BY_STRIPE"
+  | "SEAT_LIMIT_REACHED"
   | "CANDIDATE_PROFILE_URL_LOCKED"
   | "EXECUTIVE_SOURCING_UNAVAILABLE"
   | "EXECUTIVE_SOURCING_TOO_MANY_COMPANIES"
@@ -176,6 +184,14 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LOOKUP_FAILED: "Contact lookup didn't respond — the provider may be busy. Try again in a minute.",
   CONTACT_LOOKUP_NO_PROFILE: "Add this person's LinkedIn profile URL first.",
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
+  INSUFFICIENT_CREDITS: "Your workspace is out of contact credits. Nothing was spent.",
+  FAIR_USE_REACHED: "Your team has reached this month's fair use for this feature.",
+  TRIAL_ENDED: "Your workspace's trial has ended. Choose a plan to carry on.",
+  BILLING_UNAVAILABLE: "Paying online isn't available right now. Use Contact Uncava in Settings → Billing instead.",
+  BILLING_PLAN_UNKNOWN: "That plan can't be bought online. Use Contact Uncava in Settings → Billing to choose it.",
+  BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",
+  SUBSCRIPTION_BILLED_BY_STRIPE: "This workspace already pays through Stripe — change the plan from Invoices & card.",
+  SEAT_LIMIT_REACHED: "Every seat your workspace pays for is taken. An admin can add seats through Contact Uncava in Settings → Billing.",
   CANDIDATE_PROFILE_URL_LOCKED:
     "This profile was captured from LinkedIn, so its URL is not editable.",
   EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",

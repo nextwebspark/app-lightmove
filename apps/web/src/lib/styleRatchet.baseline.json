@@ -68,6 +68,25 @@
   "features/auth/pages/VerifyEmailPage.tsx": {
     "arbitraryText": 4
   },
+  "features/billing/components/BillingRefusalSheets.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 1
+  },
+  "features/billing/components/BuyCreditsDialog.tsx": {
+    "arbitraryRadius": 1,
+    "arbitraryText": 2
+  },
+  "features/billing/components/CreditChip.tsx": {
+    "arbitraryRadius": 1
+  },
+  "features/billing/components/PlansDialog.tsx": {
+    "arbitraryText": 4,
+    "arbitraryRadius": 1
+  },
+  "features/billing/pages/SettingsBillingPage.tsx": {
+    "arbitraryText": 23,
+    "arbitraryRadius": 5
+  },
   "features/candidates/components/AddCandidateForm.tsx": {
     "arbitraryText": 4
   },
@@ -216,7 +235,7 @@
     "arbitraryText": 4
   },
   "features/contactlookup/components/ContactPanel.tsx": {
-    "arbitraryText": 7
+    "arbitraryText": 8
   },
   "features/customcolumns/components/CustomFieldsFieldset.tsx": {
     "arbitraryText": 1

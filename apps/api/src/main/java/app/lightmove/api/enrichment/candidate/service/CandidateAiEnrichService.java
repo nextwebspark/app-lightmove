@@ -1,5 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.service.CandidateService;
@@ -25,6 +27,7 @@ public class CandidateAiEnrichService {
 
     private final CandidateService candidates;
     private final LlmBudgetGuard llmBudget;
+    private final FairUseGuard fairUse;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
 
@@ -33,6 +36,7 @@ public class CandidateAiEnrichService {
                         HttpServletRequest httpRequest) {
         candidates.requireCandidate(workspaceId, projectId, candidateId);
         llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, userId);
+        fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
         audit.projectEvent(ProjectEventType.CANDIDATE_AI_ENRICH_REQUESTED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .record();

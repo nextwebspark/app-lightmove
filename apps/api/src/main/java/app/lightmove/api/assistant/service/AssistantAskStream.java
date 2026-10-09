@@ -2,6 +2,8 @@ package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.assistant.dto.AssistantTurnResponse;
 import app.lightmove.api.assistant.model.AssistantThread;
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -38,20 +40,23 @@ public class AssistantAskStream {
     private final AssistantService assistant;
     private final AsyncTaskExecutor executor;
     private final LlmBudgetGuard budget;
+    private final FairUseGuard fairUse;
     private final Semaphore slots;
 
     public AssistantAskStream(AssistantService assistant,
                               @Qualifier("applicationTaskExecutor") AsyncTaskExecutor executor,
-                              LlmBudgetGuard budget, LightMoveProperties properties) {
+                              LlmBudgetGuard budget, FairUseGuard fairUse, LightMoveProperties properties) {
         this.assistant = assistant;
         this.executor = executor;
         this.budget = budget;
+        this.fairUse = fairUse;
         this.slots = new Semaphore(properties.assistant().maxConcurrentAsks());
     }
 
     public SseEmitter ask(UUID userId, UUID workspaceId, UUID projectId, UUID threadId, String question) {
         AssistantThread existing = assistant.requireThread(userId, workspaceId, projectId, threadId);
         budget.require(LlmBudget.ASSISTANT, userId);
+        fairUse.check(workspaceId, userId, UsageKind.ASSISTANT_ASK, 1);
         if (!slots.tryAcquire()) {
             throw ApiException.of(ErrorCode.ASSISTANT_BUSY);
         }

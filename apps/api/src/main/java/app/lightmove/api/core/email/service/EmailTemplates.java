@@ -10,6 +10,7 @@ import app.lightmove.api.core.email.render.EmailContent;
 import app.lightmove.api.core.email.render.EmailNote;
 import app.lightmove.api.core.email.render.EmailParagraph;
 import app.lightmove.api.core.email.render.EmailRenderer;
+import java.util.Locale;
 import org.springframework.stereotype.Component;
 
 /**
@@ -186,6 +187,93 @@ public class EmailTemplates {
                 new EmailAction("Open Integrations", settingsLink),
                 EmailNote.of("Create a new secret in the provider's console, then paste it and its new expiry "
                         + "date into Settings → Integrations. You get this because you manage the workspace.")));
+    }
+
+    /** To a workspace's billing managers, once per billing month at 80% and again at 90% of its plan's credits. */
+    public EmailMessage buildContactCreditsLowEmail(String recipient, String recipientName, String workspaceName,
+                                                    int usedPercent, long creditsLeft, String resetsOn,
+                                                    EmailAction moreCredits) {
+        boolean urgent = usedPercent >= 90;
+        return renderer.render(recipient,
+                "%d%% of this month's contact credits used".formatted(usedPercent), EmailContent.of(
+                        urgent ? "Contact credits are nearly gone" : "Contact credits are running low",
+                        EmailParagraph.of("Hi %s — %s has used %s of this month's contact credits: %s left until "
+                                        + "they reset on %s.%s",
+                                plain(firstName(recipientName)), strong(workspaceName),
+                                strong(usedPercent + "%"), strong(creditsLeftOf(creditsLeft)), strong(resetsOn),
+                                plain(urgent ? " Once they are gone, Find email and Find phone stop until then." : "")),
+                        moreCredits,
+                        EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    public EmailMessage buildContactCreditsUsedUpEmail(String recipient, String recipientName, String workspaceName,
+                                                       String resetsOn, EmailAction moreCredits) {
+        return renderer.render(recipient, "Contact credits used up", EmailContent.of(
+                "Contact credits used up",
+                EmailParagraph.of("Hi %s — %s has no contact credits left, so Find email and Find phone are "
+                                + "paused until the credits reset on %s, or until more are added.",
+                        plain(firstName(recipientName)), strong(workspaceName), strong(resetsOn)),
+                moreCredits,
+                EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    /** Once per failed invoice: Stripe retries the card on its own, and each attempt is another event. */
+    public EmailMessage buildPaymentFailedEmail(String recipient, String recipientName, String workspaceName,
+                                                long graceDays, String billingLink) {
+        return renderer.render(recipient, "Your Uncava payment failed", EmailContent.of(
+                "A payment failed",
+                EmailParagraph.of("Hi %s — the latest payment for %s's Uncava subscription did not go through. "
+                                + "Update the card from Settings → Billing and the invoice is retried.",
+                        plain(firstName(recipientName)), strong(workspaceName)),
+                EmailParagraph.of("If it is still unpaid after %s %s, no new month of contact credits is granted "
+                                + "until it is.",
+                        plain(String.valueOf(graceDays)), plain(graceDays == 1 ? "day" : "days")),
+                new EmailAction("Open billing", billingLink),
+                EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    /** Once per pack bought, a week before what is left of it lapses. */
+    public EmailMessage buildPurchasedCreditsExpiringEmail(String recipient, String recipientName,
+                                                           String workspaceName, long credits, String expiresOn,
+                                                           String billingLink) {
+        return renderer.render(recipient, "Bought contact credits expire on %s".formatted(expiresOn),
+                EmailContent.of(
+                        "Bought credits expire soon",
+                        EmailParagraph.of("Hi %s — %s of the contact credits %s bought expire on %s. Bought credits "
+                                        + "are spent after the month's plan credits, so they lapse unless lookups "
+                                        + "run past the plan's before then.",
+                                plain(firstName(recipientName)), strong(creditsLeftOf(credits)),
+                                strong(workspaceName), strong(expiresOn)),
+                        new EmailAction("Open billing", billingLink),
+                        EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    /** Once per trial, a few days before it ends. */
+    public EmailMessage buildTrialEndingEmail(String recipient, String recipientName, String workspaceName,
+                                              String endsOn, String billingLink) {
+        return renderer.render(recipient, "Your Uncava trial ends on %s".formatted(endsOn), EmailContent.of(
+                "Your trial ends soon",
+                EmailParagraph.of("Hi %s — %s's Uncava trial ends on %s. Choose a plan before then and your team "
+                                + "keeps finding contacts, searching and using AI without a break.",
+                        plain(firstName(recipientName)), strong(workspaceName), strong(endsOn)),
+                new EmailAction("Choose a plan", billingLink),
+                EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    /** Once per trial, the day it ends unpaid. */
+    public EmailMessage buildTrialEndedEmail(String recipient, String recipientName, String workspaceName,
+                                             String billingLink) {
+        return renderer.render(recipient, "Your Uncava trial has ended", EmailContent.of(
+                "Your trial has ended",
+                EmailParagraph.of("Hi %s — %s's Uncava trial has ended. Everything your team mapped is still there; "
+                                + "finding contacts, searching and AI resume once a plan is chosen.",
+                        plain(firstName(recipientName)), strong(workspaceName)),
+                new EmailAction("Choose a plan", billingLink),
+                EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    private static String creditsLeftOf(long credits) {
+        return credits == 1 ? "1 credit" : String.format(Locale.ENGLISH, "%,d credits", credits);
     }
 
     private static String firstName(String fullName) {

@@ -7,6 +7,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -26,6 +28,10 @@ import org.springframework.context.annotation.Bean;
 public class StubChatModel implements ChatModel {
 
     private static final String REPLY = "stubbed response";
+
+    /** What every answer reports it took, so a caller summing a call's tokens has something to sum. */
+    public static final int PROMPT_TOKENS = 120;
+    public static final int COMPLETION_TOKENS = 30;
 
     private volatile Prompt lastPrompt;
     private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
@@ -108,7 +114,8 @@ public class StubChatModel implements ChatModel {
     }
 
     private static ChatResponse chunk(String text) {
-        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))));
+        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))),
+                ChatResponseMetadata.builder().usage(new DefaultUsage(PROMPT_TOKENS, COMPLETION_TOKENS)).build());
     }
 
     @TestConfiguration(proxyBeanMethods = false)

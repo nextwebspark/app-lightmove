@@ -34,6 +34,7 @@ import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
+import { SettingsBillingPage } from "../features/billing/pages/SettingsBillingPage";
 import { SettingsAiAppsPage } from "../features/settings/pages/SettingsAiAppsPage";
 import { SettingsApiKeysPage } from "../features/settings/pages/SettingsApiKeysPage";
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
@@ -166,6 +167,7 @@ export function AppRoutes() {
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
         <Route path="/settings/ai-apps" element={<RequireStaff><SettingsAiAppsPage /></RequireStaff>} />
+        <Route path="/settings/billing" element={<RequireStaff><SettingsBillingPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />

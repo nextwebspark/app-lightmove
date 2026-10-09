@@ -424,6 +424,9 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(enriched.get("nationality").asText()).isEqualTo("Emirati");
         assertThat(assessmentOf(projectId, candidateId, adminToken).get("technical").get("score").asInt())
                 .isEqualTo(8);
+        assertThat(db.queryForList("SELECT units FROM app_lm_usage_event WHERE project_id = ?::uuid AND kind = ?",
+                Integer.class, projectId, "AI_ENRICH")).as("one press is one enrichment towards fair use")
+                .containsExactly(1);
     }
 
     @Test

@@ -11,8 +11,8 @@ import { SettingsBreadcrumb } from "./Topbar";
  *
  * One table drives both the sidebar and the breadcrumb, so a section cannot appear in the rail under
  * one name and in the header under another — which is what the two-way ternary this replaced allowed.
- * The mockup's Notifications and Billing are absent until their screens are built: an
- * item that leads nowhere is worse than no item.
+ * The mockup's Notifications is absent until its screen is built: an item that leads nowhere is
+ * worse than no item.
  */
 const SETTINGS_SECTIONS = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Account" },
@@ -24,6 +24,7 @@ const SETTINGS_SECTIONS = [
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
   { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
   { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
+  { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
   { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
 ] as const;
@@ -43,8 +44,8 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
  *
  * <p>Account is everyone's — a portal guest has a name and a timezone like anyone else — except API keys and
  * Connected AI apps, which are staff's. The Workspace
- * group is admin-only and the Platform group is LightMove staff's, matching the routes: hiding them is
- * presentation, and the route guards are the gate.
+ * group is admin-only but for Billing, which every staff member reads, and the Platform group is LightMove
+ * staff's, matching the routes: hiding them is presentation, and the route guards are the gate.
  */
 export function SettingsLayout() {
   const { pathname } = useLocation();
@@ -55,15 +56,17 @@ export function SettingsLayout() {
   const isLibraryEditor = user?.platformActions.includes("TEMPLATE_LIBRARY_MANAGE") ?? false;
   const visibleGroups: SettingsGroupLabel[] = [
     "Account",
-    ...(isAdmin ? (["Workspace"] as const) : []),
+    ...(!isClient ? (["Workspace"] as const) : []),
     ...(isLibraryEditor ? (["Platform"] as const) : []),
   ];
+  const isShown = (section: (typeof SETTINGS_SECTIONS)[number]) =>
+    section.group === "Workspace"
+      ? isAdmin || "everyStaff" in section
+      : !(isClient && "staffOnly" in section);
 
   const groups: SidebarGroup[] = visibleGroups.map((group) => ({
     label: group,
-    items: SETTINGS_SECTIONS.filter(
-      (section) => section.group === group && !(isClient && "staffOnly" in section),
-    ).map(
+    items: SETTINGS_SECTIONS.filter((section) => section.group === group && isShown(section)).map(
       ({ to, label, icon }) => ({ to, label, icon }),
     ),
   }));

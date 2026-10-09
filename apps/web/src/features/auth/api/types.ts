@@ -16,7 +16,7 @@ export const WORKSPACE_MODES = ["AGENCY", "COMPANY"] as const;
 export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
 
 /** Mirrors the API's `PlatformAction`: what a user may do outside any workspace. */
-export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE";
+export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE" | "CREDIT_GRANT" | "SUBSCRIPTION_MANAGE";
 
 export interface WorkspaceSummary {
   id: string;
@@ -196,4 +196,13 @@ export interface ApiError {
   personIds?: string[];
   /** Present on PERSON_DOCUMENT_DUPLICATE: the file already holding the same bytes. */
   duplicateOf?: { documentId: string; versionNo: number };
+  /** Present on INSUFFICIENT_CREDITS: what the find costs and what the workspace has. */
+  required?: number;
+  available?: number;
+  /** Present on INSUFFICIENT_CREDITS and FAIR_USE_REACHED: when the month's allowance starts again. */
+  resetsAt?: string;
+  /** Present on FAIR_USE_REACHED: which use reached its ceiling. */
+  kind?: string;
+  /** Present on TRIAL_ENDED: when the workspace's trial ended. */
+  trialEndedAt?: string;
 }

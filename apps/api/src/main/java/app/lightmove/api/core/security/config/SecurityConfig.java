@@ -323,6 +323,8 @@ public class SecurityConfig {
                         .requestMatchers(API + "/outreach/webhooks/mailbox").permitAll()
                         // Recall's likewise: its Svix signature, checked by RecallCalendarClient, is the credential.
                         .requestMatchers(HttpMethod.POST, API + "/outreach/webhooks/recall").permitAll()
+                        // Stripe's likewise: its signature, checked by the payment gateway, is the credential.
+                        .requestMatchers(HttpMethod.POST, API + "/billing/webhooks/stripe").permitAll()
 
                         // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiRequestError,
+  onRequestRefused,
   onSessionExpired,
   onWorkspaceMoved,
   request,
@@ -190,6 +191,25 @@ describe("apiClient", () => {
   });
 
   /** A 403 that is not a CSRF refusal is a permissions answer, and must not provoke a retry. */
+  it("tells refusal listeners, and a listener that throws never replaces the caller's refusal", async () => {
+    fetchMock.mockResolvedValueOnce(json(402, { code: "INSUFFICIENT_CREDITS", detail: "out", status: 402 }));
+    const heard: string[] = [];
+    const stopHearing = onRequestRefused((error) => heard.push(error.code));
+    const stopThrowing = onRequestRefused(() => {
+      throw new Error("listener broke");
+    });
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(request("/billing")).rejects.toSatisfy(
+      (error: unknown) => error instanceof ApiRequestError && error.code === "INSUFFICIENT_CREDITS",
+    );
+    expect(heard).toEqual(["INSUFFICIENT_CREDITS"]);
+
+    stopHearing();
+    stopThrowing();
+    quiet.mockRestore();
+  });
+
   it("does not retry a 403 that is an ordinary refusal", async () => {
     fetchMock.mockResolvedValue(json(403, { code: "FORBIDDEN", detail: "nope", status: 403 }));
 
