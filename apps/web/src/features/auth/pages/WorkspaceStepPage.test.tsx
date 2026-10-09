@@ -49,34 +49,16 @@ beforeEach(() => {
   vi.mocked(authApi.createWorkspace).mockResolvedValue({} as User);
 });
 
-describe("WorkspaceStepPage — the organization is picked from the company database", () => {
-  it("files a picked company by its universe id", async () => {
-    const user = userEvent.setup();
-    renderPage();
+describe("WorkspaceStepPage — the firm types its own name, and a market match is optional", () => {
+  const nameBox = () => screen.getByPlaceholderText("e.g. Meridian Search Partners");
 
-    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
-    await user.click(await screen.findByRole("button", { name: /Al-Futtaim/ }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
-    expect(authApi.createWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mode: "AGENCY",
-        name: "Al-Futtaim",
-        apolloAccountId: "apollo-af",
-      }),
-    );
-  });
-
-  it("takes a firm the database does not carry as a typed name, with no universe id", async () => {
+  it("continues with a typed name, filing no universe id", async () => {
     const user = userEvent.setup();
     vi.mocked(authApi.searchOnboardingCompanies).mockResolvedValue([]);
     renderPage();
 
-    await user.click(screen.getByRole("radio", { name: /In-house team/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Nimbus Partners");
-    await user.click(await screen.findByRole("button", { name: /None of these/ }));
+    await user.click(screen.getByRole("radio", { name: /In-house talent team/ }));
+    await user.type(nameBox(), "Nimbus Partners");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
@@ -85,51 +67,74 @@ describe("WorkspaceStepPage — the organization is picked from the company data
     );
   });
 
-  it("refuses to continue until the firm says who it hires for", async () => {
+  it("continues with a typed name even while a match is on offer", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
-    await user.click(await screen.findByRole("button", { name: /Al-Futtaim/ }));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(await screen.findByText("Choose who you hire for")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /Search agency/ })).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("radio", { name: /In-house team/ })).toHaveAttribute("aria-checked", "false");
-    expect(authApi.createWorkspace).not.toHaveBeenCalled();
-  });
-
-  it("refuses to continue on typed text that was never picked", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-
-    expect(
-      await screen.findByText("Choose your organization from the list, or add it as new"),
-    ).toBeInTheDocument();
-    expect(authApi.createWorkspace).not.toHaveBeenCalled();
-  });
-
-  it("takes the prefilled size back out when the picked company is swapped for a typed one", async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    await user.click(screen.getByRole("radio", { name: /In-house team/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Al-Fut");
-    await user.click(await screen.findByRole("button", { name: /Al-Futtaim/ }));
-    await user.click(screen.getByRole("button", { name: "Change" }));
-    vi.mocked(authApi.searchOnboardingCompanies).mockResolvedValue([]);
-    await user.clear(screen.getByPlaceholderText("Search company database…"));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Nimbus Partners");
-    await user.click(await screen.findByRole("button", { name: /None of these/ }));
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(nameBox(), "Al-Fut");
+    expect(await screen.findByRole("button", { name: "Use Al-Futtaim" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
     expect(authApi.createWorkspace).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Nimbus Partners", apolloAccountId: null }),
+      expect.objectContaining({ mode: "AGENCY", name: "Al-Fut", apolloAccountId: null }),
     );
+  });
+
+  it("files a taken match by its universe id and canonical name", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(nameBox(), "Al-Fut");
+    await user.click(await screen.findByRole("button", { name: "Use Al-Futtaim" }));
+    expect(screen.getByText(/Matched to/)).toHaveTextContent("Matched to Al-Futtaim · Dubai, United Arab Emirates");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
+    expect(authApi.createWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "AGENCY", name: "Al-Futtaim", apolloAccountId: "apollo-af" }),
+    );
+  });
+
+  it("drops a match once the name is edited, or declined", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(nameBox(), "Al-Fut");
+    await user.click(await screen.findByRole("button", { name: "Use Al-Futtaim" }));
+    await user.click(screen.getByRole("button", { name: "Not us" }));
+    await user.type(nameBox(), " Group");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => expect(authApi.createWorkspace).toHaveBeenCalled());
+    expect(authApi.createWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Al-Futtaim Group", apolloAccountId: null }),
+    );
+  });
+
+  it("names the field by who the firm hires for", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByText("Your firm or company's name")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    expect(screen.getByText("Your firm's name")).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: /In-house talent team/ }));
+    expect(screen.getByText("Your company's name")).toBeInTheDocument();
+  });
+
+  it("refuses to continue until the firm says who it hires for, and has a name", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Choose who you hire for")).toBeInTheDocument();
+    expect(screen.getByText("Enter your firm or company's name")).toBeInTheDocument();
+    expect(authApi.createWorkspace).not.toHaveBeenCalled();
   });
 
   it("reopens a saved workspace with what it was described as", async () => {

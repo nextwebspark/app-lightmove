@@ -69,9 +69,9 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
-    await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(screen.getByPlaceholderText("e.g. Meridian Search Partners"), "Merid");
+    await user.click(await screen.findByRole("button", { name: "Use Meridian Search Partners" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() =>
@@ -101,9 +101,9 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
-    await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(screen.getByPlaceholderText("e.g. Meridian Search Partners"), "Merid");
+    await user.click(await screen.findByRole("button", { name: "Use Meridian Search Partners" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: /skip for now/i }));
 
@@ -120,9 +120,9 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
-    await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(screen.getByPlaceholderText("e.g. Meridian Search Partners"), "Merid");
+    await user.click(await screen.findByRole("button", { name: "Use Meridian Search Partners" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     // The workspace exists now, so the user is re-read to list it, and the stage stays open.

@@ -5,15 +5,17 @@ import { Button, FormError } from "../../../components/ui";
 import * as authApi from "../../auth/api/authApi";
 import type { CreateWorkspaceRequest, User, WorkspaceSummary } from "../../auth/api/types";
 import { workspaceSchema, type WorkspaceValues } from "../../auth/schemas";
-import { CompanyPicker, type CompanySearchSource } from "../../clients/components/CompanyPicker";
-import { pickedCompanyName, workspaceCompanyPick, type CompanyPick } from "../../clients/lib/companyPick";
+import type { CompanySearchSource } from "../../clients/components/CompanyPicker";
+import { workspaceCompanyPick } from "../../clients/lib/companyPick";
+import type { CompanySuggestion } from "../../strategy/api/types";
 import { messageFor } from "../../../lib/errorCodes";
+import { FirmNameField } from "./FirmNameField";
 import { WorkspaceModeChoice } from "./WorkspaceModeChoice";
 
 /**
  * The "About your organization" form — Signup.dc.html's step 3, and the first stage of the New
  * workspace modal. One form, because a workspace is described the same way whether it is the firm's
- * first or its third: who it hires for and the company picked from the universe. Which endpoint it
+ * first or its third: who it hires for and its name, optionally matched to the universe. Which endpoint it
  * posts to is the caller's: the wizard creates (or corrects) through onboarding, the modal through
  * `/workspaces`.
  */
@@ -33,17 +35,17 @@ export function OrganisationForm({
   onDone: (user: User) => Promise<void> | void;
 }) {
   const [formError, setFormError] = useState<string | null>(null);
-
-  const [pick, setPick] = useState<CompanyPick | null>(() =>
-    editing ? workspaceCompanyPick(editing.name, editing.company) : null,
-  );
+  const [match, setMatch] = useState<CompanySuggestion | null>(() => {
+    if (!editing?.company) return null;
+    const pick = workspaceCompanyPick(editing.name, editing.company);
+    return pick.source === "universe" ? pick.company : null;
+  });
 
   const {
     control,
-    register,
     handleSubmit,
+    watch,
     setValue,
-    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<WorkspaceValues>({
     resolver: zodResolver(workspaceSchema),
@@ -52,19 +54,12 @@ export function OrganisationForm({
       name: editing?.name ?? "",
     },
   });
-
-  const handlePick = (next: CompanyPick | null) => {
-    setPick(next);
-    setValue("name", next ? pickedCompanyName(next) : "");
-    if (next) clearErrors("name");
-  };
+  const mode = watch("mode");
+  const name = watch("name");
 
   const onSubmit = async (values: WorkspaceValues) => {
     setFormError(null);
-    const payload = {
-      ...values,
-      apolloAccountId: pick?.source === "universe" ? pick.company.apolloAccountId : null,
-    };
+    const payload = { ...values, name: values.name.trim(), apolloAccountId: match?.apolloAccountId ?? null };
     try {
       await onDone(await submit(payload));
     } catch (error) {
@@ -92,25 +87,15 @@ export function OrganisationForm({
           )}
         />
 
-        {pick && (
-          <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
-            Organization name
-          </span>
-        )}
-        {/* The picker's result list carries no margin of its own; the picked card and the bare field do. */}
-        <div className={pick ? undefined : "mb-4"}>
-          <CompanyPicker
-            label="Organization name"
-            pick={pick}
-            onPick={handlePick}
-            source={ONBOARDING_COMPANY_SEARCH}
-            asksCustomDetails={false}
-            // Typing is not choosing: the name is only set by a pick, so say how to make one.
-            error={errors.name ? "Choose your organization from the list, or add it as new" : undefined}
-            autoFocus
-          />
-        </div>
-        <input type="hidden" {...register("name")} />
+        <FirmNameField
+          label={mode === "AGENCY" ? "Your firm's name" : mode === "COMPANY" ? "Your company's name" : "Your firm or company's name"}
+          name={name}
+          onNameChange={(next) => setValue("name", next, { shouldValidate: !!errors.name })}
+          match={match}
+          onMatch={setMatch}
+          source={ONBOARDING_COMPANY_SEARCH}
+          error={errors.name?.message}
+        />
 
         <Button type="submit" loading={isSubmitting} className="w-full">
           {submitLabel}

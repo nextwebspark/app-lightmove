@@ -85,7 +85,7 @@ export const workspaceSchema = z.object({
   // Deliberately no default: an agency and an in-house team see different screens, so nobody is
   // put in one by not noticing the question.
   mode: z.enum(WORKSPACE_MODES, { message: "Choose who you hire for" }),
-  name: z.string().min(1, "Enter your organization's name").max(160, "That name is too long"),
+  name: z.string().trim().min(1, "Enter your firm or company's name").max(160, "That name is too long"),
 });
 
 export const inviteSchema = z.object({
