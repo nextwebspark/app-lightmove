@@ -42,9 +42,9 @@ export function useToast(): ToastFn {
 }
 
 /**
- * The mockups' bottom-centre toast, grown into a stack of up to three: a success or notice leaves on
- * its own (later when it offers Undo), an error stays until it is dismissed, and hovering or focusing
- * a toast holds it.
+ * A stack of up to three fixed-width cards in the bottom-right corner (`.toast-stack`, global.css): a
+ * success or notice leaves on its own (later when it offers Undo), an error stays until it is
+ * dismissed, and hovering or focusing a toast holds it.
  */
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -76,7 +76,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={toast}>
       {children}
       {toasts.length > 0 && (
-        <div className="fixed bottom-[22px] left-1/2 z-[120] flex w-max max-w-[calc(100vw-24px)] -translate-x-1/2 flex-col items-center gap-2">
+        <div className="toast-stack z-[120] flex flex-col gap-2">
           {toasts.map((item) => (
             <ToastCard key={item.id} item={item} onDismiss={dismiss} />
           ))}
@@ -112,6 +112,8 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
     item.action?.run();
   };
 
+  const look = TOAST_LOOKS[item.kind];
+
   return (
     <div
       role={isError ? "alert" : "status"}
@@ -122,32 +124,36 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: (id: numbe
         if (!event.currentTarget.contains(event.relatedTarget)) setIsHeld(false);
       }}
       className={cn(
-        "flex max-w-full animate-fade-up items-center gap-2.5 rounded-lg border bg-u-surface px-4 py-[9px] font-mono text-xs font-medium shadow-u-e3",
-        isError ? "border-u-offlimits/60 text-u-offlimits" : "border-u-border-strong text-u-text2",
+        "relative flex w-full animate-toast-in items-start gap-3 overflow-hidden rounded-lg border bg-u-surface py-3 pl-4 pr-2.5 shadow-u-e3",
+        isError ? "border-u-offlimits/40" : "border-u-border-strong",
       )}
     >
-      {item.kind === "success" && <Icon d={ICONS.checkCircle} size={14} className="shrink-0 text-u-direct" />}
-      {isError && <Icon d={ICONS.warning} size={14} className="shrink-0" />}
-      <span className="min-w-0">{item.message}</span>
+      <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px]", look.bar)} />
+      <Icon d={look.icon} size={16} className={cn("mt-px shrink-0", look.iconColor)} />
+      <p className="min-w-0 flex-1 break-words text-body text-u-text">{item.message}</p>
       {item.action && (
         <button
           type="button"
           onClick={handleAction}
-          className="shrink-0 rounded px-1 font-semibold text-u-accent underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-u-accent"
+          className="-my-0.5 shrink-0 rounded px-1.5 py-0.5 text-body font-semibold text-u-accent hover:bg-u-raised focus-visible:outline-2 focus-visible:outline-u-accent"
         >
           {item.action.label}
         </button>
       )}
-      {isError && (
-        <button
-          type="button"
-          aria-label="Dismiss"
-          onClick={() => onDismiss(item.id)}
-          className="-mr-1 shrink-0 rounded p-0.5 text-u-text3 hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent"
-        >
-          <Icon d={ICONS.close} size={13} />
-        </button>
-      )}
+      <button
+        type="button"
+        aria-label="Dismiss"
+        onClick={() => onDismiss(item.id)}
+        className="-my-0.5 shrink-0 rounded p-1 text-u-text3 hover:bg-u-raised hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent"
+      >
+        <Icon d={ICONS.close} size={14} />
+      </button>
     </div>
   );
 }
+
+const TOAST_LOOKS: Record<ToastKind, { icon: string; iconColor: string; bar: string }> = {
+  info: { icon: ICONS.info, iconColor: "text-u-accent", bar: "bg-u-accent" },
+  success: { icon: ICONS.checkCircle, iconColor: "text-u-direct", bar: "bg-u-direct" },
+  error: { icon: ICONS.warning, iconColor: "text-u-offlimits", bar: "bg-u-offlimits" },
+};

@@ -66,6 +66,15 @@ describe("Toast", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
+  it("lets a success be dismissed before its time is up", () => {
+    renderToasts();
+
+    send(() => toast.success("Acme moved to the shortlist"));
+    fireEvent.click(within(screen.getByRole("status")).getByRole("button", { name: "Dismiss" }));
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
   it("runs Retry and takes the error away", () => {
     renderToasts();
     const retry = vi.fn();
