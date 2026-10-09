@@ -76,7 +76,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={toast}>
       {children}
       {toasts.length > 0 && (
-        <div className="toast-stack z-[120] flex flex-col gap-2">
+        <div className="toast-stack z-[120] flex flex-col gap-3">
           {toasts.map((item) => (
             <ToastCard key={item.id} item={item} onDismiss={dismiss} />
           ))}
