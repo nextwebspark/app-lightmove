@@ -161,6 +161,12 @@ describe("seatChargeOf", () => {
     expect(charge?.nowFils).toBe(238_700);
   });
 
+  it("starts a period ending on the 31st from the previous month's last day, as Stripe does", () => {
+    const charge = seatChargeOf(aCardBilling({ renewsAt: "2026-10-31T12:00:00Z" }));
+
+    expect(charge?.nowFils).toBe(37_000);
+  });
+
   it("asks nothing where Stripe does not bill by card", () => {
     expect(seatChargeOf(anInvoicedBilling())).toBeNull();
     expect(seatChargeOf(aTrialBilling(IN_NINE_DAYS))).toBeNull();

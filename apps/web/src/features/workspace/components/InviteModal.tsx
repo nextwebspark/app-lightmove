@@ -12,10 +12,7 @@ import { seatChargeOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as workspaceApi from "../api/workspaceApi";
 
-/**
- * Invite one colleague from the Team or Members screens. Batch rows live in signup step 3. A staff invitation to a
- * workspace Stripe bills by card is confirmed first, with what the seat will cost.
- */
+/** Invite one colleague from the Team or Members screens. Batch rows live in signup step 3. */
 export function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -26,6 +23,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
   const [confirming, setConfirming] = useState(false);
   const billing = useBillingRead(role !== "CLIENT");
   const charge = role !== "CLIENT" && billing.data ? seatChargeOf(billing.data) : null;
+  const pricing = role !== "CLIENT" && billing.isPending;
 
   const send = useMutation({
     mutationFn: () => workspaceApi.invite([{ email: email.trim(), role }]),
@@ -71,13 +69,15 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
     send.mutate();
   };
 
-  if (confirming && charge) {
-    return (
-      <Modal
-        open={open}
-        onClose={onClose}
-        title="Add a paid seat?"
-        footer={
+  const confirmingCharge = confirming ? charge : null;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={confirmingCharge ? "Add a paid seat?" : "Invite a colleague"}
+      footer={
+        confirmingCharge ? (
           <>
             <Button variant="secondary" onClick={() => setConfirming(false)}>
               Back
@@ -86,62 +86,57 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
               Send and add seat
             </Button>
           </>
-        }
-      >
-        <SeatChargeConfirm email={email.trim()} roleLabel={titleCase(role)} charge={charge} />
-      </Modal>
-    );
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Invite a colleague"
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button loading={send.isPending} onClick={submit}>
-            Send invite
-          </Button>
-        </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button loading={send.isPending} disabled={pricing} onClick={submit}>
+              Send invite
+            </Button>
+          </>
+        )
       }
     >
-      <FormError message={error} />
+      {confirmingCharge ? (
+        <SeatChargeConfirm email={email.trim()} roleLabel={titleCase(role)} charge={confirmingCharge} />
+      ) : (
+        <>
+          <FormError message={error} />
 
-      <Field
-        label="Email"
-        error={emailError ?? undefined}
-        hint="Invitees get access immediately — your naming them is the approval."
-      >
-        <Input
-          type="email"
-          value={email}
-          onChange={(event) => {
-            setEmail(event.target.value);
-            // Cleared on edit rather than only on the next submit, matching react-hook-form's
-            // reValidateMode on every other form that renders an inline error.
-            setEmailError(null);
-          }}
-          invalid={!!emailError}
-          placeholder="colleague@firm.com"
-          autoFocus
-        />
-      </Field>
+          <Field
+            label="Email"
+            error={emailError ?? undefined}
+            hint="Invitees get access immediately — your naming them is the approval."
+          >
+            <Input
+              type="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                // Cleared on edit rather than only on the next submit, matching react-hook-form's
+                // reValidateMode on every other form that renders an inline error.
+                setEmailError(null);
+              }}
+              invalid={!!emailError}
+              placeholder="colleague@firm.com"
+              autoFocus
+            />
+          </Field>
 
-      <Field label="Role">
-        <Select value={role} onChange={(event) => setRole(event.target.value as WorkspaceRole)}>
-          {INVITE_ROLES.map((option) => (
-            <option key={option} value={option}>
-              {titleCase(option)}
-            </option>
-          ))}
-        </Select>
-      </Field>
+          <Field label="Role">
+            <Select value={role} onChange={(event) => setRole(event.target.value as WorkspaceRole)}>
+              {INVITE_ROLES.map((option) => (
+                <option key={option} value={option}>
+                  {titleCase(option)}
+                </option>
+              ))}
+            </Select>
+          </Field>
 
-      <SeatCostNotice role={role} />
+          <SeatCostNotice role={role} />
+        </>
+      )}
     </Modal>
   );
 }

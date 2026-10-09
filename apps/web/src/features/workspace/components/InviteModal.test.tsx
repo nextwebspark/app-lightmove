@@ -137,7 +137,7 @@ describe("InviteModal — what a staff seat costs", () => {
     const dialog = screen.getByRole("dialog", { name: "Add a paid seat?" });
     expect(dialog).toHaveTextContent("sara@firm.com joins as Member");
     expect(dialog).toHaveTextContent("AED 499 a month, before VAT");
-    expect(dialog).toHaveTextContent("Your bill becomes 6 seats · AED 2,994 a month");
+    expect(dialog).toHaveTextContent("This seat takes your bill to 6 seats · AED 2,994 a month");
     expect(workspaceApi.invite).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Send and add seat" }));
@@ -157,6 +157,13 @@ describe("InviteModal — what a staff seat costs", () => {
 
     expect(screen.getByPlaceholderText("colleague@firm.com")).toHaveValue("sara@firm.com");
     expect(workspaceApi.invite).not.toHaveBeenCalled();
+  });
+
+  it("holds a staff invitation until the seat's price is known", async () => {
+    vi.mocked(billingApi.getBilling).mockReturnValue(new Promise(() => {}));
+    open();
+
+    expect(screen.getByRole("button", { name: "Send invite" })).toBeDisabled();
   });
 
   it("says nothing on an invoiced workspace, whose seats are agreed with Uncava", async () => {

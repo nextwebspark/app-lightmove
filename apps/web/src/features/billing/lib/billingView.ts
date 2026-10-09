@@ -143,7 +143,7 @@ export interface SeatCharge {
   /** A seat a month in fils; on a yearly plan, its monthly share of the year. */
   monthlyFils: number;
   annual: boolean;
-  /** Stripe's proration were the seat added now, to the whole dirham; null without a period end. */
+  /** Stripe's proration were the seat added now, to the whole dirham; null without a period end or once it passed. */
   nowFils: number | null;
   until: string | null;
   seatsAfter: number;
@@ -168,13 +168,21 @@ export function seatChargeOf(billing: Billing, now: number = Date.now()): SeatCh
 
 function proratedFils(periodFils: number, endsAt: string, annual: boolean, now: number): number | null {
   const end = new Date(endsAt);
-  const start = new Date(end);
-  if (annual) start.setUTCFullYear(start.getUTCFullYear() - 1);
-  else start.setUTCMonth(start.getUTCMonth() - 1);
+  const start = periodStartOf(end, annual);
   const left = end.getTime() - now;
   if (left <= 0) return null;
   const share = Math.min(left, end.getTime() - start.getTime()) / (end.getTime() - start.getTime());
   return Math.round((periodFils * share) / 100) * 100;
+}
+
+/** The anchor one period before `end`, held to the month's last day as Stripe holds it: Mar 31 → Feb 28. */
+function periodStartOf(end: Date, annual: boolean): Date {
+  const year = end.getUTCFullYear() - (annual ? 1 : 0);
+  const month = end.getUTCMonth() - (annual ? 0 : 1);
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const start = new Date(end);
+  start.setUTCFullYear(year, month, Math.min(end.getUTCDate(), lastDay));
+  return start;
 }
 
 /** UAE VAT, which Stripe Tax adds at checkout on top of every price shown. */
