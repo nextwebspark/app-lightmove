@@ -108,7 +108,7 @@ describe("BillingRefusalSheets", () => {
 
   it("sends an invoiced admin to Uncava", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(
-      aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED", brand: null, last4: null } }),
+      aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED" } }),
     );
     renderSheets();
     refuse(outOfCredits());

@@ -1,6 +1,7 @@
 package app.lightmove.api.billing.payment.service;
 
 import app.lightmove.api.billing.payment.model.CreditsCheckout;
+import app.lightmove.api.billing.payment.model.PaymentCard;
 import app.lightmove.api.billing.payment.model.PaymentEvent;
 import app.lightmove.api.billing.payment.model.SeatQuantityChange;
 import app.lightmove.api.billing.payment.model.SubscriptionCheckout;
@@ -9,16 +10,20 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import com.stripe.StripeClient;
 import com.stripe.exception.StripeException;
+import com.stripe.model.PaymentMethod;
+import com.stripe.model.Subscription;
 import com.stripe.model.SubscriptionItem;
 import com.stripe.model.checkout.Session;
 import com.stripe.net.RequestOptions;
 import com.stripe.param.CustomerCreateParams;
 import com.stripe.param.SubscriptionListParams;
+import com.stripe.param.SubscriptionRetrieveParams;
 import com.stripe.param.SubscriptionUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import com.stripe.param.checkout.SessionListParams;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -168,6 +173,33 @@ public class StripePaymentGateway implements PaymentGateway {
             return new SeatQuantityChange(previous, seats);
         } catch (StripeException failure) {
             throw unavailable("change the seat quantity", failure);
+        }
+    }
+
+    /** Quiet on a failure: the page then says "Paid by card", which is still true. */
+    @Override
+    public Optional<PaymentCard> cardOf(String subscriptionId) {
+        SubscriptionRetrieveParams params = SubscriptionRetrieveParams.builder()
+                .addExpand("default_payment_method")
+                .addExpand("customer.invoice_settings.default_payment_method")
+                .build();
+        try {
+            Subscription subscription = client.v1().subscriptions().retrieve(subscriptionId, params);
+            PaymentMethod method = subscription.getDefaultPaymentMethodObject();
+            if (method == null && subscription.getCustomerObject() != null
+                    && subscription.getCustomerObject().getInvoiceSettings() != null) {
+                method = subscription.getCustomerObject().getInvoiceSettings().getDefaultPaymentMethodObject();
+            }
+            if (method == null || method.getCard() == null) {
+                return Optional.empty();
+            }
+            PaymentMethod.Card card = method.getCard();
+            String brand = card.getDisplayBrand() != null ? card.getDisplayBrand() : card.getBrand();
+            return Optional.of(new PaymentCard(brand, card.getLast4()));
+        } catch (StripeException failure) {
+            log.warn("Stripe refused to read the card of {}: {} (request {})", subscriptionId, failure.getMessage(),
+                    failure.getRequestId());
+            return Optional.empty();
         }
     }
 

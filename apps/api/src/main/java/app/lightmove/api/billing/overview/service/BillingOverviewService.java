@@ -13,6 +13,7 @@ import app.lightmove.api.billing.overview.dto.BillingUsageResponse;
 import app.lightmove.api.billing.overview.dto.ContactCreditsResponse;
 import app.lightmove.api.billing.overview.dto.CreditPackOffer;
 import app.lightmove.api.billing.overview.dto.CreditPricesResponse;
+import app.lightmove.api.billing.overview.dto.PaymentCardResponse;
 import app.lightmove.api.billing.overview.dto.PaymentMethodResponse;
 import app.lightmove.api.billing.payment.service.PaymentGateway;
 import app.lightmove.api.billing.payment.service.PlanPrices;
@@ -26,6 +27,8 @@ import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository
 import app.lightmove.api.billing.plan.service.BillingSeats;
 import app.lightmove.api.core.config.CreditPriceSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
@@ -49,15 +52,18 @@ public class BillingOverviewService {
     private final PaymentGateway gateway;
     private final PlanPrices planPrices;
     private final LightMoveProperties properties;
+    private final WorkspaceAccess access;
     private final Clock clock;
 
+    /** The catalogue goes only to whoever may buy from it. */
     @Transactional(readOnly = true)
-    public BillingResponse overview(UUID workspaceId) {
+    public BillingResponse overview(UUID workspaceId, UUID userId) {
         Instant now = clock.instant();
         WorkspaceSubscription subscription = subscriptions.findByWorkspaceId(workspaceId).orElse(null);
         BillingPlan plan = subscription == null ? null : plans.findById(subscription.getPlanCode()).orElseThrow();
         CreditPriceSettings prices = properties.billing().prices();
         boolean offered = gateway.isOffered();
+        boolean buys = offered && access.holdsAction(userId, workspaceId, WorkspaceAction.BILLING_MANAGE);
         boolean trial = subscription != null && subscription.isAppTrial();
         return new BillingResponse(
                 plan == null ? null : new BillingPlanSummary(plan.getCode(), plan.getName()),
@@ -70,9 +76,18 @@ public class BillingOverviewService {
                 new CreditPricesResponse(prices.emailFound(), prices.phoneFound()),
                 paymentMethodOf(subscription),
                 offered,
-                offered ? planOffers() : List.of(),
-                offered ? packOffers() : List.of(),
+                buys ? planOffers() : List.of(),
+                buys ? packOffers() : List.of(),
                 trial ? subscription.getTrialEndsAt() : null);
+    }
+
+    /** Asked of Stripe each time, outside any transaction, and never stored. */
+    public PaymentCardResponse card(UUID workspaceId) {
+        return subscriptions.findByWorkspaceId(workspaceId)
+                .filter(WorkspaceSubscription::isBilledByStripe)
+                .flatMap(subscription -> gateway.cardOf(subscription.getStripeSubscriptionId()))
+                .map(card -> new PaymentCardResponse(card.brand(), card.last4()))
+                .orElseGet(() -> new PaymentCardResponse(null, null));
     }
 
     @Transactional(readOnly = true)
@@ -136,9 +151,9 @@ public class BillingOverviewService {
     private static PaymentMethodResponse paymentMethodOf(WorkspaceSubscription subscription) {
         if (subscription == null || subscription.getStatus() == SubscriptionStatus.CANCELLED
                 || subscription.isAppTrial()) {
-            return new PaymentMethodResponse(PaymentMethodKind.NONE, null, null);
+            return new PaymentMethodResponse(PaymentMethodKind.NONE);
         }
         PaymentMethodKind kind = subscription.isBilledByStripe() ? PaymentMethodKind.CARD : PaymentMethodKind.INVOICED;
-        return new PaymentMethodResponse(kind, null, null);
+        return new PaymentMethodResponse(kind);
     }
 }

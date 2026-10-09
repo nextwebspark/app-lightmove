@@ -2,6 +2,6 @@ package app.lightmove.api.billing.overview.dto;
 
 import app.lightmove.api.billing.overview.constant.PaymentMethodKind;
 
-/** {@code brand} and {@code last4} only on a card, and only once the payment gateway reads them. */
-public record PaymentMethodResponse(PaymentMethodKind kind, String brand, String last4) {
+/** How the workspace pays; which card is {@code GET /billing/card}'s, asked of Stripe only where the page shows it. */
+public record PaymentMethodResponse(PaymentMethodKind kind) {
 }

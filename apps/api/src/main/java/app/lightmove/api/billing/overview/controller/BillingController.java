@@ -2,6 +2,7 @@ package app.lightmove.api.billing.overview.controller;
 
 import app.lightmove.api.billing.overview.dto.BillingResponse;
 import app.lightmove.api.billing.overview.dto.BillingUsageResponse;
+import app.lightmove.api.billing.overview.dto.PaymentCardResponse;
 import app.lightmove.api.billing.overview.service.BillingOverviewService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,13 @@ public class BillingController {
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
     public BillingResponse get(@AuthenticationPrincipal AuthPrincipal principal) {
-        return billing.overview(principal.requireWorkspaceId());
+        return billing.overview(principal.requireWorkspaceId(), principal.userId());
+    }
+
+    @GetMapping("/card")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
+    public PaymentCardResponse card(@AuthenticationPrincipal AuthPrincipal principal) {
+        return billing.card(principal.requireWorkspaceId());
     }
 
     @GetMapping("/usage")

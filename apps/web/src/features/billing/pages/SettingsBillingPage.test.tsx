@@ -14,6 +14,7 @@ vi.mock("../api/billingApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/billingApi")>()),
   getBilling: vi.fn(),
   getBillingUsage: vi.fn(),
+  getBillingCard: vi.fn(),
   startSubscriptionCheckout: vi.fn(),
   startCreditsCheckout: vi.fn(),
   openPortal: vi.fn(),
@@ -43,6 +44,7 @@ describe("SettingsBillingPage", () => {
     vi.resetAllMocks();
     currentUser = aUser();
     vi.mocked(billingApi.getBilling).mockResolvedValue(aBilling());
+    vi.mocked(billingApi.getBillingCard).mockResolvedValue({ brand: null, last4: null });
     vi.mocked(billingApi.getBillingUsage).mockResolvedValue({
       periodStart: "2026-10-01T00:00:00Z",
       periodEnd: "2026-11-01T00:00:00Z",
@@ -86,6 +88,38 @@ describe("SettingsBillingPage", () => {
     await user.click(within(screen.getByRole("status")).getByRole("button", { name: "Choose a plan" }));
 
     expect(await screen.findByRole("dialog", { name: "Plans" })).toBeInTheDocument();
+  });
+
+  it("says an ended trial's credits lapsed, with no free seats and no Add seats", async () => {
+    const endedAt = new Date(Date.now() - 86_400_000).toISOString();
+    vi.mocked(billingApi.getBilling).mockResolvedValue(
+      aTrialBilling(endedAt, { credits: someCredits({ monthly: 0, left: 0, usedPercent: 0, resetsAt: endedAt }) }),
+    );
+    renderPage();
+
+    const plan = await screen.findByRole("region", { name: "Plan" });
+    expect(plan).toHaveTextContent("1 staff seat");
+    expect(plan).not.toHaveTextContent("free while the trial lasts");
+    expect(plan).toHaveTextContent("Trial ended");
+    expect(within(plan).queryByRole("link", { name: "Add seats" })).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Contact credits" })).toHaveTextContent(
+      "Trial credits lapsed when the trial ended on",
+    );
+  });
+
+  it("names the card Stripe charges, asked only where the workspace pays by card", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    vi.mocked(billingApi.getBillingCard).mockResolvedValue({ brand: "american_express", last4: "0005" });
+    renderPage();
+
+    expect(await screen.findByText("Amex •••• 0005")).toBeInTheDocument();
+  });
+
+  it("says Paid by card where Stripe cannot name the card", async () => {
+    vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling());
+    renderPage();
+    const payment = await screen.findByRole("region", { name: "Payment and invoices" });
+    expect(payment).toHaveTextContent("Paid by card");
   });
 
   it("shows no banner and no buy button below 80% on a card", async () => {
@@ -134,7 +168,7 @@ describe("SettingsBillingPage", () => {
 
   it("sends an admin with no plan to Checkout for the plan and period chosen", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(
-      aCardBilling({ plan: null, interval: null, status: null, paymentMethod: { kind: "NONE", brand: null, last4: null } }),
+      aCardBilling({ plan: null, interval: null, status: null, paymentMethod: { kind: "NONE" } }),
     );
     vi.mocked(billingApi.startSubscriptionCheckout).mockResolvedValue({ url: "https://checkout.stripe.test/s" });
     const user = userEvent.setup();
@@ -181,6 +215,7 @@ describe("SettingsBillingPage", () => {
     expect(screen.queryByRole("button", { name: "Change plan" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Invoices & card" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Contact Uncava" }).length).toBeGreaterThan(0);
+    expect(billingApi.getBillingCard).not.toHaveBeenCalled();
   });
 
   it("offers a member neither seats nor credits", async () => {
@@ -206,7 +241,7 @@ describe("SettingsBillingPage", () => {
 
   it("says an invoiced workspace pays by bank transfer", async () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(
-      aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED", brand: null, last4: null } }),
+      aBilling({ status: "INVOICED", paymentMethod: { kind: "INVOICED" } }),
     );
     renderPage();
 
