@@ -13,6 +13,7 @@ import type { CalendarSync, HiringPersona, Invitation, Member, WorkspaceDetail }
 export const WORKSPACE_KEY = ["workspace"] as const;
 export const MEMBERS_KEY = ["members"] as const;
 export const INVITATIONS_KEY = ["invitations"] as const;
+export const PENDING_INVITATIONS_COUNT_KEY = ["invitations", "pendingCount"] as const;
 
 export function workspace(): Promise<WorkspaceDetail> {
   return request<WorkspaceDetail>("/workspace");
@@ -62,6 +63,11 @@ export function changeMemberRoles(memberId: string, roles: WorkspaceRole[]): Pro
 
 export function removeMember(memberId: string): Promise<void> {
   return request<void>(`/members/${memberId}`, { method: "DELETE" });
+}
+
+/** How many invitations wait — every staff member may read the number, never the list. */
+export function pendingInvitationCount(): Promise<{ count: number }> {
+  return request<{ count: number }>("/invitations/pending-count");
 }
 
 export function invitations(): Promise<Invitation[]> {

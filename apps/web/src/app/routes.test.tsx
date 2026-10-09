@@ -250,7 +250,40 @@ describe("routes — the settings gates", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["/settings/general", "/settings/members", "/settings/templates", "/settings/integrations"])(
+  it("opens /settings on General for an admin the first time, and where they last were after", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(authApi.listSessions).mockResolvedValue([]);
+    localStorage.removeItem("lightmove.settings.lastSection.u1");
+
+    const first = renderAt("/settings");
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/settings/general"));
+    first.unmount();
+
+    localStorage.setItem("lightmove.settings.lastSection.u1", "/settings/security");
+    renderAt("/settings");
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/settings/security"));
+    localStorage.removeItem("lightmove.settings.lastSection.u1");
+  });
+
+  it("never opens /settings on a section the caller can no longer reach", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    localStorage.setItem("lightmove.settings.lastSection.u1", "/settings/general");
+
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/settings/profile"));
+    localStorage.removeItem("lightmove.settings.lastSection.u1");
+  });
+
+  it("sends the old Members address to Team, the one roster", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+
+    renderAt("/settings/members");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/team"));
+  });
+
+  it.each(["/settings/general", "/settings/templates", "/settings/integrations"])(
     "bounces a non-admin who types %s",
     async (path) => {
       vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));

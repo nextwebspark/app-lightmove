@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ProjectLayout } from "../components/layout/ProjectLayout";
-import { SettingsLayout } from "../components/layout/SettingsLayout";
+import { SettingsLanding, SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
@@ -41,7 +41,6 @@ import { SettingsApiKeysPage } from "../features/settings/pages/SettingsApiKeysP
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
-import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
 import { SettingsWorkspacesPage } from "../features/settings/pages/SettingsWorkspacesPage";
@@ -163,16 +162,17 @@ export function AppRoutes() {
           sections stay admin-gated, in the client for UX only; every settings endpoint re-checks in
           the service. */}
       <Route element={<RequireWorkspace><SettingsLayout /></RequireWorkspace>}>
-        <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+        <Route path="/settings" element={<SettingsLanding />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
         <Route path="/settings/ai-apps" element={<RequireStaff><SettingsAiAppsPage /></RequireStaff>} />
+        {/* The one roster is Team; the old admin copy's address still works. */}
+        <Route path="/settings/members" element={<Navigate to="/team" replace />} />
         <Route path="/settings/billing" element={<RequireStaff><SettingsBillingPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
-          <Route path="/settings/members" element={<SettingsMembersPage />} />
           <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
           <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
           <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />

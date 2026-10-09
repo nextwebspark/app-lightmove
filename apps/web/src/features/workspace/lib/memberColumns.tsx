@@ -15,10 +15,16 @@ import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { compareNumber, compareText } from "../../../lib/gridSortFns";
 import { titleCase } from "../../../lib/format";
 import type { Member } from "../api/types";
+import {
+  MemberRoleSelect,
+  RemoveMemberButton,
+} from "../components/MemberManagement";
 
 /** How many mandates a member currently carries — counted on the page, read by the column. */
 interface MemberTableMeta {
   activeCount: (memberId: string) => number;
+  /** An admin's roster: the role is a picker and each row can be removed. */
+  canManage: boolean;
 }
 
 /** A firm's roster is one query of tens of rows, so the grid sorts and pages it itself. */
@@ -45,7 +51,10 @@ export const memberColumns = helper.columns([
           name={info.getValue()}
           src={info.row.original.avatarUrl}
         />
-        <TruncatedText value={info.getValue()} className="font-sans text-[13px] text-u-text" />
+        <TruncatedText
+          value={info.getValue()}
+          className="font-sans text-[13px] text-u-text"
+        />
       </span>
     ),
   }),
@@ -63,13 +72,20 @@ export const memberColumns = helper.columns([
     header: "Workspace roles",
     enableSorting: false,
     meta: { share: 20, min: 160 },
-    cell: (info) => <DataGridCell value={info.row.original.roles.map(titleCase).join(" · ")} />,
+    cell: (info) =>
+      info.table.options.meta?.canManage ? (
+        <MemberRoleSelect member={info.row.original} />
+      ) : (
+        <DataGridCell
+          value={info.row.original.roles.map(titleCase).join(" · ")}
+        />
+      ),
   }),
 
   helper.display({
     id: "projects",
     header: "Active positions",
-    meta: { share: 0, min: 132 },
+    meta: { share: 0, min: 156 },
     // The count is the page's, not the row's — it is a fact about the project list, which the roster
     // response does not carry — so the comparator reads it back off the table's meta.
     sortFn: (a, b) =>
@@ -78,9 +94,27 @@ export const memberColumns = helper.columns([
         b.table.options.meta?.activeCount(b.original.memberId),
       ),
     cell: (info) => {
-      const count = info.table.options.meta?.activeCount(info.row.original.memberId) ?? 0;
-      return <DataGridCell value={`${count} active ${count === 1 ? "position" : "positions"}`} muted />;
+      const count =
+        info.table.options.meta?.activeCount(info.row.original.memberId) ?? 0;
+      return (
+        <DataGridCell
+          value={`${count} active ${count === 1 ? "position" : "positions"}`}
+          muted
+        />
+      );
     },
+  }),
+
+  helper.display({
+    id: "remove",
+    header: "",
+    enableSorting: false,
+    enableHiding: false,
+    meta: { share: 0, min: 56 },
+    cell: (info) =>
+      info.table.options.meta?.canManage ? (
+        <RemoveMemberButton member={info.row.original} />
+      ) : null,
   }),
 ]);
 
@@ -90,4 +124,7 @@ export type MemberSortField = (typeof MEMBER_SORT_FIELDS)[number];
 
 export const MEMBER_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 
-export const MEMBER_COLUMN_PINNING: ColumnPinningState = { start: ["name"], end: [] };
+export const MEMBER_COLUMN_PINNING: ColumnPinningState = {
+  start: ["name"],
+  end: [],
+};

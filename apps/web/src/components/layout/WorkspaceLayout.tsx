@@ -90,10 +90,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             { to: "/candidates", label: "Candidates", icon: ICONS.candidates, count: poolSize },
             { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
-            // Every staff member's, not just an admin's: the rail lands on the section everyone can
-            // read (Profile), and the shell hides the workspace sections from a non-admin. An admin
-            // reaching for workspace settings has the topbar dropdown's direct link.
-            { to: "/settings/profile", label: "Settings", icon: ICONS.settings },
+            // Every staff member's: `/settings` opens where this person last was, or General for an admin.
+            { to: "/settings", label: "Settings", icon: ICONS.settings },
           ],
         },
       ];

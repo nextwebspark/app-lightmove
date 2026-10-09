@@ -29,6 +29,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
     mutationFn: () => workspaceApi.invite([{ email: email.trim(), role }]),
     onSuccess: ({ sent }) => {
       void queryClient.invalidateQueries({ queryKey: workspaceApi.INVITATIONS_KEY });
+      void queryClient.invalidateQueries({ queryKey: workspaceApi.PENDING_INVITATIONS_COUNT_KEY });
       toast(sent > 0 ? "Invitation sent" : "They're already a member");
       onClose();
     },
