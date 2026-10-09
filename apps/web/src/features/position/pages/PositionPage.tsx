@@ -4,7 +4,8 @@ import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
-import { ConfirmDialog, Spinner, useToast } from "../../../components/ui";
+import { Spinner, useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave, type SaveStatus } from "../../../lib/useAutosave";
 import { useAuth } from "../../auth/AuthProvider";

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, ConfirmDialog, EmptyState, Skeleton, useToast } from "../../../components/ui";
+import { Button, EmptyState, Skeleton, useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { messageFor, messageForCode } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
@@ -104,7 +105,11 @@ function StaffOutreachPage() {
             isSendingTest={sendTest.isPending}
             isDisconnecting={disconnect.isPending}
             onSendTest={() => sendTest.mutate()}
-            onDisconnect={() => setIsConfirmingDisconnect(true)}
+            onDisconnect={() => {
+              // Runs end without this page knowing — a stop here, a reply, a bounce — so the count is asked again.
+              void mailbox.refetch();
+              setIsConfirmingDisconnect(true);
+            }}
           />
         )}
         {connection && (

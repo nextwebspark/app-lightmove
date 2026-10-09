@@ -1,13 +1,15 @@
-import { ConfirmDialog } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 
 /** Stopping a sequence cannot be undone: nothing more is sent and the run cannot be resumed. */
 export function StopRunDialog({
+  open,
   name,
   pending,
   onConfirm,
   onClose,
 }: {
-  /** Whose sequence; null closes the dialog. */
+  open: boolean;
+  /** Whose sequence, when it is known. */
   name: string | null;
   pending: boolean;
   onConfirm: () => void;
@@ -15,8 +17,8 @@ export function StopRunDialog({
 }) {
   return (
     <ConfirmDialog
-      open={name !== null}
-      title={`Stop ${name}'s sequence?`}
+      open={open}
+      title={name ? `Stop ${name}'s sequence?` : "Stop this sequence?"}
       confirmLabel="Stop sequence"
       pending={pending}
       onConfirm={onConfirm}

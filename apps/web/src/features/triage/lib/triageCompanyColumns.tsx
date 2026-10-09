@@ -207,7 +207,6 @@ const BUILT_IN_COLUMNS = helper.columns([
               <Icon d={move.icon} size={14} />
             </button>
           ))}
-          {/* The moves come back with Undo; Remove asks first. The rule keeps the two kinds apart. */}
           <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />
           <button
             type="button"

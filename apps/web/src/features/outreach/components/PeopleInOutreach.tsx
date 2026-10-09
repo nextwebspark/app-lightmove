@@ -128,6 +128,7 @@ export function PeopleInOutreach({
         </section>
       )}
       <StopRunDialog
+        open={stopping !== null}
         name={stopping?.fullName ?? null}
         pending={stop.isPending}
         onConfirm={() => stopping && stop.mutate(stopping, { onSettled: () => setStopping(null) })}

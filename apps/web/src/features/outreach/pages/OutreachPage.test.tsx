@@ -183,6 +183,18 @@ describe("OutreachPage", () => {
     await waitFor(() => expect(mailboxApi.disconnectMailbox).toHaveBeenCalled());
   });
 
+  it("asks for the count again when the dialog opens, so runs ended since the page loaded are not counted", async () => {
+    vi.mocked(mailboxApi.getMailbox)
+      .mockResolvedValueOnce({ ...connected, connection: { ...connected.connection!, liveSequences: 5, livePeople: 5 } })
+      .mockResolvedValue({ ...connected, connection: { ...connected.connection!, liveSequences: 2, livePeople: 2 } });
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Disconnect" }));
+    const dialog = await screen.findByRole("dialog", { name: "Disconnect yara@firm.example?" });
+
+    await waitFor(() => expect(dialog).toHaveTextContent("2 live sequences (2 people) will stop sending."));
+  });
+
   it("leaves the count out when nothing is sending", async () => {
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue(connected);
     renderPage();

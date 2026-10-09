@@ -15,7 +15,6 @@ export { DateInput } from "./DateInput";
 export { Drawer } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export { FullscreenButton } from "./FullscreenButton";
-export { ConfirmDialog } from "./ConfirmDialog";
 export { Modal } from "./Modal";
 export { Skeleton, TableSkeleton } from "./Skeleton";
 export { ToastProvider, useToast, type ToastFn } from "./Toast";

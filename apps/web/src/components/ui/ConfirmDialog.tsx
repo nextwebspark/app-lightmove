@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button } from ".";
+import { Button } from "./index";
 import { Modal } from "./Modal";
 
 /**
@@ -12,7 +12,6 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
-  tone = "danger",
   pending = false,
   onConfirm,
   onClose,
@@ -22,7 +21,6 @@ export function ConfirmDialog({
   /** What happens, and to whom. */
   children: ReactNode;
   confirmLabel: string;
-  tone?: "danger" | "default";
   pending?: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -30,14 +28,15 @@ export function ConfirmDialog({
   return (
     <Modal
       open={open}
-      onClose={pending ? () => {} : onClose}
+      onClose={onClose}
+      dismissible={!pending}
       title={title}
       footer={
         <>
           <Button variant="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </Button>
-          <Button variant={tone === "danger" ? "danger" : "primary"} loading={pending} onClick={onConfirm}>
+          <Button variant="danger" loading={pending} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </>

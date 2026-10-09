@@ -118,7 +118,8 @@ export function OutreachSection({
           </button>
         )}
         <StopRunDialog
-          name={isConfirmingStop ? firstName : null}
+          open={isConfirmingStop}
+          name={firstName}
           pending={stop.isPending}
           onConfirm={() =>
             stop.mutate({ id: run.id, fullName: null }, { onSettled: () => setIsConfirmingStop(false) })
