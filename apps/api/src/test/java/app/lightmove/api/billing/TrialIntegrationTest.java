@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
@@ -128,20 +129,8 @@ class TrialIntegrationTest extends BillingFlowSupport {
     void checkoutConvertsTheTrial() throws Exception {
         Firm firm = newFirm();
         endTrial(firm.workspaceId());
-        mvc.perform(post("/api/v1/billing/checkout/subscription")
-                        .header("Authorization", "Bearer " + firm.adminToken())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"planCode":"CORE","interval":"MONTHLY"}"""))
-                .andExpect(status().isOk());
-        String customer = stripe.subscriptionCheckoutsOf(firm.workspaceId()).getFirst().customerId();
-        String subscriptionId = "sub_trial_" + SEQUENCE.incrementAndGet();
-        Instant start = Instant.now().minus(Duration.ofMinutes(5)).truncatedTo(ChronoUnit.SECONDS);
-        deliver(new PaymentEvent.InvoicePaid("evt_" + UUID.randomUUID(), "invoice.paid", start.plusSeconds(1),
-                "in_" + UUID.randomUUID(), customer, subscriptionId,
-                new StripeSubscriptionState(customer, subscriptionId, SubscriptionStatus.ACTIVE,
-                        "price_test_core_monthly", 1, start, start.atZone(ZoneOffset.UTC).plusMonths(1).toInstant()),
-                true));
+
+        subscribeToCore(firm);
 
         JsonNode billing = billingOf(firm);
         assertThat(billing.at("/plan/code").asText()).isEqualTo("CORE");
@@ -150,6 +139,51 @@ class TrialIntegrationTest extends BillingFlowSupport {
         assertThat(billing.at("/paymentMethod/kind").asText()).isEqualTo("CARD");
         ledger.hold(emailFound(firm.workspaceId(), "paid-find"));
         fairUse.check(firm.workspaceId(), null, UsageKind.PEOPLE_SEARCH_PAGE, 1);
+    }
+
+    @Test
+    @DisplayName("a founder's second workspace converts through Checkout while their first is still on its trial")
+    void aSecondWorkspaceConverts() throws Exception {
+        Firm first = newFirm();
+        Firm second = foundAnother(first, "Second Trial Firm");
+
+        subscribeToCore(second);
+
+        JsonNode billing = billingOf(second);
+        assertThat(billing.at("/plan/code").asText()).isEqualTo("CORE");
+        assertThat(billing.get("status").asText()).isEqualTo("ACTIVE");
+        ledger.hold(emailFound(second.workspaceId(), "second-paid-find"));
+        assertThat(db.queryForObject("SELECT status FROM app_lm_workspace_subscription WHERE workspace_id = ?",
+                String.class, first.workspaceId())).isEqualTo("TRIALING");
+    }
+
+    @Test
+    @DisplayName("a platform admin can invoice a founder's second workspace")
+    void aSecondWorkspaceCanBeInvoiced() throws Exception {
+        Firm first = newFirm();
+        Firm second = foundAnother(first, "Invoiced Second Firm");
+
+        mvc.perform(put("/api/v1/platform/workspaces/" + second.workspaceId() + "/subscription")
+                        .header("Authorization", "Bearer " + superAdmin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"plan":"CORE","billingInterval":"ANNUAL","seats":2}"""))
+                .andExpect(status().isOk());
+
+        assertThat(billingOf(second).get("status").asText()).isEqualTo("INVOICED");
+    }
+
+    @Test
+    @DisplayName("paying for the first workspace never gives the founder another trial")
+    void convertingKeepsTheTrialSpent() throws Exception {
+        Firm first = newFirm();
+        subscribeToCore(first);
+
+        Firm second = foundAnother(first, "After Paying Firm");
+
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_credit_grant WHERE workspace_id = ?", Long.class,
+                second.workspaceId())).isZero();
+        assertRefusedAsEnded(() -> ledger.hold(emailFound(second.workspaceId(), "after-paying-find")));
     }
 
     @Test
@@ -178,6 +212,38 @@ class TrialIntegrationTest extends BillingFlowSupport {
         String owner = "trial" + SEQUENCE.incrementAndGet() + "@" + domain;
         UUID workspaceId = UUID.fromString(createWorkspace(verifiedUser("Yara Haddad", owner), "Trial Firm"));
         return new Firm(workspaceId, owner, login(owner));
+    }
+
+    /** The founder's next workspace, signed into: founding one makes it where their next sign-in opens. */
+    private Firm foundAnother(Firm founder, String name) throws Exception {
+        JsonNode created = body(mvc.perform(post("/api/v1/workspaces")
+                        .header("Authorization", "Bearer " + founder.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"mode":"COMPANY","name":"%s"}""".formatted(name)))
+                .andExpect(status().isCreated())
+                .andReturn());
+        UUID workspaceId = UUID.fromString(created.at("/workspace/id").asText());
+        return new Firm(workspaceId, founder.owner(), login(founder.owner()));
+    }
+
+    /** Checkout for Core, then the two webhooks Stripe sends once it is paid. */
+    private void subscribeToCore(Firm firm) throws Exception {
+        mvc.perform(post("/api/v1/billing/checkout/subscription")
+                        .header("Authorization", "Bearer " + firm.adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"planCode":"CORE","interval":"MONTHLY"}"""))
+                .andExpect(status().isOk());
+        String customer = stripe.subscriptionCheckoutsOf(firm.workspaceId()).getFirst().customerId();
+        String subscriptionId = "sub_trial_" + SEQUENCE.incrementAndGet();
+        Instant start = Instant.now().minus(Duration.ofMinutes(5)).truncatedTo(ChronoUnit.SECONDS);
+        StripeSubscriptionState paid = new StripeSubscriptionState(customer, subscriptionId, SubscriptionStatus.ACTIVE,
+                "price_test_core_monthly", 1, start, start.atZone(ZoneOffset.UTC).plusMonths(1).toInstant());
+        deliver(new PaymentEvent.SubscriptionChanged("evt_" + UUID.randomUUID(), "customer.subscription.created",
+                start, paid));
+        deliver(new PaymentEvent.InvoicePaid("evt_" + UUID.randomUUID(), "invoice.paid", start.plusSeconds(1),
+                "in_" + UUID.randomUUID(), customer, subscriptionId, paid, true));
     }
 
     private JsonNode billingOf(Firm firm) throws Exception {

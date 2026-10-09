@@ -72,6 +72,10 @@ public class WorkspaceSubscription extends BaseEntity {
     @Column(name = "trial_started_by", updatable = false)
     private UUID trialStartedBy;
 
+    /** Set only on the trial that ran (V129), never cleared: a founder's later workspaces leave it null. */
+    @Column(name = "trial_started_at", updatable = false)
+    private Instant trialStartedAt;
+
     /** Written only by {@code WorkspaceSubscriptionRepository}'s seat-sync queries, never by saving the row. */
     @Column(name = "seat_sync_due_at", insertable = false, updatable = false)
     private Instant seatSyncDueAt;
@@ -92,19 +96,20 @@ public class WorkspaceSubscription extends BaseEntity {
 
     /**
      * Pro until {@code endsAt}, with no seats of its own: fair use counts the workspace's staff, and no month of plan
-     * credits is granted. The trial's period is what marks it as one that ran (V128's unique index, the end notices).
+     * credits is granted. {@code trialStartedAt} marks it as the one that ran (V129's unique index, the end notices).
      */
     public static WorkspaceSubscription trial(UUID workspaceId, UUID founderId, Instant startsAt, Instant endsAt) {
         WorkspaceSubscription subscription = trialEndedAt(workspaceId, founderId, endsAt);
+        subscription.trialStartedAt = startsAt;
         subscription.currentPeriodStart = startsAt;
         subscription.currentPeriodEnd = endsAt;
         return subscription;
     }
 
     /**
-     * A founder's later workspace: its trial already over. No period, deliberately: that keeps it out of
-     * {@code WorkspaceSubscriptionRepository.findAppTrialsEndingBetween}, so nobody is told a trial they never had has
-     * ended, and out of V128's one-trial-per-founder index.
+     * A founder's later workspace: its trial already over. No {@code trialStartedAt}, deliberately: that keeps it out
+     * of {@code WorkspaceSubscriptionRepository.findAppTrialsEndingBetween}, so nobody is told a trial they never had
+     * has ended, and out of the one-trial-per-founder index however it is later paid for.
      */
     public static WorkspaceSubscription trialAlreadySpent(UUID workspaceId, UUID founderId, Instant now) {
         return trialEndedAt(workspaceId, founderId, now);
