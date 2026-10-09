@@ -321,7 +321,8 @@ function AccountMenu() {
           </MenuItem>
           <MenuItem
             onClick={() => {
-              menu.close();
+              // Focus back on the avatar first, so closing Help returns there rather than to nothing.
+              menu.close(true);
               openHelp();
             }}
           >

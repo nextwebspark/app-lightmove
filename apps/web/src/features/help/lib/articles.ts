@@ -74,12 +74,21 @@ export function articlesForPage(pathname: string): HelpArticle[] {
   return HELP_ARTICLES.filter((article) => article.pages.some((page) => page.test(pathname))).slice(0, 3);
 }
 
-/** Every word of the query somewhere in the article's title, summary or text. */
+/** Every word of the query somewhere in the article; a title match ranks above a summary match, above the text. */
 export function searchArticles(query: string): HelpArticle[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [];
-  return HELP_ARTICLES.filter((article) => {
-    const text = `${article.title} ${article.summary} ${article.body ?? ""}`.toLowerCase();
-    return words.every((word) => text.includes(word));
-  });
+  const rankOf = (article: HelpArticle) => {
+    const title = article.title.toLowerCase();
+    const summary = article.summary.toLowerCase();
+    const body = (article.body ?? "").toLowerCase();
+    if (!words.every((word) => `${title} ${summary} ${body}`.includes(word))) return null;
+    if (words.every((word) => title.includes(word))) return 0;
+    if (words.every((word) => `${title} ${summary}`.includes(word))) return 1;
+    return 2;
+  };
+  return HELP_ARTICLES.map((article) => ({ article, rank: rankOf(article) }))
+    .filter((hit): hit is { article: HelpArticle; rank: number } => hit.rank !== null)
+    .sort((a, b) => a.rank - b.rank)
+    .map((hit) => hit.article);
 }

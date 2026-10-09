@@ -2,6 +2,7 @@ import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
+  Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
@@ -160,7 +161,11 @@ const CONTROL =
   "w-full rounded-[6px] border bg-u-raised px-3 py-2.5 font-mono text-[13px] text-u-text outline-none " +
   "transition focus:border-u-accent";
 
-export function Input({ invalid, className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+export function Input({
+  invalid,
+  className,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; ref?: Ref<HTMLInputElement> }) {
   return (
     <input
       {...rest}

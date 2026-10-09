@@ -14,6 +14,7 @@ vi.mock("../auth/AuthProvider", () => ({ useAuth: () => ({ user: currentUser }) 
 vi.mock("../gettingstarted/api/gettingStartedApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../gettingstarted/api/gettingStartedApi")>()),
   setDismissed: vi.fn(),
+  gettingStarted: vi.fn(),
 }));
 
 function OpenButton() {
@@ -23,6 +24,10 @@ function OpenButton() {
       <button type="button" onClick={() => openHelp()}>
         open help
       </button>
+      <button type="button" onClick={() => openHelp("whatsNew")}>
+        open news
+      </button>
+      <div contentEditable suppressContentEditableWarning aria-label="an editor" role="textbox" />
       <span data-testid="unseen">{String(hasUnseenNews)}</span>
       <input aria-label="a field" />
     </>
@@ -56,21 +61,50 @@ describe("Help", () => {
     await user.type(screen.getByLabelText("a field"), "?");
     expect(screen.queryByRole("dialog", { name: "Help" })).not.toBeInTheDocument();
 
+    await user.click(screen.getByRole("textbox", { name: "an editor" }));
+    await user.keyboard("?");
+    expect(screen.queryByRole("dialog", { name: "Help" })).not.toBeInTheDocument();
+
     await user.click(document.body);
     await user.keyboard("?");
     expect(await screen.findByRole("dialog", { name: "Help" })).toBeInTheDocument();
+    // Search first.
+    expect(screen.getByRole("searchbox", { name: "Search help" })).toHaveFocus();
+  });
+
+  it("leaves an open dialog the keyboard", async () => {
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <ToastProvider>
+            <HelpProvider>
+              <div role="dialog" aria-modal="true" aria-label="Something else">
+                <button type="button">inside</button>
+              </div>
+            </HelpProvider>
+          </ToastProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "inside" }));
+    await user.keyboard("?");
+
+    expect(screen.queryByRole("dialog", { name: "Help" })).not.toBeInTheDocument();
   });
 
   it("offers the page's help, shortcuts, what's new and a support mail naming the workspace", async () => {
     renderAt();
     await userEvent.click(screen.getByRole("button", { name: "open help" }));
 
-    expect(screen.getByText("Help for this page")).toBeInTheDocument();
+    expect(await screen.findByText("Help for this page")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Filter the market/ }).length).toBeGreaterThan(0);
     expect(screen.getByText("Keyboard shortcuts")).toBeInTheDocument();
     expect(screen.getByText("What's new")).toBeInTheDocument();
-    const mail = screen.getByRole("link", { name: /Email support@uncava.com/ });
+    const mail = screen.getByRole("link", { name: /Contact support/ });
     expect(mail.getAttribute("href")).toContain(encodeURIComponent(currentUser.workspace!.id));
+    await userEvent.click(screen.getByRole("button", { name: /All articles/ }));
     expect(screen.getByRole("link", { name: /Connect Claude, ChatGPT or Cursor/ })).toHaveAttribute("href", "/docs/mcp");
   });
 
@@ -79,33 +113,50 @@ describe("Help", () => {
     renderAt("/");
     await user.click(screen.getByRole("button", { name: "open help" }));
 
-    await user.type(screen.getByRole("searchbox", { name: "Search help" }), "spreadsheet");
+    await user.type(await screen.findByRole("searchbox", { name: "Search help" }), "spreadsheet");
+    // A title match leads.
+    expect(screen.getAllByRole("button", { name: /Import a spreadsheet|Get your first map|In universe/ })[0]).toHaveAccessibleName(
+      /Import a spreadsheet/,
+    );
     await user.click(screen.getByRole("button", { name: /Import a spreadsheet/ }));
 
-    expect(screen.getByRole("heading", { name: "Import a spreadsheet" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Import a spreadsheet" })).toHaveFocus();
     expect(screen.getByText(/Download the template/)).toBeInTheDocument();
   });
 
-  it("clears the unread dot once opened", async () => {
+  it("clears the unread dot once What's new is opened", async () => {
     renderAt();
     expect(screen.getByTestId("unseen").textContent).toBe("true");
 
-    await userEvent.click(screen.getByRole("button", { name: "open help" }));
+    await userEvent.click(screen.getByRole("button", { name: "open news" }));
 
     await waitFor(() => expect(screen.getByTestId("unseen").textContent).toBe("false"));
   });
 
-  it("brings the Getting started card back for staff, and not for a client contact", async () => {
+  it("brings a put-away Getting started card back for staff, and not for a client contact", async () => {
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue({ dismissed: true, focusProjectId: null, steps: [] });
     vi.mocked(gettingStartedApi.setDismissed).mockResolvedValue({ dismissed: false, focusProjectId: null, steps: [] });
     const { unmount } = renderAt();
     await userEvent.click(screen.getByRole("button", { name: "open help" }));
-    await userEvent.click(screen.getByRole("button", { name: /Show getting started/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /Show getting started/ }));
     await waitFor(() => expect(gettingStartedApi.setDismissed).toHaveBeenCalledWith(false));
     unmount();
 
     currentUser = aUser({ workspace: aWorkspace({ roles: ["CLIENT"] }) });
     renderAt();
     await userEvent.click(screen.getByRole("button", { name: "open help" }));
+    expect(await screen.findByText("Keyboard shortcuts")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show getting started/ })).not.toBeInTheDocument();
+    expect(gettingStartedApi.gettingStarted).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers nothing to bring back while the card is still showing", async () => {
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue({ dismissed: false, focusProjectId: null, steps: [] });
+    renderAt();
+    await userEvent.click(screen.getByRole("button", { name: "open help" }));
+
+    await waitFor(() => expect(gettingStartedApi.gettingStarted).toHaveBeenCalled());
+    expect(await screen.findByText("Keyboard shortcuts")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Show getting started/ })).not.toBeInTheDocument();
   });
 });

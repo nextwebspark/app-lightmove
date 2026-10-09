@@ -162,12 +162,17 @@ export function Sidebar({
         </button>
         <button
           type="button"
-          onClick={() => openHelp("whatsNew")}
+          onClick={() => {
+            onClose?.();
+            openHelp("whatsNew");
+          }}
           title="What's new"
-          className={cn("px-2.5 pt-2 text-left font-mono text-[11px] text-u-text3 hover:text-u-accent hover:underline", labelsHidden)}
+          className={cn(
+            "px-2.5 pt-2 text-left font-mono text-[11px] text-u-text3 underline decoration-dotted underline-offset-2 hover:text-u-accent",
+            labelsHidden,
+          )}
         >
-          {APP_VERSION}
-          <span className="sr-only"> — what's new</span>
+          {APP_VERSION} · What's new
         </button>
       </div>
     </nav>

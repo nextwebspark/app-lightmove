@@ -1,4 +1,6 @@
+import { useMemo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import { Link } from "react-router-dom";
 import remarkGfm from "remark-gfm";
 
 const ELEMENTS: Components = {
@@ -13,16 +15,7 @@ const ELEMENTS: Components = {
   ul: ({ children }) => <ul className="mb-3 list-disc space-y-1.5 ps-5 text-u-text2">{children}</ul>,
   ol: ({ children }) => <ol className="mb-3 list-decimal space-y-1.5 ps-5 text-u-text2">{children}</ol>,
   strong: ({ children }) => <strong className="font-semibold text-u-text">{children}</strong>,
-  a: ({ href, children }) =>
-    href && opensElsewhere(href) ? (
-      <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-u-accent hover:underline">
-        {children}
-      </a>
-    ) : (
-      <a href={href} className="font-medium text-u-accent hover:underline">
-        {children}
-      </a>
-    ),
+  a: ({ href, children }) => <AnchorLink href={href}>{children}</AnchorLink>,
   pre: ({ children }) => (
     <pre className="mb-4 overflow-x-auto rounded-lg border border-u-border bg-u-raised px-4 py-3 font-mono text-[12.5px] leading-[1.6] text-u-text [&_code]:bg-transparent [&_code]:p-0">
       {children}
@@ -48,6 +41,18 @@ const ELEMENTS: Components = {
   ),
 };
 
+function AnchorLink({ href, children }: { href?: string; children?: ReactNode }) {
+  return href && opensElsewhere(href) ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-u-accent hover:underline">
+      {children}
+    </a>
+  ) : (
+    <a href={href} className="font-medium text-u-accent hover:underline">
+      {children}
+    </a>
+  );
+}
+
 function opensElsewhere(href: string): boolean {
   try {
     const target = new URL(href, window.location.href);
@@ -57,11 +62,31 @@ function opensElsewhere(href: string): boolean {
   }
 }
 
-/** A guide's Markdown, tables included. Raw HTML in it is never rendered. */
-export function GuideMarkdown({ markdown }: { markdown: string }) {
+/**
+ * A guide's Markdown, tables included. Raw HTML in it is never rendered. Given `onNavigate`, a link to a page of
+ * this app is a router link — a plain one would reload the app — and `onNavigate` runs as it is followed.
+ */
+export function GuideMarkdown({ markdown, onNavigate }: { markdown: string; onNavigate?: () => void }) {
+  const components = useMemo<Components>(
+    () =>
+      onNavigate
+        ? {
+            ...ELEMENTS,
+            a: ({ href, children }) =>
+              href && !opensElsewhere(href) && href.startsWith("/") ? (
+                <Link to={href} onClick={onNavigate} className="font-medium text-u-accent hover:underline">
+                  {children}
+                </Link>
+              ) : (
+                <AnchorLink href={href}>{children}</AnchorLink>
+              ),
+          }
+        : ELEMENTS,
+    [onNavigate],
+  );
   return (
     <div className="text-[14px] leading-[1.65]">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={ELEMENTS}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {markdown}
       </ReactMarkdown>
     </div>

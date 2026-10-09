@@ -26,7 +26,7 @@ describe("help articles", () => {
   });
 
   it("searches titles, summaries and text, every word", () => {
-    expect(searchArticles("spreadsheet").map((article) => article.slug)).toContain("import-spreadsheet");
+    expect(searchArticles("spreadsheet")[0].slug).toBe("import-spreadsheet");
     expect(searchArticles("reply stops")).toEqual(
       expect.arrayContaining([expect.objectContaining({ slug: "outreach-mailbox" })]),
     );

@@ -49,39 +49,49 @@ export function AppShell({
 
   return (
     <HelpProvider>
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <Topbar breadcrumb={breadcrumb} actions={topbarActions} navOpen={navOpen} onMenuClick={() => setNavOpen(true)} />
-
-      <div className="flex min-h-0 flex-1 px-3.5 pb-3.5">
-        {navOpen && (
-          <div
-            className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
-            onClick={() => setNavOpen(false)}
-          />
-        )}
-
-        <Sidebar
-          groups={navGroups}
-          backLink={navBackLink}
-          open={navOpen}
-          onClose={() => setNavOpen(false)}
-          assistantOpen={!!assistantProjectId && isOpenFor(assistantProjectId)}
+      <div className="flex h-dvh flex-col overflow-hidden">
+        <Topbar
+          breadcrumb={breadcrumb}
+          actions={topbarActions}
+          navOpen={navOpen}
+          onMenuClick={() => setNavOpen(true)}
         />
 
-        <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">
-          <div className={cn(contentClassName)}>{children}</div>
-        </main>
+        <div className="flex min-h-0 flex-1 px-3.5 pb-3.5">
+          {navOpen && (
+            <div
+              className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
+              onClick={() => setNavOpen(false)}
+            />
+          )}
 
-        {/* Docked, not overlaid: main is flex-1, so this narrows it and covers nothing. The mockup
+          <Sidebar
+            groups={navGroups}
+            backLink={navBackLink}
+            open={navOpen}
+            onClose={() => setNavOpen(false)}
+            assistantOpen={
+              !!assistantProjectId && isOpenFor(assistantProjectId)
+            }
+          />
+
+          <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">
+            <div className={cn(contentClassName)}>{children}</div>
+          </main>
+
+          {/* Docked, not overlaid: main is flex-1, so this narrows it and covers nothing. The mockup
             draws it this way because the grid has to stay tickable while the assistant is open. The
             dock is the slot rather than the panel, so main narrows on the same curve the panel
             arrives on instead of losing its width a frame ahead of it. */}
-        {/* Inside a project only, and opened from Strategy's AI Research: no screen floats its own way in. */}
-        {assistantProjectId && (
-          <AssistantDock contextLabel={assistantContext} projectId={assistantProjectId} />
-        )}
+          {/* Inside a project only, and opened from Strategy's AI Research: no screen floats its own way in. */}
+          {assistantProjectId && (
+            <AssistantDock
+              contextLabel={assistantContext}
+              projectId={assistantProjectId}
+            />
+          )}
+        </div>
       </div>
-    </div>
     </HelpProvider>
   );
 }

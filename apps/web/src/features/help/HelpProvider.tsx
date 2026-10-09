@@ -1,10 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { HelpPanel, type HelpSection } from "./components/HelpPanel";
+import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { HelpSection } from "./lib/helpSection";
 import { latestUnseen } from "./lib/whatsNew";
+
+// Its own chunk: the panel brings the Markdown renderer, which nothing else on first load needs.
+const HelpPanel = lazy(() => import("./components/HelpPanel"));
 
 interface HelpContextValue {
   openHelp: (section?: HelpSection) => void;
-  /** Whether something in What's new has not been opened yet: the dot on the Help button. */
+  /** Whether something in What's new has not been seen yet: the dot on the Help button. */
   hasUnseenNews: boolean;
 }
 
@@ -20,11 +23,15 @@ export function HelpProvider({ children }: { children: ReactNode }) {
   const [hasUnseenNews, setHasUnseenNews] = useState(latestUnseen);
 
   const openHelp = useCallback((next: HelpSection = "home") => setSection(next), []);
+  const closeHelp = useCallback(() => setSection(null), []);
+  const markNewsSeen = useCallback(() => setHasUnseenNews(false), []);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (event.key !== "?" || event.metaKey || event.ctrlKey || event.altKey) return;
-      if (typingIn(event.target)) return;
+      if (event.defaultPrevented || event.repeat || typingIn(event.target)) return;
+      // A dialog already open keeps the keyboard: Help would land beneath it and take its Escape.
+      if (document.querySelector('[aria-modal="true"]')) return;
       event.preventDefault();
       setSection("home");
     };
@@ -38,11 +45,9 @@ export function HelpProvider({ children }: { children: ReactNode }) {
     <HelpContext.Provider value={value}>
       {children}
       {section && (
-        <HelpPanel
-          initialSection={section}
-          onClose={() => setSection(null)}
-          onNewsSeen={() => setHasUnseenNews(false)}
-        />
+        <Suspense fallback={null}>
+          <HelpPanel initialSection={section} onClose={closeHelp} onNewsSeen={markNewsSeen} />
+        </Suspense>
       )}
     </HelpContext.Provider>
   );
