@@ -3,7 +3,9 @@ package app.lightmove.api.assistant.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,7 +25,6 @@ import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,9 +51,9 @@ class CompanyDetailToolsTest {
                 row("a1", "Ahmed Seddiqi & Sons", "luxury goods & jewelry", 950,
                         List.of("Luxury Watches", "retail", "fine jewellery"))));
         when(market.nicheKeywordCounts(anyList())).thenReturn(Map.of("fine jewellery", 12L, "luxury watches", 40L));
-        when(research.heldRecordOf("rivoli-group")).thenReturn(Optional.of(new VendorCompanyRecord("rivoli-group",
-                "Rivoli Group", "Retail Luxury Goods and Jewelry", UAE, "Dubai", 1_800, null, null, 1986,
-                "Rivoli is a leading luxury watch and eyewear retailer in the Middle East.", null,
+        when(research.heldRecordsOf(anyCollection())).thenReturn(Map.of("rivoli-group", new VendorCompanyRecord(
+                "rivoli-group", "Rivoli Group", "Retail Luxury Goods and Jewelry", UAE, "Dubai", 1_800, null, null,
+                1986, "Rivoli is a leading luxury watch and eyewear retailer in the Middle East.", null,
                 List.of("watches", "eyewear"), "{}")));
         when(triaged.stagesOf(any(), any(), anyList(), anyList()))
                 .thenReturn(new MandateStages(Map.of("a1", TriageCompanyStatus.SHORTLISTED), Map.of()));
@@ -74,6 +75,8 @@ class CompanyDetailToolsTest {
         });
         assertThat(details.notFound()).containsExactly("nobody-knows");
         verify(research, never()).recordOf(any());
+        verify(research).heldRecordsOf(argThat(slugs -> slugs.containsAll(List.of("rivoli-group", "nobody-knows"))
+                && slugs.size() == 2));
         assertThat(recorder.steps()).singleElement().satisfies(step -> {
             assertThat(step.label()).isEqualTo("Reading 3 companies");
             assertThat(step.detail()).isEqualTo("2 read · 1 not found");
@@ -83,7 +86,6 @@ class CompanyDetailToolsTest {
     @Test
     @DisplayName("a page the cache has lost is read from what the earlier answer kept, and a long about is cut")
     void fallsBackToWhatTheChatKept() {
-        when(research.heldRecordOf("boutique-1")).thenReturn(Optional.empty());
         when(triaged.stagesOf(any(), any(), anyList(), anyList())).thenReturn(MandateStages.NONE);
         recorder.remember("boutique-1", new CapturedCompanyDetails("Boutique One", "Retail", UAE, "Dubai", 300,
                 null, null, null, null, "x".repeat(400), null, null, null));
@@ -92,7 +94,7 @@ class CompanyDetailToolsTest {
 
         assertThat(details.companies()).singleElement().satisfies(boutique -> {
             assertThat(boutique.companyName()).isEqualTo("Boutique One");
-            assertThat(boutique.about()).hasSize(CompanyDetailTools.MAX_ABOUT + 1).endsWith("…");
+            assertThat(boutique.about()).hasSize(CompanyDetail.MAX_ABOUT + 1).endsWith("…");
         });
         assertThat(details.notFound()).isEmpty();
     }

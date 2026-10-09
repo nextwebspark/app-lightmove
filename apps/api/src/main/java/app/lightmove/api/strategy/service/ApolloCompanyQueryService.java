@@ -301,7 +301,7 @@ public class ApolloCompanyQueryService {
                 .param("commonestShare", COMMONEST_KEYWORD_SHARE)
                 .query((rs, rowNumber) -> Map.entry(rs.getString("keyword"), rs.getLong("company_count")))
                 .list().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (first, second) -> first));
     }
 
     /** {@code keywords} found in {@code nicheCounts}, most widely used first, ties by spelling. */

@@ -9,7 +9,9 @@ import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -46,8 +48,8 @@ public class CompanyResearch {
     }
 
     /** What the cache holds however old, never asking the vendor: a read that must cost nothing. */
-    public Optional<VendorCompanyRecord> heldRecordOf(String linkedinSlug) {
-        return store.find(linkedinSlug).flatMap(CachedCompany::found);
+    public Map<String, VendorCompanyRecord> heldRecordsOf(Collection<String> linkedinSlugs) {
+        return store.findFound(linkedinSlugs);
     }
 
     /** The whole record, specialties included. */
