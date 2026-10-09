@@ -6,6 +6,7 @@ import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import * as clientsApi from "../../clients/api/clientsApi";
+import * as gettingStartedApi from "../../gettingstarted/api/gettingStartedApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
 import type { Project } from "../api/types";
@@ -20,6 +21,10 @@ vi.mock("../api/projectsApi", async (importOriginal) => ({
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
   clients: vi.fn(),
+}));
+vi.mock("../../gettingstarted/api/gettingStartedApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../gettingstarted/api/gettingStartedApi")>()),
+  gettingStarted: vi.fn(),
 }));
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
@@ -158,5 +163,117 @@ describe("ProjectsPage — pure client", () => {
     expect(await screen.findByText("No positions shared with you yet")).toBeInTheDocument();
     expect(screen.queryByText("New position")).not.toBeInTheDocument();
     expect(screen.queryByText("Start your first search")).not.toBeInTheDocument();
+  });
+});
+
+describe("ProjectsPage — staff and the Getting started card", () => {
+  const admin = {
+    id: "u1",
+    email: "ada@firm.example",
+    fullName: "Ada Admin",
+    title: null,
+    avatarUrl: null,
+    emailVerified: true,
+    hasPassword: true,
+    timezone: "Asia/Dubai",
+    locale: "en",
+    platformActions: [],
+    pendingInvitations: [],
+    workspaces: [],
+    workspace: {
+      id: "w1",
+      name: "Firm",
+      slug: "firm",
+      logoMark: "F",
+      mode: "COMPANY" as const,
+      emailDomain: "firm.example",
+      joinedAt: null,
+      company: null,
+      roles: ["ADMIN" as const],
+    },
+  };
+  const checklist = (dismissed: boolean) => ({
+    dismissed,
+    focusProjectId: null,
+    steps: dismissed ? [] : [{ step: "OPEN_POSITION" as const, done: false, skipped: false, completedAt: null }],
+  });
+  const aMandate: Project = {
+    id: "p1",
+    clientId: "c1",
+    clientName: "Beta Client",
+    clientLogoUrl: null,
+    positionTitle: "CFO Search",
+    stage: "MAPPING",
+    health: "OK",
+    targetDate: null,
+    projectType: "SEARCH",
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
+    team: [],
+    representatives: [],
+    companies: 0,
+    candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
+    createdAt: "2026-07-13T10:00:00Z",
+  };
+
+  const renderPage = (view: "my" | "all") =>
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <ToastProvider>
+              <ProjectsPage view={view} />
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(admin);
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+  });
+
+  it("leads an empty workspace with the header, the intro and the card", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(checklist(false));
+
+    renderPage("my");
+
+    expect(await screen.findByText("Get your first map in 30 minutes")).toBeInTheDocument();
+    expect(screen.getByText("My positions")).toBeInTheDocument();
+    expect(screen.getByText("Start your first search")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /new position/i })).toHaveLength(1);
+  });
+
+  it("falls back to the empty state once the card is put away, keeping New position", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(checklist(true));
+
+    renderPage("my");
+
+    expect(await screen.findByText(/A position is one role you're filling/)).toBeInTheDocument();
+    expect(screen.queryByText("Get your first map in 30 minutes")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new position/i })).toBeInTheDocument();
+  });
+
+  it("shows the card on My positions but not on All positions", async () => {
+    vi.mocked(projectsApi.projects).mockResolvedValue([aMandate]);
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(checklist(false));
+
+    const { unmount } = renderPage("my");
+    expect(await screen.findByText("Get your first map in 30 minutes")).toBeInTheDocument();
+    unmount();
+
+    renderPage("all");
+    expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
+    expect(screen.queryByText("Get your first map in 30 minutes")).not.toBeInTheDocument();
   });
 });

@@ -166,22 +166,17 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       "A position is one role you're filling. You'll write the brief, pick target companies, map the executives at them, and reach out — all in one place.";
     return (
       <>
-        <PageHeader title={view === "my" ? "My positions" : "All positions"} subtitle={`workspace ${user?.workspace?.name ?? ""}`} />
+        {header}
         <GettingStartedCard
           onOpenPosition={() => setModalOpen(true)}
           intro={
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-              <div className="min-w-0 flex-1">
-                <h2 className="text-title font-semibold">Start your first search</h2>
-                <p className="mt-1 max-w-[560px] text-body text-u-text2">{startCopy}</p>
-              </div>
-              <div className="shrink-0">{newProjectButton}</div>
-            </div>
+            <>
+              <h2 className="text-title font-semibold">Start your first search</h2>
+              <p className="mt-1 max-w-[620px] text-body text-u-text2">{startCopy}</p>
+            </>
           }
           fallback={
-            <EmptyState icon={<Icon d={ICONS.briefcase} size={24} />} title="Start your first search" body={startCopy}>
-              {newProjectButton}
-            </EmptyState>
+            <EmptyState icon={<Icon d={ICONS.briefcase} size={24} />} title="Start your first search" body={startCopy} />
           }
         />
         {modalOpen && (

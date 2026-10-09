@@ -70,8 +70,38 @@ describe("GettingStartedCard", () => {
     await userEvent.click(await screen.findByRole("button", { name: /new position/i }));
 
     expect(onOpenPosition).toHaveBeenCalled();
+    // Each blocked step still says what it is, and can't be skipped before it can be started.
+    expect(screen.getByText(/Filter the market/)).toBeInTheDocument();
     expect(screen.getAllByText("Open a position first.")).toHaveLength(4);
-    expect(screen.queryByRole("link", { name: /open strategy/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /go to strategy/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Skip: Find target companies" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Skip: Open a position" })).not.toBeInTheDocument();
+  });
+
+  it("sends someone with no seat to a lead rather than to a position they can't open", async () => {
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(
+      stateWith(["OPEN_POSITION"], { focusProjectId: null }),
+    );
+
+    renderCard();
+
+    expect(await screen.findAllByText("Ask a lead to add you to a position first.")).toHaveLength(4);
+    expect(screen.queryByRole("link", { name: /open the brief/i })).not.toBeInTheDocument();
+  });
+
+  it("offers no second New position under an intro that has one", async () => {
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(stateWith([]));
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <GettingStartedCard onOpenPosition={vi.fn()} intro={<p>Start your first search</p>} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("Start your first search")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /new position/i })).not.toBeInTheDocument();
   });
 
   it("deep-links each step to its screen on the newest position", async () => {
@@ -80,12 +110,12 @@ describe("GettingStartedCard", () => {
     renderCard();
 
     expect(await screen.findByRole("link", { name: /open the brief/i })).toHaveAttribute("href", "/projects/p1");
-    expect(screen.getByRole("link", { name: /open strategy/i })).toHaveAttribute("href", "/projects/p1/strategy");
-    expect(screen.getByRole("link", { name: /open in universe/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /go to strategy/i })).toHaveAttribute("href", "/projects/p1/strategy");
+    expect(screen.getByRole("link", { name: /go to in universe/i })).toHaveAttribute(
       "href",
       "/projects/p1/companies/universe",
     );
-    expect(screen.getByRole("link", { name: /open team/i })).toHaveAttribute("href", "/team");
+    expect(screen.getByRole("link", { name: /go to team/i })).toHaveAttribute("href", "/team");
     expect(screen.getByText("3 of 8")).toBeInTheDocument();
   });
 
@@ -119,10 +149,15 @@ describe("GettingStartedCard", () => {
     finished.steps[5] = { ...finished.steps[5], skipped: true };
     vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(finished);
 
-    renderCard();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter>
+          <GettingStartedCard onOpenPosition={vi.fn()} fallback={<p>finished</p>} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
 
-    await waitFor(() => expect(gettingStartedApi.gettingStarted).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(await screen.findByText("finished")).toBeInTheDocument();
     expect(screen.queryByText("Get your first map in 30 minutes")).not.toBeInTheDocument();
   });
 

@@ -8,7 +8,10 @@ CREATE TABLE app_lm_getting_started (
     user_id          uuid         NOT NULL REFERENCES app_lm_user (id) ON DELETE CASCADE,
     dismissed_at     timestamptz,
     skipped_steps    jsonb        NOT NULL DEFAULT '[]'::jsonb
-        CONSTRAINT app_lm_getting_started_skipped_chk CHECK (jsonb_typeof(skipped_steps) = 'array'),
+        CONSTRAINT app_lm_getting_started_skipped_chk CHECK (
+            jsonb_typeof(skipped_steps) = 'array'
+            AND skipped_steps <@ '["OPEN_POSITION", "WRITE_BRIEF", "FIND_COMPANIES", "MAP_EXECUTIVES",
+                                   "CONNECT_MAILBOX", "INVITE_COLLEAGUE"]'::jsonb),
     completed_steps  jsonb        NOT NULL DEFAULT '{}'::jsonb
         CONSTRAINT app_lm_getting_started_completed_chk CHECK (jsonb_typeof(completed_steps) = 'object'),
     created_at       timestamptz  NOT NULL DEFAULT now(),

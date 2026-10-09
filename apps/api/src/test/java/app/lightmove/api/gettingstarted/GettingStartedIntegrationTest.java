@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -118,14 +119,16 @@ class GettingStartedIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
         JsonNode reread = view(login("alok@" + domain));
         assertThat(reread.get("dismissed").asBoolean()).isTrue();
-        assertThat(stepOf(reread, "MAP_EXECUTIVES").get("skipped").asBoolean()).isTrue();
+        assertThat(reread.get("steps")).isEmpty();
 
         mvc.perform(put(URL + "/dismissed")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"dismissed\":false}"))
                 .andExpect(status().isOk());
-        assertThat(view(admin).get("dismissed").asBoolean()).isFalse();
+        JsonNode restored = view(admin);
+        assertThat(restored.get("dismissed").asBoolean()).isFalse();
+        assertThat(stepOf(restored, "MAP_EXECUTIVES").get("skipped").asBoolean()).isTrue();
     }
 
     @Test
@@ -165,7 +168,51 @@ class GettingStartedIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"skipped\":true}"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("opening a drafted brief without saving it leaves Write the brief undone")
+    void openingTheBriefIsNotWritingIt() throws Exception {
+        String admin = adminOf("Reader Firm");
+        String projectId = createProject(admin);
+
+        mvc.perform(get("/api/v1/projects/" + projectId + "/position").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+
+        assertThat(doneSteps(view(admin))).doesNotContain("WRITE_BRIEF");
+    }
+
+    @Test
+    @DisplayName("a skipped step still ticks once the work is done")
+    void skippedStepStillTicks() throws Exception {
+        String admin = adminOf("Skip Then Do Firm");
+        mvc.perform(put(URL + "/steps/OPEN_POSITION/skipped")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skipped\":true}"))
+                .andExpect(status().isOk());
+        assertThat(stepOf(view(admin), "OPEN_POSITION").get("done").asBoolean()).isFalse();
+
+        createProject(admin);
+
+        JsonNode step = stepOf(view(admin), "OPEN_POSITION");
+        assertThat(step.get("done").asBoolean()).isTrue();
+        assertThat(step.get("skipped").asBoolean()).isTrue();
+    }
+
+    @Test
+    @DisplayName("the position steps lead only to a position the caller holds a seat on")
+    void focusNeedsASeat() throws Exception {
+        String admin = adminOf("Seat Firm");
+        inviteAndAccept(admin, "Mona Member", "mona@" + domain, "MEMBER");
+        createProject(admin);
+
+        JsonNode memberView = view(login("mona@" + domain));
+
+        assertThat(doneSteps(memberView)).contains("OPEN_POSITION");
+        assertThat(memberView.get("focusProjectId").isNull()).isTrue();
     }
 
     private String adminOf(String workspaceName) throws Exception {

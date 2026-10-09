@@ -17,7 +17,7 @@ public interface PositionRepository extends JpaRepository<Position, UUID> {
 
     Optional<Position> findByProjectId(UUID projectId);
 
-    /** A drafted brief is inserted at version 0; any save of a step, or publishing it, is someone's work. */
+    /** A drafted brief is inserted at version 0, so a later version or a publication is somebody's work. */
     @Query("select p.projectId from Position p where p.projectId in :projectIds and (p.version > 0 or p.publishedAt is not null)")
     List<UUID> findProjectIdsWorkedOn(@Param("projectIds") Collection<UUID> projectIds);
 }
