@@ -142,8 +142,7 @@ public class CreditLedger {
         CreditBalance balance = begin(workspaceId);
         Instant now = clock.instant();
         return grants.findByWorkspaceIdAndSourceAndExternalRef(workspaceId, source, externalRef)
-                .filter(grant -> now.isAfter(grant.getEffectiveAt())
-                        && (grant.getExpiresAt() == null || grant.getExpiresAt().isAfter(now)))
+                .filter(grant -> grant.canEndAt(now))
                 .map(grant -> {
                     long lapsed = grant.endAt(now);
                     if (lapsed > 0) {

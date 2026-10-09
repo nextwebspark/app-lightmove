@@ -188,7 +188,24 @@ class TrialIntegrationTest extends BillingFlowSupport {
                                 {"plan":"CORE","billingInterval":"ANNUAL","seats":2}"""))
                 .andExpect(status().isOk());
 
-        assertThat(trialGrantOf(firm.workspaceId())).containsEntry("remaining", 0L).containsEntry("ended", true);
+        assertThat(trialGrantOf(firm.workspaceId())).containsEntry("remaining", 0L).containsEntry("ended", true)
+                .containsEntry("expiries", 1L);
+        assertLedgerAddsUp(firm.workspaceId());
+    }
+
+    @Test
+    @DisplayName("a trial whose credits already lapsed converts with no second expiry")
+    void aLapsedTrialConvertsWithNoSecondExpiry() throws Exception {
+        Firm firm = newFirm();
+        endTrial(firm.workspaceId());
+        db.update("UPDATE app_lm_credit_grant SET effective_at = ?, expires_at = ? WHERE external_ref = ?",
+                Timestamp.from(Instant.now().minus(Duration.ofDays(15))),
+                Timestamp.from(Instant.now().minus(Duration.ofDays(1))), "trial:" + firm.workspaceId());
+
+        subscribeToCore(firm);
+
+        assertThat(trialGrantOf(firm.workspaceId())).containsEntry("remaining", 0L).containsEntry("expiries", 1L);
+        assertThat(billingOf(firm).at("/credits/monthly").asLong()).isEqualTo(50);
         assertLedgerAddsUp(firm.workspaceId());
     }
 

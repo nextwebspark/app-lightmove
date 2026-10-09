@@ -85,6 +85,14 @@ public class CreditGrant extends BaseEntity {
         return lapsed;
     }
 
+    /**
+     * In force and begun strictly before {@code now}: ending one that begins at {@code now} would break V121's
+     * {@code expires_at > effective_at}.
+     */
+    public boolean canEndAt(Instant now) {
+        return now.isAfter(effectiveAt) && (expiresAt == null || expiresAt.isAfter(now));
+    }
+
     /** Ends the grant at {@code now}, ahead of its own expiry; @return the credits that lapsed */
     public long endAt(Instant now) {
         expiresAt = now;
