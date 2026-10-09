@@ -141,10 +141,9 @@ try {
     // Finish the wizard in the original tab, so everything downstream has a workspace as before.
     if (page.url().includes("/signup/workspace")) {
       // Who the firm hires for has no default; the rest of the run exercises today's in-house screens.
-      await page.getByRole("radio", { name: /In-house team/ }).click();
-      // The name is a pick from the company universe; a test firm is not in it, so it is added as new.
-      await page.getByPlaceholder("Search company database…").fill(WS);
-      await page.getByRole("button", { name: /None of these/ }).click();
+      await page.getByRole("radio", { name: /In-house talent team/ }).click();
+      // The name is typed; a market match is only ever offered, so a test firm simply continues with its own.
+      await page.getByPlaceholder("e.g. Meridian Search Partners").fill(WS);
       await page.getByRole("button", { name: "Continue", exact: true }).click();
       await page.waitForURL(/\/signup\/invite/, { timeout: 15000 }).catch(() => {});
       check("S2.6", "the organization step lands on the invite step", `${WEB}/signup/invite`, page.url());
@@ -211,7 +210,7 @@ try {
   await anonPage.waitForTimeout(2000);
   check("S4.3", "an anonymous visitor is sent to the login screen", true, anonPage.url().includes("/login"));
 
-  await anonPage.goto(`${WEB}/settings/members`);
+  await anonPage.goto(`${WEB}/settings/general`);
   await anonPage.waitForTimeout(2000);
   check("S4.4", "a deep link into settings is guarded too", true, anonPage.url().includes("/login"));
   await shot(anonPage, "s4-login-redirect");

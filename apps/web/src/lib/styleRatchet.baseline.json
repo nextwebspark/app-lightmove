@@ -10,8 +10,8 @@
     "arbitraryText": 4
   },
   "components/layout/Topbar.tsx": {
-    "arbitraryRadius": 5,
-    "arbitraryText": 8
+    "arbitraryRadius": 4,
+    "arbitraryText": 7
   },
   "components/layout/UncavaRailNav.tsx": {
     "arbitraryRadius": 1
@@ -48,7 +48,7 @@
     "arbitraryText": 1
   },
   "features/auth/pages/AcceptInvitePage.tsx": {
-    "arbitraryText": 5
+    "arbitraryText": 4
   },
   "features/auth/pages/ForgotPasswordPage.tsx": {
     "arbitraryText": 4
@@ -60,13 +60,13 @@
     "arbitraryText": 4
   },
   "features/auth/pages/SignupPage.tsx": {
-    "arbitraryText": 4
+    "arbitraryText": 3
   },
   "features/auth/pages/SignupVerifyStepPage.tsx": {
     "arbitraryText": 1
   },
   "features/auth/pages/VerifyEmailPage.tsx": {
-    "arbitraryText": 4
+    "arbitraryText": 3
   },
   "features/billing/components/BillingRefusalSheets.tsx": {
     "arbitraryRadius": 1,
@@ -412,9 +412,6 @@
   "features/projects/lib/projectTeamColumns.tsx": {
     "arbitraryText": 2
   },
-  "features/projects/pages/ProjectsPage.tsx": {
-    "arbitraryText": 1
-  },
   "features/projects/pages/TeamAccessPage.tsx": {
     "arbitraryText": 9,
     "arbitraryRadius": 2
@@ -590,11 +587,6 @@
     "arbitraryRadius": 3,
     "arbitraryText": 8,
     "important": 6
-  },
-  "features/settings/pages/SettingsMembersPage.tsx": {
-    "arbitraryRadius": 2,
-    "arbitraryText": 7,
-    "important": 1
   },
   "features/settings/pages/SettingsProfilePage.tsx": {
     "arbitraryRadius": 1
@@ -773,7 +765,7 @@
     "arbitraryText": 3
   },
   "features/workspace/components/OrganisationForm.tsx": {
-    "arbitraryText": 2
+    "arbitraryText": 1
   },
   "features/workspace/components/PersonaFields.tsx": {
     "arbitraryText": 1

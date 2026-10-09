@@ -14,6 +14,7 @@ export function ConfirmDialog({
   children,
   confirmLabel,
   pending = false,
+  confirmDisabled = false,
   tone = "danger",
   onConfirm,
   onClose,
@@ -24,6 +25,8 @@ export function ConfirmDialog({
   children: ReactNode;
   confirmLabel: string;
   pending?: boolean;
+  /** The action cannot go ahead as things stand; the body says why. */
+  confirmDisabled?: boolean;
   tone?: "danger" | "primary";
   onConfirm: () => void;
   onClose: () => void;
@@ -39,7 +42,7 @@ export function ConfirmDialog({
           <Button variant="secondary" disabled={pending} onClick={onClose}>
             Cancel
           </Button>
-          <Button variant={tone} loading={pending} onClick={onConfirm}>
+          <Button variant={tone} loading={pending} disabled={confirmDisabled} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </>

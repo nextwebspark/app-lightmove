@@ -24,34 +24,59 @@ export function daysLeftLabel(days: number): string {
 }
 
 /**
- * The topbar chip: a trial's days left, or its end; otherwise nothing below 80% used, then what is left, then used
- * up. A trial's last three days are a warning.
+ * The topbar chip. On a trial the days left always lead — the deadline is the fact that matters most then — coloured
+ * by the deadline alone, and a credit level from 80% used rides beside it in its own colour; off a trial it is absent
+ * below 80% used, then what is left, then used up.
  */
 export function creditChipOf(billing: Billing): CreditChip | null {
   const trial = trialOf(billing);
-  if (trial?.ended) return { tone: "out", label: "Trial ended", about: "Trial" };
-  const { credits } = billing;
-  if (trial && credits.level === "OK") {
+  if (trial?.ended) {
+    return { kind: "trial", tone: "out", label: "Trial ended", shortLabel: "Ended", credits: null };
+  }
+  const credits = creditsLineOf(billing.credits);
+  if (trial) {
     return {
+      kind: "trial",
       tone: trial.daysLeft <= 3 ? "warn" : "trial",
       label: `Trial · ${daysLeftLabel(trial.daysLeft)}`,
-      about: "Trial",
+      shortLabel: `${trial.daysLeft}d`,
+      credits,
     };
   }
+  if (!credits) return null;
+  return {
+    kind: "credits",
+    tone: credits.tone,
+    label: credits.label,
+    shortLabel: billing.credits.level === "OUT" ? "0" : formatNumber(billing.credits.left),
+    credits: null,
+  };
+}
+
+function creditsLineOf(credits: Billing["credits"]): CreditsLine | null {
   switch (credits.level) {
     case "OK":
       return null;
     case "OUT":
-      return { tone: "out", label: "Out of contact credits", about: "Contact credits" };
+      return { tone: "out", label: "Out of contact credits" };
     default:
-      return { tone: "warn", label: `${formatNumber(credits.left)} contact credits left`, about: "Contact credits" };
+      return { tone: "warn", label: `${formatNumber(credits.left)} contact credits left` };
   }
 }
 
+export interface CreditsLine {
+  tone: CreditTone;
+  label: string;
+}
+
 export interface CreditChip {
+  kind: "trial" | "credits";
   tone: CreditTone | "trial";
   label: string;
-  about: "Trial" | "Contact credits";
+  /** What fits beside the icon on a phone. */
+  shortLabel: string;
+  /** A trial's credit level, once it has reached 80% used. */
+  credits: CreditsLine | null;
 }
 
 /**

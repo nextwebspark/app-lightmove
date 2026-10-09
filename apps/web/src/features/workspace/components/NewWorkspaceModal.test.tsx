@@ -69,9 +69,9 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
-    await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(screen.getByPlaceholderText("e.g. Meridian Search Partners"), "Merid");
+    await user.click(await screen.findByRole("button", { name: "Use this: Meridian Search Partners" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() =>
@@ -88,7 +88,7 @@ describe("NewWorkspaceModal", () => {
     expect(await screen.findByText("Invite your team")).toBeInTheDocument();
 
     await user.type(screen.getAllByLabelText("Colleague's email")[0], "sara@meridian.example");
-    await user.click(screen.getByRole("button", { name: /send invites/i }));
+    await user.click(screen.getByRole("button", { name: "Send 1 invite & finish" }));
 
     await waitFor(() =>
       expect(workspaceApi.invite).toHaveBeenCalledWith([{ email: "sara@meridian.example", role: "MEMBER" }]),
@@ -101,9 +101,9 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
-    await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(screen.getByPlaceholderText("e.g. Meridian Search Partners"), "Merid");
+    await user.click(await screen.findByRole("button", { name: "Use this: Meridian Search Partners" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: /skip for now/i }));
 
@@ -120,9 +120,9 @@ describe("NewWorkspaceModal", () => {
     const user = userEvent.setup();
     renderModal();
 
-    await user.click(screen.getByRole("radio", { name: /Search agency/ }));
-    await user.type(screen.getByPlaceholderText("Search company database…"), "Merid");
-    await user.click(await screen.findByRole("button", { name: /Meridian Search Partners/ }));
+    await user.click(screen.getByRole("radio", { name: /Search firm/ }));
+    await user.type(screen.getByPlaceholderText("e.g. Meridian Search Partners"), "Merid");
+    await user.click(await screen.findByRole("button", { name: "Use this: Meridian Search Partners" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     // The workspace exists now, so the user is re-read to list it, and the stage stays open.

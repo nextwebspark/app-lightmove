@@ -334,8 +334,8 @@
                 <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">Who you hire for — it decides what your clients are called and how they are shown. Only admins can change it.</div>
               </div>
               <div role="radiogroup" aria-label="Workspace type" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
-                <div role="radio" aria-checked="false" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text2)">Search agency</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for client companies — each client is a separate business.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--line);background:transparent"></span></div>
-                <div role="radio" aria-checked="true" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--amber);background:var(--amber-dim);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text)">In-house team</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for your own organisation — each business unit is a client.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--amber);background:var(--amber)"></span></div>
+                <div role="radio" aria-checked="false" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text2)">Search firm</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You run searches for client companies.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--line);background:transparent"></span></div>
+                <div role="radio" aria-checked="true" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;border-radius:10px;border:1px solid var(--amber);background:var(--amber-dim);padding:14px 16px;cursor:pointer"><span><span style="display:block;font:600 13px var(--sans);color:var(--text)">In-house talent team</span><span style="display:block;margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">You hire for your own company's business units.</span></span><span aria-hidden="true" style="margin-top:4px;width:12px;height:12px;flex:none;border-radius:50%;border:1px solid var(--amber);background:var(--amber)"></span></div>
               </div>
             </div>
             <div style="margin-top:16px;border-radius:10px;border:1px solid var(--red);background:var(--red-dim);padding:20px">
@@ -1283,11 +1283,12 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
             Add another
           </button>
-          <div style="margin-bottom:20px;display:flex;align-items:center;gap:8px;border-radius:6px;background:var(--sky-dim);padding:10px 12px;font:400 11.5px var(--mono);color:var(--sky)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none"><circle cx="12" cy="12" r="9"></circle><path d="M12 8h.01M12 11v5"></path></svg>
-            Invitees get access to projects you add them to — roles apply per project.
+          <div style="margin-bottom:20px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:12px 14px;font:400 12px/1.5 var(--sans);color:var(--text2)">
+            <div style="display:flex;gap:8px"><b style="width:52px;flex:none;font-weight:500;color:var(--text)">Member</b><span>Sees every position; works on the ones they're added to.</span></div>
+            <div style="display:flex;gap:8px;margin-top:6px"><b style="width:52px;flex:none;font-weight:500;color:var(--text)">Admin</b><span>Also opens any position, and manages the team, billing, templates, integrations and settings.</span></div>
+            <div style="margin-top:8px;color:var(--text3)">Whoever creates a position leads it and adds its team.</div>
           </div>
-          <button onClick="{{ newWorkspaceFinish }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Send invites &amp; finish</button>
+          <button onClick="{{ newWorkspaceFinish }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">Finish</button><!-- "Send N invites &amp; finish" once rows are filled -->
           <button onClick="{{ newWorkspaceFinish }}" style="margin-top:16px;width:100%;text-align:center;background:none;border:none;padding:0;cursor:pointer;font:500 12.5px var(--sans);color:var(--text3)" style-hover="color:var(--text2);text-decoration:underline">Skip for now</button>
         </sc-if>
       </div>
@@ -2112,7 +2113,7 @@ class Component extends DCLogic {
       deleteOpen: st.deleteOpen, confirmName: st.confirmName, deleteBlocked,
       deleteButtonStyle: 'display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--red);border:1px solid var(--red);color:#fff;cursor:' + (deleteBlocked ? 'not-allowed;opacity:.5' : 'pointer'),
 
-      members, membersSubtitle: st.members.length + ' ' + (st.members.length === 1 ? 'member' : 'members') + ' · roles apply per project',
+      members, membersSubtitle: st.members.length + ' ' + (st.members.length === 1 ? 'member' : 'members') + ' · each position has its own lead',
       invitations, hasInvitations: invitations.length > 0,
       inviteOpen: st.inviteOpen, inviteEmail: st.inviteEmail, inviteRole: st.inviteRole, inviteError: st.inviteError, inviteNoError: !st.inviteError,
       inviteInputStyle: inputStyle(!!st.inviteError, 'var(--panel2)'),

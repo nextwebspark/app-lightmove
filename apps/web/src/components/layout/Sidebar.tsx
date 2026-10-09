@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { useTheme } from "../../features/theme/useTheme";
 import { cn } from "../../lib/cn";
+import { useHelp } from "../../features/help/HelpProvider";
 import { APP_VERSION } from "../../lib/version";
 import { Icon, ICONS } from "./Icon";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
@@ -13,6 +13,10 @@ export interface SidebarItem {
   count?: number;
   /** Ends the NavLink match at the exact path — "/" would otherwise match everything. */
   end?: boolean;
+  /** The tooltip, where the label alone is shorter than what the link promises. */
+  title?: string;
+  /** Said of an item that leads out of the shell it sits in, which it marks with an arrow. */
+  leavesShell?: string;
 }
 
 export interface SidebarGroup {
@@ -21,7 +25,7 @@ export interface SidebarGroup {
 }
 
 /**
- * The mockups' left rail: grouped nav links with theme and collapse rows pinned to the bottom, 210px
+ * The mockups' left rail: grouped nav links with the collapse row pinned to the bottom, 210px
  * wide or 56px collapsed (labels, group headers and counts disappear). On desktop it is a bare column
  * on the page ground, not a card — the main panel is the only card the mockups draw.
  *
@@ -46,6 +50,7 @@ export function Sidebar({
   assistantOpen?: boolean;
 }) {
   const preference = useSidebarCollapsed();
+  const { openHelp } = useHelp();
   const [expandedBesideAssistant, setExpandedBesideAssistant] = useState(false);
   const [assistantWasOpen, setAssistantWasOpen] = useState(assistantOpen);
   if (assistantWasOpen !== assistantOpen) {
@@ -54,8 +59,6 @@ export function Sidebar({
   }
   const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
   const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
-  const { theme, toggle: toggleTheme } = useTheme();
-  const dark = theme === "dark";
   const navRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -96,11 +99,11 @@ export function Sidebar({
         <>
           <NavLink
             to={backLink.to}
-            title={backLink.label}
+            title={backLink.title ?? backLink.label}
             className={rowClass("mb-1.5 font-medium text-u-text2")}
           >
             <Icon d={backLink.icon} className="flex-none" />
-            <span className={cn("whitespace-nowrap", labelsHidden)}>{backLink.label}</span>
+            <span className={cn("min-w-0 truncate whitespace-nowrap", labelsHidden)}>{backLink.label}</span>
           </NavLink>
           <div className="mx-1 mb-1.5 h-px bg-u-border" />
         </>
@@ -121,7 +124,7 @@ export function Sidebar({
               key={item.to}
               to={item.to}
               end={item.end}
-              title={item.label}
+              title={item.leavesShell ?? item.label}
               className={({ isActive }) =>
                 rowClass(isActive ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2")
               }
@@ -138,23 +141,16 @@ export function Sidebar({
                   {item.count}
                 </span>
               )}
+              {item.leavesShell && <span className="sr-only">{item.leavesShell}</span>}
+              {item.leavesShell && (
+                <Icon d={ICONS.arrowRight} size={13} className={cn("ml-auto flex-none text-u-text3", labelsHidden)} />
+              )}
             </NavLink>
           ))}
         </div>
       ))}
 
       <div className="mt-auto border-t border-u-border pt-3">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={dark ? "Light mode" : "Dark mode"}
-          className={rowClass("text-u-text2")}
-        >
-          <Icon d={dark ? ICONS.sun : ICONS.moon} className="flex-none" />
-          <span className={cn("whitespace-nowrap", labelsHidden)}>
-            {dark ? "Light mode" : "Dark mode"}
-          </span>
-        </button>
         <button
           type="button"
           onClick={toggle}
@@ -172,9 +168,20 @@ export function Sidebar({
           <Icon d={ICONS.close} className="flex-none" />
           <span className="whitespace-nowrap">Close menu</span>
         </button>
-        <p className={cn("px-2.5 pt-2 font-mono text-[11px] text-u-text3", labelsHidden)}>
-          {APP_VERSION}
-        </p>
+        <button
+          type="button"
+          onClick={() => {
+            onClose?.();
+            openHelp("whatsNew");
+          }}
+          title="What's new"
+          className={cn(
+            "px-2.5 pt-2 text-left font-mono text-[11px] text-u-text3 underline decoration-dotted underline-offset-2 hover:text-u-accent",
+            labelsHidden,
+          )}
+        >
+          {APP_VERSION} · What's new
+        </button>
       </div>
     </nav>
   );

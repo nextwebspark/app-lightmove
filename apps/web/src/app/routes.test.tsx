@@ -250,7 +250,40 @@ describe("routes — the settings gates", () => {
     ).toBeInTheDocument();
   });
 
-  it.each(["/settings/general", "/settings/members", "/settings/templates", "/settings/integrations"])(
+  it("opens /settings on General for an admin the first time, and where they last were after", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(authApi.listSessions).mockResolvedValue([]);
+    localStorage.removeItem("lightmove.settings.lastSection.u1");
+
+    const first = renderAt("/settings");
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/settings/general"));
+    first.unmount();
+
+    localStorage.setItem("lightmove.settings.lastSection.u1", "/settings/security");
+    renderAt("/settings");
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/settings/security"));
+    localStorage.removeItem("lightmove.settings.lastSection.u1");
+  });
+
+  it("never opens /settings on a section the caller can no longer reach", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    localStorage.setItem("lightmove.settings.lastSection.u1", "/settings/general");
+
+    renderAt("/settings");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/settings/profile"));
+    localStorage.removeItem("lightmove.settings.lastSection.u1");
+  });
+
+  it("sends the old Members address to Team, the one roster", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+
+    renderAt("/settings/members");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/team"));
+  });
+
+  it.each(["/settings/general", "/settings/templates", "/settings/integrations"])(
     "bounces a non-admin who types %s",
     async (path) => {
       vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
@@ -407,5 +440,104 @@ describe("routes — the not-found screen", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Go to My positions" }));
 
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
+  });
+});
+
+describe("routes — an unknown address with no session", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue(null);
+    vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
+  });
+
+  it("says the page wasn't found and offers both ways in, keeping the address", async () => {
+    renderAt("/terms");
+
+    expect(await screen.findByText("We couldn’t find that page")).toBeInTheDocument();
+    expect(screen.getByTestId("pathname").textContent).toBe("/terms");
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
+  });
+
+  it("still sends a known in-app address to sign in, remembering it", async () => {
+    renderAt("/projects/p1");
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
+    expect(screen.getByTestId("from")).toHaveTextContent("/projects/p1");
+  });
+});
+
+describe("routes — changing a mistyped address on the verify step", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    sessionStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(unverifiedUser());
+  });
+
+  it("lands on step 1 with the name kept, not on sign in", async () => {
+    vi.mocked(authApi.logout).mockResolvedValue(undefined);
+    renderAt("/signup/verify-email");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/signup"));
+    expect(await screen.findByLabelText("Full name")).toHaveValue("Someone");
+  });
+
+  it("still gets there when the server refuses the sign-out", async () => {
+    vi.mocked(authApi.logout).mockRejectedValue(new Error("503"));
+    renderAt("/signup/verify-email");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Change email" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/signup"));
+  });
+});
+
+/** The way back out of a position goes to the list it was opened from, and says so. */
+describe("routes — back from a position", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    sessionStorage.clear();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(workspaceApi.members).mockResolvedValue([]);
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      {
+        id: "p1",
+        clientId: "c1",
+        clientName: "Beta Client",
+        clientLogoUrl: null,
+        positionTitle: "CFO Search",
+        stage: "DELIVERED",
+        health: "OK",
+        targetDate: null,
+        projectType: "SEARCH",
+        startDate: null,
+        deliveryDate: null,
+        mappingTargetDate: null,
+        team: [],
+        representatives: [],
+        companies: 0,
+        candidates: 0,
+        mappedCandidates: 0,
+        engagedCandidates: 0,
+        mappedCompanies: 0,
+        createdAt: "2026-07-13T10:00:00Z",
+      },
+    ]);
+  });
+
+  it("returns to All positions with its stage and search, from the rail and the crumb", async () => {
+    renderAt("/all?stage=DELIVERED&q=cfo");
+
+    await userEvent.click((await screen.findAllByRole("link", { name: "Open CFO Search" }))[0]);
+
+    const back = await screen.findByRole("link", { name: "All positions" });
+    expect(back).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
+    expect(back).toHaveAttribute("title", "Back to All positions");
+    expect(screen.getByRole("link", { name: "Positions" })).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
   });
 });

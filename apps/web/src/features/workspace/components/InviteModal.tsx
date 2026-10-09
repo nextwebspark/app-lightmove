@@ -12,7 +12,7 @@ import { seatChargeOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as workspaceApi from "../api/workspaceApi";
 
-/** Invite one colleague from the Team or Members screens. Batch rows live in signup step 3. */
+/** Invite one colleague from the Team screen. Batch rows live in signup step 3. */
 export function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -29,6 +29,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
     mutationFn: () => workspaceApi.invite([{ email: email.trim(), role }]),
     onSuccess: ({ sent }) => {
       void queryClient.invalidateQueries({ queryKey: workspaceApi.INVITATIONS_KEY });
+      void queryClient.invalidateQueries({ queryKey: workspaceApi.PENDING_INVITATIONS_COUNT_KEY });
       toast(sent > 0 ? "Invitation sent" : "They're already a member");
       onClose();
     },
@@ -107,7 +108,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
           <Field
             label="Email"
             error={emailError ?? undefined}
-            hint="Invitees get access immediately — your naming them is the approval."
+            hint="They'll get access when they accept."
           >
             <Input
               type="email"

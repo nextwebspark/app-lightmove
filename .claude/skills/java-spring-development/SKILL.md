@@ -392,6 +392,9 @@ method plus the records it returns — never another feature's internals:
   Nationality is the one thing it folds: `NationalityCatalog` counts a row's free-text value under
   one of eleven groups at read time — a country it resolves but no other group claims is Other
   expat — and never rewrites what is stored.
+- `gettingstarted` (My positions' Getting started card) composes and owns only its per-person progress row
+  (V130): it reads `ProjectService.list`, `PositionService.projectsWithBriefWorkedOn`, `MailboxService.view` and
+  `InvitationService.hasPendingStaffInvitation`, all scoped to the caller's workspace, and nothing depends back.
 - `enrichment/peoplesearch` (Strategy's People mode) sits in `enrichment`, not `strategy`, though it is
   a search: it files people, so it depends on `candidate` and `triagecompany`, which already depend on
   `strategy` — placed in `strategy` it would close the loop. `strategy` owns what a search is expressed

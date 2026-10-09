@@ -3,12 +3,12 @@ import { WORKSPACE_MODES, type WorkspaceMode } from "../../auth/api/types";
 
 const COPY: Record<WorkspaceMode, { title: string; body: string }> = {
   AGENCY: {
-    title: "Search agency",
-    body: "You hire for client companies — each client is a separate business.",
+    title: "Search firm",
+    body: "You run searches for client companies.",
   },
   COMPANY: {
-    title: "In-house team",
-    body: "You hire for your own organisation — each business unit is a client.",
+    title: "In-house talent team",
+    body: "You hire for your own company's business units.",
   },
 };
 
