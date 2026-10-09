@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Button, Select } from "../../../../components/ui";
+import { Button, DelayedSkeleton, Select, Skeleton } from "../../../../components/ui";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useFocusTrap } from "../../../../lib/useFocusTrap";
 import * as documentsApi from "../../api/documentsApi";
@@ -165,7 +165,9 @@ function PreviewBody({
     return <p className="p-6 text-[13px] text-u-text3">{messageFor(content.error)}</p>;
   }
   if (!url) {
-    return <p className="p-6 text-[13px] text-u-text3">Loading…</p>;
+    return <DelayedSkeleton className="flex h-full flex-col p-6">
+        <Skeleton className="h-full w-full" />
+      </DelayedSkeleton>;
   }
   if (isPdf) {
     // Not sandboxed: Chrome refuses to run its PDF viewer inside a sandboxed frame. The blob is retyped

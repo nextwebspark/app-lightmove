@@ -131,6 +131,16 @@ the document sideways.
   asserting on a row matches twice — use `findAllByText`. jsdom also answers `false` to every media
   query, so `src/test/setup.ts` reports a desktop width; a test wanting the narrow layout overrides it.
 
+## Visual system
+
+`Button` takes a `size` (`md` for a form or dialog, `sm` for a page header, `xs` for a row action) — never
+`!px-…`/`!text-…` overrides. A read that is still in flight draws `LinesSkeleton`, `CardsSkeleton` or
+`DrawerSkeleton` (nothing for the first 200 ms, then the shape of what is coming), never a "Loading…" line;
+a load-more button keeps its label and shows a `Spinner`. `src/lib/styleRatchet.test.ts` fails when a file
+outside `components/ui` gains an arbitrary `text-[Npx]`, an arbitrary `rounded-[Npx]` or an `!important`
+override; when a file loses some, `UPDATE_STYLE_BASELINE=1 npx vitest run src/lib/styleRatchet.test.ts`
+lowers its baseline.
+
 ## Copy
 
 Copy no mockup draws — a toast, an error, a banner, an empty state — uses `docs/glossary.md`'s words:

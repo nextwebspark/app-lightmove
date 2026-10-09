@@ -37,7 +37,7 @@ export function SettingsMembersPage() {
         title="Members"
         subtitle={`${members.length} ${members.length === 1 ? "member" : "members"} · roles apply per project`}
         action={
-          <Button className="!px-3.5 !py-[7px] !text-[13px]" onClick={() => setInviteOpen(true)}>
+          <Button size="sm" onClick={() => setInviteOpen(true)}>
             <Icon d={ICONS.plus} size={15} />
             Invite
           </Button>
@@ -208,10 +208,10 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
           {invitation.invitedByName && ` · invited by ${invitation.invitedByName}`}
         </div>
       </div>
-      <Button variant="secondary" className="!py-1.5 !text-xs" disabled={busy} loading={resend.isPending} onClick={() => resend.mutate()}>
+      <Button variant="secondary" size="xs" disabled={busy} loading={resend.isPending} onClick={() => resend.mutate()}>
         Resend
       </Button>
-      <Button variant="ghost" className="!py-1.5 !text-xs !text-u-offlimits" disabled={busy} onClick={() => setIsConfirmingRevoke(true)}>
+      <Button variant="ghost" size="xs" className="text-u-offlimits hover:text-u-offlimits" disabled={busy} onClick={() => setIsConfirmingRevoke(true)}>
         Revoke
       </Button>
       <ConfirmDialog

@@ -3,7 +3,7 @@ import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ProjectLayout } from "../components/layout/ProjectLayout";
 import { SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
-import { Logo } from "../components/ui";
+import { Logo, Spinner } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import type { PlatformAction } from "../features/auth/api/types";
 import { homeFor } from "../features/auth/homeFor";
@@ -193,7 +193,9 @@ function Booting() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4">
       <Logo />
-      <p className="font-mono text-xs text-u-text3">Loading…</p>
+      <span role="status" aria-label="Loading" className="text-u-text3">
+        <Spinner />
+      </span>
     </div>
   );
 }

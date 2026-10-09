@@ -3,6 +3,7 @@ import { formatInstantDate } from "../../../lib/format";
 import type { CompetencyPanelAssessment, NationalityReading } from "../api/types";
 import type { AiEnrichment } from "../lib/useAiEnrichment";
 import { AiInferredBadge } from "./CandidateFieldGroups";
+import { LinesSkeleton } from "../../../components/ui";
 
 /**
  * The body of the profile's AI assessment fold: the model's summary, a 1–10 reading per competency
@@ -11,7 +12,7 @@ import { AiInferredBadge } from "./CandidateFieldGroups";
 export function AiAssessmentBody({ enrichment }: { enrichment: AiEnrichment }) {
   const { assessment } = enrichment;
   if (enrichment.isLoading) {
-    return <p className="pb-4 font-mono text-[12.5px] text-u-text3">Loading…</p>;
+    return <LinesSkeleton className="pb-4" />;
   }
   if (enrichment.isError) {
     return <p className="pb-4 font-mono text-[12.5px] text-u-text3">The AI assessment could not be read.</p>;

@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Drawer } from "../../../../components/ui/Drawer";
 import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
-import { Button, Select, useToast } from "../../../../components/ui";
+import { Button, DrawerSkeleton, Select, useToast } from "../../../../components/ui";
 import { TabList } from "../../../../components/ui/TabList";
 import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
 import { cn } from "../../../../lib/cn";
@@ -71,9 +71,9 @@ export function PersonDrawer({
             <p className="mt-6 text-[13px] text-u-text3">{messageFor(record.error)}</p>
           </div>
         ) : !record.data ? (
-          <div className="relative p-5">
+          <div className="relative">
             <PanelCloseButton onClose={onClose} />
-            <p className="mt-6 text-[13px] text-u-text3">Loading…</p>
+            <DrawerSkeleton />
           </div>
         ) : (
           <PersonDrawerBody person={record.data} tab={tab} onTabChange={onTabChange} onClose={onClose} />

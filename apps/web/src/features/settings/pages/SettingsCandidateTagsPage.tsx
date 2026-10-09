@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Button, Input, useToast } from "../../../components/ui";
+import { Button, CardsSkeleton, Input, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as poolApi from "../../candidates/api/poolApi";
@@ -63,7 +63,7 @@ export function SettingsCandidateTagsPage() {
       {tags.isError ? (
         <p className="text-[13px] text-u-text3">{messageFor(tags.error)}</p>
       ) : tags.isPending ? (
-        <p className="text-[13px] text-u-text3">Loading…</p>
+        <CardsSkeleton />
       ) : (
         <ul className="divide-y divide-u-border rounded-[10px] border border-u-border bg-u-surface">
           {tags.data.map((tag) => (

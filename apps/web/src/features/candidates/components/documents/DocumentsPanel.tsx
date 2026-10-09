@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Button, Select, Toggle, useToast } from "../../../../components/ui";
+import { Button, LinesSkeleton, Select, Toggle, useToast } from "../../../../components/ui";
 import { ApiRequestError } from "../../../../lib/apiClient";
 import { cn } from "../../../../lib/cn";
 import { codeOf, messageFor } from "../../../../lib/errorCodes";
@@ -258,7 +258,7 @@ export function DocumentsPanel({
       {documents.documents.isError ? (
         <p className="mt-4 text-[13px] text-u-text3">{messageFor(documents.documents.error)}</p>
       ) : documents.documents.isPending ? (
-        <p className="mt-4 text-[13px] text-u-text3">Loading…</p>
+        <LinesSkeleton className="mt-4" />
       ) : list.length === 0 ? (
         <EmptyDocuments compact={compact} />
       ) : (
