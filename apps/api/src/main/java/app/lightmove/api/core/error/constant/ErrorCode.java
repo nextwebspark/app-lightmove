@@ -388,6 +388,41 @@ public enum ErrorCode {
     /** A consent read for an authorization request that is not the caller's, has ended, or never existed. */
     OAUTH_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "That connection request has expired. Start again from the app"),
 
+    /** A paid action the workspace's credits cannot cover; the body carries {@code required}, {@code available} and {@code resetsAt}. */
+    INSUFFICIENT_CREDITS(HttpStatus.PAYMENT_REQUIRED, "Your workspace is out of contact credits"),
+
+    /** Search or AI past the workspace's monthly fair-use ceiling; the body carries {@code kind} and {@code resetsAt}. */
+    FAIR_USE_REACHED(HttpStatus.TOO_MANY_REQUESTS,
+            "Your workspace has reached this month's fair-use limit for this feature"),
+
+    /** A paid action after the workspace's trial ended with no plan bought; the body carries {@code trialEndedAt}. */
+    TRIAL_ENDED(HttpStatus.PAYMENT_REQUIRED, "Your workspace's trial has ended. Choose a plan to carry on"),
+
+    CREDIT_HOLD_NOT_FOUND(HttpStatus.NOT_FOUND, "That credit hold does not exist"),
+
+    /** A capture of a released hold, or a release or refund of one already settled the other way. */
+    CREDIT_HOLD_SETTLED(HttpStatus.CONFLICT, "That credit hold has already been settled"),
+
+    /** An idempotency key already naming a different action, or a charge replaying a hold never captured. */
+    CREDIT_IDEMPOTENCY_KEY_REUSED(HttpStatus.CONFLICT, "That request key was already used for another charge"),
+
+    /** A platform edit to a subscription Stripe bills: Stripe's webhooks own its plan and seats. */
+    SUBSCRIPTION_BILLED_BY_STRIPE(HttpStatus.CONFLICT, "This workspace pays through Stripe, so its plan is changed there"),
+
+    /** Checkout or the portal on a deployment without Stripe, or Stripe refusing the request. */
+    BILLING_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Paying online is not available right now"),
+
+    /** A plan with no Stripe price for the interval asked, Enterprise included: its price is agreed, not bought. */
+    BILLING_PLAN_UNKNOWN(HttpStatus.BAD_REQUEST, "That plan cannot be bought online"),
+
+    BILLING_PACK_UNKNOWN(HttpStatus.BAD_REQUEST, "That credit pack does not exist"),
+
+    /** Staff past an invoiced workspace's agreed seats; the body carries {@code seats}. */
+    SEAT_LIMIT_REACHED(HttpStatus.CONFLICT, "Every seat your workspace pays for is taken. Ask Uncava to add seats"),
+
+    /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
+    BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

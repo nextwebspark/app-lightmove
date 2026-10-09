@@ -31,6 +31,8 @@
 		     already brings; later releases move http-client to 2.x underneath the connector. -->
 		<google-cloud-storage.version>2.55.0</google-cloud-storage.version>
 		<tink.version>1.18.0</tink.version>
+		<!-- Pins the Stripe API version too (2026-09-30.endive): the webhook endpoint must be created on it. -->
+		<stripe-java.version>34.0.0</stripe-java.version>
 		<springdoc.version>3.1.1</springdoc.version>
 		<spring-ai.version>2.0.1</spring-ai.version>
 		<spring-ai-agent-utils.version>0.13.0</spring-ai-agent-utils.version>
@@ -123,6 +125,12 @@
 			<groupId>com.google.crypto.tink</groupId>
 			<artifactId>tink</artifactId>
 			<version>${tink.version}</version>
+		</dependency>
+		<!-- Billing's payments (billing/payment): subscriptions, credit packs, the portal and webhooks. -->
+		<dependency>
+			<groupId>com.stripe</groupId>
+			<artifactId>stripe-java</artifactId>
+			<version>${stripe-java.version}</version>
 		</dependency>
 
 		<!-- Observability -->

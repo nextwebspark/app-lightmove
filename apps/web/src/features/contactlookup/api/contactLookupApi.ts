@@ -21,6 +21,8 @@ export type ContactLookupOutcome = "found" | "none" | "held";
 export interface ContactLookupResult {
   outcome: ContactLookupOutcome;
   candidate: Candidate;
+  creditsSpent: number;
+  creditsLeft: number;
 }
 
 export function getContactLookupConfig(signal?: AbortSignal): Promise<ContactLookupConfig> {

@@ -81,7 +81,8 @@ public class CachedContactOutPeopleQuery {
         return store.sourceRecordsOf(linkedinSlugs, freshAfter());
     }
 
-    private String queryKeyOf(Map<String, Object> body, int page) {
+    /** The key a page is cached under, which is the same question whichever workspace asks it. */
+    public String queryKeyOf(Map<String, Object> body, int page) {
         return PeopleQueryKeys.of(String.join("|", PROVIDER, "people", PeopleQueryKeys.canonical(body, json), "page=" + page,
                 "size=" + ContactOutPeopleClient.MAX_PAGE_SIZE));
     }
