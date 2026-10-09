@@ -1,22 +1,21 @@
-import type {
-  ColumnVisibilityState,
-  OnChangeFn,
-  PaginationState,
-} from "@tanstack/react-table";
+import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { Avatar } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import { titleCase } from "../../../lib/format";
+import { useAuth } from "../../auth/AuthProvider";
 import type { Member } from "../api/types";
-import { MemberRoleSelect, RemoveMemberButton } from "./MemberManagement";
 import {
   MEMBER_COLUMN_PINNING,
   memberColumns,
   memberTableFeatures,
+  OtherRoles,
+  YouMark,
   type MemberSortField,
 } from "../lib/memberColumns";
+import { MemberRoleSelect, RemoveMemberButton } from "./MemberManagement";
 
 /** The roster: the shared grid on a wide screen, a stack of cards below `md`. */
 export function MembersList({
@@ -35,6 +34,7 @@ export function MembersList({
   members: Member[];
   /** How many mandates a member carries — a fact about the project list, which the roster does not carry. */
   activeCount: (memberId: string) => number;
+  /** An admin's roster: a role picker and a remove on every row. */
   canManage: boolean;
   sort: GridSort<MemberSortField>;
   onSortChange: (sort: GridSort<MemberSortField>) => void;
@@ -45,11 +45,8 @@ export function MembersList({
   pagination: PaginationState;
   onPaginationChange: OnChangeFn<PaginationState>;
 }) {
-  const table = useDataGridTable<
-    typeof memberTableFeatures,
-    Member,
-    MemberSortField
-  >({
+  const { user } = useAuth();
+  const table = useDataGridTable<typeof memberTableFeatures, Member, MemberSortField>({
     features: memberTableFeatures,
     columns: memberColumns,
     data: members,
@@ -63,7 +60,7 @@ export function MembersList({
     onLayoutChange,
     pagination,
     onPaginationChange,
-    meta: { activeCount, canManage },
+    meta: { activeCount, canManage, currentUserId: user?.id },
   });
 
   return (
@@ -83,6 +80,7 @@ export function MembersList({
           member={member}
           activeCount={activeCount(member.memberId)}
           canManage={canManage}
+          isSelf={member.userId === user?.id}
         />
       )}
     />
@@ -93,21 +91,22 @@ function MemberCard({
   member,
   activeCount,
   canManage,
+  isSelf,
 }: {
   member: Member;
   activeCount: number;
   canManage: boolean;
+  isSelf: boolean;
 }) {
   return (
     <div className="rounded-[10px] border border-u-border-strong bg-u-surface p-3">
       <div className="flex items-center gap-2.5">
-        <Avatar
-          id={member.memberId}
-          name={member.fullName}
-          src={member.avatarUrl}
-        />
+        <Avatar id={member.memberId} name={member.fullName} src={member.avatarUrl} />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px]">{member.fullName}</div>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-[13px]">{member.fullName}</span>
+            {isSelf && <YouMark />}
+          </div>
           <div className="truncate font-mono text-[11px] text-u-text3">
             {canManage ? member.email : `${member.roles.map(titleCase).join(" · ")} · ${member.email}`}
           </div>
@@ -118,8 +117,11 @@ function MemberCard({
       </div>
       {canManage && (
         <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-u-border pt-2.5">
-          <MemberRoleSelect member={member} />
-          <RemoveMemberButton member={member} />
+          <span className="flex items-center gap-2">
+            <MemberRoleSelect member={member} />
+            <OtherRoles roles={member.roles} />
+          </span>
+          <RemoveMemberButton member={member} labelled />
         </div>
       )}
     </div>

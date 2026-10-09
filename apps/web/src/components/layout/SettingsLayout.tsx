@@ -3,7 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
-import { type SidebarGroup } from "./Sidebar";
+import { type SidebarGroup, type SidebarItem } from "./Sidebar";
 import {
   rememberSettingsSection,
   settingsLandingOf,
@@ -18,10 +18,7 @@ import { SettingsBreadcrumb } from "./Topbar";
  * height, as Strategy and the Companies stages do in ProjectLayout, so the rows scroll under a fixed
  * toolbar and pager instead of the page scrolling past them.
  */
-const GRID_PAGES = new Set([
-  "/settings/templates",
-  "/settings/template-library",
-]);
+const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]);
 
 /** The settings shell: breadcrumb topbar, the section rail, and a narrower content column than the workspace screens. */
 export function SettingsLayout() {
@@ -35,7 +32,7 @@ export function SettingsLayout() {
     label: group,
     items: visible
       .filter((section) => section.group === group)
-      .map(({ to, label, icon }) => ({ to, label, icon })),
+      .map(({ to, label, icon, leavesShell }): SidebarItem => ({ to, label, icon, leavesShell })),
   })).filter((group) => group.items.length > 0);
 
   const section = settingsSectionOf(pathname);
@@ -56,11 +53,7 @@ export function SettingsLayout() {
   );
 }
 
-const GROUP_ORDER: SettingsGroupLabel[] = [
-  "Your account",
-  "Workspace",
-  "Platform",
-];
+const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace", "Platform"];
 
 /** `/settings` itself: the section this person last had open, or the one their role most likely came for. */
 export function SettingsLanding() {

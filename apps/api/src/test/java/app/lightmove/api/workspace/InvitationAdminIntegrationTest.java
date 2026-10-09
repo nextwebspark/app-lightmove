@@ -49,7 +49,25 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
         invite(admin, "omar@" + domain, "MEMBER");
         invite(admin, "lina@" + domain, "ADMIN");
         String client = clientRepresentative(admin, "Rana Client", "rana@client-" + domain);
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Waiting Holdings"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        mvc.perform(post("/api/v1/clients/" + clientId + "/representatives")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Wael Waiting","position":"Sponsor","email":"wael@client-%s"}
+                                """.formatted(domain)))
+                .andExpect(status().isCreated());
+        createWorkspace(verifiedUser("Kim Other", "kim@" + domain), "Other Firm");
+        invite(login("kim@" + domain), "zed@" + domain, "MEMBER");
 
+        // Neither the client representative still to accept nor another firm's invitation is counted.
         mvc.perform(get("/api/v1/invitations/pending-count").header("Authorization", "Bearer " + login(sara)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.count").value(2))

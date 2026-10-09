@@ -210,7 +210,7 @@ try {
   await anonPage.waitForTimeout(2000);
   check("S4.3", "an anonymous visitor is sent to the login screen", true, anonPage.url().includes("/login"));
 
-  await anonPage.goto(`${WEB}/settings/members`);
+  await anonPage.goto(`${WEB}/settings/general`);
   await anonPage.waitForTimeout(2000);
   check("S4.4", "a deep link into settings is guarded too", true, anonPage.url().includes("/login"));
   await shot(anonPage, "s4-login-redirect");

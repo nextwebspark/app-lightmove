@@ -12,7 +12,7 @@ import { seatChargeOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as workspaceApi from "../api/workspaceApi";
 
-/** Invite one colleague from the Team or Members screens. Batch rows live in signup step 3. */
+/** Invite one colleague from the Team screen. Batch rows live in signup step 3. */
 export function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();

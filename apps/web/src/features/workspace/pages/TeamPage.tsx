@@ -26,7 +26,7 @@ import {
 const MEMBER_LAYOUT_COLUMNS = layoutColumnsOf(memberColumns);
 const HIDEABLE_MEMBER_COLUMNS = hideableColumnsOf(memberColumns);
 
-const TEAM_SUBTITLE = "Workspace roles · each position has its own lead";
+const TEAM_SUBTITLE = "each position has its own lead";
 
 const DEFAULT_MEMBER_SORT = { field: "name", direction: "asc" } as const;
 
@@ -91,7 +91,7 @@ export function TeamPage() {
   if (isError) {
     return (
       <>
-        <PageHeader title="Team" subtitle={TEAM_SUBTITLE} />
+        <PageHeader title="Team" subtitle="Each position has its own lead" />
         <EmptyState
           icon={<Icon d={ICONS.lock} size={24} />}
           title="Couldn't load the roster"

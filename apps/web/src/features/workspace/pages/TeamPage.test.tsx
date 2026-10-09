@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
@@ -17,6 +18,7 @@ vi.mock("../api/workspaceApi", async (importOriginal) => ({
   members: vi.fn(),
   invitations: vi.fn(),
   pendingInvitationCount: vi.fn(),
+  changeMemberRoles: vi.fn(),
 }));
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
@@ -59,11 +61,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER")[]): User => ({
 const renderPage = () =>
   render(
     <MemoryRouter>
-      <QueryClientProvider
-        client={
-          new QueryClient({ defaultOptions: { queries: { retry: false } } })
-        }
-      >
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <AuthProvider>
           <ToastProvider>
             <TeamPage />
@@ -87,13 +85,9 @@ describe("TeamPage — a refused read", () => {
 
     renderPage();
 
-    expect(
-      await screen.findByText("Couldn't load the roster"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load the roster")).toBeInTheDocument();
     expect(screen.queryByText(/0 members/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /invite/i }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /invite/i })).not.toBeInTheDocument();
   });
 });
 
@@ -149,17 +143,11 @@ describe("TeamPage — the one roster", () => {
         })
       ).length,
     ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByRole("button", { name: "Remove Rania Haddad" }).length,
-    ).toBeGreaterThan(0);
-    expect(
-      await screen.findByText("Invitations waiting · 1"),
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Remove Rania Haddad" }).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Outstanding invitations · 1")).toBeInTheDocument();
     expect(screen.getByText(/sent 3 days ago by A Lead/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Resend" })).toBeInTheDocument();
-    expect(
-      screen.getByText(/Workspace roles · each position has its own lead/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("2 members · each position has its own lead")).toBeInTheDocument();
   });
 
   it("shows a member the roster and how many invitations wait, with nothing to change", async () => {
@@ -171,17 +159,35 @@ describe("TeamPage — the one roster", () => {
     renderPage();
 
     expect(
-      await screen.findByText(
-        "2 invitations are waiting to be accepted. An admin manages them.",
-      ),
+      await screen.findByText("2 invitations are waiting to be accepted. An admin manages them."),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Rania Haddad").length).toBeGreaterThan(0);
-    expect(
-      screen.queryByRole("combobox", { name: /Workspace role for/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /Remove/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Workspace role for/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove/ })).not.toBeInTheDocument();
     expect(workspaceApi.invitations).not.toHaveBeenCalled();
+  });
+
+  it("says a refused invitations read failed, rather than that nobody is waiting", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(workspaceApi.invitations).mockRejectedValue(new Error("403"));
+
+    renderPage();
+
+    expect(await screen.findByText("Couldn't load the invitations waiting to be accepted.")).toBeInTheDocument();
+  });
+
+  it("asks before an admin makes themselves a Member", async () => {
+    const user = userEvent.setup();
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+    vi.mocked(workspaceApi.invitations).mockResolvedValue([]);
+
+    renderPage();
+
+    const [own] = await screen.findAllByRole("combobox", { name: "Workspace role for A Lead" });
+    await user.selectOptions(own, "MEMBER");
+
+    expect(await screen.findByRole("dialog", { name: "Make yourself a Member?" })).toBeInTheDocument();
+    expect(workspaceApi.changeMemberRoles).not.toHaveBeenCalled();
+    expect(screen.getAllByText("(you)").length).toBeGreaterThan(0);
   });
 });

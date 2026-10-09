@@ -15,16 +15,14 @@ import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { compareNumber, compareText } from "../../../lib/gridSortFns";
 import { titleCase } from "../../../lib/format";
 import type { Member } from "../api/types";
-import {
-  MemberRoleSelect,
-  RemoveMemberButton,
-} from "../components/MemberManagement";
+import { MemberRoleSelect, RemoveMemberButton } from "../components/MemberManagement";
 
 /** How many mandates a member currently carries — counted on the page, read by the column. */
 interface MemberTableMeta {
   activeCount: (memberId: string) => number;
   /** An admin's roster: the role is a picker and each row can be removed. */
   canManage: boolean;
+  currentUserId: string | undefined;
 }
 
 /** A firm's roster is one query of tens of rows, so the grid sorts and pages it itself. */
@@ -51,10 +49,8 @@ export const memberColumns = helper.columns([
           name={info.getValue()}
           src={info.row.original.avatarUrl}
         />
-        <TruncatedText
-          value={info.getValue()}
-          className="font-sans text-[13px] text-u-text"
-        />
+        <TruncatedText value={info.getValue()} className="font-sans text-[13px] text-u-text" />
+        {info.row.original.userId === info.table.options.meta?.currentUserId && <YouMark />}
       </span>
     ),
   }),
@@ -69,16 +65,17 @@ export const memberColumns = helper.columns([
 
   helper.display({
     id: "roles",
-    header: "Workspace roles",
+    header: (context) => (context.table.options.meta?.canManage ? "Workspace role" : "Workspace roles"),
     enableSorting: false,
     meta: { share: 20, min: 160 },
     cell: (info) =>
       info.table.options.meta?.canManage ? (
-        <MemberRoleSelect member={info.row.original} />
+        <span className="flex items-center gap-2">
+          <MemberRoleSelect member={info.row.original} />
+          <OtherRoles roles={info.row.original.roles} />
+        </span>
       ) : (
-        <DataGridCell
-          value={info.row.original.roles.map(titleCase).join(" · ")}
-        />
+        <DataGridCell value={info.row.original.roles.map(titleCase).join(" · ")} />
       ),
   }),
 
@@ -94,14 +91,8 @@ export const memberColumns = helper.columns([
         b.table.options.meta?.activeCount(b.original.memberId),
       ),
     cell: (info) => {
-      const count =
-        info.table.options.meta?.activeCount(info.row.original.memberId) ?? 0;
-      return (
-        <DataGridCell
-          value={`${count} active ${count === 1 ? "position" : "positions"}`}
-          muted
-        />
-      );
+      const count = info.table.options.meta?.activeCount(info.row.original.memberId) ?? 0;
+      return <DataGridCell value={`${count} active ${count === 1 ? "position" : "positions"}`} muted />;
     },
   }),
 
@@ -111,10 +102,7 @@ export const memberColumns = helper.columns([
     enableSorting: false,
     enableHiding: false,
     meta: { share: 0, min: 56 },
-    cell: (info) =>
-      info.table.options.meta?.canManage ? (
-        <RemoveMemberButton member={info.row.original} />
-      ) : null,
+    cell: (info) => (info.table.options.meta?.canManage ? <RemoveMemberButton member={info.row.original} /> : null),
   }),
 ]);
 
@@ -124,7 +112,15 @@ export type MemberSortField = (typeof MEMBER_SORT_FIELDS)[number];
 
 export const MEMBER_COLUMN_VISIBILITY: ColumnVisibilityState = {};
 
-export const MEMBER_COLUMN_PINNING: ColumnPinningState = {
-  start: ["name"],
-  end: [],
-};
+export const MEMBER_COLUMN_PINNING: ColumnPinningState = { start: ["name"], end: [] };
+
+export function YouMark() {
+  return <span className="flex-none font-mono text-[10px] text-u-text3">(you)</span>;
+}
+
+/** Roles beside the staff one the picker sets — a client seat held alongside it — kept in view so a change is not blind. */
+export function OtherRoles({ roles }: { roles: Member["roles"] }) {
+  const others = roles.filter((role) => role !== "ADMIN" && role !== "MEMBER");
+  if (others.length === 0) return null;
+  return <span className="font-mono text-[11px] text-u-text3">+ {others.map(titleCase).join(", ")}</span>;
+}

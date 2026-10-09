@@ -90,7 +90,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             { to: "/candidates", label: "Candidates", icon: ICONS.candidates, count: poolSize },
             { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
-            // Every staff member's: `/settings` opens where this person last was, or General for an admin.
             { to: "/settings", label: "Settings", icon: ICONS.settings },
           ],
         },

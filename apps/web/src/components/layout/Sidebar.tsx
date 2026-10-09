@@ -13,6 +13,8 @@ export interface SidebarItem {
   count?: number;
   /** Ends the NavLink match at the exact path — "/" would otherwise match everything. */
   end?: boolean;
+  /** Said of an item that leads out of the shell it sits in, which it marks with an arrow. */
+  leavesShell?: string;
 }
 
 export interface SidebarGroup {
@@ -120,7 +122,8 @@ export function Sidebar({
               key={item.to}
               to={item.to}
               end={item.end}
-              title={item.label}
+              title={item.leavesShell ?? item.label}
+              aria-description={item.leavesShell}
               className={({ isActive }) =>
                 rowClass(isActive ? "bg-u-raised text-u-text [&_svg]:text-u-accent" : "text-u-text2")
               }
@@ -136,6 +139,9 @@ export function Sidebar({
                 >
                   {item.count}
                 </span>
+              )}
+              {item.leavesShell && (
+                <Icon d={ICONS.arrowRight} size={13} className={cn("ml-auto flex-none text-u-text3", labelsHidden)} />
               )}
             </NavLink>
           ))}

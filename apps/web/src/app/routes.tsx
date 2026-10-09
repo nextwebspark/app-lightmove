@@ -168,7 +168,6 @@ export function AppRoutes() {
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
         <Route path="/settings/ai-apps" element={<RequireStaff><SettingsAiAppsPage /></RequireStaff>} />
-        {/* The one roster is Team; the old admin copy's address still works. */}
         <Route path="/settings/members" element={<Navigate to="/team" replace />} />
         <Route path="/settings/billing" element={<RequireStaff><SettingsBillingPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>

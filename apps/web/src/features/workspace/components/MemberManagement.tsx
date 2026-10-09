@@ -31,37 +31,63 @@ function useRosterRefresh(member: Member) {
  */
 export function MemberRoleSelect({ member }: { member: Member }) {
   const toast = useToast();
-  const { refresh } = useRosterRefresh(member);
+  const { isSelf, refresh } = useRosterRefresh(member);
+  const [confirmDemote, setConfirmDemote] = useState(false);
   const primaryRole: WorkspaceRole = member.roles.includes("ADMIN") ? "ADMIN" : "MEMBER";
 
   const changeRoles = useMutation({
     mutationFn: (role: WorkspaceRole) => workspaceApi.changeMemberRoles(member.memberId, [role]),
     onSuccess: async () => {
+      setConfirmDemote(false);
       await refresh();
       toast.success("Role updated");
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      setConfirmDemote(false);
+      toast.error(messageFor(error));
+    },
   });
 
+  const handleChange = (role: WorkspaceRole) => {
+    // Stepping yourself down takes these very controls away, so it is asked rather than done.
+    if (isSelf && primaryRole === "ADMIN" && role !== "ADMIN") {
+      setConfirmDemote(true);
+      return;
+    }
+    changeRoles.mutate(role);
+  };
+
   return (
-    <Select
-      value={primaryRole}
-      onChange={(event) => changeRoles.mutate(event.target.value as WorkspaceRole)}
-      disabled={changeRoles.isPending}
-      aria-label={`Workspace role for ${member.fullName}`}
-      className="w-[120px] shrink-0 !py-1.5"
-    >
-      {INVITE_ROLES.map((option) => (
-        <option key={option} value={option}>
-          {titleCase(option)}
-        </option>
-      ))}
-    </Select>
+    <>
+      <Select
+        value={primaryRole}
+        onChange={(event) => handleChange(event.target.value as WorkspaceRole)}
+        disabled={changeRoles.isPending}
+        aria-label={`Workspace role for ${member.fullName}`}
+        className="w-[120px] shrink-0 !py-1.5"
+      >
+        {INVITE_ROLES.map((option) => (
+          <option key={option} value={option}>
+            {titleCase(option)}
+          </option>
+        ))}
+      </Select>
+      <ConfirmDialog
+        open={confirmDemote}
+        title="Make yourself a Member?"
+        confirmLabel="Make me a Member"
+        pending={changeRoles.isPending}
+        onConfirm={() => changeRoles.mutate("MEMBER")}
+        onClose={() => setConfirmDemote(false)}
+      >
+        <p>You'll no longer manage the team, billing or workspace settings. Another admin can make you one again.</p>
+      </ConfirmDialog>
+    </>
   );
 }
 
 /** An admin's way to take someone off the roster — or to leave, on their own row. */
-export function RemoveMemberButton({ member }: { member: Member }) {
+export function RemoveMemberButton({ member, labelled = false }: { member: Member; labelled?: boolean }) {
   const toast = useToast();
   const { isSelf, refresh } = useRosterRefresh(member);
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -86,9 +112,13 @@ export function RemoveMemberButton({ member }: { member: Member }) {
         aria-label={isSelf ? "Leave workspace" : `Remove ${member.fullName}`}
         title={isSelf ? "Leave workspace" : "Remove from workspace"}
         onClick={() => setConfirmRemove(true)}
-        className="flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-offlimits-tint hover:text-u-offlimits"
+        className={
+          labelled
+            ? "min-h-11 flex-none rounded-md px-3 text-note font-medium text-u-offlimits transition hover:bg-u-offlimits-tint"
+            : "grid size-8 flex-none place-items-center rounded-md text-u-text3 transition hover:bg-u-offlimits-tint hover:text-u-offlimits"
+        }
       >
-        <Icon d={ICONS.close} size={14} />
+        {labelled ? (isSelf ? "Leave" : "Remove") : <Icon d={ICONS.close} size={15} />}
       </button>
       <ConfirmDialog
         open={confirmRemove}
@@ -113,19 +143,23 @@ export function RemoveMemberButton({ member }: { member: Member }) {
  * many there are, so nobody asks for a colleague who has already been asked in.
  */
 export function PendingInvitations({ canManage }: { canManage: boolean }) {
-  const { data: invitations = [] } = useQuery({
+  const list = useQuery({
     queryKey: workspaceApi.INVITATIONS_KEY,
     queryFn: workspaceApi.invitations,
     enabled: canManage,
   });
-  const { data: pending } = useQuery({
+  const pending = useQuery({
     queryKey: workspaceApi.PENDING_INVITATIONS_COUNT_KEY,
     queryFn: workspaceApi.pendingInvitationCount,
     enabled: !canManage,
   });
 
+  // A refused or failed read is not "nobody is waiting": that is the one thing this section exists to say.
+  if ((canManage ? list : pending).isError) {
+    return <p className="mt-5 text-note text-u-text3">Couldn't load the invitations waiting to be accepted.</p>;
+  }
   if (!canManage) {
-    const count = pending?.count ?? 0;
+    const count = pending.data?.count ?? 0;
     if (count === 0) return null;
     return (
       <p className="mt-5 text-note text-u-text3">
@@ -133,6 +167,7 @@ export function PendingInvitations({ canManage }: { canManage: boolean }) {
       </p>
     );
   }
+  const invitations = list.data ?? [];
   if (invitations.length === 0) return null;
 
   return (
@@ -141,7 +176,7 @@ export function PendingInvitations({ canManage }: { canManage: boolean }) {
         id="pending-invitations"
         className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3"
       >
-        Invitations waiting · {invitations.length}
+        Outstanding invitations · {invitations.length}
       </h2>
       <div className="rounded-[10px] border border-u-border bg-u-raised px-5 py-2">
         {invitations.map((invitation) => (
@@ -182,11 +217,14 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-u-border py-3 first:border-t-0">
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-mono text-[13px]">{invitation.email}</div>
+      <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+        <div className="break-all font-mono text-[13px] sm:truncate">{invitation.email}</div>
         <div className="mt-0.5 font-mono text-[11px] text-u-text3">
-          {titleCase(invitation.role)} · sent {sentAgo(invitation.createdAt)}
+          {titleCase(invitation.role)} · first sent {sentAgo(invitation.createdAt)}
           {invitation.invitedByName && ` by ${invitation.invitedByName}`}
+          {new Date(invitation.expiresAt).getTime() < Date.now() && (
+            <span className="text-u-offlimits"> · link expired, resend to renew</span>
+          )}
         </div>
       </div>
       <Button
