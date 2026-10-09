@@ -168,7 +168,7 @@ function StepRow({
         {!step.done && !step.skipped && (
           <div className="text-note text-u-text3">
             {copy.detail}
-            {blocked && <span className="text-u-text3"> {blockedHint}</span>}
+            {blocked && <span className="text-u-text2"> {blockedHint}</span>}
           </div>
         )}
       </div>
