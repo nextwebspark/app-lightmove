@@ -4,7 +4,7 @@ import { useNavigate, useOutletContext, useSearchParams } from "react-router-dom
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
-import { Spinner, useToast } from "../../../components/ui";
+import { ConfirmDialog, Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAutosave, type SaveStatus } from "../../../lib/useAutosave";
 import { useAuth } from "../../auth/AuthProvider";
@@ -476,9 +476,11 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     onError: (error) => toast.error(messageFor(error)),
   });
 
+  const [isConfirmingWithdraw, setIsConfirmingWithdraw] = useState(false);
   const withdraw = useMutation({
     mutationFn: () => positionApi.withdrawPublication(projectId),
     onSuccess: (saved) => {
+      setIsConfirmingWithdraw(false);
       queryClient.setQueryData(key, saved);
       toast("Publication withdrawn");
     },
@@ -822,8 +824,21 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
             />
           )}
           {step.key === "review" && (
-            <ReviewStep position={drafted} readBack={readBack} onWithdraw={() => withdraw.mutate()} />
+            <ReviewStep position={drafted} readBack={readBack} onWithdraw={() => setIsConfirmingWithdraw(true)} />
           )}
+          <ConfirmDialog
+            open={isConfirmingWithdraw}
+            title="Withdraw publication?"
+            confirmLabel="Withdraw publication"
+            pending={withdraw.isPending}
+            onConfirm={() => withdraw.mutate()}
+            onClose={() => setIsConfirmingWithdraw(false)}
+          >
+            <p>
+              The brief goes back to a draft, and the date it was published on is cleared. Publishing again
+              stamps today&rsquo;s date.
+            </p>
+          </ConfirmDialog>
 
           <StepFooter
             activeKey={step.key}

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, EmptyState, Skeleton, useToast } from "../../../components/ui";
+import { Button, ConfirmDialog, EmptyState, Skeleton, useToast } from "../../../components/ui";
 import { messageFor, messageForCode } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
@@ -55,9 +55,11 @@ function StaffOutreachPage() {
     },
   });
 
+  const [isConfirmingDisconnect, setIsConfirmingDisconnect] = useState(false);
   const disconnect = useMutation({
     mutationFn: mailboxApi.disconnectMailbox,
     onSuccess: () => {
+      setIsConfirmingDisconnect(false);
       toast("Mailbox disconnected.");
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
     },
@@ -102,8 +104,27 @@ function StaffOutreachPage() {
             isSendingTest={sendTest.isPending}
             isDisconnecting={disconnect.isPending}
             onSendTest={() => sendTest.mutate()}
-            onDisconnect={() => disconnect.mutate()}
+            onDisconnect={() => setIsConfirmingDisconnect(true)}
           />
+        )}
+        {connection && (
+          <ConfirmDialog
+            open={isConfirmingDisconnect}
+            title={`Disconnect ${connection.address}?`}
+            confirmLabel="Disconnect"
+            pending={disconnect.isPending}
+            onConfirm={() => disconnect.mutate()}
+            onClose={() => setIsConfirmingDisconnect(false)}
+          >
+            {connection.liveSequences > 0 && (
+              <p>
+                <strong className="font-semibold text-u-text">{liveRunsLine(connection)} will stop sending.</strong>
+              </p>
+            )}
+            <p>
+              You can reconnect later, but sequences that stop don&rsquo;t restart.
+            </p>
+          </ConfirmDialog>
         )}
         {connection?.status === "ACTIVE" && <ZoomConnectControl />}
       </div>
@@ -383,4 +404,9 @@ const PROVIDER_LABELS: Record<string, string> = { google: "Gmail", microsoft: "O
 
 function providerLabel(provider: string): string {
   return PROVIDER_LABELS[provider] ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+function liveRunsLine({ liveSequences, livePeople }: ConnectedMailbox): string {
+  const sequences = `${liveSequences} live ${liveSequences === 1 ? "sequence" : "sequences"}`;
+  return `${sequences} (${livePeople} ${livePeople === 1 ? "person" : "people"})`;
 }

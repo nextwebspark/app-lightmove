@@ -15,6 +15,7 @@ export { DateInput } from "./DateInput";
 export { Drawer } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export { FullscreenButton } from "./FullscreenButton";
+export { ConfirmDialog } from "./ConfirmDialog";
 export { Modal } from "./Modal";
 export { Skeleton, TableSkeleton } from "./Skeleton";
 export { ToastProvider, useToast, type ToastFn } from "./Toast";
@@ -35,7 +36,7 @@ export { ToastProvider, useToast, type ToastFn } from "./Toast";
 
 // ── Button ──────────────────────────────────────────────────────────────────
 
-type ButtonVariant = "primary" | "secondary" | "ghost";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -51,6 +52,10 @@ const BUTTON_STYLES: Record<ButtonVariant, string> = {
     "bg-u-surface border border-u-border-strong text-u-text2 font-medium hover:text-u-text hover:border-u-text3 " +
     "disabled:opacity-50",
   ghost: "bg-transparent border-none text-u-text3 font-medium hover:text-u-text2 hover:underline",
+  // The confirm button of an action that cannot be taken back.
+  danger:
+    "bg-u-offlimits border border-u-offlimits text-white font-medium hover:brightness-105 " +
+    "disabled:opacity-50 disabled:hover:brightness-100",
 };
 
 export function Button({

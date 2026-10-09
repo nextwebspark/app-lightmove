@@ -256,7 +256,27 @@ describe("TeamAccessPage", () => {
     expect(within(alok).getByRole("radio", { name: "Researcher" })).toBeDisabled();
 
     await userEvent.click(within(grid).getByLabelText("Remove Sara Al-Mansour"));
+    const dialog = await screen.findByRole("dialog", { name: /Remove Sara Al-Mansour from/ });
+    expect(dialog).toHaveTextContent("They'll lose access to this position.");
+    expect(projectsApi.removeProjectMember).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     expect(projectsApi.removeProjectMember).toHaveBeenCalledWith("p1", "m2");
+  });
+
+  it("says plainly that removing your own seat takes your access with it", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...researcher, workspace: { ...admin.workspace } });
+    vi.mocked(clientsApi.client).mockResolvedValue(registry);
+
+    renderPage();
+
+    await userEvent.click(within(await teamGrid()).getByLabelText("Remove Sara Al-Mansour"));
+    const dialog = await screen.findByRole("dialog", { name: /Remove yourself from/ });
+    expect(dialog).toHaveTextContent("You'll lose access to this position immediately.");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(projectsApi.removeProjectMember).not.toHaveBeenCalled();
   });
 
   it("gives a researcher the read-only banner and no manage affordances", async () => {
@@ -372,6 +392,8 @@ describe("TeamAccessPage", () => {
     renderPage();
 
     await userEvent.click(await screen.findByLabelText("Remove Pending Rep"));
+    const dialog = await screen.findByRole("dialog", { name: /Remove Pending Rep from/ });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
     expect(projectsApi.detachRepresentative).toHaveBeenCalledWith("p1", "r2");
   });
 

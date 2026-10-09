@@ -100,7 +100,14 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
         : templateApi.setTemplateHidden(template.code, template.origin !== "HIDDEN"),
     onSuccess: (_, template) => {
       refresh();
-      toast(visibilityMessage(scope, template));
+      const message = visibilityMessage(scope, template);
+      if (!isOffered(scope, template)) {
+        toast(message);
+        return;
+      }
+      // What Undo hands back is the template as it now stands, so the same toggle flips it back.
+      const now = scope === "library" ? { ...template, active: false } : { ...template, origin: "HIDDEN" as const };
+      toast.success(message, { undo: () => visibility.mutate(now) });
     },
     onError: (error) => toast.error(messageFor(error)),
   });
@@ -166,6 +173,11 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
       />
     </div>
   );
+}
+
+/** Whether a firm can pick it now: archiving or hiding takes it out of the picker, and that is what Undo undoes. */
+function isOffered(scope: TemplateScope, template: TemplateOverview): boolean {
+  return scope === "library" ? template.active : template.origin !== "HIDDEN";
 }
 
 function visibilityMessage(scope: TemplateScope, template: TemplateOverview): string {

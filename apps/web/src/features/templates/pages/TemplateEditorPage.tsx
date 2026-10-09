@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Field, FormError, Input, Modal, Select, TextArea, useToast } from "../../../components/ui";
+import { Button, ConfirmDialog, Field, FormError, Input, Select, TextArea, useToast } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -67,7 +67,8 @@ const BANNER_TONES = {
   plain: "border-u-border-strong bg-u-raised",
 } as const;
 
-const DISCARD = "Discard your unsaved changes?";
+/** The lifecycle moves an Undo can take back: each is one flag, and the reverse flips it. */
+const REVERSE_OF: Partial<Record<Lifecycle, Lifecycle>> = { archive: "restore", hide: "show" };
 
 /** One template, opened from either Templates list — or a new one, at `…/new`. */
 export function TemplateEditorPage({ scope }: { scope: TemplateScope }) {
@@ -172,7 +173,9 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       queryClient.setQueryData(templateApi.TEMPLATE_DETAIL_KEY(scope, result.code), result);
       // A reset replaces the content itself; the other four change only whether it is offered.
       if (action === "reset") adopt(result);
-      toast(lifecycleMessage(action));
+      const reverse = REVERSE_OF[action];
+      if (reverse) toast.success(lifecycleMessage(action), { undo: () => lifecycle.mutate(reverse) });
+      else toast(lifecycleMessage(action));
     },
     onError: (error) => {
       setConfirming(null);
@@ -536,21 +539,16 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
       </div>
 
       {confirming && (
-        <Modal open onClose={() => setConfirming(null)} title={LIFECYCLE[confirming].label}>
-          <p className="mb-5 text-[13px] text-u-text2">{LIFECYCLE[confirming].confirm}</p>
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setConfirming(null)}>
-              Cancel
-            </Button>
-            <Button
-              className="!border-u-offlimits !bg-u-offlimits !text-white hover:!brightness-105"
-              loading={lifecycle.isPending}
-              onClick={() => lifecycle.mutate(confirming)}
-            >
-              {LIFECYCLE[confirming].label}
-            </Button>
-          </div>
-        </Modal>
+        <ConfirmDialog
+          open
+          title={`${LIFECYCLE[confirming].label}?`}
+          confirmLabel={LIFECYCLE[confirming].label}
+          pending={lifecycle.isPending}
+          onConfirm={() => lifecycle.mutate(confirming)}
+          onClose={() => setConfirming(null)}
+        >
+          <p>{LIFECYCLE[confirming].confirm}</p>
+        </ConfirmDialog>
       )}
     </>
   );
@@ -558,17 +556,32 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
 
 /** Asks before leaving with unsaved edits. The router here has no blocker, so the link guards itself. */
 function BackLink({ path, heading, dirty }: { path: string; heading: string; dirty: boolean }) {
+  const navigate = useNavigate();
+  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
   return (
-    <Link
-      to={path}
-      onClick={(event) => {
-        if (dirty && !window.confirm(DISCARD)) event.preventDefault();
-      }}
-      className="inline-flex items-center gap-1.5 text-xs font-medium text-u-text3 transition hover:text-u-text"
-    >
-      <Icon d={ICONS.back} size={14} />
-      {heading}
-    </Link>
+    <>
+      <Link
+        to={path}
+        onClick={(event) => {
+          if (!dirty) return;
+          event.preventDefault();
+          setIsConfirmingDiscard(true);
+        }}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-u-text3 transition hover:text-u-text"
+      >
+        <Icon d={ICONS.back} size={14} />
+        {heading}
+      </Link>
+      <ConfirmDialog
+        open={isConfirmingDiscard}
+        title="Discard your unsaved changes?"
+        confirmLabel="Discard changes"
+        onConfirm={() => navigate(path)}
+        onClose={() => setIsConfirmingDiscard(false)}
+      >
+        <p>What you changed since the last save will be lost.</p>
+      </ConfirmDialog>
+    </>
   );
 }
 
