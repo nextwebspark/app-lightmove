@@ -131,4 +131,19 @@ describe("VerifyEmailPage", () => {
     expect(await screen.findByText("Verification failed")).toBeInTheDocument();
     expect(await screen.findByText("That link is no longer valid.")).toBeInTheDocument();
   });
+
+  it("offers a new link from a spent one, asking for the address when nobody is signed in", async () => {
+    vi.mocked(authApi.verifyEmail).mockRejectedValue(
+      new ApiRequestError({ code: "TOKEN_EXPIRED", detail: "That link has expired.", status: 400, correlationId: "abc" }),
+    );
+    vi.mocked(authApi.resendVerification).mockResolvedValue(undefined);
+
+    renderAt("?token=old");
+
+    await userEvent.type(await screen.findByLabelText("Your email"), "alok@nextwebspark.com");
+    await userEvent.click(screen.getByRole("button", { name: "Send a new link" }));
+
+    expect(authApi.resendVerification).toHaveBeenCalledWith("alok@nextwebspark.com");
+    expect(await screen.findByRole("status")).toHaveTextContent("a new link is on its way");
+  });
 });

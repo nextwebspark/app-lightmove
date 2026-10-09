@@ -11,6 +11,7 @@ import * as authApi from "../api/authApi";
 import type { InvitationPreview } from "../api/types";
 import { acceptInviteSchema, type AcceptInviteValues } from "../schemas";
 import { titleCase } from "../../../lib/format";
+import { LegalConsent } from "../components/LegalConsent";
 
 /**
  * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
@@ -199,17 +200,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
         )}
       </form>
 
-      <p className="mt-4 text-[11.5px] leading-relaxed text-u-text3">
-        By continuing you agree to the{" "}
-        <a href="/terms" className="text-u-accent hover:underline">
-          Terms
-        </a>{" "}
-        and{" "}
-        <a href="/privacy" className="text-u-accent hover:underline">
-          Privacy Policy
-        </a>
-        .
-      </p>
+      <LegalConsent className="mt-4" />
     </Shell>
   );
 }

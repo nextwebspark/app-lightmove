@@ -1,13 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { EMAIL_FIELD_ERROR_CODES, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { OAuthButtons } from "../components/OAuthButtons";
+import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { signupSchema, type SignupValues } from "../schemas";
 
@@ -22,6 +23,8 @@ import { signupSchema, type SignupValues } from "../schemas";
 export function SignupPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const carriedFullName = fullNameCarriedFrom(location.state);
   const [formError, setFormError] = useState<string | null>(null);
   // The address that turned out to already have an account — the one state with a real way forward
   // (log in), so it gets a CTA rather than a dead-end field error.
@@ -34,7 +37,12 @@ export function SignupPage() {
     formState: { errors, isSubmitting },
   } = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
-    defaultValues: { fullName: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: {
+      fullName: carriedFullName,
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
   const onSubmit = async (values: SignupValues) => {
@@ -88,7 +96,7 @@ export function SignupPage() {
           <Field label="Full name" error={errors.fullName?.message}>
             <Input
               autoComplete="name"
-              autoFocus
+              autoFocus={!carriedFullName}
               placeholder="Yara Haddad"
               invalid={!!errors.fullName}
               {...register("fullName")}
@@ -103,6 +111,7 @@ export function SignupPage() {
             <Input
               type="email"
               autoComplete="email"
+              autoFocus={!!carriedFullName}
               placeholder="you@firm.com"
               invalid={!!errors.email}
               {...register("email")}
@@ -145,17 +154,7 @@ export function SignupPage() {
             />
           </Field>
 
-          <p className="mb-5 text-[11.5px] leading-relaxed text-u-text3">
-            By continuing you agree to the{" "}
-            <a href="/terms" className="text-u-accent hover:underline">
-              Terms
-            </a>{" "}
-            and{" "}
-            <a href="/privacy" className="text-u-accent hover:underline">
-              Privacy Policy
-            </a>
-            .
-          </p>
+          <LegalConsent className="mb-5" />
 
           <Button type="submit" loading={isSubmitting} className="w-full">
             Continue
@@ -176,4 +175,10 @@ export function SignupPage() {
       </p>
     </div>
   );
+}
+
+/** "Change email" on the verify step comes back here with the name already typed once. */
+function fullNameCarriedFrom(state: unknown): string {
+  const fullName = (state as { fullName?: unknown } | null)?.fullName;
+  return typeof fullName === "string" ? fullName : "";
 }

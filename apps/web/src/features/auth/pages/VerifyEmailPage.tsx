@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Logo } from "../../../components/ui";
+import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
+import * as authApi from "../api/authApi";
 import { homeFor } from "../homeFor";
 
 type State = "verifying" | "success" | "failed";
@@ -125,12 +126,67 @@ export function VerifyEmailPage() {
             <h1 className="text-[19px] font-semibold">Verification failed</h1>
             <p className="mb-6 mt-2 font-mono text-xs text-u-text3">{message}</p>
 
-            <Link to="/login" className="text-[12.5px] text-u-accent hover:underline">
+            <SendNewLink knownEmail={user?.email ?? null} />
+
+            <Link to="/login" className="mt-4 inline-block text-[12.5px] text-u-accent hover:underline">
               Back to sign in
             </Link>
           </>
         )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * An expired or already-used link is the commonest failure, and the way on is another link. Signed in,
+ * the address is known; otherwise it is asked for. The server answers alike whether or not it exists.
+ */
+function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
+  const [email, setEmail] = useState(knownEmail ?? "");
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const address = email.trim();
+    if (!address) {
+      setError("Enter the email you signed up with.");
+      return;
+    }
+    setSending(true);
+    setError(null);
+    try {
+      await authApi.resendVerification(address);
+      setSentTo(address);
+    } catch {
+      setError("We couldn't send the email. Try again in a minute, or contact Uncava support.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (sentTo) {
+    return (
+      <p role="status" className="rounded-lg bg-u-direct-tint px-3 py-2.5 text-left font-mono text-[11.5px] text-u-direct">
+        If {sentTo} has an account waiting to be confirmed, a new link is on its way. Check spam and
+        promotions too.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="text-left">
+      <FormError message={error} />
+      {!knownEmail && (
+        <Field label="Your email">
+          <Input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </Field>
+      )}
+      <Button type="submit" loading={sending} className="w-full">
+        Send a new link
+      </Button>
+    </form>
   );
 }

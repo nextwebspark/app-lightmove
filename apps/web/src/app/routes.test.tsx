@@ -409,3 +409,28 @@ describe("routes — the not-found screen", () => {
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
   });
 });
+
+/** A signed-out visitor to an unknown address — a Terms link before there was a Terms page — was sent to sign in. */
+describe("routes — an unknown address with no session", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue(null);
+    vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
+  });
+
+  it("says the page wasn't found and offers both ways in, keeping the address", async () => {
+    renderAt("/terms");
+
+    expect(await screen.findByText("We couldn’t find that page")).toBeInTheDocument();
+    expect(screen.getByTestId("pathname").textContent).toBe("/terms");
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Create an account" })).toHaveAttribute("href", "/signup");
+  });
+
+  it("still sends a known in-app address to sign in, remembering it", async () => {
+    renderAt("/projects/p1");
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
+    expect(screen.getByTestId("from")).toHaveTextContent("/projects/p1");
+  });
+});

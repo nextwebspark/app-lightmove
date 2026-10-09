@@ -50,6 +50,7 @@ import { TemplateEditorPage } from "../features/templates/pages/TemplateEditorPa
 import { TemplateListPage } from "../features/templates/pages/TemplateListPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
 import { NotFoundPage } from "./NotFoundPage";
+import { PublicNotFoundPage } from "./PublicNotFoundPage";
 
 /**
  * Routing follows the user's actual state, not a step counter.
@@ -185,7 +186,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Anything else. Rendered rather than redirected, for the reason NotFoundPage carries. */}
-      <Route path="*" element={<RequireWorkspace><NotFoundPage /></RequireWorkspace>} />
+      <Route path="*" element={<UnknownAddress />} />
     </Routes>
   );
 }
@@ -215,6 +216,16 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
 }
 
 export { homeFor };
+
+/** Signed out, an unknown address is a public 404; sending it to sign-in read as being asked to log in. */
+function UnknownAddress() {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <PublicNotFoundPage />;
+
+  return <RequireWorkspace><NotFoundPage /></RequireWorkspace>;
+}
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();

@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthLogo, Button, Card } from "../../../components/ui";
+import { AuthLogo, Button, Card, FormError } from "../../../components/ui";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { homeFor } from "../homeFor";
+
+/** How long a sent link holds the Resend button before another may be asked for. */
+export const RESEND_COOLDOWN_SECONDS = 30;
 
 /** How often the tab re-asks the server whether the link has been clicked somewhere else. */
 const POLL_INTERVAL_MS = 5_000;
@@ -20,8 +23,11 @@ export function SignupVerifyStepPage() {
   const { user, signOut, reload } = useAuth();
   const navigate = useNavigate();
   const [resending, setResending] = useState(false);
-  const [resent, setResent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [resendFeedback, setResendFeedback] = useState<Feedback | null>(null);
   const [checking, setChecking] = useState(false);
+  const [notYetSeen, setNotYetSeen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     if (user?.emailVerified) navigate(homeFor(user), { replace: true });
@@ -42,12 +48,25 @@ export function SignupVerifyStepPage() {
     };
   }, [user?.emailVerified, reload]);
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((left) => left - 1), 1_000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
+
   const handleResend = async () => {
     if (!user) return;
     setResending(true);
+    setResendFeedback(null);
     try {
       await authApi.resendVerification(user.email);
-      setResent(true);
+      setResendFeedback({ kind: "sent", message: `Sent to ${user.email} — it can take a minute. Check spam and promotions.` });
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch {
+      setResendFeedback({
+        kind: "failed",
+        message: "We couldn't send the email. Try again in a minute, or contact Uncava support.",
+      });
     } finally {
       setResending(false);
     }
@@ -55,11 +74,22 @@ export function SignupVerifyStepPage() {
 
   const handleCheck = async () => {
     setChecking(true);
+    setNotYetSeen(false);
     try {
-      await reload();
+      const fresh = await reload();
+      if (fresh && !fresh.emailVerified) setNotYetSeen(true);
     } finally {
       setChecking(false);
     }
+  };
+
+  // The account at the mistyped address stays unverified and unusable; signing up again is the way to
+  // the right one, and the name has already been typed once.
+  const handleChangeEmail = async () => {
+    const fullName = user?.fullName ?? "";
+    setLeaving(true);
+    await signOut();
+    navigate("/signup", { replace: true, state: { fullName } });
   };
 
   return (
@@ -85,10 +115,21 @@ export function SignupVerifyStepPage() {
         <h1 className="text-[19px] font-semibold leading-tight">Confirm your email</h1>
         <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 2 of 4 · check your inbox</p>
 
-        <p className="mb-6 text-sm text-u-text2">
+        <p className="mb-2 text-sm text-u-text2">
           We sent a link to <span className="font-medium text-u-text">{user?.email}</span>. Open it and
           you will be signed in and brought straight to the next step — here, or in whichever browser
           opens the link.
+        </p>
+        <p className="mb-6 text-[12.5px] text-u-text3">
+          Wrong address?{" "}
+          <button
+            type="button"
+            onClick={handleChangeEmail}
+            disabled={leaving}
+            className="font-medium text-u-accent hover:underline disabled:opacity-60"
+          >
+            Change email
+          </button>
         </p>
 
         <p className="mb-6 font-mono text-xs text-u-text3">
@@ -96,13 +137,30 @@ export function SignupVerifyStepPage() {
           anything in that firm&rsquo;s name.
         </p>
 
+        <div aria-live="polite" className="text-left">
+          {notYetSeen && (
+            <p className="mb-4 rounded-lg bg-u-accent-tint px-3 py-2.5 font-mono text-[11.5px] text-u-accent">
+              We haven&rsquo;t seen the click yet. Open the newest email from Uncava — older links stop
+              working.
+            </p>
+          )}
+          {resendFeedback?.kind === "sent" && (
+            <p className="mb-4 rounded-lg bg-u-direct-tint px-3 py-2.5 font-mono text-[11.5px] text-u-direct">
+              {resendFeedback.message}
+            </p>
+          )}
+        </div>
+        <div className="text-left">
+          <FormError message={resendFeedback?.kind === "failed" ? resendFeedback.message : null} />
+        </div>
+
         <div className="flex flex-col gap-2">
           <Button onClick={handleCheck} disabled={checking}>
             {checking ? "Checking…" : "I've confirmed it"}
           </Button>
 
-          <Button variant="ghost" onClick={handleResend} disabled={resending || resent}>
-            {resent ? "Link sent" : resending ? "Sending…" : "Resend the link"}
+          <Button variant="ghost" onClick={handleResend} disabled={resending || cooldown > 0}>
+            {resending ? "Sending…" : cooldown > 0 ? `Resend again in ${cooldown}s` : "Resend the link"}
           </Button>
 
           <Button variant="ghost" onClick={signOut}>
@@ -112,4 +170,9 @@ export function SignupVerifyStepPage() {
       </Card>
     </div>
   );
+}
+
+interface Feedback {
+  kind: "sent" | "failed";
+  message: string;
 }
