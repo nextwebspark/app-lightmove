@@ -104,7 +104,7 @@ export function TeamPage() {
           isAdmin && (
             <Button
               variant="secondary"
-              className="!px-3.5 !py-[7px] !text-[13px]"
+              size="sm"
               onClick={() => setInviteOpen(true)}
             >
               <Icon d={ICONS.plus} size={15} />

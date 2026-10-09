@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Avatar, Button, useToast } from "../../../components/ui";
+import { Avatar, Button, CardsSkeleton, LinesSkeleton, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatNumber } from "../../../lib/format";
@@ -72,7 +72,7 @@ export function SettingsBillingPage() {
       {billing.isError ? (
         <p className="text-[13px] text-u-text3">{messageFor(billing.error)}</p>
       ) : !billing.data ? (
-        <p className="text-[13px] text-u-text3">Loading…</p>
+        <CardsSkeleton />
       ) : (
         <>
           {awaiting && <AwaitingStripe kind={awaiting.kind} />}
@@ -374,7 +374,7 @@ function UsedThisMonth({ members, failed }: { members: MemberCreditSpend[] | und
         {failed ? (
           <p className="border-t border-u-border px-4 py-3 text-[13px] text-u-text3">This month's use could not be loaded.</p>
         ) : !members ? (
-          <p className="border-t border-u-border px-4 py-3 text-[13px] text-u-text3">Loading…</p>
+          <LinesSkeleton className="border-t border-u-border px-4 py-3" />
         ) : members.length === 0 ? (
           <p className="border-t border-u-border px-4 py-3 text-[13px] text-u-text3">No contact credits used yet this month.</p>
         ) : (

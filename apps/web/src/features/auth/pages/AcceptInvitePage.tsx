@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo, Notice } from "../../../components/ui";
+import { Button, Card, Field, FormError, Input, Logo, Notice, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
@@ -35,7 +35,13 @@ export function AcceptInvitePage() {
   // invitee, and rendering the anonymous create-account form here would flash it in their face — a
   // wrong-account or already-placed user briefly sees a "set your password" screen before it corrects.
   if (loading) {
-    return <Centered>Loading…</Centered>;
+    return (
+      <Centered>
+        <span role="status" aria-label="Loading" className="text-u-text3">
+          <Spinner />
+        </span>
+      </Centered>
+    );
   }
 
   if (token) {
@@ -262,7 +268,7 @@ function ServerDerivedArrival() {
                 <div className="font-mono text-meta text-u-text3">as {titleCase(candidate.role)}</div>
               </div>
               <Button
-                className="!px-3.5 !py-[6px] !text-note"
+                size="xs"
                 loading={accepting === candidate.id}
                 disabled={accepting !== null && accepting !== candidate.id}
                 onClick={() => void accept(candidate.id)}

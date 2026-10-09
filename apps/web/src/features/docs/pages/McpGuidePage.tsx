@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
-import { AppIcon, Spinner } from "../../../components/ui";
+import { AppIcon, LinesSkeleton } from "../../../components/ui";
 
 const McpGuide = lazy(() => import("../components/McpGuide"));
 
@@ -21,12 +21,7 @@ export function McpGuidePage() {
       </header>
       <main className="mx-auto max-w-[820px] px-4 py-10">
         <Suspense
-          fallback={
-            <div className="flex items-center gap-2 font-mono text-xs text-u-text3">
-              <Spinner />
-              Loading…
-            </div>
-          }
+          fallback={<LinesSkeleton lines={8} />}
         >
           <McpGuide />
         </Suspense>

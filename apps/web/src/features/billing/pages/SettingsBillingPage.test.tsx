@@ -138,7 +138,7 @@ describe("SettingsBillingPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    expect(await screen.findByRole("status")).toHaveTextContent("82% of this month's contact credits used");
+    expect((await screen.findByText(/82% of this month's contact credits used/)).closest('[role="status"]')).not.toBeNull();
     await user.click(screen.getAllByRole("button", { name: "Buy more credits" })[0]);
     const dialog = screen.getByRole("dialog", { name: "Buy more credits" });
     await user.click(within(dialog).getByRole("radio", { name: /500 credits/ }));
@@ -223,7 +223,7 @@ describe("SettingsBillingPage", () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(aCardBilling({ credits: someCredits({ level: "OUT", left: 0 }) }));
     renderPage();
 
-    expect(await screen.findByRole("status")).toHaveTextContent("an admin adds more");
+    expect((await screen.findByText(/an admin adds more/)).closest('[role="status"]')).not.toBeNull();
     expect(screen.queryByRole("button", { name: "Buy more credits" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Add seats" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Change plan" })).not.toBeInTheDocument();
@@ -247,7 +247,7 @@ describe("SettingsBillingPage", () => {
     );
     renderPage();
 
-    expect(await screen.findByRole("status")).toHaveTextContent("Paid by invoice");
+    expect((await screen.findByText(/Paid by invoice/)).closest('[role="status"]')).not.toBeNull();
     expect(screen.getByRole("region", { name: "Payment and invoices" })).toHaveTextContent("Paid by bank transfer");
   });
 });

@@ -115,15 +115,14 @@ export function StrategyToolbar({
         }
       />
 
-      {/* The only filled CTA in the toolbar, and the mockup's gradient is the whole point of it —
-          it is the affordance the screen is selling.
+      {/* Tinted, as Strategy.dc.html draws it: a secondary way in, never louder than the screen's own job.
 
           Hidden below `lg` with the panel it opens: the assistant has no layout on a phone or a
           tablet yet, so here it would set the open flag and show nothing at all. */}
       <button
         type="button"
         onClick={onAiResearch}
-        className="hidden items-center gap-2 lg:inline-flex whitespace-nowrap rounded-[6px] border border-u-accent bg-[linear-gradient(90deg,var(--color-u-inferred),var(--color-u-adjacent))] px-4 py-2 font-sans text-[13px] font-semibold text-white shadow-u-e2 transition hover:brightness-105"
+        className="hidden items-center gap-2 whitespace-nowrap rounded-[6px] border border-u-border-strong bg-u-inferred-tint px-4 py-2 font-sans text-[13px] font-medium text-u-inferred transition hover:bg-u-raised lg:inline-flex"
       >
         <Icon
           d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"
