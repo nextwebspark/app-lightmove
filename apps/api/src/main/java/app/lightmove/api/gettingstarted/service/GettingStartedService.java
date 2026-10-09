@@ -1,5 +1,7 @@
 package app.lightmove.api.gettingstarted.service;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.gettingstarted.constant.GettingStartedStep;
@@ -91,6 +93,10 @@ public class GettingStartedService {
 
     @Transactional
     public GettingStartedResponse setSkipped(UUID userId, UUID workspaceId, GettingStartedStep step, boolean skipped) {
+        if (step == GettingStartedStep.OPEN_POSITION) {
+            // Every later step needs a position, so the first can't be put aside.
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Opening a position can't be skipped");
+        }
         GettingStartedProgress row = editableProgressOf(userId, workspaceId);
         if (skipped) {
             row.skip(step);
@@ -156,6 +162,7 @@ public class GettingStartedService {
     }
 
     private GettingStartedProgress editableProgressOf(UUID userId, UUID workspaceId) {
+        access.requireStaff(userId, workspaceId);
         progress.ensureExists(workspaceId, userId);
         return progress.findByWorkspaceIdAndUserId(workspaceId, userId).orElseThrow();
     }

@@ -160,6 +160,19 @@ class GettingStartedIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("opening a position can't be skipped")
+    void firstStepIsNotSkippable() throws Exception {
+        String admin = adminOf("No Skip Firm");
+
+        mvc.perform(put(URL + "/steps/OPEN_POSITION/skipped")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skipped\":true}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("an unknown step is refused rather than stored")
     void unknownStep() throws Exception {
         String admin = adminOf("Typo Firm");
@@ -188,16 +201,23 @@ class GettingStartedIntegrationTest extends FlowTestSupport {
     @DisplayName("a skipped step still ticks once the work is done")
     void skippedStepStillTicks() throws Exception {
         String admin = adminOf("Skip Then Do Firm");
-        mvc.perform(put(URL + "/steps/OPEN_POSITION/skipped")
+        mvc.perform(put(URL + "/steps/WRITE_BRIEF/skipped")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"skipped\":true}"))
                 .andExpect(status().isOk());
-        assertThat(stepOf(view(admin), "OPEN_POSITION").get("done").asBoolean()).isFalse();
+        assertThat(stepOf(view(admin), "WRITE_BRIEF").get("done").asBoolean()).isFalse();
 
-        createProject(admin);
+        String projectId = createProject(admin);
+        mvc.perform(put("/api/v1/projects/" + projectId + "/position/details")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roleTitle":"CFO","department":null,"location":null,"employmentType":null,
+                                 "seniority":null,"responsibilities":[],"narrative":null,"fieldSources":{}}"""))
+                .andExpect(status().isOk());
 
-        JsonNode step = stepOf(view(admin), "OPEN_POSITION");
+        JsonNode step = stepOf(view(admin), "WRITE_BRIEF");
         assertThat(step.get("done").asBoolean()).isTrue();
         assertThat(step.get("skipped").asBoolean()).isTrue();
     }
