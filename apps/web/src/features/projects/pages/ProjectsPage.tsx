@@ -204,7 +204,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     <>
       <PageHeader
         title={view === "my" ? "My positions" : "All positions"}
-        subtitle={`${filtered ? `${rows.length} of ${unfilteredCount}` : rows.length} ${(filtered ? unfilteredCount : rows.length) === 1 ? "position" : "positions"} · workspace ${user?.workspace?.name ?? ""}`}
+        subtitle={`${countLabel(rows.length, unfilteredCount, filtered)} · workspace ${user?.workspace?.name ?? ""}`}
         action={clientOnly ? undefined : newProjectButton}
       />
 
@@ -345,3 +345,9 @@ function ListEmptyState({
   );
 }
 
+
+/** "3 positions", or under a filter "0 of 3 positions" — so a narrowed list never reads as having none. */
+function countLabel(shown: number, total: number, filtered: boolean): string {
+  const noun = (filtered ? total : shown) === 1 ? "position" : "positions";
+  return filtered ? `${shown} of ${total} ${noun}` : `${shown} ${noun}`;
+}
