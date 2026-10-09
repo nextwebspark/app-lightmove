@@ -112,13 +112,13 @@ function PersonDrawerBody({
   const owning = useMutation({
     mutationFn: (ownerUserId: string | null) => poolApi.setOwner(person.personId, ownerUserId),
     onSuccess: changed,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
   const marking = useMutation({
     mutationFn: (doNotContact: boolean) =>
       poolApi.setDoNotContact(person.personId, doNotContact, doNotContact ? DEFAULT_REASON : undefined),
     onSuccess: changed,
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const context = [person.companyName, person.locationCity, person.locationCountry].filter(Boolean).join(" · ");

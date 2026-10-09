@@ -30,7 +30,7 @@ export function SettingsCandidateTagsPage() {
       toast("Tag added for the whole team");
       refresh();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (
@@ -95,7 +95,7 @@ function TagRow({ tag, onChanged }: { tag: CandidateTag; onChanged: () => void }
       }
       onChanged();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

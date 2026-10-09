@@ -29,7 +29,7 @@ export function ZoomConnectControl({ className }: { className?: string }) {
       toast("Zoom disconnected.");
       refresh();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const handleConnect = () => {
@@ -44,7 +44,7 @@ export function ZoomConnectControl({ className }: { className?: string }) {
       },
       onError: (code) => {
         finish();
-        toast(messageForCode(code));
+        toast.error(messageForCode(code));
       },
       onCancel: finish,
     });

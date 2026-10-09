@@ -78,7 +78,7 @@ export function IntegrationCard({
       setOpenedOwn(false);
       toast(`${copy.title} uses the shared app`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const handleChooseMode = (next: CredentialMode) => {

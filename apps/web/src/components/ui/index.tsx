@@ -17,7 +17,7 @@ export { EmptyState } from "./EmptyState";
 export { FullscreenButton } from "./FullscreenButton";
 export { Modal } from "./Modal";
 export { Skeleton, TableSkeleton } from "./Skeleton";
-export { ToastProvider, useToast } from "./Toast";
+export { ToastProvider, useToast, type ToastFn } from "./Toast";
 
 /**
  * The handful of primitives every auth screen is built from.

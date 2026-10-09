@@ -60,7 +60,7 @@ export function AddToPositionDialog({
       onDone?.();
       onClose();
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

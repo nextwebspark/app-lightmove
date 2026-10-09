@@ -653,6 +653,22 @@ describe("TriageStagePage", () => {
     );
   });
 
+  it("undoes a move by sending the company back to the stage it left", async () => {
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
+    expect(await screen.findByText("ACWA Power moved to the shortlist")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await waitFor(() =>
+      expect(triageApi.updateTriageCompany).toHaveBeenLastCalledWith("p1", "u1", { status: "inUniverse" }),
+    );
+    expect(await screen.findByText("ACWA Power moved to the universe")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  });
+
   it("only offers the moves a company has not already made", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
       pageOf({ companies: [{ ...acwa, status: "declined" }] }),
@@ -1044,7 +1060,7 @@ describe("TriageStagePage", () => {
     await screen.findByText("ACWA Power");
     await userEvent.click(screen.getByRole("button", { name: /^Export$/i }));
 
-    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
 
   it("redirects an unknown stage instead of rendering an empty grid for it", async () => {

@@ -198,7 +198,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
     },
   });
   const autosave = useAutosave<StrategyFilter>((payload) => filterWrite.mutateAsync(payload), {
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const applyFilter = (next: StrategyFilter) => {
@@ -227,7 +227,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
       toast("Search saved");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const editSearch = useMutation({
@@ -242,7 +242,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const overwriteSearch = useMutation({
@@ -255,7 +255,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
       toast(`${search.name} updated`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const deleteSearch = useMutation({
@@ -264,7 +264,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: strategyApi.STRATEGY_KEY(project.id) });
       toast("Search deleted");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   /**
@@ -301,7 +301,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   const offLimitsWrite = useMutation({
     scope: OFF_LIMITS_SCOPE,
     mutationFn: (apolloAccountIds: string[]) => writeOffLimits(() => apolloAccountIds),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   /** The panel, which knows only the one company it is barring. */
@@ -314,7 +314,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
       return company;
     },
     onSuccess: (company) => toast(`${company.companyName} is off-limits for this mandate`),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const addOne = useMutation({
@@ -336,7 +336,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
           : `${company.companyName} is already in this mandate, at ${stageByStatus(added.status).label}`,
       );
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const addAll = useMutation({
@@ -353,7 +353,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
         `Added ${result.added} companies to universe${result.skipped > 0 ? `, ${result.skipped} already there` : ""}`,
       );
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   /**
@@ -377,7 +377,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
           (result.skipped > 0 ? `, ${result.skipped} already in this mandate` : ""),
       );
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   if (strategy.isError) {

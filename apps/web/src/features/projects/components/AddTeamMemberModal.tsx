@@ -35,7 +35,7 @@ export function AddTeamMemberModal({ project, onClose }: { project: Project; onC
       const person = directory.find((candidate) => candidate.memberId === memberId);
       toast(`${person?.fullName ?? "Member"} added as ${ROLE_STYLES[roleFor[memberId] ?? "RESEARCHER"].label}`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   // Only a staff seat means "already on the team" — a CLIENT-only seat is a client contact.

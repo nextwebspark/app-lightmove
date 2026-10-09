@@ -11,13 +11,26 @@ import { candidateStatusStyle } from "./candidateVocabulary";
  */
 export function useChangeCandidateStatus(projectId: string, onSaved: (saved: Candidate) => void) {
   const toast = useToast();
-  return useMutation({
-    mutationFn: ({ candidateId, status }: { candidateId: string; status: CandidateStatus }) =>
+  const change = useMutation({
+    mutationFn: ({ candidateId, status }: ChangeCandidateStatus) =>
       candidatesApi.changeCandidateStatus(projectId, candidateId, status),
-    onSuccess: (saved) => {
+    onSuccess: (saved, { candidateId, previous }) => {
       onSaved(saved);
-      toast(`${saved.fullName} is now ${candidateStatusStyle(saved.status).label.toLowerCase()}`);
+      const message = `${saved.fullName} is now ${candidateStatusStyle(saved.status).label.toLowerCase()}`;
+      if (previous === undefined || previous === saved.status) {
+        toast(message);
+        return;
+      }
+      toast.success(message, { undo: () => change.mutate({ candidateId, status: previous }) });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
+  return change;
+}
+
+interface ChangeCandidateStatus {
+  candidateId: string;
+  status: CandidateStatus;
+  /** The status being left; given, the toast offers an Undo back to it. */
+  previous?: CandidateStatus;
 }

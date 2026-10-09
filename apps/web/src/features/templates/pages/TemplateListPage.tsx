@@ -102,12 +102,12 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
       refresh();
       toast(visibilityMessage(scope, template));
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const exporting = useMutation({
     mutationFn: () => templateApi.exportTemplates(scope),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (

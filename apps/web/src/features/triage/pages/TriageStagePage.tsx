@@ -554,13 +554,23 @@ function TriageStage() {
   ].filter((line): line is string => line !== null);
 
   const move = useMutation({
-    mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus }) =>
+    mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus; isUndo?: boolean }) =>
       triageApi.updateTriageCompany(project.id, company.id, { status }),
-    onSuccess: (_result, { company, status }) => {
+    onSuccess: (_result, { company, status, isUndo }) => {
       refreshEveryStage();
-      toast(`${company.companyName} moved to ${MOVE_LABELS[status]}`);
+      const message = `${company.companyName} moved to ${MOVE_LABELS[status]}`;
+      if (isUndo) {
+        toast(message);
+        return;
+      }
+      toast.success(message, {
+        undo: () => {
+          markBusy(company.id);
+          move.mutate({ company: { ...company, status }, status: company.status, isUndo: true });
+        },
+      });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
     onSettled: (_data, _error, { company }) => clearBusy(company.id),
   });
 
@@ -571,7 +581,7 @@ function TriageStage() {
       setPendingRemoval(null);
       toast(`${company.companyName} removed from this mandate`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
     onSettled: (_data, _error, company) => clearBusy(company.id),
   });
 
@@ -581,7 +591,7 @@ function TriageStage() {
     mutationFn: () => exportApi.saveCompaniesCsv(project.id, stage.status,
       { query: debouncedQuery, executiveQuery: debouncedExecutiveQuery, executiveStatuses },
       [project.clientName, project.positionTitle, stage.label]),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const removeCandidate = useMutation({
@@ -593,7 +603,7 @@ function TriageStage() {
       setProfile(null);
       toast(`${candidate.fullName} removed from this mandate`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   // Loosened past `TriageCompany`: the add-executive panel holds only its company context, which is
@@ -605,7 +615,7 @@ function TriageStage() {
       refreshEveryStage();
       toast(`${company.companyName}: marked no executive found`);
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
     onSettled: (_data, _error, company) => clearBusy(company.id),
   });
 
@@ -772,7 +782,7 @@ function TriageStage() {
           onChangeCandidateStatus={(candidate, status) => {
             markBusy(candidate.id);
             changeCandidateStatus.mutate(
-              { candidateId: candidate.id, status },
+              { candidateId: candidate.id, status, previous: candidate.status },
               { onSettled: () => clearBusy(candidate.id) },
             );
           }}

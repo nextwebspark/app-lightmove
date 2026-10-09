@@ -91,7 +91,7 @@ function MemberRow({ member }: { member: Member }) {
       await refresh();
       toast("Role updated");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const remove = useMutation({
@@ -103,7 +103,7 @@ function MemberRow({ member }: { member: Member }) {
     },
     onError: (error) => {
       setConfirmRemove(false);
-      toast(messageFor(error));
+      toast.error(messageFor(error));
     },
   });
 
@@ -174,7 +174,7 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: workspaceApi.INVITATIONS_KEY });
     },
-    onError: (error: unknown) => toast(messageFor(error)),
+    onError: (error: unknown) => toast.error(messageFor(error)),
   };
 
   const resend = useMutation({

@@ -43,7 +43,7 @@ export function AddClientContactModal({
       invalidate();
       toast("Contact added to this mandate");
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   const attachedIds = new Set(project.representatives.map((rep) => rep.representativeId));

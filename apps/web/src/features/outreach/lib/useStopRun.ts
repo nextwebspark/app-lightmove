@@ -11,7 +11,7 @@ export function useStopRun(projectId: string) {
   return useMutation({
     mutationFn: (run: Pick<OutreachRun, "id" | "fullName">) => runApi.stopRun(projectId, run.id),
     onSuccess: (_, run) => toast(run.fullName ? `Stopped. Nothing more goes to ${run.fullName}.` : "Sequence stopped."),
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
     // The page's table, the drawer's fold and the sequence cards all sit under this one prefix.
     onSettled: () => void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] }),
   });

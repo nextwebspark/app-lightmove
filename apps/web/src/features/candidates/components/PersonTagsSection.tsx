@@ -25,7 +25,7 @@ export function PersonTagsSection({ person }: { person: PersonRecord }) {
       changed(updated);
       void queryClient.invalidateQueries({ queryKey: poolApi.TAGS_KEY });
     },
-    onError: (error) => toast(messageFor(error)),
+    onError: (error) => toast.error(messageFor(error)),
   });
 
   return (
