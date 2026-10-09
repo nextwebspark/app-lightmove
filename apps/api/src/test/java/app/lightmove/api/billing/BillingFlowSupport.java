@@ -31,6 +31,17 @@ public abstract class BillingFlowSupport extends FlowTestSupport {
         return UUID.fromString(createWorkspace(verifiedUser("Yara Haddad", owner), "Credit Firm"));
     }
 
+    protected String superAdmin() throws Exception {
+        String address = "platform@" + domain;
+        createWorkspace(verifiedUser("Dana Aboud", address), "Platform Firm");
+        db.update("""
+                INSERT INTO app_lm_user_platform_role (user_id, role_id)
+                SELECT u.id, r.id FROM app_lm_user u, app_lm_role r
+                WHERE u.email = ? AND r.scope = 'PLATFORM' AND r.name = 'SUPER_ADMIN'
+                """, address);
+        return login(address);
+    }
+
     protected UUID grant(UUID workspaceId, CreditGrantSource source, long credits, Duration expiresIn) {
         Instant expiresAt = expiresIn == null ? null : Instant.now().plus(expiresIn);
         return ledger.grant(new CreditGrantCommand(workspaceId, source, credits, null, expiresAt, BigDecimal.ZERO,
