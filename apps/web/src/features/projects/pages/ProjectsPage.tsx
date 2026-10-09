@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
+import { Button, buttonClassName, EmptyState, TableSkeleton } from "../../../components/ui";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { ListToolbar } from "../../../components/ui/ListToolbar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
@@ -26,10 +27,12 @@ import {
   projectColumns,
   type ProjectSortField,
 } from "../lib/projectColumns";
-import { CHIPS, filterProjects, type ChipKey } from "../lib/filtering";
+import { CHIPS, filterProjects, isActive, type ChipKey } from "../lib/filtering";
 
 const PROJECT_LAYOUT_COLUMNS = layoutColumnsOf(projectColumns);
 const HIDEABLE_PROJECT_COLUMNS = hideableColumnsOf(projectColumns);
+
+const DEFAULT_CHIP: ChipKey = "active";
 
 const DEFAULT_PROJECT_SORT = { field: "target", direction: "asc" } as const;
 
@@ -45,7 +48,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   // their project list to the mandates they're attached to, so that list IS "my projects" for them.
   const clientOnly = isPureClient(user?.workspace?.roles ?? []);
   const [query, setQuery] = useState("");
-  const [chip, setChip] = useState<ChipKey>("active");
+  const [chip, setChip] = useState<ChipKey>(DEFAULT_CHIP);
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [sort, setSort] = useGridSort<ProjectSortField>(
@@ -73,7 +76,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     queryFn: clientsApi.clients,
     enabled: Boolean(user) && !clientOnly,
   });
-  const { data: members = [] } = useQuery({
+  const { data: members = [], isPending: membersPending } = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: workspaceApi.members,
     enabled: Boolean(user) && !clientOnly,
@@ -98,6 +101,13 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   }, [clampTo, rows.length]);
 
   const openProject = projects.find((p) => p.id === openProjectId) ?? null;
+  const filtered = query.trim() !== "" || chip !== DEFAULT_CHIP;
+  // Nothing on My positions because nobody has seated them yet — not because a filter found nothing.
+  const firstUse =
+    view === "my" &&
+    !clientOnly &&
+    myMemberId !== undefined &&
+    !projects.some((project) => project.team.some((seat) => seat.memberId === myMemberId));
 
   const newProjectButton = (
     <Button onClick={() => setModalOpen(true)} className="!px-3.5 !py-[7px] !text-[13px]">
@@ -157,7 +167,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           <EmptyState
             icon={<Icon d={ICONS.briefcase} size={24} />}
             title="No positions shared with you yet"
-            body="When the TA team attaches you to a position, it will appear here."
+            body={`When ${sharerOf(user?.workspace?.name, user?.workspace?.mode)} shares a position with you, it'll appear here.`}
           />
         </>
       );
@@ -196,51 +206,65 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 
       {view === "my" && !clientOnly && <GettingStartedCard onOpenPosition={() => setModalOpen(true)} />}
 
-      <ListToolbar
-        query={query}
-        onQueryChange={setQuery}
-        placeholder={`Search ${vocabulary.unitLower} or position…`}
-        chips={CHIPS}
-        activeChip={chip}
-        onChipChange={setChip}
-        trailing={
-          <ColumnPicker
-            columns={HIDEABLE_PROJECT_COLUMNS}
-            visibility={columnVisibility}
-            defaults={PROJECT_COLUMN_VISIBILITY}
-            onChange={setColumnVisibility}
-            onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
-          />
-        }
-      />
-
-      <div className="flex flex-col gap-3">
-        <ProjectsList
-          projects={rows}
-          sort={sort}
-          onSortChange={setSort}
-          columnVisibility={columnVisibility}
-          onColumnVisibilityChange={setColumnVisibility}
-          layout={layout}
-          onLayoutChange={setLayout}
-          pagination={paging.pagination}
-          onPaginationChange={paging.onPaginationChange}
-          emptyMessage={
-            clientOnly
-              ? "No positions match. Clear filters."
-              : "No positions match. Clear filters or open a new position."
+      {!firstUse && (
+        <ListToolbar
+          query={query}
+          onQueryChange={setQuery}
+          placeholder={`Search ${vocabulary.unitLower} or position…`}
+          chips={CHIPS}
+          activeChip={chip}
+          onChipChange={setChip}
+          trailing={
+            <ColumnPicker
+              columns={HIDEABLE_PROJECT_COLUMNS}
+              visibility={columnVisibility}
+              defaults={PROJECT_COLUMN_VISIBILITY}
+              onChange={setColumnVisibility}
+              onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
+            />
           }
-          onOpen={setOpenProjectId}
         />
-        <PaginationBar
-          page={paging.page}
-          size={paging.size}
-          totalCount={rows.length}
-          onPage={paging.setPage}
-          onSize={paging.setSize}
-          autoHide
+      )}
+
+      {rows.length === 0 && view === "my" && !clientOnly && membersPending ? (
+        // Whose positions are "mine" is read off the roster; until it arrives, nothing can be said about none.
+        <TableSkeleton columns={["Position", "Stage", "Health", "Team", "Target", "Pipeline"]} />
+      ) : rows.length === 0 ? (
+        <ListEmptyState
+          firstUse={firstUse}
+          openCount={projects.filter(isActive).length}
+          filtered={filtered}
+          onClearFilters={() => {
+            setQuery("");
+            setChip(DEFAULT_CHIP);
+          }}
+          onShowAllStages={() => setChip("allstages")}
         />
-      </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <ProjectsList
+            projects={rows}
+            sort={sort}
+            onSortChange={setSort}
+            columnVisibility={columnVisibility}
+            onColumnVisibilityChange={setColumnVisibility}
+            layout={layout}
+            onLayoutChange={setLayout}
+            pagination={paging.pagination}
+            onPaginationChange={paging.onPaginationChange}
+            emptyMessage="No positions match."
+            onOpen={setOpenProjectId}
+          />
+          <PaginationBar
+            page={paging.page}
+            size={paging.size}
+            totalCount={rows.length}
+            onPage={paging.setPage}
+            onSize={paging.setSize}
+            autoHide
+          />
+        </div>
+      )}
 
       <ProjectDrawer project={openProject} onClose={() => setOpenProjectId(null)} />
 
@@ -249,4 +273,63 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       )}
     </>
   );
+}
+
+function ListEmptyState({
+  firstUse,
+  openCount,
+  filtered,
+  onClearFilters,
+  onShowAllStages,
+}: {
+  firstUse: boolean;
+  openCount: number;
+  filtered: boolean;
+  onClearFilters: () => void;
+  onShowAllStages: () => void;
+}) {
+  if (firstUse) {
+    const positions = openCount === 1 ? "1 open position" : `${openCount} open positions`;
+    return (
+      <EmptyState
+        icon={<Icon d={ICONS.briefcase} size={24} />}
+        title="You're not on any position yet"
+        body={
+          openCount > 0
+            ? `Your team has ${positions}. Ask a lead to add you, or browse them.`
+            : "Your team has no open positions right now. Browse the closed ones, or open a new one."
+        }
+      >
+        <Link to="/all" className={buttonClassName("secondary")}>
+          Browse all positions{openCount > 0 ? ` (${openCount})` : ""}
+        </Link>
+      </EmptyState>
+    );
+  }
+  if (filtered) {
+    return (
+      <EmptyState icon={<Icon d={ICONS.searchX} size={24} />} title="No positions match" body="Nothing fits this search and stage.">
+        <Button variant="secondary" onClick={onClearFilters}>
+          Clear filters
+        </Button>
+      </EmptyState>
+    );
+  }
+  return (
+    <EmptyState
+      icon={<Icon d={ICONS.briefcase} size={24} />}
+      title="No active positions"
+      body="Every position here is delivered or closed."
+    >
+      <Button variant="secondary" onClick={onShowAllStages}>
+        Show all stages
+      </Button>
+    </EmptyState>
+  );
+}
+
+/** Who shares a position with a client contact: the firm by name at an agency, the talent team in-house. */
+function sharerOf(workspaceName: string | undefined, mode: string | undefined): string {
+  if (mode === "AGENCY" && workspaceName) return workspaceName;
+  return "your talent team";
 }

@@ -12,6 +12,7 @@ import type { InvitationPreview } from "../api/types";
 import { acceptInviteSchema, type AcceptInviteValues } from "../schemas";
 import { titleCase } from "../../../lib/format";
 import { LegalConsent } from "../components/LegalConsent";
+import { landingAfterJoining } from "../../projects/lib/landingAfterJoining";
 
 /**
  * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
@@ -128,8 +129,8 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
     setFormError(null);
     setAlreadyRegistered(false);
     try {
-      await acceptInviteSignup(token, values.fullName, values.password);
-      navigate("/", { replace: true });
+      const joined = await acceptInviteSignup(token, values.fullName, values.password);
+      navigate(await landingAfterJoining(joined), { replace: true });
     } catch (error) {
       // The one failure with a way forward: this address already has an account, so log in and accept
       // from there. The address prefills the login form — and deliberately nothing else is revealed.
@@ -221,8 +222,8 @@ function ServerDerivedArrival() {
     setAccepting(invitationId);
     setError(null);
     try {
-      await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
-      navigate("/", { replace: true });
+      const joined = await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
+      navigate(await landingAfterJoining(joined), { replace: true });
     } catch (err) {
       setError(messageFor(err));
       setAccepting(null);
@@ -320,8 +321,8 @@ function SignedInBody({
     try {
       // The switch mints a token carrying the joined workspace's claim. Without it the token in memory
       // still names wherever they were — or nothing — and the workspace they just joined refuses them.
-      await acceptAndSwitch(() => authApi.acceptInvitation(token));
-      navigate("/", { replace: true });
+      const joined = await acceptAndSwitch(() => authApi.acceptInvitation(token));
+      navigate(await landingAfterJoining(joined), { replace: true });
     } catch (err) {
       setError(messageFor(err));
       setAccepting(false);

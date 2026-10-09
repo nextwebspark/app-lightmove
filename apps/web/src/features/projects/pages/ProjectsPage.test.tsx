@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
@@ -275,5 +276,141 @@ describe("ProjectsPage — staff and the Getting started card", () => {
     renderPage("all");
     expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
     expect(screen.queryByText("Get your first map in 30 minutes")).not.toBeInTheDocument();
+  });
+});
+
+describe("ProjectsPage — first use, no results, and a client with nothing shared", () => {
+  const staff = (mode: "AGENCY" | "COMPANY" = "COMPANY", roles: ("ADMIN" | "MEMBER" | "CLIENT")[] = ["MEMBER"]) => ({
+    id: "u1",
+    email: "mona@firm.example",
+    fullName: "Mona Member",
+    title: null,
+    avatarUrl: null,
+    emailVerified: true,
+    hasPassword: true,
+    timezone: "Asia/Dubai",
+    locale: "en",
+    platformActions: [],
+    pendingInvitations: [],
+    workspaces: [],
+    workspace: {
+      id: "w1",
+      name: "Meridian Search",
+      slug: "meridian",
+      logoMark: "M",
+      mode,
+      emailDomain: "firm.example",
+      joinedAt: null,
+      company: null,
+      roles,
+    },
+  });
+  const seatOf = (memberId: string, userId: string) => ({
+    memberId,
+    userId,
+    fullName: "Someone",
+    avatarUrl: null,
+    workspaceRoles: ["MEMBER" as const],
+    projectRoles: ["LEAD" as const],
+  });
+  const position = (id: string, title: string, seats: ReturnType<typeof seatOf>[], stage: Project["stage"] = "MAPPING"): Project => ({
+    id,
+    clientId: "c1",
+    clientName: "Beta Client",
+    clientLogoUrl: null,
+    positionTitle: title,
+    stage,
+    health: "OK",
+    targetDate: null,
+    projectType: "SEARCH",
+    startDate: null,
+    deliveryDate: null,
+    mappingTargetDate: null,
+    team: seats,
+    representatives: [],
+    companies: 0,
+    candidates: 0,
+    mappedCandidates: 0,
+    engagedCandidates: 0,
+    mappedCompanies: 0,
+    createdAt: "2026-07-13T10:00:00Z",
+  });
+  const me = { memberId: "m-me", userId: "u1", fullName: "Mona Member", email: "mona@firm.example", avatarUrl: null, roles: ["MEMBER"], joinedAt: null };
+
+  const renderPage = (view: "my" | "all" = "my") =>
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <ToastProvider>
+              <ProjectsPage view={view} />
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(clientsApi.clients).mockResolvedValue([]);
+    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue({ dismissed: true, focusProjectId: null, steps: [] });
+  });
+
+  it("greets a colleague on no position with the ones that exist, not 'No positions match'", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      position("p1", "CFO Search", [seatOf("m-lead", "u9")]),
+      position("p2", "COO Search", [seatOf("m-lead", "u9")]),
+      position("p3", "Old Search", [seatOf("m-lead", "u9")], "CLOSED"),
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText("You're not on any position yet")).toBeInTheDocument();
+    expect(screen.getByText("Your team has 2 open positions. Ask a lead to add you, or browse them.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Browse all positions (2)" })).toHaveAttribute("href", "/all");
+    expect(screen.queryByText(/No positions match/)).not.toBeInTheDocument();
+  });
+
+  it("says no match only under a search, and Clear filters brings the list back", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "CFO Search", [seatOf("m-me", "u1")])]);
+    const user = userEvent.setup();
+
+    renderPage();
+    await screen.findAllByText("CFO Search");
+    await user.type(screen.getByPlaceholderText(/Search business unit or position/), "nothing like it");
+
+    expect(await screen.findByText("No positions match")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
+    expect(screen.getByPlaceholderText(/Search business unit or position/)).toHaveValue("");
+  });
+
+  it("names the agency to a client contact with nothing shared yet, and keeps the page header", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff("AGENCY", ["CLIENT"]));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+
+    renderPage();
+
+    expect(
+      await screen.findByText("When Meridian Search shares a position with you, it'll appear here."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("My positions")).toBeInTheDocument();
+  });
+
+  it("says your talent team to an in-house client contact", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff("COMPANY", ["CLIENT"]));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+
+    renderPage();
+
+    expect(
+      await screen.findByText("When your talent team shares a position with you, it'll appear here."),
+    ).toBeInTheDocument();
   });
 });
