@@ -1,9 +1,13 @@
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Drawer } from "../../components/ui";
+import { PanelCloseButton } from "../../components/ui/PanelCloseButton";
+import { SUPPORT_EMAIL } from "../../lib/links";
 import type { HelpSection } from "./lib/helpSection";
 import { latestUnseen } from "./lib/whatsNew";
 
 // Its own chunk: the panel brings the Markdown renderer, which nothing else on first load needs.
-const HelpPanel = lazy(() => import("./components/HelpPanel"));
+// A chunk that fails to load (a deploy replaced it, the network dropped) says so rather than leaving the ? dead.
+const HelpPanel = lazy(() => import("./components/HelpPanel").catch(() => ({ default: HelpUnavailable })));
 
 interface HelpContextValue {
   openHelp: (section?: HelpSection) => void;
@@ -50,6 +54,24 @@ export function HelpProvider({ children }: { children: ReactNode }) {
         </Suspense>
       )}
     </HelpContext.Provider>
+  );
+}
+
+function HelpUnavailable({ onClose }: { onClose: () => void }) {
+  return (
+    <Drawer open onClose={onClose} label="Help">
+      <PanelCloseButton onClose={onClose} />
+      <div className="px-5 pt-5">
+        <h2 className="text-subhead font-semibold">Help couldn't load</h2>
+        <p className="mt-2 text-body text-u-text2">
+          Reload the page to try again, or write to{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-u-accent hover:underline">
+            {SUPPORT_EMAIL}
+          </a>
+          .
+        </p>
+      </div>
+    </Drawer>
   );
 }
 

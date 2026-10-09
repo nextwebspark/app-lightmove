@@ -15,7 +15,7 @@ import { articlesForPage, HELP_ARTICLES, searchArticles, type HelpArticle } from
 import type { HelpSection } from "../lib/helpSection";
 import { markWhatsNewSeen, WHATS_NEW } from "../lib/whatsNew";
 
-/** How many further articles show before "All articles" opens the rest, so the panel scans at a glance. */
+/** How many further articles show before "Show more" opens the rest, so the panel scans at a glance. */
 const ARTICLES_SHOWN = 4;
 
 const SHORTCUTS: { keys: string; does: string }[] = [
@@ -64,6 +64,19 @@ export default function HelpPanel({
       document.querySelector<HTMLElement>(`[data-help-article="${lastOpenedSlug.current}"]`)?.focus();
     }
   }, [article]);
+
+  const showAllArticles = () => {
+    setAllArticles(true);
+    // The button goes with the list it opened; the first article it brought in takes the focus.
+    const firstNew = others[ARTICLES_SHOWN];
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-help-article="${firstNew?.slug}"]`)?.focus());
+  };
+
+  const showWhatsNew = () => {
+    setArticle(null);
+    setQuery("");
+    requestAnimationFrame(() => document.getElementById("help-whats-new")?.scrollIntoView?.());
+  };
 
   const openArticle = (next: HelpArticle) => {
     lastOpenedSlug.current = next.slug;
@@ -132,10 +145,10 @@ export default function HelpPanel({
               {!allArticles && others.length > ARTICLES_SHOWN && (
                 <button
                   type="button"
-                  onClick={() => setAllArticles(true)}
+                  onClick={showAllArticles}
                   className="mt-1 rounded-[4px] text-note font-medium text-u-accent hover:underline"
                 >
-                  All articles ({others.length})
+                  Show {others.length - ARTICLES_SHOWN} more
                 </button>
               )}
             </Section>
@@ -164,7 +177,13 @@ export default function HelpPanel({
           <Icon d={ICONS.mail} size={14} />
           Contact support
         </SupportLink>
-        <span className="font-mono text-meta text-u-text3">Version {APP_VERSION}</span>
+        <button
+          type="button"
+          onClick={showWhatsNew}
+          className="rounded-[4px] font-mono text-meta text-u-text3 underline decoration-dotted underline-offset-2 hover:text-u-text2"
+        >
+          Version {APP_VERSION}
+        </button>
       </div>
     </Drawer>
   );

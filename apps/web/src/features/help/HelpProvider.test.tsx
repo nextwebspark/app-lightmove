@@ -104,7 +104,7 @@ describe("Help", () => {
     expect(screen.getByText("What's new")).toBeInTheDocument();
     const mail = screen.getByRole("link", { name: /Contact support/ });
     expect(mail.getAttribute("href")).toContain(encodeURIComponent(currentUser.workspace!.id));
-    await userEvent.click(screen.getByRole("button", { name: /All articles/ }));
+    await userEvent.click(screen.getByRole("button", { name: /Show \d+ more/ }));
     expect(screen.getByRole("link", { name: /Connect Claude, ChatGPT or Cursor/ })).toHaveAttribute("href", "/docs/mcp");
   });
 
