@@ -333,7 +333,7 @@ function MoveOffNylasBanner({
   return (
     <div className="mb-[18px] flex flex-wrap items-center gap-3 rounded-[8px] border border-u-border bg-u-raised px-3.5 py-2.5 text-[13px] text-u-text">
       <span className="min-w-[260px] flex-1">
-        <b>Reconnect to move off Nylas.</b> Uncava now connects to {providerLabel(connection.provider)} directly.
+        <b>Reconnect your mailbox.</b> Uncava now connects to {providerLabel(connection.provider)} directly.
         Reconnect {connection.address} once to keep sending from it.
         {runs > 0 && (
           <>

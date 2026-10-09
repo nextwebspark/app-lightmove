@@ -225,7 +225,7 @@ describe("OutreachPage", () => {
     vi.stubGlobal("open", vi.fn(() => ({ location: { href: "about:blank" }, closed: false, close: vi.fn() })));
     renderPage();
 
-    expect(await screen.findByText("Reconnect to move off Nylas.")).toBeInTheDocument();
+    expect(await screen.findByText("Reconnect your mailbox.")).toBeInTheDocument();
     expect(screen.getByText(/2 running sequences stop at their next email/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Reconnect" }));
 

@@ -221,6 +221,29 @@ describe("TeamAccessPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("names the hiring side in the workspace's own words", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(admin);
+    vi.mocked(clientsApi.client).mockResolvedValue(registry);
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Business unit" })).toBeInTheDocument();
+    expect(screen.getByText("The business unit and the hiring managers we report to there")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Client" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the mockup's Client heading at an agency", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...admin, workspace: { ...admin.workspace, mode: "AGENCY" as const } });
+    vi.mocked(clientsApi.client).mockResolvedValue(registry);
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Client" })).toBeInTheDocument();
+    expect(
+      screen.getByText("The client organisation and the people we report to on their side"),
+    ).toBeInTheDocument();
+  });
+
   it("moves a member's role with one call when the other chip is clicked", async () => {
     vi.mocked(authApi.me).mockResolvedValue(admin);
     vi.mocked(clientsApi.client).mockResolvedValue(registry);
