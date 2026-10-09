@@ -137,6 +137,46 @@ export function cardBrandLabel(brand: string): string {
   return CARD_BRANDS[brand] ?? brand.charAt(0).toUpperCase() + brand.slice(1).replaceAll("_", " ");
 }
 
+/** What one more staff seat costs a workspace Stripe bills by card, said before an admin adds it. */
+export interface SeatCharge {
+  planName: string;
+  /** A seat a month in fils; on a yearly plan, its monthly share of the year. */
+  monthlyFils: number;
+  annual: boolean;
+  /** Stripe's proration were the seat added now, to the whole dirham; null without a period end. */
+  nowFils: number | null;
+  until: string | null;
+  seatsAfter: number;
+  monthlyTotalFils: number;
+}
+
+export function seatChargeOf(billing: Billing, now: number = Date.now()): SeatCharge | null {
+  const monthlyFils = paysByCard(billing) ? seatCostOf(billing) : null;
+  if (monthlyFils === null || !billing.plan) return null;
+  const annual = billing.interval === "ANNUAL";
+  const seatsAfter = billing.seats + 1;
+  return {
+    planName: billing.plan.name,
+    monthlyFils,
+    annual,
+    nowFils: billing.renewsAt ? proratedFils(monthlyFils * (annual ? 12 : 1), billing.renewsAt, annual, now) : null,
+    until: billing.renewsAt,
+    seatsAfter,
+    monthlyTotalFils: monthlyFils * seatsAfter,
+  };
+}
+
+function proratedFils(periodFils: number, endsAt: string, annual: boolean, now: number): number | null {
+  const end = new Date(endsAt);
+  const start = new Date(end);
+  if (annual) start.setUTCFullYear(start.getUTCFullYear() - 1);
+  else start.setUTCMonth(start.getUTCMonth() - 1);
+  const left = end.getTime() - now;
+  if (left <= 0) return null;
+  const share = Math.min(left, end.getTime() - start.getTime()) / (end.getTime() - start.getTime());
+  return Math.round((periodFils * share) / 100) * 100;
+}
+
 /** UAE VAT, which Stripe Tax adds at checkout on top of every price shown. */
 export const VAT_RATE = 0.05;
 

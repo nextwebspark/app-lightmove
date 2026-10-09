@@ -10,6 +10,7 @@ import {
   formatAed,
   planChoiceOf,
   planOptionOf,
+  seatChargeOf,
   trialOf,
   withVat,
 } from "./billingView";
@@ -133,6 +134,37 @@ describe("planChoiceOf", () => {
 
   it("asks Enterprise to talk to us", () => {
     expect(planChoiceOf(aCardBilling(), enterprise, "MONTHLY")).toMatchObject({ kind: "talk", label: "Talk to us" });
+  });
+});
+
+describe("seatChargeOf", () => {
+  it("prices one more seat by the month, prorated to the period's end, and the bill after", () => {
+    const charge = seatChargeOf(aCardBilling({ seats: 2, renewsAt: "2026-10-23T12:00:00Z" }));
+
+    expect(charge).toEqual({
+      planName: "Pro",
+      monthlyFils: 49_900,
+      annual: false,
+      nowFils: 25_000,
+      until: "2026-10-23T12:00:00Z",
+      seatsAfter: 3,
+      monthlyTotalFils: 149_700,
+    });
+  });
+
+  it("prorates a yearly plan over the year", () => {
+    const charge = seatChargeOf(
+      aCardBilling({ interval: "ANNUAL", seatPriceFils: 39_900, renewsAt: "2027-04-08T12:00:00Z" }),
+    );
+
+    expect(charge?.annual).toBe(true);
+    expect(charge?.nowFils).toBe(238_700);
+  });
+
+  it("asks nothing where Stripe does not bill by card", () => {
+    expect(seatChargeOf(anInvoicedBilling())).toBeNull();
+    expect(seatChargeOf(aTrialBilling(IN_NINE_DAYS))).toBeNull();
+    expect(seatChargeOf(aBilling())).toBeNull();
   });
 });
 

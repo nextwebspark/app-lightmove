@@ -6,10 +6,16 @@ import { fieldErrorsFrom } from "../../../lib/formErrors";
 import { titleCase } from "../../../lib/format";
 import type { WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES } from "../../auth/schemas";
+import { SeatChargeConfirm } from "../../billing/components/SeatChargeConfirm";
 import { SeatCostNotice } from "../../billing/components/SeatCostNotice";
+import { seatChargeOf } from "../../billing/lib/billingView";
+import { useBillingRead } from "../../billing/lib/useBilling";
 import * as workspaceApi from "../api/workspaceApi";
 
-/** Invite one colleague from the Team or Members screens. Batch rows live in signup step 3. */
+/**
+ * Invite one colleague from the Team or Members screens. Batch rows live in signup step 3. A staff invitation to a
+ * workspace Stripe bills by card is confirmed first, with what the seat will cost.
+ */
 export function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -17,6 +23,9 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
   const [role, setRole] = useState<WorkspaceRole>("MEMBER");
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const billing = useBillingRead(role !== "CLIENT");
+  const charge = role !== "CLIENT" && billing.data ? seatChargeOf(billing.data) : null;
 
   const send = useMutation({
     mutationFn: () => workspaceApi.invite([{ email: email.trim(), role }]),
@@ -32,6 +41,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
       // has an account is skipped here by isAlreadyMember and surfaces as the `sent === 0` toast.)
       const code = codeOf(mutationError);
       if (code && EMAIL_FIELD_ERROR_CODES.includes(code)) {
+        setConfirming(false);
         setEmailError(messageFor(mutationError));
         return;
       }
@@ -41,6 +51,7 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
         "requests.email": "email",
         requests: "email",
       });
+      setConfirming(false);
       setEmailError(fields.email ?? null);
       setError(formMessage);
     },
@@ -53,8 +64,34 @@ export function InviteModal({ open, onClose }: { open: boolean; onClose: () => v
       setEmailError("Enter an email address");
       return;
     }
+    if (charge && !confirming) {
+      setConfirming(true);
+      return;
+    }
     send.mutate();
   };
+
+  if (confirming && charge) {
+    return (
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Add a paid seat?"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setConfirming(false)}>
+              Back
+            </Button>
+            <Button loading={send.isPending} onClick={submit}>
+              Send and add seat
+            </Button>
+          </>
+        }
+      >
+        <SeatChargeConfirm email={email.trim()} roleLabel={titleCase(role)} charge={charge} />
+      </Modal>
+    );
+  }
 
   return (
     <Modal

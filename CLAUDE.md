@@ -998,7 +998,8 @@ query a minute more — and the chip's polled read never asks Stripe. Stripe sen
 `?checkout=subscribed|credits|cancelled`, and the page polls the read until the webhook's change shows
 (`lib/checkoutReturn.ts`; bought credits before Checkout are kept in `sessionStorage` to tell). An invoiced workspace,
 or a deployment without Stripe, gets Contact Uncava in place of every buying control, and the invite dialog says what a
-staff seat adds to a Stripe bill (`SeatCostNotice`).
+staff seat adds to a Stripe bill (`SeatCostNotice`) and, on a card, asks before sending: the seat's price, about what
+Stripe charges at once for the rest of the period, and the bill after (`SeatChargeConfirm`, `seatChargeOf`).
 **Trial (#771, V128)**: founding a workspace (`OnboardingService` → `billing/trial`'s `WorkspaceTrials`, in the same
 transaction) puts it on Pro, `TRIALING`, until `trial_ends_at` (`lightmove.billing.trial.length`, 14d) with a `PLAN` grant
 of `trial.credits` (50) keyed `trial:<workspace>` and expiring with it — no card, no Stripe, no seats of its own (fair use
