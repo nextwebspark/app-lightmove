@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { addressesIn, InviteTeamForm } from "./InviteTeamForm";
@@ -63,7 +63,7 @@ describe("InviteTeamForm", () => {
 
     const rows = screen.getAllByRole("textbox", { name: "Colleague's email" });
     expect(rows.map((row) => (row as HTMLInputElement).value)).toEqual(["a@x.com", "b@x.com", "c@x.com", "keep@x.com"]);
-    expect(screen.getByRole("status")).toHaveTextContent("2 addresses added");
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("2 addresses added, 2 already listed"));
   });
 
   it("leaves an ordinary single-address paste to the browser", () => {
@@ -79,6 +79,6 @@ describe("addressesIn", () => {
   it("reads commas, semicolons, new lines and mail-client names", () => {
     expect(addressesIn("a@x.com; b@x.com\n\"Lee, Kim\" <c@x.com>")).toEqual(["a@x.com", "b@x.com", "c@x.com"]);
     expect(addressesIn("no addresses here")).toEqual([]);
-    expect(addressesIn("o'neill@firm.com, mailto:b@x.com and c@x.com.")).toEqual(["o'neill@firm.com", "b@x.com", "c@x.com"]);
+    expect(addressesIn("o'neill@firm.com, mailto:b@x.com and c@x.com. 'd@x.com'")).toEqual(["o'neill@firm.com", "b@x.com", "c@x.com", "d@x.com"]);
   });
 });

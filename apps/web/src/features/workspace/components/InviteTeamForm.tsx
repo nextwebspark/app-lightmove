@@ -59,7 +59,6 @@ export function InviteTeamForm({
 
   const removeRow = (id: number) => setRows((current) => current.filter((row) => row.id !== id));
 
-  // The blank rows after a pasted list make way, so the form does not end with empties to skip past.
   const handlePaste = (id: number, event: ClipboardEvent<HTMLInputElement>) => {
     const at = rows.findIndex((row) => row.id === id);
     const addresses = addressesIn(event.clipboardData.getData("text"));
@@ -83,13 +82,22 @@ export function InviteTeamForm({
       role: into.role,
     }));
     const after = rows.slice(at + 1);
+    // The blank rows after a pasted list make way, so the form does not end with empties to skip past.
     const dropped = new Set(after.filter((row) => row.email.trim() === "").map((row) => row.id));
 
     // A paste that brought nothing new leaves the row it landed in, so the form never runs out of rows.
     const keepsInto = keepsTyped || pasted.length === 0;
     setRows([...rows.slice(0, keepsInto ? at + 1 : at), ...pasted, ...after.filter((row) => !dropped.has(row.id))]);
     setRowErrors((current) => new Map([...current].filter(([rowId]) => rowId !== into.id && !dropped.has(rowId))));
-    setPasteNote(`${pasted.length} ${pasted.length === 1 ? "address" : "addresses"} added`);
+    const repeats = addresses.length - pasted.length;
+    const note =
+      pasted.length === 0
+        ? "No new addresses: they're all listed already"
+        : `${pasted.length} ${pasted.length === 1 ? "address" : "addresses"} added` +
+          (repeats > 0 ? `, ${repeats} already listed` : "");
+    // Cleared first, so the same words twice in a row are still announced twice.
+    setPasteNote("");
+    requestAnimationFrame(() => setPasteNote(note));
   };
 
   const filledCount = rows.filter((row) => row.email.trim() !== "").length;
@@ -248,6 +256,6 @@ const ROLE_DESCRIPTIONS: Record<(typeof INVITE_ROLES)[number], string> = {
 /** The addresses in pasted text — "a@x.com, b@x.com", one per line, or "Name <a@x.com>" as a mail client copies them. */
 export function addressesIn(text: string): string[] {
   return (text.match(/[^\s<>,;"()]+@[^\s<>,;"()]+/g) ?? []).map((match) =>
-    match.replace(/^mailto:/i, "").replace(/\.+$/, ""),
+    match.replace(/^'+|'+$/g, "").replace(/^mailto:/i, "").replace(/\.+$/, ""),
   );
 }
