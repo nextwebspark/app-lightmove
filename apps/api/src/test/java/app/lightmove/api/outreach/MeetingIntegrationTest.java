@@ -18,10 +18,12 @@ import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.service.MeetingBackfill;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
+import java.sql.Timestamp;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -31,6 +33,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,6 +61,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
     @Autowired private OutreachDispatcher dispatcher;
     @Autowired private MeetingBackfill backfill;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private MailboxConnectionRepository mailboxes;
 
     private String grantId;
     private String consultant;
@@ -132,6 +136,32 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(meetingRows()).isEqualTo(2);
         assertThat(jdbc.queryForObject("select calendar_synced_at from app_lm_mailbox_connection "
                 + "where workspace_id = ?::uuid", Instant.class, workspaceId)).isNotNull();
+    }
+
+    @Test
+    @DisplayName("of two claims on one stale calendar only the first lands, and a release never undoes a later claim")
+    void aCalendarRefreshIsClaimedOnce() throws Exception {
+        connectMailbox();
+        UUID mailboxId = jdbc.queryForObject("select id from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                UUID.class, workspaceId);
+        Instant lastRead = Instant.now().truncatedTo(ChronoUnit.MICROS).minus(Duration.ofHours(1));
+        jdbc.update("update app_lm_mailbox_connection set calendar_synced_at = ? where id = ?",
+                Timestamp.from(lastRead), mailboxId);
+        Instant claimedAt = lastRead.plus(Duration.ofMinutes(30)).plusNanos(123_000);
+        Instant staleBefore = claimedAt.minus(Duration.ofMinutes(5));
+
+        assertThat(mailboxes.claimCalendarRefresh(mailboxId, grantId, claimedAt, staleBefore)).isOne();
+        assertThat(mailboxes.claimCalendarRefresh(mailboxId, grantId, claimedAt, staleBefore)).isZero();
+        assertThat(mailboxes.claimCalendarRefresh(mailboxId, "another-grant", claimedAt.plus(Duration.ofHours(1)),
+                claimedAt.plus(Duration.ofHours(1)))).isZero();
+
+        assertThat(mailboxes.releaseCalendarRefresh(mailboxId, claimedAt, lastRead)).isOne();
+        assertThat(syncedAt(mailboxId)).isEqualTo(lastRead);
+
+        Instant laterClaim = claimedAt.plus(Duration.ofMinutes(10));
+        assertThat(mailboxes.claimCalendarRefresh(mailboxId, grantId, laterClaim, laterClaim)).isOne();
+        assertThat(mailboxes.releaseCalendarRefresh(mailboxId, claimedAt, lastRead)).isZero();
+        assertThat(syncedAt(mailboxId)).isEqualTo(laterClaim);
     }
 
     @Test
@@ -460,6 +490,11 @@ class MeetingIntegrationTest extends FlowTestSupport {
                 .content("{\"representativeId\":\"%s\"}".formatted(representativeId)))
                 .andExpect(status().is2xxSuccessful());
         return rep;
+    }
+
+    private Instant syncedAt(UUID mailboxId) {
+        return jdbc.queryForObject("select calendar_synced_at from app_lm_mailbox_connection where id = ?",
+                Instant.class, mailboxId);
     }
 
     private void connectMailbox() throws Exception {

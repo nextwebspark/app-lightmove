@@ -66,6 +66,8 @@ class MeetingBackfillTest {
         Instant from = NOW.minus(MeetingBackfill.RECHECKED_PAST);
         Instant to = NOW.plus(MeetingBackfill.REACH);
         when(gateway.calendarEvents(stale.getGrantId(), from, to)).thenReturn(found);
+        when(mailboxes.claimCalendarRefresh(stale.getId(), stale.getGrantId(), NOW, NOW.minus(MeetingBackfill.FRESH_FOR)))
+                .thenReturn(1);
 
         backfill.refreshUnpushed(WORKSPACE);
 
@@ -74,7 +76,19 @@ class MeetingBackfillTest {
         verify(gateway, never()).calendarEvents(eq(fresh.getGrantId()), any(), any());
         verify(gateway, never()).calendarEvents(eq(neverRead.getGrantId()), any(), any());
         verify(meetings).replaceWindow(stale, from, to, found);
-        assertThat(stale.getCalendarSyncedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    @DisplayName("of two openings racing on one stale calendar, the one that lost the claim reads nothing")
+    void aLostClaimReadsNothing() {
+        MailboxConnection stale = direct(NOW.minus(Duration.ofMinutes(10)));
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(stale));
+        when(mailboxes.claimCalendarRefresh(any(), anyString(), any(), any())).thenReturn(0);
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        verify(gateway, never()).calendarEvents(anyString(), any(), any());
+        verify(meetings, never()).replaceWindow(any(), any(), any(), any());
     }
 
     @Test
@@ -83,12 +97,28 @@ class MeetingBackfillTest {
         Instant lastRead = NOW.minus(Duration.ofMinutes(10));
         MailboxConnection stale = direct(lastRead);
         when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(stale));
+        when(mailboxes.claimCalendarRefresh(any(), anyString(), any(), any())).thenReturn(1);
         when(gateway.calendarEvents(anyString(), any(), any())).thenThrow(new IllegalStateException("unreadable"));
 
         backfill.refreshUnpushed(WORKSPACE);
 
         verify(meetings, never()).replaceWindow(any(), any(), any(), any());
-        assertThat(stale.getCalendarSyncedAt()).isEqualTo(lastRead);
+        verify(mailboxes).releaseCalendarRefresh(stale.getId(), NOW, lastRead);
+    }
+
+    @Test
+    @DisplayName("a read whose meetings cannot be stored hands the claim back too")
+    void aFailedStoreReleasesTheClaim() {
+        Instant lastRead = NOW.minus(Duration.ofMinutes(10));
+        MailboxConnection stale = direct(lastRead);
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(stale));
+        when(mailboxes.claimCalendarRefresh(any(), anyString(), any(), any())).thenReturn(1);
+        when(gateway.calendarEvents(anyString(), any(), any())).thenReturn(List.of());
+        when(mailboxes.findById(stale.getId())).thenThrow(new IllegalStateException("database unavailable"));
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        verify(mailboxes).releaseCalendarRefresh(stale.getId(), NOW, lastRead);
     }
 
     private static MailboxConnection direct(Instant calendarSyncedAt) {
