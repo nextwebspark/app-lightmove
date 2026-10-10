@@ -16,7 +16,7 @@ class AssistantSkillsTest {
     void offersTheShippedPlaybooks() {
         assertThat(shipped.names())
                 .containsExactlyInAnyOrder("find-companies", "recommend-sectors", "earlier-list", "mapped-executives",
-                        "similar-companies");
+                        "similar-companies", "rank-companies");
         assertThat(shipped.tool().getToolDefinition().name()).isEqualTo(AssistantSkills.TOOL_NAME);
         assertThat(shipped.tool().getToolDefinition().description())
                 .contains("<name>earlier-list</name>")
@@ -33,6 +33,18 @@ class AssistantSkillsTest {
         String loaded = shipped.tool().call("{\"command\":\"earlier-list\"}");
 
         assertThat(loaded).contains("list them from the block").contains("Call no tool for this");
+    }
+
+    @Test
+    @DisplayName("asked to rank or tier an earlier list, the playbooks lead to one that reads the companies and never "
+            + "claims the list or the brief is missing")
+    void ranksAnEarlierList() {
+        String earlier = shipped.tool().call("{\"command\":\"earlier-list\"}");
+        String ranking = shipped.tool().call("{\"command\":\"rank-companies\"}");
+
+        assertThat(earlier).contains("load the rank-companies skill");
+        assertThat(ranking).contains("readCompanyDetails").contains("listMandateCompanies")
+                .contains("Never say you");
     }
 
     @Test

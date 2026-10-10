@@ -11,7 +11,10 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
@@ -36,6 +39,14 @@ public class CachedCompanyStore {
                    logo_url, keywords, raw
             FROM app_lm_vendor_company
             WHERE linkedin_slug = ?
+            """;
+
+    private static final String SELECT_FOUND = """
+            SELECT linkedin_slug, provider, fetched_at, found, company_name, industry_v2_label,
+                   company_country, company_city, employees_linkedin, website, linkedin_url,
+                   founded_year, about, logo_url, keywords, raw
+            FROM app_lm_vendor_company
+            WHERE found AND linkedin_slug = ANY (?)
             """;
 
     private static final String SELECT_BY_NAME = """
@@ -89,6 +100,22 @@ public class CachedCompanyStore {
     public Optional<CachedCompany> find(String linkedinSlug) {
         return jdbc.query(SELECT, rs -> rs.next() ? Optional.of(read(linkedinSlug, rs)) : Optional.empty(),
                 linkedinSlug);
+    }
+
+    /** Every one of {@code linkedinSlugs} a provider described, however old; a stored miss is absent. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Map<String, VendorCompanyRecord> findFound(Collection<String> linkedinSlugs) {
+        if (linkedinSlugs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, VendorCompanyRecord> found = new LinkedHashMap<>();
+        jdbc.query(SELECT_FOUND,
+                ps -> ps.setArray(1, ps.getConnection().createArrayOf("text", linkedinSlugs.toArray(String[]::new))),
+                rs -> {
+                    String slug = rs.getString("linkedin_slug");
+                    found.put(slug, read(slug, rs).answer());
+                });
+        return found;
     }
 
     /**

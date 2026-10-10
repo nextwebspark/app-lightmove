@@ -503,6 +503,54 @@ class AssistantIntegrationTest extends FlowTestSupport {
                 .doesNotContain("customFields");
     }
 
+    @Test
+    @DisplayName("asked to rank the shortlist, the model reads that stage of this position alone, with what each "
+            + "company does")
+    void readsAStageOfThePositionToRank() throws Exception {
+        Firm firm = firm("Assistant Rank Stage Firm");
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
+        universe.company("a2", "Marafiq").industry("utilities").employees(2_400).insert();
+        file(firm, "a1", "shortlisted");
+        file(firm, "a2", "inUniverse");
+        model.callToolWhenSystemContains(AGENT_MARKER, "listMandateCompanies", "{\"stage\":\"shortlisted\"}");
+
+        askAndAwait(firm.admin, firm.projectId, null, "Split my shortlist into tiers by fit");
+
+        assertThat(toolResult("listMandateCompanies"))
+                .contains("ACWA Power")
+                .contains("oil & energy")
+                .doesNotContain("Marafiq");
+    }
+
+    @Test
+    @DisplayName("asked to rank an earlier list, the model reads those companies by their keys")
+    void readsTheEarlierListToRank() throws Exception {
+        Firm firm = firm("Assistant Rank Card Firm");
+        universe.company("a1", "ACWA Power").industry("oil & energy").employees(4_000).insert();
+        universe.company("a2", "Marafiq").industry("utilities").employees(2_400).insert();
+        String turnId = turnWithCard(firm);
+        String threadId = db.queryForObject("SELECT thread_id FROM app_lm_assistant_turn WHERE id = ?",
+                UUID.class, UUID.fromString(turnId)).toString();
+        model.callToolWhenSystemContains(AGENT_MARKER, "readCompanyDetails", "{\"keys\":[\"a2\",\"a1\"]}");
+
+        askAndAwait(firm.admin, firm.projectId, threadId, "Rank these by relevance to the job description");
+
+        assertThat(toolResult("readCompanyDetails"))
+                .contains("Marafiq")
+                .contains("utilities")
+                .contains("ACWA Power");
+        assertThat(agentPrompt().getInstructions().stream().map(Message::getText))
+                .anyMatch(text -> text.contains("<suggested_companies"));
+    }
+
+    private void file(Firm firm, String apolloAccountId, String stage) throws Exception {
+        mvc.perform(post("/api/v1/projects/" + firm.projectId + "/triage")
+                        .header("Authorization", "Bearer " + firm.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"apolloAccountId\":\"" + apolloAccountId + "\",\"status\":\"" + stage + "\"}"))
+                .andExpect(status().isCreated());
+    }
+
     private Prompt agentPrompt() {
         return model.prompts().stream()
                 .filter(prompt -> prompt.getSystemMessage().getText().contains(AGENT_MARKER))

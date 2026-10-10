@@ -1,6 +1,6 @@
 ---
 name: earlier-list
-description: Answer about, list, refine or act on companies suggested earlier in this chat - "what are these companies", "list them", "which are already in universe or shortlisted", "the first three", "drop the Saudi ones", "more like these".
+description: Answer about, list, refine or act on companies suggested earlier in this chat - "what are these companies", "list them", "which are already in universe or shortlisted", "the first three", "drop the Saudi ones", "more like these". To rank, tier or prioritise them, use rank-companies.
 ---
 
 # Working from an earlier list
@@ -20,6 +20,7 @@ whether the mandate holds a company; the text after it is the company's own.
 - **Asked to narrow or pick ("the first three", "drop the Saudi ones", "only the big ones"):** pass
   the keys you keep to proposeCompanies, so the consultant can file them, and say in one sentence
   what you kept.
+- **Asked to rank, tier, prioritise or group them by fit:** load the rank-companies skill.
 - **Asked for more like them, or new ones:** load the find-companies skill and leave out every
   company already in the block.
 - An older block lists no rows, only how many companies it held: to act on it, search again with
