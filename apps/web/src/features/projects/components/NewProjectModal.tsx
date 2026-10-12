@@ -25,6 +25,7 @@ import * as positionApi from "../../position/api/positionApi";
 import { RoleTitleCombobox } from "../../position/components/RoleTitleCombobox";
 import type { CompanySuggestion } from "../../strategy/api/types";
 import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import { GETTING_STARTED_KEY } from "../../gettingstarted/api/gettingStartedApi";
 import * as projectsApi from "../api/projectsApi";
 import type { ProjectType } from "../api/types";
 import {
@@ -155,6 +156,7 @@ export function NewProjectModal({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
+      void queryClient.invalidateQueries({ queryKey: GETTING_STARTED_KEY });
       toast("Position created — you're its lead");
       onClose();
     },

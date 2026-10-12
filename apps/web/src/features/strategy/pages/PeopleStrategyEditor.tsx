@@ -10,7 +10,7 @@ import type { RowSelectionState } from "@tanstack/react-table";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { FilterRailToggle } from "../../../components/ui/FilterRail";
-import { EmptyState, FullscreenButton } from "../../../components/ui";
+import { EmptyState, FullscreenButton, Spinner } from "../../../components/ui";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { useToast } from "../../../components/ui/Toast";
@@ -397,9 +397,10 @@ export function PeopleStrategyEditor({
                   type="button"
                   onClick={() => void results.fetchNextPage()}
                   disabled={results.isFetchingNextPage}
-                  className="rounded-[6px] border border-u-border-strong px-3 py-1.5 text-note font-medium text-u-text2 transition hover:text-u-text disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 rounded-[6px] border border-u-border-strong px-3 py-1.5 text-note font-medium text-u-text2 transition hover:text-u-text disabled:opacity-40"
                 >
-                  {results.isFetchingNextPage ? "Loading…" : "Load 25 more"}
+                  {results.isFetchingNextPage && <Spinner />}
+                  Load 25 more
                 </button>
               )}
               <FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />

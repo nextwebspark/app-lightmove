@@ -16,6 +16,7 @@ import {
   formatBillingDate,
   formatResetDate,
   mailtoBilling,
+  planOptionOf,
   trialOf,
   type BillingRefusal,
 } from "../lib/billingView";
@@ -68,17 +69,31 @@ function OutOfCreditsSheet({
 }) {
   const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
-  const admin = useFirstAdmin(!isAdmin);
+  const { admin, settled } = useFirstAdmin(!isAdmin);
   const resetsAt = billing.data?.credits.resetsAt ?? refusal.resetsAt;
 
   const cost = refusal.required !== null ? `This find needs ${creditsLabel(refusal.required)}` : "This find needs credits";
   const body =
     `${cost} and this month's are used up. Nothing was spent.` +
     (resetsAt ? ` They reset on ${formatResetDate(resetsAt)}.` : "") +
-    (isAdmin ? "" : ` Only an admin can add more${admin ? ` — ${admin.fullName}` : ""}.`);
+    (isAdmin
+      ? ""
+      : admin
+        ? ` Only an admin can add more — ${admin.fullName}.`
+        : settled
+          ? " Only your workspace admin can add more. If you can't reach them, contact us."
+          : " Only an admin can add more.");
 
   const primary = (
-    <MoreCreditsAction isAdmin={isAdmin} billing={billing.data} admin={admin} onClose={onClose} onOpen={onOpen} />
+    <MoreCreditsAction
+      isAdmin={isAdmin}
+      billing={billing.data}
+      admin={admin}
+      adminSettled={settled}
+      subject="Contact credits are used up"
+      onClose={onClose}
+      onOpen={onOpen}
+    />
   );
 
   return <RefusalSheet title="No contact credits left" body={body} primary={primary} onClose={onClose} />;
@@ -95,16 +110,30 @@ function TrialEndedSheet({
 }) {
   const isAdmin = useIsWorkspaceAdmin();
   const billing = useBilling();
-  const admin = useFirstAdmin(!isAdmin);
+  const { admin, settled } = useFirstAdmin(!isAdmin);
   const endedAt = billing.data?.trialEndsAt ?? refusal.endedAt;
 
   const body =
     `Your trial ended${endedAt ? ` on ${formatBillingDate(endedAt)}` : ""}. Everything your team mapped is still ` +
     "here; finding contacts, search and AI start again once " +
-    (isAdmin ? "you choose a plan." : `an admin chooses a plan${admin ? ` — ${admin.fullName}` : ""}.`);
+    (isAdmin
+      ? "you choose a plan."
+      : admin
+        ? `an admin chooses a plan — ${admin.fullName}.`
+        : settled
+          ? "your workspace admin chooses a plan. If you can't reach them, contact us."
+          : "an admin chooses a plan.");
 
   const primary = (
-    <MoreCreditsAction isAdmin={isAdmin} billing={billing.data} admin={admin} onClose={onClose} onOpen={onOpen} />
+    <MoreCreditsAction
+      isAdmin={isAdmin}
+      billing={billing.data}
+      admin={admin}
+      adminSettled={settled}
+      subject="Our Uncava trial has ended"
+      onClose={onClose}
+      onOpen={onOpen}
+    />
   );
 
   return <RefusalSheet title="Your trial has ended" body={body} primary={primary} onClose={onClose} />;
@@ -121,32 +150,53 @@ function DialogFromSheet({ dialog, onClose }: { dialog: NextDialog; onClose: () 
 }
 
 /**
- * An admin's way to more credits — the packs, or the plans on a trial — or a member's way to ask an admin for them.
+ * An admin's way to more credits — the packs, or the plans on a trial — or a member's way to ask an admin for them;
+ * with no admin to ask, Uncava, so the sheet never offers only "Not now".
  */
 function MoreCreditsAction({
   isAdmin,
   billing,
   admin,
+  adminSettled,
+  subject,
   onClose,
   onOpen,
 }: {
   isAdmin: boolean;
   billing: Billing | undefined;
   admin: Member | null;
+  adminSettled: boolean;
+  /** The email's subject, saying which refusal it is about. */
+  subject: string;
   onClose: () => void;
   onOpen: (dialog: NextDialog) => void;
 }) {
   if (!isAdmin) {
-    if (!admin) return null;
+    if (!admin) {
+      if (!adminSettled || !billing) return null;
+      return (
+        <PrimaryLink href={mailtoBilling(billing, subject)} onClick={onClose}>
+          Contact Uncava
+        </PrimaryLink>
+      );
+    }
     const askFor = billing && trialOf(billing) ? "choose a plan" : "add more";
     return (
-      <PrimaryLink href={askAdminHref(admin.email)} onClick={onClose}>
+      <PrimaryLink href={askAdminHref(admin.email, subject)} onClick={onClose}>
         Ask {admin.fullName.split(" ")[0]} to {askFor}
       </PrimaryLink>
     );
   }
-  const buy = billing ? buyOptionOf(billing, isAdmin) : null;
-  if (!buy) return null;
+  if (!billing) return null;
+  // A trial with no plan on record has nothing to buy, but it can still choose one.
+  const buy = buyOptionOf(billing, isAdmin) ?? planOptionOf(billing, isAdmin);
+  if (!buy) {
+    return (
+      <PrimaryLink href={mailtoBilling(billing, subject)} onClick={onClose}>
+        Contact Uncava
+      </PrimaryLink>
+    );
+  }
   if (buy.kind === "contact") {
     return (
       <PrimaryLink href={buy.href} onClick={onClose}>
@@ -235,16 +285,27 @@ function PrimaryLink({ href, onClick, children }: { href: string; onClick: () =>
   );
 }
 
-/** The admin a member asks: the roster's first, read only when a member's sheet opens. */
-function useFirstAdmin(enabled: boolean) {
+/**
+ * The admin a member asks: the roster's first, read only when a member's sheet opens. `settled` tells "no admin" from
+ * "not read yet", so a member is never pointed at Uncava for the moment the roster takes to arrive.
+ */
+function useFirstAdmin(enabled: boolean): AdminLookup {
   const members = useQuery({
     queryKey: workspaceApi.MEMBERS_KEY,
     queryFn: () => workspaceApi.members(),
     enabled,
   });
-  return members.data?.find((member) => member.roles.includes("ADMIN")) ?? null;
+  return {
+    admin: members.data?.find((member) => member.roles.includes("ADMIN")) ?? null,
+    settled: members.isSuccess || members.isError,
+  };
 }
 
-function askAdminHref(email: string): string {
-  return `mailto:${email}?subject=${encodeURIComponent("Contact credits for Uncava")}`;
+interface AdminLookup {
+  admin: Member | null;
+  settled: boolean;
+}
+
+function askAdminHref(email: string, subject: string): string {
+  return `mailto:${email}?subject=${encodeURIComponent(subject)}`;
 }

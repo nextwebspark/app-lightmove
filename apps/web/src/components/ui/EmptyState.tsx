@@ -17,7 +17,7 @@ export function EmptyState({
       <div className="mb-[18px] grid size-[52px] place-items-center rounded-[14px] bg-u-accent-tint text-u-accent">
         {icon}
       </div>
-      <div className="mb-1.5 text-[19px] font-semibold">{title}</div>
+      <h2 className="mb-1.5 max-w-[420px] text-balance text-[19px] font-semibold">{title}</h2>
       <div className="mb-[22px] max-w-[420px] text-[13px] text-u-text2">{body}</div>
       {children}
     </div>

@@ -129,7 +129,7 @@ try {
   // ------------------------------------------------------------------ S2
   section("S2  deep links past the nav");
 
-  check("S2.1", "a member deep-linking to /settings/members is bounced", "/", await landsOn(member.page, "/settings/members"));
+  check("S2.1", "a member deep-linking to /settings/integrations is bounced", "/", await landsOn(member.page, "/settings/integrations"));
   check("S2.2", "and to /settings/general", "/", await landsOn(member.page, "/settings/general"));
   await member.page.screenshot({ path: join(SHOTS, "roles-member-settings-deeplink.png"), fullPage: true });
 
@@ -237,7 +237,7 @@ try {
   // ------------------------------------------------------------------ S5
   section("S5  an admin's own screens still work end to end");
 
-  check("S5.1", "the admin reaches the members settings page", "/settings/members", await landsOn(admin.page, "/settings/members"));
+  check("S5.1", "the old members settings address opens Team, the one roster", "/team", await landsOn(admin.page, "/settings/members"));
   const membersPage = await admin.page.locator("body").innerText();
   check("S5.2", "and the roster renders the invited member", true, membersPage.includes("Mel Member"));
   check("S5.3", "while the pure client is absent from it", false, membersPage.includes("Cass Client"));
@@ -246,9 +246,9 @@ try {
   check("S5.4", "the admin reaches general settings", "/settings/general", await landsOn(admin.page, "/settings/general"));
   await admin.page.screenshot({ path: join(SHOTS, "roles-admin-general.png"), fullPage: true });
 
-  // Bare /settings redirects to the landing section, which is Profile for everyone — the only section
-  // a non-admin may read, so the redirect cannot depend on the caller's role.
-  check("S5.5", "bare /settings lands on Profile", "/settings/profile", await landsOn(admin.page, "/settings"));
+  // Bare /settings opens the section last visited — General, just above — while the caller can still reach it.
+  check("S5.5", "bare /settings opens the section last visited", "/settings/general", await landsOn(admin.page, "/settings"));
+  check("S5.5b", "and Profile is still a click away", "/settings/profile", await landsOn(admin.page, "/settings/profile"));
   const adminProfile = await admin.page.locator("body").innerText();
   check("S5.6", "and the admin's own profile states the standing it will not let them edit", true,
     /set by workspace owner/.test(adminProfile));

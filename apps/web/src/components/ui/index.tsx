@@ -2,6 +2,7 @@ import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
+  Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
@@ -16,7 +17,14 @@ export { Drawer } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export { FullscreenButton } from "./FullscreenButton";
 export { Modal } from "./Modal";
-export { Skeleton, TableSkeleton } from "./Skeleton";
+export {
+  CardsSkeleton,
+  DelayedSkeleton,
+  DrawerSkeleton,
+  LinesSkeleton,
+  Skeleton,
+  TableSkeleton,
+} from "./Skeleton";
 export { ToastProvider, useToast, type ToastFn } from "./Toast";
 
 /**
@@ -37,10 +45,20 @@ export { ToastProvider, useToast, type ToastFn } from "./Toast";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
+/** `md` is a form's or a dialog's action; `sm` a page header's; `xs` an action inside a list row. */
+type ButtonSize = "xs" | "sm" | "md";
+
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
 }
+
+const BUTTON_SIZES: Record<ButtonSize, string> = {
+  xs: "px-3.5 py-[6px] text-note",
+  sm: "px-3.5 py-[7px] text-[13px]",
+  md: "px-3.5 py-2.5 text-[13.5px]",
+};
 
 const BUTTON_STYLES: Record<ButtonVariant, string> = {
   // The filled accent call-to-action: the one UNCAVA stop that takes white text, in both themes.
@@ -57,8 +75,18 @@ const BUTTON_STYLES: Record<ButtonVariant, string> = {
     "disabled:opacity-50 disabled:hover:brightness-100",
 };
 
+/** A button's look for an element that is not a button — a router `Link` that navigates, so it stays a link. */
+export function buttonClassName(variant: ButtonVariant = "primary", className = ""): string {
+  return cn(
+    "flex items-center justify-center gap-2 rounded-[6px] px-3.5 py-2.5 text-[13.5px] transition",
+    BUTTON_STYLES[variant],
+    className,
+  );
+}
+
 export function Button({
   variant = "primary",
+  size = "md",
   loading = false,
   disabled,
   children,
@@ -70,8 +98,9 @@ export function Button({
       {...rest}
       disabled={disabled || loading}
       className={cn(
-        "flex items-center justify-center gap-2 rounded-[6px] px-3.5 py-2.5 text-[13.5px] transition",
+        "flex items-center justify-center gap-2 rounded-[6px] transition",
         "disabled:cursor-not-allowed",
+        BUTTON_SIZES[size],
         BUTTON_STYLES[variant],
         className,
       )}
@@ -151,7 +180,11 @@ const CONTROL =
   "w-full rounded-[6px] border bg-u-raised px-3 py-2.5 font-mono text-[13px] text-u-text outline-none " +
   "transition focus:border-u-accent";
 
-export function Input({ invalid, className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+export function Input({
+  invalid,
+  className,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; ref?: Ref<HTMLInputElement> }) {
   return (
     <input
       {...rest}

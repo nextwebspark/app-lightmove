@@ -10,6 +10,7 @@ import * as poolApi from "../api/poolApi";
 import type { CandidateStatus, PersonPosition } from "../api/types";
 import { CANDIDATE_SOURCE_STYLES, CANDIDATE_STATUSES, candidateStatusStyle } from "../lib/candidateVocabulary";
 import { TabSectionHeading } from "./PersonSections";
+import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
 
 /** The positions a person sits on, in either drawer's Records tab. */
 export function PositionsSection({
@@ -68,6 +69,7 @@ function PositionCard({
       <div className="min-w-0 flex-1">
         <Link
           to={`/projects/${position.projectId}/companies`}
+          state={NO_POSITIONS_ORIGIN}
           className="block truncate text-[13px] font-semibold text-u-text hover:underline"
         >
           {position.positionTitle ?? "Untitled position"}

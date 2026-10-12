@@ -19,6 +19,7 @@ import { formatDate } from "../../../lib/format";
 import type { Project, TeamMember } from "../api/types";
 import { STAGE_ORDER } from "./filtering";
 import { deadlineOf } from "./timeline";
+import { usePositionsOriginState } from "./positionsOrigin";
 
 /**
  * The mandate list holds every project the firm has — tens of rows, in one query — so unlike the
@@ -145,9 +146,11 @@ export function TeamStack({ team }: { team: TeamMember[] }) {
 }
 
 export function OpenProjectLink({ project }: { project: Project }) {
+  const originState = usePositionsOriginState();
   return (
     <Link
       to={`/projects/${project.id}`}
+      state={originState}
       aria-label={`Open ${project.positionTitle}`}
       title={`Open ${project.positionTitle}`}
       className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-[7px] border border-u-border-strong px-[11px] py-[5px] text-xs font-semibold text-u-text2 transition hover:border-u-text3 hover:bg-u-surface hover:text-u-text"

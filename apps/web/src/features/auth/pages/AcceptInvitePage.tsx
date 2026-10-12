@@ -1,9 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo, Notice } from "../../../components/ui";
+import { Button, Card, Field, FormError, Input, Logo, Notice, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
@@ -11,6 +11,9 @@ import * as authApi from "../api/authApi";
 import type { InvitationPreview } from "../api/types";
 import { acceptInviteSchema, type AcceptInviteValues } from "../schemas";
 import { titleCase } from "../../../lib/format";
+import { LegalConsent } from "../components/LegalConsent";
+import { landingAfterJoining } from "../../projects/lib/landingAfterJoining";
+import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
 
 /**
  * Where an invitation lands — and, since membership is invitation-only, the only door into an existing
@@ -35,7 +38,13 @@ export function AcceptInvitePage() {
   // invitee, and rendering the anonymous create-account form here would flash it in their face — a
   // wrong-account or already-placed user briefly sees a "set your password" screen before it corrects.
   if (loading) {
-    return <Centered>Loading…</Centered>;
+    return (
+      <Centered>
+        <span role="status" aria-label="Loading" className="text-u-text3">
+          <Spinner />
+        </span>
+      </Centered>
+    );
   }
 
   if (token) {
@@ -109,6 +118,7 @@ function TokenArrival({ token }: { token: string }) {
  * the invitation's, shown read-only. An address that already has an account is sent to log in instead.
  */
 function AcceptSignupForm({ token, invitation }: { token: string; invitation: InvitationPreview }) {
+  const queryClient = useQueryClient();
   const { acceptInviteSignup } = useAuth();
   const navigate = useNavigate();
   const [formError, setFormError] = useState<string | null>(null);
@@ -127,8 +137,8 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
     setFormError(null);
     setAlreadyRegistered(false);
     try {
-      await acceptInviteSignup(token, values.fullName, values.password);
-      navigate("/", { replace: true });
+      const joined = await acceptInviteSignup(token, values.fullName, values.password);
+      navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (error) {
       // The one failure with a way forward: this address already has an account, so log in and accept
       // from there. The address prefills the login form — and deliberately nothing else is revealed.
@@ -199,17 +209,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
         )}
       </form>
 
-      <p className="mt-4 text-[11.5px] leading-relaxed text-u-text3">
-        By continuing you agree to the{" "}
-        <a href="/terms" className="text-u-accent hover:underline">
-          Terms
-        </a>{" "}
-        and{" "}
-        <a href="/privacy" className="text-u-accent hover:underline">
-          Privacy Policy
-        </a>
-        .
-      </p>
+      <LegalConsent className="mt-4" />
     </Shell>
   );
 }
@@ -217,6 +217,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
 // ── Arrival with no token: an already-signed-in invitee, routed here by the server ───────────────────
 
 function ServerDerivedArrival() {
+  const queryClient = useQueryClient();
   const { user, acceptAndSwitch } = useAuth();
   const navigate = useNavigate();
 
@@ -230,8 +231,8 @@ function ServerDerivedArrival() {
     setAccepting(invitationId);
     setError(null);
     try {
-      await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
-      navigate("/", { replace: true });
+      const joined = await acceptAndSwitch(() => authApi.acceptInvitationById(invitationId));
+      navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (err) {
       setError(messageFor(err));
       setAccepting(null);
@@ -262,7 +263,7 @@ function ServerDerivedArrival() {
                 <div className="font-mono text-meta text-u-text3">as {titleCase(candidate.role)}</div>
               </div>
               <Button
-                className="!px-3.5 !py-[6px] !text-note"
+                size="xs"
                 loading={accepting === candidate.id}
                 disabled={accepting !== null && accepting !== candidate.id}
                 onClick={() => void accept(candidate.id)}
@@ -302,6 +303,7 @@ function SignedInBody({
   invitation: { email: string; workspaceName: string };
   token: string;
 }) {
+  const queryClient = useQueryClient();
   const { user, acceptAndSwitch, signOut } = useAuth();
   const navigate = useNavigate();
   const [accepting, setAccepting] = useState(false);
@@ -329,8 +331,8 @@ function SignedInBody({
     try {
       // The switch mints a token carrying the joined workspace's claim. Without it the token in memory
       // still names wherever they were — or nothing — and the workspace they just joined refuses them.
-      await acceptAndSwitch(() => authApi.acceptInvitation(token));
-      navigate("/", { replace: true });
+      const joined = await acceptAndSwitch(() => authApi.acceptInvitation(token));
+      navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (err) {
       setError(messageFor(err));
       setAccepting(false);

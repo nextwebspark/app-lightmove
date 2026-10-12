@@ -11,6 +11,7 @@ import type { AssistantProposal, AssistantThread, LiveStep } from "../api/types"
 import { AssistantStarters } from "./AssistantStarters";
 import { AssistantSteps } from "./AssistantSteps";
 import { AssistantTurnView, QuestionBubble } from "./AssistantTurnView";
+import { LinesSkeleton } from "../../../components/ui";
 
 const STILL_ANSWERING_RECHECK_MS = 20_000;
 
@@ -218,7 +219,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
           <p className="px-1.5 pb-1 font-mono text-[10.5px] uppercase tracking-[0.04em] text-u-text3">
             Chats in this project
           </p>
-          {history.isLoading && <p className="px-1.5 py-1 font-sans text-xs text-u-text3">Loading…</p>}
+          {history.isLoading && <LinesSkeleton className="px-1.5 py-1" lines={2} />}
           {history.isError && (
             <p role="alert" className="px-1.5 py-1 font-sans text-xs text-u-offlimits">
               {messageFor(history.error)}

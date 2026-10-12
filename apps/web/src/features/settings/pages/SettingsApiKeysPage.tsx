@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Button, SegmentedControl, useToast } from "../../../components/ui";
+import { Button, CardsSkeleton, SegmentedControl, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import * as apiKeysApi from "../api/apiKeysApi";
@@ -100,7 +100,7 @@ export function SettingsApiKeysPage() {
       {keys.isError ? (
         <p className="text-[13px] text-u-text3">{messageFor(keys.error)}</p>
       ) : keys.isPending ? (
-        <p className="text-[13px] text-u-text3">Loading…</p>
+        <CardsSkeleton />
       ) : rows.length === 0 ? (
         <div className="rounded-[10px] border border-dashed border-u-border-strong bg-u-raised px-6 py-8 text-center">
           <span className="mx-auto mb-3 grid size-10 place-items-center rounded-[10px] bg-u-accent-tint text-u-accent">

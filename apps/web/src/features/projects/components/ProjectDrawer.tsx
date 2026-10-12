@@ -2,7 +2,7 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Drawer, HealthPill, StagePill } from "../../../components/ui";
+import { Avatar, Drawer, HealthPill, Spinner, StagePill } from "../../../components/ui";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { cn } from "../../../lib/cn";
 import { formatDate, formatNumber } from "../../../lib/format";
@@ -20,6 +20,7 @@ import { canExecuteProjectWork, canManageProjectAccess } from "../lib/access";
 import { activityLines, formatActivityTime } from "../lib/activity";
 import { projectProgress } from "../lib/projectProgress";
 import { staffRoleOf } from "../lib/projectTeamColumns";
+import { usePositionsOriginState } from "../lib/positionsOrigin";
 import { deadlineOf } from "../lib/timeline";
 
 /**
@@ -35,6 +36,7 @@ export function ProjectDrawer({ project, onClose }: { project: Project | null; o
 function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: () => void }) {
   const { user } = useAuth();
   const vocabulary = useWorkspaceVocabulary();
+  const originState = usePositionsOriginState();
   const isStaff = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
   const canManageAccess = canManageProjectAccess(project, user?.id, user?.workspace?.roles);
   const staff = staffLeadsFirst(project.team);
@@ -101,6 +103,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
         {canManageAccess && (
           <Link
             to={`/projects/${project.id}/team`}
+            state={originState}
             className="mt-3 inline-flex items-center gap-1.5 text-note font-medium text-u-text2 hover:text-u-text hover:underline"
           >
             <Icon d={ICONS.settings} size={13} />
@@ -114,6 +117,7 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
       <div className="flex-none border-t border-u-border px-5 py-3.5">
         <Link
           to={`/projects/${project.id}`}
+          state={originState}
           className="flex w-full items-center justify-center gap-2 rounded-md border border-u-accent-solid bg-u-accent-solid px-3.5 py-[11px] text-body font-semibold text-white transition hover:bg-u-accent-solid/90"
         >
           Open position
@@ -325,9 +329,10 @@ function RecentActivity({ projectId }: { projectId: string }) {
                 setAutoFetchesLeft(AUTO_FETCH_PAGES);
               }}
               disabled={isFetchingNextPage}
-              className="mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
             >
-              {isFetchingNextPage ? "Loading…" : "See more"}
+              {isFetchingNextPage && <Spinner />}
+              See more
             </button>
           )}
         </>
@@ -388,9 +393,11 @@ function HiringManagerRow({ representative }: { representative: AttachedRepresen
 }
 
 function InviteLink({ projectId }: { projectId: string }) {
+  const originState = usePositionsOriginState();
   return (
     <Link
       to={`/projects/${projectId}/team`}
+      state={originState}
       className="text-note font-medium normal-case tracking-normal text-u-accent hover:underline"
     >
       + Invite

@@ -7,6 +7,7 @@ import { timelineLines } from "../../lib/candidateActivity";
 import { groupByDay } from "../../lib/timelineGroups";
 import { useTimelineCut } from "../PersonSections";
 import { GroupChips } from "./GroupChips";
+import { LinesSkeleton, Spinner } from "../../../../components/ui";
 
 /** The Timeline tab: everything done to the person, by whom and when, on every position, by day. */
 export function PersonTimelineTab({ personId }: { personId: string }) {
@@ -29,7 +30,7 @@ export function PersonTimelineTab({ personId }: { personId: string }) {
       {timeline.isError ? (
         <p className="text-[13px] text-u-text3">{messageFor(timeline.error)}</p>
       ) : timeline.isPending ? (
-        <p className="text-[13px] text-u-text3">Loading…</p>
+        <LinesSkeleton />
       ) : entries.length === 0 ? (
         <p className="text-[13px] text-u-text3">Nothing of this kind recorded yet.</p>
       ) : (
@@ -63,9 +64,10 @@ export function PersonTimelineTab({ personId }: { personId: string }) {
               type="button"
               onClick={() => void timeline.fetchNextPage()}
               disabled={timeline.isFetchingNextPage}
-              className="text-note font-medium text-u-accent hover:underline disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
             >
-              {timeline.isFetchingNextPage ? "Loading…" : "Load more"}
+              {timeline.isFetchingNextPage && <Spinner />}
+              Load more
             </button>
           )}
         </div>

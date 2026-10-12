@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, Select, TextArea, useToast } from "../../../../components/ui";
+import { Button, LinesSkeleton, Select, TextArea, useToast } from "../../../../components/ui";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../../lib/useSubmitShortcut";
 import * as poolApi from "../../api/poolApi";
@@ -79,7 +79,7 @@ export function PersonNotesTab({
       {notes.isError ? (
         <p className="text-[13px] text-u-text3">{messageFor(notes.error)}</p>
       ) : notes.isPending ? (
-        <p className="text-[13px] text-u-text3">Loading…</p>
+        <LinesSkeleton />
       ) : list.length === 0 ? (
         <p className="text-[13px]/[1.6] text-u-text3">
           No notes yet. The first call or meeting you log will sit here for the whole team.
