@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 
 /**
- * An executive hidden from the client (V131) is absent from every read a client seat can reach — the list,
+ * An executive hidden from the client (V132) is absent from every read a client seat can reach — the list,
  * the drawer, the photo, the talent map, the report and the export — and a client seat sees exactly what it
  * saw before while everyone is visible. Staff, and an API key, still read them everywhere.
  */

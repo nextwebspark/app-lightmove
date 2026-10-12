@@ -54,7 +54,7 @@ public class Candidate extends BaseEntity {
     @Column(name = "company_name")
     private String companyName;
 
-    /** The one fact this row holds about where they stand; the stage is read through it (V130). */
+    /** The one fact this row holds about where they stand; the stage is read through it (V131). */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "status_id", nullable = false)
     private CandidateStatusDefinition status;
@@ -91,13 +91,13 @@ public class Candidate extends BaseEntity {
     private UUID addedBy;
 
     /**
-     * Where the Pipeline page's manual order puts them within their stage (V131). Fractional, so a drag
+     * Where the Pipeline page's manual order puts them within their stage (V132). Fractional, so a drag
      * writes the one row moved; null until anyone drags them, which sorts after every ranked row.
      */
     @Column(name = "pipeline_rank")
     private BigDecimal pipelineRank;
 
-    /** False hides them from a client seat on every read it can reach; staff always see them (V131). */
+    /** False hides them from a client seat on every read it can reach; staff always see them (V132). */
     @Column(name = "client_visible", nullable = false)
     private boolean clientVisible = true;
 

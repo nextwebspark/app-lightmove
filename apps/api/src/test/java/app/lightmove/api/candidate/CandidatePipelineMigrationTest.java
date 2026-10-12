@@ -19,12 +19,12 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 /**
- * V130: every workspace gets the seeded pipeline, and every executive keeps the meaning their old enum
+ * V131: every workspace gets the seeded pipeline, and every executive keeps the meaning their old enum
  * value had — the system status of that name — dated by its last status line on the position, else by when it
  * was mapped (never by updated_at, which any edit moves). A row written by a revision
  * that predates the catalog still lands on the right status.
  *
- * <p>Its own container and Flyway run, stopped at V129 to seed and carried on to V130, for
+ * <p>Its own container and Flyway run, stopped at V130 to seed and carried on to V131, for
  * {@link CandidatePersonBackfillMigrationTest}'s reason.
  */
 class CandidatePipelineMigrationTest {
@@ -42,16 +42,16 @@ class CandidatePipelineMigrationTest {
             "NOT_INTERESTED", "OFF_LIMITS", "OUT_OF_SCOPE");
 
     @Test
-    @DisplayName("V130 seeds every workspace and keeps each executive's status, by its system key")
+    @DisplayName("V131 seeds every workspace and keeps each executive's status, by its system key")
     void everyRowKeepsItsMeaning() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
-            migrateTo(postgres, "129");
+            migrateTo(postgres, "130");
             try (Connection connection = connect(postgres)) {
                 seed(connection);
             }
 
-            migrateTo(postgres, "130");
+            migrateTo(postgres, "131");
 
             try (Connection connection = connect(postgres)) {
                 assertThat(strings(connection, """

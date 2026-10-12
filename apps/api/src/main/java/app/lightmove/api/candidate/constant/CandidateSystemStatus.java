@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * The seven statuses every workspace's pipeline is seeded with and can never lose (V130's
+ * The seven statuses every workspace's pipeline is seeded with and can never lose (V131's
  * {@code system_key}): the anchors automation moves people between, and the wire keys the plugin, the
  * public API and every timeline line written before the catalog still speak. Everything else a candidate
  * may hold is a workspace's own status, read through {@code CandidatePipelineCatalog}.

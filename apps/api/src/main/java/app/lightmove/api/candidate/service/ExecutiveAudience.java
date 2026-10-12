@@ -11,7 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /**
- * Who is reading a position's executives — the one place the client-visibility boundary is decided (V131).
+ * Who is reading a position's executives — the one place the client-visibility boundary is decided (V132).
  * A signed-in caller who reads the position without working it ({@code WORK_VIEW} but not
  * {@code WORK_EXECUTE}: a client seat) never sees an executive hidden from the client, on any read that
  * goes through {@code CandidateService}: the list, the drawer, the talent map, the report and the export.

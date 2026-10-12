@@ -23,7 +23,7 @@ public interface CandidateStageRepository extends JpaRepository<CandidateStage, 
     @Query("select s from CandidateStage s where s.workspaceId = :workspaceId and lower(s.label) = lower(:label)")
     Optional<CandidateStage> findByLabel(UUID workspaceId, String label);
 
-    /** Seeds V130's starting catalog where a workspace has none; a no-op for one already seeded. */
+    /** Seeds V131's starting catalog where a workspace has none; a no-op for one already seeded. */
     @Query(value = "SELECT CAST(app_lm_seed_candidate_pipeline(:workspaceId) AS text)", nativeQuery = true)
     String seedIfAbsent(UUID workspaceId);
 

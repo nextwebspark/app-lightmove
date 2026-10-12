@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 
 /**
- * A workspace's pipeline (V130) and the rules that keep its hierarchy whole: every status under a stage,
+ * A workspace's pipeline (V131) and the rules that keep its hierarchy whole: every status under a stage,
  * the built-in statuses never retired or moved, one default per stage, a stage retired only once empty, and
  * one closed stage, last.
  */

@@ -19,7 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One status of a workspace's pipeline, always under exactly one {@link CandidateStage} (V130). A
+ * One status of a workspace's pipeline, always under exactly one {@link CandidateStage} (V131). A
  * candidate holds a status and nothing else: its stage, its rank and whether it has left the running are
  * all read through here. A retired status stays on whoever holds it and is never offered again.
  */

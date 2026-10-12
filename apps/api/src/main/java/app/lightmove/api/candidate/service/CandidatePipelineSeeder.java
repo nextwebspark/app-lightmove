@@ -8,7 +8,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Seeds a workspace founded after V130 with the starting catalog the first time anything reads it.
+ * Seeds a workspace founded after V131 with the starting catalog the first time anything reads it.
  * {@code REQUIRES_NEW}, and its own bean so the proxy applies: the first read is often inside a read-only
  * transaction, which Postgres refuses an insert in, and the read that follows sees the committed rows.
  */

@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.JsonNode;
 
 /**
- * A position's Pipeline page (V131): everyone by stage and then the team's own order, a drag that writes
+ * A position's Pipeline page (V132): everyone by stage and then the team's own order, a drag that writes
  * one row, the next action and the client-visibility switch — each a timeline line and an audit event —
  * and none of it a client seat's.
  */

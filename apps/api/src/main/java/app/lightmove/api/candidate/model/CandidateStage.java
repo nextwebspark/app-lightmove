@@ -15,7 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One column of a workspace's pipeline (V130). Retired rather than deleted, and only once none of its
+ * One column of a workspace's pipeline (V131). Retired rather than deleted, and only once none of its
  * statuses is live; the one {@link PipelineStageKind#CLOSED} stage is never retired and always last.
  */
 @Entity

@@ -34,7 +34,7 @@ function stage(
   };
 }
 
-/** The catalog every workspace is seeded with — the server's V130 seed, mirrored for tests. */
+/** The catalog every workspace is seeded with — the server's V131 seed, mirrored for tests. */
 export function aSeededCatalog(): PipelineCatalog {
   return {
     stages: [
