@@ -61,8 +61,6 @@ export const ICONS = {
   archive: "M21 8v13H3V8M1 3h22v5H1zM10 12h4",
   /** Three columns of falling height — a position's pipeline. */
   pipeline: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
-  /** A clock face — when a next action falls due. */
-  clock: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2",
   /** Three bulleted lines — the List side of a List | Board toggle. */
   listView: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   /** Two dividers in a frame — the Board side of the toggle. */
