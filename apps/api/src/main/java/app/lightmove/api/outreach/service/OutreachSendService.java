@@ -191,7 +191,7 @@ public class OutreachSendService {
         if (person.doNotContact()) {
             return OutreachStopReason.DO_NOT_CONTACT;
         }
-        if (person.status().hasLeftTheRunning()) {
+        if (person.leftTheRunning()) {
             return OutreachStopReason.LEFT_THE_RUNNING;
         }
         if (!person.holdsEmail(enrollment.getToAddress())) {

@@ -38,8 +38,8 @@ public record SaveCandidateRequest(
         @Size(max = 16)
         String seniority,
 
-        /** A {@code CandidateStatus} wire token. Omitted means identified, where every profile starts. */
-        @Size(max = 32)
+        /** A status key of the workspace's pipeline. Omitted files them at its starting status, Identified. */
+        @Size(max = 40)
         String status,
 
         /** Ignored when {@code triageCompanyId} names one of the mandate's companies. */

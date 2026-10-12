@@ -48,6 +48,7 @@ function poolQueryOf(filters: PoolFilters): URLSearchParams {
   if (filters.tagIds.length > 0) params.set("tagMatch", filters.tagMatch);
   if (filters.position) params.set("position", filters.position);
   if (filters.status) params.set("status", filters.status);
+  if (filters.pipelineStage) params.set("pipelineStage", filters.pipelineStage);
   if (filters.owner) params.set("owner", filters.owner);
   if (filters.country) params.set("country", filters.country);
   params.set("sort", filters.sort);

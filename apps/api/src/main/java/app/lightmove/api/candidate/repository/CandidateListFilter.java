@@ -1,6 +1,5 @@
 package app.lightmove.api.candidate.repository;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.Person;
 import jakarta.persistence.criteria.Join;
@@ -21,16 +20,24 @@ public final class CandidateListFilter {
 
     private CandidateListFilter() {}
 
-    /** {@code triageCompanyIds} wins over {@code unmapped}; a blank name or text query is no filter. */
-    public static Specification<Candidate> of(UUID projectId, @Nullable CandidateStatus status,
+    /**
+     * {@code triageCompanyIds} wins over {@code unmapped}; a blank name or text query is no filter, and so is
+     * a null {@code statusIds} — the statuses a status or stage filter resolved to. {@code clientVisibleOnly}
+     * leaves out everyone hidden from the client, for a client seat's read.
+     */
+    public static Specification<Candidate> of(UUID projectId, boolean clientVisibleOnly,
+                                              @Nullable Collection<UUID> statusIds,
                                               @Nullable Collection<UUID> triageCompanyIds, boolean unmapped,
                                               String nameQuery, String textQuery,
                                               @Nullable Collection<UUID> withinTriageCompanyIds) {
         return (root, query, cb) -> {
             List<Predicate> where = new ArrayList<>();
             where.add(cb.equal(root.get("projectId"), projectId));
-            if (status != null) {
-                where.add(cb.equal(root.get("status"), status));
+            if (clientVisibleOnly) {
+                where.add(cb.isTrue(root.get("clientVisible")));
+            }
+            if (statusIds != null) {
+                where.add(root.get("status").get("id").in(statusIds));
             }
             if (triageCompanyIds != null) {
                 where.add(root.get("triageCompanyId").in(triageCompanyIds));

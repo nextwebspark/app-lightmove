@@ -3,7 +3,6 @@ package app.lightmove.api.candidate.model;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
@@ -264,7 +263,7 @@ class CandidateContactLedgerTest {
     }
 
     private static CandidateDetails details(String email, String phone) {
-        return new CandidateDetails("Sample Person", null, null, CandidateStatus.IDENTIFIED, null,
+        return new CandidateDetails("Sample Person", null, null, null,
                 email == null ? List.of() : List.of(ContactEntry.of(email)),
                 phone == null ? List.of() : List.of(ContactEntry.of(phone)),
                 "https://www.linkedin.com/in/sample-profile", null, null, null, null, null,

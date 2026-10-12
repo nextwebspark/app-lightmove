@@ -30,6 +30,7 @@ import BookingPage from "../features/outreach/pages/BookingPage";
 import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
 import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
+import PipelinePage from "../features/pipeline/pages/PipelinePage";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
@@ -38,6 +39,7 @@ import { SettingsBillingPage } from "../features/billing/pages/SettingsBillingPa
 import { SettingsAiAppsPage } from "../features/settings/pages/SettingsAiAppsPage";
 import { SettingsApiKeysPage } from "../features/settings/pages/SettingsApiKeysPage";
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
+import { PipelineStagesPage } from "../features/settings/pages/PipelineStagesPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
@@ -143,6 +145,7 @@ export function AppRoutes() {
           path="/projects/:projectId/candidates"
           element={<Navigate to="../companies/universe" replace relative="path" />}
         />
+        <Route path="/projects/:projectId/pipeline" element={<RequireStaff><PipelinePage /></RequireStaff>} />
         <Route path="/projects/:projectId/outreach" element={<OutreachPage />} />
         <Route
           path="/projects/:projectId/outreach/sequences/:sequenceId"
@@ -168,6 +171,7 @@ export function AppRoutes() {
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
         <Route path="/settings/ai-apps" element={<RequireStaff><SettingsAiAppsPage /></RequireStaff>} />
         <Route path="/settings/billing" element={<RequireStaff><SettingsBillingPage /></RequireStaff>} />
+        <Route path="/settings/pipeline-stages" element={<RequireStaff><PipelineStagesPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
           <Route path="/settings/members" element={<SettingsMembersPage />} />

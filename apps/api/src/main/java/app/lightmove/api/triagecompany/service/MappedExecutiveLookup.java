@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany.service;
 
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -19,6 +20,9 @@ public interface MappedExecutiveLookup {
 
     /** Never asked with an empty list. */
     Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses);
+
+    /** Which of these keys the project's workspace pipeline does not hold — a filter naming one is a 400. */
+    List<String> unknownExecutiveStatuses(UUID projectId, Collection<String> executiveStatuses);
 
     /**
      * Ranked by each company's best (lowest) executive status; a company with no executive ranks last

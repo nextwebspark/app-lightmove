@@ -10,7 +10,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.model.PipelineTestStatuses;
+import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.ReportSettings;
 import app.lightmove.api.position.service.PositionService;
@@ -40,12 +43,15 @@ class ReportSourceLoaderTest {
     private final ProjectRepository projects = mock(ProjectRepository.class);
     private final CandidateService candidates = mock(CandidateService.class);
     private final PositionService positions = mock(PositionService.class);
+    private final CandidatePipelineCatalog pipeline = mock(CandidatePipelineCatalog.class);
 
     @BeforeEach
     void aMandateWithNobodyMapped() {
         when(projects.findByIdAndWorkspaceId(PROJECT, WORKSPACE)).thenReturn(Optional.of(mock(Project.class)));
         when(candidates.listAllOfProject(eq(WORKSPACE), eq(PROJECT), anyInt()))
                 .thenReturn(new CandidatesResponse(List.of(), 0, 0, 0));
+        when(pipeline.system(WORKSPACE, CandidateSystemStatus.INTERESTED))
+                .thenReturn(PipelineTestStatuses.active("interested", "Interested", 3));
     }
 
     @Test
@@ -101,7 +107,7 @@ class ReportSourceLoaderTest {
     }
 
     private ReportSourceLoader loaderCappedAt(int maxCompanies) {
-        return new ReportSourceLoader(projects, triage, candidates, positions,
+        return new ReportSourceLoader(projects, triage, candidates, pipeline, positions,
                 capped(new ReportSettings(maxCompanies, 5000, 6, 8, 9, 3, 12)));
     }
 

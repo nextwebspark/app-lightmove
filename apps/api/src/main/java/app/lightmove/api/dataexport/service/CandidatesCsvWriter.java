@@ -2,7 +2,6 @@ package app.lightmove.api.dataexport.service;
 
 import app.lightmove.api.candidate.model.PoolPersonExport;
 import app.lightmove.api.core.text.service.CsvFormatter;
-import app.lightmove.api.dataexport.constant.ExportColumn;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -28,8 +27,8 @@ public class CandidatesCsvWriter {
                     text(person.locationCity()), text(person.locationCountry()), text(person.linkedinUrl()),
                     String.join(LIST_SEPARATOR, person.emails()), String.join(LIST_SEPARATOR, person.phones()),
                     person.positions().stream()
-                            .map(position -> text(position.positionTitle()) + " (" + ExportColumn.statusLabel(
-                                    position.status()) + ")")
+                            .map(position -> text(position.positionTitle()) + " (" + text(position.statusLabel())
+                                    + ")")
                             .collect(Collectors.joining(LIST_SEPARATOR)),
                     String.join(LIST_SEPARATOR, person.tags()), text(person.ownerName()),
                     person.doNotContact() ? "Yes" : "",

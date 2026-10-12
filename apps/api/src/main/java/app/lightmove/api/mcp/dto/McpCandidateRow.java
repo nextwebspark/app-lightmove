@@ -15,9 +15,13 @@ public record McpCandidateRow(
                 nullable = true)
         @Nullable UUID companyId,
         @Schema(description = "Their employer's name", nullable = true) @Nullable String companyName,
-        @Schema(description = "Where they stand on this position: identified, contacted, engaged, interested, "
-                + "notInterested, offLimits or outOfScope")
+        @Schema(description = "Where they stand on this position: a status key of the workspace's pipeline, such as "
+                + "identified, contacted, engaged, interested, notInterested, offLimits or outOfScope")
         String status,
+        @Schema(description = "The status's name as the workspace spells it") String statusLabel,
+        @Schema(description = "The key of the pipeline stage the status sits under, such as identified, contacted, "
+                + "interested or declined", nullable = true)
+        @Nullable String pipelineStage,
         @Schema(description = "Every field of the executive; present only with response_format=detailed. Its contacts "
                 + "and compensation are filled only where the connection holds their scopes", nullable = true)
         @Nullable PublicCandidate detail
@@ -26,7 +30,8 @@ public record McpCandidateRow(
     public static McpCandidateRow of(PublicCandidate candidate, boolean detailed) {
         return new McpCandidateRow(candidate.id(), candidate.personId(), candidate.fullName(),
                 McpFreeText.capped(candidate.title(), McpFreeText.MAX_LINE),
-                candidate.companyId(), candidate.companyName(), candidate.status(),
+                candidate.companyId(), candidate.companyName(), candidate.status(), candidate.statusLabel(),
+                candidate.pipelineStage() == null ? null : candidate.pipelineStage().key(),
                 detailed ? McpFreeText.capped(candidate) : null);
     }
 }

@@ -1,15 +1,12 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.project.service.ProjectCandidateCounter;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -23,20 +20,13 @@ import org.springframework.stereotype.Component;
  * {@code ProjectCompanyCounterAdapter} applies to declined companies. The two numbers sit side by
  * side under one "Pipeline" heading and read as a pair, so counting everyone here and only the live
  * companies there would make one heading mean two things. Every executive ever mapped, ruled out or
- * not, is still on the Candidates screen — the enum keeps them deliberately, because the same name
- * comes up on the next mandate.
+ * not, is still on the Candidates screen — the closed stage keeps them deliberately, because the same
+ * name comes up on the next mandate. Engaged and reached out are read by stage, so a workspace's own
+ * statuses count where its admin put them.
  */
 @Component
 @RequiredArgsConstructor
 class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
-
-
-    private static final Set<CandidateStatus> ENGAGED = EnumSet.of(
-            CandidateStatus.ENGAGED, CandidateStatus.INTERESTED);
-
-    private static final Set<CandidateStatus> REACHED_OUT = EnumSet.of(
-            CandidateStatus.CONTACTED, CandidateStatus.ENGAGED, CandidateStatus.INTERESTED,
-            CandidateStatus.NOT_INTERESTED);
 
     private final CandidateRepository candidates;
 
@@ -45,8 +35,7 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return byProject(
-                candidates.countByProjectIdInExcludingStatuses(projectIds, CandidateStatus.LEFT_THE_RUNNING));
+        return byProject(candidates.countStillInTheRunningByProjectIdIn(projectIds));
     }
 
     @Override
@@ -62,7 +51,7 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, ENGAGED));
+        return byProject(candidates.countEngagedByProjectIdIn(projectIds));
     }
 
     @Override
@@ -70,7 +59,7 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (projectIds.isEmpty()) {
             return Map.of();
         }
-        return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, REACHED_OUT));
+        return byProject(candidates.countReachedOutByProjectIdIn(projectIds));
     }
 
     @Override

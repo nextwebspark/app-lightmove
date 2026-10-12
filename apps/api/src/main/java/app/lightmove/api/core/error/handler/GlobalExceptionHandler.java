@@ -180,6 +180,9 @@ public class GlobalExceptionHandler {
             case "app_lm_project_triage_company_manual_name_uk" -> ErrorCode.TRIAGE_COMPANY_ALREADY_HELD;
             case "app_lm_person_profile_slug_uk" -> ErrorCode.PERSON_PROFILE_HELD;
             case "app_lm_workspace_candidate_tag_label_uk" -> ErrorCode.CANDIDATE_TAG_EXISTS;
+            case "app_lm_workspace_candidate_stage_label_uk", "app_lm_workspace_candidate_stage_key_uk",
+                 "app_lm_workspace_candidate_status_label_uk", "app_lm_workspace_candidate_status_key_uk" ->
+                    ErrorCode.PIPELINE_LABEL_TAKEN;
             // Two presses adding one person to one position: the second finds them already there.
             case "app_lm_project_candidate_person_uk" -> ErrorCode.CANDIDATE_ALREADY_MAPPED;
             // Two Starts racing one person onto a position: one live sequence per person per position.

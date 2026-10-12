@@ -18,13 +18,13 @@ import {
   type DataGridColumnLayout,
 } from "../../../components/ui/DataGrid";
 import { InlineEditCell } from "../../../components/ui/InlineEditCell";
-import { Select } from "../../../components/ui";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
 import type { Candidate, CandidateStatus } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
-import { candidateStatusStyle, CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
+import { StatusPicker } from "../../candidates/components/StatusPicker";
+import { statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
@@ -350,7 +350,7 @@ const BUILT_IN_COLUMNS = helper.columns([
     // The one exception to the "person-level fields don't sort" rule below: the server ranks a page
     // by each company's best-status executive rather than trying to order people directly, over a
     // query built for exactly this column — see `TriageCompanyRepository`'s executive-status methods.
-    meta: { share: 0, min: 104 },
+    meta: { share: 0, min: 150 },
     cell: (info) => {
       const { candidate } = info.row.original;
       const meta = info.table.options.meta;
@@ -359,24 +359,18 @@ const BUILT_IN_COLUMNS = helper.columns([
       if (meta?.canWrite) {
         const busy = meta.busyIds.has(candidate.id);
         return (
-          <Select
+          <StatusPicker
+            size="sm"
             value={candidate.status}
+            currentLabel={candidate.statusLabel}
             aria-label={`Status for ${candidate.fullName}`}
             disabled={busy}
-            onChange={(event) =>
-              meta.onChangeCandidateStatus(candidate, event.target.value as CandidateStatus)
-            }
-            className="h-7 w-auto px-1.5 py-0 text-[11px] disabled:opacity-40"
-          >
-            {CANDIDATE_STATUSES.map((status) => (
-              <option key={status.value} value={status.value}>
-                {status.label}
-              </option>
-            ))}
-          </Select>
+            onChange={(status) => meta.onChangeCandidateStatus(candidate, status)}
+            className="w-full"
+          />
         );
       }
-      const { label, className } = candidateStatusStyle(candidate.status);
+      const { label, className } = statusStyle(candidate.status, candidate);
       return <span className={`${PILL} ${className}`}>{label}</span>;
     },
   }),

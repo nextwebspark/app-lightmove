@@ -3,6 +3,7 @@ package app.lightmove.api.dataexport;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
+import app.lightmove.api.candidate.dto.CandidatePipelineStageDto;
 import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
@@ -29,7 +30,7 @@ class CompaniesCsvWriterTest {
     void writesTheGridsHeaders() {
         assertThat(headersOf(writer.write(List.of(), List.of())))
                 .containsExactly("Company", "Website", "Company LinkedIn", "Country", "Executive",
-                        "Title", "Email", "Phone", "Status", "Sector", "City", "Revenue", "Employees",
+                        "Title", "Email", "Phone", "Status", "Stage", "Sector", "City", "Revenue", "Employees",
                         "Note", "Founded", "Added", "Description", "Source");
     }
 
@@ -74,7 +75,7 @@ class CompaniesCsvWriterTest {
 
         assertThat(cells.get(0)).isEqualTo("Masdar");
         assertThat(cells.get(4)).isEqualTo("Yasmin Farouk");
-        assertThat(cells.get(17)).isEmpty();
+        assertThat(cells.get(18)).isEmpty();
     }
 
     @Test
@@ -85,7 +86,7 @@ class CompaniesCsvWriterTest {
                 person("Layla Haddad").in(null, "Dubai")))), 1);
 
         assertThat(cells.get(3)).isEmpty();
-        assertThat(cells.get(10)).isEqualTo("Dubai");
+        assertThat(cells.get(11)).isEqualTo("Dubai");
     }
 
     @Test
@@ -96,7 +97,7 @@ class CompaniesCsvWriterTest {
                 person("Layla Haddad")))), 1);
 
         assertThat(cells.get(3)).isEqualTo("Saudi Arabia");
-        assertThat(cells.get(10)).isEqualTo("Riyadh");
+        assertThat(cells.get(11)).isEqualTo("Riyadh");
     }
 
     @Test
@@ -118,9 +119,9 @@ class CompaniesCsvWriterTest {
         List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
                 company("ACWA Power").sized(3000, 2_400_000_000L, 2004), null))), 1);
 
-        assertThat(cells.get(11)).isEqualTo("2400000000");
-        assertThat(cells.get(12)).isEqualTo("3000");
-        assertThat(cells.get(14)).isEqualTo("2004");
+        assertThat(cells.get(12)).isEqualTo("2400000000");
+        assertThat(cells.get(13)).isEqualTo("3000");
+        assertThat(cells.get(15)).isEqualTo("2004");
     }
 
     @Test
@@ -131,7 +132,7 @@ class CompaniesCsvWriterTest {
                 person("Layla Haddad").standing("notInterested")))), 1);
 
         assertThat(cells.get(8)).isEqualTo("Not interested");
-        assertThat(cells.get(17)).isEqualTo("Plugin");
+        assertThat(cells.get(18)).isEqualTo("Plugin");
     }
 
     @Test
@@ -140,7 +141,7 @@ class CompaniesCsvWriterTest {
         List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
                 company("ACWA Power").added(Instant.parse("2026-09-16T22:30:00Z")), null))), 1);
 
-        assertThat(cells.get(15)).isEqualTo("2026-09-16");
+        assertThat(cells.get(16)).isEqualTo("2026-09-16");
     }
 
     @Test
@@ -160,7 +161,7 @@ class CompaniesCsvWriterTest {
         List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
                 company("ACWA Power").noted("=HYPERLINK(\"http://evil.example\",\"Click\")"), null))), 1);
 
-        assertThat(cells.get(13)).startsWith("'=HYPERLINK");
+        assertThat(cells.get(14)).startsWith("'=HYPERLINK");
     }
 
     @Test
@@ -193,7 +194,8 @@ class CompaniesCsvWriterTest {
         return new PersonBuilder(new CandidateResponse(UUID.randomUUID(), null, null, name, null, null,
                 "identified", null, null, null, null, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), null, null,
-                new CandidateContactsDto(List.of(), List.of(), null, null, null), null, false));
+                new CandidateContactsDto(List.of(), List.of(), null, null, null), null, false, "Identified", "neutral",
+                new CandidatePipelineStageDto("identified", "Identified", "neutral", "active", 1), null, true));
     }
 
     /**
@@ -299,7 +301,21 @@ class CompaniesCsvWriterTest {
                     response.compensation(), response.career(), response.languages(),
                     response.education(), response.skills(), response.source(), response.sourceUrl(),
                     customFields, response.addedAt(), response.enrichedAt(), contacts, response.personId(),
-                    response.linkedinUrlLocked()));
+                    response.linkedinUrlLocked(), labelOf(status), response.statusColour(), response.pipelineStage(),
+                    response.statusChangedAt(), response.clientVisible()));
+        }
+
+        private static String labelOf(String status) {
+            return switch (status) {
+                case "identified" -> "Identified";
+                case "contacted" -> "Contacted";
+                case "engaged" -> "Engaged";
+                case "interested" -> "Interested";
+                case "notInterested" -> "Not interested";
+                case "offLimits" -> "Off-limits";
+                case "outOfScope" -> "Out of scope";
+                default -> status;
+            };
         }
     }
 

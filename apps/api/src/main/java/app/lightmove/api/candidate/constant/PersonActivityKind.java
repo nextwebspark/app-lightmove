@@ -62,5 +62,9 @@ public enum PersonActivityKind {
     DOCUMENT_ADDED,
     DOCUMENT_VERSION_ADDED,
     DOCUMENT_REMOVED,
-    DOCUMENT_VERSION_REMOVED
+    DOCUMENT_VERSION_REMOVED,
+
+    /** The line carries the action's text and due date as set, or that it was cleared. */
+    NEXT_ACTION_SET,
+    CLIENT_VISIBILITY_CHANGED
 }

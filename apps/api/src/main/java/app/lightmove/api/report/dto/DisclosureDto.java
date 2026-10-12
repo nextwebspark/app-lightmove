@@ -7,4 +7,5 @@ import java.util.UUID;
  * allowances; {@code totalPackage} adds bonus and long-term incentive.
  */
 public record DisclosureDto(UUID id, String fullName, String company, String title, String country,
-                            String nationality, String status, long fixed, long totalPackage) {}
+                            String nationality, String status, String statusLabel, long fixed,
+                            long totalPackage) {}

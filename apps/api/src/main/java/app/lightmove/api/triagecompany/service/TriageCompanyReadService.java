@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
@@ -48,19 +49,8 @@ public class TriageCompanyReadService {
     /** Deliberately outside {@link TriageCompanySortField}: that ranking lives in {@code candidate}. */
     private static final String EXECUTIVE_STATUS_SORT_TOKEN = "executiveStatus";
 
-    /**
-     * Wire token to stored {@code CandidateStatus} name, duplicated because {@code triagecompany} must
-     * not depend on {@code candidate}. Mirrored in {@code CandidateRepository}'s ranking {@code CASE}
-     * and {@code MappedExecutiveLookupAdapter} — a rename must grep for all three.
-     */
-    private static final Map<String, String> EXECUTIVE_STATUS_TOKENS = Map.of(
-            "identified", "IDENTIFIED",
-            "contacted", "CONTACTED",
-            "engaged", "ENGAGED",
-            "interested", "INTERESTED",
-            "notInterested", "NOT_INTERESTED",
-            "offLimits", "OFF_LIMITS",
-            "outOfScope", "OUT_OF_SCOPE");
+    /** A status key's shape, checked before {@code candidate} is asked whether the workspace holds it. */
+    private static final Pattern EXECUTIVE_STATUS_KEY = Pattern.compile("^[a-z][A-Za-z0-9]{0,39}$");
 
     private final TriageCompanyRepository triaged;
     private final ProjectRepository projects;
@@ -80,7 +70,7 @@ public class TriageCompanyReadService {
 
         String companyName = SuppliedText.blankToNull(criteria.nameQuery());
         String executiveName = SuppliedText.blankToNull(criteria.executiveQuery());
-        List<String> executiveStatuses = resolveExecutiveStatuses(criteria.executiveStatuses());
+        List<String> executiveStatuses = resolveExecutiveStatuses(projectId, criteria.executiveStatuses());
         Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
                 ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
                         executiveStatuses, resolveDirection(criteria.direction()), PageRequest.of(page, size))
@@ -147,18 +137,25 @@ public class TriageCompanyReadService {
         return new PageImpl<>(ordered, pageRequest, ranked.getTotalElements());
     }
 
-    /** An unknown token is a 400; an empty result means "no filter", not "match nothing". */
-    private static List<String> resolveExecutiveStatuses(List<String> tokens) {
+    /**
+     * Status keys of the workspace's pipeline, which {@code candidate} holds: a token that is not one is a
+     * 400, never a filter quietly dropped. An empty result means "no filter", not "match nothing".
+     */
+    private List<String> resolveExecutiveStatuses(UUID projectId, List<String> tokens) {
         if (tokens == null || tokens.isEmpty()) {
             return List.of();
         }
-        return tokens.stream().map(token -> {
-            String resolved = EXECUTIVE_STATUS_TOKENS.get(token);
-            if (resolved == null) {
+        List<String> keys = tokens.stream().map(token -> {
+            if (token == null || !EXECUTIVE_STATUS_KEY.matcher(token).matches()) {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown executive status: " + token);
             }
-            return resolved;
+            return token;
         }).collect(Collectors.toList());
+        List<String> unknown = executives.unknownExecutiveStatuses(projectId, keys);
+        if (!unknown.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown executive status: " + unknown.getFirst());
+        }
+        return keys;
     }
 
     /**
@@ -174,7 +171,7 @@ public class TriageCompanyReadService {
                 .and(NEWEST_FIRST));
         Page<TriageCompany> found = findWithFilters(projectId, status,
                 SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
-                resolveExecutiveStatuses(filters.executiveStatuses()), wholeStage);
+                resolveExecutiveStatuses(projectId, filters.executiveStatuses()), wholeStage);
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));

@@ -8,8 +8,9 @@ import java.util.UUID;
 
 /**
  * One executive mapped for a mandate, as the Companies grid and the profile drawer read them. The
- * profile is the workspace person's, shared with every other mandate mapping them; {@code status},
- * {@code source} and {@code customFields} are this mandate's own. A client seat reads this record, which is
+ * profile is the workspace person's, shared with every other mandate mapping them; {@code status}
+ * (a key of the workspace's pipeline catalog), {@code source} and {@code customFields} are this mandate's
+ * own. A client seat reads this record, which is
  * why notes, the AI assessment and who filed the row are never on it.
  *
  * <p>{@code companyName} is carried rather than joined: it is the employer snapshotted when the row
@@ -51,5 +52,13 @@ public record CandidateResponse(
         /** The workspace's person this row maps — one id across every mandate that holds them (V91). */
         UUID personId,
         /** The plugin read this person off that page, so the URL cannot be retyped (CANDIDATE_PROFILE_URL_LOCKED). */
-        boolean linkedinUrlLocked
+        boolean linkedinUrlLocked,
+        /** {@code status}'s label and colour in the workspace's catalog, drawn as held even once it is retired. */
+        String statusLabel,
+        String statusColour,
+        /** The stage {@code status} sits under — read through the status, never stored beside it. */
+        CandidatePipelineStageDto pipelineStage,
+        Instant statusChangedAt,
+        /** Whether a client seat on the position sees this executive at all; staff always do. */
+        boolean clientVisible
 ) {}

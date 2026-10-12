@@ -46,7 +46,8 @@ public class PersonTimelineService {
     private static final int EXCERPT_LENGTH = 140;
     private static final Set<String> DETAIL_KEYS = Set.of("door", "backgroundConfirmed", "from", "to", "vendor",
             "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind", "tagId", "tag",
-            "ownerUserId", "owner", "documentId", "version", "category", "versions");
+            "ownerUserId", "owner", "documentId", "version", "category", "versions", "fromLabel", "toLabel",
+            "text", "dueAt", "cleared", "visible");
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */

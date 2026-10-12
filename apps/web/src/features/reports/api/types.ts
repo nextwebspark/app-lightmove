@@ -1,5 +1,5 @@
 import type { SeniorityToken } from "../../../lib/seniority";
-import type { CandidateStatus } from "../../candidates/api/types";
+import type { CandidatePipelineStage, CandidateStatus } from "../../candidates/api/types";
 
 /**
  * The talent mapping report as `GET /projects/{id}/report` answers it: a head and four chapters,
@@ -47,6 +47,8 @@ export interface SliceExecutive {
   fullName: string;
   company: string | null;
   status: CandidateStatus;
+  statusLabel?: string;
+  pipelineStage?: CandidatePipelineStage;
 }
 
 export interface MarketSlice {
@@ -119,6 +121,8 @@ export interface Disclosure {
   country: string | null;
   nationality: string | null;
   status: CandidateStatus;
+  statusLabel?: string;
+  pipelineStage?: CandidatePipelineStage;
   /** Annual, whole units of the report's currency: base plus allowances. */
   fixed: number;
   /** Fixed plus bonus and long-term incentive. */
@@ -194,8 +198,11 @@ export interface SourcingQuality {
   level: "GOOD" | "ATTENTION";
 }
 
+/** One stage of a researcher's or a company's mix, in stage order. `status` holds the stage's key. */
 export interface StatusCount {
-  status: CandidateStatus;
+  status: string;
+  label?: string;
+  colour?: string;
   count: number;
 }
 
@@ -206,6 +213,8 @@ export interface SourcedExecutive {
   seniority: string | null;
   companyName: string | null;
   status: CandidateStatus;
+  statusLabel?: string;
+  pipelineStage?: CandidatePipelineStage;
   addedByName: string | null;
   addedAt: string;
 }

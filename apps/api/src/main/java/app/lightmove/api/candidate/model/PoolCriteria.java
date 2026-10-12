@@ -1,6 +1,5 @@
 package app.lightmove.api.candidate.model;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.PoolSortDirection;
 import app.lightmove.api.candidate.constant.PoolSortField;
 import app.lightmove.api.candidate.constant.PoolView;
@@ -11,10 +10,12 @@ import app.lightmove.api.core.error.model.ApiException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 /**
  * What the Candidates page asks of the pool. Every part is optional and they combine with AND.
- * {@code status} reads the mapping on {@code projectId} when one is named, any mapping otherwise;
+ * {@code status} (a status key) and {@code pipelineStage} (a stage key) read the mapping on {@code projectId}
+ * when one is named, any mapping otherwise;
  * {@code unowned} asks for people nobody owns and wins over {@code ownerUserId}.
  */
 public record PoolCriteria(
@@ -23,7 +24,8 @@ public record PoolCriteria(
         List<UUID> tagIds,
         TagMatch tagMatch,
         UUID projectId,
-        CandidateStatus status,
+        String status,
+        String pipelineStage,
         UUID ownerUserId,
         boolean unowned,
         String country,
@@ -33,6 +35,8 @@ public record PoolCriteria(
 
     private static final String NOBODY = "nobody";
 
+    private static final Pattern PIPELINE_KEY = Pattern.compile("^[a-z][A-Za-z0-9]{0,39}$");
+
     public PoolCriteria {
         view = view == null ? PoolView.ALL : view;
         // Distinct, because "all of" counts the tags matched against how many were asked for.
@@ -41,6 +45,8 @@ public record PoolCriteria(
         sort = sort == null ? PoolSortField.ACTIVITY : sort;
         query = query == null || query.isBlank() ? null : query.strip();
         country = country == null || country.isBlank() ? null : country.strip();
+        status = pipelineKeyOrNull(status, "status");
+        pipelineStage = pipelineKeyOrNull(pipelineStage, "pipeline stage");
     }
 
     /**
@@ -48,7 +54,8 @@ public record PoolCriteria(
      * id for the owner. An unknown token is a 400, never a filter quietly dropped.
      */
     public static PoolCriteria read(String query, String view, List<UUID> tagIds, String tagMatch, UUID projectId,
-                                    String status, String owner, String country, String sort, String direction) {
+                                    String status, String pipelineStage, String owner, String country, String sort,
+                                    String direction) {
         boolean unowned = NOBODY.equalsIgnoreCase(owner == null ? "" : owner.strip());
         UUID ownerUserId = null;
         if (!unowned && owner != null && !owner.isBlank()) {
@@ -64,13 +71,24 @@ public record PoolCriteria(
         boolean ascending = sortDirection == PoolSortDirection.ASC;
         return new PoolCriteria(query, ApiValueEnum.parse(PoolView.class, view, PoolView.ALL, "view"), tagIds,
                 ApiValueEnum.parse(TagMatch.class, tagMatch, TagMatch.ANY, "tag match"), projectId,
-                ApiValueEnum.parse(CandidateStatus.class, status, null, "status"), ownerUserId, unowned, country,
+                status, pipelineStage, ownerUserId, unowned, country,
                 sortField, ascending);
     }
 
     /** The whole pool, newest activity first — what an export of a selection is ordered by. */
     public static PoolCriteria everyone() {
-        return new PoolCriteria(null, PoolView.ALL, List.of(), TagMatch.ANY, null, null, null, false, null,
+        return new PoolCriteria(null, PoolView.ALL, List.of(), TagMatch.ANY, null, null, null, null, false, null,
                 PoolSortField.ACTIVITY, false);
+    }
+
+    /** A key of the workspace's catalog, which a key the workspace does not hold simply matches nobody. */
+    private static String pipelineKeyOrNull(String key, String field) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        if (!PIPELINE_KEY.matcher(key.strip()).matches()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown " + field + ": " + key);
+        }
+        return key.strip();
     }
 }

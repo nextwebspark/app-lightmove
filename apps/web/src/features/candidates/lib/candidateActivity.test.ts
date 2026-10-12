@@ -44,10 +44,22 @@ describe("timelineLines", () => {
     });
   });
 
-  it("reads a status move in the grid's own labels", () => {
+  it("reads an older status move, which carries only the built-in keys, in their labels", () => {
     expect(
       lineOf({ kind: "STATUS_CHANGED", details: { from: "contacted", to: "engaged" } }),
     ).toMatchObject({ text: "marked Engaged on this position", detail: "Contacted → Engaged" });
+    expect(lineOf({ kind: "STATUS_CHANGED", details: { from: "identified", to: "offLimits" } })).toMatchObject({
+      detail: "Identified → Off-limits",
+    });
+  });
+
+  it("reads a status move in the labels it was written with, whatever they are called now", () => {
+    expect(
+      lineOf({
+        kind: "STATUS_CHANGED",
+        details: { from: "contacted", to: "callBooked", fromLabel: "Reached out", toLabel: "Call booked" },
+      }),
+    ).toMatchObject({ text: "marked Call booked on this position", detail: "Reached out → Call booked" });
   });
 
   it("phrases each kind of note by what it records, with its opening words", () => {

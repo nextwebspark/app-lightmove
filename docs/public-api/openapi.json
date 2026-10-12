@@ -257,13 +257,12 @@
             "format" : "uuid"
           }
         }, {
-          "description" : "Only executives at this status",
+          "description" : "Only executives at this status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope",
           "in" : "query",
           "name" : "status",
           "required" : false,
           "schema" : {
-            "type" : "string",
-            "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+            "type" : "string"
           }
         }, {
           "description" : "Only executives mapped at this company: a Company's id from the companies route",
@@ -993,6 +992,10 @@
             "format" : "uuid",
             "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
           },
+          "pipelineStage" : {
+            "$ref" : "#/components/schemas/PipelineStage",
+            "description" : "The pipeline stage the status sits under"
+          },
           "seniority" : {
             "type" : [ "string", "null" ],
             "description" : "Their level against the role",
@@ -1008,9 +1011,13 @@
           },
           "status" : {
             "type" : "string",
-            "description" : "Where they stand on this position",
-            "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ],
+            "description" : "Where they stand on this position: a status key of the workspace's pipeline. The built-in keys identified, contacted, engaged, interested, notInterested, offLimits and outOfScope are always present; a workspace may add its own",
             "example" : "contacted"
+          },
+          "statusLabel" : {
+            "type" : "string",
+            "description" : "The status's name as the workspace spells it",
+            "example" : "Contacted"
           },
           "summary" : {
             "type" : [ "string", "null" ],
@@ -1338,6 +1345,28 @@
           }
         }
       },
+      "PipelineStage" : {
+        "type" : "object",
+        "description" : "The stage of the workspace's pipeline an executive's status sits under",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "description" : "The stage's key, stable across renames",
+            "example" : "contacted"
+          },
+          "kind" : {
+            "type" : "string",
+            "description" : "Whether the stage keeps someone in the running; closed means they have left it",
+            "enum" : [ "active", "closed" ],
+            "example" : "active"
+          },
+          "label" : {
+            "type" : "string",
+            "description" : "The stage's name as the workspace spells it",
+            "example" : "Contacted"
+          }
+        }
+      },
       "Problem" : {
         "type" : "object",
         "description" : "An RFC 9457 problem document; switch on code, never on detail",
@@ -1492,7 +1521,7 @@
       },
       "ProjectSummary" : {
         "type" : "object",
-        "description" : "Where a position stands: its companies by stage, its executives by status, and its dates, in one read",
+        "description" : "Where a position stands: its companies by stage, its executives by status and by pipeline stage, and its dates, in one read",
         "properties" : {
           "companies" : {
             "$ref" : "#/components/schemas/StageCounts",
@@ -1504,7 +1533,7 @@
               "type" : "integer",
               "format" : "int64"
             },
-            "description" : "Executives at each status, every status present: identified, contacted, engaged, interested, notInterested, offLimits, outOfScope",
+            "description" : "Executives at each status key of the workspace's pipeline, in pipeline order, every status present — the built-in identified, contacted, engaged, interested, notInterested, offLimits and outOfScope always among them",
             "example" : {
               "identified" : 64,
               "contacted" : 30,
@@ -1520,6 +1549,22 @@
             "format" : "int64",
             "description" : "Universe or shortlisted companies with at least one executive mapped",
             "example" : 31
+          },
+          "pipelineStages" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            },
+            "description" : "Executives at each stage key of the workspace's pipeline, in pipeline order, every stage present",
+            "example" : {
+              "identified" : 64,
+              "contacted" : 39,
+              "interested" : 4,
+              "qualified" : 0,
+              "shortlisted" : 0,
+              "declined" : 6
+            }
           },
           "position" : {
             "$ref" : "#/components/schemas/Project",

@@ -2,18 +2,20 @@ import type { CustomFieldValues } from "../../customcolumns/api/types";
 
 import type { SeniorityToken } from "../../../lib/seniority";
 /**
- * Where a mandate's research on an executive has got to. Not a shortlist flag: talent mapping records
- * the market as it is, so someone ruled out is kept with the reason rather than deleted — the map is
- * worth less if it only shows the people still in play.
+ * A status key from the workspace's pipeline catalog. The seven built-in keys (identified, contacted,
+ * engaged, interested, notInterested, offLimits, outOfScope) are always valid; anything else is a status the
+ * workspace added. A candidate holds a status, and its stage is derived from it.
  */
-export type CandidateStatus =
-  | "identified"
-  | "contacted"
-  | "engaged"
-  | "interested"
-  | "notInterested"
-  | "offLimits"
-  | "outOfScope";
+export type CandidateStatus = string;
+
+/** The stage a status sits under, as every read of a candidate carries it. */
+export interface CandidatePipelineStage {
+  key: string;
+  label: string;
+  colour: string;
+  kind: "active" | "closed";
+  position: number;
+}
 
 /**
  * Distance from the chief executive, the axis a search brief is written in. The same job title means
@@ -92,6 +94,12 @@ export interface Candidate {
   title: string | null;
   seniority: CandidateSeniority | null;
   status: CandidateStatus;
+  statusLabel?: string;
+  statusColour?: string;
+  pipelineStage?: CandidatePipelineStage;
+  statusChangedAt?: string;
+  /** Whether a client seat on the position sees this executive. */
+  clientVisible?: boolean;
   linkedinUrl: string | null;
   locationCountry: string | null;
   locationCity: string | null;
@@ -292,6 +300,10 @@ export interface PersonPosition {
   projectId: string;
   positionTitle: string | null;
   status: CandidateStatus;
+  statusLabel?: string;
+  statusColour?: string;
+  pipelineStage?: CandidatePipelineStage;
+  statusChangedAt?: string;
   addedByUserId: string;
   addedByName: string | null;
   addedAt: string;
@@ -379,6 +391,8 @@ export interface PoolFilters {
   tagMatch: TagMatch;
   position: string;
   status: CandidateStatus | "";
+  /** A stage key; narrows to every status under it. */
+  pipelineStage: string;
   /** A user id, "nobody" for people nobody owns, or empty for anyone. */
   owner: string;
   country: string;

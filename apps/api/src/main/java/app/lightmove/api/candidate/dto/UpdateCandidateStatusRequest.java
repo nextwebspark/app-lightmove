@@ -14,6 +14,6 @@ import jakarta.validation.constraints.Size;
  */
 public record UpdateCandidateStatusRequest(
         @NotBlank(message = "A status is required")
-        @Size(max = 32)
+        @Size(max = 40)
         String status
 ) {}

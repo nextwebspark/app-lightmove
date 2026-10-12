@@ -1,6 +1,8 @@
 package app.lightmove.api.report.service;
 
+import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ReportSettings;
@@ -36,14 +38,16 @@ class ReportSourceLoader {
     private final ProjectRepository projects;
     private final TriageCompanyReadService triage;
     private final CandidateService candidates;
+    private final CandidatePipelineCatalog pipeline;
     private final PositionService positions;
     private final ReportSettings caps;
 
     ReportSourceLoader(ProjectRepository projects, TriageCompanyReadService triage, CandidateService candidates,
-                       PositionService positions, LightMoveProperties properties) {
+                       CandidatePipelineCatalog pipeline, PositionService positions, LightMoveProperties properties) {
         this.projects = projects;
         this.triage = triage;
         this.candidates = candidates;
+        this.pipeline = pipeline;
         this.positions = positions;
         this.caps = properties.report();
     }
@@ -61,7 +65,8 @@ class ReportSourceLoader {
         universe.addAll(shortlisted.companies());
 
         CandidatesResponse people = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates());
-        List<ExecutiveRow> executives = pair(people, universe);
+        int interestedFrom = pipeline.system(workspaceId, CandidateSystemStatus.INTERESTED).getStage().getPosition();
+        List<ExecutiveRow> executives = pair(people, universe, interestedFrom);
 
         return new ReportSources(project, universe, inUniverse.totalCount() + shortlisted.totalCount(),
                 executives, people.totalCount(), positions.compensationOf(workspaceId, projectId));
@@ -76,11 +81,12 @@ class ReportSourceLoader {
         return triage.listAllOfStage(workspaceId, projectId, status, TriageCompanyFilters.none(), cap);
     }
 
-    private static List<ExecutiveRow> pair(CandidatesResponse people, List<TriageCompanyResponse> universe) {
+    private static List<ExecutiveRow> pair(CandidatesResponse people, List<TriageCompanyResponse> universe,
+                                           int interestedFrom) {
         Map<UUID, TriageCompanyResponse> companyById = universe.stream()
                 .collect(Collectors.toMap(TriageCompanyResponse::id, Function.identity()));
         return people.candidates().stream()
-                .map(person -> new ExecutiveRow(person, companyById.get(person.triageCompanyId())))
+                .map(person -> new ExecutiveRow(person, companyById.get(person.triageCompanyId()), interestedFrom))
                 .toList();
     }
 }

@@ -53,3 +53,53 @@ export interface Invitation {
   createdAt: string;
   expiresAt: string;
 }
+
+/** The swatches a pipeline stage or status is drawn in: the tag palette's six roles, plus signal and red. */
+export type PipelineColour = "green" | "accent" | "neutral" | "violet" | "adjacent" | "inferred" | "signal" | "red";
+
+/** An active stage keeps someone in the running; the one closed stage, always last, holds everyone ruled out. */
+export type PipelineStageKind = "active" | "closed";
+
+/** One status of the catalog. `key` is the wire value a candidate's `status` carries. */
+export interface PipelineStatus {
+  id: string;
+  key: string;
+  label: string;
+  colour: string;
+  position: number;
+  isDefault: boolean;
+  /** One of the seven built-in statuses: renamed and recoloured, never retired or moved. */
+  system: boolean;
+  retired: boolean;
+}
+
+export interface PipelineStage {
+  id: string;
+  key: string;
+  label: string;
+  colour: string;
+  kind: PipelineStageKind;
+  position: number;
+  system: boolean;
+  retired: boolean;
+  statuses: PipelineStatus[];
+}
+
+/** The workspace's stages in order, each with its statuses in order; retired ones included and flagged. */
+export interface PipelineCatalog {
+  stages: PipelineStage[];
+}
+
+export interface PipelineStageChange {
+  label?: string;
+  colour?: string;
+  retired?: boolean;
+}
+
+export interface PipelineStatusChange {
+  label?: string;
+  colour?: string;
+  stageId?: string;
+  isDefault?: true;
+  retired?: boolean;
+}

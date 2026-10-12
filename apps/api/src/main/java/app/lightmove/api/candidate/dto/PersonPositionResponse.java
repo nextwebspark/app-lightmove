@@ -8,7 +8,7 @@ public record PersonPositionResponse(
         UUID candidateId,
         UUID projectId,
         String positionTitle,
-        /** A {@code CandidateStatus} wire token. */
+        /** A status key of the workspace's pipeline catalog. */
         String status,
         UUID addedByUserId,
         String addedByName,
@@ -16,5 +16,9 @@ public record PersonPositionResponse(
         /** A {@code CandidateSource} wire token: the door this mandate filed them through. */
         String source,
         /** Whether the caller may move this mapping's status — they hold the position's WORK_EXECUTE. */
-        boolean workable
+        boolean workable,
+        String statusLabel,
+        String statusColour,
+        CandidatePipelineStageDto pipelineStage,
+        Instant statusChangedAt
 ) {}

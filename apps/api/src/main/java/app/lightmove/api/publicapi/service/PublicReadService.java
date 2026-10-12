@@ -106,8 +106,8 @@ public class PublicReadService {
         Set<UUID> stageCompanies = stage == null || stage.isBlank() ? null
                 : companies.idsOfStage(reader.workspaceId(), projectId, TriageCompanyStatus.parseOrInUniverse(stage));
         CandidatesResponse found = candidates.list(reader.workspaceId(), projectId, new CandidateListCriteria(
-                companyId == null ? null : List.of(companyId), null, null, query, stageCompanies, status, page,
-                pageSize));
+                companyId == null ? null : List.of(companyId), null, null, query, stageCompanies, status, null,
+                page, pageSize));
         boolean withContacts = reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
         List<PublicCandidate> rows = found.candidates().stream()
@@ -121,11 +121,16 @@ public class PublicReadService {
         ProjectResponse project = projects.get(reader.workspaceId(), projectId);
         TriageCountsDto stages = companies.stageCountsOf(reader.workspaceId(), projectId);
         Map<String, Long> executives = new LinkedHashMap<>();
-        candidates.statusCountsOf(reader.workspaceId(), projectId)
-                .forEach((status, total) -> executives.put(status.value(), total));
+        Map<String, Long> pipelineStages = new LinkedHashMap<>();
+        candidates.statusCountsOf(reader.workspaceId(), projectId).forEach((status, total) -> {
+            executives.put(status.getStatusKey(), total);
+            if (!status.getStage().isRetired() || total > 0) {
+                pipelineStages.merge(status.getStage().getStageKey(), total, Long::sum);
+            }
+        });
         return new PublicPositionSummary(PublicProject.of(project),
                 new PublicStageCounts(stages.inUniverse(), stages.shortlisted(), stages.declined()),
-                executives, project.mappedCompanies(),
+                executives, pipelineStages, project.mappedCompanies(),
                 new PublicTimeline(project.startDate(), project.mappingTargetDate(), project.deliveryDate(),
                         project.targetDate()));
     }

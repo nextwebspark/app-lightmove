@@ -23,6 +23,7 @@ const SETTINGS_SECTIONS = [
   { to: "/settings/general", label: "General", icon: ICONS.settings, group: "Workspace" },
   { to: "/settings/members", label: "Members", icon: ICONS.members, group: "Workspace" },
   { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
+  { to: "/settings/pipeline-stages", label: "Pipeline stages", icon: ICONS.columns, group: "Workspace", everyStaff: true },
   { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
   { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
@@ -44,7 +45,7 @@ const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]
  *
  * <p>Account is everyone's — a portal guest has a name and a timezone like anyone else — except API keys and
  * Connected AI apps, which are staff's. The Workspace
- * group is admin-only but for Billing, which every staff member reads, and the Platform group is LightMove
+ * group is admin-only but for Billing and Pipeline stages, which every staff member reads, and the Platform group is LightMove
  * staff's, matching the routes: hiding them is presentation, and the route guards are the gate.
  */
 export function SettingsLayout() {

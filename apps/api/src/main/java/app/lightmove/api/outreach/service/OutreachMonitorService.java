@@ -129,7 +129,7 @@ public class OutreachMonitorService {
                     enrollment.getPersonId(),
                     recipient != null ? recipient.fullName() : unmappedNames.get(enrollment.getPersonId()),
                     recipient == null ? null : recipient.title(), recipient == null ? null : recipient.companyName(),
-                    recipient == null ? null : recipient.status().value(), enrollment.getSequenceId(),
+                    recipient == null ? null : recipient.status(), enrollment.getSequenceId(),
                     sequence == null ? null : sequence.getName(), stepCount, enrollment.sentCount(),
                     enrollment.isLive() ? enrollment.getNextSendAt() : null, enrollment.getLastSentAt(),
                     enrollment.getStatus(), enrollment.getStopReason(), endedAtOf(enrollment),

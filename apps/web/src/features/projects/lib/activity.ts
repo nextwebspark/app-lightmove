@@ -1,4 +1,4 @@
-import { CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
+import { statusLabelOf } from "../../candidates/lib/pipelineStatus";
 import type { ProjectActivityEntry } from "../api/types";
 
 /** One line of the side panel's Recent activity: a run of the same act by the same person, merged. */
@@ -140,8 +140,8 @@ function phraseOf(entry: ProjectActivityEntry): Phrase | null {
         : "Find executives added no one");
     }
     case "CANDIDATE_UPDATED": {
-      const label = CANDIDATE_STATUSES.find((status) => status.value === details.status)?.label;
-      if (!label) return null;
+      if (!details.status) return null;
+      const label = details.statusLabel || statusLabelOf(details.status);
       return {
         group: `${entry.type}:${details.status}`,
         count: 1,

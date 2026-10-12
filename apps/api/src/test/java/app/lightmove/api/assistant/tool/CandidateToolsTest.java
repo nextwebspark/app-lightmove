@@ -9,9 +9,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.model.PipelineCatalog;
+import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -39,10 +41,10 @@ class CandidateToolsTest {
             recorder);
 
     @Test
-    void offersEveryStatusTheCandidateListTakes() {
+    void namesEveryBuiltInStatusKey() {
         assertThat(CandidateTools.STATUSES.split(", "))
                 .containsExactlyInAnyOrderElementsOf(
-                        Arrays.stream(CandidateStatus.values()).map(CandidateStatus::value).toList());
+                        Arrays.stream(CandidateSystemStatus.values()).map(CandidateSystemStatus::value).toList());
     }
 
     @Test
@@ -114,10 +116,12 @@ class CandidateToolsTest {
     }
 
     private CandidateTools tools() {
+        CandidatePipelineCatalog pipeline = mock(CandidatePipelineCatalog.class);
+        when(pipeline.catalogOf(any())).thenReturn(new PipelineCatalog(List.of(), List.of()));
         LightMoveProperties properties = mock(LightMoveProperties.class);
         when(properties.assistant()).thenReturn(new AssistantSettings("gemini-2.5-flash", 0.2, 512, 12, 25, 250,
                 4, 10, 5, Duration.ofSeconds(25), 15));
-        return new CandidateTools(candidates, triaged, properties);
+        return new CandidateTools(candidates, pipeline, triaged, properties);
     }
 
     private ToolContext toolContext() {

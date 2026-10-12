@@ -1,9 +1,14 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.project.model.Project;
+import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.MappedExecutiveLookup;
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -23,6 +28,8 @@ import org.springframework.stereotype.Component;
 class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
 
     private final CandidateRepository candidates;
+    private final ProjectRepository projects;
+    private final CandidatePipelineCatalog pipeline;
 
     @Override
     public Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, String executiveName) {
@@ -30,16 +37,18 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
                 projectId, executiveName);
     }
 
-    /**
-     * {@code CandidateStatus::valueOf} fails loud on a name it does not recognise — unlike
-     * {@code CandidateRepository}'s ranking {@code CASE} and
-     * {@code TriageCompanyReadService.EXECUTIVE_STATUS_TOKENS}, which mirror the same enum-name spelling as
-     * string literals and would degrade silently instead. A rename should grep for all three regardless.
-     */
+    /** Status keys of the project's own workspace catalog; a key it does not hold matches nobody. */
     @Override
     public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses) {
-        List<CandidateStatus> statuses = executiveStatuses.stream().map(CandidateStatus::valueOf).toList();
-        return candidates.findTriageCompanyIdsByProjectIdAndStatusIn(projectId, statuses);
+        return candidates.findTriageCompanyIdsByProjectIdAndStatusKeyIn(projectId, executiveStatuses);
+    }
+
+    @Override
+    public List<String> unknownExecutiveStatuses(UUID projectId, Collection<String> executiveStatuses) {
+        UUID workspaceId = projects.findById(projectId).map(Project::getWorkspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        PipelineCatalog catalog = pipeline.catalogOf(workspaceId);
+        return executiveStatuses.stream().filter(key -> catalog.byKey(key).isEmpty()).toList();
     }
 
     @Override

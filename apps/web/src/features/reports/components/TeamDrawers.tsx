@@ -1,11 +1,11 @@
 import { Avatar } from "../../../components/ui/Avatar";
 import { cn } from "../../../lib/cn";
 import { formatRelativeTime } from "../../../lib/format";
-import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import type { CompanyCoverage, Researcher, SourcedExecutive, SourcingQuality, StatusCount } from "../api/types";
 import { percent } from "../lib/figures";
 import { roleLabel, sinceLabel } from "../lib/teamLabels";
-import { STATUS_TONES, statusTone } from "../lib/statusTone";
+import { STATUS_TONES, stageTone } from "../lib/statusTone";
 import { DrawerKpi, DrawerKpis, DrawerSection, ReportDrawer, StatusPill } from "./ReportDrawer";
 
 const SPARK_WIDTH = 340;
@@ -124,21 +124,25 @@ export function CoverageCompanyDrawer({ company, onClose }: { company: CompanyCo
   );
 }
 
+/** The mix arrives by stage, in stage order: `status` is the stage's key. */
 function StatusMix({ label, mix, total }: { label: string; mix: StatusCount[]; total: number }) {
+  const { catalog } = usePipelineCatalog();
+  const labelOf = (row: StatusCount) =>
+    row.label ?? catalog.stages.find((stage) => stage.key === row.status)?.label ?? row.status;
   return (
     <DrawerSection label={label}>
       <div className="flex flex-col gap-[9px]">
         {mix.map((row) => (
           <div key={row.status}>
             <div className="mb-1 flex justify-between text-xs text-u-text2">
-              <span>{candidateStatusStyle(row.status).label}</span>
+              <span>{labelOf(row)}</span>
               <span className="font-u-num font-bold text-u-text">
                 {row.count} <span className="font-normal text-u-text3">({percent(row.count, total)}%)</span>
               </span>
             </div>
             <div className="h-[9px] w-full overflow-hidden rounded-[4px] bg-u-sunken">
               <div
-                className={cn("h-full rounded-[4px]", STATUS_TONES[statusTone(row.status)].swatch)}
+                className={cn("h-full rounded-[4px]", STATUS_TONES[stageTone(row.status, catalog)].swatch)}
                 style={{ width: `${percent(row.count, total)}%` }}
               />
             </div>
@@ -205,7 +209,7 @@ function PersonRow({ executive, detail }: { executive: SourcedExecutive; detail:
         <span className="block truncate text-[13px] font-semibold text-u-text">{executive.name}</span>
         {detail && <span className="mt-0.5 block truncate text-[11.5px] text-u-text3">{detail}</span>}
       </span>
-      <StatusPill status={executive.status} />
+      <StatusPill status={executive} />
     </div>
   );
 }

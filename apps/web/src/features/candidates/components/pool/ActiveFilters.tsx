@@ -2,7 +2,8 @@ import { Icon, ICONS } from "../../../../components/layout/Icon";
 import type { Project } from "../../../projects/api/types";
 import type { Member } from "../../../workspace/api/types";
 import type { CandidateTag, PoolFilters } from "../../api/types";
-import { candidateStatusStyle } from "../../lib/candidateVocabulary";
+import { statusStyle } from "../../lib/pipelineStatus";
+import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
 import { TAG_MATCHES, withoutRailFilters } from "../../lib/poolFilters";
 
 /** One removable chip per filter in force, then Clear all — what the hidden rail is narrowing by. */
@@ -19,6 +20,7 @@ export function ActiveFilters({
   membersByUserId: Map<string, Member>;
   positions: Project[];
 }) {
+  const { catalog } = usePipelineCatalog();
   const chips: { key: string; label: string; clear: () => void }[] = [];
   if (filters.tagIds.length > 0) {
     const matchLabel = TAG_MATCHES.find((match) => match.value === filters.tagMatch)?.label ?? "Any of";
@@ -32,8 +34,16 @@ export function ActiveFilters({
   if (filters.status) {
     chips.push({
       key: "status",
-      label: `Status: ${candidateStatusStyle(filters.status).label}`,
+      label: `Status: ${statusStyle(filters.status, null, catalog).label}`,
       clear: () => onChange({ ...filters, status: "" }),
+    });
+  }
+  if (filters.pipelineStage) {
+    const stage = catalog.stages.find((candidate) => candidate.key === filters.pipelineStage);
+    chips.push({
+      key: "pipelineStage",
+      label: `Stage: ${stage?.label ?? filters.pipelineStage}`,
+      clear: () => onChange({ ...filters, pipelineStage: "" }),
     });
   }
   if (filters.owner) {

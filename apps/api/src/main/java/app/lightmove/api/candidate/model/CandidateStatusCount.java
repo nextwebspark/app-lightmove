@@ -1,11 +1,11 @@
 package app.lightmove.api.candidate.model;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import java.util.UUID;
 
 /** One row of a mandate's executives grouped by status. */
 public interface CandidateStatusCount {
 
-    CandidateStatus getStatus();
+    UUID getStatusId();
 
     long getTotal();
 }

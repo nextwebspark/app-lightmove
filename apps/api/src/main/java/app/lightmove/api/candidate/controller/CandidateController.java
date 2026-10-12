@@ -60,10 +60,12 @@ public class CandidateController {
                                    @RequestParam(required = false) List<UUID> triageCompanyId,
                                    @RequestParam(required = false) Boolean unmapped,
                                    @RequestParam(required = false) String q,
+                                   @RequestParam(required = false) String status,
+                                   @RequestParam(required = false) String pipelineStage,
                                    @RequestParam(required = false) Integer page,
                                    @RequestParam(required = false) Integer size) {
-        CandidateListCriteria criteria =
-                new CandidateListCriteria(triageCompanyId, unmapped, q, null, null, null, page, size);
+        CandidateListCriteria criteria = new CandidateListCriteria(triageCompanyId, unmapped, q, null, null,
+                status, pipelineStage, page, size);
         return candidates.list(principal.requireWorkspaceId(), projectId, criteria);
     }
 

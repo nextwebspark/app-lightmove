@@ -1,5 +1,5 @@
-import type { CandidateStatus, PersonTimelineEntry } from "../api/types";
-import { candidateStatusStyle } from "./candidateVocabulary";
+import type { PersonTimelineEntry } from "../api/types";
+import { statusLabelOf } from "./pipelineStatus";
 
 /**
  * A person's history as sentences: what the actor did, and a second line of detail. Worded as the
@@ -103,8 +103,10 @@ function phraseOf(
       return { text: `removed${them} from ${where}`, detail: null };
     case "STATUS_CHANGED":
       return {
-        text: `marked${them} ${statusLabel(details.to)} on ${where}`,
-        detail: details.from ? `${statusLabel(details.from)} → ${statusLabel(details.to)}` : null,
+        text: `marked${them} ${statusLabel(details.to, details.toLabel)} on ${where}`,
+        detail: details.from
+          ? `${statusLabel(details.from, details.fromLabel)} → ${statusLabel(details.to, details.toLabel)}`
+          : null,
       };
     case "PROFILE_EDITED":
       return {
@@ -256,8 +258,10 @@ function aboutOf(entry: PersonTimelineEntry, here: boolean): string {
   return here ? " about this position" : ` about ${entry.projectTitle ?? "a position"}`;
 }
 
-function statusLabel(value: string | undefined): string {
-  return value ? candidateStatusStyle(value as CandidateStatus).label : "—";
+/** The label the line was written with; an older line carries only one of the seven built-in keys. */
+function statusLabel(value: string | undefined, snapshot: string | undefined): string {
+  if (snapshot) return snapshot;
+  return value ? statusLabelOf(value) : "—";
 }
 
 function vendorOf(value: string | undefined): string | null {

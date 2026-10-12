@@ -2,13 +2,15 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Select, useToast } from "../../../components/ui";
+import { useToast } from "../../../components/ui";
 import { formatInstantDate } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import { changeCandidateStatus, CANDIDATES_KEY_PREFIX } from "../api/candidatesApi";
 import * as poolApi from "../api/poolApi";
 import type { CandidateStatus, PersonPosition } from "../api/types";
-import { CANDIDATE_SOURCE_STYLES, CANDIDATE_STATUSES, candidateStatusStyle } from "../lib/candidateVocabulary";
+import { CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
+import { useStatusStyle } from "../../workspace/lib/usePipelineCatalog";
+import { StatusPicker } from "./StatusPicker";
 import { TabSectionHeading } from "./PersonSections";
 
 /** The positions a person sits on, in either drawer's Records tab. */
@@ -50,11 +52,12 @@ function PositionCard({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const status = candidateStatusStyle(position.status);
+  const styleOf = useStatusStyle();
+  const status = styleOf(position.status, position);
   const moving = useMutation({
     mutationFn: (next: CandidateStatus) => changeCandidateStatus(position.projectId, position.candidateId, next),
     onSuccess: (_, next) => {
-      toast(`Marked ${candidateStatusStyle(next).label} on ${position.positionTitle ?? "the position"}`);
+      toast(`Marked ${styleOf(next).label} on ${position.positionTitle ?? "the position"}`);
       void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(position.projectId) });
       onStatusChanged?.();
@@ -78,19 +81,14 @@ function PositionCard({
         </span>
       </div>
       {position.workable ? (
-        <Select
+        <StatusPicker
           aria-label={`Status on ${position.positionTitle ?? "this position"}`}
           value={position.status}
+          currentLabel={position.statusLabel}
           disabled={moving.isPending}
-          onChange={(event) => moving.mutate(event.target.value as CandidateStatus)}
-          className="w-auto py-1 text-[12.5px]"
-        >
-          {CANDIDATE_STATUSES.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
+          onChange={(status) => moving.mutate(status)}
+          className="flex-none"
+        />
       ) : (
         <span className={`flex-none rounded-full px-2 py-px font-mono text-[10px] font-semibold ${status.className}`}>
           {status.label}

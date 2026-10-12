@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from "react";
 import { cn } from "../../../lib/cn";
-import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
+import { statusStyle } from "../../candidates/lib/pipelineStatus";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import type { Disclosure } from "../api/types";
 import { type CompensationStats, measureValue } from "../lib/compensationStats";
 import { formatCompactMoney } from "../lib/figures";
@@ -34,6 +35,7 @@ export function CompensationStrip({
   currency: string;
   onSelect: (d: Disclosure) => void;
 }) {
+  const { catalog } = usePipelineCatalog();
   const span = stats.axisHigh - stats.axisLow;
   const x = (amount: number) => PAD_X + ((amount - stats.axisLow) / span) * (W - PAD_X * 2);
   const band = stats.band;
@@ -85,7 +87,7 @@ export function CompensationStrip({
         <line x1={PAD_X} x2={W - PAD_X} y1={MID_Y} y2={MID_Y} className="stroke-u-border-strong" strokeWidth={1} />
         {stats.disclosures.map((d) => {
           const value = measureValue(d, stats.measure);
-          const summary = `${d.fullName} · ${formatCompactMoney(currency, value)} · ${candidateStatusStyle(d.status).label}`;
+          const summary = `${d.fullName} · ${formatCompactMoney(currency, value)} · ${statusStyle(d.status, d, catalog).label}`;
           const handleKey = (event: KeyboardEvent<SVGCircleElement>) => {
             if (event.key !== "Enter" && event.key !== " ") return;
             event.preventDefault();
@@ -105,7 +107,7 @@ export function CompensationStrip({
               strokeWidth={2}
               className={cn(
                 "origin-center cursor-pointer stroke-u-surface outline-none transition-transform [transform-box:fill-box] hover:scale-[1.3] focus-visible:scale-[1.3] focus-visible:stroke-u-accent",
-                STATUS_TONES[statusTone(d.status)].fill,
+                STATUS_TONES[statusTone(d, catalog)].fill,
               )}
             >
               <title>{summary}</title>

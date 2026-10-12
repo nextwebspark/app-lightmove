@@ -1,21 +1,22 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDossier;
+import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonEmailKey;
 import app.lightmove.api.candidate.model.RecipientEmail;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
+import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,10 +42,7 @@ public class CandidateOutreachService {
     private final ProjectRepository projects;
     private final CandidateService candidateService;
     private final PersonActivityRecorder activity;
-
-    /** Where a booked call moves someone from; anyone further on, or out of the running, stays put. */
-    private static final Set<CandidateStatus> BEFORE_ENGAGED = EnumSet.of(CandidateStatus.IDENTIFIED,
-            CandidateStatus.CONTACTED);
+    private final CandidatePipelineCatalog pipeline;
 
     /** The named executives plus everyone mapped at the named companies, each once, in that order. */
     @Transactional(readOnly = true)
@@ -95,9 +93,10 @@ public class CandidateOutreachService {
     }
 
     /**
-     * One email went. The first one moves someone still Identified to Contacted — forward only, so a
-     * person a consultant already moved on is left where they were put. Nothing is written for someone
-     * removed from the position while the email was in flight: the email itself is still recorded.
+     * One email went. The first one moves someone not yet at Contacted there — forward only, by the
+     * pipeline's own order, so a person a consultant already moved on (or out of the running) is left where
+     * they were put. Nothing is written for someone removed from the position while the email was in
+     * flight: the email itself is still recorded.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordEmailSent(UUID sender, UUID projectId, UUID candidateId, UUID sequenceId, String sequenceName,
@@ -110,10 +109,20 @@ public class CandidateOutreachService {
                                  int stepNumber) {
         activity.record(candidate, sender, PersonActivityKind.EMAIL_SENT, PersonActivityDetails
                 .of("sequenceId", sequenceId).and("sequence", sequenceName).and("step", stepNumber));
-        if (candidate.getStatus() == CandidateStatus.IDENTIFIED) {
-            candidate.moveTo(CandidateStatus.CONTACTED);
-            activity.record(candidate, sender, PersonActivityKind.STATUS_CHANGED, PersonActivityDetails
-                    .of("from", CandidateStatus.IDENTIFIED.value()).and("to", CandidateStatus.CONTACTED.value()));
+        moveForwardTo(candidate, sender, CandidateSystemStatus.CONTACTED);
+    }
+
+    /** Only ever forward, and never out of the closed stage: automation does not undo a consultant's call. */
+    private void moveForwardTo(Candidate candidate, UUID actor, CandidateSystemStatus target) {
+        CandidateStatusDefinition was = candidate.getStatus();
+        if (was.hasLeftTheRunning()) {
+            return;
+        }
+        UUID workspaceId = projects.findById(candidate.getProjectId()).map(Project::getWorkspaceId).orElseThrow();
+        CandidateStatusDefinition to = pipeline.system(workspaceId, target);
+        if (was.isBefore(to) && candidate.moveTo(to)) {
+            activity.record(candidate, actor, PersonActivityKind.STATUS_CHANGED,
+                    PersonActivityDetails.statusChange(was, to));
         }
     }
 
@@ -156,8 +165,8 @@ public class CandidateOutreachService {
     }
 
     /**
-     * A call was booked. It moves someone still Identified or Contacted to Engaged — forward only, so a
-     * person a consultant already moved on, or out of the running, is left where they were put.
+     * A call was booked. It moves someone not yet at Engaged there — forward only, by the pipeline's own
+     * order, so a person a consultant already moved on, or out of the running, is left where they were put.
      * {@code viaLink} says the executive booked it themselves.
      */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -165,12 +174,7 @@ public class CandidateOutreachService {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
             activity.record(candidate, actor, PersonActivityKind.MEETING_BOOKED, PersonActivityDetails
                     .of("startsAt", startsAt.toString()).and("viaLink", viaLink));
-            CandidateStatus was = candidate.getStatus();
-            if (BEFORE_ENGAGED.contains(was)) {
-                candidate.moveTo(CandidateStatus.ENGAGED);
-                activity.record(candidate, actor, PersonActivityKind.STATUS_CHANGED, PersonActivityDetails
-                        .of("from", was.value()).and("to", CandidateStatus.ENGAGED.value()));
-            }
+            moveForwardTo(candidate, actor, CandidateSystemStatus.ENGAGED);
         });
     }
 
@@ -188,7 +192,8 @@ public class CandidateOutreachService {
                 .toList();
         return new OutreachRecipient(candidate.getId(), person.getId(), candidate.getTriageCompanyId(),
                 person.getFullName(), person.getTitle(), candidate.getCompanyName(), person.getLocationCity(),
-                person.getLocationCountry(), candidate.getStatus(), person.isDoNotContact(), emails);
+                person.getLocationCountry(), candidate.getStatus().getStatusKey(),
+                candidate.getStatus().hasLeftTheRunning(), person.isDoNotContact(), emails);
     }
 
     private static RecipientEmail emailOf(CandidateContact contact) {

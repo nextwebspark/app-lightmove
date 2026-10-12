@@ -120,9 +120,11 @@ public class PersonRecordService {
                     Project mandate = mandates.get(row.getProjectId());
                     User filer = named.get(row.getAddedBy());
                     return new PersonPositionResponse(row.getId(), row.getProjectId(),
-                            mandate == null ? null : mandate.getPositionTitle(), row.getStatus().value(),
+                            mandate == null ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
                             row.getAddedBy(), filer == null ? null : filer.getFullName(), row.getCreatedAt(),
-                            row.getSource().value(), workable.contains(row.getProjectId()));
+                            row.getSource().value(), workable.contains(row.getProjectId()),
+                            row.getStatus().getLabel(), row.getStatus().getColour().value(),
+                            CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt());
                 })
                 .toList();
     }

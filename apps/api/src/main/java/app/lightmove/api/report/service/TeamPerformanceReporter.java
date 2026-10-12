@@ -1,8 +1,8 @@
 package app.lightmove.api.report.service;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
+import app.lightmove.api.candidate.dto.CandidatePipelineStageDto;
 import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.report.constant.ResearcherRole;
@@ -183,13 +183,15 @@ class TeamPerformanceReporter {
         return new SourcingQualityDto(contact, verified, comp, level);
     }
 
-    /** Current statuses in the enum's own order, zero rows left out. */
+    /** Executives by the stage their status sits under, in pipeline order, zero rows left out. */
     private static List<StatusCountDto> statusMix(List<ExecutiveRow> rows) {
-        Map<CandidateStatus, Long> counts = rows.stream().map(ExecutiveRow::status).filter(Objects::nonNull)
-                .collect(Collectors.groupingBy(status -> status, Collectors.counting()));
-        return Arrays.stream(CandidateStatus.values())
-                .filter(counts::containsKey)
-                .map(status -> new StatusCountDto(status.value(), counts.get(status).intValue()))
+        Map<String, List<CandidatePipelineStageDto>> byStage = rows.stream().map(ExecutiveRow::pipelineStage)
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(CandidatePipelineStageDto::key));
+        return byStage.values().stream()
+                .sorted(Comparator.comparingInt(stages -> stages.getFirst().position()))
+                .map(stages -> new StatusCountDto(stages.getFirst().key(), stages.getFirst().label(),
+                        stages.getFirst().colour(), stages.size()))
                 .toList();
     }
 
@@ -200,7 +202,8 @@ class TeamPerformanceReporter {
                 .limit(limit)
                 .map(row -> new SourcedExecutiveDto(row.executive().id(), row.executive().fullName(),
                         row.executive().title(), row.executive().seniority(), row.employerName(),
-                        row.executive().status(), nameOf.get(addedBy(row, team)), row.mappedAt()))
+                        row.executive().status(), row.executive().statusLabel(), nameOf.get(addedBy(row, team)),
+                        row.mappedAt()))
                 .toList();
     }
 

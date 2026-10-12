@@ -1,7 +1,8 @@
 package app.lightmove.api.report.model;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.PipelineStageKind;
 import app.lightmove.api.candidate.constant.Gender;
+import app.lightmove.api.candidate.dto.CandidatePipelineStageDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
@@ -12,7 +13,12 @@ import java.util.Optional;
  * An executive paired with their universe company, where there is one — the pairing that gives an
  * executive a sector, done here so {@code triagecompany} never learns people exist.
  */
-public record ExecutiveRow(CandidateResponse executive, TriageCompanyResponse company) {
+public record ExecutiveRow(CandidateResponse executive, TriageCompanyResponse company, int interestedFrom) {
+
+    /** A row read where no stage counts as interested: tests and reads that never ask. */
+    public ExecutiveRow(CandidateResponse executive, TriageCompanyResponse company) {
+        this(executive, company, Integer.MAX_VALUE);
+    }
 
     public boolean hasCompany() {
         return company != null;
@@ -27,8 +33,18 @@ public record ExecutiveRow(CandidateResponse executive, TriageCompanyResponse co
         return Seniority.fromValue(executive.seniority());
     }
 
-    public CandidateStatus status() {
-        return CandidateStatus.fromValue(executive.status());
+    public CandidatePipelineStageDto pipelineStage() {
+        return executive.pipelineStage();
+    }
+
+    /**
+     * Interested, or further on and still in the running: an active stage at or after the one the built-in
+     * Interested status sits under ({@code interestedFrom}, its position).
+     */
+    public boolean isInterestedOrLater() {
+        CandidatePipelineStageDto stage = executive.pipelineStage();
+        return stage != null && PipelineStageKind.ACTIVE.value().equals(stage.kind())
+                && stage.position() >= interestedFrom;
     }
 
     /** Null while nobody recorded one, which the chapter reports rather than guesses. */

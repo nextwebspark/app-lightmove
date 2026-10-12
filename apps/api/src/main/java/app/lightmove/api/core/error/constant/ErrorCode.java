@@ -210,6 +210,23 @@ public enum ErrorCode {
     /** A retired tag stays on the people who hold it, but can no longer be put on anyone. */
     CANDIDATE_TAG_RETIRED(HttpStatus.CONFLICT, "That tag is retired. Restore it in Settings to use it again"),
 
+    /** The seven built-in statuses can be renamed and recoloured, never retired or moved to another stage. */
+    PIPELINE_STATUS_SYSTEM(HttpStatus.CONFLICT, "Built-in statuses can be renamed, not retired or moved"),
+
+    /** A stage is retired only once none of its statuses is live; the closed stage and the last active one never are. */
+    PIPELINE_STAGE_NOT_EMPTY(HttpStatus.CONFLICT, "Move or retire this stage's statuses first"),
+
+    PIPELINE_STAGE_REQUIRED(HttpStatus.CONFLICT, "A pipeline keeps at least one active stage and its closed stage"),
+
+    /** Stage labels are unique among stages, status labels among statuses, whatever their case. */
+    PIPELINE_LABEL_TAKEN(HttpStatus.CONFLICT, "That name is already in use"),
+
+    /** A retired status stays on whoever holds it, but can no longer be given to anyone. */
+    PIPELINE_STATUS_RETIRED(HttpStatus.CONFLICT, "That status is retired. Restore it in Settings to use it again"),
+
+    /** The closed stage stays last, and a reorder names every live stage or status exactly once. */
+    PIPELINE_ORDER_INVALID(HttpStatus.CONFLICT, "That order does not match the pipeline"),
+
     /** A person's owner is a colleague: an active member who is not a client representative. */
     PERSON_OWNER_NOT_STAFF(HttpStatus.BAD_REQUEST, "The owner must be someone on your team"),
 

@@ -5,7 +5,8 @@ import { cn } from "../../../lib/cn";
 import { formatInstantDate } from "../../../lib/format";
 import * as poolApi from "../api/poolApi";
 import type { PersonRecord } from "../api/types";
-import { CANDIDATE_SOURCE_STYLES, candidateStatusStyle } from "../lib/candidateVocabulary";
+import { CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
+import { statusStyle } from "../lib/pipelineStatus";
 import { usePoolLookups } from "../lib/usePoolLookups";
 import { PersonAvatar } from "./pool/PersonAvatar";
 import { TagPill } from "./pool/TagPill";
@@ -140,7 +141,7 @@ function ExistingPersonCard({
                 key={position.candidateId}
                 className="inline-flex items-center gap-1.5 rounded-[5px] border border-u-border bg-u-surface px-[7px] py-0.5 text-[11.5px] font-medium text-u-text2"
               >
-                {position.positionTitle ?? "A position"} · {candidateStatusStyle(position.status).label}
+                {position.positionTitle ?? "A position"} · {statusStyle(position.status, position).label}
               </span>
             ))}
             {person.tagIds.map((tagId) => {
