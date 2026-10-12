@@ -108,6 +108,24 @@ function phraseOf(
           ? `${statusLabel(details.from, details.fromLabel)} → ${statusLabel(details.to, details.toLabel)}`
           : null,
       };
+    case "NEXT_ACTION_SET": {
+      if (String(details.cleared) === "true") {
+        return { text: `cleared the next action${forThem} on ${where}`, detail: null };
+      }
+      const due = details.dueAt ? callTimeOf(details.dueAt) : null;
+      return {
+        text: `set the next action${forThem} on ${where}`,
+        detail: [details.text, due ? `due ${due}` : null].filter(Boolean).join(" · ") || null,
+      };
+    }
+    case "CLIENT_VISIBILITY_CHANGED":
+      return {
+        text:
+          String(details.visible) === "true"
+            ? `made${them || " them"} visible to the client on ${where}`
+            : `hid${them || " them"} from the client on ${where}`,
+        detail: null,
+      };
     case "PROFILE_EDITED":
       return {
         text: person ? `edited${them}` : "edited the profile",
@@ -192,6 +210,8 @@ function phraseOf(
     case "DOCUMENT_REMOVED":
       return { text: `deleted ${documentOf(details.category, "a")}${onThem}`, detail: null };
   }
+  // A kind a newer server writes still has to draw: a line with no phrase once blanked the whole page.
+  return { text: `updated${them || " the record"}`, detail: null };
 }
 
 function isBookedThroughLink(entry: PersonTimelineEntry): boolean {

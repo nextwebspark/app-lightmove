@@ -318,6 +318,8 @@ export type PersonActivityKind =
   | "MAPPED"
   | "UNMAPPED"
   | "STATUS_CHANGED"
+  | "NEXT_ACTION_SET"
+  | "CLIENT_VISIBILITY_CHANGED"
   | "PROFILE_EDITED"
   | "CONTACTS_EDITED"
   | "CONTACT_FOUND"
