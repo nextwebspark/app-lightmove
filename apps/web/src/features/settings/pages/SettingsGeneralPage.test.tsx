@@ -115,16 +115,16 @@ describe("SettingsGeneralPage — who the workspace hires for", () => {
   it("shows the mode in force", async () => {
     renderPage();
 
-    expect(await screen.findByRole("radio", { name: /In-house team/ })).toHaveAttribute("aria-checked", "true");
-    expect(screen.getByRole("radio", { name: /Search agency/ })).toHaveAttribute("aria-checked", "false");
+    expect(await screen.findByRole("radio", { name: /In-house talent team/ })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: /Search firm/ })).toHaveAttribute("aria-checked", "false");
   });
 
   it("asks before switching, and a cancel switches nothing", async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("radio", { name: /Search agency/ }));
-    const warning = screen.getByRole("dialog", { name: "Switch to Search agency?" });
+    await user.click(await screen.findByRole("radio", { name: /Search firm/ }));
+    const warning = screen.getByRole("dialog", { name: "Switch to Search firm?" });
     expect(warning).toHaveTextContent("This changes the workspace for everyone in it");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
@@ -136,11 +136,11 @@ describe("SettingsGeneralPage — who the workspace hires for", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("radio", { name: /Search agency/ }));
-    await user.click(screen.getByRole("button", { name: "Switch to Search agency" }));
+    await user.click(await screen.findByRole("radio", { name: /Search firm/ }));
+    await user.click(screen.getByRole("button", { name: "Switch to Search firm" }));
 
     await waitFor(() => expect(workspaceApi.changeMode).toHaveBeenCalledWith("AGENCY"));
     await waitFor(() => expect(reload).toHaveBeenCalled());
-    expect(await screen.findByRole("radio", { name: /Search agency/ })).toHaveAttribute("aria-checked", "true");
+    expect(await screen.findByRole("radio", { name: /Search firm/ })).toHaveAttribute("aria-checked", "true");
   });
 });

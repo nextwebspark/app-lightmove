@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { ProjectLayout } from "../components/layout/ProjectLayout";
-import { SettingsLayout } from "../components/layout/SettingsLayout";
+import { SettingsLanding, SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo, Spinner } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import type { PlatformAction } from "../features/auth/api/types";
 import { homeFor } from "../features/auth/homeFor";
 import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
+import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { InviteStepPage } from "../features/auth/pages/InviteStepPage";
@@ -40,7 +41,6 @@ import { SettingsApiKeysPage } from "../features/settings/pages/SettingsApiKeysP
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
-import { SettingsMembersPage } from "../features/settings/pages/SettingsMembersPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
 import { SettingsWorkspacesPage } from "../features/settings/pages/SettingsWorkspacesPage";
@@ -50,6 +50,7 @@ import { TemplateEditorPage } from "../features/templates/pages/TemplateEditorPa
 import { TemplateListPage } from "../features/templates/pages/TemplateListPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
 import { NotFoundPage } from "./NotFoundPage";
+import { PublicNotFoundPage } from "./PublicNotFoundPage";
 
 /**
  * Routing follows the user's actual state, not a step counter.
@@ -161,16 +162,16 @@ export function AppRoutes() {
           sections stay admin-gated, in the client for UX only; every settings endpoint re-checks in
           the service. */}
       <Route element={<RequireWorkspace><SettingsLayout /></RequireWorkspace>}>
-        <Route path="/settings" element={<Navigate to="/settings/profile" replace />} />
+        <Route path="/settings" element={<SettingsLanding />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
         <Route path="/settings/ai-apps" element={<RequireStaff><SettingsAiAppsPage /></RequireStaff>} />
+        <Route path="/settings/members" element={<Navigate to="/team" replace />} />
         <Route path="/settings/billing" element={<RequireStaff><SettingsBillingPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
-          <Route path="/settings/members" element={<SettingsMembersPage />} />
           <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
           <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />
           <Route path="/settings/templates" element={<TemplateListPage scope="workspace" />} />
@@ -185,7 +186,7 @@ export function AppRoutes() {
       </Route>
 
       {/* Anything else. Rendered rather than redirected, for the reason NotFoundPage carries. */}
-      <Route path="*" element={<RequireWorkspace><NotFoundPage /></RequireWorkspace>} />
+      <Route path="*" element={<UnknownAddress />} />
     </Routes>
   );
 }
@@ -218,12 +219,22 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
 
 export { homeFor };
 
+function UnknownAddress() {
+  const { user, loading } = useAuth();
+
+  if (loading) return <Booting />;
+  if (!user) return <PublicNotFoundPage />;
+
+  return <RequireWorkspace><NotFoundPage /></RequireWorkspace>;
+}
+
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) return <Booting />;
 
+  if (!user && hasPendingSignupRestart()) return <Navigate to="/signup" replace />;
   if (!user) {
     // Remember where they were headed, so signing in returns them to it rather than dumping them on
     // the home page.

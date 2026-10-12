@@ -16,7 +16,7 @@ describe("Sidebar", () => {
 
     // `dev` is what vite's `define` falls back to whenever APP_VERSION is absent, which is every
     // build but a released one. A real release renders its tag here instead.
-    expect(screen.getByText("dev")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "dev · What's new" })).toBeInTheDocument();
   });
 
   describe("beside an open assistant", () => {

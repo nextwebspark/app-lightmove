@@ -272,7 +272,7 @@ function PlanCard({ billing, isAdmin, onPlans }: { billing: Billing; isAdmin: bo
         {isAdmin && (
           <span className="ml-auto flex gap-2">
             {!trial?.ended && (
-              <Link to="/settings/members" className={SECONDARY_SMALL}>
+              <Link to="/team" className={SECONDARY_SMALL}>
                 Add seats
               </Link>
             )}
