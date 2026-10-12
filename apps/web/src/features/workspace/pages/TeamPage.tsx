@@ -14,6 +14,7 @@ import * as projectsApi from "../../projects/api/projectsApi";
 import { isActive } from "../../projects/lib/filtering";
 import * as workspaceApi from "../api/workspaceApi";
 import { InviteModal } from "../components/InviteModal";
+import { PendingInvitations } from "../components/MemberManagement";
 import { MembersList } from "../components/MembersList";
 import {
   MEMBER_COLUMN_VISIBILITY,
@@ -25,9 +26,14 @@ import {
 const MEMBER_LAYOUT_COLUMNS = layoutColumnsOf(memberColumns);
 const HIDEABLE_MEMBER_COLUMNS = hideableColumnsOf(memberColumns);
 
+const TEAM_SUBTITLE = "each position has its own lead";
+
 const DEFAULT_MEMBER_SORT = { field: "name", direction: "asc" } as const;
 
-/** The roster as colleagues see it: who's here, their role, and how many mandates they carry. */
+/**
+ * The one roster: who's here, their workspace role and how many positions they carry, and the invitations still
+ * waiting. An admin changes roles, removes people and resends or revokes invitations here; everyone else reads it.
+ */
 export function TeamPage() {
   const { user } = useAuth();
   const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
@@ -85,7 +91,7 @@ export function TeamPage() {
   if (isError) {
     return (
       <>
-        <PageHeader title="Team" subtitle="roles apply per position" />
+        <PageHeader title="Team" subtitle="Each position has its own lead" />
         <EmptyState
           icon={<Icon d={ICONS.lock} size={24} />}
           title="Couldn't load the roster"
@@ -99,7 +105,7 @@ export function TeamPage() {
     <>
       <PageHeader
         title="Team"
-        subtitle={`${members.length} ${members.length === 1 ? "member" : "members"} · roles apply per position`}
+        subtitle={`${members.length} ${members.length === 1 ? "member" : "members"} · ${TEAM_SUBTITLE}`}
         action={
           isAdmin && (
             <Button
@@ -128,6 +134,7 @@ export function TeamPage() {
         <MembersList
           members={members}
           activeCount={activeCount}
+          canManage={isAdmin}
           sort={sort}
           onSortChange={setSort}
           columnVisibility={columnVisibility}
@@ -146,6 +153,8 @@ export function TeamPage() {
           autoHide
         />
       </div>
+
+      <PendingInvitations canManage={isAdmin} />
 
       {inviteOpen && <InviteModal open onClose={() => setInviteOpen(false)} />}
     </>

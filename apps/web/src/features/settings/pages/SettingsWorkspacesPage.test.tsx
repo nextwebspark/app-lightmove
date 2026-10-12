@@ -20,7 +20,8 @@ vi.mock("../../../lib/apiClient", async (importOriginal) => ({
 const { restoreSession, switchWorkspaceSession } = await import("../../../lib/apiClient");
 
 function Pathname() {
-  return <span data-testid="pathname">{useLocation().pathname}</span>;
+  const location = useLocation();
+  return <span data-testid="pathname">{location.pathname + location.search}</span>;
 }
 
 /** Settings → Workspaces: what you are in, what you are invited to, and the door to another. */
@@ -28,9 +29,9 @@ describe("SettingsWorkspacesPage", () => {
   const home = aWorkspace();
   const second = aWorkspace({ id: "w2", name: "Meridian Search Partners", logoMark: "M", roles: ["MEMBER"] });
 
-  const renderPage = () =>
+  const renderPage = (at = "/settings/workspaces") =>
     render(
-      <MemoryRouter initialEntries={["/settings/workspaces"]}>
+      <MemoryRouter initialEntries={[at]}>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
             <ToastProvider>
@@ -103,5 +104,25 @@ describe("SettingsWorkspacesPage", () => {
 
     await waitFor(() => expect(authApi.acceptInvitationById).toHaveBeenCalledWith("inv-1"));
     await waitFor(() => expect(switchWorkspaceSession).toHaveBeenCalledWith("w3"));
+  });
+
+  it("opens the create dialog from ?create=1, and clears the address when it closes", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: home }));
+    renderPage("/settings/workspaces?create=1");
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByTestId("pathname").textContent).toBe("/settings/workspaces");
+  });
+
+  it("never opens it for a pure client, whatever the address says", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: aWorkspace({ roles: ["CLIENT"] }) }));
+    renderPage("/settings/workspaces?create=1");
+
+    expect(await screen.findByText("NextWebSpark Search")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

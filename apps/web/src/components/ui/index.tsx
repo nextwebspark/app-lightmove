@@ -2,6 +2,7 @@ import type {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   ReactNode,
+  Ref,
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
@@ -73,6 +74,15 @@ const BUTTON_STYLES: Record<ButtonVariant, string> = {
     "bg-u-offlimits border border-u-offlimits text-white font-medium hover:brightness-105 " +
     "disabled:opacity-50 disabled:hover:brightness-100",
 };
+
+/** A button's look for an element that is not a button — a router `Link` that navigates, so it stays a link. */
+export function buttonClassName(variant: ButtonVariant = "primary", className = ""): string {
+  return cn(
+    "flex items-center justify-center gap-2 rounded-[6px] px-3.5 py-2.5 text-[13.5px] transition",
+    BUTTON_STYLES[variant],
+    className,
+  );
+}
 
 export function Button({
   variant = "primary",
@@ -170,7 +180,11 @@ const CONTROL =
   "w-full rounded-[6px] border bg-u-raised px-3 py-2.5 font-mono text-[13px] text-u-text outline-none " +
   "transition focus:border-u-accent";
 
-export function Input({ invalid, className, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+export function Input({
+  invalid,
+  className,
+  ...rest
+}: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean; ref?: Ref<HTMLInputElement> }) {
   return (
     <input
       {...rest}

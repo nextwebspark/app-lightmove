@@ -66,7 +66,21 @@ describe("CreditChip", () => {
     vi.mocked(billingApi.getBilling).mockResolvedValue(aTrialBilling(endsAt));
     renderChip();
 
-    expect(await screen.findByRole("link", { name: "Trial · 9 days left" })).toHaveAttribute("title", "Trial");
+    const chip = await screen.findByRole("link", { name: "Trial · 9 days left" });
+    // A short label for phones beside the full one; CSS shows one per breakpoint.
+    expect(chip).toHaveTextContent("9d");
+  });
+
+  it("keeps the days left in front when a trial's credits run low, naming them too", async () => {
+    const endsAt = new Date(Date.now() + 9 * 86_400_000 - 3_600_000).toISOString();
+    vi.mocked(billingApi.getBilling).mockResolvedValue(
+      aTrialBilling(endsAt, { credits: someCredits({ level: "NINETY", left: 4 }) }),
+    );
+    renderChip();
+
+    expect(
+      await screen.findByRole("link", { name: "Trial · 9 days left · 4 contact credits left" }),
+    ).toBeInTheDocument();
   });
 
   it("never asks for a pure client, who is answered 404", () => {

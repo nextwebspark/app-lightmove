@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Card, Logo } from "../../../components/ui";
+import { Button, Card, Field, Input, Logo } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
+import * as authApi from "../api/authApi";
+import { SendFailedNotice } from "../components/SendFailedNotice";
 import { homeFor } from "../homeFor";
 
 type State = "verifying" | "success" | "failed";
@@ -125,7 +127,9 @@ export function VerifyEmailPage() {
             <h1 className="text-[19px] font-semibold">Verification failed</h1>
             <p className="mb-6 mt-2 font-mono text-xs text-u-text3">{message}</p>
 
-            <Link to="/login" className="text-[12.5px] text-u-accent hover:underline">
+            <SendNewLink knownEmail={user?.email ?? null} />
+
+            <Link to="/login" className="mt-4 inline-block text-note text-u-accent hover:underline">
               Back to sign in
             </Link>
           </>
@@ -134,3 +138,72 @@ export function VerifyEmailPage() {
     </div>
   );
 }
+
+/**
+ * An expired or already-used link is the commonest failure, and the way on is another link. Signed in,
+ * the address is known; otherwise it is asked for. The server answers alike whether or not it exists.
+ */
+function SendNewLink({ knownEmail }: { knownEmail: string | null }) {
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [sendFailed, setSendFailed] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    // The session restore can finish after this mounted, so the known address is read at submit.
+    const address = (knownEmail ?? email).trim();
+    if (!EMAIL_SHAPE.test(address)) {
+      setFieldError(address ? "That doesn't look like a valid email" : "Enter the email you signed up with");
+      return;
+    }
+    setSending(true);
+    setFieldError(null);
+    setSendFailed(false);
+    try {
+      await authApi.resendVerification(address);
+      setSentTo(address);
+    } catch {
+      setSendFailed(true);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  if (sentTo) {
+    return (
+      <p role="status" className="rounded-lg bg-u-direct-tint px-3 py-2.5 text-left font-mono text-meta text-u-direct">
+        If {sentTo} has an account waiting to be confirmed, a new link is on its way. Check spam and
+        promotions too.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="text-left">
+      {sendFailed && <SendFailedNotice />}
+      {knownEmail ? (
+        <p className="mb-3 text-center text-note text-u-text2">
+          We&rsquo;ll send it to <span className="font-medium text-u-text">{knownEmail}</span>.
+        </p>
+      ) : (
+        <Field label="Your email" error={fieldError ?? undefined}>
+          <Input
+            type="email"
+            autoComplete="email"
+            autoFocus
+            invalid={!!fieldError}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </Field>
+      )}
+      <Button type="submit" loading={sending} className="w-full">
+        Send a new link
+      </Button>
+    </form>
+  );
+}
+
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

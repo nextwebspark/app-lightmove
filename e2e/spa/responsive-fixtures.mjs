@@ -612,6 +612,32 @@ const INTEGRATIONS = {
   ],
 };
 
+// An invoiced Core workspace with credits to spare: the topbar chip stays away, as it does below 80%.
+const BILLING = {
+  plan: { code: "CORE", name: "Core" },
+  interval: "MONTHLY",
+  seats: 4,
+  seatPriceFils: 29900,
+  status: "INVOICED",
+  renewsAt: "2099-01-01T00:00:00Z",
+  credits: { monthly: 200, left: 180, bought: 0, given: 0, usedPercent: 10, level: "OK", resetsAt: "2099-01-01T00:00:00Z" },
+  prices: { email: 1, phone: 5 },
+  paymentMethod: { kind: "INVOICED" },
+  stripeOffered: false,
+  plans: [],
+  packs: [],
+  trialEndsAt: null,
+  contactEmail: "billing@uncava.com",
+};
+
+const GETTING_STARTED = {
+  dismissed: false,
+  focusProjectId: "proj-1",
+  steps: ["OPEN_POSITION", "WRITE_BRIEF", "FIND_COMPANIES", "MAP_EXECUTIVES", "CONNECT_MAILBOX", "INVITE_COLLEAGUE"].map(
+    (step, index) => ({ step, done: index < 2, skipped: false, completedAt: index < 2 ? "2026-07-13T10:00:00Z" : null }),
+  ),
+};
+
 const ROUTES = [
   ["/workspace/integrations", INTEGRATIONS],
   ["/companies/facets", FACETS],
@@ -630,6 +656,9 @@ const ROUTES = [
   ["/auth/me", USER],
   ["/auth/providers", { google: false, linkedin: false }],
   ["/auth/sessions", []],
+  ["/billing", BILLING],
+  ["/workspace/getting-started", GETTING_STARTED],
+  ["/invitations/pending-count", { count: 0 }],
   ["/workspace", WORKSPACE_DETAIL],
   ["/members", MEMBERS],
   ["/invitations", []],

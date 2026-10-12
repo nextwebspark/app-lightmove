@@ -12,6 +12,7 @@ import { CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
 import { useStatusStyle } from "../../workspace/lib/usePipelineCatalog";
 import { StatusPicker } from "./StatusPicker";
 import { TabSectionHeading } from "./PersonSections";
+import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
 
 /** The positions a person sits on, in either drawer's Records tab. */
 export function PositionsSection({
@@ -71,6 +72,7 @@ function PositionCard({
       <div className="min-w-0 flex-1">
         <Link
           to={`/projects/${position.projectId}/companies`}
+          state={NO_POSITIONS_ORIGIN}
           className="block truncate text-[13px] font-semibold text-u-text hover:underline"
         >
           {position.positionTitle ?? "Untitled position"}

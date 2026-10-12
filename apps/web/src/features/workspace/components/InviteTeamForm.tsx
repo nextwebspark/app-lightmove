@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react";
-import { Button, FormError, Input, Notice, Select } from "../../../components/ui";
+import { useId, useRef, useState, type ClipboardEvent, type ReactNode } from "react";
+import { Button, FormError, Input, Select } from "../../../components/ui";
 import { titleCase } from "../../../lib/format";
 import type { InviteRequest, WorkspaceRole } from "../../auth/api/types";
 import { INVITE_ROLES, inviteSchema } from "../../auth/schemas";
@@ -24,7 +24,6 @@ export function InviteTeamForm({
   onDone,
   onSkip,
   before,
-  finishLabel = "Send invites & finish",
 }: {
   subtitle: string;
   submit: (invites: InviteRequest[]) => Promise<unknown>;
@@ -33,12 +32,14 @@ export function InviteTeamForm({
   onSkip: () => void;
   /** Rendered beside the finish button — the wizard's Back. */
   before?: (submitting: boolean) => ReactNode;
-  finishLabel?: string;
 }) {
   const [rows, setRows] = useState<InviteRow[]>([
     { id: 1, email: "", role: "MEMBER" },
     { id: 2, email: "", role: "MEMBER" },
   ]);
+  const nextId = useRef(3);
+  const roleHelpId = useId();
+  const [pasteNote, setPasteNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Map<number, string>>(new Map());
@@ -54,11 +55,54 @@ export function InviteTeamForm({
     });
   };
 
-  const addRow = () =>
-    setRows((current) => [...current, { id: Date.now(), email: "", role: "MEMBER" }]);
+  const addRow = () => setRows((current) => [...current, { id: nextId.current++, email: "", role: "MEMBER" }]);
 
-  const removeRow = (id: number) =>
-    setRows((current) => current.filter((row) => row.id !== id));
+  const removeRow = (id: number) => setRows((current) => current.filter((row) => row.id !== id));
+
+  const handlePaste = (id: number, event: ClipboardEvent<HTMLInputElement>) => {
+    const at = rows.findIndex((row) => row.id === id);
+    const addresses = addressesIn(event.clipboardData.getData("text"));
+    if (at < 0 || addresses.length < 2) return;
+    event.preventDefault();
+
+    const into = rows[at];
+    const keepsTyped = into.email.trim() !== "";
+    const held = new Set(
+      rows.filter((row) => row.id !== id || keepsTyped).map((row) => row.email.trim().toLowerCase()),
+    );
+    const fresh = addresses.filter((email) => {
+      const key = email.toLowerCase();
+      if (held.has(key)) return false;
+      held.add(key);
+      return true;
+    });
+    const pasted = fresh.map((email, index) => ({
+      id: index === 0 && !keepsTyped ? into.id : nextId.current++,
+      email,
+      role: into.role,
+    }));
+    const after = rows.slice(at + 1);
+    // The blank rows after a pasted list make way, so the form does not end with empties to skip past.
+    const dropped = new Set(after.filter((row) => row.email.trim() === "").map((row) => row.id));
+
+    // A paste that brought nothing new leaves the row it landed in, so the form never runs out of rows.
+    const keepsInto = keepsTyped || pasted.length === 0;
+    setRows([...rows.slice(0, keepsInto ? at + 1 : at), ...pasted, ...after.filter((row) => !dropped.has(row.id))]);
+    setRowErrors((current) => new Map([...current].filter(([rowId]) => rowId !== into.id && !dropped.has(rowId))));
+    const repeats = addresses.length - pasted.length;
+    const note =
+      pasted.length === 0
+        ? "No new addresses: they're all listed already"
+        : `${pasted.length} ${pasted.length === 1 ? "address" : "addresses"} added` +
+          (repeats > 0 ? `, ${repeats} already listed` : "");
+    // Cleared first, so the same words twice in a row are still announced twice.
+    setPasteNote("");
+    requestAnimationFrame(() => setPasteNote(note));
+  };
+
+  const filledCount = rows.filter((row) => row.email.trim() !== "").length;
+  const finishLabel =
+    filledCount === 0 ? "Finish" : `Send ${filledCount} ${filledCount === 1 ? "invite" : "invites"} & finish`;
 
   const finish = async () => {
     // A typo'd address is not a harmless mistake here: the invitation is sent, the colleague never
@@ -113,6 +157,7 @@ export function InviteTeamForm({
               type="email"
               value={row.email}
               onChange={(event) => update(row.id, { email: event.target.value })}
+              onPaste={(event) => handlePaste(row.id, event)}
               placeholder="colleague@firm.com"
               aria-label="Colleague's email"
               invalid={rowErrors.has(row.id)}
@@ -123,7 +168,8 @@ export function InviteTeamForm({
               value={row.role}
               onChange={(event) => update(row.id, { role: event.target.value as WorkspaceRole })}
               aria-label="Role"
-              className="w-[130px] shrink-0"
+              aria-describedby={roleHelpId}
+              className="w-[104px] shrink-0 sm:w-[130px]"
             >
               {INVITE_ROLES.map((role) => (
                 <option key={role} value={role}>
@@ -154,13 +200,35 @@ export function InviteTeamForm({
         onClick={addRow}
         className="mb-5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-u-accent hover:underline"
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          aria-hidden="true"
+        >
           <path d="M12 5v14M5 12h14" />
         </svg>
         Add another
       </button>
 
-      <Notice>Invitees get access to projects you add them to — roles apply per project.</Notice>
+      <p role="status" className="sr-only">
+        {pasteNote}
+      </p>
+
+      <div className="mb-5 rounded-u-chip border border-u-border bg-u-raised px-3.5 py-3 text-note">
+        <dl id={roleHelpId} className="flex flex-col gap-1.5">
+          {INVITE_ROLES.map((role) => (
+            <div key={role} className="flex gap-2">
+              <dt className="w-[52px] flex-none font-medium text-u-text">{titleCase(role)}</dt>
+              <dd className="text-u-text2">{ROLE_DESCRIPTIONS[role]}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="mt-2 text-u-text3">Whoever creates a position leads it and adds its team.</p>
+      </div>
 
       <div className="flex items-center gap-2.5">
         {before?.(submitting)}
@@ -177,5 +245,17 @@ export function InviteTeamForm({
         Skip for now
       </button>
     </>
+  );
+}
+
+const ROLE_DESCRIPTIONS: Record<(typeof INVITE_ROLES)[number], string> = {
+  MEMBER: "Sees every position; works on the ones they're added to.",
+  ADMIN: "Also opens any position, and manages the team, billing, templates, integrations and settings.",
+};
+
+/** The addresses in pasted text — "a@x.com, b@x.com", one per line, or "Name <a@x.com>" as a mail client copies them. */
+export function addressesIn(text: string): string[] {
+  return (text.match(/[^\s<>,;"()]+@[^\s<>,;"()]+/g) ?? []).map((match) =>
+    match.replace(/^'+|'+$/g, "").replace(/^mailto:/i, "").replace(/\.+$/, ""),
   );
 }

@@ -38,7 +38,9 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const roles = user?.workspace?.roles ?? [];
   const clientOnly = isPureClient(roles);
   const vocabulary = useWorkspaceVocabulary();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  // My and All are one list seen two ways, so moving between them keeps its stage and search.
+  const listSearch = pathname === "/" || pathname === "/all" ? search : "";
   const fullBleed = FULL_BLEED_ROUTES.some((route) => matchPath(route, pathname));
 
   const { data: projects } = useQuery({
@@ -75,8 +77,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     : {
         label: "Positions",
         items: [
-          { to: "/", label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
-          { to: "/all", label: "All positions", icon: ICONS.allProjects, count: projects?.length },
+          { to: `/${listSearch}`, label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
+          { to: `/all${listSearch}`, label: "All positions", icon: ICONS.allProjects, count: projects?.length },
         ],
       };
 
@@ -90,10 +92,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
             { to: "/candidates", label: "Candidates", icon: ICONS.candidates, count: poolSize },
             { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients?.length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
-            // Every staff member's, not just an admin's: the rail lands on the section everyone can
-            // read (Profile), and the shell hides the workspace sections from a non-admin. An admin
-            // reaching for workspace settings has the topbar dropdown's direct link.
-            { to: "/settings/profile", label: "Settings", icon: ICONS.settings },
+            { to: "/settings", label: "Settings", icon: ICONS.settings },
           ],
         },
       ];

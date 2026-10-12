@@ -39,6 +39,45 @@ class InvitationAdminIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("every staff member reads how many invitations are pending, and nothing more; a client reads nothing")
+    void pendingCountIsStaffs() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Count Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        invite(admin, "omar@" + domain, "MEMBER");
+        invite(admin, "lina@" + domain, "ADMIN");
+        String client = clientRepresentative(admin, "Rana Client", "rana@client-" + domain);
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Waiting Holdings"}
+                                """))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        mvc.perform(post("/api/v1/clients/" + clientId + "/representatives")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Wael Waiting","position":"Sponsor","email":"wael@client-%s"}
+                                """.formatted(domain)))
+                .andExpect(status().isCreated());
+        createWorkspace(verifiedUser("Kim Other", "kim@" + domain), "Other Firm");
+        invite(login("kim@" + domain), "zed@" + domain, "MEMBER");
+
+        // Neither the client representative still to accept nor another firm's invitation is counted.
+        mvc.perform(get("/api/v1/invitations/pending-count").header("Authorization", "Bearer " + login(sara)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").value(2))
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mvc.perform(get("/api/v1/invitations/pending-count").header("Authorization", "Bearer " + client))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("revoking an invitation kills the emailed link")
     void revokeKillsTheLink() throws Exception {
         String alok = "alok@" + domain;
