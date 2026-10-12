@@ -45,6 +45,8 @@
     {"id": "seddiqi-competitors", "turns": ["map 10 companies that are Seddiqi Holdings competitors", "Company: Ahmed Seddiqi & Sons", "what are these companies?"], "listsEarlier": [2]},
     {"id": "binhendi-competitors", "turns": ["find companies like BinHendi Enterprises"]},
     {"id": "watch-distributors", "turns": ["list watches distributors in the uae", "which of these are already in universe?"]},
+    {"id": "tier-earlier-list", "turns": ["map 20 companies in the UAE retail sector for this role", "Split the list into tier 1, tier 2 and tier 3, where tier 1 is the best fit"], "listsEarlier": [1]},
+    {"id": "rank-earlier-list", "turns": ["map 20 companies in the UAE retail sector for this role", "Rank these companies by relevance to the job description and explain the ranking"], "listsEarlier": [1]},
     {"id": "sectors-for-role", "turns": ["which sectors should I target for this role?"]},
     {"id": "who-is-mapped", "turns": ["who have we mapped so far?"]},
     {"id": "vague-should-ask", "turns": ["find me some companies", "Sector: Luxury retail · Size: Any size"]},

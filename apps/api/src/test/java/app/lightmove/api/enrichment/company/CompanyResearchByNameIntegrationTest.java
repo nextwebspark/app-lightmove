@@ -9,6 +9,7 @@ import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
 import app.lightmove.api.enrichment.company.service.CompanyResearch;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,21 @@ class CompanyResearchByNameIntegrationTest {
         assertThat(first.companyLinkedinUrl()).contains("aldar_properties");
         assertThat(again.companyName()).isEqualTo("ALDAR");
         assertThat(enricher.searchedNames()).containsExactly("aldar properties");
+    }
+
+    @Test
+    @DisplayName("what the cache holds is read for many pages at once, and a page it lacks is never bought")
+    void readsHeldPagesTogether() {
+        enricher.answerSearchWith(List.of(page("aldar_properties", "ALDAR", 9_714),
+                page("aldar-education", "Aldar Education", 2_115)));
+        research.byName("Aldar Properties", "United Arab Emirates", plenty());
+
+        Map<String, VendorCompanyRecord> held = research.heldRecordsOf(
+                List.of("aldar_properties", "aldar-education", "tiny-ikea"));
+
+        assertThat(held).containsOnlyKeys("aldar_properties", "aldar-education");
+        assertThat(held.get("aldar-education").employeesInLinkedin()).isEqualTo(2_115);
+        assertThat(enricher.fetchedSlugs()).isEmpty();
     }
 
     @Test

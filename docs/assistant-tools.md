@@ -20,7 +20,8 @@ a playbook only when its question needs it.
 | `find-companies` | companies by sector, country, size, what they do ("watch distributors"), "top N" | search + name lookup (+ `searchCompaniesByActivity` for an activity) in one turn, `proposeCompanies`, a two-sentence answer, adjacent industries |
 | `similar-companies` | a named company's competitors, peers, "companies like X" | `identifyCompany`; ask which one when several share the name; `findSimilarCompanies` + name lookup in one turn; say what was loosened |
 | `recommend-sectors` | which sectors to target | reason from the brief, name only what `describeMarket` / `adjacentIndustries` report, propose nothing |
-| `earlier-list` | "what are these", "the first three", "more like these" | list or narrow from the `<suggested_companies>` block; for more, load `find-companies` |
+| `earlier-list` | "what are these", "the first three", "more like these" | list or narrow from the `<suggested_companies>` block; for more, load `find-companies`; to rank, `rank-companies` |
+| `rank-companies` | rank, tier, prioritise or group by fit — an earlier list or a stage of the position | `readCompanyDetails` for a block's keys or `listMandateCompanies` for a stage, judged against the brief and the hiring company; tiers or a numbered ranking with a reason each; never claims the list or the brief is missing |
 | `mapped-executives` | who the position has mapped | `listMappedExecutives`, `readExecutiveProfile`, `companiesWithoutExecutives` — read-only |
 
 - **The model is offered exactly `Skill`, `AskUserQuestionTool` and the assistant's own `@Tool`s** (`AssistantToolset`, built once,
@@ -104,6 +105,10 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │     searchCompaniesByActivity → companies by what they do: the database's keywords for
         │                              each word, then Bright Data's specialties / about text
         │     adjacentIndustries     → the sectors beside one, from industry-adjacency.json
+        │     readCompanyDetails     → what an earlier list's companies do (industry, sector, size,
+        │                              about, niche), by key, from the database or the vendor cache
+        │                              — never a vendor call
+        │     listMandateCompanies   → one stage of this position, the first 100, with the same details
         │     proposeCompanies(ids)  → account ids from the universe, LinkedIn slugs this answer or
         │                              an earlier card researched; drops off-limits, stamps each
         │                              company the mandate already holds with its stage (shown
@@ -190,8 +195,8 @@ by account id, else by name — the rule a capture uses), stored on the turn and
   - `service/AskUserQuestionCallback` offers the library's question tool, ending the answer rather than
     waiting for one.
   - `service/AssistantProposalService` handles accept.
-  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `CompanyDiscoveryTools` (over `CompanyDiscovery`), `ProposalTools`, `CandidateTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
-  - The niche read is `ApolloCompanyQueryService.similarTo` / `distinctiveKeywords` / `namedLike` (`strategy`), over V33's
+  - `tool/` holds `MandateTools`, `CompanySearchTools`, `SectorTools`, `NamedCompanyTools`, `CompanyDiscoveryTools` (over `CompanyDiscovery`), `ProposalTools`, `CandidateTools`, `CompanyDetailTools`, `MarketSearch`, `MarketQuery`, `AssistantToolContext` and `TurnRecorder`.
+  - The niche read is `ApolloCompanyQueryService.similarTo` / `distinctiveKeywords` / `nicheKeywordCounts` / `namedLike` (`strategy`), over V33's
     `app_lm_apollo_keywords`: a keyword on more than 3% of the universe distinguishes nothing and is not counted. The
     LinkedIn half is `CompanyResearch.pagesNamed` / `byActivity` over the company dataset's synchronous search, every
     hit cached in `app_lm_vendor_company`.

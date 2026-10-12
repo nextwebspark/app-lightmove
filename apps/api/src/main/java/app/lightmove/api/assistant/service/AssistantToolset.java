@@ -1,6 +1,7 @@
 package app.lightmove.api.assistant.service;
 
 import app.lightmove.api.assistant.tool.CandidateTools;
+import app.lightmove.api.assistant.tool.CompanyDetailTools;
 import app.lightmove.api.assistant.tool.CompanyDiscoveryTools;
 import app.lightmove.api.assistant.tool.CompanySearchTools;
 import app.lightmove.api.assistant.tool.MandateTools;
@@ -31,11 +32,12 @@ public class AssistantToolset {
     public AssistantToolset(AssistantSkills skills, ObjectMapper json, MandateTools mandateTools,
                             CompanySearchTools searchTools, NamedCompanyTools namedCompanyTools,
                             CompanyDiscoveryTools discoveryTools, SectorTools sectorTools,
-                            ProposalTools proposalTools, CandidateTools candidateTools) {
+                            ProposalTools proposalTools, CandidateTools candidateTools,
+                            CompanyDetailTools detailTools) {
         this.skills = skills;
         this.json = json;
         this.assistantTools = List.of(ToolCallbacks.from(mandateTools, searchTools, namedCompanyTools,
-                discoveryTools, sectorTools, proposalTools, candidateTools));
+                discoveryTools, sectorTools, proposalTools, candidateTools, detailTools));
     }
 
     /** The {@code Skill} tool and the question tool are per ask: both write to that ask's recorder. */
