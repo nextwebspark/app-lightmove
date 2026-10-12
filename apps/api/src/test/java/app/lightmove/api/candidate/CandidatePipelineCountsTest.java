@@ -60,6 +60,26 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
                 .contains("Final two,Shortlisted");
     }
 
+    @Test
+    @DisplayName("a workspace's own stage placed after Interested counts as engaged")
+    void anOwnStageAfterInterestedCountsAsEngaged() throws Exception {
+        firm("Own Stage Firm");
+        String projectId = mandate("Chief Financial Officer");
+        JsonNode catalog = body(write(admin, "POST", PIPELINE + "/stages", """
+                {"label":"Offer"}"""));
+        assertThat(stageIn(catalog, "offer").get("position").asInt())
+                .isGreaterThan(stageIn(catalog, "interested").get("position").asInt());
+        ownStatus(catalog, "offer", "Offer out");
+        add(projectId, """
+                {"fullName":"Offered Person","status":"offerOut"}""");
+        add(projectId, """
+                {"fullName":"Contacted Person","status":"contacted"}""");
+
+        JsonNode project = projectRow(projectId);
+        assertThat(project.get("candidates").asLong()).isEqualTo(2);
+        assertThat(project.get("engagedCandidates").asLong()).isEqualTo(1);
+    }
+
     private void ownStatus(JsonNode catalog, String stageKey, String label) throws Exception {
         write(admin, "POST", PIPELINE + "/statuses", """
                 {"stageId":"%s","label":"%s"}""".formatted(stageIn(catalog, stageKey).get("id").asText(), label));

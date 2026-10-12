@@ -5,6 +5,8 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
@@ -20,6 +22,7 @@ import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
 import app.lightmove.api.project.constant.ClientRepStatus;
+import app.lightmove.api.project.model.CandidateCountScope;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
@@ -68,6 +71,7 @@ public class ProjectService {
     private final ProjectCompanyCounter companyCounter;
     private final ProjectCandidateCounter candidateCounter;
     private final WorkspaceAccess access;
+    private final ProjectAccess projectAccess;
     private final RbacService rbac;
     private final UserRepository users;
     private final AuditService audit;
@@ -88,18 +92,20 @@ public class ProjectService {
                 return List.of();
             }
         }
-        Assembly assembly = assemblyFor(workspaceId, all);
+        Set<UUID> readAsClient = projectAccess.projectsReadAsClient(userId, workspaceId,
+                all.stream().map(Project::getId).toList());
+        Assembly assembly = assemblyFor(workspaceId, all, readAsClient);
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
-    /** The client drawer's mandates, fully assembled. */
+    /** The client drawer's mandates, fully assembled. The registry is staff's, so every count is whole. */
     @Transactional(readOnly = true)
     public List<ProjectResponse> listForClient(UUID workspaceId, UUID clientId) {
         List<Project> forClient = projects.findByWorkspaceIdAndClientIdOrderByCreatedAtDesc(workspaceId, clientId);
         if (forClient.isEmpty()) {
             return List.of();
         }
-        Assembly assembly = assemblyFor(workspaceId, forClient);
+        Assembly assembly = assemblyFor(workspaceId, forClient, Set.of());
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
@@ -110,19 +116,19 @@ public class ProjectService {
         if (all.isEmpty()) {
             return List.of();
         }
-        Assembly assembly = assemblyFor(workspaceId, all);
+        Assembly assembly = assemblyFor(workspaceId, all, Set.of());
         return all.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
     @Transactional(readOnly = true)
-    public ProjectResponse get(UUID workspaceId, UUID projectId) {
-        return responseFor(workspaceId, projects.requireInWorkspace(projectId, workspaceId));
+    public ProjectResponse get(UUID workspaceId, UUID projectId, ProjectAudience audience) {
+        return responseFor(workspaceId, projects.requireInWorkspace(projectId, workspaceId), audience);
     }
 
     @Transactional(readOnly = true)
     public List<TeamMemberResponse> teamOf(UUID workspaceId, UUID projectId) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
-        return responseFor(workspaceId, project).team();
+        return responseFor(workspaceId, project, ProjectAudience.STAFF).team();
     }
 
     /** The creator is the mandate's LEAD from birth; handover is an ordinary seat change. */
@@ -148,7 +154,7 @@ public class ProjectService {
                 .detail("type", project.getProjectType().name())
                 .record();
 
-        return responseFor(workspaceId, project);
+        return responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
     @Transactional
@@ -163,7 +169,7 @@ public class ProjectService {
         audit.projectEvent(ProjectEventType.PROJECT_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .record();
 
-        return responseFor(workspaceId, project);
+        return responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
     private Client requireClient(UUID clientId, UUID workspaceId) {
@@ -171,13 +177,18 @@ public class ProjectService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    /** One mandate, fully assembled — what every write on it answers with. */
-    public ProjectResponse responseFor(UUID workspaceId, Project project) {
-        return toResponse(project, assemblyFor(workspaceId, List.of(project)));
+    /**
+     * One mandate, fully assembled. A write answers with it as staff, since every write's gate is a staff
+     * action; a client seat's counts leave out the executives hidden from the client.
+     */
+    public ProjectResponse responseFor(UUID workspaceId, Project project, ProjectAudience audience) {
+        return toResponse(project, assemblyFor(workspaceId, List.of(project),
+                audience.clientVisibleOnly() ? Set.of(project.getId()) : Set.of()));
     }
 
-    private Assembly assemblyFor(UUID workspaceId, List<Project> forProjects) {
+    private Assembly assemblyFor(UUID workspaceId, List<Project> forProjects, Set<UUID> readAsClient) {
         List<UUID> ids = forProjects.stream().map(Project::getId).toList();
+        CandidateCountScope executives = new CandidateCountScope(workspaceId, ids, readAsClient);
         Map<UUID, List<ProjectMember>> seatsByProject = seats.findByProjectIdIn(ids).stream()
                 .collect(Collectors.groupingBy(ProjectMember::getProjectId));
 
@@ -201,10 +212,10 @@ public class ProjectService {
 
         return new Assembly(seatsByProject, memberById, userById, clientById,
                 repsByClientId, pendingRepIdsByProjectId, companyCounter.countByProject(ids),
-                candidateCounter.countByProject(ids), candidateCounter.countMappedByProject(ids),
-                candidateCounter.countEngagedByProject(ids),
-                candidateCounter.countMappedCompaniesByProject(ids),
-                candidateCounter.countReachedOutByProject(ids), LocalDate.now());
+                candidateCounter.countByProject(executives), candidateCounter.countMappedByProject(executives),
+                candidateCounter.countEngagedByProject(executives),
+                candidateCounter.countMappedCompaniesByProject(executives),
+                candidateCounter.countReachedOutByProject(executives), LocalDate.now());
     }
 
     private ProjectResponse toResponse(Project project, Assembly assembly) {

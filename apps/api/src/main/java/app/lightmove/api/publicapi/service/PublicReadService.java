@@ -13,6 +13,7 @@ import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.apikey.PublicReader;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.pairing.model.PairedStage;
 import app.lightmove.api.pairing.service.StagePairingService;
 import app.lightmove.api.project.dto.ProjectResponse;
@@ -84,13 +85,14 @@ public class PublicReadService {
     }
 
     public PublicProject project(PublicReader reader, UUID projectId) {
-        return PublicProject.of(projects.get(reader.workspaceId(), projectId));
+        return PublicProject.of(projects.get(reader.workspaceId(), projectId, audienceOf(reader, projectId)));
     }
 
     public PublicPage<PublicCompany> companies(PublicReader reader, UUID projectId, String stage, Integer page,
                                                Integer size) {
         TriageCompaniesResponse found = companies.list(reader.workspaceId(), projectId,
-                new TriageCompanyListCriteria(stage, null, null, null, null, null, page, size));
+                new TriageCompanyListCriteria(stage, null, null, null, null, null, page, size),
+                audienceOf(reader, projectId));
         List<PublicCompany> rows = found.companies().stream().map(PublicCompany::of).toList();
         return new PublicPage<>(rows, found.page(), found.size(), found.totalCount());
     }
@@ -102,12 +104,19 @@ public class PublicReadService {
     public PublicPage<PublicCandidate> candidates(PublicReader reader, UUID projectId, String status,
                                                   UUID companyId, String query, String stage, Integer page,
                                                   Integer size) {
+        return candidates(reader, projectId, status, companyId, query, stage, page, size,
+                audienceOf(reader, projectId));
+    }
+
+    private PublicPage<PublicCandidate> candidates(PublicReader reader, UUID projectId, String status,
+                                                   UUID companyId, String query, String stage, Integer page,
+                                                   Integer size, ProjectAudience audience) {
         int pageSize = size == null ? properties.company().list().defaultPageSize() : size;
         Set<UUID> stageCompanies = stage == null || stage.isBlank() ? null
                 : companies.idsOfStage(reader.workspaceId(), projectId, TriageCompanyStatus.parseOrInUniverse(stage));
         CandidatesResponse found = candidates.list(reader.workspaceId(), projectId, new CandidateListCriteria(
                 companyId == null ? null : List.of(companyId), null, null, query, stageCompanies, status, null,
-                page, pageSize));
+                page, pageSize), audience);
         boolean withContacts = reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
         List<PublicCandidate> rows = found.candidates().stream()
@@ -118,11 +127,12 @@ public class PublicReadService {
 
     /** Where a position stands, in a fixed number of queries however large it is. */
     public PublicPositionSummary summary(PublicReader reader, UUID projectId) {
-        ProjectResponse project = projects.get(reader.workspaceId(), projectId);
+        ProjectAudience audience = audienceOf(reader, projectId);
+        ProjectResponse project = projects.get(reader.workspaceId(), projectId, audience);
         TriageCountsDto stages = companies.stageCountsOf(reader.workspaceId(), projectId);
         Map<String, Long> executives = new LinkedHashMap<>();
         Map<String, Long> pipelineStages = new LinkedHashMap<>();
-        candidates.statusCountsOf(reader.workspaceId(), projectId).forEach((status, total) -> {
+        candidates.statusCountsOf(reader.workspaceId(), projectId, audience).forEach((status, total) -> {
             executives.put(status.getStatusKey(), total);
             if (!status.getStage().isRetired() || total > 0) {
                 pipelineStages.merge(status.getStage().getStageKey(), total, Long::sum);
@@ -136,7 +146,8 @@ public class PublicReadService {
     }
 
     public PublicCandidate candidate(PublicReader reader, UUID projectId, UUID candidateId) {
-        return PublicCandidate.of(candidates.get(reader.workspaceId(), projectId, candidateId),
+        return PublicCandidate.of(candidates.get(reader.workspaceId(), projectId, candidateId,
+                        audienceOf(reader, projectId)),
                 reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ),
                 reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ));
     }
@@ -146,7 +157,8 @@ public class PublicReadService {
                                        Integer size) {
         PublicCompany company = companyOf(reader, projectId, companyId);
         PublicPage<PublicCandidate> executives = reader.holds(ApiKeyScope.CANDIDATES_READ)
-                ? candidates(reader, projectId, null, companyId, null, null, page, size)
+                ? candidates(reader, projectId, null, companyId, null, null, page, size,
+                        audienceOf(reader, projectId))
                 : null;
         return new PublicCompanyDetail(company, executives);
     }
@@ -160,7 +172,7 @@ public class PublicReadService {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(stage);
         ExportSettings caps = properties.export();
         PairedStage paired = pairing.pair(reader.workspaceId(), projectId, status, TriageCompanyFilters.none(),
-                caps.maxCompanies(), caps.maxCandidates());
+                caps.maxCompanies(), caps.maxCandidates(), audienceOf(reader, projectId));
         refuseIfPast("companies", paired.companies().totalCount(), caps.maxCompanies());
         refuseIfPast("executives", paired.totalCandidates(), caps.maxCandidates());
 
@@ -181,6 +193,15 @@ public class PublicReadService {
                     "This position has " + total + " " + what + ", past the limit of " + cap
                             + " for one call. Page through the companies and candidates routes instead.");
         }
+    }
+
+    /**
+     * A workspace key is staff's by construction; anyone else reads a position as their own seat on it
+     * does, so a member holding only its client seat never reads an executive hidden from the client.
+     */
+    private ProjectAudience audienceOf(PublicReader reader, UUID projectId) {
+        return reader.readsWholeWorkspace() ? ProjectAudience.STAFF
+                : projectAccess.audienceOf(reader.userId(), reader.workspaceId(), projectId);
     }
 
     private List<ProjectResponse> readableByUser(PublicReader reader, List<ProjectResponse> listed) {

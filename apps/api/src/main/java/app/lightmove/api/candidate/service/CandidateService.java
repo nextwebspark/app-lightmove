@@ -47,6 +47,7 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
@@ -118,7 +119,6 @@ public class CandidateService {
     private final CandidateResponseMapper responses;
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
-    private final ExecutiveAudience audience;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -127,7 +127,7 @@ public class CandidateService {
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
-                            CandidatePipelineCatalog pipeline, ExecutiveAudience audience,
+                            CandidatePipelineCatalog pipeline,
                             LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
@@ -145,7 +145,6 @@ public class CandidateService {
         this.stream = stream;
         this.listConfig = properties.company().list();
         this.pipeline = pipeline;
-        this.audience = audience;
     }
 
     /**
@@ -158,7 +157,8 @@ public class CandidateService {
      * page. An <i>explicit</i> oversized size is still refused.
      */
     @Transactional(readOnly = true)
-    public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria) {
+    public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria,
+                                   ProjectAudience audience) {
         int page = criteria.page() == null ? 0 : criteria.page();
         int size = criteria.size() == null ? unpagedSizeFor(criteria) : criteria.size();
         listConfig.requireValidPage(page, size);
@@ -184,9 +184,8 @@ public class CandidateService {
         if (statusIds != null && statusIds.isEmpty()) {
             return new CandidatesResponse(List.of(), 0, page, size);
         }
-        boolean clientVisibleOnly = audience.seesOnlyClientVisible(workspaceId, projectId);
-        Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, clientVisibleOnly, statusIds,
-                companyIds,
+        Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, audience.clientVisibleOnly(),
+                statusIds, companyIds,
                 Boolean.TRUE.equals(criteria.unmapped()), nameQuery, textQuery, criteria.withinTriageCompanyIds()),
                 pageRequest);
 
@@ -227,10 +226,12 @@ public class CandidateService {
      * and a retired one only while somebody still holds it: one grouped count.
      */
     @Transactional(readOnly = true)
-    public Map<CandidateStatusDefinition, Long> statusCountsOf(UUID workspaceId, UUID projectId) {
+    public Map<CandidateStatusDefinition, Long> statusCountsOf(UUID workspaceId, UUID projectId,
+                                                               ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
         Map<UUID, Long> held = new HashMap<>();
-        candidates.countByStatusOfProject(projectId).forEach(row -> held.put(row.getStatusId(), row.getTotal()));
+        candidates.countByStatusOfProject(projectId, audience.clientVisibleOnly())
+                .forEach(row -> held.put(row.getStatusId(), row.getTotal()));
         Map<CandidateStatusDefinition, Long> counts = new LinkedHashMap<>();
         for (CandidateStatusDefinition status : pipeline.catalogOf(workspaceId).statuses()) {
             long total = held.getOrDefault(status.getId(), 0L);
@@ -243,10 +244,10 @@ public class CandidateService {
 
     /** An executive hidden from the client is a 404 to a client seat, the answer a foreign id gets. */
     @Transactional(readOnly = true)
-    public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId, ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        if (!candidate.isClientVisible() && audience.seesOnlyClientVisible(workspaceId, projectId)) {
+        if (!candidate.isClientVisible() && audience.clientVisibleOnly()) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         return responses.toDto(candidate);
@@ -261,10 +262,11 @@ public class CandidateService {
      * sees the same people on every read.
      */
     @Transactional(readOnly = true)
-    public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap) {
+    public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap,
+                                               ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
         PageRequest wholePosition = PageRequest.of(0, cap, FIRST_MAPPED_FIRST);
-        Page<Candidate> found = audience.seesOnlyClientVisible(workspaceId, projectId)
+        Page<Candidate> found = audience.clientVisibleOnly()
                 ? candidates.findByProjectIdAndClientVisibleTrue(projectId, wholePosition)
                 : candidates.findByProjectId(projectId, wholePosition);
         return new CandidatesResponse(
@@ -787,11 +789,11 @@ public class CandidateService {
 
     /** The stored profile photo, or NOT_FOUND — "no photo" and "no such candidate" read the same. */
     @Transactional(readOnly = true)
-    public StoredPhoto photoOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public StoredPhoto photoOf(UUID workspaceId, UUID projectId, UUID candidateId, ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
         // Existence, not content: a grid of avatars asks this per row, and loading each whole row —
         // profile jsonb included — to throw it away is a scan the scoping does not need.
-        UUID personId = (audience.seesOnlyClientVisible(workspaceId, projectId)
+        UUID personId = (audience.clientVisibleOnly()
                         ? candidates.findClientVisiblePersonIdByIdAndProjectId(candidateId, projectId)
                         : candidates.findPersonIdByIdAndProjectId(candidateId, projectId))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));

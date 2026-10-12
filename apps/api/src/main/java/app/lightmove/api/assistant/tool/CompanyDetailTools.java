@@ -107,7 +107,7 @@ public class CompanyDetailTools {
         int step = recorder.startStep("Reading the " + labelOf(status) + " companies");
 
         TriageCompaniesResponse filed = triaged.listAllOfStage(context.workspaceId(), context.projectId(), status,
-                TriageCompanyFilters.none(), MAX_MANDATE_COMPANIES);
+                TriageCompanyFilters.none(), MAX_MANDATE_COMPANIES, AssistantToolContext.AUDIENCE);
         Map<String, CompanyRow> rows = byAccountId(filed.companies().stream()
                 .map(TriageCompanyResponse::apolloAccountId).filter(Objects::nonNull).toList());
         Map<String, Long> nicheCounts = nicheCountsOf(rows.values());

@@ -8,6 +8,7 @@ import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
@@ -79,7 +80,7 @@ public class ProjectTeamService {
             seats.save(ProjectMember.of(projectId, memberId, Set.of(rbac.role(role)), userId));
             auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
             notifySeated(userId, project, membership, role, true);
-            return projectService.responseFor(workspaceId, project);
+            return projectService.responseFor(workspaceId, project, ProjectAudience.STAFF);
         }
 
         // A CLIENT-only seat being staffed is joining the team, not moving within it.
@@ -99,7 +100,7 @@ public class ProjectTeamService {
             notifySeated(userId, project, membership, role, !heldStaffRole);
         }
 
-        return projectService.responseFor(workspaceId, project);
+        return projectService.responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
     @Transactional
@@ -115,7 +116,7 @@ public class ProjectTeamService {
 
         seats.delete(seat);
         auditTeamChange(userId, workspaceId, projectId, memberId, "remove", httpRequest);
-        return projectService.responseFor(workspaceId, project);
+        return projectService.responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
     /**
@@ -168,7 +169,7 @@ public class ProjectTeamService {
                     "That representative can't be added to a position in their current state");
         }
 
-        return projectService.responseFor(workspaceId, project);
+        return projectService.responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
     /** Drops only the CLIENT role: a dual-role member keeps their staff seat. */
@@ -201,7 +202,7 @@ public class ProjectTeamService {
             }
         }
 
-        return projectService.responseFor(workspaceId, project);
+        return projectService.responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
     /**

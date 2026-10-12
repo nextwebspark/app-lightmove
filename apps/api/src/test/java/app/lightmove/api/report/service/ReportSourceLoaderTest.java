@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.candidate.constant.CandidateSystemStatus;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.model.PipelineTestStatuses;
 import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
@@ -38,6 +39,7 @@ class ReportSourceLoaderTest {
 
     private static final UUID WORKSPACE = UUID.randomUUID();
     private static final UUID PROJECT = UUID.randomUUID();
+    private static final ProjectAudience READER = ProjectAudience.CLIENT;
 
     private final TriageCompanyReadService triage = mock(TriageCompanyReadService.class);
     private final ProjectRepository projects = mock(ProjectRepository.class);
@@ -48,7 +50,7 @@ class ReportSourceLoaderTest {
     @BeforeEach
     void aMandateWithNobodyMapped() {
         when(projects.findByIdAndWorkspaceId(PROJECT, WORKSPACE)).thenReturn(Optional.of(mock(Project.class)));
-        when(candidates.listAllOfProject(eq(WORKSPACE), eq(PROJECT), anyInt()))
+        when(candidates.listAllOfProject(eq(WORKSPACE), eq(PROJECT), anyInt(), eq(READER)))
                 .thenReturn(new CandidatesResponse(List.of(), 0, 0, 0));
         when(pipeline.system(WORKSPACE, CandidateSystemStatus.INTERESTED))
                 .thenReturn(PipelineTestStatuses.active("interested", "Interested", 3));
@@ -60,7 +62,7 @@ class ReportSourceLoaderTest {
         stage(TriageCompanyStatus.SHORTLISTED, 3, companies(2), 2);
         stage(TriageCompanyStatus.IN_UNIVERSE, 1, companies(1), 5);
 
-        ReportSources sources = loaderCappedAt(3).load(WORKSPACE, PROJECT);
+        ReportSources sources = loaderCappedAt(3).load(WORKSPACE, PROJECT, READER);
 
         assertThat(sources.universe()).hasSize(3);
         assertThat(sources.universeTotal()).isEqualTo(7);
@@ -73,13 +75,13 @@ class ReportSourceLoaderTest {
         stage(TriageCompanyStatus.SHORTLISTED, 2, companies(2), 4);
         stage(TriageCompanyStatus.IN_UNIVERSE, 1, companies(1), 9);
 
-        ReportSources sources = loaderCappedAt(2).load(WORKSPACE, PROJECT);
+        ReportSources sources = loaderCappedAt(2).load(WORKSPACE, PROJECT, READER);
 
         assertThat(sources.universe()).hasSize(2);
         assertThat(sources.universeTotal()).isEqualTo(13);
         assertThat(sources.isTruncated()).isTrue();
         verify(triage).listAllOfStage(WORKSPACE, PROJECT, TriageCompanyStatus.IN_UNIVERSE,
-                TriageCompanyFilters.none(), 1);
+                TriageCompanyFilters.none(), 1, READER);
     }
 
     @Test
@@ -88,7 +90,7 @@ class ReportSourceLoaderTest {
         stage(TriageCompanyStatus.SHORTLISTED, 10, companies(0), 0);
         stage(TriageCompanyStatus.IN_UNIVERSE, 10, companies(0), 0);
 
-        loaderCappedAt(10).load(WORKSPACE, PROJECT);
+        loaderCappedAt(10).load(WORKSPACE, PROJECT, READER);
 
         verify(positions).compensationOf(WORKSPACE, PROJECT);
         verify(positions, never()).get(WORKSPACE, PROJECT);
@@ -100,7 +102,7 @@ class ReportSourceLoaderTest {
         stage(TriageCompanyStatus.SHORTLISTED, 10, companies(1), 1);
         stage(TriageCompanyStatus.IN_UNIVERSE, 9, companies(4), 4);
 
-        ReportSources sources = loaderCappedAt(10).load(WORKSPACE, PROJECT);
+        ReportSources sources = loaderCappedAt(10).load(WORKSPACE, PROJECT, READER);
 
         assertThat(sources.universe()).hasSize(5);
         assertThat(sources.isTruncated()).isFalse();
@@ -112,7 +114,7 @@ class ReportSourceLoaderTest {
     }
 
     private void stage(TriageCompanyStatus status, int askedCap, List<TriageCompanyResponse> answered, long total) {
-        when(triage.listAllOfStage(WORKSPACE, PROJECT, status, TriageCompanyFilters.none(), askedCap))
+        when(triage.listAllOfStage(WORKSPACE, PROJECT, status, TriageCompanyFilters.none(), askedCap, READER))
                 .thenReturn(new TriageCompaniesResponse(answered, total, 0, askedCap, null));
     }
 

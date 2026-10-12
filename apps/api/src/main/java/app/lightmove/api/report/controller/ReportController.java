@@ -1,6 +1,7 @@
 package app.lightmove.api.report.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.report.dto.ReportResponse;
@@ -21,12 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class ReportController {
 
     private final ReportService reports;
+    private final ProjectAccess projectAccess;
 
     @GetMapping("/api/v1/projects/{projectId}/report")
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public ReportResponse read(@AuthenticationPrincipal AuthPrincipal principal,
                                @PathVariable UUID projectId) {
-        return reports.read(principal.requireWorkspaceId(), projectId);
+        return reports.read(principal.requireWorkspaceId(), projectId,
+                projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
     }
 
     /** {@code WORK_EXECUTE}: it ranks the firm's own staff, which a client seat must never see. */

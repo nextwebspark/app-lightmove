@@ -46,7 +46,8 @@ public class PositionPipelineController {
     @PutMapping("/candidates/{candidateId}/pipeline-rank")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public PipelineRowResponse rank(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
-                                    @PathVariable UUID candidateId, @RequestBody RankPipelineRowRequest request,
+                                    @PathVariable UUID candidateId,
+                                    @Valid @RequestBody RankPipelineRowRequest request,
                                     HttpServletRequest httpRequest) {
         return pipeline.rank(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, request,
                 httpRequest);

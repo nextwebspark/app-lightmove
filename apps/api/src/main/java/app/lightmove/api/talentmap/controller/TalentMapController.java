@@ -1,6 +1,7 @@
 package app.lightmove.api.talentmap.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.talentmap.dto.TalentMapConfigResponse;
@@ -26,13 +27,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class TalentMapController {
 
     private final TalentMapService talentMap;
+    private final ProjectAccess projectAccess;
 
     @GetMapping("/api/v1/projects/{projectId}/talent-map")
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
     public TalentMapResponse read(@AuthenticationPrincipal AuthPrincipal principal,
                                   @PathVariable UUID projectId,
                                   @RequestParam(required = false) String status) {
-        return talentMap.read(principal.requireWorkspaceId(), projectId, status);
+        return talentMap.read(principal.requireWorkspaceId(), projectId, status,
+                projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
     }
 
     @GetMapping("/api/v1/projects/{projectId}/talent-map/locations")
@@ -40,7 +43,8 @@ public class TalentMapController {
     public TalentMapLocationsResponse locations(@AuthenticationPrincipal AuthPrincipal principal,
                                                 @PathVariable UUID projectId,
                                                 @RequestParam(required = false) String status) {
-        return talentMap.readLocations(principal.requireWorkspaceId(), projectId, status);
+        return talentMap.readLocations(principal.requireWorkspaceId(), projectId, status,
+                projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
     }
 
     @GetMapping("/api/v1/talent-map/config")

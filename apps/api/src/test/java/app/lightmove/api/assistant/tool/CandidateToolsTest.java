@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.candidate.constant.CandidateSystemStatus;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.model.PipelineCatalog;
@@ -56,13 +57,14 @@ class CandidateToolsTest {
     @Test
     void aCompanyNameThatMatchesNothingListsNobodyRatherThanEveryone() {
         when(triaged.named(any(), any(), any(), anyInt())).thenReturn(new TriageCompanyMatches(List.of(), 0));
-        when(candidates.list(any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
+        when(candidates.list(any(), any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
 
         MappedExecutives found = tools().listMappedExecutives("Nowhere Ltd", null, "not-a-status", null,
                 toolContext());
 
         ArgumentCaptor<CandidateListCriteria> criteria = ArgumentCaptor.forClass(CandidateListCriteria.class);
-        verify(candidates).list(eq(context.workspaceId()), eq(context.projectId()), criteria.capture());
+        verify(candidates).list(eq(context.workspaceId()), eq(context.projectId()), criteria.capture(),
+                eq(ProjectAudience.STAFF));
         assertThat(criteria.getValue().triageCompanyIds()).isEmpty();
         assertThat(criteria.getValue().status()).isNull();
         assertThat(criteria.getValue().size()).isEqualTo(25);
@@ -93,7 +95,7 @@ class CandidateToolsTest {
         TriageCompanyResponse company = mock(TriageCompanyResponse.class);
         when(triaged.named(any(), any(), eq("Group"), anyInt()))
                 .thenReturn(new TriageCompanyMatches(List.of(company), 80));
-        when(candidates.list(any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
+        when(candidates.list(any(), any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
 
         assertThat(tools().listMappedExecutives("Group", null, null, null, toolContext()).companyNameTooBroad())
                 .isTrue();

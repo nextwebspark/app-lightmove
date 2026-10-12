@@ -5,6 +5,7 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -60,7 +61,7 @@ public class TriageCompanyReadService {
     /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
     @Transactional(readOnly = true)
     public TriageCompaniesResponse list(UUID workspaceId, UUID projectId,
-                                        TriageCompanyListCriteria criteria) {
+                                        TriageCompanyListCriteria criteria, ProjectAudience audience) {
         CompanyListSettings listConfig = properties.company().list();
         int page = criteria.page() == null ? 0 : criteria.page();
         int size = criteria.size() == null ? listConfig.defaultPageSize() : criteria.size();
@@ -70,12 +71,13 @@ public class TriageCompanyReadService {
 
         String companyName = SuppliedText.blankToNull(criteria.nameQuery());
         String executiveName = SuppliedText.blankToNull(criteria.executiveQuery());
-        List<String> executiveStatuses = resolveExecutiveStatuses(projectId, criteria.executiveStatuses());
+        List<String> executiveStatuses = resolveExecutiveStatuses(workspaceId, projectId,
+                criteria.executiveStatuses());
         Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
                 ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
-                        executiveStatuses, resolveDirection(criteria.direction()), PageRequest.of(page, size))
+                        executiveStatuses, resolveDirection(criteria.direction()), PageRequest.of(page, size), audience)
                 : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
-                        PageRequest.of(page, size, resolveSort(criteria)));
+                        PageRequest.of(page, size, resolveSort(criteria)), audience);
 
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
@@ -85,14 +87,14 @@ public class TriageCompanyReadService {
     private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
                                                 String companyName, String executiveName,
                                                 List<String> executiveStatuses,
-                                                PageRequest pageRequest) {
+                                                PageRequest pageRequest, ProjectAudience audience) {
         if (executiveName == null && executiveStatuses.isEmpty()) {
             return companyName == null
                     ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
                     : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
                             projectId, status, companyName, pageRequest);
         }
-        Set<UUID> matchingIds = matchingExecutiveIds(projectId, executiveName, executiveStatuses);
+        Set<UUID> matchingIds = matchingExecutiveIds(projectId, executiveName, executiveStatuses, audience);
         if (matchingIds.isEmpty()) {
             return Page.empty(pageRequest);
         }
@@ -101,11 +103,12 @@ public class TriageCompanyReadService {
     }
 
     /** Both filters are independent: each resolves to a company set and the two are intersected. */
-    private Set<UUID> matchingExecutiveIds(UUID projectId, String executiveName, List<String> executiveStatuses) {
+    private Set<UUID> matchingExecutiveIds(UUID projectId, String executiveName, List<String> executiveStatuses,
+                                           ProjectAudience audience) {
         Set<UUID> byName = executiveName == null
-                ? null : executives.triageCompanyIdsMatchingExecutiveName(projectId, executiveName);
+                ? null : executives.triageCompanyIdsMatchingExecutiveName(projectId, executiveName, audience);
         Set<UUID> byStatus = executiveStatuses.isEmpty()
-                ? null : executives.triageCompanyIdsWithExecutiveStatusIn(projectId, executiveStatuses);
+                ? null : executives.triageCompanyIdsWithExecutiveStatusIn(projectId, executiveStatuses, audience);
         if (byName == null) {
             return byStatus;
         }
@@ -121,9 +124,10 @@ public class TriageCompanyReadService {
     private Page<TriageCompany> findOrderedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
                                                               String companyName, String executiveName,
                                                               List<String> executiveStatuses,
-                                                              SortDirection direction, PageRequest pageRequest) {
+                                                              SortDirection direction, PageRequest pageRequest,
+                                                              ProjectAudience audience) {
         Page<UUID> ranked = executives.triageCompanyIdsRankedByExecutiveStatus(projectId, status,
-                companyName, executiveName, executiveStatuses, direction == SortDirection.ASC, pageRequest);
+                companyName, executiveName, executiveStatuses, direction == SortDirection.ASC, pageRequest, audience);
         if (ranked.isEmpty()) {
             return new PageImpl<>(List.of(), pageRequest, ranked.getTotalElements());
         }
@@ -141,7 +145,7 @@ public class TriageCompanyReadService {
      * Status keys of the workspace's pipeline, which {@code candidate} holds: a token that is not one is a
      * 400, never a filter quietly dropped. An empty result means "no filter", not "match nothing".
      */
-    private List<String> resolveExecutiveStatuses(UUID projectId, List<String> tokens) {
+    private List<String> resolveExecutiveStatuses(UUID workspaceId, UUID projectId, List<String> tokens) {
         if (tokens == null || tokens.isEmpty()) {
             return List.of();
         }
@@ -151,7 +155,7 @@ public class TriageCompanyReadService {
             }
             return token;
         }).collect(Collectors.toList());
-        List<String> unknown = executives.unknownExecutiveStatuses(projectId, keys);
+        List<String> unknown = executives.unknownExecutiveStatuses(workspaceId, projectId, keys);
         if (!unknown.isEmpty()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown executive status: " + unknown.getFirst());
         }
@@ -165,13 +169,14 @@ public class TriageCompanyReadService {
     @Transactional(readOnly = true)
     public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
                                                   TriageCompanyStatus status,
-                                                  TriageCompanyFilters filters, int cap) {
+                                                  TriageCompanyFilters filters, int cap,
+                                                  ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
         PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
                 .and(NEWEST_FIRST));
         Page<TriageCompany> found = findWithFilters(projectId, status,
                 SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
-                resolveExecutiveStatuses(projectId, filters.executiveStatuses()), wholeStage);
+                resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()), wholeStage, audience);
         return new TriageCompaniesResponse(
                 found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));

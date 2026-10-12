@@ -21,6 +21,7 @@ import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -44,13 +45,19 @@ public class PositionPipelineService {
     /** The gap left between rows ranked in one go, so later drags have room to land between them. */
     private static final BigDecimal RANK_STEP = BigDecimal.valueOf(1024);
 
+    /** Below this a gap is spent: the stage is ranked whole again rather than halved further. */
+    private static final BigDecimal MIN_RANK_GAP = new BigDecimal("0.001");
+
     private static final BigDecimal TWO = BigDecimal.valueOf(2);
+
+    private static final Comparator<Candidate> STAGE_ORDER = Comparator
+            .comparing(Candidate::getPipelineRank, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(Candidate::getCreatedAt)
+            .thenComparing(Candidate::getId);
 
     private static final Comparator<Candidate> PIPELINE_ORDER = Comparator
             .comparingInt((Candidate row) -> row.getStatus().getStage().getPosition())
-            .thenComparing(Candidate::getPipelineRank, Comparator.nullsLast(Comparator.naturalOrder()))
-            .thenComparing(Candidate::getCreatedAt)
-            .thenComparing(Candidate::getId);
+            .thenComparing(STAGE_ORDER);
 
     private final CandidateRepository candidates;
     private final ProjectRepository projects;
@@ -85,30 +92,33 @@ public class PositionPipelineService {
     }
 
     /**
-     * Places a row between its new neighbours, both of its own stage. A stage nobody has dragged in yet is
-     * ranked whole first, in the order it was showing, so every later drag writes the one row moved.
+     * The stage's rows are locked first, so two drags queue, and the row lands beside {@code after} as the
+     * stage now stands rather than as the caller last read it: two rows dropped into one gap never share
+     * a rank. A stage never dragged in, or whose gap has halved away, is ranked whole.
      */
     @Transactional
     public PipelineRowResponse rank(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                     RankPipelineRowRequest request, HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
-        Candidate moved = candidates.requireInProject(candidateId, projectId);
-        UUID stageId = moved.getStatus().getStage().getId();
-        List<Candidate> stage = candidates.findPipelineOfProject(projectId).stream()
-                .filter(row -> row.getStatus().getStage().getId().equals(stageId))
-                .sorted(PIPELINE_ORDER)
-                .toList();
-        Candidate after = neighbour(stage, request.afterCandidateId(), candidateId);
-        Candidate before = neighbour(stage, request.beforeCandidateId(), candidateId);
+        UUID stageId = candidates.findStageIdByIdAndProjectId(candidateId, projectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        List<Candidate> stage = candidates.lockStageOfProject(projectId, stageId).stream()
+                .sorted(STAGE_ORDER)
+                .collect(Collectors.toCollection(ArrayList::new));
+        Candidate moved = rowOf(stage, candidateId);
         if (stage.stream().anyMatch(row -> row.getPipelineRank() == null)) {
             rankWhole(stage);
         }
-        BigDecimal low = after == null ? null : after.getPipelineRank();
-        BigDecimal high = before == null ? null : before.getPipelineRank();
-        if (low != null && high != null && low.compareTo(high) >= 0) {
-            throw ApiException.of(ErrorCode.PIPELINE_ORDER_INVALID);
+        stage.remove(moved);
+        int slot = slotFor(stage, request, candidateId);
+        BigDecimal low = slot == 0 ? null : stage.get(slot - 1).getPipelineRank();
+        BigDecimal high = slot == stage.size() ? null : stage.get(slot).getPipelineRank();
+        if (low != null && high != null && high.subtract(low).compareTo(MIN_RANK_GAP) < 0) {
+            stage.add(slot, moved);
+            rankWhole(stage);
+        } else {
+            moved.rankAt(between(low, high));
         }
-        moved.rankAt(between(low, high));
         audit.projectEvent(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .record();
@@ -153,6 +163,19 @@ public class PositionPipelineService {
         return candidate.getNextActionDue() == null ? null : candidate.getNextActionDue().toString();
     }
 
+    /** Where the moved row goes among the others: after {@code after}, else before {@code before}, else last. */
+    private static int slotFor(List<Candidate> others, RankPipelineRowRequest request, UUID movedId) {
+        Candidate after = neighbour(others, request.afterCandidateId(), movedId);
+        Candidate before = neighbour(others, request.beforeCandidateId(), movedId);
+        if (after != null && before != null && others.indexOf(after) >= others.indexOf(before)) {
+            throw ApiException.of(ErrorCode.PIPELINE_ORDER_INVALID);
+        }
+        if (after != null) {
+            return others.indexOf(after) + 1;
+        }
+        return before == null ? others.size() : others.indexOf(before);
+    }
+
     private static Candidate neighbour(List<Candidate> stage, UUID neighbourId, UUID movedId) {
         if (neighbourId == null) {
             return null;
@@ -160,7 +183,12 @@ public class PositionPipelineService {
         if (neighbourId.equals(movedId)) {
             throw ApiException.of(ErrorCode.PIPELINE_ORDER_INVALID);
         }
-        return stage.stream().filter(row -> row.getId().equals(neighbourId)).findFirst()
+        return rowOf(stage, neighbourId);
+    }
+
+    /** A row that left the stage since it was read is refused like any id outside it. */
+    private static Candidate rowOf(List<Candidate> stage, UUID candidateId) {
+        return stage.stream().filter(row -> row.getId().equals(candidateId)).findFirst()
                 .orElseThrow(() -> ApiException.of(ErrorCode.PIPELINE_ORDER_INVALID));
     }
 

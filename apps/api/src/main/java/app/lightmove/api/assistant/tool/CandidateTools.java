@@ -77,7 +77,7 @@ public class CandidateTools {
                 : named.companies().stream().map(TriageCompanyResponse::id).toList();
         CandidatesResponse found = candidates.list(context.workspaceId(), context.projectId(),
                 new CandidateListCriteria(companyIds, null, blankToNull(executiveName), null, null,
-                        asked, null, pageAsked, maxRows));
+                        asked, null, pageAsked, maxRows), AssistantToolContext.AUDIENCE);
         List<MappedExecutiveSummary> executives = found.candidates().stream()
                 .map(MappedExecutiveSummary::of)
                 .toList();

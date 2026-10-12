@@ -2,9 +2,7 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.repository.CandidateRepository;
-import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.model.Project;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.MappedExecutiveLookup;
@@ -32,21 +30,24 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     private final CandidatePipelineCatalog pipeline;
 
     @Override
-    public Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, String executiveName) {
+    public Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, String executiveName,
+                                                           ProjectAudience audience) {
         return candidates.findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
-                projectId, executiveName);
+                projectId, executiveName, audience.clientVisibleOnly());
     }
 
     /** Status keys of the project's own workspace catalog; a key it does not hold matches nobody. */
     @Override
-    public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses) {
-        return candidates.findTriageCompanyIdsByProjectIdAndStatusKeyIn(projectId, executiveStatuses);
+    public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses,
+                                                           ProjectAudience audience) {
+        return candidates.findTriageCompanyIdsByProjectIdAndStatusKeyIn(projectId, executiveStatuses,
+                audience.clientVisibleOnly());
     }
 
     @Override
-    public List<String> unknownExecutiveStatuses(UUID projectId, Collection<String> executiveStatuses) {
-        UUID workspaceId = projects.findById(projectId).map(Project::getWorkspaceId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    public List<String> unknownExecutiveStatuses(UUID workspaceId, UUID projectId,
+                                                 Collection<String> executiveStatuses) {
+        projects.requireInWorkspace(projectId, workspaceId);
         PipelineCatalog catalog = pipeline.catalogOf(workspaceId);
         return executiveStatuses.stream().filter(key -> catalog.byKey(key).isEmpty()).toList();
     }
@@ -54,12 +55,13 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     @Override
     public Page<UUID> triageCompanyIdsRankedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
             String companyName, String executiveName, List<String> executiveStatuses,
-            boolean ascending, Pageable pageable) {
+            boolean ascending, Pageable pageable, ProjectAudience audience) {
         return executiveStatuses.isEmpty()
                 ? candidates.findTriageCompanyIdsRankedByExecutiveStatus(
-                        projectId, status.name(), companyName, executiveName, ascending, pageable)
+                        projectId, status.name(), companyName, executiveName, ascending,
+                        audience.clientVisibleOnly(), pageable)
                 : candidates.findTriageCompanyIdsRankedByExecutiveStatusAndExecutiveStatuses(
                         projectId, status.name(), companyName, executiveName, executiveStatuses,
-                        ascending, pageable);
+                        ascending, audience.clientVisibleOnly(), pageable);
     }
 }

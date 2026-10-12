@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,6 +74,57 @@ class PositionPipelineTest extends PipelineFlowSupport {
         assertThat(codeOf(write(admin, "PUT", rankUrl(first), """
                 {"afterCandidateId":"%s","beforeCandidateId":null}""".formatted(elsewhere))))
                 .isEqualTo("PIPELINE_ORDER_INVALID");
+    }
+
+    @Test
+    @DisplayName("two rows dropped into the same gap land in order, each on its own rank")
+    void twoDropsIntoOneGapStayDistinct() throws Exception {
+        String first = person("First Person", "identified");
+        String second = person("Second Person", "identified");
+        String third = person("Third Person", "identified");
+        String fourth = person("Fourth Person", "identified");
+        String sameGap = """
+                {"afterCandidateId":"%s","beforeCandidateId":"%s"}""".formatted(first, second);
+
+        write(admin, "PUT", rankUrl(third), sameGap);
+        write(admin, "PUT", rankUrl(fourth), sameGap);
+
+        assertThat(ids(pipeline(""))).containsExactly(first, fourth, third, second);
+        assertThat(db.queryForObject("select count(distinct pipeline_rank) from app_lm_project_candidate "
+                + "where project_id = ?::uuid", Integer.class, projectId)).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("a gap dragged into over and over is spread out again rather than halved away")
+    void aSpentGapIsRankedWhole() throws Exception {
+        String top = person("Top Person", "identified");
+        String even = person("Even Person", "identified");
+        String odd = person("Odd Person", "identified");
+
+        for (int drag = 0; drag < 30; drag++) {
+            String moved = drag % 2 == 0 ? odd : even;
+            String below = drag % 2 == 0 ? even : odd;
+            assertThat(write(admin, "PUT", rankUrl(moved), """
+                    {"afterCandidateId":"%s","beforeCandidateId":"%s"}""".formatted(top, below))
+                    .getResponse().getStatus()).isEqualTo(200);
+            assertThat(ids(pipeline(""))).containsExactly(top, moved, below);
+        }
+
+        List<BigDecimal> ranks = db.queryForList("select pipeline_rank from app_lm_project_candidate "
+                + "where project_id = ?::uuid order by pipeline_rank", BigDecimal.class, projectId);
+        assertThat(ranks.get(1).subtract(ranks.get(0))).isGreaterThan(new BigDecimal("0.0004"));
+        assertThat(ranks.get(2).subtract(ranks.get(1))).isGreaterThan(new BigDecimal("0.0004"));
+    }
+
+    @Test
+    @DisplayName("a row cannot land between one neighbour named twice")
+    void aDragNamesTwoDifferentNeighbours() throws Exception {
+        String first = person("First Person", "identified");
+        String second = person("Second Person", "identified");
+
+        assertThat(write(admin, "PUT", rankUrl(second), """
+                {"afterCandidateId":"%s","beforeCandidateId":"%s"}""".formatted(first, first))
+                .getResponse().getStatus()).isEqualTo(400);
     }
 
     @Test

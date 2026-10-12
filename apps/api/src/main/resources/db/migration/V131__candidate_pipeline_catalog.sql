@@ -1,13 +1,8 @@
--- A candidate's place in a position becomes a workspace's own two-level catalog: stages (the columns of a
--- pipeline) and statuses, every status under exactly one stage. A candidate holds a status; its stage is
--- read through it, never stored beside it.
+-- A workspace's own pipeline: stages, and statuses each under exactly one stage. V36's seven statuses are
+-- seeded as system statuses and keep their wire keys, which the plugin, the public API and MCP still read.
 --
--- The seven statuses V36 fixed are seeded as system statuses (system_key = the old enum name) and keep
--- their wire keys, so the plugin, the public API, MCP and every old timeline line still read the same
--- tokens. They may be renamed and recoloured, never retired or moved to another stage.
---
--- Expand-only: app_lm_project_candidate.status stays, nullable and no longer written, beside the new
--- status_id, so a rollback revision still boots; it joins V91's frozen columns for #606's cleanup.
+-- Expand-only: app_lm_project_candidate.status stays, nullable and unwritten, so a rollback revision still
+-- boots; #606's cleanup drops it.
 
 CREATE TABLE app_lm_workspace_candidate_stage (
     id            uuid        PRIMARY KEY DEFAULT gen_random_uuid(),

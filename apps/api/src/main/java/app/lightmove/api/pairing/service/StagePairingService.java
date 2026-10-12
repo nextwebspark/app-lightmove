@@ -3,6 +3,7 @@ package app.lightmove.api.pairing.service;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.pairing.model.PairedStage;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
@@ -34,9 +35,11 @@ public class StagePairingService {
     private final CandidateService candidates;
 
     public PairedStage pair(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
-                            TriageCompanyFilters filters, int maxCompanies, int maxCandidates) {
-        TriageCompaniesResponse stage = triage.listAllOfStage(workspaceId, projectId, status, filters, maxCompanies);
-        CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, maxCandidates);
+                            TriageCompanyFilters filters, int maxCompanies, int maxCandidates,
+                            ProjectAudience audience) {
+        TriageCompaniesResponse stage = triage.listAllOfStage(workspaceId, projectId, status, filters, maxCompanies,
+                audience);
+        CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, maxCandidates, audience);
 
         Set<UUID> stageCompanyIds = new HashSet<>();
         stage.companies().stream().map(TriageCompanyResponse::id).forEach(stageCompanyIds::add);
