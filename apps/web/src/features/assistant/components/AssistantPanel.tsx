@@ -23,10 +23,9 @@ function withWritingStep(steps: LiveStep[]): LiveStep[] {
   return [...steps, { index: steps.length, label: "Writing the answer", detail: null, done: false }];
 }
 
-/** A slow answer is still being saved: asking again would pay for it twice. */
-function isStillAnswering(error: unknown): boolean {
-  return error instanceof ApiRequestError && error.code === "ASSISTANT_STILL_ANSWERING";
-}
+const NEVER_ANSWERED = new ApiRequestError({
+  code: "ASSISTANT_UNAVAILABLE", detail: "The assistant could not answer", status: 503, correlationId: "none",
+});
 
 /**
  * Stands in for the suggested companies until the turn is saved: a list drawn early is redrawn under
@@ -76,7 +75,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   const [liveProposal, setLiveProposal] = useState<AssistantProposal | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [awaited, setAwaited] = useState<AwaitedAnswer | null>(null);
-  const askedAt = useRef(0);
+  const [neverAnswered, setNeverAnswered] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
   // Set when the person opens another chat mid-answer: the answer still lands in its own chat, but
   // must not pull them back to it.
@@ -85,7 +84,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   const asking = useMutation({
     mutationFn: (question: string) => {
       movedOn.current = false;
-      askedAt.current = Date.now();
+      setNeverAnswered(false);
       setLiveSteps([]);
       setLiveProposal(null);
       setPendingQuestion(question);
@@ -124,11 +123,13 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     onError: (error, question) => {
       setPendingQuestion(null);
       setLiveProposal(null);
-      if (!isStillAnswering(error)) {
+      if (!(error instanceof assistantApi.AnswerStillComing)) {
         setDraft((current) => current || question);
         return;
       }
-      setAwaited({ question, threadId, turnsBefore: turns.length, askedAt: askedAt.current });
+      if (error.threadId) {
+        setAwaited({ question, threadId: error.threadId, askedIn: threadId, turnsBefore: turns.length });
+      }
     },
   });
   const resetAsking = asking.reset;
@@ -143,12 +144,20 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     if (!awaited) return;
     let stopped = false;
     const look = async () => {
-      const landed = await findLateAnswer(awaited, projectId).catch(() => null);
+      const landed = await findLateAnswer(awaited);
       if (stopped || !landed) return;
       setAwaited(null);
+      const stillWaiting = !viewing.current.asking && viewing.current.threadId === awaited.askedIn;
+      if (landed === "gone") {
+        if (!stillWaiting) return;
+        resetAsking();
+        setNeverAnswered(true);
+        setDraft((current) => current || awaited.question);
+        return;
+      }
       queryClient.setQueryData(assistantApi.ASSISTANT_THREAD_KEY(landed.id), landed);
       void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
-      if (viewing.current.asking || viewing.current.threadId !== awaited.threadId) return;
+      if (!stillWaiting) return;
       resetAsking();
       showThread(projectId, landed.id);
     };
@@ -174,6 +183,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     asking.reset();
     setPendingQuestion(null);
     setLiveProposal(null);
+    setNeverAnswered(false);
     showThread(projectId, id);
   };
 
@@ -190,7 +200,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     if (open && toggledByUser) composer.current?.focus();
   }, [open, toggledByUser]);
 
-  const awaitedHere = awaited && awaited.threadId === threadId && !pendingQuestion ? awaited : null;
+  const awaitedHere = awaited && awaited.askedIn === threadId && !pendingQuestion ? awaited : null;
   const empty = turns.length === 0 && !pendingQuestion && !awaitedHere;
 
   return (
@@ -306,9 +316,9 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
 
         {awaitedHere && <QuestionBubble question={awaitedHere.question} />}
 
-        {asking.isError && (
+        {(asking.isError || neverAnswered) && (
           <p role="alert" className="font-sans text-[11.5px] text-u-offlimits">
-            {messageFor(asking.error)}
+            {messageFor(asking.error ?? NEVER_ANSWERED)}
           </p>
         )}
 

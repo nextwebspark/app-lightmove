@@ -25,6 +25,16 @@ export function getThread(threadId: string): Promise<AssistantThread> {
   return request<AssistantThread>(`/assistant/threads/${threadId}`);
 }
 
+/** An answer that outlived its stream. `threadId` is the chat it will be saved in, where the stream named one. */
+export class AnswerStillComing extends ApiRequestError {
+  readonly threadId: string | null;
+
+  constructor(threadId: string | null) {
+    super({ code: "ASSISTANT_STILL_ANSWERING", detail: "The answer is still being written", status: 202, correlationId: "none" });
+    this.threadId = threadId;
+  }
+}
+
 /**
  * Asks, and hands each step to `onStep` as the server reports it ("Searching retail companies in
  * …", then its count), and the company card to `onProposal` the moment it is made — the answer text
@@ -39,10 +49,11 @@ export async function ask(
   onStep: (step: LiveStep) => void,
   onProposal: (proposal: AssistantProposal) => void,
 ): Promise<AssistantTurn> {
-  const received: { turn?: AssistantTurn; failedCode?: string } = {};
+  const received: { turn?: AssistantTurn; failedCode?: string; threadId?: string } = {};
   await streamEvents(
     `/projects/${projectId}/assistant/ask`,
     (event) => {
+      if (event.name === "started") received.threadId = (JSON.parse(event.data) as { threadId: string }).threadId;
       if (event.name === "step") onStep(JSON.parse(event.data) as LiveStep);
       if (event.name === "proposal") onProposal(JSON.parse(event.data) as AssistantProposal);
       if (event.name === "done") received.turn = JSON.parse(event.data) as AssistantTurn;
@@ -54,8 +65,11 @@ export async function ask(
   if (received.turn) return received.turn;
   // A stream that ended with no event lost its connection, not its answer: the server finishes and
   // saves it regardless, so it reads as still answering rather than as a failure to retry.
+  if (!received.failedCode || received.failedCode === "ASSISTANT_STILL_ANSWERING") {
+    throw new AnswerStillComing(received.threadId ?? threadId);
+  }
   throw new ApiRequestError({
-    code: received.failedCode ?? "ASSISTANT_STILL_ANSWERING",
+    code: received.failedCode,
     detail: "The assistant could not answer",
     status: 503,
     correlationId: "none",

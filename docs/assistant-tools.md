@@ -130,12 +130,15 @@ Gemini (Flash, usually 5–15s a round, 40s at most) and the stream closes at
 `lightmove.assistant.answer-deadline` (150s), inside Cloud Run's 300s request timeout. Each model round
 runs behind `AssistantRounds`: timed and logged at INFO, asked once more when its connection timed out
 or dropped, and not started at all past the deadline. The reads one round asks for run side by side
-(`ParallelToolCalls`); a round with the playbook, a question or the card runs in order.
+(`ParallelToolCalls`), every ask of an instance sharing `tool-parallelism` (4) permits; a round with
+the playbook, a question or the card runs in order.
 If the model call fails after its tools found companies, the turn is saved with those companies and a
 line saying the answer stopped early. If it found nothing, nothing is saved, the panel shows
 `ASSISTANT_UNAVAILABLE` and puts the question back in the composer to send again.
 `ASSISTANT_STILL_ANSWERING` does not — that answer is still being saved, asking again would pay
-twice, and the panel looks for it every five seconds until it lands. If the tab closes mid-answer, the answer is
+twice. A first question's chat is saved before it is answered and named by the stream's `started`
+event, so the panel reads that chat by id every five seconds until the answer lands; a chat whose first
+question was never answered is removed, which the panel reads as the answer not coming. If the tab closes mid-answer, the answer is
 still saved and shows up in History.
 
 A card's stage is the one the mandate held when the card was made (`TriageCompanyReadService.stagesOf`:

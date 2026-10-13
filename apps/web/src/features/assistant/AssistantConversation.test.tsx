@@ -243,10 +243,8 @@ describe("a chat with the assistant", () => {
   });
 
   it("says a slow answer is still coming rather than inviting a paid retry", async () => {
-    const { ApiRequestError } = await import("../../lib/apiClient");
-    ask.mockRejectedValue(new ApiRequestError({
-      code: "ASSISTANT_STILL_ANSWERING", detail: "", status: 202, correlationId: "none",
-    }));
+    const { AnswerStillComing } = await import("./api/assistantApi");
+    ask.mockRejectedValue(new AnswerStillComing(null));
 
     mount();
     await send("Top retailers in UAE");
@@ -258,13 +256,8 @@ describe("a chat with the assistant", () => {
   it("shows a slow answer in the chat once it lands, without being asked again", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const { ApiRequestError } = await import("../../lib/apiClient");
-      ask.mockRejectedValue(new ApiRequestError({
-        code: "ASSISTANT_STILL_ANSWERING", detail: "", status: 202, correlationId: "none",
-      }));
-      listThreads.mockResolvedValue([
-        { id: "th1", title: "Top retailers in UAE", updatedAt: new Date(Date.now() + 1_000).toISOString() },
-      ]);
+      const { AnswerStillComing } = await import("./api/assistantApi");
+      ask.mockRejectedValue(new AnswerStillComing("th1"));
       getThread.mockResolvedValue(thread("th1", [turn("t1", "th1", { question: "Top retailers in UAE" })]));
 
       mount();
@@ -276,6 +269,29 @@ describe("a chat with the assistant", () => {
       expect(await screen.findByText("Answer t1")).toBeInTheDocument();
       expect(screen.queryByText(/no need to ask again/)).not.toBeInTheDocument();
       expect(ask).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("gives a slow answer that never came back to the composer", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { ApiRequestError } = await import("../../lib/apiClient");
+      const { AnswerStillComing } = await import("./api/assistantApi");
+      ask.mockRejectedValue(new AnswerStillComing("th1"));
+      getThread.mockRejectedValue(new ApiRequestError({
+        code: "NOT_FOUND", detail: "", status: 404, correlationId: "none",
+      }));
+
+      mount();
+      await send("Top retailers in UAE");
+      expect(await screen.findByText(/no need to ask again/)).toBeInTheDocument();
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(await screen.findByText(/could not answer just now/)).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("Top retailers in UAE");
     } finally {
       vi.useRealTimers();
     }
