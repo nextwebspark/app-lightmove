@@ -1,4 +1,4 @@
-import { moveItem } from "../../../lib/useDragReorder";
+import { moveItem } from "../../../lib/moveItem";
 import type { PipelineCatalog } from "../../workspace/api/types";
 import type { PipelineRankMove, PipelineRow } from "../api/types";
 
