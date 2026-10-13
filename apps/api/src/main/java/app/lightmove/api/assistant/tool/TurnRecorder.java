@@ -22,7 +22,7 @@ import lombok.extern.slf4j.Slf4j;
  * What the tools did during one ask: the steps they reported, the companies they found or researched
  * by name, and the card they proposed. Each step
  * change is passed on as it happens, so the panel can show it live; the whole record is saved with
- * the answer.
+ * the answer. Every method is synchronized: the tools of one model round run side by side.
  */
 @Slf4j
 public class TurnRecorder {
@@ -52,7 +52,7 @@ public class TurnRecorder {
         this.onProposal = onProposal;
     }
 
-    public int startStep(String label) {
+    public synchronized int startStep(String label) {
         steps.add(new AssistantStep(label, null));
         int index = steps.size() - 1;
         openStepStartedAt.put(index, System.nanoTime());
@@ -60,54 +60,54 @@ public class TurnRecorder {
         return index;
     }
 
-    public void finishStep(int index, String detail) {
+    public synchronized void finishStep(int index, String detail) {
         String label = steps.get(index).label();
         steps.set(index, new AssistantStep(label, detail));
         Long startedAt = openStepStartedAt.remove(index);
         if (startedAt != null) {
-            log.debug("Assistant step '{}' took {}ms", label, (System.nanoTime() - startedAt) / 1_000_000);
+            log.info("Assistant step '{}' took {}ms", label, (System.nanoTime() - startedAt) / 1_000_000);
         }
         onStep.accept(new AssistantStepEvent(index, label, detail, true));
     }
 
     /** True the first time only: an answer looks names up once, because every lookup is billed. */
-    public boolean startNameLookup() {
+    public synchronized boolean startNameLookup() {
         boolean first = !namesLookedUp;
         namesLookedUp = true;
         return first;
     }
 
-    public void found(Collection<String> apolloAccountIds) {
+    public synchronized void found(Collection<String> apolloAccountIds) {
         foundAccountIds.addAll(apolloAccountIds);
     }
 
-    public List<String> foundAccountIds() {
+    public synchronized List<String> foundAccountIds() {
         return List.copyOf(foundAccountIds);
     }
 
-    public void countVendorSearches(int searches) {
+    public synchronized void countVendorSearches(int searches) {
         vendorSearches += searches;
     }
 
     /** Billed Bright Data searches this answer made — what its audit event records. */
-    public int vendorSearches() {
+    public synchronized int vendorSearches() {
         return vendorSearches;
     }
 
-    public void usedSkill(String skill) {
+    public synchronized void usedSkill(String skill) {
         skillsUsed.add(skill);
     }
 
     /** Every playbook this answer loaded, in order, each once — what its audit event records. */
-    public List<String> skillsUsed() {
+    public synchronized List<String> skillsUsed() {
         return List.copyOf(skillsUsed);
     }
 
-    public void researched(String linkedinSlug, CapturedCompanyDetails details) {
+    public synchronized void researched(String linkedinSlug, CapturedCompanyDetails details) {
         researched.put(linkedinSlug, details);
     }
 
-    public Map<String, CapturedCompanyDetails> researched() {
+    public synchronized Map<String, CapturedCompanyDetails> researched() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(researched));
     }
 
@@ -116,27 +116,27 @@ public class TurnRecorder {
      * from {@link #researched()}: a remembered company was not found by this answer and must not be
      * carded unasked.
      */
-    public void remember(String linkedinSlug, CapturedCompanyDetails details) {
+    public synchronized void remember(String linkedinSlug, CapturedCompanyDetails details) {
         remembered.put(linkedinSlug, details);
     }
 
     /** Every page this answer may card: its own research, then what earlier answers researched. */
-    public Map<String, CapturedCompanyDetails> proposablePages() {
+    public synchronized Map<String, CapturedCompanyDetails> proposablePages() {
         Map<String, CapturedCompanyDetails> pages = new LinkedHashMap<>(remembered);
         pages.putAll(researched);
         return Collections.unmodifiableMap(pages);
     }
 
     /** Records that the company under {@code companyKey} runs {@code brand} locally, as a franchise partner does. */
-    public void operates(String companyKey, String brand) {
+    public synchronized void operates(String companyKey, String brand) {
         operatedBrands.put(companyKey, brand);
     }
 
-    public Map<String, String> operatedBrands() {
+    public synchronized Map<String, String> operatedBrands() {
         return Collections.unmodifiableMap(new LinkedHashMap<>(operatedBrands));
     }
 
-    public void propose(AssistantProposal proposal) {
+    public synchronized void propose(AssistantProposal proposal) {
         this.proposal = proposal;
         onProposal.accept(proposal);
     }
@@ -154,7 +154,7 @@ public class TurnRecorder {
      * Keeps the questions for the card ({@link AssistantQuestions} has already held them to its limits). Only
      * the first set an answer asks is kept; an empty one leaves the answer to carry on without asking.
      */
-    public void ask(List<AssistantQuestion> asked) {
+    public synchronized void ask(List<AssistantQuestion> asked) {
         if (!questions.isEmpty() || asked.isEmpty()) {
             return;
         }
@@ -163,19 +163,19 @@ public class TurnRecorder {
         finishStep(step, null);
     }
 
-    public List<AssistantQuestion> questions() {
+    public synchronized List<AssistantQuestion> questions() {
         return questions;
     }
 
-    public boolean askedQuestions() {
+    public synchronized boolean askedQuestions() {
         return !questions.isEmpty();
     }
 
-    public List<AssistantStep> steps() {
+    public synchronized List<AssistantStep> steps() {
         return List.copyOf(steps);
     }
 
-    public AssistantProposal proposal() {
+    public synchronized AssistantProposal proposal() {
         return proposal;
     }
 }

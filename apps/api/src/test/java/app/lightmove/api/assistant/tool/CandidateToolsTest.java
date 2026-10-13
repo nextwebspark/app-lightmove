@@ -122,7 +122,7 @@ class CandidateToolsTest {
         when(pipeline.catalogOf(any())).thenReturn(new PipelineCatalog(List.of(), List.of()));
         LightMoveProperties properties = mock(LightMoveProperties.class);
         when(properties.assistant()).thenReturn(new AssistantSettings("gemini-2.5-flash", 0.2, 512, 12, 25, 250,
-                4, 10, 5, Duration.ofSeconds(25), 15));
+                4, 10, 5, Duration.ofSeconds(25), 15, Duration.ofSeconds(150)));
         return new CandidateTools(candidates, pipeline, triaged, properties);
     }
 

@@ -5,24 +5,30 @@ import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.llm.service.ChatCallLog;
+import io.micrometer.observation.ObservationRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
- * The assistant's one model call, run through Spring AI's tool loop. Deliberately not
+ * The assistant's one model call, run through Spring AI's tool loop with each round behind
+ * {@link AssistantRounds} and a round's tools run by {@link ParallelToolCalls}. Deliberately not
  * {@code LlmCallPolicy.forPrompt}: its SafeGuardAdvisor would refuse "ignore the declined ones" (#429).
  */
 @Service
@@ -34,18 +40,30 @@ public class AssistantModelCall {
     private final ChatClient chatClient;
     private final AssistantSettings settings;
     private final Resource corePrompt;
+    private final ToolCallingAdvisor toolLoop;
 
     public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
-                              @Value("classpath:prompts/assistant-core.st") Resource corePrompt) {
+                              @Value("classpath:prompts/assistant-core.st") Resource corePrompt,
+                              @Qualifier("applicationTaskExecutor") Executor executor,
+                              ObjectProvider<ObservationRegistry> observations) {
         this.chatClient = chatClient;
         this.settings = properties.assistant();
         this.corePrompt = corePrompt;
+        ToolCallingManager oneAtATime = ToolCallingManager.builder()
+                .observationRegistry(observations.getIfAvailable(() -> ObservationRegistry.NOOP))
+                .build();
+        this.toolLoop = ToolCallingAdvisor.builder()
+                .toolCallingManager(new ParallelToolCalls(oneAtATime, executor,
+                        AssistantToolset.READS_SAFE_SIDE_BY_SIDE))
+                .build();
     }
 
     public String ask(Map<String, Object> systemParams, List<ToolCallback> tools, List<AssistantTurn> history,
                       String question, AssistantToolContext context) {
         ChatResponse response = chatClient.prompt()
-                .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID))
+                .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID)
+                        .advisors(toolLoop, new AssistantRounds(context.recorder(), settings.model(),
+                                settings.answerDeadline())))
                 .options(GoogleGenAiChatOptions.builder()
                         .model(settings.model())
                         .temperature(settings.temperature())
@@ -57,21 +75,14 @@ public class AssistantModelCall {
                 .toolContext(context.asMap())
                 .call()
                 .chatResponse();
-        return answerOf(response, context);
+        return answerOf(response);
     }
 
-    /**
-     * Every call is sent {@link #conversation}'s card and question blocks, so any answer may echo one back. The
-     * tokens are Spring AI's sum over the call's tool rounds.
-     */
-    private String answerOf(ChatResponse response, AssistantToolContext context) {
+    /** Every call is sent {@link #conversation}'s card and question blocks, so any answer may echo one back. */
+    private static String answerOf(ChatResponse response) {
         if (response == null) {
             return "";
         }
-        Usage usage = response.getMetadata().getUsage();
-        String model = response.getMetadata().getModel();
-        context.recorder().spent(model == null || model.isBlank() ? settings.model() : model,
-                usage.getPromptTokens(), usage.getCompletionTokens());
         Generation result = response.getResult();
         String answer = result == null ? null : result.getOutput().getText();
         return answer == null ? "" : QuestionMemory.stripFrom(CardMemory.stripFrom(answer));

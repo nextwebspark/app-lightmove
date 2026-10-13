@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
 import app.lightmove.api.assistant.model.HiringSide;
+import app.lightmove.api.assistant.model.ProposedCompany;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.CandidateTools;
 import app.lightmove.api.assistant.tool.CompanyDetailTools;
@@ -212,6 +214,24 @@ class AssistantAgentTest {
         assertThatThrownBy(() -> agent.answer("Find utilities", List.of(), context))
                 .isInstanceOfSatisfying(ApiException.class,
                         refused -> assertThat(refused.getCode()).isEqualTo(ErrorCode.ASSISTANT_UNAVAILABLE));
+    }
+
+    @Test
+    @DisplayName("a model call that fails after its tools found companies still answers with them")
+    void answersWithWhatWasFoundBeforeTheFailure() {
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any()))
+                .thenThrow(new IllegalStateException("down"));
+        doAnswer(call -> {
+            recorder.propose(new AssistantProposal("Companies found", List.of(utility()), Map.of()));
+            return null;
+        }).when(proposalTools).proposeWhatWasFound(context);
+
+        assertThat(agent.answer("Find utilities", List.of(), context))
+                .isEqualTo(AssistantAgent.STOPPED_EARLY_LEAD_IN);
+    }
+
+    private static ProposedCompany utility() {
+        return new ProposedCompany("acc-1", null, "Gulf Utilities", "United Arab Emirates", 1200, null, null, null);
     }
 
     private ToolCallback questionTool() {

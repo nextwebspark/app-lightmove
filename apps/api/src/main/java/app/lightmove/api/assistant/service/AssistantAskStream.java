@@ -9,7 +9,6 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
-import app.lightmove.api.core.stream.SseStreams;
 import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
@@ -29,19 +28,21 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * {@code done} or {@code failed} events. A closed tab only stops the sending; the answer is still saved.
  *
  * <p>An answer outliving the stream is reported as still answering, never failed — asking again would
- * pay twice. The executor is unbounded virtual threads, so the slots are the only concurrency cap.
+ * pay twice. The executor is unbounded virtual threads, so the slots are the only concurrency cap. The
+ * stream has its own, longer limit than {@code SseStreams}: it is one answer, not a feed that reconnects.
  */
 @Slf4j
 @Service
 public class AssistantAskStream {
 
-    private static final long STILL_ANSWERING_AFTER_MS = SseStreams.STREAM_TIMEOUT_MS - 5_000;
+    private static final long CLOSES_AFTER_STILL_ANSWERING_MS = 10_000;
 
     private final AssistantService assistant;
     private final AsyncTaskExecutor executor;
     private final LlmBudgetGuard budget;
     private final FairUseGuard fairUse;
     private final Semaphore slots;
+    private final long stillAnsweringAfterMs;
 
     public AssistantAskStream(AssistantService assistant,
                               @Qualifier("applicationTaskExecutor") AsyncTaskExecutor executor,
@@ -51,6 +52,7 @@ public class AssistantAskStream {
         this.budget = budget;
         this.fairUse = fairUse;
         this.slots = new Semaphore(properties.assistant().maxConcurrentAsks());
+        this.stillAnsweringAfterMs = properties.assistant().answerDeadline().toMillis();
     }
 
     public SseEmitter ask(UUID userId, UUID workspaceId, UUID projectId, UUID threadId, String question) {
@@ -60,10 +62,11 @@ public class AssistantAskStream {
         if (!slots.tryAcquire()) {
             throw ApiException.of(ErrorCode.ASSISTANT_BUSY);
         }
-        SseEmitter emitter = new SseEmitter(SseStreams.STREAM_TIMEOUT_MS);
+        SseEmitter emitter = new SseEmitter(stillAnsweringAfterMs + CLOSES_AFTER_STILL_ANSWERING_MS);
         AtomicBoolean closed = new AtomicBoolean();
-        CompletableFuture.delayedExecutor(STILL_ANSWERING_AFTER_MS, TimeUnit.MILLISECONDS).execute(() -> {
+        CompletableFuture.delayedExecutor(stillAnsweringAfterMs, TimeUnit.MILLISECONDS).execute(() -> {
             if (closed.compareAndSet(false, true)) {
+                log.info("Assistant answer still being written after {}ms; its stream is closed", stillAnsweringAfterMs);
                 send(emitter, "failed", Map.of("code", ErrorCode.ASSISTANT_STILL_ANSWERING.name()));
                 emitter.complete();
             }

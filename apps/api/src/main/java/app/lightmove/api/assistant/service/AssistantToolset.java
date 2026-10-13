@@ -11,6 +11,7 @@ import app.lightmove.api.assistant.tool.SectorTools;
 import app.lightmove.api.assistant.tool.TurnRecorder;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.springaicommunity.agent.tools.ToolCallListeners;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
@@ -24,6 +25,16 @@ import tools.jackson.databind.ObjectMapper;
  */
 @Component
 public class AssistantToolset {
+
+    /**
+     * The tools one model round may run at once: each only reads or searches. The playbook, a question and
+     * the card are left out, because each depends on what the tools before it in the round recorded.
+     */
+    static final Set<String> READS_SAFE_SIDE_BY_SIDE = Set.of(
+            "readMandateBrief", "searchCompanyUniverse", "describeMarket", "lookUpCompaniesByName",
+            "identifyCompany", "findSimilarCompanies", "searchCompaniesByActivity", "adjacentIndustries",
+            "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives", "readCompanyDetails",
+            "listMandateCompanies");
 
     private final AssistantSkills skills;
     private final ObjectMapper json;

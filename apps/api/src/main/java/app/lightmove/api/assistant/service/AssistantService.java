@@ -31,7 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Answers a question in one request through {@link AssistantAgent}, and saves the answer as a turn of
- * the chat. Nothing is written when the model call fails.
+ * the chat. Nothing is written when the model call fails before finding anything.
  */
 @Slf4j
 @Service
