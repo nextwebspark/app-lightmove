@@ -131,6 +131,23 @@ describe("PipelineStagesPage", () => {
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-considering", { retired: true }));
   });
 
+  it("leaves a name open for typing after Rename, saving nothing until asked", async () => {
+    vi.mocked(pipelineApi.updateStatus).mockResolvedValue(aSeededCatalog());
+    vi.mocked(pipelineApi.updateStage).mockResolvedValue(aSeededCatalog());
+    renderPage();
+    await screen.findByRole("region", { name: "Interested" });
+
+    const considering = within(card("Interested")).getByRole("listitem", { name: "Considering" });
+    await userEvent.click(within(considering).getByRole("button", { name: "Rename" }));
+    expect(within(considering).getByLabelText("Status name")).toHaveValue("Considering");
+    expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
+
+    await userEvent.click(within(card("Interested")).getAllByRole("button", { name: "Rename" })[0]);
+    expect(within(card("Interested")).getByLabelText("Stage name")).toHaveValue("Interested");
+    expect(pipelineApi.updateStage).not.toHaveBeenCalled();
+    expect(screen.queryByText("Renamed on every position")).not.toBeInTheDocument();
+  });
+
   it("reorders stages by drag or by the handle's arrow keys, keeping the closed stage last", async () => {
     const catalog = aSeededCatalog();
     vi.mocked(pipelineApi.reorderStages).mockImplementation(async (ids) => ({

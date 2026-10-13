@@ -272,6 +272,7 @@ function StageCard({
           <span className="ms-auto flex gap-1">
             {renaming ? (
               <Button
+                key="save"
                 type="submit"
                 form={`rename-stage-${stage.id}`}
                 variant="secondary"
@@ -283,6 +284,8 @@ function StageCard({
               </Button>
             ) : (
               <Button
+                key="rename"
+                type="button"
                 variant="ghost"
                 size="xs"
                 onClick={() => {
@@ -437,6 +440,7 @@ function StatusRow({
           )}
           {renaming ? (
             <Button
+              key="save"
               type="submit"
               form={`rename-status-${status.id}`}
               variant="secondary"
@@ -448,6 +452,8 @@ function StatusRow({
             </Button>
           ) : (
             <Button
+              key="rename"
+              type="button"
               variant="ghost"
               size="xs"
               onClick={() => {
