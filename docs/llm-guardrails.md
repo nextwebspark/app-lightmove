@@ -107,7 +107,7 @@ more, but no trust decision may rest on it.
 ### Bounding the call
 
 - **Timeout** through the provider's own `HttpOptions.timeout` (`lightmove.llm.request-timeout-ms`,
-  default 20s). **Chat only.** Embeddings never touch this `Client`:
+  default 40s). **Chat only.** Embeddings never touch this `Client`:
   `GoogleGenAiEmbeddingConnectionAutoConfiguration` builds its own connection details from
   `spring.ai.google.genai.embedding.*`, with no timeout and no seam this bean reaches. So
   `POST /api/v1/llm/embed` is budgeted but still unbounded, and bounding it is separate work. Neither Spring AI's connection properties nor `GoogleGenAiChatOptions` expose one, so

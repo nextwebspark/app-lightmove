@@ -913,7 +913,7 @@ and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `m
 V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
 V120 adds `app_lm_assistant_turn.questions` jsonb — the clarifying questions an assistant answer asked through
 `spring-ai-agent-utils`' `AskUserQuestionTool` in place of answering. The questions are recorded and the model told
-to stop (`AskUserQuestionCallback`), never waited on, since an ask is one 50-second request; the consultant's choices
+to stop (`AskUserQuestionCallback`), never waited on, since an ask is one request with a deadline (`lightmove.assistant.answer-deadline`); the consultant's choices
 are the chat's next question (`docs/assistant-tools.md`).
 V121 is billing's first (epic #734): the plan catalogue (`app_lm_billing_plan`, Core / Pro / Enterprise priced per
 staff seat), one `app_lm_workspace_subscription` per workspace (every existing one backfilled Core, `INVOICED`, a seat per
