@@ -270,8 +270,10 @@ function StageCard({
         </span>
         {isAdmin && (
           <span className="ms-auto flex gap-1">
+            {/* Keyed apart: patched in place, the pressed Rename became this form's Save and submitted it mid-click. */}
             {renaming ? (
               <Button
+                key="save"
                 type="submit"
                 form={`rename-stage-${stage.id}`}
                 variant="secondary"
@@ -283,6 +285,8 @@ function StageCard({
               </Button>
             ) : (
               <Button
+                key="rename"
+                type="button"
                 variant="ghost"
                 size="xs"
                 onClick={() => {
@@ -435,8 +439,10 @@ function StatusRow({
               Make default
             </Button>
           )}
+          {/* Keyed apart: patched in place, the pressed Rename became this form's Save and submitted it mid-click. */}
           {renaming ? (
             <Button
+              key="save"
               type="submit"
               form={`rename-status-${status.id}`}
               variant="secondary"
@@ -448,6 +454,8 @@ function StatusRow({
             </Button>
           ) : (
             <Button
+              key="rename"
+              type="button"
               variant="ghost"
               size="xs"
               onClick={() => {
