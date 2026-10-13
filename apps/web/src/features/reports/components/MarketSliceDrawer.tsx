@@ -1,6 +1,7 @@
 import { ICONS } from "../../../components/layout/Icon";
 import type { MarketSlice, SeniorityLevel } from "../api/types";
 import { sliceInterest } from "../lib/marketStats";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import { DrawerContext, DrawerLink, DrawerListRow, DrawerPersonRow, DrawerSection, ReportDrawer } from "./ReportDrawer";
 import { ReportGap } from "./ReportGap";
 import { StackedBar } from "./StackedBar";
@@ -27,7 +28,8 @@ export function MarketSliceDrawer({
   const count = selection?.count ?? 0;
   const companies = selection?.slice?.companies ?? [];
   const executives = selection?.slice?.executives ?? [];
-  const interest = sliceInterest(executives);
+  const { catalog } = usePipelineCatalog();
+  const interest = sliceInterest(executives, catalog);
   // The server lists a capped number of a cell's executives but counts them all, so a big slice is
   // said to be a sample rather than letting the bar and the roster pass for the whole of it.
   const sampled = executives.length < count ? ` · first ${executives.length} of ${count}` : "";
@@ -62,7 +64,7 @@ export function MarketSliceDrawer({
               </DrawerSection>
               <DrawerSection label={`Executives in this slice${sampled}`}>
                 {executives.map((e) => (
-                  <DrawerPersonRow key={e.id} name={e.fullName} detail={`${e.company ?? "No employer on file"} · ${level}`} status={e.status} />
+                  <DrawerPersonRow key={e.id} name={e.fullName} detail={`${e.company ?? "No employer on file"} · ${level}`} status={e} />
                 ))}
               </DrawerSection>
             </>

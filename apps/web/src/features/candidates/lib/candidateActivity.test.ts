@@ -44,10 +44,54 @@ describe("timelineLines", () => {
     });
   });
 
-  it("reads a status move in the grid's own labels", () => {
+  it("reads an older status move, which carries only the built-in keys, in their labels", () => {
     expect(
       lineOf({ kind: "STATUS_CHANGED", details: { from: "contacted", to: "engaged" } }),
     ).toMatchObject({ text: "marked Engaged on this position", detail: "Contacted → Engaged" });
+    expect(lineOf({ kind: "STATUS_CHANGED", details: { from: "identified", to: "offLimits" } })).toMatchObject({
+      detail: "Identified → Off-limits",
+    });
+  });
+
+  it("reads a status move in the labels it was written with, whatever they are called now", () => {
+    expect(
+      lineOf({
+        kind: "STATUS_CHANGED",
+        details: { from: "contacted", to: "callBooked", fromLabel: "Reached out", toLabel: "Call booked" },
+      }),
+    ).toMatchObject({ text: "marked Call booked on this position", detail: "Reached out → Call booked" });
+  });
+
+  it("says whether the executive was shown to the client or hidden from them", () => {
+    expect(lineOf({ kind: "CLIENT_VISIBILITY_CHANGED", details: { visible: "false" } })).toMatchObject({
+      text: "hid them from the client on this position",
+      detail: null,
+    });
+    expect(
+      lineOf({ kind: "CLIENT_VISIBILITY_CHANGED", details: { visible: true } as unknown as Record<string, string> }),
+    ).toMatchObject({ text: "made them visible to the client on this position" });
+  });
+
+  it("reads a next action as set, with what it is and when it falls due, or as cleared", () => {
+    expect(
+      lineOf({ kind: "NEXT_ACTION_SET", details: { text: "Book introductory call", dueAt: "2026-10-15T10:00:00Z" } }),
+    ).toMatchObject({
+      text: "set the next action on this position",
+      detail: expect.stringMatching(/^Book introductory call · due \w{3} 15 Oct, \d{2}:\d{2}$/),
+    });
+    expect(lineOf({ kind: "NEXT_ACTION_SET", details: { text: "Send the brief" } })).toMatchObject({
+      detail: "Send the brief",
+    });
+    expect(lineOf({ kind: "NEXT_ACTION_SET", details: { cleared: "true" } })).toMatchObject({
+      text: "cleared the next action on this position",
+      detail: null,
+    });
+  });
+
+  it("draws a line for a kind this build has not heard of rather than failing", () => {
+    const unknown = { kind: "SOMETHING_NEW" as PersonTimelineEntry["kind"], details: {} };
+    expect(lineOf(unknown)).toMatchObject({ text: "updated the record", detail: null });
+    expect(lastActivityOf(entry(unknown)).text).toBe("Updated the record");
   });
 
   it("phrases each kind of note by what it records, with its opening words", () => {

@@ -382,6 +382,73 @@
           </div>
         </sc-if>
 
+        <sc-if value="{{ isPipelineStages }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Pipeline stages">
+            <div style="margin-bottom:18px">
+              <div style="font:600 19px/1.25 var(--sans)">Pipeline stages</div>
+              <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Stages are the columns of a position's pipeline; every status belongs to one stage. A candidate holds a status, and moves between stages by changing it. A retired status stays on the candidates who hold it but is never offered again.</div>
+              <sc-if value="{{ psReadOnly }}"><div style="margin-top:10px;display:inline-flex;align-items:center;gap:7px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:6px 10px;font:400 11.5px var(--mono);color:var(--text2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg>Only workspace admins can change stages and statuses.</div></sc-if>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <sc-for list="{{ psStages }}" as="s" hint-placeholder-count="6">
+                <div draggable="{{ s.draggable }}" data-id="{{ s.id }}" onDragStart="{{ psStageDragStart }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStageDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ s.cardStyle }}">
+                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line-soft)">
+                    <sc-if value="{{ s.handle }}"><span title="Drag to reorder" style="display:grid;place-items:center;width:14px;color:var(--text3);cursor:grab"><svg width="12" height="14" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
+                    <sc-if value="{{ s.pinned }}"><span title="The closed stage stays last" style="display:grid;place-items:center;width:14px;color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg></span></sc-if>
+                    <button onClick="{{ psRecolour }}" data-kind="stage" data-id="{{ s.id }}" disabled="{{ s.readOnly }}" title="{{ s.dotTitle }}" aria-label="Colour of {{ s.name }}" style="{{ s.dotStyle }}"></button>
+                    <sc-if value="{{ s.editing }}"><input value="{{ psDraft }}" onChange="{{ onPsDraft }}" aria-label="Stage name" style="width:200px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:5px 9px;font:600 13.5px var(--sans);color:var(--text);outline:none"></sc-if>
+                    <sc-if value="{{ s.reading }}"><span style="font:600 14px var(--sans);color:var(--text)">{{ s.name }}</span></sc-if>
+                    <span style="{{ s.kindStyle }}">{{ s.kindLabel }}</span>
+                    <span style="font:400 12px var(--mono);color:var(--text3)">{{ s.countLabel }}</span>
+                    <sc-if value="{{ s.canEdit }}">
+                      <span style="margin-left:auto;display:flex;gap:4px">
+                        <sc-if value="{{ s.editing }}"><button onClick="{{ psSave }}" data-kind="stage" data-id="{{ s.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button></sc-if>
+                        <sc-if value="{{ s.reading }}"><button onClick="{{ psRename }}" data-kind="stage" data-id="{{ s.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Rename</button></sc-if>
+                        <sc-if value="{{ s.retirable }}"><button onClick="{{ psRetireStage }}" data-id="{{ s.id }}" title="Retire this stage" aria-label="Retire {{ s.name }}" style="display:grid;place-items:center;border-radius:5px;padding:4px 7px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"></path></svg></button></sc-if>
+                      </span>
+                    </sc-if>
+                  </div>
+                  <div style="padding:2px 16px 2px 40px">
+                    <sc-if value="{{ s.empty }}"><div style="padding:11px 0;font:400 12px var(--mono);color:var(--text3)">No statuses yet. The first one you add becomes the default.</div></sc-if>
+                    <sc-for list="{{ s.statuses }}" as="x">
+                      <div draggable="{{ x.draggable }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" onDragStart="{{ psStatusDragStart }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStatusDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ x.rowStyle }}">
+                        <sc-if value="{{ x.handle }}"><span title="Drag to reorder" style="display:grid;place-items:center;width:12px;color:var(--text3);cursor:grab"><svg width="10" height="12" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
+                        <button onClick="{{ psRecolour }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" disabled="{{ x.readOnly }}" title="{{ x.dotTitle }}" aria-label="Colour of {{ x.label }}" style="{{ x.dotStyle }}"></button>
+                        <sc-if value="{{ x.editing }}"><input value="{{ psDraft }}" onChange="{{ onPsDraft }}" aria-label="Status name" style="width:220px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:4px 9px;font:400 13px var(--sans);color:var(--text);outline:none"></sc-if>
+                        <sc-if value="{{ x.reading }}"><span style="font:400 13px var(--sans);color:var(--text)">{{ x.label }}</span></sc-if>
+                        <sc-if value="{{ x.isDefault }}"><span style="border-radius:4px;padding:1px 6px;font:500 10.5px var(--mono);color:var(--u-accent);background:var(--u-accent-tint)">Default</span></sc-if>
+                        <sc-if value="{{ x.system }}"><span title="Built-in status — can be renamed, not retired" style="display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:1px 6px;font:500 10.5px var(--mono);color:var(--text3);background:var(--panel)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg>System</span></sc-if>
+                        <sc-if value="{{ x.canEdit }}">
+                          <span style="margin-left:auto;display:flex;gap:4px">
+                            <sc-if value="{{ x.makeDefault }}"><button onClick="{{ psMakeDefault }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Make default</button></sc-if>
+                            <sc-if value="{{ x.editing }}"><button onClick="{{ psSave }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button></sc-if>
+                            <sc-if value="{{ x.reading }}"><button onClick="{{ psRename }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" style="border-radius:5px;padding:3px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Rename</button></sc-if>
+                            <sc-if value="{{ x.retirable }}"><button onClick="{{ psRetireStatus }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" title="Stop offering this status; candidates keep it" aria-label="Retire {{ x.label }}" style="display:grid;place-items:center;border-radius:5px;padding:3px 7px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"></path></svg></button></sc-if>
+                            <sc-if value="{{ x.system }}"><span title="Built-in status — can be renamed, not retired" style="display:grid;place-items:center;width:27px;color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg></span></sc-if>
+                          </span>
+                        </sc-if>
+                      </div>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ s.canEdit }}">
+                    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 16px 12px 40px;border-top:1px solid var(--line-soft)">
+                      <input value="{{ s.newStatus }}" data-id="{{ s.id }}" onChange="{{ onPsNewStatus }}" placeholder="{{ s.newPlaceholder }}" aria-label="New status in {{ s.name }}" style="width:240px;max-width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
+                      <button onClick="{{ psAddStatus }}" data-id="{{ s.id }}" style="display:flex;align-items:center;gap:6px;border-radius:6px;padding:6px 11px;font:500 12.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;opacity:{{ s.addOpacity }}" style-hover="color:var(--text);border-color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Add status</button>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <sc-if value="{{ isAdmin }}">
+              <div style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                <input value="{{ psNewStage }}" onChange="{{ onPsNewStage }}" placeholder="New stage, e.g. Assessed" aria-label="New stage" style="width:260px;max-width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none">
+                <button onClick="{{ psAddStage }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ psAddStageOpacity }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Add stage</button>
+              </div>
+              <p style="margin:12px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">A new stage is active and goes in before Declined, which stays last. A rename or a new colour reaches every position at once. Dropping a candidate on a stage's column gives them its default status.</p>
+            </sc-if>
+          </div>
+        </sc-if>
+
         <sc-if value="{{ isMembers }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Members">
             <div style="margin-bottom:18px;display:flex;align-items:flex-start;gap:16px">
@@ -1313,6 +1380,19 @@
     </div>
   </sc-if>
 
+  <!-- Retire stage blocked -->
+  <sc-if value="{{ psBlockedOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Retire stage" onClick="{{ closePsBlocked }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <div role="dialog" aria-modal="true" aria-label="Retire stage" onClick="{{ stop }}" style="width:420px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="margin-bottom:12px;font:600 16px var(--sans)">Retire {{ psBlockedName }}</div>
+        <p style="margin:0;font:400 13px/1.5 var(--sans);color:var(--text2)">Move or retire this stage's statuses first — a stage with live statuses can't be retired.</p>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end">
+          <button onClick="{{ closePsBlocked }}" style="display:flex;align-items:center;justify-content:center;border-radius:6px;padding:10px 18px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">OK</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <!-- Invite modal -->
   <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Invite a colleague" onClick="{{ closeInvite }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
@@ -1485,7 +1565,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1505,13 +1585,14 @@ class Component extends DCLogic {
       phone: 'M7 2h10v20H7zM11 19h2',
       key: 'M2.6 17.4A2 2 0 0 0 2 18.8V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.2a2 2 0 0 0 1.4-.6l.8-.8a6.5 6.5 0 1 0-4-4ZM16.5 7.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z',
       sparkle: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9ZM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9Z',
+      columns: 'M3 3h5v18H3zM10 3h5v12h-5zM17 3h4v8h-4z',
       puzzle: 'M10 3a2 2 0 0 1 4 0v1h4a1 1 0 0 1 1 1v4h1a2 2 0 0 1 0 4h-1v4a1 1 0 0 1-1 1h-4v-1a2 2 0 0 0-4 0v1H6a1 1 0 0 1-1-1v-4H4a2 2 0 0 1 0-4h1V5a1 1 0 0 1 1-1h4Z',
     };
     this.DISC = { EXECUTIVE: 'Executive', FINANCE: 'Finance', OPERATIONS: 'Operations', TECHNOLOGY: 'Technology', PEOPLE: 'People', COMMERCIAL: 'Commercial', GOVERNANCE: 'Governance', INVESTMENT: 'Investment' };
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -1597,6 +1678,16 @@ class Component extends DCLogic {
       ctags: [['openWork', 'Open to work', 'green', 4], ['relocate', 'Open to relocate', 'accent', 4], ['passive', 'Passive', 'neutral', 2], ['referral', 'Referral', 'violet', 2], ['prior', 'Prior placement', 'adjacent', 1], ['interviewed', 'Interviewed before', 'inferred', 1], ['boardReady', 'Board-ready', 'neutral', 0, true]]
         .map(([id, label, colour, count, retired]) => ({ id, label, colour, count, retired: !!retired })),
       ctNew: '', ctEditing: null, ctDraft: '',
+      pstages: [
+        ['identified', 'Identified', 'ACTIVE', 'neutral', [['identified', 'Identified', 'neutral', true], ['researching', 'Researching', 'neutral'], ['readyToApproach', 'Ready to approach', 'accent']]],
+        ['contacted', 'Contacted', 'ACTIVE', 'accent', [['contacted', 'Contacted', 'accent', true], ['followUpSent', 'Follow-up sent', 'accent'], ['engaged', 'Engaged', 'green', true], ['callBooked', 'Call booked', 'green']]],
+        ['interested', 'Interested', 'ACTIVE', 'green', [['interested', 'Interested', 'green', true], ['interestedPackageGap', 'Interested – package gap', 'inferred'], ['interestedRelocation', 'Interested – relocation concern', 'inferred'], ['considering', 'Considering', 'neutral']]],
+        ['qualified', 'Qualified', 'ACTIVE', 'adjacent', [['screened', 'Screened', 'adjacent'], ['qualified', 'Qualified', 'adjacent'], ['referencesInProgress', 'References in progress', 'inferred']]],
+        ['shortlisted', 'Shortlisted', 'ACTIVE', 'violet', [['shortlisted', 'Shortlisted', 'violet'], ['presentedToClient', 'Presented to client', 'violet'], ['clientInterview', 'Client interview', 'accent'], ['offer', 'Offer', 'green']]],
+        ['declined', 'Declined', 'CLOSED', 'inferred', [['notInterested', 'Not interested', 'neutral', true], ['withdrew', 'Withdrew', 'neutral'], ['notAFit', 'Not a fit', 'neutral'], ['rejectedByClient', 'Rejected by client', 'inferred'], ['noResponse', 'No response', 'neutral'], ['offLimits', 'Off-limits', 'inferred', true], ['outOfScope', 'Out of scope', 'neutral', true]]],
+      ].map(([id, name, kind, colour, statuses]) => ({ id, name, kind, colour, defaultId: statuses[0][0],
+        statuses: statuses.map(([sid, label, scol, system]) => ({ id: sid, label, colour: scol, system: !!system, retired: false })) })),
+      psNewStage: '', psNewStatus: {}, psEditing: null, psDraft: '', psDrag: null, psBlockedId: null,
       apiKeys: akEmpty ? [] : [
         { id: 'k1', name: 'Power BI dashboard', kind: 'PERSONAL', owner: 'yh', hint: 'uncava_pat_7Kq2…f9a1', scopes: ['projects:read', 'companies:read', 'candidates:read'], created: '2 Sep 2026', expires: '1 Dec 2026', expiresInDays: 57, lastUsed: '3 minutes ago from 20.46.12.7' },
         { id: 'k2', name: 'SuccessFactors sync', kind: 'SERVICE', owner: null, createdBy: 'yh', hint: 'uncava_svc_Hd81…02cc', scopes: ['projects:read', 'companies:read', 'candidates:read', 'candidates.contacts:read'], created: '30 Sep 2026', expires: '30 Sep 2027', expiresInDays: 360, lastUsed: '1 hour ago from 52.17.4.90' },
@@ -1807,8 +1898,8 @@ class Component extends DCLogic {
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
     const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
-    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
-    else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4')] });
+    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
+    else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('pipeline-stages', 'Pipeline stages', I.columns)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
 
     const inputStyle = (err, bg) => 'width:100%;border-radius:6px;border:1px solid ' + (err ? 'var(--red)' : 'var(--line)') + ';background:' + (bg || 'var(--panel)') + ';padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none';
@@ -2075,6 +2166,35 @@ class Component extends DCLogic {
           retireLabel: t.retired ? 'Restore' : 'Retire', retireTitle: t.retired ? 'Offer this tag again' : 'Stop offering this tag; people keep it',
           swatches: Object.keys(COLOURS).map((key) => ({ key, on: t.colour === key, style: 'width:14px;height:14px;border-radius:50%;padding:0;cursor:pointer;background:' + COLOURS[key][0] + ';border:2px solid ' + (t.colour === key ? 'var(--text)' : 'transparent') })) };
       }),
+      isPipelineStages: sec === 'pipeline-stages', psReadOnly: !isAdmin, psDraft: st.psDraft, psNewStage: st.psNewStage, psAddStageOpacity: st.psNewStage.trim() ? 1 : 0.5,
+      psBlockedOpen: !!st.psBlockedId, psBlockedName: (st.pstages.find((s) => s.id === st.psBlockedId) || {}).name || '',
+      psStages: (() => {
+        const COLOURS = { green: 'var(--u-direct)', accent: 'var(--u-accent)', neutral: 'var(--text2)', violet: 'var(--u-chart-5)', adjacent: 'var(--u-adjacent)', inferred: 'var(--u-inferred)' };
+        const dot = (colour, size, canEdit) => 'width:' + size + 'px;height:' + size + 'px;flex:none;border-radius:50%;padding:0;border:none;background:' + COLOURS[colour] + ';cursor:' + (canEdit ? 'pointer' : 'default');
+        const drag = st.psDrag || {};
+        return st.pstages.map((s) => {
+          const live = s.statuses.filter((x) => !x.retired);
+          const closed = s.kind === 'CLOSED';
+          const editing = st.psEditing === 'stage:' + s.id;
+          return { id: s.id, name: s.name, canEdit: isAdmin, readOnly: !isAdmin, editing, reading: !editing,
+            draggable: isAdmin && !closed ? 'true' : 'false', handle: isAdmin && !closed, pinned: isAdmin && closed, retirable: isAdmin && !closed,
+            cardStyle: 'border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);overflow:hidden;opacity:' + (drag.kind === 'stage' && drag.id === s.id ? 0.45 : 1),
+            dotStyle: dot(s.colour, 11, isAdmin), dotTitle: isAdmin ? 'Change colour' : '',
+            kindLabel: closed ? 'Closed' : 'Active',
+            kindStyle: 'border-radius:999px;padding:2px 9px;font:500 11px var(--mono);' + (closed ? 'color:var(--text3);background:var(--panel)' : 'color:var(--u-accent);background:var(--u-accent-tint)'),
+            countLabel: live.length === 1 ? '1 status' : live.length + ' statuses',
+            empty: !live.length, newStatus: st.psNewStatus[s.id] || '', addOpacity: (st.psNewStatus[s.id] || '').trim() ? 1 : 0.5,
+            newPlaceholder: 'New status in ' + s.name,
+            statuses: live.map((x, i) => {
+              const xEditing = st.psEditing === 'status:' + x.id;
+              const isDefault = s.defaultId === x.id;
+              return { id: x.id, stageId: s.id, label: x.label, canEdit: isAdmin, readOnly: !isAdmin, editing: xEditing, reading: !xEditing,
+                draggable: isAdmin ? 'true' : 'false', handle: isAdmin, isDefault, makeDefault: isAdmin && !isDefault, system: x.system, retirable: isAdmin && !x.system,
+                dotStyle: dot(x.colour, 9, isAdmin), dotTitle: isAdmin ? 'Change colour' : '',
+                rowStyle: 'display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') + ';opacity:' + (drag.kind === 'status' && drag.id === x.id ? 0.45 : 1) };
+            }) };
+        });
+      })(),
       hasWorkspaceList: otherWorkspaces.length > 0 || workspaceInvitations.length > 0,
       otherWorkspaces, workspaceInvitations,
       myWorkspaces: [{ id: 'alfuttaim', name: st.wsName, mark: st.wsName.charAt(0).toUpperCase(), roles: 'Admin', current: true, other: false }]
@@ -2308,6 +2428,130 @@ class Component extends DCLogic {
       },
       recolourCtag: (e) => { const d = e.currentTarget.dataset; this.setState({ ctags: st.ctags.map((t) => (t.id === d.id ? Object.assign({}, t, { colour: d.colour }) : t)) }); },
       retireCtag: (e) => { const id = e.currentTarget.dataset.id; this.setState({ ctags: st.ctags.map((t) => (t.id === id ? Object.assign({}, t, { retired: !t.retired }) : t)) }); },
+      onPsNewStage: (e) => this.setState({ psNewStage: e.target.value }),
+      onPsNewStatus: (e) => { const id = e.currentTarget.dataset.id; this.setState({ psNewStatus: Object.assign({}, st.psNewStatus, { [id]: e.target.value }) }); },
+      onPsDraft: (e) => this.setState({ psDraft: e.target.value }),
+      psAddStage: () => {
+        const name = st.psNewStage.trim();
+        if (!name) return;
+        if (st.pstages.some((s) => s.name.toLowerCase() === name.toLowerCase())) { this.showToast('That stage already exists'); return; }
+        const stage = { id: 's' + Date.now(), name, kind: 'ACTIVE', colour: 'neutral', defaultId: null, statuses: [] };
+        const at = st.pstages.findIndex((s) => s.kind === 'CLOSED');
+        const next = st.pstages.slice(); next.splice(at < 0 ? next.length : at, 0, stage);
+        this.setState({ pstages: next, psNewStage: '' });
+        this.showToast('Stage added to every position');
+      },
+      psAddStatus: (e) => {
+        const id = e.currentTarget.dataset.id; const label = (st.psNewStatus[id] || '').trim();
+        if (!label) return;
+        if (st.pstages.some((s) => s.statuses.some((x) => !x.retired && x.label.toLowerCase() === label.toLowerCase()))) { this.showToast('That status already exists'); return; }
+        const sid = 'x' + Date.now();
+        this.setState({
+          pstages: st.pstages.map((s) => {
+            if (s.id !== id) return s;
+            const hasDefault = s.statuses.some((x) => x.id === s.defaultId && !x.retired);
+            return Object.assign({}, s, { defaultId: hasDefault ? s.defaultId : sid, statuses: s.statuses.concat([{ id: sid, label, colour: s.colour, system: false, retired: false }]) });
+          }),
+          psNewStatus: Object.assign({}, st.psNewStatus, { [id]: '' }),
+        });
+        this.showToast('Status added');
+      },
+      psRename: (e) => {
+        const d = e.currentTarget.dataset;
+        const current = d.kind === 'stage' ? st.pstages.find((s) => s.id === d.id).name : st.pstages.find((s) => s.id === d.stage).statuses.find((x) => x.id === d.id).label;
+        this.setState({ psEditing: d.kind + ':' + d.id, psDraft: current });
+      },
+      psSave: (e) => {
+        const d = e.currentTarget.dataset; const label = st.psDraft.trim();
+        if (!label) return;
+        this.setState({
+          psEditing: null,
+          pstages: st.pstages.map((s) => {
+            if (d.kind === 'stage') return s.id === d.id ? Object.assign({}, s, { name: label }) : s;
+            if (s.id !== d.stage) return s;
+            return Object.assign({}, s, { statuses: s.statuses.map((x) => (x.id === d.id ? Object.assign({}, x, { label }) : x)) });
+          }),
+        });
+        this.showToast('Renamed on every position');
+      },
+      psRecolour: (e) => {
+        const d = e.currentTarget.dataset;
+        if (!isAdmin) return;
+        const order = ['neutral', 'accent', 'green', 'adjacent', 'violet', 'inferred'];
+        const cycle = (c) => order[(order.indexOf(c) + 1) % order.length];
+        this.setState({
+          pstages: st.pstages.map((s) => {
+            if (d.kind === 'stage') return s.id === d.id ? Object.assign({}, s, { colour: cycle(s.colour) }) : s;
+            if (s.id !== d.stage) return s;
+            return Object.assign({}, s, { statuses: s.statuses.map((x) => (x.id === d.id ? Object.assign({}, x, { colour: cycle(x.colour) }) : x)) });
+          }),
+        });
+      },
+      psMakeDefault: (e) => {
+        const d = e.currentTarget.dataset;
+        this.setState({ pstages: st.pstages.map((s) => (s.id === d.stage ? Object.assign({}, s, { defaultId: d.id }) : s)) });
+        this.showToast('Default status changed');
+      },
+      psRetireStatus: (e) => {
+        const d = e.currentTarget.dataset;
+        this.setState({
+          pstages: st.pstages.map((s) => {
+            if (s.id !== d.stage) return s;
+            const statuses = s.statuses.map((x) => (x.id === d.id ? Object.assign({}, x, { retired: true }) : x));
+            const nextDefault = s.defaultId === d.id ? ((statuses.find((x) => !x.retired) || {}).id || null) : s.defaultId;
+            return Object.assign({}, s, { statuses, defaultId: nextDefault });
+          }),
+        });
+        this.showToast('Status retired; candidates who hold it keep it');
+      },
+      psRetireStage: (e) => {
+        const id = e.currentTarget.dataset.id;
+        const stage = st.pstages.find((s) => s.id === id);
+        if (stage.statuses.some((x) => !x.retired)) { this.setState({ psBlockedId: id }); return; }
+        this.setState({ pstages: st.pstages.filter((s) => s.id !== id) });
+        this.showToast(stage.name + ' retired');
+      },
+      closePsBlocked: () => this.setState({ psBlockedId: null }),
+      psStageDragStart: (e) => {
+        if (e.target !== e.currentTarget) return;
+        const id = e.currentTarget.dataset.id;
+        e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* noop */ }
+        this.setState({ psDrag: { kind: 'stage', id } });
+      },
+      psStatusDragStart: (e) => {
+        e.stopPropagation();
+        const d = e.currentTarget.dataset;
+        e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', d.id); } catch (err) { /* noop */ }
+        this.setState({ psDrag: { kind: 'status', id: d.id, stageId: d.stage } });
+      },
+      psDragOver: (e) => e.preventDefault(),
+      psDragEnd: () => { if (this.state.psDrag) this.setState({ psDrag: null }); },
+      psStageDrop: (e) => {
+        e.preventDefault();
+        const drag = this.state.psDrag; const target = e.currentTarget.dataset.id;
+        if (!drag || drag.kind !== 'stage' || drag.id === target) { this.setState({ psDrag: null }); return; }
+        const stages = this.state.pstages.slice();
+        const from = stages.findIndex((s) => s.id === drag.id);
+        const [moved] = stages.splice(from, 1);
+        stages.splice(stages.findIndex((s) => s.id === target), 0, moved);
+        this.setState({ psDrag: null, pstages: stages.filter((s) => s.kind !== 'CLOSED').concat(stages.filter((s) => s.kind === 'CLOSED')) });
+      },
+      psStatusDrop: (e) => {
+        const drag = this.state.psDrag; const d = e.currentTarget.dataset;
+        if (!drag || drag.kind !== 'status') return;
+        e.preventDefault(); e.stopPropagation();
+        if (drag.stageId !== d.stage) { this.setState({ psDrag: null }); this.showToast('A status stays in its stage'); return; }
+        this.setState({
+          psDrag: null,
+          pstages: this.state.pstages.map((s) => {
+            if (s.id !== d.stage || drag.id === d.id) return s;
+            const statuses = s.statuses.slice();
+            const [moved] = statuses.splice(statuses.findIndex((x) => x.id === drag.id), 1);
+            statuses.splice(statuses.findIndex((x) => x.id === d.id), 0, moved);
+            return Object.assign({}, s, { statuses });
+          }),
+        });
+      },
       closeInvite: () => this.setState({ inviteOpen: false }),
       onInviteEmail: (e) => this.setState({ inviteEmail: e.target.value, inviteError: '' }),
       onInviteRole: (e) => this.setState({ inviteRole: e.target.value }),

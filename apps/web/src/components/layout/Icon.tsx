@@ -57,6 +57,14 @@ export const ICONS = {
   lock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 10 0v4",
   /** The same padlock with its shackle swung open — the off state of a lock toggle. */
   unlock: "M19 11H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2ZM7 11V7a5 5 0 0 1 9.9-1",
+  /** A box with its lid off — retire a pipeline stage or status; whoever holds it keeps it. */
+  archive: "M21 8v13H3V8M1 3h22v5H1zM10 12h4",
+  /** Three columns of falling height — a position's pipeline. */
+  pipeline: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
+  /** Three bulleted lines — the List side of a List | Board toggle. */
+  listView: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
+  /** Two dividers in a frame — the Board side of the toggle. */
+  boardView: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM9 3v18M15 3v18",
   /** Two grip lines — the only draggable part of a row that is otherwise full of inputs. */
   dragHandle: "M5 9h14M5 15h14",
   info: "M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z",

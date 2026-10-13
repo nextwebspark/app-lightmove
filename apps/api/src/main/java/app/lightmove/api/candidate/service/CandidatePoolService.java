@@ -131,7 +131,7 @@ public class CandidatePoolService {
                     rows.stream().map(row -> {
                         Project mandate = mandates.get(row.getProjectId());
                         return new PoolPositionExport(mandate == null ? null : mandate.getPositionTitle(),
-                                row.getStatus().value());
+                                row.getStatus().getLabel());
                     }).toList(),
                     person.getTagIds().stream().map(tagLabels::get).filter(Objects::nonNull).sorted().toList(),
                     owner == null ? null : owner.getFullName(), person.isDoNotContact(), person.getCreatedAt());
@@ -297,8 +297,10 @@ public class CandidatePoolService {
                 .map(row -> {
                     Project mandate = mandates.get(row.getProjectId());
                     return new PersonPositionResponse(row.getId(), row.getProjectId(),
-                            mandate == null ? null : mandate.getPositionTitle(), row.getStatus().value(),
-                            row.getAddedBy(), null, row.getCreatedAt(), row.getSource().value(), false);
+                            mandate == null ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
+                            row.getAddedBy(), null, row.getCreatedAt(), row.getSource().value(), false,
+                            row.getStatus().getLabel(), row.getStatus().getColour().value(),
+                            CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt());
                 })
                 .toList();
     }

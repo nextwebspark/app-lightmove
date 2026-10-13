@@ -47,6 +47,12 @@ export type ApiErrorCode =
   | "PERSON_DOCUMENT_LIMIT"
   | "CANDIDATE_TAG_EXISTS"
   | "CANDIDATE_TAG_RETIRED"
+  | "PIPELINE_STATUS_SYSTEM"
+  | "PIPELINE_STAGE_NOT_EMPTY"
+  | "PIPELINE_STAGE_REQUIRED"
+  | "PIPELINE_LABEL_TAKEN"
+  | "PIPELINE_STATUS_RETIRED"
+  | "PIPELINE_ORDER_INVALID"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -168,6 +174,12 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
   CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
+  PIPELINE_STATUS_SYSTEM: "Built-in statuses can be renamed and recoloured, but not retired or moved.",
+  PIPELINE_STAGE_NOT_EMPTY: "Move or retire this stage's statuses first — a stage with live statuses can't be retired.",
+  PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one active stage and its closed stage.",
+  PIPELINE_LABEL_TAKEN: "That name is already in use.",
+  PIPELINE_STATUS_RETIRED: "That status is retired. Ask an admin to restore it in Settings.",
+  PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording

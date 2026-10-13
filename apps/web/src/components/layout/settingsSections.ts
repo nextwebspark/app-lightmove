@@ -41,6 +41,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     leavesShell: "Opens the Team page, outside Settings",
   },
   { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
+  {
+    to: "/settings/pipeline-stages",
+    label: "Pipeline stages",
+    icon: ICONS.columns,
+    group: "Workspace",
+    everyStaff: true,
+  },
   { to: "/settings/integrations", label: "Integrations", icon: ICONS.plug, group: "Workspace" },
   { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
@@ -49,8 +56,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 
 /**
  * The sections this caller reaches. Your account is everyone's — a portal guest has a name and a timezone like
- * anyone else — except API keys and Connected AI apps, which are staff's. Workspace is admin-only but for Team and
- * Billing, which every staff member reads, and Platform is Uncava staff's. Hiding them is presentation; the route
+ * anyone else — except API keys and Connected AI apps, which are staff's. Workspace is admin-only but for Team,
+ * Pipeline stages and Billing, which every staff member reads, and Platform is Uncava staff's. Hiding them is presentation; the route
  * guards are the gate.
  */
 export function visibleSettingsSections(user: User | null): SettingsSection[] {

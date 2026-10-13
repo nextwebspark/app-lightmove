@@ -118,7 +118,7 @@ public class PersonPoolQuery {
                 case NONE -> "(" + holders + ") = 0";
             });
         }
-        if (criteria.projectId() != null || criteria.status() != null) {
+        if (criteria.projectId() != null || criteria.status() != null || criteria.pipelineStage() != null) {
             StringBuilder mapping = new StringBuilder(
                     "EXISTS (SELECT 1 FROM app_lm_project_candidate m WHERE m.person_id = p.id");
             if (criteria.projectId() != null) {
@@ -126,8 +126,15 @@ public class PersonPoolQuery {
                 mapping.append(" AND m.project_id = :projectId");
             }
             if (criteria.status() != null) {
-                params.put("status", criteria.status().name());
-                mapping.append(" AND m.status = :status");
+                params.put("statusKey", criteria.status());
+                mapping.append(" AND m.status_id IN (SELECT s.id FROM app_lm_workspace_candidate_status s"
+                        + " WHERE s.workspace_id = :workspaceId AND s.key = :statusKey)");
+            }
+            if (criteria.pipelineStage() != null) {
+                params.put("stageKey", criteria.pipelineStage());
+                mapping.append(" AND m.status_id IN (SELECT s.id FROM app_lm_workspace_candidate_status s"
+                        + " JOIN app_lm_workspace_candidate_stage g ON g.id = s.stage_id"
+                        + " WHERE s.workspace_id = :workspaceId AND g.key = :stageKey)");
             }
             clauses.add(mapping.append(")").toString());
         }

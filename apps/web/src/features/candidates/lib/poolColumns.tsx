@@ -19,7 +19,7 @@ import { cn } from "../../../lib/cn";
 import type { Member } from "../../workspace/api/types";
 import type { CandidateTag, PoolRow } from "../api/types";
 import { lastActivityOf } from "./candidateActivity";
-import { candidateStatusStyle } from "./candidateVocabulary";
+import { pipelineSwatchClass, statusStyle } from "./pipelineStatus";
 import { PersonAvatar } from "../components/pool/PersonAvatar";
 import { TagPill } from "../components/pool/TagPill";
 
@@ -144,14 +144,14 @@ export function poolColumnsFor(tagsById: Map<string, CandidateTag>, membersByUse
         return (
           <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
             {positions.slice(0, CHIPS_SHOWN).map((position) => {
-              const status = candidateStatusStyle(position.status);
+              const status = statusStyle(position.status, position);
               return (
                 <span
                   key={position.candidateId}
                   title={`${position.positionTitle ?? "A position"} — ${status.label}`}
                   className="flex min-w-0 items-center gap-1 rounded-full border border-u-border px-2 py-px font-mono text-[10.5px] text-u-text2"
                 >
-                  <span aria-hidden className={cn("size-1.5 flex-none rounded-full", status.className)} />
+                  <span aria-hidden className={cn("size-1.5 flex-none rounded-full", pipelineSwatchClass(status.colour))} />
                   <span className="truncate">
                     {position.positionTitle ?? "A position"} · {status.label}
                   </span>

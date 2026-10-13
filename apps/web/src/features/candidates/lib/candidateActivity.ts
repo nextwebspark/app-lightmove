@@ -1,5 +1,5 @@
-import type { CandidateStatus, PersonTimelineEntry } from "../api/types";
-import { candidateStatusStyle } from "./candidateVocabulary";
+import type { PersonTimelineEntry } from "../api/types";
+import { statusLabelOf } from "./pipelineStatus";
 
 /**
  * A person's history as sentences: what the actor did, and a second line of detail. Worded as the
@@ -103,8 +103,28 @@ function phraseOf(
       return { text: `removed${them} from ${where}`, detail: null };
     case "STATUS_CHANGED":
       return {
-        text: `marked${them} ${statusLabel(details.to)} on ${where}`,
-        detail: details.from ? `${statusLabel(details.from)} → ${statusLabel(details.to)}` : null,
+        text: `marked${them} ${statusLabel(details.to, details.toLabel)} on ${where}`,
+        detail: details.from
+          ? `${statusLabel(details.from, details.fromLabel)} → ${statusLabel(details.to, details.toLabel)}`
+          : null,
+      };
+    case "NEXT_ACTION_SET": {
+      if (String(details.cleared) === "true") {
+        return { text: `cleared the next action${forThem} on ${where}`, detail: null };
+      }
+      const due = details.dueAt ? callTimeOf(details.dueAt) : null;
+      return {
+        text: `set the next action${forThem} on ${where}`,
+        detail: [details.text, due ? `due ${due}` : null].filter(Boolean).join(" · ") || null,
+      };
+    }
+    case "CLIENT_VISIBILITY_CHANGED":
+      return {
+        text:
+          String(details.visible) === "true"
+            ? `made${them || " them"} visible to the client on ${where}`
+            : `hid${them || " them"} from the client on ${where}`,
+        detail: null,
       };
     case "PROFILE_EDITED":
       return {
@@ -190,6 +210,8 @@ function phraseOf(
     case "DOCUMENT_REMOVED":
       return { text: `deleted ${documentOf(details.category, "a")}${onThem}`, detail: null };
   }
+  // A kind a newer server writes still has to draw: a line with no phrase once blanked the whole page.
+  return { text: `updated${them || " the record"}`, detail: null };
 }
 
 function isBookedThroughLink(entry: PersonTimelineEntry): boolean {
@@ -256,8 +278,10 @@ function aboutOf(entry: PersonTimelineEntry, here: boolean): string {
   return here ? " about this position" : ` about ${entry.projectTitle ?? "a position"}`;
 }
 
-function statusLabel(value: string | undefined): string {
-  return value ? candidateStatusStyle(value as CandidateStatus).label : "—";
+/** The label the line was written with; an older line carries only one of the seven built-in keys. */
+function statusLabel(value: string | undefined, snapshot: string | undefined): string {
+  if (snapshot) return snapshot;
+  return value ? statusLabelOf(value) : "—";
 }
 
 function vendorOf(value: string | undefined): string | null {

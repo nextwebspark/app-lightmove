@@ -129,9 +129,9 @@ public class PublicProjectsController {
     public PublicPage<PublicCandidate> candidates(
             @Parameter(hidden = true) @AuthenticationPrincipal ApiKeyPrincipal key,
             @Parameter(description = "The position's id") @PathVariable UUID projectId,
-            @Parameter(description = "Only executives at this status",
-                    schema = @Schema(type = "string", allowableValues = {"identified", "contacted", "engaged", "interested",
-                            "notInterested", "offLimits", "outOfScope"}))
+            @Parameter(description = "Only executives at this status key of the workspace's pipeline, such as "
+                    + "identified, contacted, engaged, interested, notInterested, offLimits or outOfScope",
+                    schema = @Schema(type = "string"))
             @RequestParam(required = false) String status,
             @Parameter(description = "Only executives mapped at this company: a Company's id from the companies route")
             @RequestParam(required = false) UUID companyId,

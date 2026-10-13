@@ -6,6 +6,7 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ContactOutSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimiter;
 import app.lightmove.api.core.resilience.model.VendorException;
@@ -190,7 +191,7 @@ public class StrategyPeopleService {
 
     private DeclinedEmployers declinedOf(UUID workspaceId, UUID projectId) {
         return DeclinedEmployers.of(triage.listAllOfStage(workspaceId, projectId, TriageCompanyStatus.DECLINED,
-                TriageCompanyFilters.none(), MAX_DECLINED_READ).companies());
+                TriageCompanyFilters.none(), MAX_DECLINED_READ, ProjectAudience.STAFF).companies());
     }
 
     /** Per user, so one caller cannot script the pager down a whole result set. */

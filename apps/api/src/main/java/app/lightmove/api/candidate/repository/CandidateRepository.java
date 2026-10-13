@@ -1,6 +1,5 @@
 package app.lightmove.api.candidate.repository;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.MappedProfile;
 import app.lightmove.api.candidate.model.CandidateAttribution;
@@ -8,6 +7,7 @@ import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.model.CandidateStatusCount;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 /**
@@ -42,6 +43,27 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /** The talent map's read: the whole mandate, with no search box above it to narrow. */
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);
 
+    /** {@link #findByProjectId} as a client seat reads it: nobody hidden from the client. */
+    Page<Candidate> findByProjectIdAndClientVisibleTrue(UUID projectId, Pageable pageable);
+
+    /** The Pipeline page's read: the whole position, each row with its person, status and stage. */
+    @Query("""
+            select c from Candidate c join fetch c.person join fetch c.status s join fetch s.stage
+            where c.projectId = :projectId
+            """)
+    List<Candidate> findPipelineOfProject(UUID projectId);
+
+    @Query("select c.status.stage.id from Candidate c where c.id = :id and c.projectId = :projectId")
+    Optional<UUID> findStageIdByIdAndProjectId(UUID id, UUID projectId);
+
+    /**
+     * One stage of a position, its rows locked until the transaction ends: two drags into the same stage
+     * queue here, so the second reads the ranks the first wrote rather than landing on the same one.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Candidate c where c.projectId = :projectId and c.status.stage.id = :stageId")
+    List<Candidate> lockStageOfProject(UUID projectId, UUID stageId);
+
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
 
     default Candidate requireInProject(UUID id, UUID projectId) {
@@ -51,28 +73,58 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /**
      * The projects list's "Candidates" number, for every mandate on the page at once so the list stays
      * one query rather than one per row. Grouped, so a mandate with nobody mapped is missing from the
-     * result rather than zero. Which statuses the caller leaves out is the caller's policy.
+     * result rather than zero. Everyone at a status of the closed stage has left the running.
      */
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
-            + "and c.status not in :excludedStatuses group by c.projectId")
-    List<CandidateCount> countByProjectIdInExcludingStatuses(Collection<UUID> projectIds,
-                                                             Collection<CandidateStatus> excludedStatuses);
+            + "and c.status.stage.kind <> app.lightmove.api.candidate.constant.PipelineStageKind.CLOSED "
+            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "group by c.projectId")
+    List<CandidateCount> countStillInTheRunningByProjectIdIn(Collection<UUID> projectIds,
+                                                             boolean clientVisibleOnly);
 
+    /**
+     * Engaged: the built-in Engaged status, and anyone at a running stage from the one the built-in
+     * Interested status sits under onwards — so a workspace's own later stages count without naming them,
+     * and the number every position showed before the catalog is the number it shows now.
+     * {@code interestedFrom} is that stage's position, the caller's one read of the catalog.
+     */
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
-            + "and c.status in :statuses group by c.projectId")
-    List<CandidateCount> countByProjectIdInAndStatusIn(Collection<UUID> projectIds,
-                                                       Collection<CandidateStatus> statuses);
+            + "and (c.status.systemKey = app.lightmove.api.candidate.constant.CandidateSystemStatus.ENGAGED "
+            + "  or (c.status.stage.kind = app.lightmove.api.candidate.constant.PipelineStageKind.ACTIVE "
+            + "  and c.status.stage.position >= :interestedFrom)) "
+            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "group by c.projectId")
+    List<CandidateCount> countEngagedByProjectIdIn(Collection<UUID> projectIds, int interestedFrom,
+                                                   boolean clientVisibleOnly);
 
-    @Query("select c.status as status, count(c) as total from Candidate c where c.projectId = :projectId "
-            + "group by c.status")
-    List<CandidateStatusCount> countByStatusOfProject(UUID projectId);
+    /**
+     * Reached out, by stage: anyone past the stage the built-in Identified status sits under, except the two
+     * statuses that mean nobody approached them (off-limits, out of scope).
+     */
+    @Query("select c.projectId as projectId, count(c) as total "
+            + "from Candidate c where c.projectId in :projectIds "
+            + "and c.status.stage.position > :identifiedAt "
+            + "and (c.status.systemKey is null or c.status.systemKey not in ("
+            + "  app.lightmove.api.candidate.constant.CandidateSystemStatus.OFF_LIMITS, "
+            + "  app.lightmove.api.candidate.constant.CandidateSystemStatus.OUT_OF_SCOPE)) "
+            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "group by c.projectId")
+    List<CandidateCount> countReachedOutByProjectIdIn(Collection<UUID> projectIds, int identifiedAt,
+                                                      boolean clientVisibleOnly);
+
+    @Query("select c.status.id as statusId, count(c) as total from Candidate c where c.projectId = :projectId "
+            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "group by c.status.id")
+    List<CandidateStatusCount> countByStatusOfProject(UUID projectId, boolean clientVisibleOnly);
 
     /** Everyone a mandate has mapped, ruled out or not — the side panel's "Executives mapped". */
     @Query("select c.projectId as projectId, count(c) as total "
-            + "from Candidate c where c.projectId in :projectIds group by c.projectId")
-    List<CandidateCount> countEveryoneByProjectIdIn(Collection<UUID> projectIds);
+            + "from Candidate c where c.projectId in :projectIds "
+            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "group by c.projectId")
+    List<CandidateCount> countEveryoneByProjectIdIn(Collection<UUID> projectIds, boolean clientVisibleOnly);
 
     /**
      * Per mandate, how many of its non-declined triaged companies have at least one executive mapped
@@ -86,13 +138,20 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "from app_lm_project_candidate c "
                     + "join app_lm_project_triage_company t on t.id = c.triage_company_id "
                     + "where c.project_id in (:projectIds) and t.status <> :declinedStatus "
+                    + "and (:clientVisibleOnly = false or c.client_visible) "
                     + "group by c.project_id",
             nativeQuery = true)
-    List<CandidateCount> countMappedCompaniesByProjectIdIn(Collection<UUID> projectIds, String declinedStatus);
+    List<CandidateCount> countMappedCompaniesByProjectIdIn(Collection<UUID> projectIds, String declinedStatus,
+                                                          boolean clientVisibleOnly);
 
     /** The person behind one of the mandate's rows, without loading either — the photo endpoint's read. */
     @Query("select c.person.id from Candidate c where c.id = :id and c.projectId = :projectId")
     Optional<UUID> findPersonIdByIdAndProjectId(UUID id, UUID projectId);
+
+    /** {@link #findPersonIdByIdAndProjectId} as a client seat reads it: nobody hidden from the client. */
+    @Query("select c.person.id from Candidate c where c.id = :id and c.projectId = :projectId "
+            + "and c.clientVisible = true")
+    Optional<UUID> findClientVisiblePersonIdByIdAndProjectId(UUID id, UUID projectId);
 
     /**
      * The duplicate guard for someone mapped at one of the mandate's companies, and its partner below
@@ -178,22 +237,26 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
      */
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null "
+            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
             + "and lower(c.person.fullName) like lower(concat('%', cast(:executiveName as string), '%'))")
     Set<UUID> findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
-            UUID projectId, String executiveName);
+            UUID projectId, String executiveName, boolean clientVisibleOnly);
 
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null")
     Set<UUID> findTriageCompanyIdsByProjectId(UUID projectId);
 
     /**
-     * Ids of the mandate's triaged companies with a mapped executive in one of these statuses — the
+     * Ids of the mandate's triaged companies with a mapped executive at one of these status keys — the
      * seam behind {@code MappedExecutiveLookupAdapter}'s answer to {@code triagecompany}'s Status
-     * column filter.
+     * column filter. A key names one status of the project's own workspace, which is the only kind of
+     * status its rows can hold.
      */
     @Query("select distinct c.triageCompanyId from Candidate c "
-            + "where c.projectId = :projectId and c.triageCompanyId is not null and c.status in :statuses")
-    Set<UUID> findTriageCompanyIdsByProjectIdAndStatusIn(UUID projectId, Collection<CandidateStatus> statuses);
+            + "where c.projectId = :projectId and c.triageCompanyId is not null and c.status.statusKey in :statusKeys "
+            + "and (:clientVisibleOnly = false or c.clientVisible = true)")
+    Set<UUID> findTriageCompanyIdsByProjectIdAndStatusKeyIn(UUID projectId, Collection<String> statusKeys,
+                                                           boolean clientVisibleOnly);
 
     /**
      * A page of one project's stage, ranked by each triaged company's best mapped executive status —
@@ -211,44 +274,41 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
      * of the ranked value itself — {@code null} stays {@code null} under negation, so {@code nulls last}
      * keeps an unranked company last regardless of which way the multiplier flips everyone else.
      *
-     * <p>The {@code CASE} matches {@link app.lightmove.api.candidate.constant.CandidateStatus}'s
-     * declared order exactly, and its stored enum names, per that entity's own {@code @Enumerated(STRING)}.
-     * Native rather than JPQL: {@code group by t.id} relies on Postgres's rule that grouping by a
-     * primary key lets every other column of that row through ungrouped, which is a Postgres extension
-     * JPQL does not model. The same literal spelling is mirrored in
-     * {@code TriageCompanyReadService.EXECUTIVE_STATUS_TOKENS} and
-     * {@code MappedExecutiveLookupAdapter#triageCompanyIdsWithExecutiveStatusIn} — {@code @Query} needs
-     * a compile-time constant, so none of the three can reference the enum directly, and a rename has
-     * to update all three by hand. {@code CandidateRepositoryStatusOrderTest} pins this one against the
-     * enum so a forgotten update is a red build rather than a silent mis-rank.
+     * <p>Ranked by the pipeline itself — each executive's stage position, then their status's position
+     * within it — so a workspace's own statuses rank where its admin put them. {@code clientVisibleOnly}
+     * is on the join as well as on both filters, so a hidden executive moves nobody's place. Native rather
+     * than JPQL:
+     * {@code group by t.id} relies on Postgres's rule that grouping by a primary key lets every other
+     * column of that row through ungrouped, which is a Postgres extension JPQL does not model.
      */
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
                     + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
+                    + "  and (:clientVisibleOnly = false or c.client_visible) "
+                    + "left join app_lm_workspace_candidate_status cs on cs.id = c.status_id "
+                    + "left join app_lm_workspace_candidate_stage cg on cg.id = cs.stage_id "
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id "
+                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "group by t.id "
-                    + "order by (case when :ascending then 1 else -1 end) * min(case c.status "
-                    + "  when 'IDENTIFIED' then 0 when 'CONTACTED' then 1 when 'ENGAGED' then 2 "
-                    + "  when 'INTERESTED' then 3 when 'NOT_INTERESTED' then 4 when 'OFF_LIMITS' then 5 "
-                    + "  when 'OUT_OF_SCOPE' then 6 else null end) asc nulls last, t.created_at desc",
+                    + "order by (case when :ascending then 1 else -1 end) * min(cg.position * 1000 + cs.position) "
+                    + "asc nulls last, t.created_at desc",
             countQuery = "select count(*) from app_lm_project_triage_company t "
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id "
+                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + "))",
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatus(
             UUID projectId, String status, String companyName, String executiveName,
-            boolean ascending, Pageable pageable);
+            boolean ascending, boolean clientVisibleOnly, Pageable pageable);
 
     /** {@link #findTriageCompanyIdsRankedByExecutiveStatus} narrowed to companies with at least one
      *  mapped executive whose status is one of the ticked ones — its own method for the reason
@@ -258,36 +318,42 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
                     + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
+                    + "  and (:clientVisibleOnly = false or c.client_visible) "
+                    + "left join app_lm_workspace_candidate_status cs on cs.id = c.status_id "
+                    + "left join app_lm_workspace_candidate_stage cg on cg.id = cs.stage_id "
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id "
+                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and exists ("
-                    + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "
-                    + "  and y.status in (:executiveStatuses)"
+                    + "  select 1 from app_lm_project_candidate y "
+                    + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
+                    + "  where y.triage_company_id = t.id and ys.key in (:executiveStatuses) "
+                    + "  and (:clientVisibleOnly = false or y.client_visible)"
                     + ") "
                     + "group by t.id "
-                    + "order by (case when :ascending then 1 else -1 end) * min(case c.status "
-                    + "  when 'IDENTIFIED' then 0 when 'CONTACTED' then 1 when 'ENGAGED' then 2 "
-                    + "  when 'INTERESTED' then 3 when 'NOT_INTERESTED' then 4 when 'OFF_LIMITS' then 5 "
-                    + "  when 'OUT_OF_SCOPE' then 6 else null end) asc nulls last, t.created_at desc",
+                    + "order by (case when :ascending then 1 else -1 end) * min(cg.position * 1000 + cs.position) "
+                    + "asc nulls last, t.created_at desc",
             countQuery = "select count(*) from app_lm_project_triage_company t "
                     + "where t.project_id = :projectId and t.status = :status "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id "
+                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and exists ("
-                    + "  select 1 from app_lm_project_candidate y where y.triage_company_id = t.id "
-                    + "  and y.status in (:executiveStatuses)"
+                    + "  select 1 from app_lm_project_candidate y "
+                    + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
+                    + "  where y.triage_company_id = t.id and ys.key in (:executiveStatuses) "
+                    + "  and (:clientVisibleOnly = false or y.client_visible)"
                     + ")",
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatusAndExecutiveStatuses(
             UUID projectId, String status, String companyName, String executiveName,
-            List<String> executiveStatuses, boolean ascending, Pageable pageable);
+            List<String> executiveStatuses, boolean ascending, boolean clientVisibleOnly,
+            Pageable pageable);
 }

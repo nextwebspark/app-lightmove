@@ -7,10 +7,13 @@ import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
 import app.lightmove.api.candidate.dto.CandidateEducationEntryDto;
 import app.lightmove.api.candidate.dto.CandidateEmailDto;
+import app.lightmove.api.candidate.dto.CandidatePipelineStageDto;
 import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCompensation;
+import app.lightmove.api.candidate.model.CandidateStage;
+import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.Person;
 import java.util.List;
 import org.springframework.stereotype.Component;
@@ -28,7 +31,7 @@ class CandidateResponseMapper {
                 person.getFullName(),
                 person.getTitle(),
                 person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
-                candidate.getStatus().value(),
+                candidate.getStatus().getStatusKey(),
                 person.getLinkedinUrl(),
                 person.getLocationCountry(),
                 person.getLocationCity(),
@@ -52,7 +55,18 @@ class CandidateResponseMapper {
                 person.getProfile().enrichedAt(),
                 contactsOf(person),
                 person.getId(),
-                person.isLinkedinUrlLocked());
+                person.isLinkedinUrlLocked(),
+                candidate.getStatus().getLabel(),
+                candidate.getStatus().getColour().value(),
+                stageOf(candidate.getStatus()),
+                candidate.getStatusChangedAt(),
+                candidate.isClientVisible());
+    }
+
+    static CandidatePipelineStageDto stageOf(CandidateStatusDefinition status) {
+        CandidateStage stage = status.getStage();
+        return new CandidatePipelineStageDto(stage.getStageKey(), stage.getLabel(), stage.getColour().value(),
+                stage.getKind().value(), stage.getPosition());
     }
 
     static CandidateCompensationDto compensationOf(Person person) {

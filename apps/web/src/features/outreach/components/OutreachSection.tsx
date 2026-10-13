@@ -7,14 +7,11 @@ import * as runApi from "../api/runApi";
 import type { OutreachStep } from "../api/runApi";
 import { isLive, RUN_STATES, sendTimeOf, STOP_NOTES } from "../lib/runVocabulary";
 import { useStopRun } from "../lib/useStopRun";
+import { useStatusStyle } from "../../workspace/lib/usePipelineCatalog";
 import { StopRunDialog } from "./StopRunDialog";
 
-/** What a reply asks the consultant to record. Uncava never infers it from what they wrote. */
-const REPLY_CHOICES: { value: CandidateStatus; label: string }[] = [
-  { value: "engaged", label: "Engaged" },
-  { value: "interested", label: "Interested" },
-  { value: "notInterested", label: "Not interested" },
-];
+/** What a reply asks the consultant to record — three built-in statuses. Uncava never infers it from what they wrote. */
+const REPLY_CHOICES: CandidateStatus[] = ["engaged", "interested", "notInterested"];
 
 /**
  * The executive drawer's Outreach fold (`Outreach.dc.html?drawer=`): their latest run on this position,
@@ -46,6 +43,7 @@ export function OutreachSection({
     queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidateId, signal),
   });
   const stop = useStopRun(projectId);
+  const styleOf = useStatusStyle();
   const [isConfirmingStop, setIsConfirmingStop] = useState(false);
   const run = outreach.data?.run ?? null;
   if (!run) {
@@ -72,13 +70,13 @@ export function OutreachSection({
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {REPLY_CHOICES.map((choice) => (
                   <button
-                    key={choice.value}
+                    key={choice}
                     type="button"
                     disabled={isSettingStatus}
-                    onClick={() => onSetStatus(choice.value)}
+                    onClick={() => onSetStatus(choice)}
                     className="rounded-[6px] border border-u-border bg-u-surface px-2.5 py-1 text-[12px] font-medium hover:border-u-text3 disabled:opacity-60"
                   >
-                    {choice.label}
+                    {styleOf(choice).label}
                   </button>
                 ))}
               </div>

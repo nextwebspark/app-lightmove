@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState, type ReactNode } from "react";
-import { Button, Select, useToast } from "../../../components/ui";
+import { Button, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
@@ -17,24 +17,20 @@ import { CustomFieldsFieldset } from "../../customcolumns/components/CustomField
 import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButton";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
+import { DrawerNextAction } from "../../pipeline/components/DrawerNextAction";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import type { DocumentScope } from "../api/documentsApi";
 import type {
   Candidate,
-  CandidateStatus,
   PersonDocument,
   PersonDocumentVersion,
   SaveCandidatePayload,
 } from "../api/types";
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
-import {
-  candidateGenderLabel,
-  candidateStatusStyle,
-  CANDIDATE_SOURCE_STYLES,
-  CANDIDATE_STATUSES,
-} from "../lib/candidateVocabulary";
+import { candidateGenderLabel, CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
+import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
 import { useAiEnrichment } from "../lib/useAiEnrichment";
@@ -42,6 +38,7 @@ import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
 import { CandidateAvatar } from "./CandidateAvatar";
+import { StatusPicker } from "./StatusPicker";
 import {
   AiInferredBadge,
   BackgroundFields,
@@ -262,34 +259,26 @@ export function CandidateProfile({
                 className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
               />
               {canWrite ? (
-                <Select
+                <StatusPicker
                   value={candidate.status}
+                  currentLabel={candidate.statusLabel}
                   aria-label="Status"
                   disabled={changeStatus.isPending}
-                  onChange={(event) =>
-                    changeStatus.mutate({
-                      candidateId: candidate.id,
-                      status: event.target.value as CandidateStatus,
-                      previous: candidate.status,
-                    })
+                  onChange={(status) =>
+                    changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
                   }
-                  className="w-auto px-2 py-1 text-[12px]"
-                >
-                  {CANDIDATE_STATUSES.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </Select>
+                  className="h-7"
+                />
               ) : (
                 <DetailPill
-                  label={candidateStatusStyle(candidate.status).label}
-                  className={candidateStatusStyle(candidate.status).className}
+                  label={statusStyle(candidate.status, candidate).label}
+                  className={statusStyle(candidate.status, candidate).className}
                 />
               )}
               {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
               {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
             </div>
+            {canWrite && <DrawerNextAction projectId={projectId} candidateId={candidate.id} />}
           </div>
         </div>
         {canWrite && <DoNotContactStrip personId={candidate.personId} />}

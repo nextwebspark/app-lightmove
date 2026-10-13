@@ -103,7 +103,7 @@ class PersonNotesBackfillMigrationTest {
             throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO app_lm_project_candidate (project_id, person_id, note, added_by, updated_at)
-                VALUES (?, ?, ?, ?, ?::date)""")) {
+                VALUES (?, ?, ?, ?, ?::timestamp AT TIME ZONE 'UTC')""")) {
             statement.setObject(1, projectId);
             statement.setObject(2, personId);
             statement.setString(3, note);

@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 /** Gap between the trigger's bottom edge and the panel, and the margin kept from the viewport edge. */
 const PANEL_GAP = 6;
 const EDGE_GAP = 12;
+/** Room an `auto` panel wants beneath its trigger before it opens above instead. */
+const AUTO_PANEL_ROOM = 340;
 
 /**
  * A toolbar dropdown: a button, and a panel that closes on an outside click, Escape, or a scroll.
@@ -23,7 +25,10 @@ export function Popover({
   triggerClassName,
   label,
   align = "left",
+  placement = "below",
   width = 280,
+  disabled,
+  hasPopup,
   children,
 }: {
   /** The button's contents. Receives the open state so a caret can flip. */
@@ -32,7 +37,11 @@ export function Popover({
   /** Accessible name for the trigger, when its contents are not text enough. */
   label?: string;
   align?: "left" | "right";
+  /** `auto` opens above a trigger too near the foot of the window to fit the panel beneath it. */
+  placement?: "below" | "auto";
   width?: number;
+  disabled?: boolean;
+  hasPopup?: "listbox" | "menu" | "dialog";
   children: (close: () => void) => ReactNode;
 }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -49,7 +58,9 @@ export function Popover({
       close();
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      if (event.key !== "Escape") return;
+      close();
+      triggerRef.current?.focus();
     };
     // A scroll inside the panel itself — the checkbox list, or the panel's own overflow — must not
     // close it; only a scroll of whatever sits *behind* it (the table, the page) would strand the
@@ -60,10 +71,12 @@ export function Popover({
     };
     document.addEventListener("mousedown", closeOnOutside);
     document.addEventListener("keydown", closeOnEscape);
-    // Capture: the scroll that would strand the panel is usually the table's box, not the window.
-    window.addEventListener("scroll", closeOnOutsideScroll, true);
+    // Capture: the scroll that would strand the panel is usually the table's box, not the window. Heard a
+    // beat late, because bringing the trigger into view on open reports its own scroll after the panel is up.
+    const listenForScroll = window.setTimeout(() => window.addEventListener("scroll", closeOnOutsideScroll, true), 150);
     window.addEventListener("resize", close);
     return () => {
+      window.clearTimeout(listenForScroll);
       document.removeEventListener("mousedown", closeOnOutside);
       document.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener("scroll", closeOnOutsideScroll, true);
@@ -72,6 +85,9 @@ export function Popover({
   }, [open]);
 
   const toggle = () => {
+    // A trigger half under its scroll box's edge is scrolled into view by the click's own focus, and that
+    // scroll would close the panel it just opened — so it is brought in first, and measured where it lands.
+    if (!open) triggerRef.current?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
     setAnchor((current) => (current ? null : (triggerRef.current?.getBoundingClientRect() ?? null)));
   };
 
@@ -82,6 +98,8 @@ export function Popover({
         type="button"
         aria-label={label}
         aria-expanded={open}
+        aria-haspopup={hasPopup}
+        disabled={disabled}
         onClick={toggle}
         className={triggerClassName}
       >
@@ -93,7 +111,7 @@ export function Popover({
           <div
             ref={panelRef}
             style={{
-              top: anchor.bottom + PANEL_GAP,
+              ...verticalPlacement(anchor, placement),
               left:
                 align === "right"
                   ? Math.max(EDGE_GAP, anchor.right - width)
@@ -111,4 +129,13 @@ export function Popover({
         )}
     </>
   );
+}
+
+function verticalPlacement(anchor: DOMRect, placement: "below" | "auto") {
+  const below = window.innerHeight - anchor.bottom - PANEL_GAP - EDGE_GAP;
+  const above = anchor.top - PANEL_GAP - EDGE_GAP;
+  if (placement === "auto" && below < AUTO_PANEL_ROOM && above > below) {
+    return { bottom: window.innerHeight - anchor.top + PANEL_GAP, maxHeight: above };
+  }
+  return { top: anchor.bottom + PANEL_GAP };
 }

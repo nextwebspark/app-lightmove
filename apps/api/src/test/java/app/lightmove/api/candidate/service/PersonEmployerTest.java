@@ -3,7 +3,6 @@ package app.lightmove.api.candidate.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
@@ -12,6 +11,7 @@ import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PipelineTestStatuses;
 import app.lightmove.api.candidate.model.PersonEmployer;
 import java.util.List;
 import java.util.UUID;
@@ -79,11 +79,11 @@ class PersonEmployerTest {
 
     private static Candidate mappedAt(Person person, UUID triageCompanyId, String companyName) {
         return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId, person,
-                CandidateSource.MANUAL, details(companyName));
+                CandidateSource.MANUAL, PipelineTestStatuses.identified(), details(companyName));
     }
 
     private static CandidateDetails details(String employerName) {
-        return new CandidateDetails("Sample Person", null, null, CandidateStatus.IDENTIFIED, employerName,
+        return new CandidateDetails("Sample Person", null, null, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, null, null, CandidateCompensation.unknown(),
                 new CandidateProfile(null, null, null, null, null, null), null);

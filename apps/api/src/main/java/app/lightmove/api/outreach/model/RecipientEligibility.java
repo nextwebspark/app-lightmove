@@ -16,7 +16,7 @@ public record RecipientEligibility(Map<UUID, OutreachEnrollment> liveByPerson) {
         if (recipient.doNotContact()) {
             return OutreachSkipReason.DO_NOT_CONTACT;
         }
-        if (recipient.status().hasLeftTheRunning()) {
+        if (recipient.leftTheRunning()) {
             return OutreachSkipReason.LEFT_THE_RUNNING;
         }
         if (liveByPerson.containsKey(recipient.personId())) {

@@ -1,17 +1,17 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.project.model.CandidateCountScope;
 import app.lightmove.api.project.service.ProjectCandidateCounter;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Collection;
-import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.function.BiFunction;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,66 +23,70 @@ import org.springframework.stereotype.Component;
  * {@code ProjectCompanyCounterAdapter} applies to declined companies. The two numbers sit side by
  * side under one "Pipeline" heading and read as a pair, so counting everyone here and only the live
  * companies there would make one heading mean two things. Every executive ever mapped, ruled out or
- * not, is still on the Candidates screen — the enum keeps them deliberately, because the same name
- * comes up on the next mandate.
+ * not, is still on the Candidates screen — the closed stage keeps them deliberately, because the same
+ * name comes up on the next mandate. Engaged and reached out are read by stage, so a workspace's own
+ * statuses count where its admin put them. A mandate its caller reads as a client seat counts only the
+ * executives shown to the client.
  */
 @Component
 @RequiredArgsConstructor
 class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
 
-
-    private static final Set<CandidateStatus> ENGAGED = EnumSet.of(
-            CandidateStatus.ENGAGED, CandidateStatus.INTERESTED);
-
-    private static final Set<CandidateStatus> REACHED_OUT = EnumSet.of(
-            CandidateStatus.CONTACTED, CandidateStatus.ENGAGED, CandidateStatus.INTERESTED,
-            CandidateStatus.NOT_INTERESTED);
-
     private final CandidateRepository candidates;
+    private final CandidatePipelineCatalog pipeline;
 
     @Override
-    public Map<UUID, Long> countByProject(Collection<UUID> projectIds) {
-        if (projectIds.isEmpty()) {
-            return Map.of();
-        }
-        return byProject(
-                candidates.countByProjectIdInExcludingStatuses(projectIds, CandidateStatus.LEFT_THE_RUNNING));
+    public Map<UUID, Long> countByProject(CandidateCountScope scope) {
+        return counted(scope, candidates::countStillInTheRunningByProjectIdIn);
     }
 
     @Override
-    public Map<UUID, Long> countMappedByProject(Collection<UUID> projectIds) {
-        if (projectIds.isEmpty()) {
-            return Map.of();
-        }
-        return byProject(candidates.countEveryoneByProjectIdIn(projectIds));
+    public Map<UUID, Long> countMappedByProject(CandidateCountScope scope) {
+        return counted(scope, candidates::countEveryoneByProjectIdIn);
     }
 
     @Override
-    public Map<UUID, Long> countEngagedByProject(Collection<UUID> projectIds) {
-        if (projectIds.isEmpty()) {
+    public Map<UUID, Long> countEngagedByProject(CandidateCountScope scope) {
+        if (scope.projectIds().isEmpty()) {
             return Map.of();
         }
-        return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, ENGAGED));
+        int interestedFrom = stagePositionOf(scope, CandidateSystemStatus.INTERESTED);
+        return counted(scope, (projectIds, clientVisibleOnly) ->
+                candidates.countEngagedByProjectIdIn(projectIds, interestedFrom, clientVisibleOnly));
     }
 
     @Override
-    public Map<UUID, Long> countReachedOutByProject(Collection<UUID> projectIds) {
-        if (projectIds.isEmpty()) {
+    public Map<UUID, Long> countReachedOutByProject(CandidateCountScope scope) {
+        if (scope.projectIds().isEmpty()) {
             return Map.of();
         }
-        return byProject(candidates.countByProjectIdInAndStatusIn(projectIds, REACHED_OUT));
+        int identifiedAt = stagePositionOf(scope, CandidateSystemStatus.IDENTIFIED);
+        return counted(scope, (projectIds, clientVisibleOnly) ->
+                candidates.countReachedOutByProjectIdIn(projectIds, identifiedAt, clientVisibleOnly));
     }
 
     @Override
-    public Map<UUID, Long> countMappedCompaniesByProject(Collection<UUID> projectIds) {
-        if (projectIds.isEmpty()) {
-            return Map.of();
-        }
-        return byProject(candidates.countMappedCompaniesByProjectIdIn(
-                projectIds, TriageCompanyStatus.DECLINED.name()));
+    public Map<UUID, Long> countMappedCompaniesByProject(CandidateCountScope scope) {
+        return counted(scope, (projectIds, clientVisibleOnly) -> candidates.countMappedCompaniesByProjectIdIn(
+                projectIds, TriageCompanyStatus.DECLINED.name(), clientVisibleOnly));
     }
 
-    private static Map<UUID, Long> byProject(List<CandidateCount> counts) {
-        return counts.stream().collect(Collectors.toMap(CandidateCount::getProjectId, CandidateCount::getTotal));
+    /** Read once per call rather than by a subselect per row: every mandate of a scope is one workspace's. */
+    private int stagePositionOf(CandidateCountScope scope, CandidateSystemStatus anchor) {
+        return pipeline.system(scope.workspaceId(), anchor).getStage().getPosition();
+    }
+
+    private static Map<UUID, Long> counted(CandidateCountScope scope,
+                                           BiFunction<Collection<UUID>, Boolean, List<CandidateCount>> count) {
+        Map<UUID, Long> totals = new HashMap<>();
+        List<UUID> whole = scope.countedWhole();
+        if (!whole.isEmpty()) {
+            count.apply(whole, false).forEach(row -> totals.put(row.getProjectId(), row.getTotal()));
+        }
+        List<UUID> clientVisibleOnly = scope.countedClientVisibleOnly();
+        if (!clientVisibleOnly.isEmpty()) {
+            count.apply(clientVisibleOnly, true).forEach(row -> totals.put(row.getProjectId(), row.getTotal()));
+        }
+        return totals;
     }
 }

@@ -4,7 +4,6 @@ import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNull;
 
 import app.lightmove.api.common.constant.Seniority;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
@@ -22,7 +21,7 @@ import java.util.List;
  * the field most likely to be pasted from somewhere else.
  */
 public record CandidateDetails(String fullName, String title, Seniority seniority,
-                               CandidateStatus status, String employerName, List<ContactEntry> emails,
+                               String employerName, List<ContactEntry> emails,
                                List<ContactEntry> phones,
                                String linkedinUrl, String locationCountry, String locationCity,
                                String nationality, Gender gender, Integer yearsExperience,
@@ -51,7 +50,7 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
 
     /** The same details, with the employer the mandate's own company row already knows it by. */
     public CandidateDetails employedAt(String resolvedEmployerName) {
-        return new CandidateDetails(fullName, title, seniority, status, resolvedEmployerName, emails,
+        return new CandidateDetails(fullName, title, seniority, resolvedEmployerName, emails,
                 phones, linkedinUrl, locationCountry, locationCity, nationality, gender,
                 yearsExperience, summary, note, compensation, profile, sourceUrl);
     }

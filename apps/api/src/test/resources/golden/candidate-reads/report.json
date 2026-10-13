@@ -204,7 +204,8 @@
         "company" : "Golden Contract Foods",
         "fullName" : "Yasmin El-Sayed",
         "id" : "<candidate:yasmin@cfo>",
-        "status" : "interested"
+        "status" : "interested",
+        "statusLabel" : "Interested"
       } ],
       "level" : "C-Suite",
       "sector" : "food & beverages"
@@ -214,7 +215,8 @@
         "company" : "Golden Contract Retail",
         "fullName" : "Omar Haddad",
         "id" : "<candidate:omar@cfo>",
-        "status" : "identified"
+        "status" : "identified",
+        "statusLabel" : "Identified"
       } ],
       "level" : "N-1",
       "sector" : "retail"
@@ -246,6 +248,7 @@
       "id" : "<candidate:yasmin@cfo>",
       "nationality" : "Saudi",
       "status" : "interested",
+      "statusLabel" : "Interested",
       "title" : "CFO",
       "totalPackage" : 370000
     } ],

@@ -1,7 +1,6 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import jakarta.persistence.Column;
@@ -12,6 +11,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -38,6 +38,8 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Candidate extends BaseEntity {
 
+    public static final int MAX_NEXT_ACTION = 200;
+
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
@@ -52,9 +54,13 @@ public class Candidate extends BaseEntity {
     @Column(name = "company_name")
     private String companyName;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 24)
-    private CandidateStatus status;
+    /** The one fact this row holds about where they stand; the stage is read through it (V131). */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "status_id", nullable = false)
+    private CandidateStatusDefinition status;
+
+    @Column(name = "status_changed_at", nullable = false)
+    private Instant statusChangedAt;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "ai_assessment")
@@ -84,9 +90,32 @@ public class Candidate extends BaseEntity {
     @Column(name = "added_by", nullable = false, updatable = false)
     private UUID addedBy;
 
+    /**
+     * Where the Pipeline page's manual order puts them within their stage (V132). Fractional, so a drag
+     * writes the one row moved; null until anyone drags them, which sorts after every ranked row.
+     */
+    @Column(name = "pipeline_rank")
+    private BigDecimal pipelineRank;
+
+    /** False hides them from a client seat on every read it can reach; staff always see them (V132). */
+    @Column(name = "client_visible", nullable = false)
+    private boolean clientVisible = true;
+
+    @Column(name = "next_action")
+    private String nextAction;
+
+    @Column(name = "next_action_due")
+    private Instant nextActionDue;
+
+    @Column(name = "next_action_set_by")
+    private UUID nextActionSetBy;
+
     public static Candidate mapped(UUID projectId, UUID addedBy, UUID triageCompanyId, Person person,
-                                   CandidateSource source, CandidateDetails details) {
+                                   CandidateSource source, CandidateStatusDefinition status,
+                                   CandidateDetails details) {
         Candidate candidate = new Candidate();
+        candidate.status = status;
+        candidate.statusChangedAt = Instant.now();
         candidate.projectId = projectId;
         candidate.addedBy = addedBy;
         candidate.person = person;
@@ -98,23 +127,25 @@ public class Candidate extends BaseEntity {
     }
 
     /**
-     * Someone the workspace already holds, added to a mandate from the Candidates page: Identified, by
-     * hand, at the employer they were last recorded at, and on none of the mandate's companies.
+     * Someone the workspace already holds, added to a mandate from the Candidates page: at the catalog's
+     * starting status, by hand, at the employer they were last recorded at, and on none of the mandate's
+     * companies.
      */
-    public static Candidate mappedFromPool(UUID projectId, UUID addedBy, Person person, String employerName) {
+    public static Candidate mappedFromPool(UUID projectId, UUID addedBy, Person person, String employerName,
+                                           CandidateStatusDefinition startingStatus) {
         Candidate candidate = new Candidate();
         candidate.projectId = projectId;
         candidate.addedBy = addedBy;
         candidate.person = person;
         candidate.source = CandidateSource.MANUAL;
-        candidate.status = CandidateStatus.IDENTIFIED;
+        candidate.status = startingStatus;
+        candidate.statusChangedAt = Instant.now();
         candidate.companyName = employerName;
         return candidate;
     }
 
-    /** The mandate's half of a save: where the person works for this mandate, and how far along. */
+    /** The mandate's half of a save: where the person works for this mandate. */
     public void describe(CandidateDetails details) {
-        this.status = details.status();
         this.companyName = details.employerName();
     }
 
@@ -136,8 +167,38 @@ public class Candidate extends BaseEntity {
         this.customFields = values == null ? CustomFieldValues.empty() : values;
     }
 
-    public void moveTo(CandidateStatus newStatus) {
+    /** Answers whether anything changed; a move to the status already held keeps its date. */
+    public boolean moveTo(CandidateStatusDefinition newStatus) {
+        if (status != null && status.getId().equals(newStatus.getId())) {
+            return false;
+        }
         this.status = newStatus;
+        this.statusChangedAt = Instant.now();
+        return true;
+    }
+
+    public void rankAt(BigDecimal newRank) {
+        this.pipelineRank = newRank;
+    }
+
+    /** Answers whether anything changed. */
+    public boolean showToClient(boolean visible) {
+        boolean changed = clientVisible != visible;
+        this.clientVisible = visible;
+        return changed;
+    }
+
+    /** A blank text clears the action and its date together. */
+    public void planNextAction(String text, Instant due, UUID setBy) {
+        if (text == null || text.isBlank()) {
+            this.nextAction = null;
+            this.nextActionDue = null;
+            this.nextActionSetBy = null;
+            return;
+        }
+        this.nextAction = text.strip();
+        this.nextActionDue = due;
+        this.nextActionSetBy = setBy;
     }
 
     /** Moves the person to another of the mandate's companies, or off the universe altogether. */

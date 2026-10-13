@@ -3,7 +3,7 @@ package app.lightmove.api.common.constant;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.Arrays;
@@ -34,18 +34,18 @@ class ApiValueEnumTest {
     @Test
     @DisplayName("fromValue answers null for null and for a token no constant spells")
     void fromValueAnswersNullForUnknown() {
-        assertThat(ApiValueEnum.fromValue(CandidateStatus.class, null)).isNull();
-        assertThat(ApiValueEnum.fromValue(CandidateStatus.class, "IDENTIFIED")).isNull();
-        assertThat(ApiValueEnum.fromValue(CandidateStatus.class, "identified")).isSameAs(CandidateStatus.IDENTIFIED);
+        assertThat(ApiValueEnum.fromValue(CandidateSystemStatus.class, null)).isNull();
+        assertThat(ApiValueEnum.fromValue(CandidateSystemStatus.class, "IDENTIFIED")).isNull();
+        assertThat(ApiValueEnum.fromValue(CandidateSystemStatus.class, "identified")).isSameAs(CandidateSystemStatus.IDENTIFIED);
     }
 
     @Test
     @DisplayName("parse gives an absent token its default and a wrong one a 400 naming the field")
     void parseDefaultsBlankAndRefusesUnknown() {
-        assertThat(ApiValueEnum.parse(CandidateStatus.class, null, CandidateStatus.IDENTIFIED, "status"))
-                .isSameAs(CandidateStatus.IDENTIFIED);
-        assertThat(ApiValueEnum.parse(CandidateStatus.class, "  ", null, "status")).isNull();
-        assertThatThrownBy(() -> ApiValueEnum.parse(CandidateStatus.class, "hired", null, "candidate status"))
+        assertThat(ApiValueEnum.parse(CandidateSystemStatus.class, null, CandidateSystemStatus.IDENTIFIED, "status"))
+                .isSameAs(CandidateSystemStatus.IDENTIFIED);
+        assertThat(ApiValueEnum.parse(CandidateSystemStatus.class, "  ", null, "status")).isNull();
+        assertThatThrownBy(() -> ApiValueEnum.parse(CandidateSystemStatus.class, "hired", null, "candidate status"))
                 .isInstanceOfSatisfying(ApiException.class,
                         e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_FAILED))
                 .hasMessageContaining("Unknown candidate status: hired");
@@ -54,7 +54,7 @@ class ApiValueEnumTest {
     @Test
     @DisplayName("require refuses an absent token too")
     void requireRefusesBlank() {
-        assertThatThrownBy(() -> ApiValueEnum.require(CandidateStatus.class, "", "candidate status"))
+        assertThatThrownBy(() -> ApiValueEnum.require(CandidateSystemStatus.class, "", "candidate status"))
                 .isInstanceOf(ApiException.class);
     }
 

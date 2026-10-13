@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { FilterAccordion } from "../../../../components/ui/FilterAccordion";
 import { FilterCheckRow } from "../../../../components/ui/FilterCheckRow";
 import { FilterRail } from "../../../../components/ui/FilterRail";
@@ -6,11 +6,12 @@ import { SegmentedControl } from "../../../../components/ui/SegmentedControl";
 import type { Project } from "../../../projects/api/types";
 import type { Member } from "../../../workspace/api/types";
 import type { CandidateTag, PoolFilters } from "../../api/types";
-import { CANDIDATE_STATUSES } from "../../lib/candidateVocabulary";
+import { liveStages, liveStatuses } from "../../lib/pipelineStatus";
 import { countActiveFilters, TAG_MATCHES, withoutRailFilters } from "../../lib/poolFilters";
+import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
 
-type SingleValueAxis = "position" | "status" | "owner" | "country";
-type RailSection = "tags" | SingleValueAxis;
+type SingleValueAxis = "position" | "owner" | "country";
+type RailSection = "tags" | "status" | SingleValueAxis;
 
 interface Row {
   value: string;
@@ -62,17 +63,11 @@ export function PoolFilterRail({
         : [...filters.tagIds, tagId],
     });
 
-  const singleValueSections: { axis: SingleValueAxis; label: string; rows: Row[]; hint?: string }[] = [
+  const singleValueSections: { axis: SingleValueAxis; label: string; rows: Row[] }[] = [
     {
       axis: "position",
       label: "Position",
       rows: positions.map((position) => ({ value: position.id, label: position.positionTitle })),
-    },
-    {
-      axis: "status",
-      label: "Status",
-      rows: CANDIDATE_STATUSES.map((status) => ({ value: status.value, label: status.label })),
-      hint: "Reads from the positions a person is in.",
     },
     {
       axis: "owner",
@@ -129,27 +124,35 @@ export function PoolFilterRail({
           </div>
         </FilterAccordion>
 
-        {singleValueSections.map(({ axis, label, rows, hint }) => {
+        {singleValueSections.map(({ axis, label, rows }) => {
           const value = filters[axis];
           const chosen = rows.find((row) => row.value === value);
           return (
-            <FilterAccordion
-              key={axis}
-              label={label}
-              selected={value ? [{ value, label: chosen?.label ?? value }] : []}
-              onRemove={() => onChange({ ...filters, [axis]: "" })}
-              onReset={() => onChange({ ...filters, [axis]: "" })}
-              open={openSection === axis}
-              onToggleOpen={() => toggleSection(axis)}
-            >
-              <NarrowableRows
-                label={label.toLowerCase()}
-                rows={rows}
-                isChecked={(row) => value === row}
-                onToggle={(row) => selectSingle(axis, row)}
-              />
-              {hint && <p className="mt-2 text-meta text-u-text3">{hint}</p>}
-            </FilterAccordion>
+            <Fragment key={axis}>
+              {axis === "owner" && (
+                <StageStatusSection
+                  filters={filters}
+                  onChange={onChange}
+                  open={openSection === "status"}
+                  onToggleOpen={() => toggleSection("status")}
+                />
+              )}
+              <FilterAccordion
+                label={label}
+                selected={value ? [{ value, label: chosen?.label ?? value }] : []}
+                onRemove={() => onChange({ ...filters, [axis]: "" })}
+                onReset={() => onChange({ ...filters, [axis]: "" })}
+                open={openSection === axis}
+                onToggleOpen={() => toggleSection(axis)}
+              >
+                <NarrowableRows
+                  label={label.toLowerCase()}
+                  rows={rows}
+                  isChecked={(row) => value === row}
+                  onToggle={(row) => selectSingle(axis, row)}
+                />
+              </FilterAccordion>
+            </Fragment>
           );
         })}
       </div>
@@ -165,6 +168,76 @@ export function PoolFilterRail({
         </button>
       </div>
     </FilterRail>
+  );
+}
+
+/**
+ * Stage and status as one facet: a stage narrows to everyone at any of its statuses, a status to that
+ * status alone, and choosing one clears the other.
+ */
+function StageStatusSection({
+  filters,
+  onChange,
+  open,
+  onToggleOpen,
+}: {
+  filters: PoolFilters;
+  onChange: (filters: PoolFilters) => void;
+  open: boolean;
+  onToggleOpen: () => void;
+}) {
+  const { catalog } = usePipelineCatalog();
+  const stages = liveStages(catalog);
+  const allStatuses = catalog.stages.flatMap((stage) => stage.statuses);
+  const selected = filters.pipelineStage
+    ? [
+        {
+          value: filters.pipelineStage,
+          label: stages.find((stage) => stage.key === filters.pipelineStage)?.label ?? filters.pipelineStage,
+        },
+      ]
+    : filters.status
+      ? [{ value: filters.status, label: allStatuses.find((s) => s.key === filters.status)?.label ?? filters.status }]
+      : [];
+  const clear = () => onChange({ ...filters, status: "", pipelineStage: "" });
+
+  return (
+    <FilterAccordion
+      label="Stage & status"
+      selected={selected}
+      onRemove={clear}
+      onReset={clear}
+      open={open}
+      onToggleOpen={onToggleOpen}
+    >
+      <div className="max-h-[320px] overflow-y-auto">
+        {stages.map((stage) => (
+          <div key={stage.id}>
+            <FilterCheckRow
+              label={`All ${stage.label}`}
+              checked={filters.pipelineStage === stage.key}
+              onToggle={() =>
+                onChange({ ...filters, status: "", pipelineStage: filters.pipelineStage === stage.key ? "" : stage.key })
+              }
+            />
+            <div className="ps-5">
+              {liveStatuses(stage).map((status) => (
+                <FilterCheckRow
+                  key={status.id}
+                  size="sm"
+                  label={status.label}
+                  checked={filters.status === status.key}
+                  onToggle={() =>
+                    onChange({ ...filters, pipelineStage: "", status: filters.status === status.key ? "" : status.key })
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-meta text-u-text3">Reads from the positions a person is in.</p>
+    </FilterAccordion>
   );
 }
 

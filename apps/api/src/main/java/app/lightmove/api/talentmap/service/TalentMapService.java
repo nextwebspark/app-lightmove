@@ -5,6 +5,7 @@ import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.MapboxSettings;
 import app.lightmove.api.core.config.TalentMapSettings;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.geocoding.model.GeoPoint;
 import app.lightmove.api.geocoding.model.GeocodingResult;
 import app.lightmove.api.geocoding.model.PlaceKey;
@@ -52,23 +53,24 @@ public class TalentMapService {
                 mapbox.isConfigured() ? mapbox.publicToken() : null);
     }
 
-    public TalentMapResponse read(UUID workspaceId, UUID projectId, String statusToken) {
-        Placement placed = place(workspaceId, projectId, statusToken);
+    public TalentMapResponse read(UUID workspaceId, UUID projectId, String statusToken, ProjectAudience audience) {
+        Placement placed = place(workspaceId, projectId, statusToken, audience);
         Locations located = locate(placed);
         return new TalentMapResponse(placed.companies().companies(), placed.companies().totalCount(),
                 placed.people(), placed.totalCandidates(), located.locations(), located.pending());
     }
 
     /** The points alone, for the screen's poll while places resolve. */
-    public TalentMapLocationsResponse readLocations(UUID workspaceId, UUID projectId, String statusToken) {
-        Locations located = locate(place(workspaceId, projectId, statusToken));
+    public TalentMapLocationsResponse readLocations(UUID workspaceId, UUID projectId, String statusToken,
+                                                    ProjectAudience audience) {
+        Locations located = locate(place(workspaceId, projectId, statusToken, audience));
         return new TalentMapLocationsResponse(located.locations(), located.pending());
     }
 
-    private Placement place(UUID workspaceId, UUID projectId, String statusToken) {
+    private Placement place(UUID workspaceId, UUID projectId, String statusToken, ProjectAudience audience) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         PairedStage paired = pairing.pair(workspaceId, projectId, status, TriageCompanyFilters.none(),
-                caps.maxCompanies(), caps.maxCandidates());
+                caps.maxCompanies(), caps.maxCandidates(), audience);
         TriageCompaniesResponse companies = paired.companies();
         List<CandidateResponse> people = paired.people();
 

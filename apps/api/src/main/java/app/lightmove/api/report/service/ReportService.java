@@ -2,6 +2,7 @@ package app.lightmove.api.report.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.report.dto.ReportHeadDto;
 import app.lightmove.api.report.dto.ReportResponse;
 import app.lightmove.api.report.dto.TeamPerformanceDto;
@@ -32,8 +33,8 @@ public class ReportService {
     private final TeamPerformanceReporter teamPerformance;
     private final Clock clock;
 
-    public ReportResponse read(UUID workspaceId, UUID projectId) {
-        ReportSources gathered = sources.load(workspaceId, projectId);
+    public ReportResponse read(UUID workspaceId, UUID projectId, ProjectAudience audience) {
+        ReportSources gathered = sources.load(workspaceId, projectId, audience);
         ReportCalendar calendar = ReportCalendar.of(gathered.project().getCreatedAt(),
                 gathered.project().getTargetDate(), clock);
         ReportHeadDto head = new ReportHeadDto(gathered.universeTotal(), gathered.executivesTotal(),
@@ -44,10 +45,11 @@ public class ReportService {
 
     /**
      * Chapter one's researcher breakdown over {@code from}–{@code to}, either end optional and both
-     * clamped into the mandate's calendar. Staff-only at the controller; a client seat never reaches it.
+     * clamped into the mandate's calendar. Staff-only at the controller ({@code WORK_EXECUTE}), so it
+     * reads as staff: a client seat never reaches it.
      */
     public TeamPerformanceDto readTeam(UUID workspaceId, UUID projectId, LocalDate from, LocalDate to) {
-        ReportSources gathered = sources.load(workspaceId, projectId);
+        ReportSources gathered = sources.load(workspaceId, projectId, ProjectAudience.STAFF);
         ReportCalendar calendar = ReportCalendar.of(gathered.project().getCreatedAt(),
                 gathered.project().getTargetDate(), clock);
         ReportRange range = ReportRange.within(calendar, from, to);

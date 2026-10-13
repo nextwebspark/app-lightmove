@@ -1,11 +1,10 @@
 package app.lightmove.api.assistant.tool;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.model.CandidateDossier;
+import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
@@ -30,16 +29,18 @@ public class CandidateTools {
     /** Companies one name filter may resolve to — the candidate list refuses more ids than a page holds. */
     private static final int MAX_MATCHED_COMPANIES = 50;
 
-    /** {@code CandidateStatus}'s tokens — a literal, since an annotation takes nothing else. */
+    /** The built-in status keys every workspace holds — a literal, since an annotation takes nothing else. */
     static final String STATUSES = "identified, contacted, engaged, interested, notInterested, offLimits, outOfScope";
 
     private final CandidateService candidates;
+    private final CandidatePipelineCatalog pipeline;
     private final TriageCompanyReadService triaged;
     private final int maxRows;
 
-    public CandidateTools(CandidateService candidates, TriageCompanyReadService triaged,
-                          LightMoveProperties properties) {
+    public CandidateTools(CandidateService candidates, CandidatePipelineCatalog pipeline,
+                          TriageCompanyReadService triaged, LightMoveProperties properties) {
         this.candidates = candidates;
+        this.pipeline = pipeline;
         this.triaged = triaged;
         this.maxRows = properties.assistant().toolRowLimit();
     }
@@ -56,14 +57,17 @@ public class CandidateTools {
             String companyName,
             @ToolParam(required = false, description = "All or part of the executive's name")
             String executiveName,
-            @ToolParam(required = false, description = "Their status on this mandate, one of: " + STATUSES)
+            @ToolParam(required = false, description = "Their status key on this mandate, such as: " + STATUSES
+                    + ", or one the workspace added")
             String status,
             @ToolParam(required = false, description = "Page, from 0") Integer page,
             ToolContext toolContext) {
         AssistantToolContext context = AssistantToolContext.from(toolContext);
         TurnRecorder recorder = context.recorder();
         int step = recorder.startStep(describeList(companyName, executiveName));
-        CandidateStatus asked = ApiValueEnum.fromValue(CandidateStatus.class, blankToNull(status));
+        String asked = blankToNull(status) == null ? null
+                : pipeline.catalogOf(context.workspaceId()).byKey(status.strip()).map(found -> found.getStatusKey())
+                        .orElse(null);
         int pageAsked = page == null || page < 0 ? 0 : page;
 
         TriageCompanyMatches named = blankToNull(companyName) == null ? null
@@ -73,7 +77,7 @@ public class CandidateTools {
                 : named.companies().stream().map(TriageCompanyResponse::id).toList();
         CandidatesResponse found = candidates.list(context.workspaceId(), context.projectId(),
                 new CandidateListCriteria(companyIds, null, blankToNull(executiveName), null, null,
-                        asked == null ? null : asked.value(), pageAsked, maxRows));
+                        asked, null, pageAsked, maxRows), AssistantToolContext.AUDIENCE);
         List<MappedExecutiveSummary> executives = found.candidates().stream()
                 .map(MappedExecutiveSummary::of)
                 .toList();

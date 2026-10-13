@@ -7,8 +7,10 @@ import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -41,6 +43,21 @@ public class ProjectAccess {
             return projects.findIdsInWorkspace(workspaceId, projectIds);
         }
         return seats.findProjectIdsWithAction(member.getId(), projectIds, action.name());
+    }
+
+    /**
+     * Staff only for a caller holding {@code WORK_EXECUTE} on the position; anyone else reads as a client
+     * seat does, a project outside the workspace included.
+     */
+    public ProjectAudience audienceOf(UUID userId, UUID workspaceId, UUID projectId) {
+        return projectsReadAsClient(userId, workspaceId, List.of(projectId)).isEmpty()
+                ? ProjectAudience.STAFF : ProjectAudience.CLIENT;
+    }
+
+    /** {@link #audienceOf} for many projects at once: the ones the caller reads as a client seat. */
+    public Set<UUID> projectsReadAsClient(UUID userId, UUID workspaceId, Collection<UUID> projectIds) {
+        Set<UUID> worked = projectsWithAction(userId, workspaceId, projectIds, ProjectAction.WORK_EXECUTE);
+        return projectIds.stream().filter(projectId -> !worked.contains(projectId)).collect(Collectors.toSet());
     }
 
     public void requireAction(UUID userId, UUID workspaceId, UUID projectId, ProjectAction action) {

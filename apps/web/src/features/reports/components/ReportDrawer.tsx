@@ -6,9 +6,9 @@ import { cn } from "../../../lib/cn";
 import { initials } from "../../../lib/format";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import { useFocusTrap } from "../../../lib/useFocusTrap";
-import type { CandidateStatus } from "../../candidates/api/types";
-import { candidateStatusStyle } from "../../candidates/lib/candidateVocabulary";
-import { STATUS_TONES, statusTone } from "../lib/statusTone";
+import { statusStyle } from "../../candidates/lib/pipelineStatus";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
+import { STATUS_TONES, statusTone, type StagedStatus } from "../lib/statusTone";
 
 /**
  * The drill-in panel every chapter opens: anchored to the edge of the screen and full height, where
@@ -110,7 +110,10 @@ export function DrawerListRow({ children }: { children: ReactNode }) {
   return <div className="border-b border-u-border py-[9px] text-[12.5px] font-semibold last:border-b-0">{children}</div>;
 }
 
-export function DrawerPersonRow({ name, detail, status }: { name: string; detail: string; status: CandidateStatus }) {
+/** A report row's status as the pill reads it: the label it was sent with, toned by its stage. */
+export type PillStatus = StagedStatus & { statusLabel?: string };
+
+export function DrawerPersonRow({ name, detail, status }: { name: string; detail: string; status: PillStatus }) {
   return (
     <div className="flex items-center gap-[11px] border-b border-u-border py-[9px] last:border-b-0">
       <span className="grid size-7 flex-none place-items-center rounded-full border border-u-border-strong bg-u-raised text-[10px] font-bold text-u-text2">
@@ -125,15 +128,16 @@ export function DrawerPersonRow({ name, detail, status }: { name: string; detail
   );
 }
 
-export function StatusPill({ status }: { status: CandidateStatus }) {
+export function StatusPill({ status }: { status: PillStatus }) {
+  const { catalog } = usePipelineCatalog();
   return (
     <span
       className={cn(
         "flex-none whitespace-nowrap rounded-full px-[9px] py-[3px] text-[9.5px] font-bold",
-        STATUS_TONES[statusTone(status)].pill,
+        STATUS_TONES[statusTone(status, catalog)].pill,
       )}
     >
-      {candidateStatusStyle(status).label}
+      {statusStyle(status.status, status, catalog).label}
     </span>
   );
 }

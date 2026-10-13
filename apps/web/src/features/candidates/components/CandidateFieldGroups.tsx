@@ -33,12 +33,8 @@ import {
   type BonusBasis,
 } from "../lib/compensation";
 import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
-import {
-  CANDIDATE_GENDERS,
-  CANDIDATE_NATIONALITIES,
-  CANDIDATE_SENIORITIES,
-  CANDIDATE_STATUSES,
-} from "../lib/candidateVocabulary";
+import { CANDIDATE_GENDERS, CANDIDATE_NATIONALITIES, CANDIDATE_SENIORITIES } from "../lib/candidateVocabulary";
+import { StatusPicker } from "./StatusPicker";
 
 /**
  * The profile's fields, one group per section, shared by the form that adds an executive and the
@@ -129,16 +125,19 @@ export function IdentityFields<TTransformed>({
   );
 }
 
-export function StatusField({ register, errors }: FieldGroupProps) {
+export function StatusField<TTransformed>({
+  control,
+  errors,
+}: Pick<FieldGroupProps, "errors"> & { control: Control<CandidateForm, unknown, TTransformed> }) {
   return (
     <Field label="Status" error={errors.status?.message}>
-      <Select {...register("status")}>
-        {CANDIDATE_STATUSES.map((status) => (
-          <option key={status.value} value={status.value}>
-            {status.label}
-          </option>
-        ))}
-      </Select>
+      <Controller
+        control={control}
+        name="status"
+        render={({ field }) => (
+          <StatusPicker aria-label="Status" value={field.value} onChange={field.onChange} className="h-[42px] w-full" />
+        )}
+      />
     </Field>
   );
 }

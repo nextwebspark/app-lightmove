@@ -7,6 +7,7 @@ import app.lightmove.api.core.config.ExportSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.dataexport.model.ExportRow;
@@ -44,10 +45,11 @@ public class ProjectExportService {
     }
 
     public String companies(UUID userId, UUID workspaceId, UUID projectId, String statusToken,
-                            TriageCompanyFilters filters, HttpServletRequest httpRequest) {
+                            TriageCompanyFilters filters, ProjectAudience audience,
+                            HttpServletRequest httpRequest) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         PairedStage paired = pairing.pair(workspaceId, projectId, status, filters, caps.maxCompanies(),
-                caps.maxCandidates());
+                caps.maxCandidates(), audience);
         refuseIfPast("companies", paired.companies().totalCount(), caps.maxCompanies());
         refuseIfPast("executives", paired.totalCandidates(), caps.maxCandidates());
 

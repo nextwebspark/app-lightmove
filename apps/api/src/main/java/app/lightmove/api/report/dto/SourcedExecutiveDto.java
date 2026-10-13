@@ -11,6 +11,7 @@ public record SourcedExecutiveDto(
         String seniority,
         String companyName,
         String status,
+        String statusLabel,
         String addedByName,
         Instant addedAt
 ) {}

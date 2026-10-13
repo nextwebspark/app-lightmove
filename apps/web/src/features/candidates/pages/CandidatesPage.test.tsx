@@ -272,7 +272,7 @@ describe("CandidatesPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Show Filters" }));
     const rail = screen.getByRole("region", { name: "Filters" });
-    await userEvent.click(within(rail).getByRole("button", { name: "Status" }));
+    await userEvent.click(within(rail).getByRole("button", { name: "Stage & status" }));
     await userEvent.click(within(rail).getByRole("checkbox", { name: "Engaged" }));
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
@@ -283,10 +283,10 @@ describe("CandidatesPage", () => {
       ),
     );
 
-    await userEvent.click(within(rail).getByRole("checkbox", { name: "Interested" }));
+    await userEvent.click(within(rail).getByRole("checkbox", { name: "All Interested" }));
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "interested" }),
+        expect.objectContaining({ status: "", pipelineStage: "interested" }),
         0,
         50,
         expect.anything(),
@@ -301,7 +301,7 @@ describe("CandidatesPage", () => {
     await userEvent.click(within(rail).getByRole("button", { name: "Clear all filters" }));
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "", country: "" }),
+        expect.objectContaining({ status: "", pipelineStage: "", country: "" }),
         0,
         50,
         expect.anything(),

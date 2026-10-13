@@ -8,7 +8,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Arrays;
 import java.util.List;
@@ -72,8 +71,9 @@ class PublicApiDocsIntegrationTest {
                 .contains("`companies:read`").contains("PUBLIC_API_UNIVERSE_TOO_LARGE");
         assertThat(enumOf(companies, "stage")).containsExactlyElementsOf(
                 Arrays.stream(TriageCompanyStatus.values()).map(TriageCompanyStatus::value).toList());
-        assertThat(enumOf(candidates, "status")).containsExactlyElementsOf(
-                Arrays.stream(CandidateStatus.values()).map(CandidateStatus::value).toList());
+        assertThat(enumOf(candidates, "status"))
+                .as("a status is any key of the workspace's own pipeline, so the filter names no fixed list")
+                .isEmpty();
     }
 
     private static List<String> enumOf(JsonNode operation, String parameter) {

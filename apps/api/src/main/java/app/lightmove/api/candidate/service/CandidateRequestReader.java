@@ -1,7 +1,6 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.Gender;
@@ -53,7 +52,7 @@ class CandidateRequestReader {
     CandidateDetails detailsOf(UUID projectId, SaveCandidateRequest request, UUID previousTriageCompanyId) {
         CandidateDetails details = new CandidateDetails(
                 request.fullName(), request.title(), resolveSeniority(request.seniority()),
-                resolveStatus(request.status()), request.employerName(),
+                request.employerName(),
                 entriesOf(ContactChannel.EMAIL, request.emails(), request.email()),
                 entriesOf(ContactChannel.PHONE, request.phones(), request.phone()),
                 request.linkedinUrl(), request.locationCountry(),
@@ -165,11 +164,6 @@ class CandidateRequestReader {
                                 entry.location()))
                         .toList();
         return new CandidateProfile(career, request.languages(), null, null, null, null);
-    }
-
-    /** Omitted means identified — where every profile starts, and the only honest default. */
-    CandidateStatus resolveStatus(String token) {
-        return ApiValueEnum.parse(CandidateStatus.class, token, CandidateStatus.IDENTIFIED, "candidate status");
     }
 
     /** Null when nobody named a level, which is not the same as naming an unknown one. */

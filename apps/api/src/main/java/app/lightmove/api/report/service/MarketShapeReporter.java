@@ -1,6 +1,5 @@
 package app.lightmove.api.report.service;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.common.location.service.Countries;
@@ -102,7 +101,7 @@ class MarketShapeReporter {
         List<SliceExecutiveDto> listed = inCell.stream()
                 .limit(caps.maxExecutivesPerSlice())
                 .map(row -> new SliceExecutiveDto(row.executive().id(), row.executive().fullName(),
-                        row.employerName(), row.executive().status()))
+                        row.employerName(), row.executive().status(), row.executive().statusLabel()))
                 .toList();
         return new MarketSliceDto(sector, level.value(), employersOf(inCell, Integer.MAX_VALUE), listed);
     }
@@ -148,7 +147,7 @@ class MarketShapeReporter {
                         (int) here.stream().filter(row -> row.seniority() == level).count()))
                 .filter(count -> count.count() > 0)
                 .toList();
-        int interested = (int) here.stream().filter(row -> row.status() == CandidateStatus.INTERESTED).count();
+        int interested = (int) here.stream().filter(ExecutiveRow::isInterestedOrLater).count();
         int gccNationals = (int) here.stream()
                 .filter(row -> NationalityCatalog.isGcc(NationalityCatalog.groupOf(row.executive().nationality())))
                 .count();

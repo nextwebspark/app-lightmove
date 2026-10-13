@@ -44,13 +44,14 @@ public class CandidatePoolExportController {
                                          @RequestParam(required = false) String tagMatch,
                                          @RequestParam(required = false) UUID position,
                                          @RequestParam(required = false) String status,
+                                      @RequestParam(required = false) String pipelineStage,
                                          @RequestParam(required = false) String owner,
                                          @RequestParam(required = false) String country,
                                          @RequestParam(required = false) String sort,
                                          @RequestParam(required = false) String direction,
                                          HttpServletRequest httpRequest) {
-        PoolCriteria criteria = PoolCriteria.read(q, view, tag, tagMatch, position, status, owner, country, sort,
-                direction);
+        PoolCriteria criteria = PoolCriteria.read(q, view, tag, tagMatch, position, status, pipelineStage, owner,
+                country, sort, direction);
         return csvOf(exports.people(principal.userId(), principal.requireWorkspaceId(), criteria, List.of(),
                 httpRequest));
     }

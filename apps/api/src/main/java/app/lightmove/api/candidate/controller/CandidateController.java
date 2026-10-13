@@ -8,7 +8,9 @@ import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -47,6 +49,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CandidateController {
 
     private final CandidateService candidates;
+    private final ProjectAccess projectAccess;
 
     /**
      * {@code triageCompanyId} is repeatable and is how the Companies grid reads: one page of
@@ -60,11 +63,14 @@ public class CandidateController {
                                    @RequestParam(required = false) List<UUID> triageCompanyId,
                                    @RequestParam(required = false) Boolean unmapped,
                                    @RequestParam(required = false) String q,
+                                   @RequestParam(required = false) String status,
+                                   @RequestParam(required = false) String pipelineStage,
                                    @RequestParam(required = false) Integer page,
                                    @RequestParam(required = false) Integer size) {
-        CandidateListCriteria criteria =
-                new CandidateListCriteria(triageCompanyId, unmapped, q, null, null, null, page, size);
-        return candidates.list(principal.requireWorkspaceId(), projectId, criteria);
+        CandidateListCriteria criteria = new CandidateListCriteria(triageCompanyId, unmapped, q, null, null,
+                status, pipelineStage, page, size);
+        return candidates.list(principal.requireWorkspaceId(), projectId, criteria,
+                audienceOf(principal, projectId));
     }
 
     /** One executive whole — the report opens a person from a figure that carries only their id. */
@@ -73,7 +79,8 @@ public class CandidateController {
     public CandidateResponse get(@AuthenticationPrincipal AuthPrincipal principal,
                                  @PathVariable UUID projectId,
                                  @PathVariable UUID candidateId) {
-        return candidates.get(principal.requireWorkspaceId(), projectId, candidateId);
+        return candidates.get(principal.requireWorkspaceId(), projectId, candidateId,
+                audienceOf(principal, projectId));
     }
 
     /**
@@ -86,7 +93,8 @@ public class CandidateController {
     public ResponseEntity<byte[]> photo(@AuthenticationPrincipal AuthPrincipal principal,
                                         @PathVariable UUID projectId,
                                         @PathVariable UUID candidateId) {
-        StoredPhoto photo = candidates.photoOf(principal.requireWorkspaceId(), projectId, candidateId);
+        StoredPhoto photo = candidates.photoOf(principal.requireWorkspaceId(), projectId, candidateId,
+                audienceOf(principal, projectId));
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(photo.contentType()))
                 .header("X-Content-Type-Options", "nosniff")
@@ -146,5 +154,9 @@ public class CandidateController {
                        HttpServletRequest httpRequest) {
         candidates.remove(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
                 httpRequest);
+    }
+
+    private ProjectAudience audienceOf(AuthPrincipal principal, UUID projectId) {
+        return projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId);
     }
 }

@@ -55,7 +55,8 @@ export interface DataGridTextFilter {
  */
 export interface DataGridCheckFilter {
   kind: "check";
-  options: { value: string; label: string }[];
+  /** `indent` draws an option as a child of the one above it — a status under its stage. */
+  options: { value: string; label: string; indent?: boolean }[];
   selected: string[];
   onChange: (selected: string[]) => void;
   "aria-label": string;
@@ -869,8 +870,8 @@ function HeaderMenu<TData extends RowData>({
                     className="flex max-h-[220px] flex-col gap-0.5 overflow-y-auto"
                   >
                     {filter.options.map((option) => (
+                      <div key={option.value} className={option.indent ? "ps-4" : undefined}>
                       <FilterCheckRow
-                        key={option.value}
                         label={option.label}
                         size="sm"
                         checked={filter.selected.includes(option.value)}
@@ -882,6 +883,7 @@ function HeaderMenu<TData extends RowData>({
                           )
                         }
                       />
+                      </div>
                     ))}
                   </div>
                 ) : (

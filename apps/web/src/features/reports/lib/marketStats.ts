@@ -1,6 +1,8 @@
 import type { MarketCell, ReportMarket, SeniorityLevel, SliceExecutive } from "../api/types";
+import type { PipelineCatalog } from "../../workspace/api/types";
 import { percent } from "./figures";
 import { rampStop } from "./ramp";
+import { statusTone } from "./statusTone";
 
 export interface HeatRow {
   level: SeniorityLevel;
@@ -72,10 +74,14 @@ export interface SliceInterest {
 }
 
 /** A pocket's listed executives by where the mandate has got to with them: yes, not yet, and a closed door. */
-export function sliceInterest(executives: Pick<SliceExecutive, "status">[]): SliceInterest {
+export function sliceInterest(
+  executives: Pick<SliceExecutive, "status" | "pipelineStage">[],
+  catalog?: PipelineCatalog | null,
+): SliceInterest {
+  const tones = executives.map((e) => statusTone(e, catalog));
   return {
-    interested: executives.filter((e) => e.status === "interested").length,
-    closed: executives.filter((e) => e.status === "notInterested" || e.status === "offLimits" || e.status === "outOfScope").length,
-    passive: executives.filter((e) => e.status === "identified" || e.status === "contacted" || e.status === "engaged").length,
+    interested: tones.filter((tone) => tone === "interested").length,
+    closed: tones.filter((tone) => tone === "closed").length,
+    passive: tones.filter((tone) => tone === "untouched" || tone === "inConversation").length,
   };
 }

@@ -17,13 +17,12 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate, CandidatesPage, CandidateStatus } from "../../candidates/api/types";
+import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import {
   CandidateDrawer,
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
-import { CANDIDATE_STATUSES } from "../../candidates/lib/candidateVocabulary";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
@@ -38,6 +37,8 @@ import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPrefere
 import * as exportApi from "../api/exportApi";
 import * as sourcingApi from "../api/sourcingApi";
 import * as triageApi from "../api/triageApi";
+import { executiveStatusOptions as statusFilterOptions, statusKeysOf } from "../lib/executiveStatusFilter";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import { CompanyDrawer } from "../components/CompanyDrawer";
 import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
@@ -135,8 +136,16 @@ function TriageStage() {
   /** The Executive column's own header filter — independent of the Company one above it. */
   const [executiveQuery, setExecutiveQuery] = useState("");
   const [debouncedExecutiveQuery, setDebouncedExecutiveQuery] = useState("");
-  /** The Status column's own header filter — a closed checkbox set, applied with no debounce. */
-  const [executiveStatuses, setExecutiveStatuses] = useState<string[]>([]);
+  /**
+   * The Status column's own header filter — a closed checkbox set, applied with no debounce. A ticked
+   * stage stands for every status under it, which is what the server is sent.
+   */
+  const [executiveStatusChoice, setExecutiveStatusChoice] = useState<string[]>([]);
+  const { catalog: pipelineCatalog } = usePipelineCatalog();
+  const executiveStatuses = useMemo(
+    () => statusKeysOf(executiveStatusChoice, pipelineCatalog),
+    [executiveStatusChoice, pipelineCatalog],
+  );
   /**
    * Every row id with a write in flight — a company's move or no-executive-found flag, or a
    * candidate's status change — so each row's own buttons disable independently. A single shared id
@@ -467,7 +476,7 @@ function TriageStage() {
    * remounts fresh per project and stage, so the first page is always one): once either header filter
    * narrows what loads, that narrower set must not overwrite the true one the checkboxes describe.
    */
-  const [seenExecutiveStatuses, setSeenExecutiveStatuses] = useState<Set<CandidateStatus>>(
+  const [seenExecutiveStatuses, setSeenExecutiveStatuses] = useState<Set<string>>(
     () => new Set(),
   );
   useEffect(() => {
@@ -480,11 +489,8 @@ function TriageStage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mappedPage, unmappedPage, executiveStatuses.length, executiveName]);
   const executiveStatusOptions = useMemo(
-    () =>
-      CANDIDATE_STATUSES.filter((status) => seenExecutiveStatuses.has(status.value)).map(
-        (status) => ({ value: status.value, label: status.label }),
-      ),
-    [seenExecutiveStatuses],
+    () => statusFilterOptions(pipelineCatalog, seenExecutiveStatuses),
+    [pipelineCatalog, seenExecutiveStatuses],
   );
 
   /** The whole stage as points, read once when the globe opens and again when the mandate changes. */
@@ -756,8 +762,8 @@ function TriageStage() {
                   executiveStatus: {
                     kind: "check" as const,
                     options: executiveStatusOptions,
-                    selected: executiveStatuses,
-                    onChange: setExecutiveStatuses,
+                    selected: executiveStatusChoice,
+                    onChange: setExecutiveStatusChoice,
                     "aria-label": "Filter by status",
                   },
                 }

@@ -3,7 +3,7 @@ import { useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, CandidateStatus } from "../api/types";
-import { candidateStatusStyle } from "./candidateVocabulary";
+import { statusStyle } from "./pipelineStatus";
 
 /**
  * A status change on its own — the same write the profile's header pill and the Companies grid's
@@ -16,7 +16,7 @@ export function useChangeCandidateStatus(projectId: string, onSaved: (saved: Can
       candidatesApi.changeCandidateStatus(projectId, candidateId, status),
     onSuccess: (saved, { candidateId, previous }) => {
       onSaved(saved);
-      const message = `${saved.fullName} is now ${candidateStatusStyle(saved.status).label.toLowerCase()}`;
+      const message = `${saved.fullName} is now ${statusStyle(saved.status, saved).label.toLowerCase()}`;
       if (previous === undefined || previous === saved.status) {
         toast(message);
         return;

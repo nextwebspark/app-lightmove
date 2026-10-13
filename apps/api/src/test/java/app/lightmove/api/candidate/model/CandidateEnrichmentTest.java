@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.candidate.constant.CandidateSource;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
@@ -64,7 +63,7 @@ class CandidateEnrichmentTest {
     @DisplayName("research never overwrites what a researcher already wrote")
     void researchNeverOverwritesTheResearcher() {
         CandidateDetails typed = new CandidateDetails("Sample Person", "CFO, as we met them",
-                null, CandidateStatus.IDENTIFIED, "The Firm They Told Us", null,
+                null, "The Firm They Told Us", null,
                 null, null, "UAE", "Abu Dhabi", null, null, null, "Our own read of them.", null,
                 CandidateCompensation.unknown(),
                 new CandidateProfile(
@@ -279,13 +278,13 @@ class CandidateEnrichmentTest {
 
     private static Candidate onMandate(UUID triageCompanyId, CandidateDetails details) {
         return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId, captured(details),
-                CandidateSource.EXTENSION, details);
+                CandidateSource.EXTENSION, PipelineTestStatuses.identified(), details);
     }
 
     private static CandidateDetails details(String fullName, String title, String employerName,
                                             String summary, List<CandidateCareerEntry> career,
                                             List<String> languages) {
-        return new CandidateDetails(fullName, title, null, CandidateStatus.IDENTIFIED, employerName,
+        return new CandidateDetails(fullName, title, null, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, summary, null, CandidateCompensation.unknown(),
                 new CandidateProfile(career, languages, null, null, null, null), null);
@@ -298,7 +297,7 @@ class CandidateEnrichmentTest {
 
     private static CandidateDetails detailsWithBackground(String nationality, Gender gender,
                                                            Integer yearsExperience, Seniority seniority) {
-        return new CandidateDetails("Sample Person", null, seniority, CandidateStatus.IDENTIFIED, null,
+        return new CandidateDetails("Sample Person", null, seniority, null,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, nationality,
                 gender, yearsExperience, null, null, CandidateCompensation.unknown(),
                 CandidateProfile.empty(), null);

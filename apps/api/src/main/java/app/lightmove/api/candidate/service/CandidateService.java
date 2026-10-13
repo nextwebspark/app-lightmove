@@ -2,7 +2,6 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
 import app.lightmove.api.candidate.constant.CandidateSource;
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
@@ -25,6 +24,7 @@ import app.lightmove.api.candidate.model.CandidateContactState;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateProfile;
+import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.ResearchedCandidate;
@@ -35,18 +35,19 @@ import app.lightmove.api.candidate.model.FoundPhones;
 import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonPhoto;
+import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
@@ -59,8 +60,8 @@ import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,6 +118,7 @@ public class CandidateService {
     private final CandidateRequestReader requests;
     private final CandidateResponseMapper responses;
     private final CompanyListSettings listConfig;
+    private final CandidatePipelineCatalog pipeline;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -125,6 +127,7 @@ public class CandidateService {
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
+                            CandidatePipelineCatalog pipeline,
                             LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
@@ -141,6 +144,7 @@ public class CandidateService {
         this.events = events;
         this.stream = stream;
         this.listConfig = properties.company().list();
+        this.pipeline = pipeline;
     }
 
     /**
@@ -153,7 +157,8 @@ public class CandidateService {
      * page. An <i>explicit</i> oversized size is still refused.
      */
     @Transactional(readOnly = true)
-    public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria) {
+    public CandidatesResponse list(UUID workspaceId, UUID projectId, CandidateListCriteria criteria,
+                                   ProjectAudience audience) {
         int page = criteria.page() == null ? 0 : criteria.page();
         int size = criteria.size() == null ? unpagedSizeFor(criteria) : criteria.size();
         listConfig.requireValidPage(page, size);
@@ -175,8 +180,12 @@ public class CandidateService {
         PageRequest pageRequest = PageRequest.of(page, size, FIRST_MAPPED_FIRST);
         String nameQuery = criteria.nameQuery() == null ? "" : criteria.nameQuery().trim();
         String textQuery = criteria.textQuery() == null ? "" : criteria.textQuery().trim();
-        CandidateStatus status = ApiValueEnum.parse(CandidateStatus.class, criteria.status(), null, "status");
-        Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, status, companyIds,
+        List<UUID> statusIds = statusIdsOf(workspaceId, criteria.status(), criteria.pipelineStage());
+        if (statusIds != null && statusIds.isEmpty()) {
+            return new CandidatesResponse(List.of(), 0, page, size);
+        }
+        Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, audience.clientVisibleOnly(),
+                statusIds, companyIds,
                 Boolean.TRUE.equals(criteria.unmapped()), nameQuery, textQuery, criteria.withinTriageCompanyIds()),
                 pageRequest);
 
@@ -185,22 +194,63 @@ public class CandidateService {
                 found.getTotalElements(), page, size);
     }
 
-    /** A mandate's executives at each status, every status present, zero included: one grouped count. */
-    @Transactional(readOnly = true)
-    public Map<CandidateStatus, Long> statusCountsOf(UUID workspaceId, UUID projectId) {
-        projects.requireInWorkspace(projectId, workspaceId);
-        Map<CandidateStatus, Long> counts = new EnumMap<>(CandidateStatus.class);
-        for (CandidateStatus status : CandidateStatus.values()) {
-            counts.put(status, 0L);
+    /**
+     * The statuses a list filter names: a status key, a stage key, or both (their overlap). Null when
+     * neither is asked; an unknown key is a 400 rather than an empty answer, as an unknown token always was.
+     */
+    private List<UUID> statusIdsOf(UUID workspaceId, String statusKey, String stageKey) {
+        boolean byStatus = statusKey != null && !statusKey.isBlank();
+        boolean byStage = stageKey != null && !stageKey.isBlank();
+        if (!byStatus && !byStage) {
+            return null;
         }
-        candidates.countByStatusOfProject(projectId).forEach(row -> counts.put(row.getStatus(), row.getTotal()));
+        PipelineCatalog catalog = pipeline.catalogOf(workspaceId);
+        List<UUID> ids = null;
+        if (byStatus) {
+            ids = List.of(catalog.byKey(statusKey.strip())
+                    .orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + statusKey))
+                    .getId());
+        }
+        if (byStage) {
+            List<UUID> ofStage = catalog.stageByKey(stageKey.strip())
+                    .map(stage -> catalog.statusIdsOfStage(stage.getStageKey()))
+                    .orElseThrow(() -> new ApiException(ErrorCode.VALIDATION_FAILED,
+                            "Unknown pipeline stage: " + stageKey));
+            ids = ids == null ? ofStage : ids.stream().filter(ofStage::contains).toList();
+        }
+        return ids;
+    }
+
+    /**
+     * A mandate's executives at each status in pipeline order — every live status present, zero included,
+     * and a retired one only while somebody still holds it: one grouped count.
+     */
+    @Transactional(readOnly = true)
+    public Map<CandidateStatusDefinition, Long> statusCountsOf(UUID workspaceId, UUID projectId,
+                                                               ProjectAudience audience) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Map<UUID, Long> held = new HashMap<>();
+        candidates.countByStatusOfProject(projectId, audience.clientVisibleOnly())
+                .forEach(row -> held.put(row.getStatusId(), row.getTotal()));
+        Map<CandidateStatusDefinition, Long> counts = new LinkedHashMap<>();
+        for (CandidateStatusDefinition status : pipeline.catalogOf(workspaceId).statuses()) {
+            long total = held.getOrDefault(status.getId(), 0L);
+            if (!status.isRetired() || total > 0) {
+                counts.put(status, total);
+            }
+        }
         return counts;
     }
 
+    /** An executive hidden from the client is a 404 to a client seat, the answer a foreign id gets. */
     @Transactional(readOnly = true)
-    public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId, ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
-        return responses.toDto(candidates.requireInProject(candidateId, projectId));
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        if (!candidate.isClientVisible() && audience.clientVisibleOnly()) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return responses.toDto(candidate);
     }
 
     /**
@@ -212,9 +262,13 @@ public class CandidateService {
      * sees the same people on every read.
      */
     @Transactional(readOnly = true)
-    public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap) {
+    public CandidatesResponse listAllOfProject(UUID workspaceId, UUID projectId, int cap,
+                                               ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
-        Page<Candidate> found = candidates.findByProjectId(projectId, PageRequest.of(0, cap, FIRST_MAPPED_FIRST));
+        PageRequest wholePosition = PageRequest.of(0, cap, FIRST_MAPPED_FIRST);
+        Page<Candidate> found = audience.clientVisibleOnly()
+                ? candidates.findByProjectIdAndClientVisibleTrue(projectId, wholePosition)
+                : candidates.findByProjectId(projectId, wholePosition);
         return new CandidatesResponse(
                 found.getContent().stream().map(responses::toDto).toList(),
                 found.getTotalElements(), 0, cap);
@@ -272,8 +326,10 @@ public class CandidateService {
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
+        CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
         Optional<Person> known = personToFile(workspaceId, source, request, details);
-        Filed filed = file(userId, workspaceId, projectId, request.triageCompanyId(), source, details, known);
+        Filed filed = file(userId, workspaceId, projectId, request.triageCompanyId(), source, status, details,
+                known);
         Candidate candidate = filed.candidate();
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -333,6 +389,11 @@ public class CandidateService {
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
         candidate.remapTo(request.triageCompanyId());
         candidate.describe(details);
+        // A whole-record save that names a status moves them like the status pill does, line and all; one
+        // that names none (a re-imported sheet) leaves them where they stand.
+        if (request.status() != null && !request.status().isBlank()) {
+            moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
+        }
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
         person.describe(details, door);
@@ -368,19 +429,22 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
-        CandidateStatus from = candidate.getStatus();
-        CandidateStatus to = requests.resolveStatus(request.status());
-        candidate.moveTo(to);
-        if (from != to) {
-            activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.of("from", from.value()).and("to", to.value()));
-        }
+        moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
-                .detail("status", request.status())
+                .detail("status", candidate.getStatus().getStatusKey())
+                .detail("statusLabel", candidate.getStatus().getLabel())
                 .record();
         return responses.toDto(candidate);
+    }
+
+    private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to) {
+        CandidateStatusDefinition from = candidate.getStatus();
+        if (candidate.moveTo(to)) {
+            activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
+                    PersonActivityDetails.statusChange(from, to));
+        }
     }
 
     /**
@@ -447,7 +511,8 @@ public class CandidateService {
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
-        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(), details);
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(),
+                pipeline.requireOfferable(workspaceId, request.status()), details);
         Candidate candidate = filed.candidate();
         Person person = candidate.getPerson();
         if (!person.isResearched()) {
@@ -724,11 +789,13 @@ public class CandidateService {
 
     /** The stored profile photo, or NOT_FOUND — "no photo" and "no such candidate" read the same. */
     @Transactional(readOnly = true)
-    public StoredPhoto photoOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public StoredPhoto photoOf(UUID workspaceId, UUID projectId, UUID candidateId, ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
         // Existence, not content: a grid of avatars asks this per row, and loading each whole row —
         // profile jsonb included — to throw it away is a scan the scoping does not need.
-        UUID personId = candidates.findPersonIdByIdAndProjectId(candidateId, projectId)
+        UUID personId = (audience.clientVisibleOnly()
+                        ? candidates.findClientVisiblePersonIdByIdAndProjectId(candidateId, projectId)
+                        : candidates.findPersonIdByIdAndProjectId(candidateId, projectId))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         return photos.findByPersonId(personId)
                 .map(photo -> new StoredPhoto(photo.getContent(), photo.getContentType()))
@@ -821,13 +888,14 @@ public class CandidateService {
      * handles — V91's (project, person) index is the backstop a race would hit.
      */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                       CandidateSource source, CandidateDetails details) {
-        return file(userId, workspaceId, projectId, triageCompanyId, source, details,
+                       CandidateSource source, CandidateStatusDefinition status, CandidateDetails details) {
+        return file(userId, workspaceId, projectId, triageCompanyId, source, status, details,
                 matcher.find(workspaceId, details));
     }
 
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                       CandidateSource source, CandidateDetails details, Optional<Person> known) {
+                       CandidateSource source, CandidateStatusDefinition status, CandidateDetails details,
+                       Optional<Person> known) {
         if (known.isPresent() && candidates.existsByProjectIdAndPersonId(projectId, known.get().getId())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
@@ -840,7 +908,7 @@ public class CandidateService {
         }
         requests.refuseOverfullChannels(person);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId, person,
-                source, details));
+                source, status, details));
         activity.record(candidate, userId,
                 known.isPresent() ? PersonActivityKind.MAPPED : PersonActivityKind.ADDED_TO_POOL,
                 PersonActivityDetails.of("door", source));
@@ -906,13 +974,14 @@ public class CandidateService {
                 .findPositionsOfPeople(workspaceId, persons.stream().map(Person::getId).toList()).stream()
                 .collect(Collectors.groupingBy(row -> row.getPerson().getId()));
         List<UUID> added = new ArrayList<>();
+        CandidateStatusDefinition startingStatus = pipeline.catalogOf(workspaceId).defaultStatus();
         for (Person person : persons) {
             List<Candidate> rows = mappedOldestFirst.getOrDefault(person.getId(), List.of());
             if (rows.stream().anyMatch(row -> row.getProjectId().equals(projectId))) {
                 continue;
             }
             Candidate candidate = candidates.save(Candidate.mappedFromPool(projectId, userId, person,
-                    PersonEmployerResolver.employerOf(person, rows).name()));
+                    PersonEmployerResolver.employerOf(person, rows).name(), startingStatus));
             activity.record(candidate, userId, PersonActivityKind.MAPPED,
                     PersonActivityDetails.of("door", CandidateSource.MANUAL));
             added.add(person.getId());

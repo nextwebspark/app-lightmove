@@ -1,6 +1,7 @@
 package app.lightmove.api.dataexport.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.dataexport.service.ProjectExportService;
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectExportController {
 
     private final ProjectExportService exports;
+    private final ProjectAccess projectAccess;
 
     /**
      * {@code text/csv}, not octet-stream: the content is generated here, not echoed caller bytes. The SPA
@@ -48,7 +50,9 @@ public class ProjectExportController {
         TriageCompanyFilters filters = new TriageCompanyFilters(q, executiveQuery, executiveStatuses);
         byte[] csv = exports
                 .companies(principal.userId(), principal.requireWorkspaceId(), projectId, status,
-                        filters, httpRequest)
+                        filters,
+                        projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId),
+                        httpRequest)
                 .getBytes(StandardCharsets.UTF_8);
         return ResponseEntity.ok()
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))

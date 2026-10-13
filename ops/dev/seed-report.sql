@@ -324,6 +324,14 @@ FROM seed_executive x, sized, staff
 WHERE c.id = x.id AND sized.seats > 1
   AND staff.seat = (CASE WHEN x.n % 10 < 5 THEN 0 WHEN x.n % 10 < 8 THEN 1 ELSE 2 END) % sized.seats;
 
+-- The pipeline's "in stage since" reads status_changed_at, which an insert stamps now. A seeded executive still
+-- Identified has been since they were mapped; anyone further along moved some days later, never in the future.
+UPDATE app_lm_project_candidate c
+SET status_changed_at = CASE WHEN c.status = 'IDENTIFIED' THEN c.created_at
+                             ELSE least(c.created_at + make_interval(days => 1 + (x.n * 13) % 21), now()) END
+FROM seed_executive x
+WHERE c.id = x.id;
+
 -- A work address for most of the first seat's people and fewer of everyone else's, a third of them
 -- verified, so the researcher table's quality column has a spread to show. Deleted with the row.
 INSERT INTO app_lm_person_contact (person_id, channel, value, value_key, kind, verified, source)

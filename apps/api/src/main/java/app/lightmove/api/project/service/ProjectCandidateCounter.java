@@ -1,6 +1,6 @@
 package app.lightmove.api.project.service;
 
-import java.util.Collection;
+import app.lightmove.api.project.model.CandidateCountScope;
 import java.util.Map;
 import java.util.UUID;
 
@@ -11,17 +11,17 @@ import java.util.UUID;
 public interface ProjectCandidateCounter {
 
     /** Executives still in the running, as {@link ProjectCompanyCounter} leaves declined companies out. */
-    Map<UUID, Long> countByProject(Collection<UUID> projectIds);
+    Map<UUID, Long> countByProject(CandidateCountScope scope);
 
     /** Every executive mapped, ruled out or not — what the side panel's mapping velocity divides. */
-    Map<UUID, Long> countMappedByProject(Collection<UUID> projectIds);
+    Map<UUID, Long> countMappedByProject(CandidateCountScope scope);
 
     /** Executives who have answered: engaged or interested. */
-    Map<UUID, Long> countEngagedByProject(Collection<UUID> projectIds);
+    Map<UUID, Long> countEngagedByProject(CandidateCountScope scope);
 
     /** Executives approached at all, answered or not — what puts a mandate into outreach. */
-    Map<UUID, Long> countReachedOutByProject(Collection<UUID> projectIds);
+    Map<UUID, Long> countReachedOutByProject(CandidateCountScope scope);
 
     /** Companies with an executive mapped; declined ones left out, or coverage could pass 100%. */
-    Map<UUID, Long> countMappedCompaniesByProject(Collection<UUID> projectIds);
+    Map<UUID, Long> countMappedCompaniesByProject(CandidateCountScope scope);
 }

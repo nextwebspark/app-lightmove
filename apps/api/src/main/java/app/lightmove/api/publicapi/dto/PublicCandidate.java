@@ -29,11 +29,14 @@ public record PublicCandidate(
         @Schema(description = "Their level against the role", nullable = true,
                 allowableValues = {"Board", "C-Suite", "N-1", "N-2", "N-3"}, example = "C-Suite")
         String seniority,
-        @Schema(description = "Where they stand on this position",
-                allowableValues = {"identified", "contacted", "engaged", "interested", "notInterested", "offLimits",
-                        "outOfScope"},
+        @Schema(description = "Where they stand on this position: a status key of the workspace's pipeline. The "
+                + "built-in keys identified, contacted, engaged, interested, notInterested, offLimits and outOfScope "
+                + "are always present; a workspace may add its own",
                 example = "contacted")
         String status,
+        @Schema(description = "The status's name as the workspace spells it", example = "Contacted")
+        String statusLabel,
+        @Schema(description = "The pipeline stage the status sits under") PublicPipelineStage pipelineStage,
         @Schema(description = "Their LinkedIn profile", nullable = true,
                 example = "https://www.linkedin.com/in/layla-haddad") String linkedinUrl,
         @Schema(description = "The city they live in", nullable = true, example = "Dubai") String city,
@@ -63,7 +66,8 @@ public record PublicCandidate(
         return new PublicCandidate(candidate.id(), candidate.personId(), candidate.triageCompanyId(),
                 candidate.companyName(), candidate.fullName(), candidate.title(),
                 recorded(proposed, BackgroundField.SENIORITY, candidate.seniority()),
-                candidate.status(), candidate.linkedinUrl(), candidate.locationCity(), candidate.locationCountry(),
+                candidate.status(), candidate.statusLabel(), PublicPipelineStage.of(candidate.pipelineStage()),
+                candidate.linkedinUrl(), candidate.locationCity(), candidate.locationCountry(),
                 recorded(proposed, BackgroundField.NATIONALITY, candidate.nationality()),
                 recorded(proposed, BackgroundField.GENDER, candidate.gender()),
                 recorded(proposed, BackgroundField.YEARS_EXPERIENCE, candidate.yearsExperience()),
@@ -83,7 +87,7 @@ public record PublicCandidate(
     /** This executive with their free text rewritten — summary as prose, titles as lines — and every other field kept. */
     public PublicCandidate withFreeText(UnaryOperator<String> prose, UnaryOperator<String> line) {
         return new PublicCandidate(id, personId, companyId, companyName, fullName, line.apply(title), seniority, status,
-                linkedinUrl, city, country, nationality, gender, yearsExperience, prose.apply(summary),
+                statusLabel, pipelineStage, linkedinUrl, city, country, nationality, gender, yearsExperience, prose.apply(summary),
                 career.stream()
                         .map(entry -> new PublicCareerEntry(entry.company(), line.apply(entry.title()), entry.period(),
                                 entry.location()))

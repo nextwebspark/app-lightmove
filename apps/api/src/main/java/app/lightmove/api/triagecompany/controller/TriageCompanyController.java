@@ -1,6 +1,7 @@
 package app.lightmove.api.triagecompany.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
@@ -42,6 +43,7 @@ public class TriageCompanyController {
 
     private final TriageCompanyService triage;
     private final TriageCompanyReadService reads;
+    private final ProjectAccess projectAccess;
 
     @GetMapping
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
@@ -57,7 +59,8 @@ public class TriageCompanyController {
                                         @RequestParam(required = false) Integer size) {
         TriageCompanyListCriteria criteria = new TriageCompanyListCriteria(
                 status, q, executiveQuery, executiveStatuses, sort, direction, page, size);
-        return reads.list(principal.requireWorkspaceId(), projectId, criteria);
+        return reads.list(principal.requireWorkspaceId(), projectId, criteria,
+                projectAccess.audienceOf(principal.userId(), principal.requireWorkspaceId(), projectId));
     }
 
     @PostMapping

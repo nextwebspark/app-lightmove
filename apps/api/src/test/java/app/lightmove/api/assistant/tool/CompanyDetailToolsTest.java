@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.enrichment.company.service.CompanyResearch;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
@@ -105,7 +106,8 @@ class CompanyDetailToolsTest {
         TriageCompanyResponse seddiqi = filed("a1", "Ahmed Seddiqi & Sons", "luxury goods & jewelry");
         TriageCompanyResponse typed = filed(null, "Hand-typed Boutique", "retail");
         when(triaged.listAllOfStage(eq(context.workspaceId()), eq(context.projectId()),
-                eq(TriageCompanyStatus.SHORTLISTED), any(), eq(CompanyDetailTools.MAX_MANDATE_COMPANIES)))
+                eq(TriageCompanyStatus.SHORTLISTED), any(), eq(CompanyDetailTools.MAX_MANDATE_COMPANIES),
+                eq(ProjectAudience.STAFF)))
                 .thenReturn(new TriageCompaniesResponse(List.of(seddiqi, typed), 140, 0, 100, null));
         when(market.byAccountIds(List.of("a1"))).thenReturn(List.of(
                 row("a1", "Ahmed Seddiqi & Sons", "luxury goods & jewelry", 950, List.of("luxury watches"))));

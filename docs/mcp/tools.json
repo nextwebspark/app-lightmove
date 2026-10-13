@@ -244,6 +244,30 @@
               "format" : "uuid",
               "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
             },
+            "pipelineStage" : {
+              "allOf" : [ {
+                "type" : "object",
+                "properties" : {
+                  "key" : {
+                    "type" : "string",
+                    "description" : "The stage's key, stable across renames"
+                  },
+                  "kind" : {
+                    "type" : "string",
+                    "description" : "Whether the stage keeps someone in the running; closed means they have left it",
+                    "enum" : [ "active", "closed" ]
+                  },
+                  "label" : {
+                    "type" : "string",
+                    "description" : "The stage's name as the workspace spells it"
+                  }
+                },
+                "required" : [ "key", "kind", "label" ],
+                "description" : "The stage of the workspace's pipeline an executive's status sits under"
+              }, {
+                "description" : "The pipeline stage the status sits under"
+              } ]
+            },
             "seniority" : {
               "type" : [ "string", "null" ],
               "description" : "Their level against the role",
@@ -258,8 +282,11 @@
             },
             "status" : {
               "type" : "string",
-              "description" : "Where they stand on this position",
-              "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+              "description" : "Where they stand on this position: a status key of the workspace's pipeline. The built-in keys identified, contacted, engaged, interested, notInterested, offLimits and outOfScope are always present; a workspace may add its own"
+            },
+            "statusLabel" : {
+              "type" : "string",
+              "description" : "The status's name as the workspace spells it"
             },
             "summary" : {
               "type" : [ "string", "null" ],
@@ -275,7 +302,7 @@
               "description" : "Years of experience"
             }
           },
-          "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "seniority", "skills", "status", "summary", "title", "yearsExperience" ],
+          "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
           "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
         }, {
           "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -295,16 +322,24 @@
         "format" : "uuid",
         "description" : "The person's id, the same on every position that maps them"
       },
+      "pipelineStage" : {
+        "type" : [ "string", "null" ],
+        "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+      },
       "status" : {
         "type" : "string",
-        "description" : "Where they stand on this position: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+        "description" : "Where they stand on this position: a status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+      },
+      "statusLabel" : {
+        "type" : "string",
+        "description" : "The status's name as the workspace spells it"
       },
       "title" : {
         "type" : [ "string", "null" ],
         "description" : "Their current title"
       }
     },
-    "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "status", "title" ]
+    "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
   },
   "annotations" : {
     "title" : "",
@@ -679,6 +714,30 @@
                     "format" : "uuid",
                     "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
                   },
+                  "pipelineStage" : {
+                    "allOf" : [ {
+                      "type" : "object",
+                      "properties" : {
+                        "key" : {
+                          "type" : "string",
+                          "description" : "The stage's key, stable across renames"
+                        },
+                        "kind" : {
+                          "type" : "string",
+                          "description" : "Whether the stage keeps someone in the running; closed means they have left it",
+                          "enum" : [ "active", "closed" ]
+                        },
+                        "label" : {
+                          "type" : "string",
+                          "description" : "The stage's name as the workspace spells it"
+                        }
+                      },
+                      "required" : [ "key", "kind", "label" ],
+                      "description" : "The stage of the workspace's pipeline an executive's status sits under"
+                    }, {
+                      "description" : "The pipeline stage the status sits under"
+                    } ]
+                  },
                   "seniority" : {
                     "type" : [ "string", "null" ],
                     "description" : "Their level against the role",
@@ -693,8 +752,11 @@
                   },
                   "status" : {
                     "type" : "string",
-                    "description" : "Where they stand on this position",
-                    "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+                    "description" : "Where they stand on this position: a status key of the workspace's pipeline. The built-in keys identified, contacted, engaged, interested, notInterested, offLimits and outOfScope are always present; a workspace may add its own"
+                  },
+                  "statusLabel" : {
+                    "type" : "string",
+                    "description" : "The status's name as the workspace spells it"
                   },
                   "summary" : {
                     "type" : [ "string", "null" ],
@@ -710,7 +772,7 @@
                     "description" : "Years of experience"
                   }
                 },
-                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "seniority", "skills", "status", "summary", "title", "yearsExperience" ],
+                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
                 "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
               }, {
                 "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -730,16 +792,24 @@
               "format" : "uuid",
               "description" : "The person's id, the same on every position that maps them"
             },
+            "pipelineStage" : {
+              "type" : [ "string", "null" ],
+              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+            },
             "status" : {
               "type" : "string",
-              "description" : "Where they stand on this position: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+              "description" : "Where they stand on this position: a status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+            },
+            "statusLabel" : {
+              "type" : "string",
+              "description" : "The status's name as the workspace spells it"
             },
             "title" : {
               "type" : [ "string", "null" ],
               "description" : "Their current title"
             }
           },
-          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "status", "title" ]
+          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
         }
       },
       "nextCursor" : {
@@ -915,7 +985,12 @@
   },
   "outputSchema" : {
     "$schema" : "https://json-schema.org/draft/2020-12/schema",
-    "description" : "Where a position stands: its companies by stage, its executives by status, and its dates, in one read",
+    "$defs" : {
+      "Map_String.Long_" : {
+        "type" : "object"
+      }
+    },
+    "description" : "Where a position stands: its companies by stage, its executives by status and by pipeline stage, and its dates, in one read",
     "type" : "object",
     "properties" : {
       "companies" : {
@@ -945,13 +1020,17 @@
         } ]
       },
       "executives" : {
-        "type" : "object",
-        "description" : "Executives at each status, every status present: identified, contacted, engaged, interested, notInterested, offLimits, outOfScope"
+        "$ref" : "#/$defs/Map_String.Long_",
+        "description" : "Executives at each status key of the workspace's pipeline, in pipeline order, every status present — the built-in identified, contacted, engaged, interested, notInterested, offLimits and outOfScope always among them"
       },
       "mappedCompanies" : {
         "type" : "integer",
         "format" : "int64",
         "description" : "Universe or shortlisted companies with at least one executive mapped"
+      },
+      "pipelineStages" : {
+        "$ref" : "#/$defs/Map_String.Long_",
+        "description" : "Executives at each stage key of the workspace's pipeline, in pipeline order, every stage present"
       },
       "position" : {
         "allOf" : [ {
@@ -1054,7 +1133,7 @@
         } ]
       }
     },
-    "required" : [ "companies", "executives", "mappedCompanies", "position", "timeline" ]
+    "required" : [ "companies", "executives", "mappedCompanies", "pipelineStages", "position", "timeline" ]
   },
   "annotations" : {
     "title" : "",
@@ -1310,6 +1389,30 @@
                   "format" : "uuid",
                   "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
                 },
+                "pipelineStage" : {
+                  "allOf" : [ {
+                    "type" : "object",
+                    "properties" : {
+                      "key" : {
+                        "type" : "string",
+                        "description" : "The stage's key, stable across renames"
+                      },
+                      "kind" : {
+                        "type" : "string",
+                        "description" : "Whether the stage keeps someone in the running; closed means they have left it",
+                        "enum" : [ "active", "closed" ]
+                      },
+                      "label" : {
+                        "type" : "string",
+                        "description" : "The stage's name as the workspace spells it"
+                      }
+                    },
+                    "required" : [ "key", "kind", "label" ],
+                    "description" : "The stage of the workspace's pipeline an executive's status sits under"
+                  }, {
+                    "description" : "The pipeline stage the status sits under"
+                  } ]
+                },
                 "seniority" : {
                   "type" : [ "string", "null" ],
                   "description" : "Their level against the role",
@@ -1324,8 +1427,11 @@
                 },
                 "status" : {
                   "type" : "string",
-                  "description" : "Where they stand on this position",
-                  "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+                  "description" : "Where they stand on this position: a status key of the workspace's pipeline. The built-in keys identified, contacted, engaged, interested, notInterested, offLimits and outOfScope are always present; a workspace may add its own"
+                },
+                "statusLabel" : {
+                  "type" : "string",
+                  "description" : "The status's name as the workspace spells it"
                 },
                 "summary" : {
                   "type" : [ "string", "null" ],
@@ -1341,7 +1447,7 @@
                   "description" : "Years of experience"
                 }
               },
-              "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "seniority", "skills", "status", "summary", "title", "yearsExperience" ],
+              "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
               "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
             }, {
               "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -1361,16 +1467,24 @@
             "format" : "uuid",
             "description" : "The person's id, the same on every position that maps them"
           },
+          "pipelineStage" : {
+            "type" : [ "string", "null" ],
+            "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+          },
           "status" : {
             "type" : "string",
-            "description" : "Where they stand on this position: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+            "description" : "Where they stand on this position: a status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+          },
+          "statusLabel" : {
+            "type" : "string",
+            "description" : "The status's name as the workspace spells it"
           },
           "title" : {
             "type" : [ "string", "null" ],
             "description" : "Their current title"
           }
         },
-        "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "status", "title" ]
+        "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
       }
     },
     "type" : "object",
@@ -1547,7 +1661,7 @@
       },
       "status" : {
         "type" : "string",
-        "description" : "Only executives at this status: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+        "description" : "Only executives at this status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
       },
       "companyId" : {
         "type" : "string",
@@ -1797,6 +1911,30 @@
                     "format" : "uuid",
                     "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
                   },
+                  "pipelineStage" : {
+                    "allOf" : [ {
+                      "type" : "object",
+                      "properties" : {
+                        "key" : {
+                          "type" : "string",
+                          "description" : "The stage's key, stable across renames"
+                        },
+                        "kind" : {
+                          "type" : "string",
+                          "description" : "Whether the stage keeps someone in the running; closed means they have left it",
+                          "enum" : [ "active", "closed" ]
+                        },
+                        "label" : {
+                          "type" : "string",
+                          "description" : "The stage's name as the workspace spells it"
+                        }
+                      },
+                      "required" : [ "key", "kind", "label" ],
+                      "description" : "The stage of the workspace's pipeline an executive's status sits under"
+                    }, {
+                      "description" : "The pipeline stage the status sits under"
+                    } ]
+                  },
                   "seniority" : {
                     "type" : [ "string", "null" ],
                     "description" : "Their level against the role",
@@ -1811,8 +1949,11 @@
                   },
                   "status" : {
                     "type" : "string",
-                    "description" : "Where they stand on this position",
-                    "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+                    "description" : "Where they stand on this position: a status key of the workspace's pipeline. The built-in keys identified, contacted, engaged, interested, notInterested, offLimits and outOfScope are always present; a workspace may add its own"
+                  },
+                  "statusLabel" : {
+                    "type" : "string",
+                    "description" : "The status's name as the workspace spells it"
                   },
                   "summary" : {
                     "type" : [ "string", "null" ],
@@ -1828,7 +1969,7 @@
                     "description" : "Years of experience"
                   }
                 },
-                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "seniority", "skills", "status", "summary", "title", "yearsExperience" ],
+                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
                 "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
               }, {
                 "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -1848,16 +1989,24 @@
               "format" : "uuid",
               "description" : "The person's id, the same on every position that maps them"
             },
+            "pipelineStage" : {
+              "type" : [ "string", "null" ],
+              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+            },
             "status" : {
               "type" : "string",
-              "description" : "Where they stand on this position: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+              "description" : "Where they stand on this position: a status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+            },
+            "statusLabel" : {
+              "type" : "string",
+              "description" : "The status's name as the workspace spells it"
             },
             "title" : {
               "type" : [ "string", "null" ],
               "description" : "Their current title"
             }
           },
-          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "status", "title" ]
+          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
         }
       },
       "nextCursor" : {
@@ -2074,7 +2223,7 @@
       },
       "status" : {
         "type" : "string",
-        "description" : "Only executives at this status: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+        "description" : "Only executives at this status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
       },
       "cursor" : {
         "type" : "string",
@@ -2319,6 +2468,30 @@
                     "format" : "uuid",
                     "description" : "The person's id, the same on every position that maps them, so one person can be followed across positions"
                   },
+                  "pipelineStage" : {
+                    "allOf" : [ {
+                      "type" : "object",
+                      "properties" : {
+                        "key" : {
+                          "type" : "string",
+                          "description" : "The stage's key, stable across renames"
+                        },
+                        "kind" : {
+                          "type" : "string",
+                          "description" : "Whether the stage keeps someone in the running; closed means they have left it",
+                          "enum" : [ "active", "closed" ]
+                        },
+                        "label" : {
+                          "type" : "string",
+                          "description" : "The stage's name as the workspace spells it"
+                        }
+                      },
+                      "required" : [ "key", "kind", "label" ],
+                      "description" : "The stage of the workspace's pipeline an executive's status sits under"
+                    }, {
+                      "description" : "The pipeline stage the status sits under"
+                    } ]
+                  },
                   "seniority" : {
                     "type" : [ "string", "null" ],
                     "description" : "Their level against the role",
@@ -2333,8 +2506,11 @@
                   },
                   "status" : {
                     "type" : "string",
-                    "description" : "Where they stand on this position",
-                    "enum" : [ "identified", "contacted", "engaged", "interested", "notInterested", "offLimits", "outOfScope" ]
+                    "description" : "Where they stand on this position: a status key of the workspace's pipeline. The built-in keys identified, contacted, engaged, interested, notInterested, offLimits and outOfScope are always present; a workspace may add its own"
+                  },
+                  "statusLabel" : {
+                    "type" : "string",
+                    "description" : "The status's name as the workspace spells it"
                   },
                   "summary" : {
                     "type" : [ "string", "null" ],
@@ -2350,7 +2526,7 @@
                     "description" : "Years of experience"
                   }
                 },
-                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "seniority", "skills", "status", "summary", "title", "yearsExperience" ],
+                "required" : [ "addedAt", "career", "city", "companyId", "companyName", "compensation", "contacts", "country", "education", "fullName", "gender", "id", "languages", "linkedinUrl", "nationality", "personId", "pipelineStage", "seniority", "skills", "status", "statusLabel", "summary", "title", "yearsExperience" ],
                 "description" : "An executive a position has mapped. Seniority, nationality, gender and years of experience are null until a person has recorded or confirmed them"
               }, {
                 "description" : "Every field of the executive; present only with response_format=detailed. Its contacts and compensation are filled only where the connection holds their scopes"
@@ -2370,16 +2546,24 @@
               "format" : "uuid",
               "description" : "The person's id, the same on every position that maps them"
             },
+            "pipelineStage" : {
+              "type" : [ "string", "null" ],
+              "description" : "The key of the pipeline stage the status sits under, such as identified, contacted, interested or declined"
+            },
             "status" : {
               "type" : "string",
-              "description" : "Where they stand on this position: identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+              "description" : "Where they stand on this position: a status key of the workspace's pipeline, such as identified, contacted, engaged, interested, notInterested, offLimits or outOfScope"
+            },
+            "statusLabel" : {
+              "type" : "string",
+              "description" : "The status's name as the workspace spells it"
             },
             "title" : {
               "type" : [ "string", "null" ],
               "description" : "Their current title"
             }
           },
-          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "status", "title" ]
+          "required" : [ "companyId", "companyName", "detail", "fullName", "id", "personId", "pipelineStage", "status", "statusLabel", "title" ]
         }
       },
       "nextCursor" : {

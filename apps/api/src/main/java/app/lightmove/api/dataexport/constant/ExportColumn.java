@@ -1,6 +1,5 @@
 package app.lightmove.api.dataexport.constant;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
 import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
@@ -45,7 +44,10 @@ public enum ExportColumn {
     PHONE("Phone", row -> row.candidate() == null ? ""
             : joined(row.candidate().contacts().phones().stream().map(CandidatePhoneDto::number))),
 
-    STATUS("Status", row -> row.candidate() == null ? "" : statusLabel(row.candidate().status())),
+    STATUS("Status", row -> row.candidate() == null ? "" : statusLabel(row.candidate())),
+
+    STAGE("Stage", row -> row.candidate() == null || row.candidate().pipelineStage() == null ? ""
+            : row.candidate().pipelineStage().label()),
 
     SECTOR("Sector", row -> company(row, TriageCompanyResponse::industry)),
 
@@ -103,24 +105,9 @@ public enum ExportColumn {
 
     private record Place(String country, String city) {}
 
-    /**
-     * The badges' labels, not wire tokens. A deliberate copy of {@code candidateVocabulary.ts} and
-     * {@code triageVocabulary.ts} — rename one, rename both.
-     */
-    public static String statusLabel(String wireToken) {
-        CandidateStatus status = CandidateStatus.fromValue(wireToken);
-        if (status == null) {
-            return text(wireToken);
-        }
-        return switch (status) {
-            case IDENTIFIED -> "Identified";
-            case CONTACTED -> "Contacted";
-            case ENGAGED -> "Engaged";
-            case INTERESTED -> "Interested";
-            case NOT_INTERESTED -> "Not interested";
-            case OFF_LIMITS -> "Off-limits";
-            case OUT_OF_SCOPE -> "Out of scope";
-        };
+    /** The catalog's label, as the badge draws it; the key only where a row carries no label. */
+    private static String statusLabel(CandidateResponse candidate) {
+        return candidate.statusLabel() != null ? candidate.statusLabel() : text(candidate.status());
     }
 
     private static String sourceLabel(String wireToken) {

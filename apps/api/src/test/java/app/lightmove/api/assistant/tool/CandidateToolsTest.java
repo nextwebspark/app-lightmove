@@ -9,9 +9,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import app.lightmove.api.candidate.constant.CandidateStatus;
+import app.lightmove.api.candidate.constant.CandidateSystemStatus;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.model.PipelineCatalog;
+import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -39,10 +42,10 @@ class CandidateToolsTest {
             recorder);
 
     @Test
-    void offersEveryStatusTheCandidateListTakes() {
+    void namesEveryBuiltInStatusKey() {
         assertThat(CandidateTools.STATUSES.split(", "))
                 .containsExactlyInAnyOrderElementsOf(
-                        Arrays.stream(CandidateStatus.values()).map(CandidateStatus::value).toList());
+                        Arrays.stream(CandidateSystemStatus.values()).map(CandidateSystemStatus::value).toList());
     }
 
     @Test
@@ -54,13 +57,14 @@ class CandidateToolsTest {
     @Test
     void aCompanyNameThatMatchesNothingListsNobodyRatherThanEveryone() {
         when(triaged.named(any(), any(), any(), anyInt())).thenReturn(new TriageCompanyMatches(List.of(), 0));
-        when(candidates.list(any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
+        when(candidates.list(any(), any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
 
         MappedExecutives found = tools().listMappedExecutives("Nowhere Ltd", null, "not-a-status", null,
                 toolContext());
 
         ArgumentCaptor<CandidateListCriteria> criteria = ArgumentCaptor.forClass(CandidateListCriteria.class);
-        verify(candidates).list(eq(context.workspaceId()), eq(context.projectId()), criteria.capture());
+        verify(candidates).list(eq(context.workspaceId()), eq(context.projectId()), criteria.capture(),
+                eq(ProjectAudience.STAFF));
         assertThat(criteria.getValue().triageCompanyIds()).isEmpty();
         assertThat(criteria.getValue().status()).isNull();
         assertThat(criteria.getValue().size()).isEqualTo(25);
@@ -91,7 +95,7 @@ class CandidateToolsTest {
         TriageCompanyResponse company = mock(TriageCompanyResponse.class);
         when(triaged.named(any(), any(), eq("Group"), anyInt()))
                 .thenReturn(new TriageCompanyMatches(List.of(company), 80));
-        when(candidates.list(any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
+        when(candidates.list(any(), any(), any(), any())).thenReturn(new CandidatesResponse(List.of(), 0, 0, 25));
 
         assertThat(tools().listMappedExecutives("Group", null, null, null, toolContext()).companyNameTooBroad())
                 .isTrue();
@@ -114,10 +118,12 @@ class CandidateToolsTest {
     }
 
     private CandidateTools tools() {
+        CandidatePipelineCatalog pipeline = mock(CandidatePipelineCatalog.class);
+        when(pipeline.catalogOf(any())).thenReturn(new PipelineCatalog(List.of(), List.of()));
         LightMoveProperties properties = mock(LightMoveProperties.class);
         when(properties.assistant()).thenReturn(new AssistantSettings("gemini-2.5-flash", 0.2, 512, 12, 25, 250,
                 4, 10, 5, Duration.ofSeconds(25), 15));
-        return new CandidateTools(candidates, triaged, properties);
+        return new CandidateTools(candidates, pipeline, triaged, properties);
     }
 
     private ToolContext toolContext() {

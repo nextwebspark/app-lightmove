@@ -100,7 +100,7 @@
   },
   "features/candidates/components/CandidateProfile.tsx": {
     "arbitraryRadius": 1,
-    "arbitraryText": 5
+    "arbitraryText": 4
   },
   "features/candidates/components/CareerTimeline.tsx": {
     "arbitraryText": 5
@@ -135,7 +135,7 @@
   },
   "features/candidates/components/PersonPositions.tsx": {
     "arbitraryRadius": 1,
-    "arbitraryText": 4
+    "arbitraryText": 3
   },
   "features/candidates/components/PersonSections.tsx": {
     "arbitraryRadius": 2,
@@ -752,7 +752,7 @@
   },
   "features/triage/lib/triageCompanyColumns.tsx": {
     "arbitraryRadius": 3,
-    "arbitraryText": 10
+    "arbitraryText": 9
   },
   "features/triage/pages/TriageStagePage.tsx": {
     "arbitraryText": 1

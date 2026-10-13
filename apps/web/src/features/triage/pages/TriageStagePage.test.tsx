@@ -22,6 +22,7 @@ import type { SourcingRun } from "../api/sourcingApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
+import { pickStatus } from "../../../test/pickStatus";
 import { TriageStagePage } from "./TriageStagePage";
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
@@ -755,7 +756,7 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("Yasmin El-Sayed");
-    await userEvent.selectOptions(screen.getByLabelText(/Status for Yasmin El-Sayed/i), "interested");
+    await pickStatus(/^Status for Yasmin El-Sayed:/, "Interested");
 
     await waitFor(() =>
       expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "interested"),
@@ -790,7 +791,7 @@ describe("TriageStagePage", () => {
 
     // A write on Gulf's own row — a different id — starts and fully settles while ACWA's is still
     // pending. Before the fix this shared one busy id and overwrote ACWA's the moment Gulf's started.
-    await userEvent.selectOptions(screen.getByLabelText(/Status for Yasmin El-Sayed/i), "interested");
+    await pickStatus(/^Status for Yasmin El-Sayed:/, "Interested");
     await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalled());
 
     expect(acwaMoveButton).toBeDisabled();
@@ -1210,7 +1211,7 @@ describe("TriageStagePage", () => {
     );
     renderStage();
 
-    await userEvent.click(await screen.findByRole("button", { name: /Yasmin El-Sayed/i }));
+    await userEvent.click(await screen.findByRole("button", { name: (name) => /Yasmin El-Sayed/i.test(name) && !name.startsWith("Status for") }));
 
     const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
     expect(within(drawer).getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();

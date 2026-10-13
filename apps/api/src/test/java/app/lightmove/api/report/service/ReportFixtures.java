@@ -3,6 +3,7 @@ package app.lightmove.api.report.service;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.candidate.dto.CandidatePipelineStageDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -20,6 +21,9 @@ import java.util.UUID;
 /** The rows a reporter reads, built with only the fields a chapter looks at. */
 final class ReportFixtures {
 
+    static final CandidatePipelineStageDto IDENTIFIED =
+            new CandidatePipelineStageDto("identified", "Identified", "neutral", "active", 1);
+
     private ReportFixtures() {
     }
 
@@ -35,7 +39,7 @@ final class ReportFixtures {
                 company == null ? "Somewhere Untriaged" : company.companyName(), fullName, null, seniority,
                 "identified", null, country, null, nationality, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null, null,
-                false);
+                false, "Identified", "neutral", IDENTIFIED, addedAt, true);
         return new ExecutiveRow(person, company);
     }
 
