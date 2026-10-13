@@ -1,6 +1,5 @@
 import { DndContext, MeasuringStrategy, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
@@ -11,10 +10,11 @@ import { useSortableSensors, VERTICAL_LIST_MODIFIERS } from "../../../lib/sortab
 import { useAuth } from "../../auth/AuthProvider";
 import { liveStages } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
-import type { PipelineCatalog, PipelineStage } from "../../workspace/api/types";
+import type { PipelineStage } from "../../workspace/api/types";
 import { usePipelineCatalog, usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
 import { PipelineStageCard } from "../components/PipelineStageCard";
 import { inOrderOf, PIPELINE_NAME_LIMIT } from "../lib/pipelineStageRows";
+import { usePipelineReorder } from "../lib/usePipelineReorder";
 
 /** A stage folds as it is picked up, so its neighbours are measured again while it moves. */
 const STAGE_MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
@@ -29,14 +29,16 @@ export function PipelineStagesPage() {
   const isAdmin = user?.workspace?.roles.includes("ADMIN") ?? false;
   const { query } = usePipelineCatalog();
   const toast = useToast();
-  const queryClient = useQueryClient();
   const [newStage, setNewStage] = useState("");
   const [blockedStage, setBlockedStage] = useState<PipelineStage | null>(null);
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
   const sensors = useSortableSensors();
 
   const addStage = usePipelineWrite((label: string) => pipelineApi.createStage(label));
-  const reorderStages = usePipelineWrite((ids: string[]) => pipelineApi.reorderStages(ids));
+  const reorder = usePipelineReorder(
+    (ids) => pipelineApi.reorderStages(ids),
+    (catalog, ids) => ({ stages: inOrderOf(catalog.stages, ids) }),
+  );
 
   const stages = query.data ? liveStages(query.data) : [];
   const activeStages = stages.filter((stage) => stage.kind === "active");
@@ -46,19 +48,7 @@ export function PipelineStagesPage() {
 
   const moveStage = (from: number, to: number) => {
     if (from < 0 || to < 0 || to >= activeIds.length || from === to) return;
-    const ids = [...moveItem(activeIds, from, to), ...closedStages.map((stage) => stage.id)];
-    const previous = queryClient.getQueryData<PipelineCatalog>(pipelineApi.PIPELINE_CATALOG_KEY);
-    if (previous) {
-      queryClient.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, {
-        stages: inOrderOf(previous.stages, ids),
-      });
-    }
-    reorderStages.mutate(ids, {
-      onError: (error) => {
-        if (previous) queryClient.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, previous);
-        toast.error(messageFor(error));
-      },
-    });
+    reorder([...moveItem(activeIds, from, to), ...closedStages.map((stage) => stage.id)]);
   };
 
   const handleStageDragEnd = ({ active, over }: DragEndEvent) => {

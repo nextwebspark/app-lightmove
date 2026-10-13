@@ -195,7 +195,7 @@ describe("PipelineStagesPage", () => {
     );
     expect(await screen.findByText("Renamed on every position")).toBeInTheDocument();
 
-    await userEvent.click(within(considering).getByRole("button", { name: "Colour of Considering" }));
+    await userEvent.click(within(considering).getByRole("button", { name: "Colour of Considering: Green" }));
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-considering", { colour: "accent" }));
 
     await userEvent.click(within(considering).getByRole("button", { name: "Make default" }));
@@ -297,7 +297,39 @@ describe("PipelineStagesPage", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Identified stage" }), { key: "ArrowDown" });
 
     expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
-    expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Identified");
+    await waitFor(() => expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Identified"));
+    expect(pipelineApi.pipelineCatalog).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a second reorder when the first is refused, by reading the catalog again", async () => {
+    const catalog = aSeededCatalog();
+    const inOrder = (ids: string[]) => ({ stages: ids.map((id) => catalog.stages.find((stage) => stage.id === id)!) });
+    let refuseFirst: (error: unknown) => void = () => {};
+    vi.mocked(pipelineApi.reorderStages)
+      .mockImplementationOnce(() => new Promise((_, reject) => (refuseFirst = reject)))
+      .mockImplementationOnce(async (ids) => inOrder(ids));
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Identified stage" }), { key: "ArrowDown" });
+    await waitFor(() => expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Contacted"));
+    fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shortlisted stage" }), { key: "ArrowUp" });
+    await waitFor(() => expect(pipelineApi.reorderStages).toHaveBeenCalledTimes(2));
+    const second = vi.mocked(pipelineApi.reorderStages).mock.calls[1][0];
+    vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(inOrder(second));
+
+    refuseFirst(new ApiRequestError({ code: "PIPELINE_ORDER_INVALID", detail: "x", status: 409, correlationId: "c1" }));
+
+    expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
+    await waitFor(() => expect(pipelineApi.pipelineCatalog).toHaveBeenCalledTimes(2));
+    expect(screen.getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual([
+      "Contacted",
+      "Identified",
+      "Interested",
+      "Shortlisted",
+      "Qualified",
+      "Declined",
+    ]);
   });
 
   it("refuses to retire a stage that still has live statuses, and retires an empty one", async () => {
@@ -352,7 +384,7 @@ describe("PipelineStagesPage", () => {
     expect(screen.queryByRole("button", { name: "Add status" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("New stage")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Reorder / })).not.toBeInTheDocument();
-    expect(within(card("Identified")).getByRole("button", { name: "Colour of Identified stage" })).toBeDisabled();
+    expect(within(card("Identified")).getByRole("button", { name: /^Colour of Identified stage/ })).toBeDisabled();
     await open("Identified");
     expect(within(card("Identified")).getAllByRole("listitem").length).toBeGreaterThan(0);
   });

@@ -1,46 +1,65 @@
 import type { useSortable } from "@dnd-kit/sortable";
 import type { KeyboardEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Input } from "../../../components/ui";
+import { Button, Input } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { PIPELINE_COLOURS, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import { PIPELINE_NAME_LIMIT } from "../lib/pipelineStageRows";
+import type { RenameDraft } from "../lib/usePipelineRowEdits";
 
-/** A name being retyped in its row. Its Save button sits elsewhere in the row and submits it by `id`. */
+/** A name being retyped in its row. Its Save button sits elsewhere in the row and submits it by `formId`. */
 export function RenameForm({
-  id,
+  formId,
   label,
-  draft,
-  onDraft,
-  onCancel,
+  rename,
   onSave,
 }: {
-  id: string;
+  formId: string;
   label: string;
-  draft: string;
-  onDraft: (value: string) => void;
-  onCancel: () => void;
-  onSave: () => void;
+  rename: RenameDraft;
+  onSave: (name: string) => void;
 }) {
   return (
     <form
-      id={id}
+      id={formId}
       className="contents"
       onSubmit={(event) => {
         event.preventDefault();
-        if (draft.trim()) onSave();
+        if (rename.draft.trim()) onSave(rename.draft.trim());
       }}
     >
       <Input
-        value={draft}
-        onChange={(event) => onDraft(event.target.value)}
-        onKeyDown={(event) => event.key === "Escape" && onCancel()}
+        value={rename.draft}
+        onChange={(event) => rename.setDraft(event.target.value)}
+        onKeyDown={(event) => event.key === "Escape" && rename.end()}
         aria-label={label}
         maxLength={PIPELINE_NAME_LIMIT}
         autoFocus
         className="max-w-[220px] py-1"
       />
     </form>
+  );
+}
+
+/** Rename, or Save while the name is being retyped. */
+export function RenameActions({ formId, rename, saving }: { formId: string; rename: RenameDraft; saving: boolean }) {
+  // Keyed apart: patched in place, the pressed Rename became the form's Save and submitted it mid-click.
+  return rename.renaming ? (
+    <Button
+      key="save"
+      type="submit"
+      form={formId}
+      variant="secondary"
+      size="xs"
+      disabled={!rename.draft.trim()}
+      loading={saving}
+    >
+      Save
+    </Button>
+  ) : (
+    <Button key="rename" type="button" variant="ghost" size="xs" onClick={rename.begin}>
+      Rename
+    </Button>
   );
 }
 
@@ -60,12 +79,13 @@ export function ColourDot({
 }) {
   const index = PIPELINE_COLOURS.findIndex((candidate) => candidate.value === colour);
   const next = PIPELINE_COLOURS[(index + 1) % PIPELINE_COLOURS.length].value;
+  const current = PIPELINE_COLOURS[index]?.label;
   return (
     <button
       type="button"
       disabled={!editable}
       title={editable ? "Change colour" : undefined}
-      aria-label={`Colour of ${name}`}
+      aria-label={current ? `Colour of ${name}: ${current}` : `Colour of ${name}`}
       onClick={() => onChange(next)}
       className={cn(
         "flex-none rounded-full disabled:cursor-default",

@@ -1,17 +1,15 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, useToast } from "../../../components/ui";
+import { Button } from "../../../components/ui";
 import { FoldBody } from "../../../components/ui/FoldBody";
 import { cn } from "../../../lib/cn";
-import { messageFor } from "../../../lib/errorCodes";
 import { liveStatuses } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
 import type { PipelineStage, PipelineStageChange } from "../../workspace/api/types";
-import { usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
 import { statusCountLabel, statusPreview } from "../lib/pipelineStageRows";
-import { ColourDot, DragHandle, RenameForm } from "./PipelineRowControls";
+import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
+import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 import { PipelineStatusList } from "./PipelineStatusList";
 
 /**
@@ -87,21 +85,14 @@ function StageHeader({
   onStep?: (step: number) => void;
   onRetireBlocked: () => void;
 }) {
-  const toast = useToast();
-  const [renaming, setRenaming] = useState(false);
-  const [draft, setDraft] = useState(stage.label);
-  const updateStage = usePipelineWrite((change: PipelineStageChange) => pipelineApi.updateStage(stage.id, change));
+  const rename = useRenameDraft(stage.label);
+  const { change, isPending } = usePipelineRowChange(
+    (patch: PipelineStageChange) => pipelineApi.updateStage(stage.id, patch),
+    rename,
+  );
   const statuses = liveStatuses(stage);
   const isClosed = stage.kind === "closed";
-
-  const change = (patch: PipelineStageChange, success?: string) =>
-    updateStage.mutate(patch, {
-      onSuccess: () => {
-        if (patch.label !== undefined) setRenaming(false);
-        if (success) toast(success);
-      },
-      onError: (error) => toast.error(messageFor(error)),
-    });
+  const renameFormId = `rename-stage-${stage.id}`;
 
   const handleRetire = () => {
     if (statuses.length > 0) {
@@ -132,12 +123,12 @@ function StageHeader({
         type="button"
         aria-expanded={open}
         aria-controls={bodyId}
-        aria-label={renaming ? `${stage.label} stage` : undefined}
+        aria-label={rename.renaming ? `${stage.label} stage` : undefined}
         title={open ? "Hide statuses" : "Show statuses"}
         onClick={onToggle}
         className={cn(
           "flex min-w-0 items-center gap-2.5 rounded-u-control px-1.5 py-1.5 text-left transition hover:bg-u-raised",
-          !renaming && "flex-1",
+          !rename.renaming && "flex-1",
         )}
       >
         <Icon
@@ -148,7 +139,7 @@ function StageHeader({
             !shown && "-rotate-90",
           )}
         />
-        {!renaming && (
+        {!rename.renaming && (
           <>
             <span className="flex-none text-body font-semibold text-u-text">{stage.label}</span>{" "}
             <span
@@ -168,52 +159,24 @@ function StageHeader({
           </>
         )}
       </button>
-      {renaming && (
+      {rename.renaming && (
         <RenameForm
-          id={`rename-stage-${stage.id}`}
+          formId={renameFormId}
           label="Stage name"
-          draft={draft}
-          onDraft={setDraft}
-          onCancel={() => setRenaming(false)}
-          onSave={() => change({ label: draft.trim() }, "Renamed on every position")}
+          rename={rename}
+          onSave={(label) => change({ label }, "Renamed on every position")}
         />
       )}
       {isAdmin && (
         <span className="ms-auto flex flex-none gap-1">
-          {/* Keyed apart: patched in place, the pressed Rename became this form's Save and submitted it mid-click. */}
-          {renaming ? (
-            <Button
-              key="save"
-              type="submit"
-              form={`rename-stage-${stage.id}`}
-              variant="secondary"
-              size="xs"
-              disabled={!draft.trim()}
-              loading={updateStage.isPending}
-            >
-              Save
-            </Button>
-          ) : (
-            <Button
-              key="rename"
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => {
-                setDraft(stage.label);
-                setRenaming(true);
-              }}
-            >
-              Rename
-            </Button>
-          )}
+          <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
           {!isClosed && (
             <Button
               variant="ghost"
               size="xs"
               title="Retire this stage"
               aria-label={`Retire ${stage.label} stage`}
-              disabled={updateStage.isPending}
+              disabled={isPending}
               onClick={handleRetire}
             >
               <Icon d={ICONS.archive} size={14} />
