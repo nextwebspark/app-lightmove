@@ -27,18 +27,21 @@ import org.springframework.ai.google.genai.metadata.GoogleGenAiUsage;
 
 /**
  * Wraps each model round of one ask, inside the tool loop: times and logs it, counts its tokens, and
- * asks again a round the connection lost, the provider throttled or that outlasted the round's
- * patience, so the rounds before it are not thrown away. A round's last attempt is waited for however
- * long the model call itself allows. No round starts once the answer has passed its deadline. One
- * instance per ask.
+ * asks again a round the connection lost, the provider throttled (after a short pause) or that
+ * outlasted the round's patience, so the rounds before it are not thrown away. A round's last attempt
+ * is waited for however long the model call itself allows. No round starts once the answer has passed
+ * its deadline. One instance per ask.
  */
 @Slf4j
 class AssistantRounds implements CallAdvisor {
 
-    private static final int ATTEMPTS_PER_ROUND = 3;
+    static final int ATTEMPTS_PER_ROUND = 3;
 
     /** What Vertex answers when it is short of capacity or failing; the same request is often served at once. */
     private static final Set<Integer> PASSING_STATUSES = Set.of(408, 429, 500, 502, 503, 504);
+
+    /** Waited before asking a refused round again, once per attempt already made. */
+    private static final Duration REFUSAL_PAUSE = Duration.ofMillis(500);
 
     private final TurnRecorder recorder;
     private final String configuredModel;
@@ -90,6 +93,9 @@ class AssistantRounds implements CallAdvisor {
                     recorder.roundTook(millisSince(roundStartedAt), attempt - 1);
                     throw new AssistantRoundFailed("Round " + round + " failed", failed);
                 }
+                if (reasonOf(failed) instanceof ApiException) {
+                    pause(REFUSAL_PAUSE.multipliedBy(attempt));
+                }
             }
         }
     }
@@ -120,6 +126,15 @@ class AssistantRounds implements CallAdvisor {
             throw failed.getCause() instanceof RuntimeException cause ? cause : new IllegalStateException(failed);
         } catch (InterruptedException interrupted) {
             attempt.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(interrupted);
+        }
+    }
+
+    private static void pause(Duration pause) {
+        try {
+            Thread.sleep(pause);
+        } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(interrupted);
         }

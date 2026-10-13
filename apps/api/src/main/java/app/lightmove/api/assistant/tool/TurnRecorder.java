@@ -43,7 +43,7 @@ public class TurnRecorder {
     private AssistantProposal proposal;
     private ModelSpend spend = ModelSpend.NONE;
     private RoundTimings roundTimings = RoundTimings.NONE;
-    private long toolMs;
+    private long toolStepMsTotal;
     private List<AssistantQuestion> questions = List.of();
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
@@ -78,7 +78,7 @@ public class TurnRecorder {
         if (startedAt != null) {
             long tookMs = (System.nanoTime() - startedAt) / 1_000_000;
             synchronized (this) {
-                toolMs += tookMs;
+                toolStepMsTotal += tookMs;
             }
             log.info("Assistant step '{}' took {}ms", label, tookMs);
         }
@@ -171,8 +171,8 @@ public class TurnRecorder {
     }
 
     /** Every step's time added up; steps of one round run side by side, so it can pass the time waited. */
-    public synchronized long toolMs() {
-        return toolMs;
+    public synchronized long toolStepMsTotal() {
+        return toolStepMsTotal;
     }
 
     /** The tokens every model call of this answer took — what its turn row records. */

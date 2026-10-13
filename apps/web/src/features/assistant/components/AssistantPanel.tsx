@@ -100,8 +100,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
     },
     // The pending bubble and the saved turn swap in one synchronous block, so React draws them in one
     // frame: the question is never shown twice and the layout does not jump. The turn is appended to
-    // the cached chat rather than the chat refetched, and a new chat is its one turn; only an earlier
-    // chat never loaded here is read whole.
+    // the cached chat rather than the chat refetched, and a new chat is its one turn, read back behind
+    // it for the title the server gave it; only an earlier chat never loaded here is read whole.
     onSuccess: async (turn) => {
       const key = assistantApi.ASSISTANT_THREAD_KEY(turn.threadId);
       const cached = queryClient.getQueryData<AssistantThread>(key);
@@ -118,6 +118,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       setPendingQuestion(null);
       setLiveProposal(null);
       queryClient.setQueryData(key, fresh);
+      if (!cached && threadId === null) void queryClient.invalidateQueries({ queryKey: key });
       showThread(projectId, turn.threadId);
     },
     // A slow answer is still saved, so it is looked for until it lands rather than asked for again. Any

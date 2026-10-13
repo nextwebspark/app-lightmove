@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -42,19 +41,14 @@ public class AssistantModelCall {
     private final Resource corePrompt;
     private final ToolCallingAdvisor toolLoop;
 
-    /**
-     * Model calls wait on platform threads. On a virtual thread (Java 21) about one round in three sent
-     * straight after the one before it sat in a socket read for an answer Vertex had sent within a second.
-     */
-    private final Executor modelCalls = Executors.newCachedThreadPool(
-            Thread.ofPlatform().daemon().name("assistant-model-", 0).factory());
+    private final ModelCallThreads modelCalls;
 
-    public AssistantModelCall(ChatClient chatClient,
-                              LightMoveProperties properties,
+    public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
                               @Value("classpath:prompts/assistant-core.st") Resource corePrompt,
                               @Qualifier("applicationTaskExecutor") Executor executor,
-                              ObjectProvider<ToolCallingManager> toolCalling) {
+                              ObjectProvider<ToolCallingManager> toolCalling, ModelCallThreads modelCalls) {
         this.chatClient = chatClient;
+        this.modelCalls = modelCalls;
         this.settings = properties.assistant();
         this.corePrompt = corePrompt;
         ToolCallingManager oneAtATime = toolCalling.getIfAvailable(() -> ToolCallingManager.builder().build());
@@ -69,7 +63,7 @@ public class AssistantModelCall {
         ChatResponse response = chatClient.prompt()
                 .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID)
                         .advisors(toolLoop, new AssistantRounds(context.recorder(), settings.model(),
-                                settings.answerDeadline(), settings.roundPatience(), modelCalls)))
+                                settings.answerDeadline(), settings.roundPatience(), modelCalls::execute)))
                 .options(GoogleGenAiChatOptions.builder()
                         .model(settings.model())
                         .temperature(settings.temperature())

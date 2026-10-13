@@ -141,7 +141,7 @@ public class AssistantService {
                 .detail("modelMs", String.valueOf(recorder.roundTimings().modelMs()))
                 .detail("slowestRoundMs", String.valueOf(recorder.roundTimings().slowestRoundMs()))
                 .detail("roundsReAsked", String.valueOf(recorder.roundTimings().reAsked()))
-                .detail("toolMs", String.valueOf(recorder.toolMs()))
+                .detail("toolStepMsTotal", String.valueOf(recorder.toolStepMsTotal()))
                 .detail("skills", String.join(",", recorder.skillsUsed()))
                 .detail("questionsAsked", String.valueOf(recorder.questions().size()))
                 .detail("companiesOnCard", String.valueOf(

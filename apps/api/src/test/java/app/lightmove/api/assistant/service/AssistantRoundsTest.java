@@ -15,7 +15,9 @@ import com.google.genai.errors.ClientException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -33,6 +35,12 @@ class AssistantRoundsTest {
     private final ChatClientRequest request = mock(ChatClientRequest.class);
     private final CallAdvisorChain chain = mock(CallAdvisorChain.class);
     private final CallAdvisorChain rest = mock(CallAdvisorChain.class);
+    private final ExecutorService modelCalls = Executors.newCachedThreadPool(Thread.ofPlatform().daemon().factory());
+
+    @AfterEach
+    void stopModelCalls() {
+        modelCalls.shutdownNow();
+    }
 
     @Test
     @DisplayName("a round the connection lost is asked once more, and its answer is the round's")
@@ -151,8 +159,7 @@ class AssistantRoundsTest {
     }
 
     private AssistantRounds roundsWith(Duration answerDeadline, Duration patience) {
-        return new AssistantRounds(recorder, "gemini-2.5-flash", answerDeadline, patience,
-                Executors.newVirtualThreadPerTaskExecutor());
+        return new AssistantRounds(recorder, "gemini-2.5-flash", answerDeadline, patience, modelCalls);
     }
 
     private static RuntimeException throttled() {

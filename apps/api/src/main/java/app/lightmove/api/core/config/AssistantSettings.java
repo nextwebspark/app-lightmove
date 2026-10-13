@@ -46,10 +46,7 @@ public record AssistantSettings(
         /** Tools every ask of one instance runs at once, held under the deployed pool of five connections. */
         @DefaultValue("4") int toolParallelism,
 
-        /**
-         * How long a model round is waited for before it is dropped and asked again. A round's last
-         * attempt is not held to it, only to {@code llm.request-timeout-ms}.
-         */
+        /** How long a model round is waited for before it is asked again; its last attempt is not held to it. */
         @DefaultValue("12s") Duration roundPatience
 ) {
 

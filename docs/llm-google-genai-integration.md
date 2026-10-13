@@ -96,7 +96,7 @@ spring:
         project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}   # same GCP project as Cloud SQL
         location: ${GOOGLE_CLOUD_LOCATION:global}
         chat:
-          model: gemini-3.5-flash
+          model: ${LLM_CHAT_MODEL:gemini-3.5-flash}
           temperature: 0.4
         embedding:
           project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}

@@ -154,15 +154,14 @@ spring:
         # emulator for Vertex AI, and no api-key property is set here on purpose: setting one
         # would switch this to the Gemini Developer API instead of Vertex.
         project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
-        # us-central1 answered 429 to most calls and took 8-50s to say so (measured 13 Oct 2026) while
-        # global answered every one in about 3s; the newer Flash models are served from global only.
+        # us-central1 throttled most calls (13 Oct 2026); the newer Flash models are served from global only.
         location: ${GOOGLE_CLOUD_LOCATION:global}
         chat:
           # The ChatModel's own options, and that is the layer that matters: a call's `.options(...)`
           # is merged onto these field by field, while anything set on the shared ChatClient bean sits
           # in the same slot as that call and is replaced by it wholesale. Whatever every call should
           # get regardless belongs here.
-          model: gemini-3.5-flash
+          model: ${LLM_CHAT_MODEL:gemini-3.5-flash}
           temperature: 0.4
           # A ceiling on one answer, so a model that starts repeating is cut off rather than billed to
           # the request timeout. Generous because the model reasons before answering and spends this
@@ -314,8 +313,7 @@ lightmove:
     # past the deadline), so keep this under Cloud Run's --timeout (300s) by more than that.
     answer-deadline: ${ASSISTANT_ANSWER_DEADLINE:150s}
     tool-parallelism: ${ASSISTANT_TOOL_PARALLELISM:4}
-    # A healthy round answers in 1-7s. One still unanswered after this is dropped and asked again;
-    # its last attempt waits the full llm.request-timeout-ms.
+    # A round unanswered after this is asked again; its last attempt waits llm.request-timeout-ms.
     round-patience: ${ASSISTANT_ROUND_PATIENCE:12s}
     max-names-per-lookup: 10
     name-lookup-parallelism: ${ASSISTANT_NAME_LOOKUP_PARALLELISM:5}
