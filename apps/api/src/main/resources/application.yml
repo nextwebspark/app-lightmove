@@ -154,16 +154,18 @@ spring:
         # emulator for Vertex AI, and no api-key property is set here on purpose: setting one
         # would switch this to the Gemini Developer API instead of Vertex.
         project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
-        location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+        # us-central1 answered 429 to most calls and took 8-50s to say so (measured 13 Oct 2026) while
+        # global answered every one in about 3s; the newer Flash models are served from global only.
+        location: ${GOOGLE_CLOUD_LOCATION:global}
         chat:
           # The ChatModel's own options, and that is the layer that matters: a call's `.options(...)`
           # is merged onto these field by field, while anything set on the shared ChatClient bean sits
           # in the same slot as that call and is replaced by it wholesale. Whatever every call should
           # get regardless belongs here.
-          model: gemini-2.5-flash
-          temperature: 0.8
+          model: gemini-3.5-flash
+          temperature: 0.4
           # A ceiling on one answer, so a model that starts repeating is cut off rather than billed to
-          # the request timeout. Generous because a 2.5 model reasons before answering and spends this
+          # the request timeout. Generous because the model reasons before answering and spends this
           # same allowance doing it.
           max-output-tokens: 8192
           # Vertex bills a whole GCP project as one line, so this is what separates the application's
@@ -174,7 +176,7 @@ spring:
           # The embedding client resolves its own project/location independently of the chat
           # block above (Spring AI's own namespacing, not a LightMove choice).
           project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
-          location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+          location: ${GOOGLE_CLOUD_LOCATION:global}
           text:
             model: text-embedding-004
 
@@ -302,7 +304,7 @@ lightmove:
   # The Uncava Assistant's own model call. Flash, not Pro: an ask is one request held open while the
   # model searches and proposes.
   assistant:
-    model: ${ASSISTANT_MODEL:gemini-2.5-flash}
+    model: ${ASSISTANT_MODEL:gemini-3.5-flash-lite}
     temperature: ${ASSISTANT_TEMPERATURE:0.2}
     thinking-budget: ${ASSISTANT_THINKING_BUDGET:512}
     history-window: ${ASSISTANT_HISTORY_WINDOW:12}
@@ -312,6 +314,9 @@ lightmove:
     # past the deadline), so keep this under Cloud Run's --timeout (300s) by more than that.
     answer-deadline: ${ASSISTANT_ANSWER_DEADLINE:150s}
     tool-parallelism: ${ASSISTANT_TOOL_PARALLELISM:4}
+    # A healthy round answers in 1-7s. One still unanswered after this is dropped and asked again;
+    # its last attempt waits the full llm.request-timeout-ms.
+    round-patience: ${ASSISTANT_ROUND_PATIENCE:12s}
     max-names-per-lookup: 10
     name-lookup-parallelism: ${ASSISTANT_NAME_LOOKUP_PARALLELISM:5}
     name-lookup-deadline: 25s

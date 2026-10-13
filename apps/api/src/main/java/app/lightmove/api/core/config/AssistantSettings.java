@@ -7,7 +7,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record AssistantSettings(
 
         /** Flash rather than Pro: an ask is one request held open while the model searches and proposes. */
-        @DefaultValue("gemini-2.5-flash") String model,
+        @DefaultValue("gemini-3.5-flash-lite") String model,
 
         @DefaultValue("0.2") double temperature,
 
@@ -44,7 +44,13 @@ public record AssistantSettings(
         @DefaultValue("150s") Duration answerDeadline,
 
         /** Tools every ask of one instance runs at once, held under the deployed pool of five connections. */
-        @DefaultValue("4") int toolParallelism
+        @DefaultValue("4") int toolParallelism,
+
+        /**
+         * How long a model round is waited for before it is dropped and asked again. A round's last
+         * attempt is not held to it, only to {@code llm.request-timeout-ms}.
+         */
+        @DefaultValue("12s") Duration roundPatience
 ) {
 
     public AssistantSettings {
@@ -76,6 +82,9 @@ public record AssistantSettings(
         }
         if (answerDeadline == null || answerDeadline.isNegative() || answerDeadline.isZero()) {
             throw new IllegalArgumentException("lightmove.assistant.answer-deadline must be positive");
+        }
+        if (roundPatience == null || roundPatience.isNegative() || roundPatience.isZero()) {
+            throw new IllegalArgumentException("lightmove.assistant.round-patience must be positive");
         }
         if (vocabularyLimit < 1) {
             throw new IllegalArgumentException(

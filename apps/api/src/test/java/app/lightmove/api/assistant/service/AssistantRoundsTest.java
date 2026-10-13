@@ -11,9 +11,11 @@ import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.model.AssistantRoundFailed;
 import app.lightmove.api.assistant.tool.TurnRecorder;
+import com.google.genai.errors.ClientException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.Executors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -46,15 +48,63 @@ class AssistantRoundsTest {
     }
 
     @Test
-    @DisplayName("a round that loses its connection twice fails")
-    void givesUpAfterTheSecondTimeout() {
+    @DisplayName("a round the provider throttled is asked again")
+    void asksAThrottledRoundAgain() {
+        AssistantRounds rounds = roundsWith(Duration.ofMinutes(2));
+        when(chain.copy(rounds)).thenReturn(rest);
+        when(rest.nextCall(request)).thenThrow(throttled()).thenReturn(answering("Four utilities", 100, 20));
+
+        ChatClientResponse response = rounds.adviseCall(request, chain);
+
+        assertThat(response.chatResponse().getResult().getOutput().getText()).isEqualTo("Four utilities");
+        assertThat(recorder.roundTimings().reAsked()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("an attempt the model has not answered within the round's patience is left and asked again")
+    void leavesAnAttemptThatOutlastsItsPatience() {
+        AssistantRounds rounds = roundsWith(Duration.ofMinutes(2), Duration.ofMillis(50));
+        when(chain.copy(rounds)).thenReturn(rest);
+        when(rest.nextCall(request))
+                .thenAnswer(call -> {
+                    Thread.sleep(5_000);
+                    return answering("too late", 100, 20);
+                })
+                .thenReturn(answering("Four utilities", 100, 20));
+
+        ChatClientResponse response = rounds.adviseCall(request, chain);
+
+        assertThat(response.chatResponse().getResult().getOutput().getText()).isEqualTo("Four utilities");
+    }
+
+    @Test
+    @DisplayName("a round's last attempt is waited for past its patience")
+    void waitsForTheLastAttempt() {
+        AssistantRounds rounds = roundsWith(Duration.ofMinutes(2), Duration.ofMillis(50));
+        when(chain.copy(rounds)).thenReturn(rest);
+        when(rest.nextCall(request))
+                .thenThrow(timedOut())
+                .thenThrow(timedOut())
+                .thenAnswer(call -> {
+                    Thread.sleep(200);
+                    return answering("A long list", 100, 20);
+                });
+
+        ChatClientResponse response = rounds.adviseCall(request, chain);
+
+        assertThat(response.chatResponse().getResult().getOutput().getText()).isEqualTo("A long list");
+    }
+
+    @Test
+    @DisplayName("a round that loses its connection on every attempt fails")
+    void givesUpAfterTheLastTimeout() {
         AssistantRounds rounds = roundsWith(Duration.ofMinutes(2));
         when(chain.copy(rounds)).thenReturn(rest);
         when(rest.nextCall(request)).thenThrow(timedOut());
 
         assertThatThrownBy(() -> rounds.adviseCall(request, chain)).isInstanceOf(AssistantRoundFailed.class);
 
-        verify(rest, times(2)).nextCall(request);
+        verify(rest, times(3)).nextCall(request);
     }
 
     @Test
@@ -93,10 +143,21 @@ class AssistantRoundsTest {
         assertThat(recorder.spend().model()).isEqualTo("gemini-2.5-flash");
         assertThat(recorder.spend().inputTokens()).isEqualTo(400);
         assertThat(recorder.spend().outputTokens()).isEqualTo(60);
+        assertThat(recorder.roundTimings().rounds()).isEqualTo(2);
     }
 
     private AssistantRounds roundsWith(Duration answerDeadline) {
-        return new AssistantRounds(recorder, "gemini-2.5-flash", answerDeadline);
+        return roundsWith(answerDeadline, Duration.ofSeconds(30));
+    }
+
+    private AssistantRounds roundsWith(Duration answerDeadline, Duration patience) {
+        return new AssistantRounds(recorder, "gemini-2.5-flash", answerDeadline, patience,
+                Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    private static RuntimeException throttled() {
+        return new RuntimeException("Failed to generate content",
+                new ClientException(429, "RESOURCE_EXHAUSTED", "Resource exhausted. Please try again later."));
     }
 
     private static RuntimeException timedOut() {

@@ -126,10 +126,15 @@ Card button ──POST /api/v1/assistant/turns/{turnId}/accept {companyIds, stat
 ```
 
 The request itself streams its progress: no queue, no event table, no reconnect. It waits for
-Gemini (Flash, usually 5–15s a round, 40s at most) and the stream closes at
-`lightmove.assistant.answer-deadline` (150s), inside Cloud Run's 300s request timeout. Each model round
-runs behind `AssistantRounds`: timed and logged at INFO, asked once more when its connection timed out
-or dropped, and not started at all past the deadline. The reads one round asks for run side by side
+Gemini (Flash, 1–7s a healthy round, 40s at most) and the stream closes at
+`lightmove.assistant.answer-deadline` (150s), inside Cloud Run's 300s request timeout. Vertex is asked at `global`
+(`GOOGLE_CLOUD_LOCATION`): `us-central1` throttled most calls. Each model round runs behind `AssistantRounds`: timed and logged at INFO, asked again —
+up to three attempts — when its connection timed out or dropped, the provider throttled it, or it went
+unanswered past `round-patience` (12s; the last attempt is waited for in full), and not started at all past
+the deadline. Each attempt waits on a platform thread (`AssistantModelCall`'s own pool), never a virtual
+one: on Java 21 about one round in three sent straight after the one before it sat unread in the socket,
+though Vertex had answered within a second. The answer's audit event carries `rounds`, `modelMs`, `slowestRoundMs`, `roundsReAsked` and
+`toolMs`. The reads one round asks for run side by side
 (`ParallelToolCalls`), every ask of an instance sharing `tool-parallelism` (4) permits; a round with
 the playbook, a question or the card runs in order.
 If the model call fails after its tools found companies, the turn is saved with those companies and a
