@@ -42,6 +42,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <pre>
  * LIGHTMOVE_EVAL_GOLDEN=/private/path/golden.jsonl LIGHTMOVE_EVAL_SUBJECT=classifier \
+ *   LIGHTMOVE_EVAL_MODEL=gemini-3.5-flash \
  *   ./mvnw test -Dgroups=eval -DexcludedGroups= -Dtest=NationalityEval
  * </pre>
  *
@@ -73,7 +74,7 @@ class NationalityEval {
             default -> throw new IllegalArgumentException("LIGHTMOVE_EVAL_SUBJECT is classifier or baseline");
         };
 
-        String report = EvalScorer.markdown(subject, golden.equals(SYNTHETIC) ? "synthetic fixtures" : "private set",
+        String report = EvalScorer.markdown(subject, (golden.equals(SYNTHETIC) ? "synthetic fixtures" : "private set") + ", " + model(),
                 LocalDate.now(ZoneOffset.UTC).toString(), EvalScorer.score(rows, predictions));
         Files.createDirectories(REPORT.getParent());
         Files.writeString(REPORT, report, StandardCharsets.UTF_8,
@@ -180,12 +181,16 @@ class NationalityEval {
         Client client = Client.builder()
                 .vertexAI(true)
                 .project(envOr("GOOGLE_CLOUD_PROJECT", "hak-talent-mapping"))
-                .location(envOr("GOOGLE_CLOUD_LOCATION", "us-central1"))
+                .location(envOr("GOOGLE_CLOUD_LOCATION", "global"))
                 .build();
         return GoogleGenAiChatModel.builder()
                 .genAiClient(client)
-                .options(GoogleGenAiChatOptions.builder().model("gemini-2.5-flash").maxOutputTokens(8192).build())
+                .options(GoogleGenAiChatOptions.builder().model(model()).maxOutputTokens(8192).build())
                 .build();
+    }
+
+    private static String model() {
+        return envOr("LIGHTMOVE_EVAL_MODEL", "gemini-3.5-flash");
     }
 
     private static String envOr(String name, String fallback) {

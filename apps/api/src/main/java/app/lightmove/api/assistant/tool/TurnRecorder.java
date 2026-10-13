@@ -5,6 +5,7 @@ import app.lightmove.api.assistant.model.AssistantQuestion;
 import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
 import app.lightmove.api.assistant.model.ModelSpend;
+import app.lightmove.api.assistant.model.RoundTimings;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,6 +42,8 @@ public class TurnRecorder {
     private int vendorSearches;
     private AssistantProposal proposal;
     private ModelSpend spend = ModelSpend.NONE;
+    private RoundTimings roundTimings = RoundTimings.NONE;
+    private long toolStepMsTotal;
     private List<AssistantQuestion> questions = List.of();
 
     public TurnRecorder(Consumer<AssistantStepEvent> onStep) {
@@ -73,7 +76,11 @@ public class TurnRecorder {
             startedAt = openStepStartedAt.remove(index);
         }
         if (startedAt != null) {
-            log.info("Assistant step '{}' took {}ms", label, (System.nanoTime() - startedAt) / 1_000_000);
+            long tookMs = (System.nanoTime() - startedAt) / 1_000_000;
+            synchronized (this) {
+                toolStepMsTotal += tookMs;
+            }
+            log.info("Assistant step '{}' took {}ms", label, tookMs);
         }
         onStep.accept(new AssistantStepEvent(index, label, detail, true));
     }
@@ -153,6 +160,19 @@ public class TurnRecorder {
 
     public synchronized void spent(String model, Integer inputTokens, Integer outputTokens) {
         spend = spend.plus(model, inputTokens, outputTokens);
+    }
+
+    public synchronized void roundTook(long roundMs, int attemptsReAsked) {
+        roundTimings = roundTimings.plus(roundMs, attemptsReAsked);
+    }
+
+    public synchronized RoundTimings roundTimings() {
+        return roundTimings;
+    }
+
+    /** Every step's time added up; steps of one round run side by side, so it can pass the time waited. */
+    public synchronized long toolStepMsTotal() {
+        return toolStepMsTotal;
     }
 
     /** The tokens every model call of this answer took — what its turn row records. */

@@ -331,7 +331,7 @@ class AssistantEval extends FlowTestSupport {
             Client client = Client.builder()
                     .vertexAI(true)
                     .project(envOr("GOOGLE_CLOUD_PROJECT", "hak-talent-mapping"))
-                    .location(envOr("GOOGLE_CLOUD_LOCATION", "us-central1"))
+                    .location(envOr("GOOGLE_CLOUD_LOCATION", "global"))
                     .build();
             return GoogleGenAiChatModel.builder()
                     .genAiClient(client)

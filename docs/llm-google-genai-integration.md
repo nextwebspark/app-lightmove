@@ -94,13 +94,13 @@ spring:
     google:
       genai:
         project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}   # same GCP project as Cloud SQL
-        location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+        location: ${GOOGLE_CLOUD_LOCATION:global}
         chat:
-          model: gemini-2.5-flash
-          temperature: 0.8
+          model: ${LLM_CHAT_MODEL:gemini-3.5-flash}
+          temperature: 0.4
         embedding:
           project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
-          location: ${GOOGLE_CLOUD_LOCATION:us-central1}
+          location: ${GOOGLE_CLOUD_LOCATION:global}
           text:
             model: text-embedding-004
 ```
@@ -205,7 +205,7 @@ The review on PR #148 requested six changes, all applied:
 1. `cd apps/api && ./mvnw test` — full suite green (60 test classes, 0 failures) including the two
    new unit tests, with no GCP credentials needed.
 2. `gcloud auth application-default login`, and confirm `GOOGLE_CLOUD_PROJECT` has the Vertex AI
-   API enabled (defaults to `hak-talent-mapping` / `us-central1`).
+   API enabled (defaults to `hak-talent-mapping` / `global`).
 3. `npm run dev`, then exercise both endpoints (curl or the Postman collection above):
    - `POST /api/v1/llm/shortlist` — confirm a real Gemini response comes back and the
      `SimpleLoggerAdvisor` line appears in the API log.

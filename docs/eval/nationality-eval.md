@@ -85,3 +85,75 @@ Confusion (rows expected, columns predicted):
 | Other expat | · | · | · | · | · | 2 | · |
 | Unknown | · | · | · | · | · | · | 2 |
 
+## classifier — 2026-10-13
+
+Golden set: synthetic fixtures, gemini-2.5-flash, 12 rows labelled for nationality (label sources: known 12).
+
+| Metric | Value | Target |
+|---|---|---|
+| Accuracy | 100.0% | |
+| Precision at `high` | 100.0% (9 answers) | ≥ 95% |
+| GCC false positives | 0 of 11 (0.0%) | 0 |
+| Unknown rate | 16.7% | |
+| Coverage (high or medium) | 83.3% | |
+| Seniority exact | 91.7% (12 rows) | |
+| Seniority within one level | 100.0% | |
+
+| Category | Support | Predicted | Precision | Recall |
+|---|---|---|---|---|
+| Emirati | 1 | 1 | 100.0% | 100.0% |
+| Western expat | 3 | 3 | 100.0% | 100.0% |
+| South Asian | 1 | 1 | 100.0% | 100.0% |
+| Asian | 2 | 2 | 100.0% | 100.0% |
+| Arab expat, non-GCC | 1 | 1 | 100.0% | 100.0% |
+| Other expat | 2 | 2 | 100.0% | 100.0% |
+| Unknown | 2 | 2 | 100.0% | 100.0% |
+
+Confusion (rows expected, columns predicted):
+
+| | Emirati | Western expat | South Asian | Asian | Arab expat, non-GCC | Other expat | Unknown |
+|---|---|---|---|---|---|---|---|
+| Emirati | 1 | · | · | · | · | · | · |
+| Western expat | · | 3 | · | · | · | · | · |
+| South Asian | · | · | 1 | · | · | · | · |
+| Asian | · | · | · | 2 | · | · | · |
+| Arab expat, non-GCC | · | · | · | · | 1 | · | · |
+| Other expat | · | · | · | · | · | 2 | · |
+| Unknown | · | · | · | · | · | · | 2 |
+
+## classifier — 2026-10-13
+
+Golden set: synthetic fixtures, gemini-3.5-flash, 12 rows labelled for nationality (label sources: known 12).
+
+| Metric | Value | Target |
+|---|---|---|
+| Accuracy | 100.0% | |
+| Precision at `high` | 100.0% (9 answers) | ≥ 95% |
+| GCC false positives | 0 of 11 (0.0%) | 0 |
+| Unknown rate | 16.7% | |
+| Coverage (high or medium) | 83.3% | |
+| Seniority exact | 91.7% (12 rows) | |
+| Seniority within one level | 100.0% | |
+
+| Category | Support | Predicted | Precision | Recall |
+|---|---|---|---|---|
+| Emirati | 1 | 1 | 100.0% | 100.0% |
+| Western expat | 3 | 3 | 100.0% | 100.0% |
+| South Asian | 1 | 1 | 100.0% | 100.0% |
+| Asian | 2 | 2 | 100.0% | 100.0% |
+| Arab expat, non-GCC | 1 | 1 | 100.0% | 100.0% |
+| Other expat | 2 | 2 | 100.0% | 100.0% |
+| Unknown | 2 | 2 | 100.0% | 100.0% |
+
+Confusion (rows expected, columns predicted):
+
+| | Emirati | Western expat | South Asian | Asian | Arab expat, non-GCC | Other expat | Unknown |
+|---|---|---|---|---|---|---|---|
+| Emirati | 1 | · | · | · | · | · | · |
+| Western expat | · | 3 | · | · | · | · | · |
+| South Asian | · | · | 1 | · | · | · | · |
+| Asian | · | · | · | 2 | · | · | · |
+| Arab expat, non-GCC | · | · | · | · | 1 | · | · |
+| Other expat | · | · | · | · | · | 2 | · |
+| Unknown | · | · | · | · | · | · | 2 |
+
