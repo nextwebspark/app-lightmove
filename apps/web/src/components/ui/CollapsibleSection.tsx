@@ -1,15 +1,13 @@
 import type { ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
+import { FoldBody } from "./FoldBody";
 
 /**
  * A drawer section that folds. The heading keeps {@link DrawerSection}'s typography so a panel that
  * mixes the two still reads as one; what it adds is a chevron, a count, and a one-line summary that
  * stands in for the body while it is folded — so a closed section still answers the question a
  * reader would have opened it for.
- *
- * <p>The body stays mounted while folded, animated shut with the grid-rows technique so nothing is
- * measured, and made inert so a folded control is neither tabbed into nor read out.
  */
 export function CollapsibleSection({
   id,
@@ -68,17 +66,9 @@ export function CollapsibleSection({
         </button>
         {action && <div className="flex-none">{action}</div>}
       </div>
-      <div
-        id={bodyId}
-        aria-hidden={!open}
-        inert={!open}
-        className="grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
-        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
-      >
-        <div className="min-h-0 overflow-hidden">
-          <div className="pb-4">{children}</div>
-        </div>
-      </div>
+      <FoldBody id={bodyId} open={open}>
+        <div className="pb-4">{children}</div>
+      </FoldBody>
     </section>
   );
 }

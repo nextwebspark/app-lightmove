@@ -39,7 +39,8 @@ function renderPage() {
 }
 
 const card = (label: string) => screen.getByRole("region", { name: label });
-const toggle = (label: string) => within(card(label)).getByRole("button", { name: new RegExp(`^${label} stage, `) });
+const toggle = (label: string) =>
+  within(card(label)).getByRole("button", { name: new RegExp(`^${label} (Active|Closed) \\d+ status`) });
 const open = (label: string) => userEvent.click(toggle(label));
 
 function withStage(catalog: PipelineCatalog, label: string): PipelineCatalog {
@@ -126,7 +127,50 @@ describe("PipelineStagesPage", () => {
     await waitFor(() => expect(pipelineApi.createStage).toHaveBeenCalledWith("Assessed"));
     expect(await screen.findByRole("region", { name: "Assessed" })).toBeInTheDocument();
     expect(toggle("Assessed")).toHaveAttribute("aria-expanded", "true");
+    expect(toggle("Identified")).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("Stage added to every position")).toBeInTheDocument();
+  });
+
+  it("opens only the stage that was added when another appeared meanwhile", async () => {
+    const answered = withStage(aSeededCatalog(), "Assessed");
+    const elsewhere = { ...answered.stages[0], id: "stage-elsewhere", key: "elsewhere", label: "Added elsewhere" };
+    vi.mocked(pipelineApi.createStage).mockResolvedValue({ stages: [elsewhere, ...answered.stages] });
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    await userEvent.type(screen.getByLabelText("New stage"), "assessed");
+    await userEvent.click(screen.getByRole("button", { name: "Add stage" }));
+
+    await screen.findByRole("region", { name: "Assessed" });
+    expect(toggle("Assessed")).toHaveAttribute("aria-expanded", "true");
+    expect(toggle("Added elsewhere")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("names a stage's toggle by what it shows, and keeps it named while the stage is renamed", async () => {
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    expect(toggle("Contacted")).toHaveAccessibleName("Contacted Active 4 statuses Contacted, Follow-up sent, Engaged +1");
+    await open("Contacted");
+    expect(toggle("Contacted")).toHaveAccessibleName("Contacted Active 4 statuses");
+
+    await userEvent.click(within(card("Qualified")).getByRole("button", { name: "Rename" }));
+    expect(within(card("Qualified")).getByRole("button", { name: "Qualified stage" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("moves a row once for a held arrow key", async () => {
+    vi.mocked(pipelineApi.reorderStages).mockResolvedValue(aSeededCatalog());
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    const handle = screen.getByRole("button", { name: "Reorder Identified stage" });
+    fireEvent.keyDown(handle, { key: "ArrowDown", repeat: true });
+    expect(pipelineApi.reorderStages).not.toHaveBeenCalled();
+    fireEvent.keyDown(handle, { key: "ArrowDown" });
+    await waitFor(() => expect(pipelineApi.reorderStages).toHaveBeenCalledTimes(1));
   });
 
   it("adds a status to a stage, and renames, recolours, makes default and retires one", async () => {
@@ -151,7 +195,7 @@ describe("PipelineStagesPage", () => {
     );
     expect(await screen.findByText("Renamed on every position")).toBeInTheDocument();
 
-    await userEvent.click(within(considering).getByRole("button", { name: "Colour of Considering" }));
+    await userEvent.click(within(considering).getByRole("button", { name: "Colour of Considering: Green" }));
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-considering", { colour: "accent" }));
 
     await userEvent.click(within(considering).getByRole("button", { name: "Make default" }));
@@ -253,7 +297,39 @@ describe("PipelineStagesPage", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Identified stage" }), { key: "ArrowDown" });
 
     expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
-    expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Identified");
+    await waitFor(() => expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Identified"));
+    expect(pipelineApi.pipelineCatalog).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a second reorder when the first is refused, by reading the catalog again", async () => {
+    const catalog = aSeededCatalog();
+    const inOrder = (ids: string[]) => ({ stages: ids.map((id) => catalog.stages.find((stage) => stage.id === id)!) });
+    let refuseFirst: (error: unknown) => void = () => {};
+    vi.mocked(pipelineApi.reorderStages)
+      .mockImplementationOnce(() => new Promise((_, reject) => (refuseFirst = reject)))
+      .mockImplementationOnce(async (ids) => inOrder(ids));
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Identified stage" }), { key: "ArrowDown" });
+    await waitFor(() => expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Contacted"));
+    fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shortlisted stage" }), { key: "ArrowUp" });
+    await waitFor(() => expect(pipelineApi.reorderStages).toHaveBeenCalledTimes(2));
+    const second = vi.mocked(pipelineApi.reorderStages).mock.calls[1][0];
+    vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(inOrder(second));
+
+    refuseFirst(new ApiRequestError({ code: "PIPELINE_ORDER_INVALID", detail: "x", status: 409, correlationId: "c1" }));
+
+    expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
+    await waitFor(() => expect(pipelineApi.pipelineCatalog).toHaveBeenCalledTimes(2));
+    expect(screen.getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual([
+      "Contacted",
+      "Identified",
+      "Interested",
+      "Shortlisted",
+      "Qualified",
+      "Declined",
+    ]);
   });
 
   it("refuses to retire a stage that still has live statuses, and retires an empty one", async () => {
@@ -308,7 +384,7 @@ describe("PipelineStagesPage", () => {
     expect(screen.queryByRole("button", { name: "Add status" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("New stage")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Reorder / })).not.toBeInTheDocument();
-    expect(within(card("Identified")).getByRole("button", { name: "Colour of Identified stage" })).toBeDisabled();
+    expect(within(card("Identified")).getByRole("button", { name: /^Colour of Identified stage/ })).toBeDisabled();
     await open("Identified");
     expect(within(card("Identified")).getAllByRole("listitem").length).toBeGreaterThan(0);
   });
