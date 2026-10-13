@@ -389,17 +389,25 @@
               <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Stages are the columns of a position's pipeline; every status belongs to one stage. A candidate holds a status, and moves between stages by changing it. A retired status stays on the candidates who hold it but is never offered again.</div>
               <sc-if value="{{ psReadOnly }}"><div style="margin-top:10px;display:inline-flex;align-items:center;gap:7px;border-radius:6px;border:1px solid var(--line-soft);background:var(--panel2);padding:6px 10px;font:400 11.5px var(--mono);color:var(--text2)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg>Only workspace admins can change stages and statuses.</div></sc-if>
             </div>
-            <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px">
+              <span style="font:400 12px var(--mono);color:var(--text3)">Open a stage to see its statuses.</span>
+              <button onClick="{{ psToggleAll }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">{{ psAllLabel }}</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px">
               <sc-for list="{{ psStages }}" as="s" hint-placeholder-count="6">
-                <div draggable="{{ s.draggable }}" data-id="{{ s.id }}" onDragStart="{{ psStageDragStart }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStageDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ s.cardStyle }}">
-                  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line-soft)">
-                    <sc-if value="{{ s.handle }}"><span title="Drag to reorder" style="display:grid;place-items:center;width:14px;color:var(--text3);cursor:grab"><svg width="12" height="14" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
+                <div data-id="{{ s.id }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStageDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ s.cardStyle }}">
+                  <div style="{{ s.headStyle }}">
+                    <sc-if value="{{ s.handle }}"><span draggable="true" data-id="{{ s.id }}" onDragStart="{{ psStageDragStart }}" title="Drag to reorder" style="display:grid;place-items:center;width:14px;color:var(--text3);cursor:grab"><svg width="12" height="14" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
                     <sc-if value="{{ s.pinned }}"><span title="The closed stage stays last" style="display:grid;place-items:center;width:14px;color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ I.lock }}"></path></svg></span></sc-if>
                     <button onClick="{{ psRecolour }}" data-kind="stage" data-id="{{ s.id }}" disabled="{{ s.readOnly }}" title="{{ s.dotTitle }}" aria-label="Colour of {{ s.name }}" style="{{ s.dotStyle }}"></button>
+                    <button onClick="{{ psToggle }}" data-id="{{ s.id }}" aria-expanded="{{ s.expanded }}" title="{{ s.toggleTitle }}" style="{{ s.toggleStyle }}" style-hover="background:var(--panel)">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ s.chevStyle }}"><path d="M6 9l6 6 6-6"></path></svg>
+                      <sc-if value="{{ s.reading }}"><span style="flex:none;font:600 14px var(--sans);color:var(--text)">{{ s.name }}</span></sc-if>
+                      <sc-if value="{{ s.reading }}"><span style="{{ s.kindStyle }}">{{ s.kindLabel }}</span></sc-if>
+                      <sc-if value="{{ s.reading }}"><span style="flex:none;font:400 12px var(--mono);color:var(--text3)">{{ s.countLabel }}</span></sc-if>
+                      <sc-if value="{{ s.previewed }}"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12px var(--mono);color:var(--text3)">{{ s.preview }}</span></sc-if>
+                    </button>
                     <sc-if value="{{ s.editing }}"><input value="{{ psDraft }}" onChange="{{ onPsDraft }}" aria-label="Stage name" style="width:200px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:5px 9px;font:600 13.5px var(--sans);color:var(--text);outline:none"></sc-if>
-                    <sc-if value="{{ s.reading }}"><span style="font:600 14px var(--sans);color:var(--text)">{{ s.name }}</span></sc-if>
-                    <span style="{{ s.kindStyle }}">{{ s.kindLabel }}</span>
-                    <span style="font:400 12px var(--mono);color:var(--text3)">{{ s.countLabel }}</span>
                     <sc-if value="{{ s.canEdit }}">
                       <span style="margin-left:auto;display:flex;gap:4px">
                         <sc-if value="{{ s.editing }}"><button onClick="{{ psSave }}" data-kind="stage" data-id="{{ s.id }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">Save</button></sc-if>
@@ -408,11 +416,12 @@
                       </span>
                     </sc-if>
                   </div>
+                  <sc-if value="{{ s.open }}">
                   <div style="padding:2px 16px 2px 40px">
                     <sc-if value="{{ s.empty }}"><div style="padding:11px 0;font:400 12px var(--mono);color:var(--text3)">No statuses yet. The first one you add becomes the default.</div></sc-if>
                     <sc-for list="{{ s.statuses }}" as="x">
-                      <div draggable="{{ x.draggable }}" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" onDragStart="{{ psStatusDragStart }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStatusDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ x.rowStyle }}">
-                        <sc-if value="{{ x.handle }}"><span title="Drag to reorder" style="display:grid;place-items:center;width:12px;color:var(--text3);cursor:grab"><svg width="10" height="12" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
+                      <div data-id="{{ x.id }}" data-stage="{{ x.stageId }}" onDragOver="{{ psDragOver }}" onDrop="{{ psStatusDrop }}" onDragEnd="{{ psDragEnd }}" style="{{ x.rowStyle }}">
+                        <sc-if value="{{ x.handle }}"><span draggable="true" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" onDragStart="{{ psStatusDragStart }}" title="Drag to reorder" style="display:grid;place-items:center;width:12px;color:var(--text3);cursor:grab"><svg width="10" height="12" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span></sc-if>
                         <button onClick="{{ psRecolour }}" data-kind="status" data-id="{{ x.id }}" data-stage="{{ x.stageId }}" disabled="{{ x.readOnly }}" title="{{ x.dotTitle }}" aria-label="Colour of {{ x.label }}" style="{{ x.dotStyle }}"></button>
                         <sc-if value="{{ x.editing }}"><input value="{{ psDraft }}" onChange="{{ onPsDraft }}" aria-label="Status name" style="width:220px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:4px 9px;font:400 13px var(--sans);color:var(--text);outline:none"></sc-if>
                         <sc-if value="{{ x.reading }}"><span style="font:400 13px var(--sans);color:var(--text)">{{ x.label }}</span></sc-if>
@@ -435,6 +444,7 @@
                       <input value="{{ s.newStatus }}" data-id="{{ s.id }}" onChange="{{ onPsNewStatus }}" placeholder="{{ s.newPlaceholder }}" aria-label="New status in {{ s.name }}" style="width:240px;max-width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none">
                       <button onClick="{{ psAddStatus }}" data-id="{{ s.id }}" style="display:flex;align-items:center;gap:6px;border-radius:6px;padding:6px 11px;font:500 12.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer;opacity:{{ s.addOpacity }}" style-hover="color:var(--text);border-color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Add status</button>
                     </div>
+                  </sc-if>
                   </sc-if>
                 </div>
               </sc-for>
@@ -1687,7 +1697,7 @@ class Component extends DCLogic {
         ['declined', 'Declined', 'CLOSED', 'inferred', [['notInterested', 'Not interested', 'neutral', true], ['withdrew', 'Withdrew', 'neutral'], ['notAFit', 'Not a fit', 'neutral'], ['rejectedByClient', 'Rejected by client', 'inferred'], ['noResponse', 'No response', 'neutral'], ['offLimits', 'Off-limits', 'inferred', true], ['outOfScope', 'Out of scope', 'neutral', true]]],
       ].map(([id, name, kind, colour, statuses]) => ({ id, name, kind, colour, defaultId: statuses[0][0],
         statuses: statuses.map(([sid, label, scol, system]) => ({ id: sid, label, colour: scol, system: !!system, retired: false })) })),
-      psNewStage: '', psNewStatus: {}, psEditing: null, psDraft: '', psDrag: null, psBlockedId: null,
+      psNewStage: '', psNewStatus: {}, psEditing: null, psDraft: '', psDrag: null, psOpen: {}, psBlockedId: null,
       apiKeys: akEmpty ? [] : [
         { id: 'k1', name: 'Power BI dashboard', kind: 'PERSONAL', owner: 'yh', hint: 'uncava_pat_7Kq2…f9a1', scopes: ['projects:read', 'companies:read', 'candidates:read'], created: '2 Sep 2026', expires: '1 Dec 2026', expiresInDays: 57, lastUsed: '3 minutes ago from 20.46.12.7' },
         { id: 'k2', name: 'SuccessFactors sync', kind: 'SERVICE', owner: null, createdBy: 'yh', hint: 'uncava_svc_Hd81…02cc', scopes: ['projects:read', 'companies:read', 'candidates:read', 'candidates.contacts:read'], created: '30 Sep 2026', expires: '30 Sep 2027', expiresInDays: 360, lastUsed: '1 hour ago from 52.17.4.90' },
@@ -2167,6 +2177,7 @@ class Component extends DCLogic {
           swatches: Object.keys(COLOURS).map((key) => ({ key, on: t.colour === key, style: 'width:14px;height:14px;border-radius:50%;padding:0;cursor:pointer;background:' + COLOURS[key][0] + ';border:2px solid ' + (t.colour === key ? 'var(--text)' : 'transparent') })) };
       }),
       isPipelineStages: sec === 'pipeline-stages', psReadOnly: !isAdmin, psDraft: st.psDraft, psNewStage: st.psNewStage, psAddStageOpacity: st.psNewStage.trim() ? 1 : 0.5,
+      psAllLabel: st.pstages.length && st.pstages.every((s) => st.psOpen[s.id]) ? 'Collapse all' : 'Expand all',
       psBlockedOpen: !!st.psBlockedId, psBlockedName: (st.pstages.find((s) => s.id === st.psBlockedId) || {}).name || '',
       psStages: (() => {
         const COLOURS = { green: 'var(--u-direct)', accent: 'var(--u-accent)', neutral: 'var(--text2)', violet: 'var(--u-chart-5)', adjacent: 'var(--u-adjacent)', inferred: 'var(--u-inferred)' };
@@ -2176,12 +2187,18 @@ class Component extends DCLogic {
           const live = s.statuses.filter((x) => !x.retired);
           const closed = s.kind === 'CLOSED';
           const editing = st.psEditing === 'stage:' + s.id;
-          return { id: s.id, name: s.name, canEdit: isAdmin, readOnly: !isAdmin, editing, reading: !editing,
-            draggable: isAdmin && !closed ? 'true' : 'false', handle: isAdmin && !closed, pinned: isAdmin && closed, retirable: isAdmin && !closed,
+          const open = !!st.psOpen[s.id] && !(drag.kind === 'stage' && drag.id === s.id);
+          return { id: s.id, name: s.name, open, expanded: open ? 'true' : 'false', previewed: !open && !editing,
+            toggleTitle: open ? 'Hide statuses' : 'Show statuses',
+            preview: live.length ? live.slice(0, 3).map((x) => x.label).join(', ') + (live.length > 3 ? ' +' + (live.length - 3) : '') : 'No statuses yet',
+            headStyle: 'display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 16px' + (open ? ';border-bottom:1px solid var(--line-soft)' : ''),
+            toggleStyle: 'display:flex;align-items:center;gap:10px;min-width:0;' + (editing ? '' : 'flex:1;') + 'border-radius:6px;padding:6px;text-align:left;background:none;border:none;cursor:pointer',
+            chevStyle: 'flex:none;color:var(--text2);transition:transform .2s;transform:rotate(' + (open ? 0 : -90) + 'deg)', canEdit: isAdmin, readOnly: !isAdmin, editing, reading: !editing,
+            handle: isAdmin && !closed, pinned: isAdmin && closed, retirable: isAdmin && !closed,
             cardStyle: 'border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);overflow:hidden;opacity:' + (drag.kind === 'stage' && drag.id === s.id ? 0.45 : 1),
             dotStyle: dot(s.colour, 11, isAdmin), dotTitle: isAdmin ? 'Change colour' : '',
             kindLabel: closed ? 'Closed' : 'Active',
-            kindStyle: 'border-radius:999px;padding:2px 9px;font:500 11px var(--mono);' + (closed ? 'color:var(--text3);background:var(--panel)' : 'color:var(--u-accent);background:var(--u-accent-tint)'),
+            kindStyle: 'flex:none;border-radius:999px;padding:2px 9px;font:500 11px var(--mono);' + (closed ? 'color:var(--text3);background:var(--panel)' : 'color:var(--u-accent);background:var(--u-accent-tint)'),
             countLabel: live.length === 1 ? '1 status' : live.length + ' statuses',
             empty: !live.length, newStatus: st.psNewStatus[s.id] || '', addOpacity: (st.psNewStatus[s.id] || '').trim() ? 1 : 0.5,
             newPlaceholder: 'New status in ' + s.name,
@@ -2189,7 +2206,7 @@ class Component extends DCLogic {
               const xEditing = st.psEditing === 'status:' + x.id;
               const isDefault = s.defaultId === x.id;
               return { id: x.id, stageId: s.id, label: x.label, canEdit: isAdmin, readOnly: !isAdmin, editing: xEditing, reading: !xEditing,
-                draggable: isAdmin ? 'true' : 'false', handle: isAdmin, isDefault, makeDefault: isAdmin && !isDefault, system: x.system, retirable: isAdmin && !x.system,
+                handle: isAdmin, isDefault, makeDefault: isAdmin && !isDefault, system: x.system, retirable: isAdmin && !x.system,
                 dotStyle: dot(x.colour, 9, isAdmin), dotTitle: isAdmin ? 'Change colour' : '',
                 rowStyle: 'display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') + ';opacity:' + (drag.kind === 'status' && drag.id === x.id ? 0.45 : 1) };
             }) };
@@ -2438,7 +2455,7 @@ class Component extends DCLogic {
         const stage = { id: 's' + Date.now(), name, kind: 'ACTIVE', colour: 'neutral', defaultId: null, statuses: [] };
         const at = st.pstages.findIndex((s) => s.kind === 'CLOSED');
         const next = st.pstages.slice(); next.splice(at < 0 ? next.length : at, 0, stage);
-        this.setState({ pstages: next, psNewStage: '' });
+        this.setState({ pstages: next, psNewStage: '', psOpen: { ...st.psOpen, [stage.id]: true } });
         this.showToast('Stage added to every position');
       },
       psAddStatus: (e) => {
@@ -2512,8 +2529,16 @@ class Component extends DCLogic {
         this.showToast(stage.name + ' retired');
       },
       closePsBlocked: () => this.setState({ psBlockedId: null }),
+      psToggle: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState({ psOpen: { ...this.state.psOpen, [id]: !this.state.psOpen[id] } });
+      },
+      psToggleAll: () => {
+        const stages = this.state.pstages;
+        const allOpen = stages.length && stages.every((s) => this.state.psOpen[s.id]);
+        this.setState({ psOpen: allOpen ? {} : Object.fromEntries(stages.map((s) => [s.id, true])) });
+      },
       psStageDragStart: (e) => {
-        if (e.target !== e.currentTarget) return;
         const id = e.currentTarget.dataset.id;
         e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* noop */ }
         this.setState({ psDrag: { kind: 'stage', id } });
