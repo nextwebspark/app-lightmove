@@ -40,12 +40,11 @@ public record AssistantSettings(
         /** Billed Bright Data name searches one answer may make, whatever the model asks for. */
         @DefaultValue("15") int maxVendorSearchesPerAsk,
 
-        /**
-         * How long an ask's stream stays open before it reports the answer as still being written, and
-         * after which no further model round starts. Must stay under Cloud Run's request timeout
-         * ({@code --timeout} in {@code ops/gcp/deploy.sh}) with room for the round in flight.
-         */
-        @DefaultValue("150s") Duration answerDeadline
+        /** When an ask's stream reports the answer as still being written; no model round starts after it. */
+        @DefaultValue("150s") Duration answerDeadline,
+
+        /** Tools every ask of one instance runs at once, held under the deployed pool of five connections. */
+        @DefaultValue("4") int toolParallelism
 ) {
 
     public AssistantSettings {
@@ -69,7 +68,7 @@ public record AssistantSettings(
                     "lightmove.assistant.tool-row-limit must be at least 1, but was " + toolRowLimit);
         }
         if (maxConcurrentAsks < 1 || maxNamesPerLookup < 1 || nameLookupParallelism < 1
-                || maxVendorSearchesPerAsk < 0) {
+                || maxVendorSearchesPerAsk < 0 || toolParallelism < 1) {
             throw new IllegalArgumentException("lightmove.assistant's ask, name and search limits must be positive");
         }
         if (nameLookupDeadline == null || nameLookupDeadline.isNegative() || nameLookupDeadline.isZero()) {

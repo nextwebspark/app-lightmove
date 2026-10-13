@@ -51,7 +51,7 @@ class ParallelToolCallsTest {
         });
         AssistantMessage asked = asking("searchCompanyUniverse", "lookUpCompaniesByName");
 
-        ToolExecutionResult result = new ParallelToolCalls(tools, executor, READS)
+        ToolExecutionResult result = new ParallelToolCalls(tools, executor, READS, 4)
                 .executeToolCalls(prompt, new ChatResponse(List.of(new Generation(asked))));
 
         List<Message> history = result.conversationHistory();
@@ -70,7 +70,7 @@ class ParallelToolCallsTest {
         ChatResponse response = new ChatResponse(List.of(new Generation(
                 asking("searchCompanyUniverse", "proposeCompanies"))));
 
-        new ParallelToolCalls(tools, executor, READS).executeToolCalls(prompt, response);
+        new ParallelToolCalls(tools, executor, READS, 4).executeToolCalls(prompt, response);
 
         assertThat(tools.batches.get()).isEqualTo(1);
         assertThat(tools.lastBatchSize).isEqualTo(2);
@@ -90,10 +90,37 @@ class ParallelToolCallsTest {
         ChatResponse response = new ChatResponse(List.of(new Generation(
                 asking("searchCompanyUniverse", "lookUpCompaniesByName"))));
 
-        assertThatThrownBy(() -> new ParallelToolCalls(tools, executor, READS).executeToolCalls(prompt, response))
+        assertThatThrownBy(() -> new ParallelToolCalls(tools, executor, READS, 4).executeToolCalls(prompt, response))
                 .isInstanceOf(IllegalStateException.class).hasMessage("search failed");
 
         assertThat(finished.get()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("side-by-side tools never outnumber the permits every ask shares")
+    void holdsToolsToTheSharedPermits() {
+        AtomicInteger atOnce = new AtomicInteger();
+        AtomicInteger most = new AtomicInteger();
+        RecordingTools tools = new RecordingTools(name -> {
+            most.accumulateAndGet(atOnce.incrementAndGet(), Math::max);
+            pause();
+            atOnce.decrementAndGet();
+            return name + " result";
+        });
+        ChatResponse response = new ChatResponse(List.of(new Generation(asking(
+                "searchCompanyUniverse", "lookUpCompaniesByName", "searchCompanyUniverse", "lookUpCompaniesByName"))));
+
+        new ParallelToolCalls(tools, executor, READS, 2).executeToolCalls(prompt, response);
+
+        assertThat(most.get()).isLessThanOrEqualTo(2);
+    }
+
+    private static void pause() {
+        try {
+            Thread.sleep(50);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static AssistantMessage asking(String... toolNames) {

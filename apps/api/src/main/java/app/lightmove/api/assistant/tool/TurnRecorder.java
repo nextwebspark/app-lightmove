@@ -22,7 +22,8 @@ import lombok.extern.slf4j.Slf4j;
  * What the tools did during one ask: the steps they reported, the companies they found or researched
  * by name, and the card they proposed. Each step
  * change is passed on as it happens, so the panel can show it live; the whole record is saved with
- * the answer. Every method is synchronized: the tools of one model round run side by side.
+ * the answer. Every method is synchronized, since the tools of one model round run side by side; the
+ * panel is told outside the lock, so a slow reader never holds up another tool's step.
  */
 @Slf4j
 public class TurnRecorder {
@@ -52,18 +53,25 @@ public class TurnRecorder {
         this.onProposal = onProposal;
     }
 
-    public synchronized int startStep(String label) {
-        steps.add(new AssistantStep(label, null));
-        int index = steps.size() - 1;
-        openStepStartedAt.put(index, System.nanoTime());
+    public int startStep(String label) {
+        int index;
+        synchronized (this) {
+            steps.add(new AssistantStep(label, null));
+            index = steps.size() - 1;
+            openStepStartedAt.put(index, System.nanoTime());
+        }
         onStep.accept(new AssistantStepEvent(index, label, null, false));
         return index;
     }
 
-    public synchronized void finishStep(int index, String detail) {
-        String label = steps.get(index).label();
-        steps.set(index, new AssistantStep(label, detail));
-        Long startedAt = openStepStartedAt.remove(index);
+    public void finishStep(int index, String detail) {
+        String label;
+        Long startedAt;
+        synchronized (this) {
+            label = steps.get(index).label();
+            steps.set(index, new AssistantStep(label, detail));
+            startedAt = openStepStartedAt.remove(index);
+        }
         if (startedAt != null) {
             log.info("Assistant step '{}' took {}ms", label, (System.nanoTime() - startedAt) / 1_000_000);
         }
@@ -136,8 +144,10 @@ public class TurnRecorder {
         return Collections.unmodifiableMap(new LinkedHashMap<>(operatedBrands));
     }
 
-    public synchronized void propose(AssistantProposal proposal) {
-        this.proposal = proposal;
+    public void propose(AssistantProposal proposal) {
+        synchronized (this) {
+            this.proposal = proposal;
+        }
         onProposal.accept(proposal);
     }
 
@@ -154,12 +164,14 @@ public class TurnRecorder {
      * Keeps the questions for the card ({@link AssistantQuestions} has already held them to its limits). Only
      * the first set an answer asks is kept; an empty one leaves the answer to carry on without asking.
      */
-    public synchronized void ask(List<AssistantQuestion> asked) {
-        if (!questions.isEmpty() || asked.isEmpty()) {
-            return;
+    public void ask(List<AssistantQuestion> asked) {
+        synchronized (this) {
+            if (!questions.isEmpty() || asked.isEmpty()) {
+                return;
+            }
+            questions = List.copyOf(asked);
         }
-        questions = List.copyOf(asked);
-        int step = startStep(questions.size() == 1 ? "Asking you a question" : "Asking you some questions");
+        int step = startStep(asked.size() == 1 ? "Asking you a question" : "Asking you some questions");
         finishStep(step, null);
     }
 

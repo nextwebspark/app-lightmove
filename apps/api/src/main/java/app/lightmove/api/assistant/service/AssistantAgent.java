@@ -1,5 +1,6 @@
 package app.lightmove.api.assistant.service;
 
+import app.lightmove.api.assistant.model.AssistantRoundFailed;
 import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.assistant.tool.MandateTools;
@@ -15,7 +16,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Answers an ask in one model call over the core prompt, the playbooks and the assistant's tools. A call
- * that fails after its tools found companies still answers with them; one that found nothing saves nothing.
+ * whose round failed after its tools found companies still answers with them.
  */
 @Slf4j
 @Service
@@ -44,9 +45,12 @@ public class AssistantAgent {
         String answer;
         try {
             answer = model.ask(systemParams, toolset.forAsk(context.recorder()), history, question, context);
-        } catch (RuntimeException failed) {
+        } catch (AssistantRoundFailed failed) {
             log.warn("Assistant model call failed after {} tool steps", context.recorder().steps().size(), failed);
             return whatWasFoundBeforeItFailed(context);
+        } catch (RuntimeException failed) {
+            log.warn("Assistant model call failed", failed);
+            throw ApiException.of(ErrorCode.ASSISTANT_UNAVAILABLE);
         }
         if (context.recorder().askedQuestions()) {
             return ASKED_LEAD_IN;

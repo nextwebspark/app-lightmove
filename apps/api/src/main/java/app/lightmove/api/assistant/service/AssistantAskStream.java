@@ -25,7 +25,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Answers a question on a background thread while streaming {@code step}, {@code proposal}, then
- * {@code done} or {@code failed} events. A closed tab only stops the sending; the answer is still saved.
+ * {@code done} or {@code failed} events, after a {@code started} event naming the chat. A closed tab
+ * only stops the sending; the answer is still saved.
  *
  * <p>An answer outliving the stream is reported as still answering, never failed — asking again would
  * pay twice. The executor is unbounded virtual threads, so the slots are the only concurrency cap. The
@@ -35,7 +36,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Service
 public class AssistantAskStream {
 
-    private static final long CLOSES_AFTER_STILL_ANSWERING_MS = 10_000;
+    private static final long STREAM_GRACE_AFTER_DEADLINE_MS = 10_000;
 
     private final AssistantService assistant;
     private final AsyncTaskExecutor executor;
@@ -62,7 +63,7 @@ public class AssistantAskStream {
         if (!slots.tryAcquire()) {
             throw ApiException.of(ErrorCode.ASSISTANT_BUSY);
         }
-        SseEmitter emitter = new SseEmitter(stillAnsweringAfterMs + CLOSES_AFTER_STILL_ANSWERING_MS);
+        SseEmitter emitter = new SseEmitter(stillAnsweringAfterMs + STREAM_GRACE_AFTER_DEADLINE_MS);
         AtomicBoolean closed = new AtomicBoolean();
         CompletableFuture.delayedExecutor(stillAnsweringAfterMs, TimeUnit.MILLISECONDS).execute(() -> {
             if (closed.compareAndSet(false, true)) {
@@ -72,7 +73,10 @@ public class AssistantAskStream {
             }
         });
         try {
-            executor.execute(() -> answer(emitter, closed, userId, workspaceId, projectId, existing, question));
+            AssistantThread founded = existing != null ? null
+                    : assistant.foundThread(userId, workspaceId, projectId, question);
+            AssistantThread thread = existing != null ? existing : founded;
+            executor.execute(() -> answer(emitter, closed, userId, workspaceId, projectId, thread, founded, question));
         } catch (RuntimeException rejected) {
             slots.release();
             throw rejected;
@@ -80,20 +84,35 @@ public class AssistantAskStream {
         return emitter;
     }
 
+    /** {@code founded} is the chat this ask started, or null when it was asked in an existing one. */
     private void answer(SseEmitter emitter, AtomicBoolean closed, UUID userId, UUID workspaceId,
-                        UUID projectId, AssistantThread existing, String question) {
+                        UUID projectId, AssistantThread thread, AssistantThread founded, String question) {
+        send(emitter, "started", Map.of("threadId", thread.getId().toString()));
         try {
-            AssistantTurnResponse turn = assistant.ask(userId, workspaceId, projectId, existing, question,
+            AssistantTurnResponse turn = assistant.ask(userId, workspaceId, projectId, thread, question,
                     step -> send(emitter, "step", step),
                     proposal -> send(emitter, "proposal", proposal));
             finish(emitter, closed, "done", turn);
         } catch (ApiException failed) {
+            discard(founded);
             finish(emitter, closed, "failed", Map.of("code", failed.getCode().name()));
         } catch (RuntimeException failed) {
             log.warn("Assistant answer failed", failed);
+            discard(founded);
             finish(emitter, closed, "failed", Map.of("code", ErrorCode.INTERNAL_ERROR.name()));
         } finally {
             slots.release();
+        }
+    }
+
+    private void discard(AssistantThread founded) {
+        if (founded == null) {
+            return;
+        }
+        try {
+            assistant.discardIfUnanswered(founded);
+        } catch (RuntimeException failed) {
+            log.warn("An unanswered chat could not be removed", failed);
         }
     }
 

@@ -1,5 +1,6 @@
 package app.lightmove.api.assistant.service;
 
+import app.lightmove.api.assistant.model.AssistantRoundFailed;
 import app.lightmove.api.assistant.tool.TurnRecorder;
 import java.io.IOException;
 import java.time.Duration;
@@ -13,6 +14,7 @@ import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.google.genai.metadata.GoogleGenAiUsage;
 
 /**
  * Wraps each model round of one ask, inside the tool loop: times and logs it, counts its tokens, and
@@ -50,7 +52,7 @@ class AssistantRounds implements CallAdvisor {
     public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
         round++;
         if (outOfTime()) {
-            throw new IllegalStateException("The assistant's answer passed its deadline before round " + round);
+            throw new AssistantRoundFailed("The answer passed its deadline before round " + round, null);
         }
         for (int attempt = 1; ; attempt++) {
             long startedAt = System.nanoTime();
@@ -63,7 +65,7 @@ class AssistantRounds implements CallAdvisor {
                 log.warn("Assistant round {} failed after {}ms on attempt {}{}: {}", round, millisSince(startedAt),
                         attempt, again ? ", asking it again" : "", reasonOf(failed).toString());
                 if (!again) {
-                    throw failed;
+                    throw new AssistantRoundFailed("Round " + round + " failed", failed);
                 }
             }
         }
@@ -78,8 +80,13 @@ class AssistantRounds implements CallAdvisor {
         String model = response.getMetadata().getModel();
         recorder.spent(model == null || model.isBlank() ? configuredModel : model,
                 usage.getPromptTokens(), usage.getCompletionTokens());
-        log.info("Assistant round {} took {}ms, {} tokens in and {} out, {}", round, tookMs,
-                usage.getPromptTokens(), usage.getCompletionTokens(), askedFor(response));
+        log.info("Assistant round {} took {}ms, {} tokens in, {} out and {} thinking, {}", round, tookMs,
+                usage.getPromptTokens(), usage.getCompletionTokens(), thinkingTokensOf(usage), askedFor(response));
+    }
+
+    private static int thinkingTokensOf(Usage usage) {
+        Integer thinking = usage instanceof GoogleGenAiUsage gemini ? gemini.getThoughtsTokenCount() : null;
+        return thinking == null ? 0 : thinking;
     }
 
     private static String askedFor(ChatResponse response) {

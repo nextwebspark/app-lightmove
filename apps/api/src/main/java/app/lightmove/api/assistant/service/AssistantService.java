@@ -88,6 +88,23 @@ public class AssistantService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
+    /**
+     * The chat a first question starts, saved before it is answered so the stream can name it and the
+     * panel can look an answer that outlives its stream up by id.
+     */
+    public AssistantThread foundThread(UUID userId, UUID workspaceId, UUID projectId, String question) {
+        return threads.save(AssistantThread.of(workspaceId, userId, projectId, titleOf(question)));
+    }
+
+    /** Takes back a chat whose first question was never answered. */
+    public void discardIfUnanswered(AssistantThread founded) {
+        transactions.executeWithoutResult(status -> {
+            if (turns.findByThreadIdOrderByCreatedAtAsc(founded.getId()).isEmpty()) {
+                threads.deleteById(founded.getId());
+            }
+        });
+    }
+
     /** The project was authorised by the controller and {@code existing} by {@link #requireThread}. */
     public AssistantTurnResponse ask(UUID userId, UUID workspaceId, UUID projectId,
                                      AssistantThread existing, String question,

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.model.AssistantProposal;
+import app.lightmove.api.assistant.model.AssistantRoundFailed;
 import app.lightmove.api.assistant.model.HiringSide;
 import app.lightmove.api.assistant.model.ProposedCompany;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
@@ -101,6 +102,19 @@ class AssistantAgentTest {
                 "adjacentIndustries", "proposeCompanies",
                 "listMappedExecutives", "readExecutiveProfile", "companiesWithoutExecutives",
                 "readCompanyDetails", "listMandateCompanies");
+    }
+
+    @Test
+    @DisplayName("only tools the model is offered run side by side, and never the playbook, a question or the card")
+    void runsOnlyReadsSideBySide() {
+        List<String> offered = toolset.forAsk(recorder).stream()
+                .map(tool -> tool.getToolDefinition().name())
+                .toList();
+
+        assertThat(offered).containsAll(AssistantToolset.READS_SAFE_SIDE_BY_SIDE);
+        assertThat(AssistantToolset.READS_SAFE_SIDE_BY_SIDE)
+                .doesNotContain(AssistantSkills.TOOL_NAME, "AskUserQuestionTool", "proposeCompanies");
+        assertThat(offered).hasSize(AssistantToolset.READS_SAFE_SIDE_BY_SIDE.size() + 3);
     }
 
     @Test
@@ -217,10 +231,9 @@ class AssistantAgentTest {
     }
 
     @Test
-    @DisplayName("a model call that fails after its tools found companies still answers with them")
+    @DisplayName("a round that failed after the tools found companies still answers with them")
     void answersWithWhatWasFoundBeforeTheFailure() {
-        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any()))
-                .thenThrow(new IllegalStateException("down"));
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any())).thenThrow(roundFailed());
         doAnswer(call -> {
             recorder.propose(new AssistantProposal("Companies found", List.of(utility()), Map.of()));
             return null;
@@ -228,6 +241,46 @@ class AssistantAgentTest {
 
         assertThat(agent.answer("Find utilities", List.of(), context))
                 .isEqualTo(AssistantAgent.STOPPED_EARLY_LEAD_IN);
+    }
+
+    @Test
+    @DisplayName("a round that failed before anything was found is the assistant being unavailable")
+    void reportsARoundThatFoundNothingAsUnavailable() {
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any())).thenThrow(roundFailed());
+
+        assertThatThrownBy(() -> agent.answer("Find utilities", List.of(), context))
+                .isInstanceOfSatisfying(ApiException.class,
+                        refused -> assertThat(refused.getCode()).isEqualTo(ErrorCode.ASSISTANT_UNAVAILABLE));
+    }
+
+    @Test
+    @DisplayName("a round that failed after questions were asked still shows the questions")
+    void keepsTheQuestionsAskedBeforeTheFailure() {
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any())).thenAnswer(call -> {
+            recorder.usedSkill("find-companies");
+            questionTool().call(TWO_QUESTIONS);
+            throw roundFailed();
+        });
+
+        assertThat(agent.answer("Find me companies", List.of(), context)).isEqualTo(AssistantAgent.ASKED_LEAD_IN);
+
+        verify(proposalTools, never()).proposeWhatWasFound(any());
+    }
+
+    @Test
+    @DisplayName("a failure that is not a model round's is never answered with a partial card")
+    void doesNotAnswerThroughAnUnexpectedFailure() {
+        when(model.ask(anyMap(), anyList(), anyList(), anyString(), any()))
+                .thenThrow(new IllegalStateException("a bug"));
+
+        assertThatThrownBy(() -> agent.answer("Find utilities", List.of(), context))
+                .isInstanceOf(ApiException.class);
+
+        verify(proposalTools, never()).proposeWhatWasFound(any());
+    }
+
+    private static AssistantRoundFailed roundFailed() {
+        return new AssistantRoundFailed("Round 3 failed", new IllegalStateException("down"));
     }
 
     private static ProposedCompany utility() {

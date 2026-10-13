@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import app.lightmove.api.assistant.model.AssistantRoundFailed;
 import app.lightmove.api.assistant.tool.TurnRecorder;
 import java.io.InterruptedIOException;
 import java.time.Duration;
@@ -51,19 +52,20 @@ class AssistantRoundsTest {
         when(chain.copy(rounds)).thenReturn(rest);
         when(rest.nextCall(request)).thenThrow(timedOut());
 
-        assertThatThrownBy(() -> rounds.adviseCall(request, chain)).hasMessage("Failed to generate content");
+        assertThatThrownBy(() -> rounds.adviseCall(request, chain)).isInstanceOf(AssistantRoundFailed.class);
 
         verify(rest, times(2)).nextCall(request);
     }
 
     @Test
-    @DisplayName("a round the model refused is not asked again")
+    @DisplayName("a round the model refused fails without being asked again")
     void doesNotRepeatARefusal() {
         AssistantRounds rounds = roundsWith(Duration.ofMinutes(2));
         when(chain.copy(rounds)).thenReturn(rest);
         when(rest.nextCall(request)).thenThrow(new IllegalArgumentException("bad request"));
 
-        assertThatThrownBy(() -> rounds.adviseCall(request, chain)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> rounds.adviseCall(request, chain)).isInstanceOf(AssistantRoundFailed.class)
+                .hasCauseInstanceOf(IllegalArgumentException.class);
 
         verify(rest, times(1)).nextCall(request);
     }
@@ -73,7 +75,7 @@ class AssistantRoundsTest {
     void startsNoRoundPastTheDeadline() {
         AssistantRounds rounds = roundsWith(Duration.ZERO);
 
-        assertThatThrownBy(() -> rounds.adviseCall(request, chain)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> rounds.adviseCall(request, chain)).isInstanceOf(AssistantRoundFailed.class);
 
         verify(chain, never()).copy(any());
     }

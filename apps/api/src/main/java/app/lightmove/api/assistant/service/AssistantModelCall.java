@@ -5,7 +5,6 @@ import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.llm.service.ChatCallLog;
-import io.micrometer.observation.ObservationRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,16 +44,14 @@ public class AssistantModelCall {
     public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
                               @Value("classpath:prompts/assistant-core.st") Resource corePrompt,
                               @Qualifier("applicationTaskExecutor") Executor executor,
-                              ObjectProvider<ObservationRegistry> observations) {
+                              ObjectProvider<ToolCallingManager> toolCalling) {
         this.chatClient = chatClient;
         this.settings = properties.assistant();
         this.corePrompt = corePrompt;
-        ToolCallingManager oneAtATime = ToolCallingManager.builder()
-                .observationRegistry(observations.getIfAvailable(() -> ObservationRegistry.NOOP))
-                .build();
+        ToolCallingManager oneAtATime = toolCalling.getIfAvailable(() -> ToolCallingManager.builder().build());
         this.toolLoop = ToolCallingAdvisor.builder()
                 .toolCallingManager(new ParallelToolCalls(oneAtATime, executor,
-                        AssistantToolset.READS_SAFE_SIDE_BY_SIDE))
+                        AssistantToolset.READS_SAFE_SIDE_BY_SIDE, settings.toolParallelism()))
                 .build();
     }
 
