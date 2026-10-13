@@ -131,18 +131,24 @@ describe("PipelineStagesPage", () => {
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-considering", { retired: true }));
   });
 
-  it("leaves a name open for typing after Rename, saving nothing until asked", async () => {
+  it("opens a name for typing on Rename without turning the pressed button into Save", async () => {
     vi.mocked(pipelineApi.updateStatus).mockResolvedValue(aSeededCatalog());
     vi.mocked(pipelineApi.updateStage).mockResolvedValue(aSeededCatalog());
     renderPage();
     await screen.findByRole("region", { name: "Interested" });
 
     const considering = within(card("Interested")).getByRole("listitem", { name: "Considering" });
-    await userEvent.click(within(considering).getByRole("button", { name: "Rename" }));
+    const statusRename = within(considering).getByRole("button", { name: "Rename" });
+    await userEvent.click(statusRename);
+    expect(statusRename).not.toBeInTheDocument();
     expect(within(considering).getByLabelText("Status name")).toHaveValue("Considering");
     expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
 
-    await userEvent.click(within(card("Interested")).getAllByRole("button", { name: "Rename" })[0]);
+    const stageRename = within(card("Interested"))
+      .getAllByRole("button", { name: "Rename" })
+      .find((button) => !button.closest("li"))!;
+    await userEvent.click(stageRename);
+    expect(stageRename).not.toBeInTheDocument();
     expect(within(card("Interested")).getByLabelText("Stage name")).toHaveValue("Interested");
     expect(pipelineApi.updateStage).not.toHaveBeenCalled();
     expect(screen.queryByText("Renamed on every position")).not.toBeInTheDocument();
