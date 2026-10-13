@@ -8,12 +8,11 @@ import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as assistantApi from "../api/assistantApi";
 import { useAssistant } from "../AssistantProvider";
 import type { AssistantProposal, AssistantThread, LiveStep } from "../api/types";
+import { type AwaitedAnswer, findLateAnswer, LATE_ANSWER_GIVE_UP_MS, LATE_ANSWER_POLL_MS } from "../lib/lateAnswer";
 import { AssistantStarters } from "./AssistantStarters";
 import { AssistantSteps } from "./AssistantSteps";
 import { AssistantTurnView, QuestionBubble } from "./AssistantTurnView";
 import { LinesSkeleton } from "../../../components/ui";
-
-const STILL_ANSWERING_RECHECK_MS = 20_000;
 
 const READING_STEP: LiveStep = { index: 0, label: "Reading your question", detail: null, done: false };
 
@@ -76,6 +75,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
   const [liveProposal, setLiveProposal] = useState<AssistantProposal | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const [awaited, setAwaited] = useState<AwaitedAnswer | null>(null);
+  const askedAt = useRef(0);
   const scroller = useRef<HTMLDivElement>(null);
   // Set when the person opens another chat mid-answer: the answer still lands in its own chat, but
   // must not pull them back to it.
@@ -84,6 +85,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   const asking = useMutation({
     mutationFn: (question: string) => {
       movedOn.current = false;
+      askedAt.current = Date.now();
       setLiveSteps([]);
       setLiveProposal(null);
       setPendingQuestion(question);
@@ -116,9 +118,9 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       queryClient.setQueryData(key, fresh);
       showThread(projectId, turn.threadId);
     },
-    // A slow answer is still saved, so it is looked for again rather than asked for again. Any other
-    // failure saved nothing, so the question goes back in the composer — the one way to resend it,
-    // editable first — unless the person has already started typing something else.
+    // A slow answer is still saved, so it is looked for until it lands rather than asked for again. Any
+    // other failure saved nothing, so the question goes back in the composer — the one way to resend
+    // it, editable first — unless the person has already started typing something else.
     onError: (error, question) => {
       setPendingQuestion(null);
       setLiveProposal(null);
@@ -126,13 +128,38 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
         setDraft((current) => current || question);
         return;
       }
-      void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
-      if (threadId) {
-        const key = assistantApi.ASSISTANT_THREAD_KEY(threadId);
-        window.setTimeout(() => void queryClient.invalidateQueries({ queryKey: key }), STILL_ANSWERING_RECHECK_MS);
-      }
+      setAwaited({ question, threadId, turnsBefore: turns.length, askedAt: askedAt.current });
     },
   });
+  const resetAsking = asking.reset;
+  // What the person is looking at when a late answer lands: it is shown only if they are still waiting
+  // on the chat it belongs to, and never over a newer question.
+  const viewing = useRef({ threadId, asking: false });
+  useEffect(() => {
+    viewing.current = { threadId, asking: asking.isPending };
+  }, [threadId, asking.isPending]);
+
+  useEffect(() => {
+    if (!awaited) return;
+    let stopped = false;
+    const look = async () => {
+      const landed = await findLateAnswer(awaited, projectId).catch(() => null);
+      if (stopped || !landed) return;
+      setAwaited(null);
+      queryClient.setQueryData(assistantApi.ASSISTANT_THREAD_KEY(landed.id), landed);
+      void queryClient.invalidateQueries({ queryKey: assistantApi.ASSISTANT_THREADS_KEY(projectId) });
+      if (viewing.current.asking || viewing.current.threadId !== awaited.threadId) return;
+      resetAsking();
+      showThread(projectId, landed.id);
+    };
+    const polling = window.setInterval(() => void look(), LATE_ANSWER_POLL_MS);
+    const givingUp = window.setTimeout(() => setAwaited(null), LATE_ANSWER_GIVE_UP_MS);
+    return () => {
+      stopped = true;
+      window.clearInterval(polling);
+      window.clearTimeout(givingUp);
+    };
+  }, [awaited, projectId, queryClient, resetAsking, showThread]);
 
   const handleSend = () => {
     const question = draft.trim();
@@ -156,14 +183,15 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
   useEffect(() => {
     const list = scroller.current;
     list?.scrollTo?.({ top: list.scrollHeight, behavior: "smooth" });
-  }, [pendingQuestion, liveSteps.length, liveProposal, lastTurnId, thread.data]);
+  }, [pendingQuestion, awaited, liveSteps.length, liveProposal, lastTurnId, thread.data]);
 
   // Guarded on the toggle so restoring a remembered open panel never steals the caret.
   useEffect(() => {
     if (open && toggledByUser) composer.current?.focus();
   }, [open, toggledByUser]);
 
-  const empty = turns.length === 0 && !pendingQuestion;
+  const awaitedHere = awaited && awaited.threadId === threadId && !pendingQuestion ? awaited : null;
+  const empty = turns.length === 0 && !pendingQuestion && !awaitedHere;
 
   return (
     <aside
@@ -275,6 +303,8 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
             )}
           </div>
         )}
+
+        {awaitedHere && <QuestionBubble question={awaitedHere.question} />}
 
         {asking.isError && (
           <p role="alert" className="font-sans text-[11.5px] text-u-offlimits">

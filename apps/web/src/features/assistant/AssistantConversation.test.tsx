@@ -255,6 +255,32 @@ describe("a chat with the assistant", () => {
     expect(screen.getByRole("textbox", { name: "Ask the assistant" })).toHaveValue("");
   });
 
+  it("shows a slow answer in the chat once it lands, without being asked again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { ApiRequestError } = await import("../../lib/apiClient");
+      ask.mockRejectedValue(new ApiRequestError({
+        code: "ASSISTANT_STILL_ANSWERING", detail: "", status: 202, correlationId: "none",
+      }));
+      listThreads.mockResolvedValue([
+        { id: "th1", title: "Top retailers in UAE", updatedAt: new Date(Date.now() + 1_000).toISOString() },
+      ]);
+      getThread.mockResolvedValue(thread("th1", [turn("t1", "th1", { question: "Top retailers in UAE" })]));
+
+      mount();
+      await send("Top retailers in UAE");
+      expect(await screen.findByText(/no need to ask again/)).toBeInTheDocument();
+
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(await screen.findByText("Answer t1")).toBeInTheDocument();
+      expect(screen.queryByText(/no need to ask again/)).not.toBeInTheDocument();
+      expect(ask).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("puts a question the assistant could not answer back in the composer, ready to send again", async () => {
     const { ApiRequestError } = await import("../../lib/apiClient");
     ask.mockRejectedValueOnce(new ApiRequestError({

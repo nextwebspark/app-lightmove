@@ -139,7 +139,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   ASSISTANT_UNAVAILABLE: "The assistant could not answer just now. Try again in a moment.",
   ASSISTANT_BUSY: "The assistant is busy answering other questions. Try again in a moment.",
   ASSISTANT_STILL_ANSWERING:
-    "This is taking longer than usual. The answer will appear in this chat's history when it is ready — no need to ask again.",
+    "This is taking longer than usual. The answer will appear here when it is ready — no need to ask again.",
   ASSISTANT_PROPOSAL_ALREADY_ACCEPTED: "These companies have already been filed.",
   TEMPLATE_STALE: "Someone saved this template after you opened it. Reload to see their version.",
   TEMPLATE_FALLBACK_REQUIRED:
