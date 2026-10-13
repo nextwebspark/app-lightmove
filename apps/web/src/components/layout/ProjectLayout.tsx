@@ -41,8 +41,8 @@ const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports", "/pipeline"];
 
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
- * and Strategy under "Mandate", the three triage stages under "Companies", the people tabs — and the
- * routed page.
+ * and Strategy under "Position", the three triage stages under "Market mapping", Pipeline and Outreach
+ * under "CRM" — and the routed page.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
  * shows the not-found screen once the id is confirmed unreadable.
  */
@@ -111,7 +111,7 @@ export function ProjectLayout() {
       ],
     },
     {
-      label: "Companies",
+      label: "Market mapping",
       // The three triage stages, each its own page: a consultant works one at a time and sends a
       // colleague the shortlist, not "the Companies screen, then the second tab".
       items: TRIAGE_STAGES.map((stage) => ({
@@ -122,7 +122,7 @@ export function ProjectLayout() {
       })),
     },
     {
-      label: "People",
+      label: "CRM",
       items: [
         ...(isStaff
           ? [{ to: `${base}/pipeline`, label: "Pipeline", icon: ICONS.pipeline, count: activeInPipeline }]

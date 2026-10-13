@@ -292,6 +292,22 @@ describe("PipelinePage", () => {
     expect(await screen.findByText("Amal Haddad moved to Qualified · Screened")).toBeInTheDocument();
   });
 
+  it("ticks a card on the board and keeps the tick on the list", async () => {
+    renderPage("");
+    const card = await screen.findByRole("article", { name: "Amal Haddad" });
+
+    await userEvent.click(within(card).getByRole("checkbox", { name: "Select Amal Haddad" }));
+
+    expect(within(card).getByRole("checkbox", { name: "Select Amal Haddad" })).toBeChecked();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("radio", { name: "List" }));
+
+    const listed = await screen.findByRole("row", { name: "Amal Haddad" });
+    expect(within(listed).getByRole("checkbox", { name: "Select Amal Haddad" })).toBeChecked();
+    expect(within(row("Bilal Saeed")).getByRole("checkbox", { name: "Select Bilal Saeed" })).not.toBeChecked();
+  });
+
   it("groups the Inactive panel by status, only the statuses someone holds", async () => {
     renderPage();
     await screen.findByRole("row", { name: "Amal Haddad" });

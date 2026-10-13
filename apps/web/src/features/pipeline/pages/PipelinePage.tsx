@@ -185,6 +185,8 @@ function StaffPipeline() {
           rows={rows}
           stageCounts={stageCounts}
           catalog={catalog}
+          selectedIds={selectedIds}
+          onToggleSelected={toggleSelected}
           onOpen={setOpenCandidateId}
           onDrop={(drop) => stageDrop.mutate(drop)}
           onToggleVisible={toggleVisible}

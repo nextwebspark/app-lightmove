@@ -1,5 +1,6 @@
 import { useState, type DragEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { defaultStatusOf, findStatus, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
@@ -25,6 +26,8 @@ export function PipelineBoard({
   rows,
   stageCounts,
   catalog,
+  selectedIds,
+  onToggleSelected,
   onOpen,
   onDrop,
   onToggleVisible,
@@ -33,6 +36,8 @@ export function PipelineBoard({
   rows: readonly PipelineRow[];
   stageCounts: readonly PipelineStageCount[];
   catalog: PipelineCatalog;
+  selectedIds: ReadonlySet<string>;
+  onToggleSelected: (candidateId: string) => void;
   onOpen: (candidateId: string) => void;
   onDrop: (drop: BoardDrop) => void;
   onToggleVisible: (row: PipelineRow) => void;
@@ -127,10 +132,20 @@ export function PipelineBoard({
                     {...cardDrag(row)}
                     onClick={() => onOpen(row.candidateId)}
                     className={cn(
-                      "flex flex-none cursor-pointer flex-col gap-2.5 rounded-u-chip border border-u-border bg-u-surface p-3 transition hover:border-u-text3",
+                      "flex flex-none cursor-pointer flex-col gap-2.5 rounded-u-chip border bg-u-sunken p-3 transition",
+                      selectedIds.has(row.candidateId)
+                        ? "border-u-accent"
+                        : "border-u-border-strong hover:border-u-text3",
                       dragging?.candidateId === row.candidateId && "opacity-40",
                     )}
                   >
+                    <span className="flex self-start" onClick={(event) => event.stopPropagation()}>
+                      <SelectionCheckbox
+                        checked={selectedIds.has(row.candidateId)}
+                        label={`Select ${row.fullName}`}
+                        onChange={() => onToggleSelected(row.candidateId)}
+                      />
+                    </span>
                     <span className="flex min-w-0 items-center gap-2">
                       <CandidateAvatar
                         projectId={projectId}
