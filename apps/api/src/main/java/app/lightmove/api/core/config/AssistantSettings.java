@@ -6,10 +6,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /** Tunables for the Uncava Assistant — {@code lightmove.assistant.*}. */
 public record AssistantSettings(
 
-        /**
-         * Flash rather than Pro: an ask is one request held open while the model searches and
-         * proposes, and it has to finish inside Cloud Run's 60s request timeout.
-         */
+        /** Flash rather than Pro: an ask is one request held open while the model searches and proposes. */
         @DefaultValue("gemini-2.5-flash") String model,
 
         @DefaultValue("0.2") double temperature,
@@ -26,7 +23,7 @@ public record AssistantSettings(
         @DefaultValue("250") int vocabularyLimit,
 
         /** Answers one instance works on at once; the next ask is refused rather than queued. */
-        @DefaultValue("4") int maxConcurrentAsks,
+        @DefaultValue("8") int maxConcurrentAsks,
 
         /** Names one lookup checks. */
         @DefaultValue("10") int maxNamesPerLookup,
@@ -41,7 +38,13 @@ public record AssistantSettings(
         @DefaultValue("25s") Duration nameLookupDeadline,
 
         /** Billed Bright Data name searches one answer may make, whatever the model asks for. */
-        @DefaultValue("15") int maxVendorSearchesPerAsk
+        @DefaultValue("15") int maxVendorSearchesPerAsk,
+
+        /** When an ask's stream reports the answer as still being written; no model round starts after it. */
+        @DefaultValue("150s") Duration answerDeadline,
+
+        /** Tools every ask of one instance runs at once, held under the deployed pool of five connections. */
+        @DefaultValue("4") int toolParallelism
 ) {
 
     public AssistantSettings {
@@ -65,11 +68,14 @@ public record AssistantSettings(
                     "lightmove.assistant.tool-row-limit must be at least 1, but was " + toolRowLimit);
         }
         if (maxConcurrentAsks < 1 || maxNamesPerLookup < 1 || nameLookupParallelism < 1
-                || maxVendorSearchesPerAsk < 0) {
+                || maxVendorSearchesPerAsk < 0 || toolParallelism < 1) {
             throw new IllegalArgumentException("lightmove.assistant's ask, name and search limits must be positive");
         }
         if (nameLookupDeadline == null || nameLookupDeadline.isNegative() || nameLookupDeadline.isZero()) {
             throw new IllegalArgumentException("lightmove.assistant.name-lookup-deadline must be positive");
+        }
+        if (answerDeadline == null || answerDeadline.isNegative() || answerDeadline.isZero()) {
+            throw new IllegalArgumentException("lightmove.assistant.answer-deadline must be positive");
         }
         if (vocabularyLimit < 1) {
             throw new IllegalArgumentException(

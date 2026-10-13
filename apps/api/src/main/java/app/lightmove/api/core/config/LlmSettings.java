@@ -14,7 +14,7 @@ public record LlmSettings(
          * of the call rather than around the clock — so without this a hung Vertex holds a request
          * thread, and the user's browser, for as long as it likes.
          */
-        @DefaultValue("20000") int requestTimeoutMs,
+        @DefaultValue("40000") int requestTimeoutMs,
 
         /**
          * How many times an answer that does not fit its schema is put back to the model before the

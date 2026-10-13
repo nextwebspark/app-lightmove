@@ -34,8 +34,8 @@ a playbook only when its question needs it.
 - **Asking instead of guessing** (`AskUserQuestionCallback`): the library's `AskUserQuestionTool` lets the
   model put one to four multiple-choice questions (a 12-character header, two to four options with a
   description, single or multi select, and an "Other" box the panel always adds). The library's handler is
-  synchronous — it waits for the answers — and an ask cannot: it is one request closed at 50 seconds, holding
-  one of four slots, whose answer may reach another instance. So the handler records the questions on the
+  synchronous — it waits for the answers — and an ask cannot: it is one request closed at its answer deadline (150s), holding
+  one of eight slots, whose answer may reach another instance. So the handler records the questions on the
   `TurnRecorder` and the tool tells the model to stop with one short line; the turn is saved with its
   `questions` and a fixed lead-in as its answer, and no companies are suggested. The tool is deliberately not
   `returnDirect`: Spring AI reads that before the call, so a question the tool turns away would have become the
@@ -67,8 +67,8 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
    @PreAuthorize projectAuthorizer WORK_EXECUTE; a chat that is not yours → 404 (plain HTTP, before streaming)
    └─ AssistantAskStream: LlmBudget.ASSISTANT per user, then one of max-concurrent-asks slots
       (ASSISTANT_BUSY when none), returns an SseEmitter, runs AssistantService.ask on a background
-      thread; at 50s an unfinished answer closes the stream as ASSISTANT_STILL_ANSWERING and is
-      still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
+      thread; at answer-deadline (150s) an unfinished answer closes the stream as
+      ASSISTANT_STILL_ANSWERING and is still saved; every answered ask records ASSISTANT_ASKED with its Bright Data searches
         ├─ find my chat in this project (or start one titled from the question)
         ├─ last N question/answer pairs → history; each answer carries its list as a
         │  <suggested_companies> block
@@ -126,10 +126,19 @@ Card button ──POST /api/v1/assistant/turns/{turnId}/accept {companyIds, stat
 ```
 
 The request itself streams its progress: no queue, no event table, no reconnect. It waits for
-Gemini (Flash, usually 5–15s) and the stream closes at 55s, inside Cloud Run's 60s request timeout.
-If the model call fails, nothing is saved, the panel shows `ASSISTANT_UNAVAILABLE` and puts the
-question back in the composer to send again. `ASSISTANT_STILL_ANSWERING` does not — that answer is
-still being saved, and asking again would pay twice. If the tab closes mid-answer, the answer is
+Gemini (Flash, usually 5–15s a round, 40s at most) and the stream closes at
+`lightmove.assistant.answer-deadline` (150s), inside Cloud Run's 300s request timeout. Each model round
+runs behind `AssistantRounds`: timed and logged at INFO, asked once more when its connection timed out
+or dropped, and not started at all past the deadline. The reads one round asks for run side by side
+(`ParallelToolCalls`), every ask of an instance sharing `tool-parallelism` (4) permits; a round with
+the playbook, a question or the card runs in order.
+If the model call fails after its tools found companies, the turn is saved with those companies and a
+line saying the answer stopped early. If it found nothing, nothing is saved, the panel shows
+`ASSISTANT_UNAVAILABLE` and puts the question back in the composer to send again.
+`ASSISTANT_STILL_ANSWERING` does not — that answer is still being saved, asking again would pay
+twice. A first question's chat is saved before it is answered and named by the stream's `started`
+event, so the panel reads that chat by id every five seconds until the answer lands; a chat whose first
+question was never answered is removed, which the panel reads as the answer not coming. If the tab closes mid-answer, the answer is
 still saved and shows up in History.
 
 A card's stage is the one the mandate held when the card was made (`TriageCompanyReadService.stagesOf`:

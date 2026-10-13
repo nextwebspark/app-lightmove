@@ -31,7 +31,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Answers a question in one request through {@link AssistantAgent}, and saves the answer as a turn of
- * the chat. Nothing is written when the model call fails.
+ * the chat. Nothing is written when the model call fails before finding anything.
  */
 @Slf4j
 @Service
@@ -86,6 +86,23 @@ public class AssistantService {
         return threads.findByIdAndWorkspaceIdAndUserId(threadId, workspaceId, userId)
                 .filter(thread -> projectId.equals(thread.getProjectId()))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    /**
+     * The chat a first question starts, saved before it is answered so the stream can name it and the
+     * panel can look an answer that outlives its stream up by id.
+     */
+    public AssistantThread foundThread(UUID userId, UUID workspaceId, UUID projectId, String question) {
+        return threads.save(AssistantThread.of(workspaceId, userId, projectId, titleOf(question)));
+    }
+
+    /** Takes back a chat whose first question was never answered. */
+    public void discardIfUnanswered(AssistantThread founded) {
+        transactions.executeWithoutResult(status -> {
+            if (turns.findByThreadIdOrderByCreatedAtAsc(founded.getId()).isEmpty()) {
+                threads.deleteById(founded.getId());
+            }
+        });
     }
 
     /** The project was authorised by the controller and {@code existing} by {@link #requireThread}. */

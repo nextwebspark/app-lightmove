@@ -287,9 +287,10 @@ listener, emitter registry and controller are one mechanism and meaningless apar
 invariants are easy to break from outside: a change is announced by `ProjectStreamPublisher.publish`
 **inside the writing transaction** (`MANDATORY` propagation — Postgres delivers the `NOTIFY` at
 commit, so the event can never beat the data, and a rollback swallows it; never "fix" this by
-publishing after commit), and the emitter timeout stays **just under Cloud Run's 60s request
-timeout** (55s — the server closes cleanly and the SPA reconnects; raising one without the other
-turns every cycle into a network error). This applies only to those four. Role enums live in `core/security/rbac`, not in
+publishing after commit), and the emitter timeout stays **under Cloud Run's request
+timeout** (55s against `--timeout 300s` — the server closes cleanly and the SPA reconnects; an emitter
+that outlives the request turns every cycle into a network error. The assistant's ask stream is the
+exception, with its own `lightmove.assistant.answer-deadline`). This applies only to those four. Role enums live in `core/security/rbac`, not in
 the features — they are catalog mirrors, and both tiers' access services need them. Invitations are
 part of `workspace` (membership), not their own feature.
 
