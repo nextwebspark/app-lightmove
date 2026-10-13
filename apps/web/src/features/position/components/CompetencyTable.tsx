@@ -1,23 +1,10 @@
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { restrictToParentElement, restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
+import { useSortableSensors, VERTICAL_LIST_MODIFIERS } from "../../../lib/sortableSensors";
 import type { ProposalConfidence } from "../api/types";
 import type { IdentifiedCompetency } from "../lib/competencyRows";
 import type { ListReceipt } from "../lib/documentFill";
@@ -25,10 +12,6 @@ import { rebalance } from "../lib/rebalance";
 import { BriefButton, ColumnHead, Eyebrow, RemoveDot, StatusBadge } from "./BriefFields";
 import { ProvenanceMarker } from "./ProvenanceMarker";
 
-/** A few pixels before a drag starts, so a click on the handle is still a click. */
-const POINTER_SENSOR = { activationConstraint: { distance: 4 } };
-const KEYBOARD_SENSOR = { coordinateGetter: sortableKeyboardCoordinates };
-const DRAG_MODIFIERS = [restrictToVerticalAxis, restrictToParentElement];
 /** What PutCompetenciesRequest accepts; an 11th row would fail the autosave, not just the step. */
 const MAX_ROWS = 10;
 
@@ -72,13 +55,7 @@ export function CompetencyTable({
 }) {
   const total = rows.reduce((sum, row) => sum + row.weight, 0);
 
-  // Hoisted, not inline: a fresh options object each render gives useSensor a new descriptor, which
-  // hands DndContext a new sensors array and makes it re-initialise — the reorder quietly stopped
-  // working after the first keystroke in a row.
-  const sensors = useSensors(
-    useSensor(PointerSensor, POINTER_SENSOR),
-    useSensor(KeyboardSensor, KEYBOARD_SENSOR),
-  );
+  const sensors = useSortableSensors();
 
   // A hand edit always makes the row theirs — see the sibling fix in CriteriaList.tsx and
   // templates/components/CompetencyPanel.tsx's own `patch`/`handleAddRow` for the same reason. Beyond
@@ -131,7 +108,7 @@ export function CompetencyTable({
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
-            modifiers={DRAG_MODIFIERS}
+            modifiers={VERTICAL_LIST_MODIFIERS}
             onDragEnd={handleDragEnd}
           >
             {/* The modifier bounds a drag to this element, so it wraps the rows alone — parenting it

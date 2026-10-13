@@ -39,7 +39,8 @@ function renderPage() {
 }
 
 const card = (label: string) => screen.getByRole("region", { name: label });
-const toggle = (label: string) => within(card(label)).getByRole("button", { name: new RegExp(`^${label} stage, `) });
+const toggle = (label: string) =>
+  within(card(label)).getByRole("button", { name: new RegExp(`^${label} (Active|Closed) \\d+ status`) });
 const open = (label: string) => userEvent.click(toggle(label));
 
 function withStage(catalog: PipelineCatalog, label: string): PipelineCatalog {
@@ -126,7 +127,50 @@ describe("PipelineStagesPage", () => {
     await waitFor(() => expect(pipelineApi.createStage).toHaveBeenCalledWith("Assessed"));
     expect(await screen.findByRole("region", { name: "Assessed" })).toBeInTheDocument();
     expect(toggle("Assessed")).toHaveAttribute("aria-expanded", "true");
+    expect(toggle("Identified")).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("Stage added to every position")).toBeInTheDocument();
+  });
+
+  it("opens only the stage that was added when another appeared meanwhile", async () => {
+    const answered = withStage(aSeededCatalog(), "Assessed");
+    const elsewhere = { ...answered.stages[0], id: "stage-elsewhere", key: "elsewhere", label: "Added elsewhere" };
+    vi.mocked(pipelineApi.createStage).mockResolvedValue({ stages: [elsewhere, ...answered.stages] });
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    await userEvent.type(screen.getByLabelText("New stage"), "assessed");
+    await userEvent.click(screen.getByRole("button", { name: "Add stage" }));
+
+    await screen.findByRole("region", { name: "Assessed" });
+    expect(toggle("Assessed")).toHaveAttribute("aria-expanded", "true");
+    expect(toggle("Added elsewhere")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("names a stage's toggle by what it shows, and keeps it named while the stage is renamed", async () => {
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    expect(toggle("Contacted")).toHaveAccessibleName("Contacted Active 4 statuses Contacted, Follow-up sent, Engaged +1");
+    await open("Contacted");
+    expect(toggle("Contacted")).toHaveAccessibleName("Contacted Active 4 statuses");
+
+    await userEvent.click(within(card("Qualified")).getByRole("button", { name: "Rename" }));
+    expect(within(card("Qualified")).getByRole("button", { name: "Qualified stage" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  it("moves a row once for a held arrow key", async () => {
+    vi.mocked(pipelineApi.reorderStages).mockResolvedValue(aSeededCatalog());
+    renderPage();
+    await screen.findByRole("region", { name: "Identified" });
+
+    const handle = screen.getByRole("button", { name: "Reorder Identified stage" });
+    fireEvent.keyDown(handle, { key: "ArrowDown", repeat: true });
+    expect(pipelineApi.reorderStages).not.toHaveBeenCalled();
+    fireEvent.keyDown(handle, { key: "ArrowDown" });
+    await waitFor(() => expect(pipelineApi.reorderStages).toHaveBeenCalledTimes(1));
   });
 
   it("adds a status to a stage, and renames, recolours, makes default and retires one", async () => {
