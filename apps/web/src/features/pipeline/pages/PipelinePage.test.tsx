@@ -273,7 +273,7 @@ describe("PipelinePage", () => {
     );
   });
 
-  it("gives a card dropped on a stage's column that stage's default status", async () => {
+  it("gives a card dropped on a stage's column that stage's default status, at the end of that column", async () => {
     vi.mocked(candidatesApi.changeCandidateStatus).mockResolvedValue({
       fullName: "Amal Haddad",
       status: "screened",
@@ -289,7 +289,61 @@ describe("PipelinePage", () => {
     fireEvent.drop(qualified);
 
     await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened"));
+    await waitFor(() =>
+      expect(pipelineApi.movePipelineRank).toHaveBeenCalledWith("p1", "a", {
+        afterCandidateId: "d",
+        beforeCandidateId: null,
+      }),
+    );
     expect(await screen.findByText("Amal Haddad moved to Qualified · Screened")).toBeInTheDocument();
+  });
+
+  it("shows a dropped card in its new column before the server answers, and puts it back if refused", async () => {
+    let refuse: (error: unknown) => void = () => {};
+    vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(
+      new Promise((_resolve, reject) => {
+        refuse = reject;
+      }),
+    );
+    renderPage("");
+    const qualified = await screen.findByRole("region", { name: "Qualified" });
+
+    fireEvent.dragStart(screen.getByRole("article", { name: "Amal Haddad" }));
+    fireEvent.dragOver(qualified);
+    fireEvent.drop(qualified);
+
+    expect(within(qualified).getByRole("article", { name: "Amal Haddad" })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Identified" })).queryByRole("article", { name: "Amal Haddad" }),
+    ).not.toBeInTheDocument();
+
+    refuse(new ApiRequestError({ code: "FORBIDDEN", detail: "no", status: 403, correlationId: "c1" }));
+    expect(
+      await within(screen.getByRole("region", { name: "Identified" })).findByRole("article", { name: "Amal Haddad" }),
+    ).toBeInTheDocument();
+    expect(pipelineApi.movePipelineRank).not.toHaveBeenCalled();
+  });
+
+  it("reorders a card within its own column without changing its status", async () => {
+    vi.mocked(pipelineApi.movePipelineRank).mockReturnValue(new Promise(() => {}));
+    renderPage("");
+    const identified = await screen.findByRole("region", { name: "Identified" });
+
+    fireEvent.dragStart(within(identified).getByRole("article", { name: "Amal Haddad" }));
+    fireEvent.dragOver(identified);
+    fireEvent.drop(identified);
+
+    await waitFor(() =>
+      expect(pipelineApi.movePipelineRank).toHaveBeenCalledWith("p1", "a", {
+        afterCandidateId: "b",
+        beforeCandidateId: null,
+      }),
+    );
+    expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
+    expect(within(identified).getAllByRole("article").map((card) => card.getAttribute("aria-label"))).toEqual([
+      "Bilal Saeed",
+      "Amal Haddad",
+    ]);
   });
 
   it("ticks a card on the board and keeps the tick on the list", async () => {

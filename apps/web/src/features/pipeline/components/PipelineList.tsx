@@ -67,7 +67,7 @@ export function PipelineList({
       <div role="table" aria-label="Pipeline" className="min-w-[960px]">
         <div
           role="row"
-          className={cn(ROW_GRID, "sticky top-0 z-[2] border-b border-u-border bg-u-surface py-2.5")}
+          className={cn(ROW_GRID, "sticky top-0 z-[2] border-b border-u-border-strong bg-u-raised py-2.5")}
         >
           <span role="columnheader">
             <SelectionCheckbox
@@ -204,7 +204,7 @@ export function StageBadge({ row }: { row: PipelineRow }) {
 
 function ColumnHead({ children }: { children: string }) {
   return (
-    <span role="columnheader" className="type-summary-label text-u-text3">
+    <span role="columnheader" className="type-summary-label text-u-text2">
       {children}
     </span>
   );
