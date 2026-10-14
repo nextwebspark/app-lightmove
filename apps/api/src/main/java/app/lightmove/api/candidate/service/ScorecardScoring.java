@@ -79,7 +79,7 @@ final class ScorecardScoring {
                     given == null ? null : given.evidence()));
         }
         Double average = scored == 0 ? null : roundOne((double) scoreSum / scored);
-        return new ScorecardPanelTally(input.panel(), input.share(), input.share(), roundOne(points), average, scored,
+        return new ScorecardPanelTally(input.panel(), input.share(), roundOne(points), average, scored,
                 criteria);
     }
 

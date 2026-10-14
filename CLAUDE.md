@@ -57,15 +57,11 @@ Candidates page's — share one header (tags beside owner and do not contact) an
 `Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
 retired `?tab=records|timeline` links still land), a client seat reading Career and Contact alone; the
 workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
-consultant's own scorecard against the brief's competencies: a 0–10 score or none per competency (unscored is an
-open question, never a zero), out of 100 with each panel carrying its `technical_share` part and each weight
-normalised within its panel (`ScorecardScoring`, mirrored live by the SPA's `lib/scorecardScoring.ts`), evidence
-per criterion and a five-section written report, saved whole from the tab's footer as a draft or **Mark reviewed &
-submit** — any later save is a draft again. Competency rows have no id, so a score keeps a snapshot of its criterion
-and is matched on panel + name; one the brief dropped stays as "No longer in the brief", kept and not counted. A save
-names the version it opened (`CANDIDATE_ASSESSMENT_STALE`), unsaved changes ride the tab's `sessionStorage` until
-saved, and it is staff-only like the AI assessment — `GET|PUT …/candidates/{id}/assessment`, `WORK_EXECUTE`, never
-on `CandidateResponse` — with a timeline line only for a review (`ASSESSMENT_REVIEWED`). Per-section AI support is not built. The executive drawer draws **Positions** (every
+consultant's own scorecard against the brief's competencies: 0–10 or unscored (an open question, never a zero) per
+competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
+`lib/scorecardScoring.ts`), plus evidence and a five-section report, saved from the footer as a draft or **Mark
+reviewed & submit**. A score snapshots its criterion and is matched on panel + name, so one the brief drops is kept,
+uncounted. A stale save is `CANDIDATE_ASSESSMENT_STALE`; it is staff-only (`WORK_EXECUTE`, never on `CandidateResponse`). The executive drawer draws **Positions** (every
 mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
@@ -364,8 +360,9 @@ the mockups: if a screen isn't being built this session, its tables and entities
 candidate is scored against. It owns `app_lm_position` and its owned lists, and it depends on `project`
 because the mandate keeps two of the fields the screen shows: the role title, which step one edits, and
 the one target date (V8), which the screen only displays — it is set on the project and nowhere else.
-Nothing else depends on it: the one reverse edge that existed — `project`'s `ReportService` reading the
-position repository for the report's salary band — went with the report.
+Two features read it: `enrichment` takes the whole brief (`PositionService.briefOf`) for sourcing and the AI
+assessment, and `candidate`'s scorecard only `competenciesOf` — `position`'s own `BriefCompetencies` record, never
+the brief's DTOs. `position` depends on neither.
 
 `positiontemplate` is the **role-template library** a brief is drafted from — the shared library, each
 firm's copies and own templates, the picker, and the JSON export/import. It is admin-curated reference

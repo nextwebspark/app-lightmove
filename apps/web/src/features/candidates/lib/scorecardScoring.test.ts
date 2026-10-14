@@ -17,7 +17,6 @@ const criterion = (panel: ScorecardPanel, name: string, weight: number): Scoreca
 const panel = (name: ScorecardPanel, share: number, criteria: ScorecardCriterion[]): ScorecardPanelTally => ({
   panel: name,
   share,
-  maxPoints: share,
   points: 0,
   average: null,
   scoredCount: 0,
