@@ -12,6 +12,7 @@ import app.lightmove.api.candidate.model.ScorecardCriterion;
 import app.lightmove.api.candidate.model.ScorecardTally;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.CandidateScorecardRepository;
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -19,8 +20,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.position.dto.AssessmentDto;
-import app.lightmove.api.position.dto.CompetencyDto;
+import app.lightmove.api.position.model.BriefCompetencies;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,12 +28,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,7 +81,7 @@ public class CandidateScorecardService {
         List<CriterionScore> held = scorecard.getScores();
         scorecard.record(merged(held, request.scores(), brief.criteria()), request.report().toReport(),
                 request.markReviewed(), userId, Instant.now());
-        CandidateScorecard saved = scorecards.saveAndFlush(scorecard);
+        CandidateScorecard saved = saveOrRefuseStale(scorecard);
 
         if (request.markReviewed()) {
             activity.record(candidate, userId, PersonActivityKind.ASSESSMENT_REVIEWED);
@@ -98,6 +97,19 @@ public class CandidateScorecardService {
     }
 
     /**
+     * A teammate's save landing between this one's read and its write is the same refusal as a stale version, never
+     * a generic conflict: the first-save race is the unique constraint's (mapped where every constraint is), an update
+     * race {@code @Version}'s.
+     */
+    private CandidateScorecard saveOrRefuseStale(CandidateScorecard scorecard) {
+        try {
+            return scorecards.saveAndFlush(scorecard);
+        } catch (ObjectOptimisticLockingFailureException raced) {
+            throw ApiException.of(ErrorCode.CANDIDATE_ASSESSMENT_STALE);
+        }
+    }
+
+    /**
      * What a save leaves on file: every score sent against a criterion the brief has today, under the brief's own
      * spelling and weight, and every score already held against a criterion it no longer has — the editor never
      * sends those, and dropping them would lose a consultant's judgement to a teammate's rename. A score sent for a
@@ -109,7 +121,7 @@ public class CandidateScorecardService {
         brief.forEach(criterion -> briefByKey.putIfAbsent(criterion.matchKey(), criterion));
         Map<String, CriterionScore> kept = new LinkedHashMap<>();
         for (CriterionScoreRequest score : sent) {
-            CompetencyPanel panel = CompetencyPanel.valueOf(score.panel().toUpperCase(Locale.ROOT));
+            CompetencyPanel panel = ApiValueEnum.require(CompetencyPanel.class, score.panel(), "competency panel");
             ScorecardCriterion criterion = briefByKey.get(CriterionScore.keyOf(panel, score.name()));
             if (criterion == null) {
                 continue;
@@ -130,16 +142,12 @@ public class CandidateScorecardService {
     }
 
     private BriefScoring briefOf(UUID workspaceId, UUID projectId) {
-        AssessmentDto assessment = positions.briefOf(workspaceId, projectId).assessment();
-        List<ScorecardCriterion> criteria = Stream.concat(
-                assessment.technical().stream().map(dto -> criterionOf(CompetencyPanel.TECHNICAL, dto)),
-                assessment.behavioural().stream().map(dto -> criterionOf(CompetencyPanel.BEHAVIOURAL, dto)))
+        BriefCompetencies brief = positions.competenciesOf(workspaceId, projectId);
+        List<ScorecardCriterion> criteria = brief.competencies().stream()
+                .map(competency -> new ScorecardCriterion(competency.panel(), competency.name(),
+                        competency.description(), competency.weight()))
                 .toList();
-        return new BriefScoring(criteria, assessment.technicalShare());
-    }
-
-    private static ScorecardCriterion criterionOf(CompetencyPanel panel, CompetencyDto competency) {
-        return new ScorecardCriterion(panel, competency.name(), competency.description(), competency.weight());
+        return new BriefScoring(criteria, brief.technicalShare());
     }
 
     private CandidateScorecardResponse respond(CandidateScorecard scorecard, BriefScoring brief) {
