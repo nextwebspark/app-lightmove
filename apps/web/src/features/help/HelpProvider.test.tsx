@@ -8,6 +8,7 @@ import { aUser, aWorkspace } from "../../test/fixtures/user";
 import type { User } from "../auth/api/types";
 import * as gettingStartedApi from "../gettingstarted/api/gettingStartedApi";
 import { HelpProvider, useHelp } from "./HelpProvider";
+import { WHATS_NEW } from "./lib/whatsNew";
 
 let currentUser: User = aUser();
 vi.mock("../auth/AuthProvider", () => ({ useAuth: () => ({ user: currentUser }) }));
@@ -131,6 +132,28 @@ describe("Help", () => {
     await userEvent.click(screen.getByRole("button", { name: "open news" }));
 
     await waitFor(() => expect(screen.getByTestId("unseen").textContent).toBe("false"));
+  });
+
+  it("lists What's new by release, newest first, a few points each", async () => {
+    const { container } = renderAt();
+    await userEvent.click(screen.getByRole("button", { name: "open news" }));
+    await screen.findByRole("dialog", { name: "Help" });
+
+    const releases = [...container.ownerDocument.querySelectorAll("[data-whats-new-release]")];
+    expect(releases.map((release) => release.getAttribute("data-whats-new-release"))).toEqual(
+      WHATS_NEW.map((release) => release.version),
+    );
+    for (const release of releases) {
+      const points = release.querySelectorAll("li").length;
+      expect(points).toBeGreaterThanOrEqual(3);
+      expect(points).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("shows the dot again when a new release ships", () => {
+    localStorage.setItem("lm-whats-new-seen", "2026-10-help");
+    renderAt();
+    expect(screen.getByTestId("unseen").textContent).toBe("true");
   });
 
   it("brings a put-away Getting started card back for staff, and not for a client contact", async () => {

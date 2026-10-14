@@ -5,6 +5,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Drawer, Input, useToast } from "../../../components/ui";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { messageFor } from "../../../lib/errorCodes";
+import { formatDate } from "../../../lib/format";
 import { SUPPORT_EMAIL } from "../../../lib/links";
 import { APP_VERSION } from "../../../lib/version";
 import { useAuth } from "../../auth/AuthProvider";
@@ -214,14 +215,24 @@ function WhatsNew({ onSeen, seenOnArrival }: { onSeen: () => void; seenOnArrival
 
   return (
     <Section title="What's new" id="help-whats-new" sectionRef={ref}>
-      <ul className="space-y-3">
-        {WHATS_NEW.map((item) => (
-          <li key={item.id}>
-            <div className="text-note font-medium text-u-text">{item.title}</div>
-            <div className="text-note text-u-text3">{item.body}</div>
-          </li>
+      <div className="space-y-5">
+        {WHATS_NEW.map((release) => (
+          <div key={release.version} data-whats-new-release={release.version}>
+            <div className="mb-2 flex items-baseline gap-2">
+              <span className="font-mono text-note font-medium text-u-text">{release.version}</span>
+              <span className="text-meta text-u-text3">{formatDate(release.date)}</span>
+            </div>
+            <ul className="list-disc space-y-2 pl-4 marker:text-u-text3">
+              {release.highlights.map((item) => (
+                <li key={item.title}>
+                  <div className="text-note font-medium text-u-text">{item.title}</div>
+                  <div className="text-note text-u-text3">{item.body}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
         ))}
-      </ul>
+      </div>
     </Section>
   );
 }
