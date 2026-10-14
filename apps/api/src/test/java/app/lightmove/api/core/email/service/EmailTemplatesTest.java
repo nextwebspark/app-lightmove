@@ -8,6 +8,7 @@ import app.lightmove.api.core.email.model.EmailMessage;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.util.unit.DataSize;
 
 /**
  * Every template, built.
@@ -24,7 +25,7 @@ class EmailTemplatesTest {
     private static final String PROJECT_LINK = BASE_URL + "/projects/8f2c";
 
     private final EmailTemplates templates = new EmailTemplates(new LightMoveProperties(
-            null, null, new WebSettings(BASE_URL, List.of(), "/auth/callback", 0),
+            null, null, new WebSettings(BASE_URL, List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
             null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
     @Test

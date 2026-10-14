@@ -1,5 +1,6 @@
 package app.lightmove.api.project.dto;
 
+import app.lightmove.api.core.validation.PlausibleDate;
 import app.lightmove.api.project.constant.ProjectType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -16,15 +17,15 @@ public record CreateProjectRequest(
         @Size(max = 160, message = "That title is too long")
         String positionTitle,
 
-        LocalDate targetDate,
+        @PlausibleDate LocalDate targetDate,
 
         ProjectType projectType,
 
-        LocalDate startDate,
+        @PlausibleDate LocalDate startDate,
 
-        LocalDate deliveryDate,
+        @PlausibleDate LocalDate deliveryDate,
 
-        LocalDate mappingTargetDate
+        @PlausibleDate LocalDate mappingTargetDate
 ) {
     /** A caller that names no type gets the column's default, so every pre-V73 client keeps working. */
     public CreateProjectRequest {

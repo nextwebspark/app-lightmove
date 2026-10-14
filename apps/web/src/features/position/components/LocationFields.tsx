@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { CountryField } from "../../../components/ui/CountryField";
 import type { PositionDetails } from "../api/types";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import { Eyebrow, UnderlineField } from "./BriefFields";
 
 /**
@@ -32,6 +33,7 @@ export function LocationFields({
         <div className="flex items-center gap-1.5">
           <UnderlineField
             aria-label="City"
+            maxLength={BRIEF_LIMITS.locationCity}
             className="min-w-0 flex-1"
             value={city ?? ""}
             placeholder="City"

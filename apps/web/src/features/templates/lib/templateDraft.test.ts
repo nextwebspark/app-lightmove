@@ -72,6 +72,18 @@ describe("templateDraft — the editor's copy of a template", () => {
     expect(requestOf(draftOf(detail), 7).body.competencies).toEqual([technical, behavioural]);
   });
 
+  it("sends an edited competency without the row's provenance, which the template's write does not take", () => {
+    const draft = draftOf(cfo());
+    const edited = { ...draft, technical: [{ id: "r1", name: "Treasury", description: null, weight: 100, source: "MANUAL" as const }] };
+
+    expect(requestOf(edited, 7).body.competencies[0]).toEqual({
+      panel: "TECHNICAL",
+      name: "Treasury",
+      description: null,
+      weight: 100,
+    });
+  });
+
   it("sends a cleared text field as null rather than an empty string", () => {
     const draft = { ...draftOf(cfo()), department: "   ", narrative: "", summary: "" };
 

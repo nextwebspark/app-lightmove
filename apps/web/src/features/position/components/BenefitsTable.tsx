@@ -3,6 +3,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { Benefit, BenefitFrequency } from "../api/types";
 import { BENEFIT_PRESETS } from "../lib/benefits";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import { BENEFIT_FREQUENCY_LABELS } from "../lib/labels";
 import { BriefButton, ChipGroup, ColumnHead, FigureInput, RemoveDot, type ChipOption } from "./BriefFields";
 
@@ -33,9 +34,10 @@ export function BenefitsTable({
   const patch = (index: number, changes: Partial<Benefit>) =>
     onChange(benefits.map((benefit, i) => (i === index ? { ...benefit, ...changes } : benefit)));
 
+  const isFull = benefits.length >= BRIEF_LIMITS.benefits;
   const add = () => {
     const name = draft.name.trim();
-    if (!name) return;
+    if (!name || isFull) return;
     onChange([...benefits, { ...draft, name }], true);
     setDraft(BLANK);
   };
@@ -55,8 +57,11 @@ export function BenefitsTable({
             <input
               value={benefit.name}
               aria-label={`Benefit ${index + 1} name`}
+              aria-invalid={!benefit.name.trim()}
+              maxLength={BRIEF_LIMITS.benefitName}
+              placeholder="Name it, or remove the line"
               onChange={(event) => patch(index, { name: event.target.value })}
-              className="min-w-0 bg-transparent text-body text-u-text outline-none"
+              className="min-w-0 bg-transparent text-body text-u-text outline-none placeholder:text-u-offlimits"
             />
             <FigureInput
               grouped
@@ -88,7 +93,9 @@ export function BenefitsTable({
               value={draft.name}
               list="brief-benefit-presets"
               aria-label="New benefit name"
-              placeholder="Add benefit or allowance…"
+              maxLength={BRIEF_LIMITS.benefitName}
+              disabled={isFull}
+              placeholder={isFull ? `At most ${BRIEF_LIMITS.benefits} benefits` : "Add benefit or allowance…"}
               onChange={(event) => setDraft({ ...draft, name: event.target.value })}
               onKeyDown={(event) => {
                 if (event.key !== "Enter") return;

@@ -1,6 +1,7 @@
 import { cn } from "../../../lib/cn";
 import { useComboboxList } from "../../../lib/useComboboxList";
 import type { PositionTemplate } from "../api/types";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import { SENIORITY_LABELS } from "../lib/labels";
 import { suggestionsFor } from "../lib/roleTitleSuggestions";
 import { UnderlineField } from "./BriefFields";
@@ -53,6 +54,7 @@ export function RoleTitleField({
         aria-activedescendant={showList && list.active >= 0 ? `${LIST_ID}-${list.active}` : undefined}
         aria-busy={busy}
         autoComplete="off"
+        maxLength={BRIEF_LIMITS.roleTitle}
         value={value}
         placeholder="e.g. Chief Financial Officer"
         onChange={(event) => {

@@ -18,11 +18,16 @@ public interface ApiValueEnum {
         return token == null || token.isBlank() ? whenBlank : require(type, token, label);
     }
 
-    /** The constant spelled {@code token}; a 400 for any token no constant spells, absent included. */
+    /**
+     * The constant spelled {@code token}; a 400 for any token no constant spells, absent included.
+     *
+     * @param label a fixed noun naming the value, shown to the caller — never request input
+     */
     static <E extends Enum<E> & ApiValueEnum> E require(Class<E> type, String token, String label) {
         E resolved = fromValue(type, token);
         if (resolved == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown " + label + ": " + token);
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "That is not a valid " + label,
+                    "Unknown " + label + ": " + token);
         }
         return resolved;
     }

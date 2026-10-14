@@ -120,11 +120,13 @@ export function CompensationStep({
             {isFixed && <span className="type-figure-input text-u-text2">{currency}</span>}
             <FigureInput
               grouped={isFixed}
+              decimals={isFixed ? 0 : 2}
+              max={isFixed ? undefined : compensation.bonusBasis === "MONTHS_OF_BASE" ? 24 : 100}
               value={compensation.bonusValue}
               aria-label="Bonus target"
               placeholder={isFixed ? "150,000" : "30"}
               onChange={(bonusValue) => onChange({ bonusValue })}
-              className={isFixed ? "w-full max-w-[240px]" : "w-[4ch]"}
+              className={isFixed ? "w-full max-w-[240px]" : "w-[6ch]"}
             />
             {!isFixed && <span className="type-figure-input text-u-text2">%</span>}
           </div>

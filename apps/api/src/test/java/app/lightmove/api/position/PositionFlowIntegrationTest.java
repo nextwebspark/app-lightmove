@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -132,7 +133,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         // No "source" on the responsibility and no "fieldSources" at all — a plain client saying
         // nothing about provenance is read as a person having typed the whole step.
         putStep(admin, projectId, "details", """
-                {"roleTitle":"CFO","department":"Group Finance","location":null,"employmentType":null,
+                {"roleTitle":"CFO","department":"Group Finance","locationCity":null,"employmentType":null,
                  "seniority":null,"responsibilities":[{"text":"Group P&L stewardship"}],"narrative":null}""")
                 .andExpect(jsonPath("$.details.responsibilities[0].source").value("MANUAL"))
                 .andExpect(jsonPath("$.details.fieldSources.department").value("MANUAL"));
@@ -141,7 +142,7 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roleTitle":"CFO","department":"Group Finance","location":null,
+                                {"roleTitle":"CFO","department":"Group Finance","locationCity":null,
                                  "employmentType":null,"seniority":null,"responsibilities":[],
                                  "narrative":null,"fieldSources":{"salaryMin":"MANUAL"}}"""))
                 .andExpect(status().isBadRequest())
@@ -444,21 +445,21 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         String admin = adminOf("Document Firm");
         String projectId = createProject(admin, createClient(admin, "Masdar", "UAE"), "CFO");
 
-        attach(admin, projectId, "brief.pdf", "application/pdf", "first draft")
+        attach(admin, projectId, "brief.pdf", "application/pdf", "%PDF-1 first draft")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.document.fileName").value("brief.pdf"))
                 .andExpect(jsonPath("$.document.contentType").value("application/pdf"))
-                .andExpect(jsonPath("$.document.fileSize").value("first draft".length()));
+                .andExpect(jsonPath("$.document.fileSize").value("%PDF-1 first draft".length()));
 
         // Replacing keeps one document per position rather than accumulating versions.
-        attach(admin, projectId, "brief-v2.pdf", "application/pdf", "second draft")
+        attach(admin, projectId, "brief-v2.pdf", "application/pdf", "%PDF-1 second draft")
                 .andExpect(jsonPath("$.document.fileName").value("brief-v2.pdf"));
 
         mvc.perform(get(positionUrl(projectId) + "/document")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(result -> assertThat(result.getResponse().getContentAsString())
-                        .isEqualTo("second draft"))
+                        .isEqualTo("%PDF-1 second draft"))
                 .andExpect(result -> {
                     assertThat(result.getResponse().getHeader("Content-Disposition"))
                             .contains("attachment").contains("brief-v2.pdf");
@@ -484,6 +485,64 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         attach(admin, projectId, "payload.exe", "application/x-msdownload", "MZ")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("UNSUPPORTED_FILE_TYPE"));
+    }
+
+    @Test
+    @DisplayName("a bonus past what its basis can mean, a currency nobody issues, a year nobody works in: refused and named")
+    void implausibleFiguresAreRefusedOnTheirField() throws Exception {
+        String admin = adminOf("Bounds Firm");
+        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
+
+        mvc.perform(put(positionUrl(projectId) + "/compensation")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currency":"AED","baseSalaryMode":"ANNUAL","bonusValue":150,"bonusBasis":"PERCENT_OF_BASE"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.bonusValue").exists());
+        mvc.perform(put(positionUrl(projectId) + "/compensation")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currency":"ZZZ","baseSalaryMode":"ANNUAL"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.currency").exists());
+        putStep(admin, projectId, "compensation", """
+                {"currency":"AED","baseSalaryMode":"ANNUAL","bonusValue":250000,"bonusBasis":"FIXED_AMOUNT"}""")
+                .andExpect(jsonPath("$.compensation.bonusValue").value(250000));
+
+        mvc.perform(patch("/api/v1/projects/" + projectId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"9999-01-01"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.targetDate").exists());
+    }
+
+    @Test
+    @DisplayName("a file named as a PDF whose bytes are not one is refused, however the part is labelled")
+    void renamedFileIsRefused() throws Exception {
+        String admin = adminOf("Renamed Firm");
+        String projectId = createProject(admin, createClient(admin, "Tabreed", "UAE"), "CFO");
+
+        attach(admin, projectId, "brief.pdf", "application/pdf", "MZ not a pdf")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("UNSUPPORTED_FILE_TYPE"));
+    }
+
+    @Test
+    @DisplayName("a file whose name and bytes agree attaches whatever type the browser declared for it")
+    void declaredTypeDecidesNothing() throws Exception {
+        String admin = adminOf("Declared Firm");
+        String projectId = createProject(admin, createClient(admin, "Tabreed", "UAE"), "CFO");
+
+        attach(admin, projectId, "brief.txt", "text/plain;charset=UTF-8", "Chief Financial Officer")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.document.contentType").value("text/plain"));
+        attach(admin, projectId, "brief.pdf", "application/octet-stream", "%PDF-1 brief")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.document.contentType").value("application/pdf"));
     }
 
     @Test

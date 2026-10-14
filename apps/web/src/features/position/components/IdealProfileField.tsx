@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import { BriefPanel, FieldBlock } from "./BriefFields";
 
 const CLAMPED_LINES = 2;
@@ -54,6 +55,7 @@ export function IdealProfileField({
         <textarea
           autoFocus
           aria-label="Ideal profile"
+          maxLength={BRIEF_LIMITS.narrative}
           value={value ?? ""}
           rows={6}
           onChange={(event) => onChange(event.target.value || null)}

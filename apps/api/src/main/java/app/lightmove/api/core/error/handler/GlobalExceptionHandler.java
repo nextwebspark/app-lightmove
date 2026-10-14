@@ -3,10 +3,14 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.service.ClientDisconnects;
 import app.lightmove.api.core.error.service.Problems;
+import app.lightmove.api.core.request.service.RequestBodyTooLargeException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,7 +31,10 @@ import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import tools.jackson.databind.exc.MismatchedInputException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /**
  * The single place an exception becomes an RFC 9457 {@code ProblemDetail}. Nothing not chosen for the
@@ -36,6 +43,13 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    /**
+     * Postgres' value too long for its column and numeric value out of range: a value the caller sent past what
+     * validation checked. A CHECK violation is not here — the server writes values no caller chose, and one that
+     * breaks a CHECK is our bug, not their input.
+     */
+    private static final Set<String> REFUSED_VALUE_STATES = Set.of("22001", "22003");
 
     @ExceptionHandler(ApiException.class)
     public ProblemDetail handleApiException(ApiException ex, HttpServletRequest request) {
@@ -108,14 +122,71 @@ public class GlobalExceptionHandler {
                 : parameter + "[" + result.getContainerIndex() + "]";
     }
 
+    /**
+     * A body that parsed but did not bind (an unknown field, an enum token or date no constant spells, a
+     * string where a number goes) names its JSON path, as Bean Validation would; malformed JSON names none.
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ProblemDetail handleUnreadable(HttpMessageNotReadableException ex) {
-        log.debug("Malformed request body: {}", ex.getMessage());
+    public ProblemDetail handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        if (causedBy(ex, RequestBodyTooLargeException.class)) {
+            log.info("[REQUEST_TOO_LARGE] {} {} → 413", request.getMethod(), request.getRequestURI());
+            return problem(ErrorCode.REQUEST_TOO_LARGE, ErrorCode.REQUEST_TOO_LARGE.defaultMessage());
+        }
+        log.debug("Unreadable request body: {}", ex.getMessage());
+        if (ex.getCause() instanceof MismatchedInputException mismatch) {
+            String field = RequestBodyPaths.of(mismatch);
+            if (!field.isEmpty()) {
+                String message = mismatch instanceof UnrecognizedPropertyException
+                        ? "This request does not take that field"
+                        : "Not a valid value";
+                log.info("[VALIDATION_FAILED] {} {} → 400 on [{}]", request.getMethod(), request.getRequestURI(), field);
+                ProblemDetail problem = problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
+                problem.setProperty("fieldErrors", Map.of(field, message));
+                return problem;
+            }
+        }
         return problem(ErrorCode.VALIDATION_FAILED, "Request body could not be read");
     }
 
+    /** A body read outside a message converter (a controller reading the stream itself) reaches here bare. */
+    @ExceptionHandler(RequestBodyTooLargeException.class)
+    public ProblemDetail handleBodyTooLarge(RequestBodyTooLargeException ex, HttpServletRequest request) {
+        log.info("[REQUEST_TOO_LARGE] {} {} → 413", request.getMethod(), request.getRequestURI());
+        return problem(ErrorCode.REQUEST_TOO_LARGE, ErrorCode.REQUEST_TOO_LARGE.defaultMessage());
+    }
+
+    private static boolean causedBy(Throwable failure, Class<? extends Throwable> type) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (type.isInstance(cause)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Thrown only where a class is {@code @Validated}; a 500 before this handler existed. */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ProblemDetail handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        ex.getConstraintViolations().forEach(violation ->
+                fieldErrors.putIfAbsent(leafOf(violation.getPropertyPath().toString()), violation.getMessage()));
+        log.info("[VALIDATION_FAILED] {} {} → 400 on {}",
+                request.getMethod(), request.getRequestURI(), fieldErrors.keySet());
+        ProblemDetail problem = problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
+        problem.setProperty("fieldErrors", fieldErrors);
+        return problem;
+    }
+
+    /** A method-validation path reads {@code method.argument.field}; the caller knows only the field. */
+    private static String leafOf(String propertyPath) {
+        int firstDot = propertyPath.indexOf('.');
+        int secondDot = firstDot < 0 ? -1 : propertyPath.indexOf('.', firstDot + 1);
+        return secondDot < 0 ? propertyPath : propertyPath.substring(secondDot + 1);
+    }
+
     /** A truncated verification link ({@code /auth/verify} with no token) shipped as a 500 before this. */
-    @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class})
+    @ExceptionHandler({ServletRequestBindingException.class, MethodArgumentTypeMismatchException.class,
+            MissingServletRequestPartException.class})
     public ProblemDetail handleBadRequestBinding(Exception ex, HttpServletRequest request) {
         log.debug("Bad request binding at {} {}: {}",
                 request.getMethod(), request.getRequestURI(), ex.getMessage());
@@ -175,6 +246,12 @@ public class GlobalExceptionHandler {
     /** A constraint beat a service pre-check (a race): mapped to the pre-check's code, so 409 not 500. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
+        // The caller's input, not a conflict — but no field is named: the driver reports the column, not the request path.
+        if (REFUSED_VALUE_STATES.contains(sqlStateOf(ex))) {
+            log.warn("[VALIDATION_FAILED] the database refused a value at {} {}: {}",
+                    request.getMethod(), request.getRequestURI(), constraintNameOf(ex));
+            return problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
+        }
         ErrorCode code = switch (constraintNameOf(ex)) {
             case "app_lm_client_workspace_name_uk" -> ErrorCode.CLIENT_ALREADY_EXISTS;
             case "app_lm_project_triage_company_manual_name_uk" -> ErrorCode.TRIAGE_COMPANY_ALREADY_HELD;
@@ -205,6 +282,15 @@ public class GlobalExceptionHandler {
         log.info("[{}] optimistic lock conflict at {} {}",
                 ErrorCode.CONFLICT, request.getMethod(), request.getRequestURI());
         return problem(ErrorCode.CONFLICT, ErrorCode.CONFLICT.defaultMessage());
+    }
+
+    private static String sqlStateOf(DataIntegrityViolationException ex) {
+        for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sql && sql.getSQLState() != null) {
+                return sql.getSQLState();
+            }
+        }
+        return "";
     }
 
     private String constraintNameOf(DataIntegrityViolationException ex) {

@@ -124,6 +124,9 @@ public class PositionService {
     @Transactional
     public PositionResponse putCompensation(UUID userId, UUID workspaceId, UUID projectId,
                                             PutCompensationRequest request, HttpServletRequest httpRequest) {
+        if (request.bonusBasis() != null && !request.bonusBasis().admits(request.bonusValue())) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "bonusValue", request.bonusBasis().ceilingMessage());
+        }
         PositionBrief brief = briefs.require(workspaceId, projectId);
         brief.position().applyCompensation(new CompensationPackage(
                 request.currency(), request.salaryMin(), request.salaryMax(), request.baseSalaryMode(),

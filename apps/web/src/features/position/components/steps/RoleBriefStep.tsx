@@ -17,6 +17,7 @@ import type {
   PositionTemplate,
   ReportingStructure,
 } from "../../api/types";
+import { BRIEF_LIMITS } from "../../lib/briefLimits";
 import type { StepReceipt } from "../../lib/documentFill";
 import {
   EMPLOYMENT_TYPE_LABELS,
@@ -122,9 +123,14 @@ export function RoleBriefStep({
 }) {
   const [responsibility, setResponsibility] = useState("");
 
+  const responsibilitiesFull = details.responsibilities.length >= BRIEF_LIMITS.responsibilities;
   const addResponsibility = () => {
     const text = responsibility.trim();
-    if (!text) return;
+    if (!text || responsibilitiesFull) return;
+    if (details.responsibilities.some((existing) => existing.text.toLowerCase() === text.toLowerCase())) {
+      setResponsibility("");
+      return;
+    }
     onChangeDetails({ responsibilities: [...details.responsibilities, { text, source: "MANUAL" }] });
     setResponsibility("");
   };
@@ -183,11 +189,17 @@ export function RoleBriefStep({
             onChange={(roleTitle) => onChangeDetails({ roleTitle })}
             onPick={onPickTemplate}
           />
+          {!details.roleTitle.trim() && (
+            <span role="alert" className="mt-1.5 block text-note text-u-offlimits">
+              Give the role a title. Nothing on this step saves until it has one.
+            </span>
+          )}
         </FieldBlock>
 
         <FieldBlock label="Department" aside={markerFor(details.fieldSources, "department", () => onUndoDetail("department"))}>
           <UnderlineField
             aria-label="Department"
+            maxLength={BRIEF_LIMITS.department}
             value={details.department ?? ""}
             placeholder="e.g. Group Finance"
             onChange={(event) => onChangeDetails({ department: event.target.value || null })}
@@ -305,7 +317,11 @@ export function RoleBriefStep({
         <UnderlineField
           value={responsibility}
           aria-label="Add a responsibility"
-          placeholder="Add a responsibility…"
+          maxLength={BRIEF_LIMITS.responsibility}
+          disabled={responsibilitiesFull}
+          placeholder={
+            responsibilitiesFull ? `At most ${BRIEF_LIMITS.responsibilities} responsibilities` : "Add a responsibility…"
+          }
           onChange={(event) => setResponsibility(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;
