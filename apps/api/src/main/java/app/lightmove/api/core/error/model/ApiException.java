@@ -52,6 +52,11 @@ public class ApiException extends RuntimeException {
         return new ApiException(code, message, message, null, null);
     }
 
+    /** {@link #userFacing}, with a separate line for the log that may quote the request. */
+    public static ApiException userFacing(ErrorCode code, String message, String internalDetail) {
+        return new ApiException(code, internalDetail, message, null, null);
+    }
+
     /** {@link #userFacing}, attributed to one input in the {@code fieldErrors} shape. */
     public static ApiException withField(ErrorCode code, String field, String message) {
         return new ApiException(code, message, message, Map.of(field, message), null);

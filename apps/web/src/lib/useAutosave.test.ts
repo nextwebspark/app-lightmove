@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiRequestError } from "./apiClient";
 import { AUTOSAVE_RETRY_DELAYS_MS, AutosaveFailedError, useAutosave } from "./useAutosave";
 
 /** A save whose completion the test controls, tracking how many run at once. */
@@ -102,6 +103,24 @@ describe("useAutosave", () => {
       await act(() => vi.advanceTimersByTimeAsync(60_000));
       expect(save).toHaveBeenCalledTimes(4);
       expect(result.current.status).toBe("error");
+    });
+
+    it("never resends an edit the server refused as invalid: it would only be refused again", async () => {
+      vi.useFakeTimers();
+      const save = vi.fn(async (_payload: string) => {
+        throw new ApiRequestError({ code: "VALIDATION_FAILED", detail: "invalid", status: 400, correlationId: "c1" });
+      });
+      const onError = vi.fn();
+      const { result } = renderHook(() => useAutosave(save, { delayMs: 5, onError }));
+
+      act(() => result.current.schedule("typed"));
+      await act(() => vi.advanceTimersByTimeAsync(5));
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+      expect(save).toHaveBeenCalledTimes(1);
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(result.current.status).toBe("error");
+      expect(result.current.hasUnsavedChanges).toBe(true);
     });
 
     it("resends on its own and reads saved once a resend lands", async () => {

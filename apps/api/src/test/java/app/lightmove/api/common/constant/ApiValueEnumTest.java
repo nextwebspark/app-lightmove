@@ -46,8 +46,10 @@ class ApiValueEnumTest {
                 .isSameAs(CandidateSystemStatus.IDENTIFIED);
         assertThat(ApiValueEnum.parse(CandidateSystemStatus.class, "  ", null, "status")).isNull();
         assertThatThrownBy(() -> ApiValueEnum.parse(CandidateSystemStatus.class, "hired", null, "candidate status"))
-                .isInstanceOfSatisfying(ApiException.class,
-                        e -> assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_FAILED))
+                .isInstanceOfSatisfying(ApiException.class, e -> {
+                    assertThat(e.getCode()).isEqualTo(ErrorCode.VALIDATION_FAILED);
+                    assertThat(e.getClientDetail()).isEqualTo("That is not a valid candidate status");
+                })
                 .hasMessageContaining("Unknown candidate status: hired");
     }
 

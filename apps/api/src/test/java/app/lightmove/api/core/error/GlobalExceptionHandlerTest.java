@@ -70,6 +70,31 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("a value the column refuses is the caller's input: 400 VALIDATION_FAILED, not a conflict")
+    void refusedColumnValueIsAValidationFailure() {
+        for (String sqlState : List.of("22001", "22003")) {
+            DataIntegrityViolationException refused = new DataIntegrityViolationException("insert failed",
+                    new ConstraintViolationException("refused", new SQLException("refused", sqlState), "some_chk"));
+
+            ProblemDetail problem = handler.handleDataIntegrity(refused, new MockHttpServletRequest());
+
+            assertThat(problem.getStatus()).isEqualTo(400);
+            assertThat(problem.getProperties()).containsEntry("code", "VALIDATION_FAILED");
+        }
+    }
+
+    @Test
+    @DisplayName("a CHECK the server itself broke is not blamed on the caller")
+    void checkViolationIsNotAValidationFailure() {
+        DataIntegrityViolationException broken = new DataIntegrityViolationException("insert failed",
+                new ConstraintViolationException("check", new SQLException("check", "23514"), "some_chk"));
+
+        ProblemDetail problem = handler.handleDataIntegrity(broken, new MockHttpServletRequest());
+
+        assertThat(problem.getProperties()).doesNotContainEntry("code", "VALIDATION_FAILED");
+    }
+
+    @Test
     @DisplayName("an optimistic-lock race answers a generic 409, never a 500")
     void optimisticLockIsAConflictNotAServerError() {
         ProblemDetail problem = handler.handleOptimisticLock(

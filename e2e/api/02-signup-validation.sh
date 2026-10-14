@@ -146,12 +146,7 @@ check_status N6.7 "GET on a POST-only route" 405
 http POST /auth/signup -H 'Content-Type: application/json' \
   -d "$(jq -nc --arg e "$(new_email extra)" --arg p "$PASSWORD" \
        '{fullName:"X", email:$e, password:$p, termsAccepted:true, status:"ACTIVE", emailVerified:true, id:"00000000-0000-0000-0000-000000000001"}')"
-if [ "$LAST_STATUS" = "201" ]; then
-  check N6.8 "unknown fields cannot force emailVerified" "false" "$(json '.user.emailVerified')"
-  check N6.9 "unknown fields cannot force the user id" "false" \
-    "$(test "$(json '.user.id')" = "00000000-0000-0000-0000-000000000001" && echo true || echo false)"
-else
-  note N6.8 "unknown fields rejected outright: $LAST_STATUS $(ecode)"
-fi
+check_status N6.8 "unknown fields are refused, never quietly bound" 400
+check N6.9 "the refusal names the stray field" "true" "$(json '.fieldErrors | has("status")')"
 
 summary

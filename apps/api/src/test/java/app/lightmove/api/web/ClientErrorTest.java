@@ -39,6 +39,45 @@ class ClientErrorTest {
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }
 
+    @Test
+    @DisplayName("a field the request does not take is refused and named, not silently dropped")
+    void unknownFieldIsNamed() throws Exception {
+        mvc.perform(post("/api/v1/auth/password/forgot").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"someone@example.com\",\"emial\":\"typo\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.emial").exists());
+    }
+
+    @Test
+    @DisplayName("a value of the wrong shape names its field")
+    void wrongShapeIsNamed() throws Exception {
+        mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fullName\":\"A\",\"email\":\"a@example.com\",\"password\":\"password1\","
+                                + "\"termsAccepted\":\"perhaps\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.termsAccepted").value("Not a valid value"));
+    }
+
+    @Test
+    @DisplayName("malformed JSON names no field")
+    void malformedJsonNamesNoField() throws Exception {
+        mvc.perform(post("/api/v1/auth/password/forgot").contentType(MediaType.APPLICATION_JSON).content("{\"email\":"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("a JSON body over the cap is turned away before it is read")
+    void oversizedJsonBodyIsRefused() throws Exception {
+        String padding = "x".repeat(3 * 1024 * 1024);
+        mvc.perform(post("/api/v1/auth/password/forgot").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"" + padding + "\"}"))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(jsonPath("$.code").value("REQUEST_TOO_LARGE"));
+    }
+
     /** Now that this application serves a SPA, "no such path" is a normal event, not a server fault. */
     @Test
     @DisplayName("an unresolvable static path is a 404, not a 500")

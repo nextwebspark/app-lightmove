@@ -10,6 +10,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.util.unit.DataSize;
 
 /** A page on a second hostname is sent to the base URL; the API and the canonical host are left alone. */
 class CanonicalOriginRedirectFilterTest {
@@ -19,7 +20,7 @@ class CanonicalOriginRedirectFilterTest {
 
     private final CanonicalOriginRedirectFilter filter = new CanonicalOriginRedirectFilter(
             new LightMoveProperties(null, null,
-                    new WebSettings(BASE_URL, List.of(BASE_URL), "/auth/callback", 0),
+                    new WebSettings(BASE_URL, List.of(BASE_URL), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
                     null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
     private final MockHttpServletResponse response = new MockHttpServletResponse();

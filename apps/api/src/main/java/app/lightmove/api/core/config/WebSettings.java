@@ -2,6 +2,7 @@ package app.lightmove.api.core.config;
 
 import java.util.List;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.util.unit.DataSize;
 
 /** Where the SPA lives and how requests reach us — {@code lightmove.web.*}. */
 public record WebSettings(
@@ -22,5 +23,15 @@ public record WebSettings(
          * <p>Get this number wrong upwards and you trust a hop the client supplied; the rate
          * limiter's per-IP budget then becomes free to bypass and the audit log records fiction.
          */
-        @DefaultValue("0") int trustedProxyCount
+        @DefaultValue("0") int trustedProxyCount,
+
+        /**
+         * Refuse a JSON request body naming a field its DTO does not carry, rather than dropping it. Off is
+         * the kill switch for a screen found sending a stray field after release. Never set on the shared
+         * mapper: that one reads vendor responses, which grow fields without notice.
+         */
+        @DefaultValue("true") boolean refuseUnknownRequestFields,
+
+        /** The largest JSON request body read, declared length or none (chunked); multipart has its own caps. */
+        @DefaultValue("2MB") DataSize maxJsonBodySize
 ) {}

@@ -1079,6 +1079,7 @@ mandate, read back only by its own download endpoint. Everything else (roles, ha
   them** — they are why the bug has not come back.
 - Errors: RFC 9457 via `GlobalExceptionHandler`; the frontend switches on `code`, never `detail`.
 - On-screen words follow `docs/glossary.md` wherever no mockup draws the copy; `copyGuard.test.ts` holds the never-on-screen list.
+- Every form field's client rule, server rule and error surface is a row of `docs/validation-matrix.md`; a change to one updates its row.
 - Java/Lombok/architecture detail → `java-spring-development` skill. React detail → `react` skill.
 
 Review will be done by fable or codex

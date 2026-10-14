@@ -61,6 +61,7 @@ export type ApiErrorCode =
   | "ASSISTANT_STILL_ANSWERING"
   | "ASSISTANT_PROPOSAL_ALREADY_ACCEPTED"
   | "FILE_TOO_LARGE"
+  | "REQUEST_TOO_LARGE"
   | "UNSUPPORTED_FILE_TYPE"
   | "IMPORT_FILE_UNREADABLE"
   | "IMPORT_TOO_MANY_ROWS"
@@ -277,6 +278,7 @@ export const DETAIL_ALLOWED: ReadonlySet<ApiErrorCode> = new Set<ApiErrorCode>([
   "CONFLICT",
   "BULK_ADD_SCOPE_TOO_LARGE",
   "FILE_TOO_LARGE",
+  "REQUEST_TOO_LARGE",
   "IMPORT_TOO_MANY_ROWS",
   "CUSTOM_COLUMN_LIMIT_REACHED",
   "TEMPLATE_FILE_UNREADABLE",
@@ -306,8 +308,28 @@ export function messageFor(error: unknown): string {
   if (!(error instanceof ApiRequestError)) return GENERIC_MESSAGE;
   const known = MESSAGES[error.code as ApiErrorCode];
   if (known) return known;
+  const namedField = firstFieldError(error);
+  if (namedField) return namedField;
   if (DETAIL_ALLOWED.has(error.code as ApiErrorCode) && error.problem.detail) return error.problem.detail;
   return unexpectedFailureMessage(error.problem.correlationId);
+}
+
+/**
+ * A refusal that named its field, worded for a screen that has no input to put it under: "Responsibilities:
+ * At most 20". Without this, "One or more fields are invalid" points at nothing.
+ */
+function firstFieldError(error: ApiRequestError): string | null {
+  if (error.code !== "VALIDATION_FAILED") return null;
+  const [key, message] = Object.entries(error.fieldErrors)[0] ?? [];
+  if (!key || !message) return null;
+  return `${fieldLabelOf(key)}: ${message}`;
+}
+
+/** `steps[1].subject` → "Subject"; `positionTitle` → "Position title". */
+export function fieldLabelOf(serverKey: string): string {
+  const leaf = serverKey.replace(/\[\d+\]/g, "").split(".").pop() ?? serverKey;
+  const words = leaf.replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function unexpectedFailureMessage(correlationId: string | undefined): string {

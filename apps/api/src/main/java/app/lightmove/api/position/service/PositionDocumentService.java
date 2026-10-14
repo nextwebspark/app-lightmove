@@ -6,6 +6,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.PositionDocumentSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.storage.constant.DocumentFormat;
 import app.lightmove.api.core.text.service.FileNameSanitizer;
 import app.lightmove.api.position.dto.PositionResponse;
 import app.lightmove.api.position.model.PositionDocument;
@@ -14,6 +15,7 @@ import app.lightmove.api.position.repository.PositionDocumentRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,8 +51,8 @@ public class PositionDocumentService {
                                    MultipartFile file, HttpServletRequest httpRequest) {
         PositionBrief brief = briefs.require(workspaceId, projectId);
         byte[] content = contentOf(file);
-        String contentType = requireAllowedType(file.getContentType());
         String fileName = FileNameSanitizer.sanitize(file.getOriginalFilename(), "position-description");
+        String contentType = requireAllowedFormat(fileName, content);
 
         documents.findByPositionId(brief.position().getId())
                 .ifPresentOrElse(
@@ -101,12 +103,16 @@ public class PositionDocumentService {
         }
     }
 
-    /** The declared type is the sender's claim, so an unrecognised one is refused rather than stored. */
-    private String requireAllowedType(String declaredContentType) {
-        if (!settings.allows(declaredContentType)) {
-            throw new ApiException(ErrorCode.UNSUPPORTED_FILE_TYPE,
-                    "rejected content type " + declaredContentType);
-        }
-        return declaredContentType;
+    /**
+     * The format the name and the bytes agree on, never the declared type: that is the sender's claim, and
+     * browsers send none, {@code application/octet-stream} or {@code text/plain;charset=UTF-8} for one file.
+     */
+    private String requireAllowedFormat(String fileName, byte[] content) {
+        byte[] header = Arrays.copyOf(content, Math.min(content.length, DocumentFormat.HEADER_LENGTH));
+        return DocumentFormat.detect(fileName, header)
+                .map(DocumentFormat::contentType)
+                .filter(settings::allows)
+                .orElseThrow(() -> new ApiException(ErrorCode.UNSUPPORTED_FILE_TYPE,
+                        "rejected " + DocumentFormat.extensionOf(fileName) + " whose bytes are not an offered format"));
     }
 }

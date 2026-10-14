@@ -128,7 +128,7 @@ export function blankDraft(): TemplateDraft {
 export function requestOf(draft: TemplateDraft, version: number | null): TemplateWriteRequest {
   const orNull = (text: string) => text.trim() || null;
   const inPanel = (panel: CompetencyPanelKind, rows: IdentifiedCompetency[]) =>
-    forWire(rows).map((competency) => ({ panel, ...competency }));
+    forWire(rows).map(({ name, description, weight }) => ({ panel, name, description, weight }));
   return {
     title: draft.title.trim(),
     discipline: draft.discipline,

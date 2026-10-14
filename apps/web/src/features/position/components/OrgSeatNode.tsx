@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { OrgNode } from "../api/types";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import { NODE_HEIGHT, NODE_WIDTH } from "../lib/orgChart";
 import { ProvenanceMarker } from "./ProvenanceMarker";
 
@@ -65,6 +66,7 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
           <input
             value={seat.title ?? ""}
             aria-label="Seat title"
+            maxLength={BRIEF_LIMITS.seatTitle}
             placeholder="Title"
             onChange={(event) => data.onPatch(seat.nodeId, { title: event.target.value || null })}
             className="w-full bg-transparent type-heading text-u-text outline-none placeholder:font-normal placeholder:text-u-text3"
@@ -72,6 +74,7 @@ export function OrgSeatNode({ data }: NodeProps<Node<OrgSeatData>>) {
           <input
             value={seat.name ?? ""}
             aria-label="Seat holder name"
+            maxLength={BRIEF_LIMITS.seatName}
             placeholder="Name"
             onChange={(event) => data.onPatch(seat.nodeId, { name: event.target.value || null })}
             className="w-full bg-transparent text-note text-u-text2 outline-none placeholder:text-u-text3/70"
