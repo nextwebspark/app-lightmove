@@ -10,6 +10,8 @@ import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
+import * as scorecardApi from "../api/scorecardApi";
+import type { CandidateScorecard } from "../api/scorecardTypes";
 import type { Candidate, CandidateTag, PersonNote, PersonRecord, PersonTimelineEntry } from "../api/types";
 import { MemoryRouter } from "react-router-dom";
 import { CandidateDrawer } from "./CandidateDrawer";
@@ -29,6 +31,11 @@ vi.mock("../api/personCrmApi", async (importOriginal) => ({
   writePersonNote: vi.fn(),
 }));
 
+vi.mock("../api/scorecardApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof scorecardApi>()),
+  getScorecard: vi.fn(),
+  saveScorecard: vi.fn(),
+}));
 vi.mock("../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof poolApi>()),
   getPerson: vi.fn(),
@@ -989,7 +996,7 @@ describe("CandidateDrawer", () => {
   it("splits the profile into the mockup's tabs, and opens the next person on the tab this one was left on", async () => {
     const { unmount } = renderDrawer({ candidate: yasmin, company: null });
 
-    expect(tabLabels()).toEqual(["Career", "Notes", "Contact", "Documents", "Activity", "Positions"]);
+    expect(tabLabels()).toEqual(["Career", "Notes", "Assessment", "Contact", "Documents", "Activity", "Positions"]);
     expect(screen.getByRole("tab", { name: "Career" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "true");
@@ -1225,6 +1232,122 @@ describe("CandidateDrawer", () => {
 
       expect(await screen.findByText(/used this period's contact lookup credits/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Find email/i })).toBeEnabled();
+    });
+  });
+
+  describe("assessment", () => {
+    const criterion = (panel: "technical" | "behavioural", name: string, weight: number, maxPoints: number) => ({
+      panel,
+      name,
+      description: panel === "technical" ? "Treasury at group scale" : null,
+      weight,
+      weightInPanel: weight,
+      maxPoints,
+      score: null,
+      points: 0,
+      evidence: null,
+    });
+    const blank: CandidateScorecard = {
+      status: "draft",
+      version: null,
+      overall: 0,
+      scoredCount: 0,
+      criteriaCount: 2,
+      panels: [
+        {
+          panel: "technical",
+          share: 60,
+          maxPoints: 60,
+          points: 0,
+          average: null,
+          scoredCount: 0,
+          criteria: [criterion("technical", "Treasury", 100, 60)],
+        },
+        {
+          panel: "behavioural",
+          share: 40,
+          maxPoints: 40,
+          points: 0,
+          average: null,
+          scoredCount: 0,
+          criteria: [criterion("behavioural", "Leadership", 100, 40)],
+        },
+      ],
+      retired: [],
+      report: { careerSummary: null, coreValue: null, concerns: null, workingStyle: null, motivation: null },
+      updatedAt: null,
+      updatedByName: null,
+      reviewedAt: null,
+      reviewedByName: null,
+    };
+
+    it("totals the scores out of 100 as they move, and saves them as a draft from the footer", async () => {
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      vi.mocked(scorecardApi.saveScorecard).mockResolvedValue({ ...blank, version: 0, overall: 42 });
+      renderDrawer({ candidate: yasmin, company: null });
+
+      await openTab("Assessment");
+      expect(await screen.findByText("0 / 2 criteria scored", { exact: false })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save draft" })).toBeDisabled();
+
+      // The first press lands mid-scale; two more make it a 7 — 7/10 of Treasury's 60.
+      for (let press = 0; press < 3; press += 1) {
+        await userEvent.click(screen.getByRole("button", { name: "Raise Treasury" }));
+      }
+      expect(screen.getByLabelText("Treasury score")).toHaveTextContent("7");
+      expect(screen.getByText("1 / 2 criteria scored", { exact: false })).toBeInTheDocument();
+      expect(screen.getAllByText("42").length).toBeGreaterThan(0);
+
+      await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
+
+      await waitFor(() => expect(scorecardApi.saveScorecard).toHaveBeenCalled());
+      expect(vi.mocked(scorecardApi.saveScorecard).mock.calls[0][2]).toEqual({
+        version: null,
+        markReviewed: false,
+        report: blank.report,
+        scores: [
+          { panel: "technical", name: "Treasury", score: 7, evidence: null },
+          { panel: "behavioural", name: "Leadership", score: null, evidence: null },
+        ],
+      });
+    });
+
+    it("keeps the rest of the footer off the Assessment tab and puts it back elsewhere", async () => {
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      renderDrawer({ candidate: yasmin, company: null });
+
+      await openTab("Assessment");
+      expect(await screen.findByRole("button", { name: "Mark reviewed & submit" })).toBeInTheDocument();
+      expect(within(screen.getByRole("contentinfo")).queryByRole("button", { name: "Set next action" })).toBeNull();
+
+      await openTab("Notes");
+      expect(screen.queryByRole("button", { name: "Mark reviewed & submit" })).not.toBeInTheDocument();
+    });
+
+    it("says a teammate saved first rather than overwriting them", async () => {
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      vi.mocked(scorecardApi.saveScorecard).mockRejectedValue(
+        new ApiRequestError({ code: "CANDIDATE_ASSESSMENT_STALE", detail: "stale", status: 409, correlationId: "x" }),
+      );
+      renderDrawer({ candidate: yasmin, company: null });
+
+      await openTab("Assessment");
+      await userEvent.click(await screen.findByRole("button", { name: "Raise Leadership" }));
+      await userEvent.click(screen.getByRole("button", { name: "Mark reviewed & submit" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(/saved this assessment after you opened it/);
+      expect(screen.getByLabelText("Leadership score")).toHaveTextContent("5");
+    });
+
+    it("points to the brief when it has nothing to score against", async () => {
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue({ ...blank, criteriaCount: 0, panels: [] });
+      renderDrawer({ candidate: yasmin, company: null });
+
+      await openTab("Assessment");
+      expect(await screen.findByRole("link", { name: /Open the brief's criteria/ })).toHaveAttribute(
+        "href",
+        "/projects/p1?step=assessment",
+      );
     });
   });
 });

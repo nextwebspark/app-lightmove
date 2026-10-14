@@ -103,6 +103,10 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Candidates search `q`, `page` | none | unbounded `q`; `page × size` overflows | — |
 | Next action title | trimmed, ≤ 200, one line, required | `@NotBlank @Size(200)`, no line break (it becomes an email subject) | banner |
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
+| Assessment score | stepper 0–10 or unscored | `@Min(0) @Max(10)`, null allowed | toast |
+| Assessment evidence | `maxLength` 2000 | `@Size(2000)` | toast |
+| Assessment report section | `maxLength` 4000 | `@Size(4000)` each | toast |
+| Assessment save | sends the version it opened | `CANDIDATE_ASSESSMENT_STALE` (409) on any other | banner, Reload theirs |
 
 ### Import, export, outreach, assistant
 | Field | Client | Server | Shown as |

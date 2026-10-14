@@ -147,6 +147,8 @@ function phraseOf(
       };
     case "AI_ASSESSED":
       return { text: `ran AI deep enrich${onThem}`, detail: here ? "Scored against this brief" : null };
+    case "ASSESSMENT_REVIEWED":
+      return { text: `reviewed the assessment${forThem} on ${where}`, detail: null };
     case "NOTE_ADDED":
       return {
         text: `${NOTE_VERBS[details.kind ?? "GENERAL"] ?? NOTE_VERBS.GENERAL}${onThem}${aboutOf(entry, here)}`,

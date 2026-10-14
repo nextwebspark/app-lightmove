@@ -2,11 +2,12 @@
  * The tabs both person drawers draw, in `Position.dc.html`'s order. A position's drawer shows every one
  * a staff seat may use; the workspace Candidates drawer leaves out what only a position can hold.
  */
-export type DrawerTab = "career" | "notes" | "contact" | "documents" | "activity" | "positions";
+export type DrawerTab = "career" | "notes" | "assessment" | "contact" | "documents" | "activity" | "positions";
 
 export const DRAWER_TAB_LABELS: Readonly<Record<DrawerTab, string>> = {
   career: "Career",
   notes: "Notes",
+  assessment: "Assessment",
   contact: "Contact",
   documents: "Documents",
   activity: "Activity",
@@ -16,6 +17,7 @@ export const DRAWER_TAB_LABELS: Readonly<Record<DrawerTab, string>> = {
 export const POSITION_STAFF_TABS: readonly DrawerTab[] = [
   "career",
   "notes",
+  "assessment",
   "contact",
   "documents",
   "activity",

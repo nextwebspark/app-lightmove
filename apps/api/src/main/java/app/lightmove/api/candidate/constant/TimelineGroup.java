@@ -25,7 +25,7 @@ public enum TimelineGroup implements ApiValueEnum {
             PersonActivityKind.OUTREACH_ENROLLED, PersonActivityKind.EMAIL_SENT, PersonActivityKind.EMAIL_REPLIED,
             PersonActivityKind.OUTREACH_STOPPED, PersonActivityKind.MEETING_BOOKED)),
     PROFILE("profile", EnumSet.of(PersonActivityKind.PROFILE_EDITED, PersonActivityKind.RESEARCHED,
-            PersonActivityKind.AI_ASSESSED)),
+            PersonActivityKind.AI_ASSESSED, PersonActivityKind.ASSESSMENT_REVIEWED)),
     TAGS("tags", EnumSet.of(PersonActivityKind.TAGGED, PersonActivityKind.UNTAGGED,
             PersonActivityKind.OWNER_CHANGED)),
     DOCUMENTS("documents", EnumSet.of(PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,

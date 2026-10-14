@@ -1,17 +1,10 @@
-import { Icon, ICONS } from "../../../components/layout/Icon";
 import { TabList } from "../../../components/ui/TabList";
 import { DRAWER_TAB_LABELS, type DrawerTab } from "../lib/drawerTabs";
 
-const TAB_ICONS: Readonly<Record<DrawerTab, string>> = {
-  career: ICONS.briefcase,
-  notes: ICONS.fileText,
-  contact: ICONS.mail,
-  documents: ICONS.file,
-  activity: ICONS.activity,
-  positions: ICONS.position,
-};
-
-/** Both person drawers' tab bar: one set of names and glyphs, and a count only where it helps scanning. */
+/**
+ * Both person drawers' tab bar: one set of names, and a count only where it helps scanning. Text alone, as the
+ * mockup draws it — seven tabs with glyphs no longer fit the drawer's width.
+ */
 export function DrawerTabBar({
   idPrefix,
   tabs,
@@ -35,7 +28,6 @@ export function DrawerTabBar({
       tabs={tabs.map((tab) => ({
         value: tab,
         label: DRAWER_TAB_LABELS[tab],
-        icon: <Icon d={TAB_ICONS[tab]} size={13} className="flex-none" />,
         count: tab === "notes" || tab === "documents" || tab === "positions" ? counts[tab] : undefined,
       }))}
     />

@@ -211,6 +211,10 @@ public enum ErrorCode {
     /** A retired tag stays on the people who hold it, but can no longer be put on anyone. */
     CANDIDATE_TAG_RETIRED(HttpStatus.CONFLICT, "That tag is retired. Restore it in Settings to use it again"),
 
+    /** A teammate saved this assessment after it was opened here: the save would overwrite their scores. */
+    CANDIDATE_ASSESSMENT_STALE(HttpStatus.CONFLICT,
+            "Someone saved this assessment after you opened it. Reload to see their changes"),
+
     /** The seven built-in statuses can be renamed and recoloured, never retired or moved to another stage. */
     PIPELINE_STATUS_SYSTEM(HttpStatus.CONFLICT, "Built-in statuses can be renamed, not retired or moved"),
 
