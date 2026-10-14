@@ -54,9 +54,18 @@ Note column) is filed once as a note about that mandate; only its author or a `W
 may change or remove one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
 never quotes it, so a removed note leaves no copy. Both person drawers — a position's executive drawer and the
 Candidates page's — share one header (tags beside owner and do not contact) and one tab order,
-`Position.dc.html`'s: **Career · Notes · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
+`Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
 retired `?tab=records|timeline` links still land), a client seat reading Career and Contact alone; the
-workspace drawer leaves out only what a position holds. The executive drawer draws **Positions** (every
+workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
+consultant's own scorecard against the brief's competencies: a 0–10 score or none per competency (unscored is an
+open question, never a zero), out of 100 with each panel carrying its `technical_share` part and each weight
+normalised within its panel (`ScorecardScoring`, mirrored live by the SPA's `lib/scorecardScoring.ts`), evidence
+per criterion and a five-section written report, saved whole from the tab's footer as a draft or **Mark reviewed &
+submit** — any later save is a draft again. Competency rows have no id, so a score keeps a snapshot of its criterion
+and is matched on panel + name; one the brief dropped stays as "No longer in the brief", kept and not counted. A save
+names the version it opened (`CANDIDATE_ASSESSMENT_STALE`), unsaved changes ride the tab's `sessionStorage` until
+saved, and it is staff-only like the AI assessment — `GET|PUT …/candidates/{id}/assessment`, `WORK_EXECUTE`, never
+on `CandidateResponse` — with a timeline line only for a review (`ASSESSMENT_REVIEWED`). Per-section AI support is not built. The executive drawer draws **Positions** (every
 mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
@@ -1046,6 +1055,9 @@ due-soon/overdue notice stamps; V132's next actions backfilled as open tasks), `
 the email claim), `app_lm_notification_preference` (no row is on) and `app_lm_notification_digest` (one per person
 per local day), and widens the activity kinds with `TASK_CREATED`, `TASK_COMPLETED`, `TASK_REOPENED`,
 `TASK_REASSIGNED` and `TASK_CANCELLED`.
+V135 adds `app_lm_candidate_scorecard` — one per mapping (`candidate_id` unique, cascading), `status` `DRAFT |
+REVIEWED` with `reviewed_at` set exactly when reviewed (CHECK), the scores a jsonb array of `{panel, name, weight,
+score, evidence}` snapshots and the report a jsonb object — and widens the activity kinds with `ASSESSMENT_REVIEWED`.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

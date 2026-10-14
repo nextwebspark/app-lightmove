@@ -75,5 +75,8 @@ public enum PersonActivityKind {
 
     /** The line names who held the task before and who holds it now. */
     TASK_REASSIGNED,
-    TASK_CANCELLED
+    TASK_CANCELLED,
+
+    /** A consultant marked their assessment against a mandate's brief reviewed. A draft save writes no line. */
+    ASSESSMENT_REVIEWED
 }

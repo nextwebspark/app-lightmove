@@ -95,7 +95,7 @@ export function TabList<TValue extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.value)}
             className={cn(
-              "-mb-px flex flex-none items-center gap-1.5 whitespace-nowrap border-b-2 pb-2 text-[13px] font-semibold transition-colors",
+              "-mb-px flex flex-none items-center gap-1 whitespace-nowrap border-b-2 pb-2 text-[13px] font-semibold transition-colors",
               selected ? "border-u-accent text-u-text" : "border-transparent text-u-text3 hover:text-u-text2",
             )}
           >

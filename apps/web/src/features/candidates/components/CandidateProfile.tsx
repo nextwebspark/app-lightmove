@@ -6,6 +6,7 @@ import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { tabPanelProps } from "../../../components/ui/tabPanelProps";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
 import { noticeSummaryOf } from "../../../lib/noticePeriod";
@@ -36,6 +37,7 @@ import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
 import { useAiEnrichment } from "../lib/useAiEnrichment";
+import { useScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
@@ -48,6 +50,7 @@ import {
 } from "../lib/drawerTabs";
 import { CandidateAvatar } from "./CandidateAvatar";
 import { DrawerTabBar } from "./DrawerTabBar";
+import { AssessmentTab } from "./assessment/AssessmentTab";
 import { DocumentsPanel } from "./documents/DocumentsPanel";
 import { StatusPicker } from "./StatusPicker";
 import {
@@ -200,6 +203,10 @@ export function CandidateProfile({
     queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
     enabled: canWrite,
   });
+  // Read once the tab is first opened, then kept: most profiles are read without being scored.
+  const [assessmentOpened, setAssessmentOpened] = useState(tab === "assessment");
+  if (tab === "assessment" && !assessmentOpened) setAssessmentOpened(true);
+  const scorecard = useScorecardEditor(projectId, candidate.id, canWrite && assessmentOpened);
   const notes = useQuery({
     queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidate.id),
     queryFn: ({ signal }) => personCrmApi.getPersonNotes(projectId, candidate.id, signal),
@@ -688,6 +695,9 @@ export function CandidateProfile({
                 onSetNextAction={(note) => openNextAction(null, note)}
               />
             </div>
+            <div {...panelProps("assessment")}>
+              {assessmentOpened && <AssessmentTab projectId={projectId} editor={scorecard} />}
+            </div>
             <div {...panelProps("documents")} className="py-4">
               <DocumentsPanel
                 scope={documentScope}
@@ -733,7 +743,34 @@ export function CandidateProfile({
             <span className="hidden sm:inline">Remove from mandate</span>
           </Button>
         )}
-        {canWrite ? (
+        {canWrite && tab === "assessment" ? (
+          <>
+            {scorecard.isDirty && (
+              <Button type="button" variant="ghost" className="ms-auto" onClick={scorecard.discard}>
+                Discard
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              className={cn("whitespace-nowrap", !scorecard.isDirty && "ms-auto")}
+              disabled={!scorecard.isDirty || scorecard.isSaving || !scorecard.saved.data}
+              loading={scorecard.isSaving && !scorecard.savingReviewed}
+              onClick={() => scorecard.save(false)}
+            >
+              Save draft
+            </Button>
+            <Button
+              type="button"
+              className="whitespace-nowrap"
+              disabled={scorecard.isSaving || !scorecard.saved.data}
+              loading={scorecard.savingReviewed}
+              onClick={() => scorecard.save(true)}
+            >
+              Mark reviewed & submit
+            </Button>
+          </>
+        ) : canWrite ? (
           <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" onClick={startNote}>
             <Icon d={ICONS.plus} size={14} />
             Add note
@@ -743,7 +780,7 @@ export function CandidateProfile({
             Close
           </Button>
         )}
-        {canWrite && (
+        {canWrite && tab !== "assessment" && (
           <Button type="button" className="whitespace-nowrap" onClick={() => openNextAction(null)}>
             <Icon d={ICONS.plus} size={14} />
             Set next action
