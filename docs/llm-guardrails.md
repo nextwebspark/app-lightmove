@@ -54,6 +54,10 @@ So a structured call names `responseMimeType("application/json")` in its own
 - **`responseSchema` is deliberately unset.** Gemini's is a restricted OpenAPI subset that rejects
   the `$schema` and union types our answer schemas use, and the validating advisor already holds the
   full schema.
+  Measured on 2026-10-14 after rewriting our schemas into its shape: 9 of 12 prompts went unanswered at
+  the 40-second timeout with it, each answering in one to two seconds without. An invalid escape the model
+  writes (it once wrote `"\协"` in a snippet) is mended instead by `JsonEscapeRepairAdvisor`, just inside
+  the validating advisor.
 
 ### Where a default belongs, and which of the two layers merges
 

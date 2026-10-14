@@ -147,6 +147,68 @@ class PositionDetailsProposerTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an answer carrying an escape JSON does not have is still read by the model, not the headings")
+    void readsAnAnswerWithAnInvalidEscape() throws Exception {
+        Fixture f = fixture("Extraction Escape Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"Chief Financial Officer","responsibilities":[{"text":"Own the \\协 finance function"}]}
+                """);
+
+        ProposedPositionDetails proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(proposed.source()).isEqualTo(ExtractionSource.MODEL);
+        assertThat(model.calls()).isEqualTo(1);
+        assertThat(fieldNamed(proposed, "responsibility").orElseThrow().value()).isEqualTo("Own the 协 finance function");
+    }
+
+    @Test
+    @DisplayName("seniority carries the confidence the model states for a quoted reading")
+    void seniorityCarriesTheStatedConfidence() throws Exception {
+        Fixture f = fixture("Extraction Seniority Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"Chief Financial Officer","seniority":"C_SUITE",
+                 "senioritySnippet":"reporting to the CEO","seniorityConfidence":"high"}
+                """);
+
+        ProposedPositionDetails proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        ExtractedField seniority = fieldNamed(proposed, "seniority").orElseThrow();
+        assertThat(seniority.value()).isEqualTo("C_SUITE");
+        assertThat(seniority.confidence()).isEqualTo(ProposalConfidence.HIGH);
+    }
+
+    @Test
+    @DisplayName("a seniority whose quote is not in the document stays low, whatever confidence the model states")
+    void unquotedSeniorityStaysLow() throws Exception {
+        Fixture f = fixture("Extraction Unquoted Seniority Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"Chief Financial Officer","seniority":"C_SUITE",
+                 "senioritySnippet":"sits on the executive committee","seniorityConfidence":"high"}
+                """);
+
+        ProposedPositionDetails proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(fieldNamed(proposed, "seniority").orElseThrow().confidence()).isEqualTo(ProposalConfidence.LOW);
+    }
+
+    @Test
+    @DisplayName("a seniority the model calls a guess reads low even with no quote")
+    void guessedSeniorityReadsLow() throws Exception {
+        Fixture f = fixture("Extraction Guessed Seniority Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"roleTitle":"Chief Financial Officer","seniority":"N_MINUS_1","seniorityConfidence":"low"}
+                """);
+
+        ProposedPositionDetails proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(fieldNamed(proposed, "seniority").orElseThrow().confidence()).isEqualTo(ProposalConfidence.LOW);
+    }
+
+    @Test
     @DisplayName("a residual placeholder after re-hydration drops the field entirely")
     void residualPlaceholderDropsTheField() throws Exception {
         Fixture f = fixture("Extraction Residue Firm", "Acme Holdings Group", "acme.example");

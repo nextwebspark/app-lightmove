@@ -201,3 +201,27 @@ describe("rebalance below 100", () => {
     }
   });
 });
+
+describe("rebalance above 100", () => {
+  it("lowers the total, never the other rows' weights, while the panel is still over", () => {
+    const next = rebalance(panel(90, 85, 80), 0, 50);
+    expect(next.map((row) => row.weight)).toEqual([50, 85, 80]);
+  });
+
+  it("hands the others only what a lowered row releases past 100", () => {
+    const next = rebalance(panel(60, 30, 30), 0, 20);
+    expect(next[0].weight).toBe(20);
+    expect(total(next)).toBe(100);
+  });
+
+  it("brings the panel to 100 when a row is raised", () => {
+    const next = rebalance(panel(90, 85, 80), 0, 95);
+    expect(next[0].weight).toBe(95);
+    expect(total(next)).toBe(100);
+  });
+
+  it("never leaves a row above 100", () => {
+    const next = rebalance(panel(90, 85, 80), 2, 0);
+    expect(next.every((row) => row.weight <= 100)).toBe(true);
+  });
+});
