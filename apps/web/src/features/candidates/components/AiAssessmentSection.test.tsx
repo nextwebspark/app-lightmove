@@ -16,6 +16,22 @@ vi.mock("../api/candidatesApi", async (importOriginal) => ({
   updateCandidate: vi.fn(),
 }));
 
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({
+    user: { id: "u1", fullName: "Yara Haddad", avatarUrl: null, workspace: { roles: ["ADMIN"], mode: "COMPANY" } },
+  }),
+}));
+
+vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
+  getCandidateTasks: async () => ({ open: [], done: [] }),
+}));
+
+vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
+  projects: async () => [],
+}));
+
 vi.mock("../../contactlookup/api/contactLookupApi", async (importOriginal) => ({
   ...(await importOriginal<typeof contactLookupApi>()),
   getContactLookupConfig: vi.fn(),

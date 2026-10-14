@@ -36,6 +36,22 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   untagPerson: vi.fn(),
 }));
 
+vi.mock("../../auth/AuthProvider", () => ({
+  useAuth: () => ({
+    user: { id: "u1", fullName: "Yara Haddad", avatarUrl: null, workspace: { roles: ["ADMIN"], mode: "COMPANY" } },
+  }),
+}));
+
+vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
+  getCandidateTasks: async () => ({ open: [], done: [] }),
+}));
+
+vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
+  projects: async () => [],
+}));
+
 vi.mock("../../contactlookup/api/contactLookupApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof contactLookupApi>()),

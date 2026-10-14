@@ -7,6 +7,8 @@ import { cn } from "../../../lib/cn";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
 import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
+import { NoteBody } from "../../tasks/components/NoteBody";
+import { displayTextOf, mentionsIn, serializeMentions } from "../../tasks/lib/mentions";
 
 /** The composer's kind chips: a radio group with one tab stop, the arrows moving the choice. */
 export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onChange: (kind: PersonNoteKind) => void }) {
@@ -61,7 +63,7 @@ export interface NoteCardActions {
 export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCardActions }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [draft, setDraft] = useState(note.body);
+  const [draft, setDraft] = useState(() => displayTextOf(note.body));
 
   return (
     <li className={cn("rounded-[8px] border px-3 py-2.5", note.pinned ? "border-u-accent/60 bg-u-raised" : "border-u-border")}>
@@ -91,7 +93,7 @@ export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCa
           onSubmit={(event) => {
             event.preventDefault();
             if (draft.trim()) {
-              actions.onRevise(draft.trim());
+              actions.onRevise(serializeMentions(draft.trim(), mentionsIn(note.body)));
               setEditing(false);
             }
           }}
@@ -114,7 +116,7 @@ export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCa
           </div>
         </form>
       ) : (
-        <p className="mt-1.5 whitespace-pre-wrap text-[13px]/[1.55] text-u-text2">{note.body}</p>
+        <NoteBody body={note.body} className="mt-1.5 whitespace-pre-wrap text-[13px]/[1.55] text-u-text2" />
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
         {note.projectTitle && <span>About {note.projectTitle}</span>}
@@ -148,7 +150,7 @@ export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCa
                 <button
                   type="button"
                   onClick={() => {
-                    setDraft(note.body);
+                    setDraft(displayTextOf(note.body));
                     setEditing(true);
                   }}
                   className="hover:text-u-text"

@@ -2,24 +2,6 @@ import { moveItem } from "../../../lib/moveItem";
 import type { PipelineCatalog } from "../../workspace/api/types";
 import type { PipelineRankMove, PipelineRow } from "../api/types";
 
-export type DueTone = "overdue" | "today" | "later";
-
-/** Overdue once its day has passed, due today all of today, and plain from tomorrow on. */
-export function dueToneOf(dueAt: string, now: Date = new Date()): DueTone {
-  const due = new Date(dueAt);
-  if (sameDay(due, now)) return "today";
-  return due.getTime() < now.getTime() ? "overdue" : "later";
-}
-
-/** "Overdue · 03 Oct", "Today · 16:00", or the date alone. */
-export function dueLabelOf(dueAt: string, now: Date = new Date()): string {
-  const due = new Date(dueAt);
-  const tone = dueToneOf(dueAt, now);
-  if (tone === "today") return `Today · ${due.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
-  const day = shortDate(due);
-  return tone === "overdue" ? `Overdue · ${day}` : day;
-}
-
 export function shortDate(moment: Date | string): string {
   return new Date(moment).toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
@@ -77,8 +59,4 @@ export function inactiveGroupsOf(rows: readonly PipelineRow[], catalog: Pipeline
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
   };
   return [...groups.values()].sort((a, b) => rank(a.status) - rank(b.status));
-}
-
-function sameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }

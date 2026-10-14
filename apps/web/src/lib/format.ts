@@ -61,6 +61,50 @@ export function formatInstantDate(isoInstant: string | null | undefined): string
   return moment.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+/** An instant → "03 Oct 2026, 16:00" in the viewer's zone: the one shape a date with a time reads in. */
+export function formatInstantDateTime(isoInstant: string | null | undefined): string | null {
+  if (!isoInstant) return null;
+  const moment = new Date(isoInstant);
+  if (Number.isNaN(moment.getTime())) return null;
+  return `${formatInstantDate(isoInstant)}, ${clockOf(moment)}`;
+}
+
+/** How near a due moment is: overdue reads red, today amber, anything later plain. */
+export type DueTone = "overdue" | "today" | "plain";
+
+/**
+ * A due moment as a chip says it — "Today · 16:00", "Tomorrow · 09:00", "Overdue · 03 Oct 2026", or else
+ * "08 Oct 2026, 09:00" — and its tone. Days are the viewer's own.
+ */
+export function describeDue(
+  isoInstant: string | null | undefined,
+  now: Date = new Date(),
+): { label: string; tone: DueTone } | null {
+  if (!isoInstant) return null;
+  const due = new Date(isoInstant);
+  if (Number.isNaN(due.getTime())) return null;
+  const dayOf = (moment: Date) => new Date(moment.getFullYear(), moment.getMonth(), moment.getDate()).getTime();
+  const days = Math.round((dayOf(due) - dayOf(now)) / 86_400_000);
+  if (due.getTime() < now.getTime()) {
+    return { label: days === 0 ? `Overdue · ${clockOf(due)}` : `Overdue · ${formatInstantDate(isoInstant)}`, tone: "overdue" };
+  }
+  if (days === 0) return { label: `Today · ${clockOf(due)}`, tone: "today" };
+  if (days === 1) return { label: `Tomorrow · ${clockOf(due)}`, tone: "plain" };
+  return { label: formatInstantDateTime(isoInstant) ?? "", tone: "plain" };
+}
+
+/** An instant → "16:00" in the viewer's zone: a time of day where the day goes without saying. */
+export function formatInstantTime(isoInstant: string | null | undefined): string | null {
+  if (!isoInstant) return null;
+  const moment = new Date(isoInstant);
+  if (Number.isNaN(moment.getTime())) return null;
+  return clockOf(moment);
+}
+
+function clockOf(moment: Date): string {
+  return moment.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
 /** 450000 → "450,000". The money shape a package reads in, where the exact figure is the point. */
 export function formatNumber(value: number): string {
   return value.toLocaleString("en-GB");

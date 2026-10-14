@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
@@ -17,7 +18,8 @@ import { CustomFieldsFieldset } from "../../customcolumns/components/CustomField
 import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButton";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
-import { DrawerNextAction } from "../../pipeline/components/DrawerNextAction";
+import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
+import { NextActionsSection } from "../../tasks/components/NextActionsSection";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
@@ -179,6 +181,18 @@ export function CandidateProfile({
   const documentScope: DocumentScope = { kind: "position", projectId, candidateId: candidate.id };
   const documents = usePersonDocuments(documentScope, canWrite);
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
+  const [nextActionDone, setNextActionDone] = useState(false);
+  const openNextAction = (taskId: string | null) => {
+    setNextActionDone(false);
+    setNextAction({
+      projectId,
+      candidateId: candidate.id,
+      personId: candidate.personId,
+      executiveName: candidate.fullName,
+      taskId,
+    });
+  };
   const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
     setPreview({ documentId: document.id, versionId: version.id });
   const closePreview = useCallback(() => setPreview(null), []);
@@ -278,7 +292,6 @@ export function CandidateProfile({
               {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
               {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
             </div>
-            {canWrite && <DrawerNextAction projectId={projectId} candidateId={candidate.id} />}
           </div>
         </div>
         {canWrite && <DoNotContactStrip personId={candidate.personId} />}
@@ -321,6 +334,17 @@ export function CandidateProfile({
               <FoldAllButton label="Expand all" onClick={() => sections.setAll(true, PROFILE_TAB_FOLDS)} />
               <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false, PROFILE_TAB_FOLDS)} />
             </div>
+          )}
+
+          {canWrite && (
+            <NextActionsSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={candidate.fullName.trim().split(/\s+/)[0]}
+              justCompleted={nextActionDone}
+              onCompleted={() => setNextActionDone(true)}
+              onOpen={openNextAction}
+            />
           )}
 
           <CollapsibleSection
@@ -647,7 +671,21 @@ export function CandidateProfile({
         <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
           Close
         </Button>
+        {canWrite && (
+          <Button type="button" onClick={() => openNextAction(null)}>
+            <Icon d={ICONS.plus} size={14} />
+            Set next action
+          </Button>
+        )}
       </footer>
+
+      {canWrite && (
+        <NextActionModal
+          target={nextAction}
+          onClose={() => setNextAction(null)}
+          onCompleted={() => setNextActionDone(true)}
+        />
+      )}
 
       {canWrite && (
         <DocumentPreviewSheet

@@ -18,7 +18,8 @@ import type { PipelineRow } from "../api/types";
 import { PipelineBoard } from "../components/PipelineBoard";
 import { PipelineList } from "../components/PipelineList";
 import { StagePills } from "../components/StagePills";
-import { useClientVisibility, useNextAction, useRankMove, useStageDrop } from "../lib/usePipelineWrites";
+import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
+import { useClientVisibility, useRankMove, useStageDrop } from "../lib/usePipelineWrites";
 
 type PipelineView = "list" | "board";
 
@@ -31,7 +32,8 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 /**
  * A position's Pipeline (`Position.dc.html`, `pipeline`): every executive it maps, by stage, as a board
- * — how it opens — or a list. Staff-only — it is the position's WORK_EXECUTE, so a client seat is sent to In universe.
+ * — how it opens — or a list. `?candidate=` opens that executive's drawer, which is where a notification, an
+ * email and My tasks send someone. Staff-only — it is the position's WORK_EXECUTE, so a client seat is sent to In universe.
  */
 export default function PipelinePage() {
   const { project } = useOutletContext<ProjectOutletContext>();
@@ -51,13 +53,22 @@ function StaffPipeline() {
   const [q, setQ] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
-  const [openCandidateId, setOpenCandidateId] = useState<string | null>(null);
   const [isEnrolling, setIsEnrolling] = useState(false);
+  const [nextActionFor, setNextActionFor] = useState<NextActionTarget | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setQ(search), SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [search]);
+
+  const openCandidateId = searchParams.get("candidate");
+  const setOpenCandidateId = (candidateId: string | null) =>
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      if (candidateId) next.set("candidate", candidateId);
+      else next.delete("candidate");
+      return next;
+    });
 
   const requestedStage = searchParams.get("stage") ?? "";
   const stage =
@@ -91,13 +102,21 @@ function StaffPipeline() {
   });
 
   const visibility = useClientVisibility(project.id);
-  const nextAction = useNextAction(project.id);
   const rankMove = useRankMove(project.id, queryKey);
   const stageDrop = useStageDrop(project.id);
 
   const rows = pipeline.data?.rows ?? [];
   const stageCounts = pipeline.data?.stageCounts ?? [];
   const outreachOffered = mailbox.data?.offered === true;
+
+  const openNextAction = (row: PipelineRow) =>
+    setNextActionFor({
+      projectId: project.id,
+      candidateId: row.candidateId,
+      personId: row.personId,
+      executiveName: row.fullName,
+      taskId: row.nextAction?.taskId ?? null,
+    });
 
   const toggleVisible = (row: PipelineRow) =>
     visibility.mutate({ candidateId: row.candidateId, clientVisible: !row.clientVisible });
@@ -174,10 +193,7 @@ function StaffPipeline() {
           onOpen={setOpenCandidateId}
           onMove={(moved, candidateId) => rankMove.mutate({ candidateId, move: moved.move, rows: moved.rows })}
           onToggleVisible={toggleVisible}
-          onSaveNextAction={(row, text, dueAt, done) =>
-            nextAction.mutate({ candidateId: row.candidateId, text, dueAt }, { onSuccess: done })
-          }
-          savingNextActionId={nextAction.isPending ? (nextAction.variables?.candidateId ?? null) : null}
+          onOpenNextAction={openNextAction}
         />
       ) : (
         <PipelineBoard
@@ -190,8 +206,11 @@ function StaffPipeline() {
           onOpen={setOpenCandidateId}
           onDrop={(drop) => stageDrop.mutate(drop)}
           onToggleVisible={toggleVisible}
+          onOpenNextAction={openNextAction}
         />
       )}
+
+      <NextActionModal target={nextActionFor} onClose={() => setNextActionFor(null)} />
 
       <CandidateDrawerById
         project={project}

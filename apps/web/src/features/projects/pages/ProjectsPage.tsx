@@ -18,6 +18,7 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import { GettingStartedCard } from "../../gettingstarted/components/GettingStartedCard";
+import { MyTasksCard } from "../../tasks/components/MyTasksCard";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
 import { ProjectsList } from "../components/ProjectsList";
@@ -214,6 +215,8 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         subtitle={`${countLabel(rows.length, unfilteredCount, filtered)} · workspace ${user?.workspace?.name ?? ""}`}
         action={clientOnly ? undefined : newProjectButton}
       />
+
+      {view === "my" && !clientOnly && <MyTasksCard />}
 
       {view === "my" && !clientOnly && <GettingStartedCard onOpenPosition={() => setModalOpen(true)} />}
 

@@ -5,11 +5,17 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../features/auth/AuthProvider";
 import * as authApi from "../../features/auth/api/authApi";
+import * as notificationsApi from "../../features/notifications/api/notificationsApi";
 import { aUser, aWorkspace } from "../../test/fixtures/user";
 import { ToastProvider } from "../ui";
 import { Topbar } from "./Topbar";
 
 vi.mock("../../features/auth/api/authApi");
+vi.mock("../../features/notifications/api/notificationsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../features/notifications/api/notificationsApi")>()),
+  getUnreadCount: vi.fn(),
+}));
+vi.mock("../../features/notifications/lib/useNotificationStream", () => ({ useNotificationStream: () => true }));
 vi.mock("../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/apiClient")>()),
   restoreSession: vi.fn(),
@@ -247,5 +253,43 @@ describe("Topbar — account menu", () => {
 
     expect(await screen.findByText("People bar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Account: Alok Kumar" })).toBeInTheDocument();
+  });
+});
+
+/** The bell is staff's: a client representative has nothing to be told. */
+describe("Topbar — notification bell", () => {
+  const renderAs = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[]) => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: aWorkspace({ roles }) }));
+    return render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <ToastProvider>
+              <Topbar />
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+  };
+
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(notificationsApi.getUnreadCount).mockResolvedValue({ unreadCount: 3 });
+  });
+
+  it("rings for a member, with their unread count", async () => {
+    renderAs(["MEMBER"]);
+
+    expect(await screen.findByRole("button", { name: "Notifications, 3 unread" })).toBeInTheDocument();
+  });
+
+  it("is not drawn for a pure client", async () => {
+    renderAs(["CLIENT"]);
+
+    await screen.findByRole("button", { name: /^Account:/ });
+    expect(screen.queryByRole("button", { name: /^Notifications/ })).not.toBeInTheDocument();
+    expect(notificationsApi.getUnreadCount).not.toHaveBeenCalled();
   });
 });

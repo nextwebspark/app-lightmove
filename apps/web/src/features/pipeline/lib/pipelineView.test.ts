@@ -1,24 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import { aPipelineRow } from "../../../test/fixtures/pipelineRows";
-import { daysInStage, dueLabelOf, dueToneOf, inactiveGroupsOf, rankMoveOf } from "./pipelineView";
+import { daysInStage, inactiveGroupsOf, rankMoveOf } from "./pipelineView";
 
 const NOW = new Date(2026, 9, 4, 12, 0);
-
-describe("next action due", () => {
-  it("is overdue once its day has passed, due today all day, and plain after", () => {
-    expect(dueToneOf(new Date(2026, 9, 3, 16, 0).toISOString(), NOW)).toBe("overdue");
-    expect(dueToneOf(new Date(2026, 9, 4, 9, 0).toISOString(), NOW)).toBe("today");
-    expect(dueToneOf(new Date(2026, 9, 4, 16, 0).toISOString(), NOW)).toBe("today");
-    expect(dueToneOf(new Date(2026, 9, 8, 9, 0).toISOString(), NOW)).toBe("later");
-  });
-
-  it("reads as the mockup words it", () => {
-    expect(dueLabelOf(new Date(2026, 9, 3, 16, 0).toISOString(), NOW)).toBe("Overdue · 03 Oct");
-    expect(dueLabelOf(new Date(2026, 9, 4, 16, 0).toISOString(), NOW)).toBe("Today · 16:00");
-    expect(dueLabelOf(new Date(2026, 9, 8, 9, 0).toISOString(), NOW)).toBe("08 Oct");
-  });
-});
 
 describe("days in stage", () => {
   it("counts whole days since the status changed, never below zero", () => {

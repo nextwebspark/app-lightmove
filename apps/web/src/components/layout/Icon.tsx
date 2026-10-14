@@ -160,4 +160,8 @@ export const ICONS = {
   pin: "M12 17v5M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V17h14v-1.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1Z",
   ban: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM4.9 4.9l14.2 14.2",
   activity: "M22 12h-4l-3 9L9 3l-3 9H2",
+  /** A bell — the topbar's notifications, and their settings. */
+  bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
+  /** Two ticked rows beside three lines — Settings → Task presets. */
+  checklist: "M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8",
 } as const;

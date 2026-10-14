@@ -1,12 +1,19 @@
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, LinesSkeleton, Select, TextArea, useToast } from "../../../../components/ui";
+import { Button, LinesSkeleton, Select, useToast } from "../../../../components/ui";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../../lib/useSubmitShortcut";
 import * as poolApi from "../../api/poolApi";
 import type { PersonNote, PersonNoteKind, PersonRecord } from "../../api/types";
 import { NOTE_KINDS } from "../../lib/noteKinds";
 import { NoteCard, NoteKindPicker } from "../NoteParts";
+import { useAuth } from "../../../auth/AuthProvider";
+import { LinkedFollowUp } from "../../../tasks/components/LinkedFollowUp";
+import { fileFollowUp, followUpReady, newFollowUpDraft, type FollowUpDraft } from "../../../tasks/lib/followUp";
+import { MentionTextArea } from "../../../tasks/components/MentionTextArea";
+import { mentionsPresent, serializeMentions, type Mention } from "../../../tasks/lib/mentions";
+import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
+import { useTasksChanged } from "../../../tasks/lib/useTasksChanged";
 
 /**
  * The Notes tab: a composer about a position or about the person, and the team's notes, pinned first.
@@ -20,22 +27,49 @@ export function PersonNotesTab({
   notes: UseQueryResult<PersonNote[]>;
 }) {
   const toast = useToast();
+  const { user } = useAuth();
   const refresh = useNoteRefresh(person.personId);
+  const tasksChanged = useTasksChanged();
   const [kind, setKind] = useState<PersonNoteKind>("call");
   const [about, setAbout] = useState("");
   const [text, setText] = useState("");
+  const [mentions, setMentions] = useState<Mention[]>([]);
+  const [followUp, setFollowUp] = useState<FollowUpDraft>(() => newFollowUpDraft(user?.id ?? null));
+  const team = usePositionTeam(about || null);
+  const mapping = person.positions.find((position) => position.projectId === about) ?? null;
+
+  const changeAbout = (projectId: string) => {
+    setAbout(projectId);
+    setMentions([]);
+    setFollowUp(newFollowUpDraft(user?.id ?? null));
+  };
 
   const saving = useMutation({
-    mutationFn: () =>
-      poolApi.writePoolNote(person.personId, { kind, body: text.trim(), projectId: about || null }),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const body = about ? serializeMentions(text.trim(), mentionsPresent(text, mentions)) : text.trim();
+      const note = await poolApi.writePoolNote(person.personId, { kind, body, projectId: about || null });
+      if (!followUp.on || !mapping) return { followUpError: null };
+      try {
+        await fileFollowUp(mapping.projectId, mapping.candidateId, note.id, followUp);
+        return { followUpError: null };
+      } catch (failure) {
+        return { followUpError: failure };
+      }
+    },
+    onSuccess: ({ followUpError }) => {
+      const filed = followUp.on && mapping !== null;
       setText("");
-      toast("Note saved — your team sees it on every position");
+      setMentions([]);
+      if (followUpError) toast.error(`Note saved, but the follow-up wasn't: ${messageFor(followUpError)}`);
+      else toast(filed ? "Note saved with a linked follow-up" : "Note saved — your team sees it on every position");
+      if (filed && mapping) tasksChanged(mapping.projectId);
+      setFollowUp(newFollowUpDraft(user?.id ?? null));
       refresh();
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = text.trim().length > 0 && !saving.isPending;
+  const followingUp = followUp.on && mapping !== null;
+  const canSave = text.trim().length > 0 && !saving.isPending && (!mapping || followUpReady(followUp));
   const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate());
   const list = notes.data ?? [];
 
@@ -43,21 +77,25 @@ export function PersonNotesTab({
     <div className="flex flex-col gap-3">
       <div className="rounded-[8px] border border-u-border p-2.5">
         <NoteKindPicker value={kind} onChange={setKind} />
-        <TextArea
+        <MentionTextArea
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={setText}
+          mentions={mentions}
+          onMentionsChange={setMentions}
+          teammates={about ? team.teammates : null}
           onKeyDown={handleKeyDown}
           rows={3}
           maxLength={4000}
-          aria-label="New note"
+          ariaLabel="New note"
           placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
           className="font-sans text-[13px]/[1.55]"
         />
+        {mapping && <LinkedFollowUp draft={followUp} onChange={setFollowUp} teammates={team.teammates} />}
         <div className="mt-2 flex items-center gap-2">
           <Select
             aria-label="Position this note is about"
             value={about}
-            onChange={(event) => setAbout(event.target.value)}
+            onChange={(event) => changeAbout(event.target.value)}
             className="w-auto min-w-0 flex-1 py-1 text-[12.5px]"
           >
             <option value="">No position — about the person</option>
@@ -68,7 +106,7 @@ export function PersonNotesTab({
             ))}
           </Select>
           <Button className="px-3 py-1.5 text-[12.5px]" disabled={!canSave} loading={saving.isPending} onClick={() => saving.mutate()}>
-            Save note
+            {followingUp ? "Save note & follow-up" : "Save note"}
           </Button>
         </div>
       </div>

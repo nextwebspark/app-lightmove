@@ -15,6 +15,8 @@ const ACCENTS = [
 ] as const;
 
 const SIZES = {
+  /** Inline beside a line of text: a task's assignee, a mention chip. */
+  xs: "size-[18px] text-[7.5px]",
   sm: "size-6 text-[10px]",
   md: "size-[26px] text-[10px]",
   lg: "size-[30px] text-[10px]",

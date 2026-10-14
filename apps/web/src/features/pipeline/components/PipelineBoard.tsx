@@ -7,7 +7,8 @@ import { defaultStatusOf, findStatus, pipelineSwatchClass } from "../../candidat
 import type { PipelineCatalog } from "../../workspace/api/types";
 import type { PipelineRow, PipelineStageCount } from "../api/types";
 import { daysInStage, inactiveGroupsOf, shortDate } from "../lib/pipelineView";
-import { NextActionText, VisibilityToggle } from "./PipelineControls";
+import { VisibilityToggle } from "./PipelineControls";
+import { BoardNextAction } from "./PipelineNextAction";
 
 /** Where a dropped card goes: a status key, and the stage it lands in, for the toast. */
 export interface BoardDrop {
@@ -31,6 +32,7 @@ export function PipelineBoard({
   onOpen,
   onDrop,
   onToggleVisible,
+  onOpenNextAction,
 }: {
   projectId: string;
   rows: readonly PipelineRow[];
@@ -41,6 +43,7 @@ export function PipelineBoard({
   onOpen: (candidateId: string) => void;
   onDrop: (drop: BoardDrop) => void;
   onToggleVisible: (row: PipelineRow) => void;
+  onOpenNextAction: (row: PipelineRow) => void;
 }) {
   const [dragging, setDragging] = useState<PipelineRow | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
@@ -157,7 +160,7 @@ export function PipelineBoard({
                       </span>
                     </span>
                     <span className="truncate text-meta text-u-text3">{row.companyName ?? "—"}</span>
-                    <NextActionText nextAction={row.nextAction} className="text-meta" />
+                    <BoardNextAction row={row} onOpen={onOpenNextAction} />
                     <span className="flex items-center justify-between gap-2 border-t border-u-border pt-2">
                       <span className="whitespace-nowrap text-eyebrow text-u-text3">
                         {daysInStage(row.statusChangedAt)}d in stage
