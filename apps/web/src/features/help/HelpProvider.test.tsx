@@ -134,7 +134,7 @@ describe("Help", () => {
     await waitFor(() => expect(screen.getByTestId("unseen").textContent).toBe("false"));
   });
 
-  it("lists What's new by release, newest first, a few points each", async () => {
+  it("lists What's new by release, newest first, two to four points each", async () => {
     const { container } = renderAt();
     await userEvent.click(screen.getByRole("button", { name: "open news" }));
     await screen.findByRole("dialog", { name: "Help" });
@@ -145,7 +145,7 @@ describe("Help", () => {
     );
     for (const release of releases) {
       const points = release.querySelectorAll("li").length;
-      expect(points).toBeGreaterThanOrEqual(3);
+      expect(points).toBeGreaterThanOrEqual(2);
       expect(points).toBeLessThanOrEqual(4);
     }
   });

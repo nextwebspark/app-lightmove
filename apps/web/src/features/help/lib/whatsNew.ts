@@ -9,19 +9,15 @@ export interface WhatsNewRelease {
   highlights: readonly WhatsNewHighlight[];
 }
 
-/** Newest first, three or four highlights each. A version is what a reader's "seen" mark remembers, so it never changes once shipped. */
+/** Newest first, two to four highlights each. A version is what a reader's "seen" mark remembers, so it never changes once shipped. */
 export const WHATS_NEW: readonly WhatsNewRelease[] = [
   {
     version: "v0.20.0",
     date: "2026-10-14",
     highlights: [
       {
-        title: "Tasks and notifications",
-        body: "A next action is now a task with an owner and a due date. My tasks lists yours, and the bell tells you when one is assigned, falls due, or an executive replies.",
-      },
-      {
-        title: "@mention your team in notes",
-        body: "Type @ in a note to bring a colleague on the position in — they're notified, and emailed if they haven't seen it.",
+        title: "Tasks, @mentions and notifications",
+        body: "A next action is now a task with an owner and a due date, listed in My tasks. @mention a colleague in a note, and the bell tells you when a task is yours, falls due, or an executive replies.",
       },
       {
         title: "A smoother Pipeline board",
@@ -30,6 +26,10 @@ export const WHATS_NEW: readonly WhatsNewRelease[] = [
       {
         title: "Better briefs from a position description",
         body: "Reading a description gives competency weights that add up to 100, and keeps a mandate reason only where the document states one.",
+      },
+      {
+        title: "Clearer form errors",
+        body: "When something can't be saved, the message now names the field to fix.",
       },
     ],
   },
@@ -44,10 +44,6 @@ export const WHATS_NEW: readonly WhatsNewRelease[] = [
       {
         title: "A faster Strategy assistant",
         body: "The assistant answers noticeably quicker and no longer gives up on a long question.",
-      },
-      {
-        title: "Clearer form errors",
-        body: "When something can't be saved, the message now names the field to fix.",
       },
     ],
   },
