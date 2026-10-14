@@ -113,7 +113,9 @@ public class PositionDetailsProposer {
         fieldReader.enumFieldFrom(LABEL, "employmentType", EmploymentType.class, answered.employmentType(),
                 answered.employmentTypeSnippet(), pseudonyms, haystack).ifPresent(fields::add);
         fieldReader.enumFieldFrom(LABEL, "seniority", Seniority.class, answered.seniority(),
-                answered.senioritySnippet(), pseudonyms, haystack).ifPresent(fields::add);
+                answered.senioritySnippet(), pseudonyms, haystack)
+                .map(field -> fieldReader.withStatedConfidence(field, answered.seniorityConfidence()))
+                .ifPresent(fields::add);
         fieldReader.fieldFrom(LABEL, "narrative", answered.narrative(), answered.narrativeSnippet(),
                 pseudonyms, haystack).ifPresent(fields::add);
         if (answered.responsibilities() != null) {

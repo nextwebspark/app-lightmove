@@ -30,8 +30,20 @@ Fields:
     document gives a length or an end date to; INTERIM is a senior placeholder holding the seat until
     a permanent appointment is made.
   - seniority: one of BOARD, C_SUITE, N_MINUS_1, N_MINUS_2, N_MINUS_3, describing how far the role
-    sits from the chief executive — only when the document gives you enough to place it; otherwise
-    null.
+    sits from the chief executive of the business it serves — the company, division or region whose
+    leadership it joins — only when the document gives you enough to place it; otherwise null.
+      - BOARD: a chair, board member, non-executive director or advisor to the board.
+      - C_SUITE: that business's chief executive, managing director or general manager, and the
+        executive-committee members who report to them (CFO, COO, CHRO, …). A CFO reporting to the
+        division's CEO is C_SUITE of that division, even when it also reports functionally to a group
+        CFO above it.
+      - N_MINUS_1: reports to a C-suite member — the functional heads (VP / Head / Director / General
+        Manager of a function).
+      - N_MINUS_2: reports to an N_MINUS_1 — senior managers and heads of a sub-function.
+      - N_MINUS_3: reports to an N_MINUS_2 — managers.
+  - seniorityConfidence: high when the document states the reporting line or the leadership-team seat
+    outright, medium when you are reading it from the title and the scope described, low when it is
+    mostly a guess; null when seniority is null.
   - responsibilities: at most 5 of the individual duties or accountabilities listed for the role, each
     as its own short line (10 words or fewer, verb-first — "Owns the group's treasury function", not
     "The role is responsible for the group's treasury function"), each with its own snippet. Choose the

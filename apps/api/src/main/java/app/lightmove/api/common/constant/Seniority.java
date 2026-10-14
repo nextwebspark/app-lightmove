@@ -16,7 +16,10 @@ public enum Seniority implements ApiValueEnum {
     /** A non-executive seat: chair, board member, advisor to the board. */
     BOARD("Board"),
 
-    /** The executive committee — the chief executive of the business or the region, and their peers. */
+    /**
+     * The executive committee — the chief executive of the business or the region, and the members who
+     * report to them (CFO, COO, CHRO, …).
+     */
     C_SUITE("C-Suite"),
 
     /** Reports to the C-suite — the functional heads a mandate most often targets. */

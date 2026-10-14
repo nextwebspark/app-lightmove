@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +41,21 @@ public class PositionContextProposer {
     private static final int PRIORITY_NAME_MAX_LENGTH = 120;
     private static final int PRIORITY_MAX_COUNT = 5;
     private static final String LABEL = "Mandate context extraction";
+    private static final Pattern NEW_ROLE_WORDING = reasonWording(
+            "new ([a-z]+ )?(role|position|post|seat)", "newly[- ](created|established|formed)",
+            "created (this|the) role");
+    private static final Pattern BACKFILL_WORDING = reasonWording(
+            "replace", "replacement (for|of)", "replacing", "outgoing", "backfill", "vacated",
+            "(is|are|has been|was) leaving",
+            "departure of", "resigned", "resignation", "moved on", "stepp(ing|ed|s) down");
+    private static final Pattern SUCCESSION_WORDING = reasonWording(
+            "succession", "successor", "retire(s|d|ment|ing)?");
+    private static final Pattern RESTRUCTURING_WORDING = reasonWording(
+            "restructur(e|ed|ing)", "reorgani[sz](e|ed|ation|ing)", "new (organisation|organization)al structure",
+            "merger");
+    private static final Pattern GROWTH_EXPANSION_WORDING = reasonWording(
+            "expansion", "expan(d|ds|ding) into", "new market", "new office", "newly opened",
+            "launch(ing)? (of|in)");
 
     private final PositionDocumentRedactor redactor;
     private final ExtractedFieldReader fieldReader;
@@ -98,7 +114,9 @@ public class PositionContextProposer {
         String haystack = fieldReader.haystackOf(originalText);
         List<ExtractedField> fields = new ArrayList<>();
         fieldReader.enumFieldFrom(LABEL, "mandateReason", MandateReason.class, answered.mandateReason(),
-                answered.mandateReasonSnippet(), pseudonyms, haystack).ifPresent(fields::add);
+                answered.mandateReasonSnippet(), pseudonyms, haystack)
+                .filter(PositionContextProposer::reasonIsStated)
+                .ifPresent(fields::add);
         fieldReader.fieldFrom(LABEL, "businessDriver", answered.businessDriver(), answered.businessDriverSnippet(),
                 pseudonyms, haystack).ifPresent(fields::add);
 
@@ -119,6 +137,31 @@ public class PositionContextProposer {
             }
         }
         return new ProposedMandateContext(ExtractionSource.MODEL, fields);
+    }
+
+    /**
+     * Kept only where its verified quote says that reason in words. Told that null was the common answer,
+     * the model still read "we are seeking a CFO" as a new role on every description that said nothing
+     * about why the seat was open, and a quote of "we are seeking" verifies.
+     */
+    private static boolean reasonIsStated(ExtractedField reason) {
+        return reason.snippet() != null
+                && wordingOf(MandateReason.valueOf(reason.value())).matcher(reason.snippet()).find();
+    }
+
+    /** Whole words, so job-ad boilerplate ("about this vacancy", "to succeed in this role") states nothing. */
+    private static Pattern wordingOf(MandateReason reason) {
+        return switch (reason) {
+            case NEW_ROLE -> NEW_ROLE_WORDING;
+            case BACKFILL -> BACKFILL_WORDING;
+            case SUCCESSION -> SUCCESSION_WORDING;
+            case RESTRUCTURING -> RESTRUCTURING_WORDING;
+            case GROWTH_EXPANSION -> GROWTH_EXPANSION_WORDING;
+        };
+    }
+
+    private static Pattern reasonWording(String... phrases) {
+        return Pattern.compile("\\b(" + String.join("|", phrases) + ")\\b", Pattern.CASE_INSENSITIVE);
     }
 
     private ProposedMandateContext finish(ProposedMandateContext proposed) {
