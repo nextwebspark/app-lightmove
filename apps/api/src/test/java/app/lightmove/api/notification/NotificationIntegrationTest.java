@@ -1,6 +1,7 @@
 package app.lightmove.api.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -96,11 +97,37 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
 
         List<JsonNode> mentions = rowsOfKind(researcher, "mentioned");
         assertThat(mentions).hasSize(1);
-        assertThat(mentions.getFirst().get("noteId").isNull()).isFalse();
+        assertThat(mentions.getFirst().at("/note/kind").asText()).isEqualTo("general");
         assertThat(read(researcher, "/api/v1/me/notifications?filter=all").toString()).doesNotContain("please call");
         assertThat(rowsOfKind(outsider, "mentioned")).isEmpty();
         assertThat(db.queryForObject("select count(*) from app_lm_note_mention m join app_lm_person_note n "
                 + "on n.id = m.note_id where n.workspace_id = ?::uuid", Integer.class, workspaceId)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a next action set from a note names it by kind and date, never its words, until it is deleted")
+    void aTaskFromANotePointsBackAtIt() throws Exception {
+        String notes = candidatesUrl(projectId) + "/" + layla + "/notes";
+        String noteId = body(write(admin, "POST", notes, """
+                {"kind":"call","body":"Wants to speak to her family first"}""")).get("id").asText();
+        JsonNode task = body(write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/tasks", """
+                {"title":"Call back","kind":"call","assigneeUserId":"%s","dueAt":"%s","noteId":"%s"}"""
+                .formatted(researcherId, Instant.now().plus(2, ChronoUnit.DAYS), noteId)));
+        assertThat(task.at("/note/id").asText()).isEqualTo(noteId);
+        assertThat(task.at("/note/kind").asText()).isEqualTo("call");
+        assertThat(task.at("/note/writtenAt").isNull()).isFalse();
+        assertThat(task.get("source").asText()).isEqualTo("note");
+
+        List<JsonNode> assigned = rowsOfKind(researcher, "task_assigned");
+        assertThat(assigned).hasSize(1);
+        assertThat(assigned.getFirst().at("/note/kind").asText()).isEqualTo("call");
+        assertThat(read(researcher, "/api/v1/me/notifications?filter=all").toString()).doesNotContain("family");
+
+        assertThat(mvc.perform(delete(notes + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andReturn().getResponse().getStatus()).isEqualTo(204);
+        JsonNode open = read(researcher, candidatesUrl(projectId) + "/" + layla + "/tasks").get("open");
+        assertThat(open.get(0).get("note").isNull()).isTrue();
+        assertThat(rowsOfKind(researcher, "task_assigned").getFirst().get("note").isNull()).isTrue();
     }
 
     @Test

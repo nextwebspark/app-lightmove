@@ -50,7 +50,7 @@ function aNotification(overrides: Partial<NotificationResponse> = {}): Notificat
     personName: "Ahmed Saleh",
     taskId: "t1",
     taskTitle: "Compensation check",
-    noteId: null,
+    note: null,
     names: [],
     dueAt: null,
     createdAt: new Date().toISOString(),
@@ -73,7 +73,7 @@ const mention = aNotification({
   actor: { userId: "u3", fullName: "Omar Khalil", avatarUrl: null },
   taskId: null,
   taskTitle: null,
-  noteId: "note-1",
+  note: { id: "note-1", kind: "general", writtenAt: "2026-10-14T09:00:00Z" },
 });
 
 const openPanel = async () => userEvent.click(await screen.findByRole("button", { name: /^Notifications/ }));

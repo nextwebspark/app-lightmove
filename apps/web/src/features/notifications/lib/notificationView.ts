@@ -36,11 +36,16 @@ export function timeLabelOf(isoInstant: string, now: Date = new Date()): string 
   return (daysBefore(isoInstant, now) === 0 ? formatInstantTime(isoInstant) : formatInstantDate(isoInstant)) ?? "";
 }
 
-/** Where a row leads: the position's pipeline, on the executive's drawer when it is about one; else My positions. */
+/**
+ * Where a row leads: the position's pipeline, on the executive's drawer when it is about one and on the note when
+ * it names one; else My positions.
+ */
 export function notificationHref(notification: NotificationResponse): string {
   if (!notification.projectId) return "/";
   const pipeline = `/projects/${notification.projectId}/pipeline`;
-  return notification.candidateId ? `${pipeline}?candidate=${encodeURIComponent(notification.candidateId)}` : pipeline;
+  if (!notification.candidateId) return pipeline;
+  const candidate = `${pipeline}?candidate=${encodeURIComponent(notification.candidateId)}`;
+  return notification.note ? `${candidate}&note=${encodeURIComponent(notification.note.id)}` : candidate;
 }
 
 export type SnoozeChoice = "hour" | "tomorrow" | "week";

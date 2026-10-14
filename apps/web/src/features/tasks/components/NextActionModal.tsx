@@ -12,7 +12,7 @@ import { useComboboxList } from "../../../lib/useComboboxList";
 import { useAuth } from "../../auth/AuthProvider";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as tasksApi from "../api/tasksApi";
-import type { TaskKind, TaskPreset, TaskResponse } from "../api/types";
+import type { TaskKind, TaskNote, TaskPreset, TaskResponse } from "../api/types";
 import {
   defaultDueOf,
   dueInstantOf,
@@ -24,6 +24,7 @@ import {
   viewerTimeZone,
   type LocalDue,
 } from "../lib/due";
+import { linkedNoteLabel } from "../lib/linkedNote";
 import { BELL_ICON, TASK_KINDS, taskKindOf } from "../lib/taskKinds";
 import { firstNameOf, type TeammateOption } from "../lib/team";
 import { usePositionTeam } from "../lib/usePositionTeam";
@@ -38,6 +39,8 @@ export interface NextActionTarget {
   /** The person behind the row: their avatar's colour. */
   personId: string;
   taskId?: string | null;
+  /** The note just saved that a new next action is set from: the composer's Save & set next action. */
+  note?: TaskNote | null;
 }
 
 /**
@@ -167,6 +170,7 @@ function NextActionForm({
   const [listArmed, setListArmed] = useState(!editing);
   const listId = useId();
 
+  const linkedNote = task ? task.note : (target.note ?? null);
   const assignee = teammates.find((option) => option.userId === assigneeId) ?? null;
   const dueAt = dueInstantOf(due);
   const reassigned = !editing || assigneeId !== task.assignee.userId;
@@ -215,7 +219,11 @@ function NextActionForm({
       };
       return task
         ? tasksApi.updateTask(task.id, change)
-        : tasksApi.createTask(target.projectId, target.candidateId, { ...change, presetId });
+        : tasksApi.createTask(target.projectId, target.candidateId, {
+            ...change,
+            presetId,
+            noteId: target.note?.id ?? null,
+          });
     },
     onSuccess: () => {
       if (notifies && assignee) succeed(`Assigned to ${assignee.fullName} · they've been notified`);
@@ -501,6 +509,12 @@ function NextActionForm({
           <p className="text-note text-u-text3">
             Only whoever set this, whoever it's assigned to, or the lead can change it. Anyone on the team can mark it
             done.
+          </p>
+        )}
+        {linkedNote && (
+          <p className="flex items-center gap-2 text-meta text-u-text3">
+            <Icon d={ICONS.fileText} size={13} className="flex-none" />
+            {linkedNoteLabel(linkedNote)}
           </p>
         )}
         <p className="flex items-center gap-2 text-meta text-u-text3">

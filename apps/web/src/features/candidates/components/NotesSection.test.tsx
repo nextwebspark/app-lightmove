@@ -1,13 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project, TeamMember } from "../../projects/api/types";
-import * as tasksApi from "../../tasks/api/tasksApi";
-import type { TaskResponse } from "../../tasks/api/types";
 import * as personCrmApi from "../api/personCrmApi";
 import type { PersonNote } from "../api/types";
 import { NotesSection } from "./PersonSections";
@@ -26,10 +25,6 @@ vi.mock("../api/personCrmApi", async (importOriginal) => ({
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
   projects: vi.fn(),
-}));
-vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
-  createTask: vi.fn(),
 }));
 
 const seat = (userId: string, fullName: string, projectRoles: TeamMember["projectRoles"]): TeamMember => ({
@@ -52,9 +47,9 @@ const position = {
   ],
 } as Project;
 
-const aNote = (body: string): PersonNote => ({
+const aNote = (body: string, kind: PersonNote["kind"] = "general"): PersonNote => ({
   id: "n1",
-  kind: "general",
+  kind,
   body,
   pinned: false,
   projectId: "p1",
@@ -68,12 +63,12 @@ const aNote = (body: string): PersonNote => ({
   editable: true,
 });
 
-function renderNotes() {
+function renderNotes(props: Partial<ComponentProps<typeof NotesSection>> = {}) {
   render(
     <MemoryRouter>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
-          <NotesSection projectId="p1" candidateId="c1" />
+          <NotesSection projectId="p1" candidateId="c1" {...props} />
         </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -88,7 +83,7 @@ describe("the note composer", () => {
     vi.setSystemTime(new Date(2026, 9, 3, 10, 0));
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);
     vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([]);
-    vi.mocked(personCrmApi.writePersonNote).mockImplementation(async (_p, _c, note) => aNote(note.body));
+    vi.mocked(personCrmApi.writePersonNote).mockImplementation(async (_p, _c, note) => aNote(note.body, note.kind));
     vi.mocked(projectsApi.projects).mockResolvedValue([position]);
   });
 
@@ -157,29 +152,42 @@ describe("the note composer", () => {
     expect(screen.queryByText(/\(user:/)).not.toBeInTheDocument();
   });
 
-  it("files a linked follow-up for the owner chosen, once the note is saved", async () => {
-    vi.mocked(tasksApi.createTask).mockResolvedValue({ id: "t1" } as TaskResponse);
-    renderNotes();
+  it("saves the note, then hands it to the next action by kind and date", async () => {
+    const onSetNextAction = vi.fn();
+    renderNotes({ onSetNextAction });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
-    await userEvent.type(composer(), "Spoke to her about the move");
-    await userEvent.click(screen.getByRole("checkbox", { name: /Create a linked follow-up/ }));
-    await userEvent.type(screen.getByRole("textbox", { name: "Follow-up task" }), "Chase references");
-    const owner = screen.getByRole("button", { name: /^Owner/ });
-    expect(owner).toHaveAccessibleName("Owner Me · Yara Haddad");
-    await userEvent.click(owner);
-    await userEvent.click(screen.getByRole("option", { name: /Sara Al-Mansour/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Save note & follow-up" }));
+    await userEvent.click(screen.getByRole("radio", { name: "Call" }));
+    await userEvent.type(composer(), "Wants to speak to her family first");
+    await userEvent.click(screen.getByRole("button", { name: "Save & set next action" }));
 
     await waitFor(() =>
-      expect(tasksApi.createTask).toHaveBeenCalledWith("p1", "c1", {
-        title: "Chase references",
-        kind: "follow_up",
-        assigneeUserId: "u3",
-        dueAt: new Date(2026, 9, 4, 9, 0).toISOString(),
-        noteId: "n1",
-      }),
+      expect(onSetNextAction).toHaveBeenCalledWith({ id: "n1", kind: "call", writtenAt: "2026-10-03T08:00:00Z" }),
     );
-    expect(await screen.findByText("Note saved with a linked follow-up")).toBeInTheDocument();
+    expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
+      kind: "call",
+      body: "Wants to speak to her family first",
+    });
+    expect(composer()).toHaveValue("");
+  });
+
+  it("offers Save note alone where nobody takes the next action", async () => {
+    renderNotes();
+    await userEvent.type(await screen.findByRole("textbox", { name: "New note" }), "Background only");
+
+    expect(screen.getByRole("button", { name: "Save note" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Save & set next action" })).not.toBeInTheDocument();
+  });
+
+  it("brings the note a task was set from into view", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([aNote("Follow up after Q3 close")]);
+    renderNotes({ focus: { noteId: "n1", at: 1 } });
+
+    const card = (await screen.findByText("Follow up after Q3 close")).closest("li") as HTMLElement;
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" }));
+    expect(card).toHaveFocus();
+    expect(card).toHaveClass("animate-note-flash");
   });
 });

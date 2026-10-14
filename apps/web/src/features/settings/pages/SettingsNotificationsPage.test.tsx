@@ -67,6 +67,7 @@ describe("SettingsNotificationsPage", () => {
     vi.mocked(tasksApi.getMyTasks).mockResolvedValue({
       tasks: [],
       counts: { today: 3, overdue: 1, upcoming: 4, assignedByMe: 0 },
+      hasMore: false,
     });
   });
 

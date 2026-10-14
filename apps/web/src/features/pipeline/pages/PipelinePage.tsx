@@ -62,11 +62,13 @@ function StaffPipeline() {
   }, [search]);
 
   const openCandidateId = searchParams.get("candidate");
+  const focusNoteId = searchParams.get("note");
   const setOpenCandidateId = (candidateId: string | null) =>
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       if (candidateId) next.set("candidate", candidateId);
       else next.delete("candidate");
+      next.delete("note");
       return next;
     });
 
@@ -215,6 +217,7 @@ function StaffPipeline() {
       <CandidateDrawerById
         project={project}
         candidateId={openCandidateId}
+        focusNoteId={focusNoteId}
         onClose={() => setOpenCandidateId(null)}
         onChanged={() => void queryClient.invalidateQueries({ queryKey: pipelineApi.PIPELINE_KEY_PREFIX(project.id) })}
       />

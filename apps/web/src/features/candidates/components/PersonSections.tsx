@@ -1,24 +1,21 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button, LinesSkeleton, Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
-import { useAuth } from "../../auth/AuthProvider";
-import { LinkedFollowUp } from "../../tasks/components/LinkedFollowUp";
-import { fileFollowUp, followUpReady, newFollowUpDraft, type FollowUpDraft } from "../../tasks/lib/followUp";
+import type { TaskNote } from "../../tasks/api/types";
 import { MentionTextArea } from "../../tasks/components/MentionTextArea";
 import { mentionsPresent, serializeMentions, type Mention } from "../../tasks/lib/mentions";
 import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
-import { useTasksChanged } from "../../tasks/lib/useTasksChanged";
 import type { DocumentScope } from "../api/documentsApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
-import type { PersonDocument, PersonDocumentVersion, PersonNoteKind } from "../api/types";
+import type { PersonDocument, PersonDocumentVersion, PersonNote, PersonNoteKind } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
 import type { PersonDocuments } from "../lib/usePersonDocuments";
 import { DocumentsPanel } from "./documents/DocumentsPanel";
-import { NoteCard, NoteKindPicker } from "./NoteParts";
+import { NoteCard, NoteKindPicker, noteAnchorOf } from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
@@ -63,12 +60,25 @@ export function DoNotContactStrip({ personId }: { personId: string }) {
   );
 }
 
-export function NotesSection({ projectId, candidateId }: PersonSectionProps) {
+/** A note to bring into view — the one a task was set from — stamped so asking again scrolls again. */
+export interface NoteFocus {
+  noteId: string;
+  at: number;
+}
+
+export function NotesSection({
+  projectId,
+  candidateId,
+  focus = null,
+  onSetNextAction,
+}: PersonSectionProps & {
+  focus?: NoteFocus | null;
+  /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
+  onSetNextAction?: (note: TaskNote) => void;
+}) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const { user } = useAuth();
   const team = usePositionTeam(projectId);
-  const tasksChanged = useTasksChanged();
   const notes = useQuery({
     queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
     queryFn: ({ signal }) => personCrmApi.getPersonNotes(projectId, candidateId, signal),
@@ -78,39 +88,42 @@ export function NotesSection({ projectId, candidateId }: PersonSectionProps) {
   const [kind, setKind] = useState<PersonNoteKind>("general");
   const [text, setText] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
-  const [followUp, setFollowUp] = useState<FollowUpDraft>(() => newFollowUpDraft(user?.id ?? null));
 
   const saving = useMutation({
-    mutationFn: async () => {
-      const body = serializeMentions(text.trim(), mentionsPresent(text, mentions));
-      const note = await personCrmApi.writePersonNote(projectId, candidateId, { kind, body });
-      if (!followUp.on) return { followUpError: null };
-      try {
-        await fileFollowUp(projectId, candidateId, note.id, followUp);
-        return { followUpError: null };
-      } catch (failure) {
-        return { followUpError: failure };
-      }
-    },
-    onSuccess: ({ followUpError }) => {
+    mutationFn: (_thenNextAction: boolean) =>
+      personCrmApi.writePersonNote(projectId, candidateId, {
+        kind,
+        body: serializeMentions(text.trim(), mentionsPresent(text, mentions)),
+      }),
+    onSuccess: (note, thenNextAction) => {
       setText("");
       setMentions([]);
-      if (followUpError) toast.error(`Note saved, but the follow-up wasn't: ${messageFor(followUpError)}`);
-      else toast(followUp.on ? "Note saved with a linked follow-up" : "Note saved — your team sees it on every position");
-      if (followUp.on) tasksChanged(projectId);
-      setFollowUp(newFollowUpDraft(user?.id ?? null));
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
       });
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId),
       });
+      if (thenNextAction && onSetNextAction) {
+        toast("Note saved");
+        onSetNextAction(taskNoteOf(note));
+      } else {
+        toast("Note saved — your team sees it on every position");
+      }
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = text.trim().length > 0 && !saving.isPending && followUpReady(followUp);
-  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate());
+  const canSave = text.trim().length > 0 && !saving.isPending;
+  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate(false));
   const list = notes.data ?? [];
+  const loaded = notes.isSuccess;
+
+  useEffect(() => {
+    if (!focus || !loaded) return;
+    const card = document.getElementById(noteAnchorOf(focus.noteId));
+    card?.scrollIntoView({ block: "center", behavior: "smooth" });
+    card?.focus({ preventScroll: true });
+  }, [focus, loaded]);
 
   return (
     <section aria-label="Notes" className="border-t border-u-border py-4">
@@ -131,19 +144,30 @@ export function NotesSection({ projectId, candidateId }: PersonSectionProps) {
             placeholder="What was said, and what happens next…"
             className="font-sans text-body"
           />
-          <LinkedFollowUp draft={followUp} onChange={setFollowUp} teammates={team.teammates} />
           <div className="mt-2 flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate font-mono text-meta text-u-text3">
               About {thisPosition ?? "this position"}
             </span>
+            {onSetNextAction && (
+              <Button
+                type="button"
+                size="xs"
+                variant="secondary"
+                disabled={!canSave}
+                loading={saving.isPending && saving.variables}
+                onClick={() => saving.mutate(true)}
+              >
+                Save & set next action
+              </Button>
+            )}
             <Button
               type="button"
               size="xs"
               disabled={!canSave}
-              loading={saving.isPending}
-              onClick={() => saving.mutate()}
+              loading={saving.isPending && !saving.variables}
+              onClick={() => saving.mutate(false)}
             >
-              {followUp.on ? "Save note & follow-up" : "Save note"}
+              Save note
             </Button>
           </div>
         </div>
@@ -159,14 +183,20 @@ export function NotesSection({ projectId, candidateId }: PersonSectionProps) {
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {list.map((note) => (
-              <NoteCard key={note.id} note={note} />
-            ))}
+            {list.map((note) => {
+              const flash = focus?.noteId === note.id;
+              return <NoteCard key={flash ? `${note.id}:${focus.at}` : note.id} note={note} flash={flash} />;
+            })}
           </ul>
         )}
       </div>
     </section>
   );
+}
+
+/** The note a task is set from, as the task will name it: by kind and date. */
+export function taskNoteOf(note: PersonNote): TaskNote {
+  return { id: note.id, kind: note.kind, writtenAt: note.createdAt };
 }
 
 export function DocumentsSection({

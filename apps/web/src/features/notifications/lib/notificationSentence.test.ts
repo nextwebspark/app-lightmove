@@ -4,6 +4,8 @@ import { namesLine, sentenceOf, type NotificationSentence } from "./notification
 
 const NOW = new Date(2026, 9, 14, 15, 0);
 
+const CALL_NOTE = { id: "note-1", kind: "call" as const, writtenAt: new Date(2026, 9, 14, 11, 0).toISOString() };
+
 function aNotification(overrides: Partial<NotificationResponse> = {}): NotificationResponse {
   return {
     id: "n1",
@@ -17,7 +19,7 @@ function aNotification(overrides: Partial<NotificationResponse> = {}): Notificat
     personName: "Ahmed Saleh",
     taskId: "t1",
     taskTitle: "Compensation check",
-    noteId: null,
+    note: null,
     names: [],
     dueAt: null,
     createdAt: new Date(2026, 9, 14, 14, 0).toISOString(),
@@ -60,11 +62,20 @@ describe("sentenceOf", () => {
     );
   });
 
-  it("names a mention's note by whom it is on, never by what it says", () => {
-    const sentence = sentenceOf(aNotification({ kind: "mentioned", taskId: null, noteId: "note-1" }), NOW);
+  it("names a mention's note by its kind and whom it is on, never by what it says", () => {
+    const sentence = sentenceOf(aNotification({ kind: "mentioned", taskId: null, note: CALL_NOTE }), NOW);
 
-    expect(spoken(sentence)).toBe("**Yara Haddad** mentioned you in a note on **Ahmed Saleh** · CFO Search");
+    expect(spoken(sentence)).toBe("**Yara Haddad** mentioned you in a call note on **Ahmed Saleh** · CFO Search");
     expect(sentence.sub).toBeNull();
+  });
+
+  it("says which note an assigned task was set from, before when it is due", () => {
+    const sentence = sentenceOf(
+      aNotification({ note: CALL_NOTE, dueAt: new Date(2026, 9, 16, 12, 0).toISOString() }),
+      NOW,
+    );
+
+    expect(sentence.sub).toEqual({ text: "From a call note · Due 16 Oct 2026, 12:00", tone: "muted" });
   });
 
   it("says one reply by the executive, with the task it filed", () => {

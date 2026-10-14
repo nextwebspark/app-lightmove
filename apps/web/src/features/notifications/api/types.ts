@@ -1,4 +1,4 @@
-import type { TaskPerson } from "../../tasks/api/types";
+import type { TaskNote, TaskPerson } from "../../tasks/api/types";
 
 /** What a bell row says happened. The SPA composes the sentence; a note is named, never quoted. */
 export type NotificationKind =
@@ -26,7 +26,8 @@ export interface NotificationResponse {
   personName: string | null;
   taskId: string | null;
   taskTitle: string | null;
-  noteId: string | null;
+  /** The note it mentions the viewer in, or the note the assigned task came from. */
+  note: TaskNote | null;
   /** A grouped row's latest people, newest first. */
   names: string[];
   dueAt: string | null;

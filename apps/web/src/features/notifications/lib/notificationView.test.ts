@@ -20,7 +20,7 @@ function aNotification(id: string, createdAt: string, overrides: Partial<Notific
     personName: "Ahmed Saleh",
     taskId: null,
     taskTitle: null,
-    noteId: "note-1",
+    note: { id: "note-1", kind: "general", writtenAt: "2026-10-14T09:00:00Z" },
     names: [],
     dueAt: null,
     createdAt,
@@ -63,7 +63,15 @@ describe("timeLabelOf", () => {
 
 describe("notificationHref", () => {
   it("opens the executive's drawer on the position's pipeline when the row is about one", () => {
-    expect(notificationHref(aNotification("a", at(14, 9), { candidateId: "c1" }))).toBe("/projects/p1/pipeline?candidate=c1");
+    expect(notificationHref(aNotification("a", at(14, 9), { candidateId: "c1", note: null }))).toBe(
+      "/projects/p1/pipeline?candidate=c1",
+    );
+  });
+
+  it("opens the drawer on the note a row names", () => {
+    expect(notificationHref(aNotification("a", at(14, 9), { candidateId: "c1" }))).toBe(
+      "/projects/p1/pipeline?candidate=c1&note=note-1",
+    );
   });
 
   it("opens the position's pipeline otherwise, and My positions when there is no position", () => {

@@ -90,7 +90,7 @@ const openTask: TaskResponse = {
   kind: "todo",
   detail: "Before Thursday",
   presetId: null,
-  noteId: null,
+  note: null,
   assignee: { userId: "u3", fullName: "Sara Al-Mansour", avatarUrl: null },
   createdBy: { userId: "u1", fullName: "Yara Haddad", avatarUrl: null },
   dueAt: local(3, 16),
@@ -191,6 +191,7 @@ describe("NextActionModal", () => {
         dueAt: local(8, 9),
         detail: null,
         presetId: "pr2",
+        noteId: null,
       }),
     );
     expect(await screen.findByText("Next action set · due 08 Oct 2026, 09:00")).toBeInTheDocument();
@@ -222,7 +223,24 @@ describe("NextActionModal", () => {
         dueAt: local(4, 9),
         detail: null,
         presetId: null,
+        noteId: null,
       }),
+    );
+  });
+
+  it("files the next action against the note it was set from, and says so", async () => {
+    renderModal({
+      ...newTarget,
+      note: { id: "n1", kind: "call", writtenAt: new Date(2026, 9, 3, 8, 0).toISOString() },
+    });
+    await screen.findByRole("option", { name: /Call to qualify interest/ });
+
+    expect(screen.getByText("Linked to a call note · 03 Oct 2026")).toBeInTheDocument();
+    await userEvent.type(whatField(), "Call back after the family talk");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(tasksApi.createTask).toHaveBeenCalledWith("p1", "c1", expect.objectContaining({ noteId: "n1" })),
     );
   });
 

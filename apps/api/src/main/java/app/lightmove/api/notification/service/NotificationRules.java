@@ -42,8 +42,8 @@ public class NotificationRules {
     public void onTaskAssigned(TaskAssigned assigned) {
         deliver(new NotificationDraft(assigned.workspaceId(), assigned.assigneeUserId(),
                 NotificationKind.TASK_ASSIGNED, assigned.actorUserId(), assigned.projectId(), assigned.personId(),
-                assigned.candidateId(), assigned.taskId(), null, "task_assigned:" + assigned.taskId(), null, null, 1,
-                null));
+                assigned.candidateId(), assigned.taskId(), assigned.noteId(), "task_assigned:" + assigned.taskId(), null,
+                null, 1, null));
     }
 
     @Async

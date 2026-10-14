@@ -166,6 +166,18 @@ body {
   animation: slide-in-end 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* A note brought into view from the task set from it: an accent wash that settles back into the card. */
+@keyframes note-flash {
+  from {
+    background-color: var(--color-u-accent-tint);
+    border-color: var(--color-u-accent);
+  }
+}
+
+.animate-note-flash {
+  animation: note-flash 2.4s ease-out;
+}
+
 /* Respect the user's wishes. An animation is decoration; motion sickness is not. Deliberately
    unlayered: an `!important` outside every layer is the one declaration nothing can outrank. */
 @media (prefers-reduced-motion: reduce) {

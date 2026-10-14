@@ -47,6 +47,11 @@ export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onC
   );
 }
 
+/** The id a note's card carries, so a task set from it can bring it into view. */
+export function noteAnchorOf(noteId: string): string {
+  return `note-${noteId}`;
+}
+
 /** What a card may do to its note; a card drawn without them only reads. */
 export interface NoteCardActions {
   onPin: () => void;
@@ -60,13 +65,30 @@ export interface NoteCardActions {
  * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete asks first,
  * because a removed note leaves no copy of its words anywhere.
  */
-export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCardActions }) {
+export function NoteCard({
+  note,
+  actions,
+  flash = false,
+}: {
+  note: PersonNote;
+  actions?: NoteCardActions;
+  /** Brought into view from the task set from it: an accent wash that fades. */
+  flash?: boolean;
+}) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [draft, setDraft] = useState(() => displayTextOf(note.body));
 
   return (
-    <li className={cn("rounded-[8px] border px-3 py-2.5", note.pinned ? "border-u-accent/60 bg-u-raised" : "border-u-border")}>
+    <li
+      id={noteAnchorOf(note.id)}
+      tabIndex={-1}
+      className={cn(
+        "rounded-[8px] border px-3 py-2.5 outline-none",
+        note.pinned ? "border-u-accent/60 bg-u-raised" : "border-u-border",
+        flash && "animate-note-flash",
+      )}
+    >
       <div className="flex items-center gap-2">
         <Avatar id={note.authorUserId} name={note.authorName ?? "Someone"} src={note.authorAvatarUrl} size="sm" />
         <span className="text-[12.5px] font-semibold">{note.authorName ?? "Someone"}</span>

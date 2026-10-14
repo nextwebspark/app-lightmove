@@ -1,5 +1,6 @@
 package app.lightmove.api.notification.service;
 
+import app.lightmove.api.candidate.model.LinkedNote;
 import app.lightmove.api.candidate.service.CandidateTaskService;
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -16,6 +17,7 @@ import app.lightmove.api.notification.model.Notification;
 import app.lightmove.api.notification.repository.NotificationRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.task.dto.TaskNoteDto;
 import app.lightmove.api.task.service.TaskPeople;
 import app.lightmove.api.task.service.TaskService;
 import java.time.Clock;
@@ -120,11 +122,13 @@ public class NotificationService {
                 .collect(Collectors.toMap(Project::getId, Project::getPositionTitle));
         Map<UUID, String> taskTitles = tasks.titlesOfTasks(workspaceId, shown.stream().map(Notification::getTaskId)
                 .filter(Objects::nonNull).distinct().toList());
+        Map<UUID, LinkedNote> notes = people.linkedNotesOf(workspaceId, shown.stream().map(Notification::getNoteId)
+                .filter(Objects::nonNull).distinct().toList());
         return shown.stream().map(row -> new NotificationResponse(row.getId(), row.getKind().value(),
                 row.getEventCount(), TaskPeople.personOf(row.getActorUserId(), actors), row.getProjectId(),
                 valueOf(projectTitles, row.getProjectId()), row.getPersonId(), row.getCandidateId(),
                 valueOf(personNames, row.getPersonId()), row.getTaskId(), valueOf(taskTitles, row.getTaskId()),
-                row.getNoteId(), row.names(), dueOf(row), row.getLatestAt(), row.getReadAt() != null,
+                TaskNoteDto.of(row.getNoteId(), notes), row.names(), dueOf(row), row.getLatestAt(), row.getReadAt() != null,
                 row.getSnoozedUntil())).toList();
     }
 

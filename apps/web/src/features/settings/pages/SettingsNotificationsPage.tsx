@@ -147,8 +147,8 @@ export function SettingsNotificationsPage() {
 /** Today's digest as it stands: what is due, what is late, what is unread. */
 function DigestPreview() {
   const myTasks = useQuery({
-    queryKey: tasksApi.MY_TASKS_KEY("today"),
-    queryFn: ({ signal }) => tasksApi.getMyTasks("today", signal),
+    queryKey: tasksApi.MY_TASK_COUNTS_KEY,
+    queryFn: ({ signal }) => tasksApi.getMyTasks("today", { size: 1, signal }),
   });
   const unread = useQuery({
     queryKey: notificationsApi.UNREAD_COUNT_KEY,

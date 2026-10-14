@@ -21,6 +21,11 @@ export const CANDIDATE_TASKS_KEY = (projectId: string, candidateId: string) =>
 
 export const MY_TASKS_KEY = (view: MyTasksView) => [...TASKS_KEY_PREFIX, "mine", view] as const;
 
+export const MY_TASK_COUNTS_KEY = [...TASKS_KEY_PREFIX, "mine-counts"] as const;
+
+/** How many rows of a My tasks tab one read brings. */
+export const MY_TASKS_SLICE = 20;
+
 export const TASK_PRESETS_KEY = ["task-presets"] as const;
 
 export const TASK_PRESET_SUGGESTIONS_KEY = ["task-presets", "suggestions"] as const;
@@ -53,9 +58,20 @@ export function cancelTask(taskId: string): Promise<void> {
   return request<void>(`/tasks/${taskId}`, { method: "DELETE" });
 }
 
-/** The caller's own tasks across every position; "today" and "overdue" are counted in the viewer's zone. */
-export function getMyTasks(view: MyTasksView, signal?: AbortSignal): Promise<MyTasksResponse> {
-  const params = new URLSearchParams({ view, tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC" });
+/**
+ * A slice of the caller's own tasks across every position; "today" and "overdue" are counted in the viewer's zone.
+ * `offset` is how many of the tab's rows the caller already holds still open.
+ */
+export function getMyTasks(
+  view: MyTasksView,
+  { offset = 0, size = MY_TASKS_SLICE, signal }: { offset?: number; size?: number; signal?: AbortSignal } = {},
+): Promise<MyTasksResponse> {
+  const params = new URLSearchParams({
+    view,
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    offset: String(offset),
+    size: String(size),
+  });
   return request<MyTasksResponse>(`/me/tasks?${params.toString()}`, { signal });
 }
 

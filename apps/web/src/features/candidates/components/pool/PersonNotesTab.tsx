@@ -7,13 +7,11 @@ import * as poolApi from "../../api/poolApi";
 import type { PersonNote, PersonNoteKind, PersonRecord } from "../../api/types";
 import { NOTE_KINDS } from "../../lib/noteKinds";
 import { NoteCard, NoteKindPicker } from "../NoteParts";
-import { useAuth } from "../../../auth/AuthProvider";
-import { LinkedFollowUp } from "../../../tasks/components/LinkedFollowUp";
-import { fileFollowUp, followUpReady, newFollowUpDraft, type FollowUpDraft } from "../../../tasks/lib/followUp";
+import { taskNoteOf } from "../PersonSections";
 import { MentionTextArea } from "../../../tasks/components/MentionTextArea";
+import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
 import { mentionsPresent, serializeMentions, type Mention } from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
-import { useTasksChanged } from "../../../tasks/lib/useTasksChanged";
 
 /**
  * The Notes tab: a composer about a position or about the person, and the team's notes, pinned first.
@@ -27,50 +25,48 @@ export function PersonNotesTab({
   notes: UseQueryResult<PersonNote[]>;
 }) {
   const toast = useToast();
-  const { user } = useAuth();
   const refresh = useNoteRefresh(person.personId);
-  const tasksChanged = useTasksChanged();
   const [kind, setKind] = useState<PersonNoteKind>("call");
   const [about, setAbout] = useState("");
   const [text, setText] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
-  const [followUp, setFollowUp] = useState<FollowUpDraft>(() => newFollowUpDraft(user?.id ?? null));
+  const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const team = usePositionTeam(about || null);
   const mapping = person.positions.find((position) => position.projectId === about) ?? null;
 
   const changeAbout = (projectId: string) => {
     setAbout(projectId);
     setMentions([]);
-    setFollowUp(newFollowUpDraft(user?.id ?? null));
   };
 
   const saving = useMutation({
-    mutationFn: async () => {
-      const body = about ? serializeMentions(text.trim(), mentionsPresent(text, mentions)) : text.trim();
-      const note = await poolApi.writePoolNote(person.personId, { kind, body, projectId: about || null });
-      if (!followUp.on || !mapping) return { followUpError: null };
-      try {
-        await fileFollowUp(mapping.projectId, mapping.candidateId, note.id, followUp);
-        return { followUpError: null };
-      } catch (failure) {
-        return { followUpError: failure };
-      }
-    },
-    onSuccess: ({ followUpError }) => {
-      const filed = followUp.on && mapping !== null;
+    mutationFn: (_thenNextAction: boolean) =>
+      poolApi.writePoolNote(person.personId, {
+        kind,
+        body: about ? serializeMentions(text.trim(), mentionsPresent(text, mentions)) : text.trim(),
+        projectId: about || null,
+      }),
+    onSuccess: (note, thenNextAction) => {
       setText("");
       setMentions([]);
-      if (followUpError) toast.error(`Note saved, but the follow-up wasn't: ${messageFor(followUpError)}`);
-      else toast(filed ? "Note saved with a linked follow-up" : "Note saved — your team sees it on every position");
-      if (filed && mapping) tasksChanged(mapping.projectId);
-      setFollowUp(newFollowUpDraft(user?.id ?? null));
       refresh();
+      if (thenNextAction && mapping) {
+        toast("Note saved");
+        setNextAction({
+          projectId: mapping.projectId,
+          candidateId: mapping.candidateId,
+          personId: person.personId,
+          executiveName: person.fullName,
+          note: taskNoteOf(note),
+        });
+      } else {
+        toast("Note saved — your team sees it on every position");
+      }
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const followingUp = followUp.on && mapping !== null;
-  const canSave = text.trim().length > 0 && !saving.isPending && (!mapping || followUpReady(followUp));
-  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate());
+  const canSave = text.trim().length > 0 && !saving.isPending;
+  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate(false));
   const list = notes.data ?? [];
 
   return (
@@ -90,7 +86,6 @@ export function PersonNotesTab({
           placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
           className="font-sans text-[13px]/[1.55]"
         />
-        {mapping && <LinkedFollowUp draft={followUp} onChange={setFollowUp} teammates={team.teammates} />}
         <div className="mt-2 flex items-center gap-2">
           <Select
             aria-label="Position this note is about"
@@ -105,8 +100,24 @@ export function PersonNotesTab({
               </option>
             ))}
           </Select>
-          <Button className="px-3 py-1.5 text-[12.5px]" disabled={!canSave} loading={saving.isPending} onClick={() => saving.mutate()}>
-            {followingUp ? "Save note & follow-up" : "Save note"}
+          {mapping && (
+            <Button
+              size="xs"
+              variant="secondary"
+              disabled={!canSave}
+              loading={saving.isPending && saving.variables}
+              onClick={() => saving.mutate(true)}
+            >
+              Save & set next action
+            </Button>
+          )}
+          <Button
+            size="xs"
+            disabled={!canSave}
+            loading={saving.isPending && !saving.variables}
+            onClick={() => saving.mutate(false)}
+          >
+            Save note
           </Button>
         </div>
       </div>
@@ -129,6 +140,7 @@ export function PersonNotesTab({
           ))}
         </ul>
       )}
+      <NextActionModal target={nextAction} onClose={() => setNextAction(null)} />
     </div>
   );
 }

@@ -43,17 +43,19 @@ Dates are ISO-8601 instants. Enum values are lower snake case.
 | `POST /api/v1/projects/{projectId}/candidates/{candidateId}/tasks` | `CreateTaskRequest` | 201 `TaskResponse` |
 | `PATCH /api/v1/tasks/{taskId}` | `UpdateTaskRequest` | `TaskResponse` |
 | `DELETE /api/v1/tasks/{taskId}` | | 204 (the task is cancelled) |
-| `GET /api/v1/me/tasks?view=&tz=` | `view` = `today` · `overdue` · `upcoming` · `assigned_by_me`; `tz` an IANA zone (default UTC) | `MyTasksResponse` |
+| `GET /api/v1/me/tasks?view=&tz=&offset=&size=` | `view` = `today` · `overdue` · `upcoming` · `assigned_by_me`; `tz` an IANA zone (default UTC); `offset` the open rows already held (a row struck done in place no longer counts), `size` 20 by default and at most 50 | `MyTasksResponse` |
 
 ```ts
 type TaskKind = 'call' | 'email' | 'meeting' | 'follow_up' | 'todo';
 type TaskStatus = 'open' | 'done' | 'cancelled';
 type TaskRule = 'reply' | 'bounce' | 'booked_call';
 interface TaskPerson { userId: string; fullName: string | null; avatarUrl: string | null }
+interface TaskNote { id: string; kind: 'general' | 'call' | 'meeting' | 'email'; writtenAt: string }  // never its words
 interface TaskResponse {
   id: string; projectId: string; projectTitle: string | null; candidateId: string | null;
   personId: string; personName: string | null;
-  title: string; kind: TaskKind; detail: string | null; presetId: string | null; noteId: string | null;
+  title: string; kind: TaskKind; detail: string | null; presetId: string | null;
+  note: TaskNote | null;                                   // the note it came from; null once that is deleted
   assignee: TaskPerson; createdBy: TaskPerson | null;      // createdBy null: filed by a rule
   dueAt: string | null; status: TaskStatus; source: 'manual' | 'note' | 'rule'; rule: TaskRule | null;
   completedAt: string | null; completedBy: TaskPerson | null; createdAt: string;
@@ -64,7 +66,8 @@ interface CreateTaskRequest {
   title: string;                // 1–200
   kind: TaskKind; assigneeUserId: string; dueAt: string;
   detail?: string | null;       // ≤ 500
-  presetId?: string | null; noteId?: string | null;
+  presetId?: string | null;
+  noteId?: string | null;       // a note on this person: the composer's Save & set next action
 }
 interface UpdateTaskRequest {   // every field optional; status 'done' completes, 'open' reopens
   title?: string; kind?: TaskKind; assigneeUserId?: string; dueAt?: string; detail?: string | null;
@@ -73,6 +76,7 @@ interface UpdateTaskRequest {   // every field optional; status 'done' completes
 interface MyTasksResponse {
   tasks: TaskResponse[];
   counts: { today: number; overdue: number; upcoming: number; assignedByMe: number };
+  hasMore: boolean;   // the tab holds more after this slice
 }
 ```
 
@@ -132,7 +136,8 @@ interface NotificationResponse {
   actor: TaskPerson | null;                                 // null: Uncava did it
   projectId: string | null; projectTitle: string | null;
   personId: string | null; candidateId: string | null; personName: string | null;
-  taskId: string | null; taskTitle: string | null; noteId: string | null;
+  taskId: string | null; taskTitle: string | null;
+  note: TaskNote | null;                                    // mentioned in it, or the assigned task came from it
   names: string[];                                          // a grouped row's latest people, newest first
   dueAt: string | null;                                     // task_due_soon / task_overdue / call_booked
   createdAt: string; read: boolean; snoozedUntil: string | null;

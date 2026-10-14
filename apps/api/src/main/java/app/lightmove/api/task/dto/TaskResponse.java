@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * One task as every screen draws it. Staff-only. {@code createdBy} is null when a rule filed it;
- * {@code editable} says whether the caller may change, reassign or cancel it.
+ * {@code editable} says whether the caller may change, reassign or cancel it; {@code note} is the note it came from.
  */
 public record TaskResponse(
         UUID id,
@@ -18,7 +18,7 @@ public record TaskResponse(
         String kind,
         String detail,
         UUID presetId,
-        UUID noteId,
+        TaskNoteDto note,
         TaskPersonDto assignee,
         TaskPersonDto createdBy,
         Instant dueAt,

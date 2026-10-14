@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -20,6 +20,7 @@ import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { NextActionsSection } from "../../tasks/components/NextActionsSection";
+import type { TaskNote } from "../../tasks/api/types";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
@@ -60,6 +61,7 @@ import {
   NotesSection,
   TimelineFeed,
   usePositions,
+  type NoteFocus,
 } from "./PersonSections";
 import { PositionsSection } from "./PersonPositions";
 import { PersonTagsSection } from "./PersonTagsSection";
@@ -100,6 +102,9 @@ const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
 
 const TAB_ID_PREFIX = "executive-drawer";
 
+/** How long a note brought into view stays marked: its flash, and the window a late load still scrolls in. */
+const NOTE_FOCUS_MS = 2600;
+
 /**
  * One executive, read first and corrected a section at a time.
  *
@@ -133,6 +138,7 @@ export function CandidateProfile({
   onClose,
   onSaved,
   onRemove,
+  focusNoteId = null,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -146,6 +152,8 @@ export function CandidateProfile({
   onSaved: (saved: Candidate) => void;
   /** Absent for a reader who may not write. */
   onRemove?: (candidate: Candidate) => void;
+  /** A note to open on — a bell row's: the Records tab, scrolled to it. */
+  focusNoteId?: string | null;
 }) {
   const sections = useProfileSections();
   /**
@@ -159,7 +167,19 @@ export function CandidateProfile({
   });
   const body = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<EditableSection | null>(null);
-  const [tab, setTab] = useState<ProfileTab>("profile");
+  const [tab, setTab] = useState<ProfileTab>(canWrite && focusNoteId ? "records" : "profile");
+  const [noteFocus, setNoteFocus] = useState<NoteFocus | null>(() =>
+    canWrite && focusNoteId ? { noteId: focusNoteId, at: Date.now() } : null,
+  );
+  const showNote = (noteId: string) => {
+    setTab("records");
+    setNoteFocus({ noteId, at: Date.now() });
+  };
+  useEffect(() => {
+    if (!noteFocus) return;
+    const settle = window.setTimeout(() => setNoteFocus(null), NOTE_FOCUS_MS);
+    return () => window.clearTimeout(settle);
+  }, [noteFocus]);
   const queryClient = useQueryClient();
   const positions = usePositions(projectId, candidate.id, canWrite);
   const otherPositions = (positions.data ?? []).filter((position) => position.projectId !== projectId);
@@ -183,7 +203,7 @@ export function CandidateProfile({
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const [nextActionDone, setNextActionDone] = useState(false);
-  const openNextAction = (taskId: string | null) => {
+  const openNextAction = (taskId: string | null, note: TaskNote | null = null) => {
     setNextActionDone(false);
     setNextAction({
       projectId,
@@ -191,6 +211,7 @@ export function CandidateProfile({
       personId: candidate.personId,
       executiveName: candidate.fullName,
       taskId,
+      note,
     });
   };
   const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
@@ -344,6 +365,7 @@ export function CandidateProfile({
               justCompleted={nextActionDone}
               onCompleted={() => setNextActionDone(true)}
               onOpen={openNextAction}
+              onShowNote={showNote}
             />
           )}
 
@@ -636,7 +658,12 @@ export function CandidateProfile({
           <>
             <div {...panelProps("records")} className="pt-4">
               {personRecord.data && <PersonTagsSection person={personRecord.data} />}
-              <NotesSection projectId={projectId} candidateId={candidate.id} />
+              <NotesSection
+                projectId={projectId}
+                candidateId={candidate.id}
+                focus={noteFocus}
+                onSetNextAction={(note) => openNextAction(null, note)}
+              />
               <DocumentsSection
                 scope={documentScope}
                 documents={documents}

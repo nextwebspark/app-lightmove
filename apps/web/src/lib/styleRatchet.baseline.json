@@ -162,7 +162,7 @@
   },
   "features/candidates/components/pool/PersonNotesTab.tsx": {
     "arbitraryRadius": 1,
-    "arbitraryText": 4
+    "arbitraryText": 3
   },
   "features/candidates/components/pool/PersonProfileTab.tsx": {
     "arbitraryText": 2

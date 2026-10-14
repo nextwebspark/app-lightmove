@@ -1,4 +1,5 @@
 import { formatInstantDateTime, formatInstantTime } from "../../../lib/format";
+import { noteWordsOf } from "../../tasks/lib/linkedNote";
 import type { NotificationResponse } from "../api/types";
 
 export interface SentencePart {
@@ -30,12 +31,17 @@ export function sentenceOf(notification: NotificationResponse, now: Date = new D
   const onYourTasks = notification.taskId ? taskSubLine(`${task} is on your tasks`) : null;
 
   switch (notification.kind) {
-    case "task_assigned":
+    case "task_assigned": {
+      const due = formatInstantDateTime(notification.dueAt);
+      const sub = [notification.note && `From ${noteWordsOf(notification.note.kind)}`, due && `Due ${due}`]
+        .filter(Boolean)
+        .join(" · ");
       return {
         parts: [strong(actor), plain(" assigned you "), strong(task), plain(" on "), strong(person)],
         where,
-        sub: notification.dueAt ? { text: `Due ${formatInstantDateTime(notification.dueAt)}`, tone: "muted" } : null,
+        sub: sub ? { text: sub, tone: "muted" } : null,
       };
+    }
     case "task_due_soon":
       return {
         parts: [strong(task), plain(" on "), strong(person), plain(` is due ${dueClauseOf(notification.dueAt, now)}`)],
@@ -55,7 +61,15 @@ export function sentenceOf(notification: NotificationResponse, now: Date = new D
         sub: null,
       };
     case "mentioned":
-      return { parts: [strong(actor), plain(" mentioned you in a note on "), strong(person)], where, sub: null };
+      return {
+        parts: [
+          strong(actor),
+          plain(` mentioned you in ${notification.note ? noteWordsOf(notification.note.kind) : "a note"} on `),
+          strong(person),
+        ],
+        where,
+        sub: null,
+      };
     case "outreach_replied":
       if (notification.count > 1) {
         const names = namesLine(notification.names, notification.count);

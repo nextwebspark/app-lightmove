@@ -154,6 +154,24 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("My tasks reads a tab a slice at a time, soonest first, and says whether more follow")
+    void myTasksReadASliceAtATime() throws Exception {
+        Instant now = Instant.now();
+        for (int days = 4; days >= 2; days--) {
+            created(admin, layla, "In " + days + " days", adminId, now.plus(days, ChronoUnit.DAYS).toString());
+        }
+
+        JsonNode first = read(admin, "/api/v1/me/tasks?view=upcoming&size=2");
+        assertThat(titles(first)).containsExactly("In 2 days", "In 3 days");
+        assertThat(first.get("hasMore").asBoolean()).isTrue();
+        assertThat(first.at("/counts/upcoming").asInt()).isEqualTo(3);
+
+        JsonNode second = read(admin, "/api/v1/me/tasks?view=upcoming&size=2&offset=2");
+        assertThat(titles(second)).containsExactly("In 4 days");
+        assertThat(second.get("hasMore").asBoolean()).isFalse();
+    }
+
+    @Test
     @DisplayName("a teammate leaving the position hands their open tasks to its lead, who is told")
     void leavingHandsTasksToTheLead() throws Exception {
         String taskId = body(created(admin, layla, "Request CV", researcherId, "2026-11-02T09:00:00Z"))

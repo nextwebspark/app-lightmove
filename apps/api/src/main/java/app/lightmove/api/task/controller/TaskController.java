@@ -73,7 +73,9 @@ public class TaskController {
     @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
     public MyTasksResponse mine(@AuthenticationPrincipal AuthPrincipal principal,
                                 @RequestParam(required = false) String view,
-                                @RequestParam(required = false) String tz) {
-        return tasks.mine(principal.userId(), principal.requireWorkspaceId(), view, tz);
+                                @RequestParam(required = false) String tz,
+                                @RequestParam(defaultValue = "0") long offset,
+                                @RequestParam(defaultValue = "20") int size) {
+        return tasks.mine(principal.userId(), principal.requireWorkspaceId(), view, tz, offset, size);
     }
 }

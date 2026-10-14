@@ -1,13 +1,14 @@
 package app.lightmove.api.notification.dto;
 
+import app.lightmove.api.task.dto.TaskNoteDto;
 import app.lightmove.api.task.dto.TaskPersonDto;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * One bell row. The SPA composes its sentence from {@code kind}; a note is named by id and never quoted.
- * {@code actor} is null when Uncava did it; {@code names} are a grouped row's latest people, newest first.
+ * One bell row. The SPA composes its sentence from {@code kind}; a note is named by its kind and date, never
+ * quoted. {@code actor} is null when Uncava did it; {@code names} are a grouped row's latest people, newest first.
  */
 public record NotificationResponse(
         UUID id,
@@ -21,7 +22,7 @@ public record NotificationResponse(
         String personName,
         UUID taskId,
         String taskTitle,
-        UUID noteId,
+        TaskNoteDto note,
         List<String> names,
         Instant dueAt,
         Instant createdAt,

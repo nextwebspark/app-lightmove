@@ -26,7 +26,7 @@ const aDoneTask = (index: number): TaskResponse => ({
   kind: "todo",
   detail: null,
   presetId: null,
-  noteId: null,
+  note: null,
   assignee: yara,
   createdBy: yara,
   dueAt: null,
@@ -41,7 +41,7 @@ const aDoneTask = (index: number): TaskResponse => ({
 
 const EVERY_DONE = Array.from({ length: 5 }, (_, index) => aDoneTask(index + 1));
 
-function renderSection() {
+function renderSection(onShowNote?: (noteId: string) => void) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -53,6 +53,7 @@ function renderSection() {
           justCompleted={false}
           onCompleted={() => {}}
           onOpen={() => {}}
+          onShowNote={onShowNote}
         />
       </ToastProvider>
     </QueryClientProvider>,
@@ -94,5 +95,30 @@ describe("the drawer's done tasks", () => {
 
     const done = await screen.findByRole("group", { name: "Done" });
     expect(within(done).queryByRole("button", { name: /See more/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("a next action set from a note", () => {
+  it("says which note, and brings it into view", async () => {
+    const onShowNote = vi.fn();
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({
+      open: [
+        {
+          ...aDoneTask(1),
+          id: "t1",
+          title: "Call back",
+          status: "open",
+          completedAt: null,
+          completedBy: null,
+          note: { id: "n1", kind: "call", writtenAt: new Date(2026, 9, 3, 8, 0).toISOString() },
+        },
+      ],
+      done: [],
+      doneCount: 0,
+    });
+    renderSection(onShowNote);
+
+    await userEvent.click(await screen.findByRole("button", { name: "From a call note · 03 Oct 2026" }));
+    expect(onShowNote).toHaveBeenCalledWith("n1");
   });
 });

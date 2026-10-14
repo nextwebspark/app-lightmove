@@ -15,6 +15,15 @@ export interface TaskPerson {
   avatarUrl: string | null;
 }
 
+export type TaskNoteKind = "general" | "call" | "meeting" | "email";
+
+/** The note a task or a bell row came from, named by its kind and date — never by what it says. */
+export interface TaskNote {
+  id: string;
+  kind: TaskNoteKind;
+  writtenAt: string;
+}
+
 export interface TaskResponse {
   id: string;
   projectId: string;
@@ -26,7 +35,8 @@ export interface TaskResponse {
   kind: TaskKind;
   detail: string | null;
   presetId: string | null;
-  noteId: string | null;
+  /** The note it was set from; null once that note is deleted. */
+  note: TaskNote | null;
   assignee: TaskPerson;
   /** Null when a rule filed it. */
   createdBy: TaskPerson | null;
@@ -75,6 +85,8 @@ export type MyTasksView = "today" | "overdue" | "upcoming" | "assigned_by_me";
 export interface MyTasksResponse {
   tasks: TaskResponse[];
   counts: { today: number; overdue: number; upcoming: number; assignedByMe: number };
+  /** The tab holds more after this slice. */
+  hasMore: boolean;
 }
 
 /** The workspace's catalog a next action is picked from; free text is a title only and never lands here. */

@@ -1,6 +1,7 @@
 package app.lightmove.api.task.service;
 
 import app.lightmove.api.candidate.constant.PersonActivityKind;
+import app.lightmove.api.candidate.model.LinkedNote;
 import app.lightmove.api.candidate.model.TaskSubject;
 import app.lightmove.api.candidate.service.CandidateTaskService;
 import app.lightmove.api.common.constant.ApiValueEnum;
@@ -21,6 +22,7 @@ import app.lightmove.api.task.constant.TaskStatus;
 import app.lightmove.api.task.dto.CreateTaskRequest;
 import app.lightmove.api.task.dto.MyTaskCountsResponse;
 import app.lightmove.api.task.dto.MyTasksResponse;
+import app.lightmove.api.task.dto.TaskNoteDto;
 import app.lightmove.api.task.dto.TaskResponse;
 import app.lightmove.api.task.dto.TasksResponse;
 import app.lightmove.api.task.dto.UpdateTaskRequest;
@@ -32,6 +34,7 @@ import app.lightmove.api.task.model.TaskPlan;
 import app.lightmove.api.task.model.TaskHolder;
 import app.lightmove.api.task.model.TaskPreset;
 import app.lightmove.api.task.repository.TaskPresetRepository;
+import app.lightmove.api.task.repository.MyTaskTally;
 import app.lightmove.api.task.repository.TaskRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
@@ -43,6 +46,7 @@ import java.time.ZoneOffset;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -68,6 +72,7 @@ public class TaskService {
     /** The done tasks a drawer shows until it asks for every one; and every one is never more than this. */
     private static final int DONE_SHOWN = 3;
     private static final int DONE_CAP = 200;
+    private static final int MY_TASKS_PAGE_MAX = 50;
 
     private final TaskRepository tasks;
     private final TaskPresetRepository presets;
@@ -166,33 +171,36 @@ public class TaskService {
     }
 
     /**
-     * One tab of My tasks and every tab's count. Today and overdue are the viewer's own days ({@code zone}, an
-     * IANA name; UTC when it names none): due before now is overdue, later today is today, anything after —
-     * or undated — upcoming.
+     * Up to {@code size} of one tab of My tasks from {@code offset}, soonest first, and every tab's count. The
+     * offset is the caller's, counting only the rows it holds still open: one struck done in place has left the tab.
+     * Today and overdue are the viewer's own days ({@code zone}, an IANA name; UTC when it names none): due before
+     * now is overdue, later today is today, anything after — or undated — upcoming.
      */
     @Transactional(readOnly = true)
-    public MyTasksResponse mine(UUID userId, UUID workspaceId, String view, String zone) {
+    public MyTasksResponse mine(UUID userId, UUID workspaceId, String view, String zone, long offset, int size) {
         MyTasksView tab = ApiValueEnum.parse(MyTasksView.class, view, MyTasksView.TODAY, "task view");
         Instant now = clock.instant();
         ZoneId viewerZone = zoneOf(zone);
-        LocalDate today = LocalDate.ofInstant(now, viewerZone);
-        List<Task> mine = tasks.findOpenAssignedTo(workspaceId, userId);
-        List<Task> assignedByMe = tasks.findOpenAssignedBy(workspaceId, userId);
-        Predicate<Task> overdue = task -> task.getDueAt() != null && task.getDueAt().isBefore(now);
-        Predicate<Task> dueToday = task -> task.getDueAt() != null && !task.getDueAt().isBefore(now)
-                && LocalDate.ofInstant(task.getDueAt(), viewerZone).equals(today);
-        Predicate<Task> upcoming = overdue.negate().and(dueToday.negate());
+        Instant tomorrow = LocalDate.ofInstant(now, viewerZone).plusDays(1).atStartOfDay(viewerZone).toInstant();
+        MyTaskTally tally = tasks.tallyOpenAssignedTo(workspaceId, userId, now, tomorrow);
+        MyTaskCountsResponse counts = new MyTaskCountsResponse((int) tally.getToday(), (int) tally.getOverdue(),
+                (int) tally.getUpcoming(), (int) tasks.countOpenAssignedBy(workspaceId, userId));
+        long from = Math.max(offset, 0);
+        int limit = Math.clamp(size, 1, MY_TASKS_PAGE_MAX);
         List<Task> shown = switch (tab) {
-            case TODAY -> mine.stream().filter(dueToday).toList();
-            case OVERDUE -> mine.stream().filter(overdue).toList();
-            case UPCOMING -> mine.stream().filter(upcoming).toList();
-            case ASSIGNED_BY_ME -> assignedByMe;
+            case TODAY -> tasks.findOpenAssignedToDueBetween(workspaceId, userId, now, tomorrow, from, limit);
+            case OVERDUE -> tasks.findOpenAssignedToDueBefore(workspaceId, userId, now, from, limit);
+            case UPCOMING -> tasks.findOpenAssignedToDueFrom(workspaceId, userId, tomorrow, from, limit);
+            case ASSIGNED_BY_ME -> tasks.findOpenAssignedBy(workspaceId, userId, from, limit);
         };
-        MyTaskCountsResponse counts = new MyTaskCountsResponse((int) mine.stream().filter(dueToday).count(),
-                (int) mine.stream().filter(overdue).count(), (int) mine.stream().filter(upcoming).count(),
-                assignedByMe.size());
-        List<Task> ordered = shown.stream().sorted(TaskOrder.SOONEST_FIRST).toList();
-        return new MyTasksResponse(toDtos(workspaceId, ordered, task -> isOwnedBy(task, userId)), counts);
+        int inTab = switch (tab) {
+            case TODAY -> counts.today();
+            case OVERDUE -> counts.overdue();
+            case UPCOMING -> counts.upcoming();
+            case ASSIGNED_BY_ME -> counts.assignedByMe();
+        };
+        return new MyTasksResponse(toDtos(workspaceId, shown, task -> isOwnedBy(task, userId)), counts,
+                from + shown.size() < inTab);
     }
 
     /** The morning's digest for one person: their open tasks due by the end of their day, overdue first. */
@@ -277,7 +285,7 @@ public class TaskService {
     private void announceAssignment(Task task, UUID actor) {
         if (!task.getAssigneeUserId().equals(actor)) {
             events.publishEvent(new TaskAssigned(task.getWorkspaceId(), task.getProjectId(), task.getPersonId(),
-                    task.getCandidateId(), task.getId(), task.getAssigneeUserId(), actor));
+                    task.getCandidateId(), task.getId(), task.getNoteId(), task.getAssigneeUserId(), actor));
         }
     }
 
@@ -333,10 +341,13 @@ public class TaskService {
         Map<UUID, String> personNames = people.personNamesOf(workspaceId,
                 shown.stream().map(Task::getPersonId).distinct().toList());
         Map<UUID, String> projectTitles = titlesOf(shown.stream().map(Task::getProjectId).distinct().toList());
+        Map<UUID, LinkedNote> notes = people.linkedNotesOf(workspaceId,
+                shown.stream().map(Task::getNoteId).filter(Objects::nonNull).distinct().toList());
         return shown.stream().map(task -> new TaskResponse(task.getId(), task.getProjectId(),
                 projectTitles.get(task.getProjectId()), task.getCandidateId(), task.getPersonId(),
                 personNames.get(task.getPersonId()), task.getTitle(), task.getKind().value(), task.getDetail(),
-                task.getPresetId(), task.getNoteId(), TaskPeople.personOf(task.getAssigneeUserId(), named),
+                task.getPresetId(), TaskNoteDto.of(task.getNoteId(), notes),
+                TaskPeople.personOf(task.getAssigneeUserId(), named),
                 TaskPeople.personOf(task.getCreatedBy(), named), task.getDueAt(), task.getStatus().value(),
                 task.getSource().value(), task.getRule() == null ? null : task.getRule().value(),
                 task.getCompletedAt(), TaskPeople.personOf(task.getCompletedBy(), named), task.getCreatedAt(),

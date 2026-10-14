@@ -1,5 +1,11 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { useId, useState, type UIEvent } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton, useToast } from "../../../components/ui";
@@ -25,39 +31,87 @@ const TABS: readonly { view: MyTasksView; label: string; count: keyof Counts; em
 ];
 
 const VISIBLE = 5;
+const LOAD_AHEAD_PX = 120;
+const COLLAPSED_KEY = "lm-my-tasks-collapsed";
 
 const COLUMNS = "grid-cols-[18px_26px_minmax(200px,1.4fr)_minmax(160px,1fr)_minmax(140px,1fr)_188px]";
 const COLUMNS_WITH_ASSIGNEE =
   "grid-cols-[18px_26px_minmax(200px,1.4fr)_minmax(160px,1fr)_minmax(140px,1fr)_188px_112px]";
 
+function firstTabWithTasks(counts: Counts): MyTasksView {
+  if (counts.today > 0) return "today";
+  if (counts.overdue > 0) return "overdue";
+  return counts.upcoming > 0 ? "upcoming" : "today";
+}
+
+/** Every row the slices brought, once: a task written meanwhile can push one row into the next slice too. */
+function rowsOf(slices: readonly MyTasksResponse[]): TaskResponse[] {
+  const byId = new Map<string, TaskResponse>();
+  for (const task of slices.flatMap((slice) => slice.tasks)) {
+    if (!byId.has(task.id)) byId.set(task.id, task);
+  }
+  return [...byId.values()];
+}
+
+function readCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberCollapsed(collapsed: boolean) {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+  } catch {
+    // Private mode: the choice just doesn't outlive the tab.
+  }
+}
+
 /**
  * My positions' My tasks (`Workspace.dc.html`, "My tasks"): the caller's own tasks across every position, by
- * Today, Overdue, Upcoming and the ones they gave others. Ticking one strikes it where it is and offers the
- * next. Staff-only — the page draws it for nobody else.
+ * Today, Overdue, Upcoming and the ones they gave others. It opens on Today, or on Overdue then Upcoming when
+ * nothing is due today, and folds to its header. Five rows show; Show all scrolls the rest inside the card, read
+ * twenty at a time as the reader nears the end. Ticking one strikes it where it is and offers the next.
+ * Staff-only — the page draws it for nobody else.
  */
 export function MyTasksCard() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const tasksChanged = useTasksChanged();
-  const [view, setView] = useState<MyTasksView>("today");
+  const bodyId = useId();
+  const [chosen, setChosen] = useState<MyTasksView | null>(null);
+  const view = chosen ?? "today";
   const [expanded, setExpanded] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
   const [nextFor, setNextFor] = useState<NextActionTarget | null>(null);
   const tab = TABS.find((candidate) => candidate.view === view) ?? TABS[0];
 
-  const mine = useQuery({
+  const mine = useInfiniteQuery({
     queryKey: tasksApi.MY_TASKS_KEY(view),
-    queryFn: ({ signal }) => tasksApi.getMyTasks(view, signal),
+    queryFn: ({ pageParam, signal }) => tasksApi.getMyTasks(view, { offset: pageParam, signal }),
+    initialPageParam: 0,
+    getNextPageParam: (last, slices) =>
+      last.hasMore ? rowsOf(slices).filter((task) => task.status === "open").length : undefined,
     placeholderData: keepPreviousData,
   });
+  if (chosen === null && mine.data && !mine.isPlaceholderData) {
+    setChosen(firstTabWithTasks(mine.data.pages[0].counts));
+  }
   const toggle = useMutation({
     mutationFn: (task: TaskResponse) =>
       tasksApi.updateTask(task.id, { status: task.status === "done" ? "open" : "done" }),
     onSuccess: (saved) => {
-      queryClient.setQueryData<MyTasksResponse>(tasksApi.MY_TASKS_KEY(view), (current) =>
+      queryClient.setQueryData<InfiniteData<MyTasksResponse, number>>(tasksApi.MY_TASKS_KEY(view), (current) =>
         current
           ? {
-              tasks: current.tasks.map((task) => (task.id === saved.id ? saved : task)),
-              counts: { ...current.counts, [tab.count]: current.counts[tab.count] + (saved.status === "done" ? -1 : 1) },
+              ...current,
+              pages: current.pages.map((slice) => ({
+                ...slice,
+                tasks: slice.tasks.map((task) => (task.id === saved.id ? saved : task)),
+                counts: { ...slice.counts, [tab.count]: slice.counts[tab.count] + (saved.status === "done" ? -1 : 1) },
+              })),
             }
           : current,
       );
@@ -66,23 +120,46 @@ export function MyTasksCard() {
     onError: (error) => toast.error(messageFor(error)),
   });
 
+  const fold = (next: boolean) => {
+    setCollapsed(next);
+    rememberCollapsed(next);
+  };
+  const pick = (next: MyTasksView) => {
+    setChosen(next);
+    setExpanded(false);
+    if (collapsed) fold(false);
+  };
   const keys = useRadioGroupKeys(
     TABS.map((candidate) => candidate.view),
     view,
-    (next) => {
-      setView(next);
-      setExpanded(false);
-    },
+    pick,
   );
 
-  const counts = mine.data?.counts;
-  const rows = mine.isPlaceholderData ? [] : (mine.data?.tasks ?? []);
+  const counts = mine.data?.pages.at(-1)?.counts;
+  const rows = mine.isPlaceholderData ? [] : rowsOf(mine.data?.pages ?? []);
+  const struck = rows.filter((task) => task.status === "done").length;
+  const listed = (counts?.[tab.count] ?? 0) + struck;
   const shown = expanded ? rows : rows.slice(0, VISIBLE);
   const withAssignee = view === "assigned_by_me";
+  const loadingMore = expanded && (mine.hasNextPage || mine.isFetchingNextPage);
+  // A slice or a refetch that fails leaves the rows already read standing.
+  const failed = mine.isError && mine.data === undefined;
+  const moreFailed = mine.isFetchNextPageError;
+
+  const loadAhead = (event: UIEvent<HTMLDivElement>) => {
+    const box = event.currentTarget;
+    const nearEnd = box.scrollHeight - box.scrollTop - box.clientHeight < LOAD_AHEAD_PX;
+    if (nearEnd && mine.hasNextPage && !mine.isFetching) void mine.fetchNextPage();
+  };
 
   return (
     <section aria-label="My tasks" className="mb-5 overflow-hidden rounded-u-card border border-u-border-strong bg-u-surface">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-u-border py-3 pe-3.5 ps-4">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-x-4 gap-y-3 py-3 pe-3.5 ps-4",
+          !collapsed && "border-b border-u-border",
+        )}
+      >
         <h2 className="text-body font-semibold text-u-text">My tasks</h2>
         <div
           ref={keys.ref}
@@ -100,10 +177,7 @@ export function MyTasksCard() {
                 role="tab"
                 aria-selected={selected}
                 tabIndex={selected ? 0 : -1}
-                onClick={() => {
-                  setView(candidate.view);
-                  setExpanded(false);
-                }}
+                onClick={() => pick(candidate.view)}
                 className={cn(
                   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-u-control px-2.5 py-1 text-note font-medium hover:text-u-text",
                   selected ? "bg-u-surface text-u-text shadow-sm" : "text-u-text2",
@@ -117,55 +191,94 @@ export function MyTasksCard() {
             );
           })}
         </div>
-      </div>
-
-      {mine.isError ? (
-        <p className="px-4 py-6 text-note text-u-text3">{messageFor(mine.error)}</p>
-      ) : mine.isPending || mine.isPlaceholderData ? (
-        <div className="px-4 py-3">
-          <LinesSkeleton lines={3} />
-        </div>
-      ) : rows.length === 0 ? (
-        <p className="flex items-center justify-center gap-2 px-4 py-7 text-body text-u-text3">
-          <Icon d={ICONS.check} size={16} />
-          {tab.empty}
-        </p>
-      ) : (
-        <div role="list" aria-label={`${tab.label} tasks`} className="overflow-x-auto">
-          {shown.map((task, index) => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              withAssignee={withAssignee}
-              divider={index < shown.length - 1}
-              busy={toggle.isPending && toggle.variables?.id === task.id}
-              onToggle={() => toggle.mutate(task)}
-              onSetNext={
-                task.candidateId
-                  ? () =>
-                      setNextFor({
-                        projectId: task.projectId,
-                        candidateId: task.candidateId!,
-                        personId: task.personId,
-                        executiveName: task.personName ?? "This executive",
-                      })
-                  : null
-              }
-            />
-          ))}
-        </div>
-      )}
-
-      {!mine.isPlaceholderData && rows.length > VISIBLE && (
         <button
           type="button"
-          onClick={() => setExpanded((current) => !current)}
-          className="flex w-full items-center justify-center gap-1.5 border-t border-u-border px-4 py-2 text-note font-medium text-u-text2 hover:bg-u-raised hover:text-u-text"
+          aria-expanded={!collapsed}
+          aria-controls={bodyId}
+          aria-label={collapsed ? "Expand My tasks" : "Collapse My tasks"}
+          onClick={() => fold(!collapsed)}
+          className="ms-auto grid size-7 place-items-center rounded-u-control text-u-text3 transition hover:bg-u-raised hover:text-u-text"
         >
-          {expanded ? "Show fewer" : `Show all ${rows.length}`}
-          <Icon d={ICONS.chevronDown} size={13} className={cn(expanded && "rotate-180")} />
+          <Icon
+            d={ICONS.chevronDown}
+            size={15}
+            className={cn("transition-transform duration-200 motion-reduce:transition-none", collapsed && "-rotate-90")}
+          />
         </button>
-      )}
+      </div>
+
+      <div id={bodyId} hidden={collapsed}>
+        {failed ? (
+          <p className="px-4 py-6 text-note text-u-text3">{messageFor(mine.error)}</p>
+        ) : mine.isPending || mine.isPlaceholderData ? (
+          <div className="px-4 py-3">
+            <LinesSkeleton lines={3} />
+          </div>
+        ) : rows.length === 0 ? (
+          <p className="flex items-center justify-center gap-2 px-4 py-7 text-body text-u-text3">
+            <Icon d={ICONS.check} size={16} />
+            {tab.empty}
+          </p>
+        ) : (
+          <div
+            onScroll={expanded ? loadAhead : undefined}
+            className={cn("overflow-x-auto", expanded && "max-h-[460px] overflow-y-auto")}
+          >
+            <div role="list" aria-label={`${tab.label} tasks`}>
+              {shown.map((task, index) => (
+                <TaskRow
+                  key={task.id}
+                  task={task}
+                  withAssignee={withAssignee}
+                  divider={index < shown.length - 1 || loadingMore}
+                  busy={toggle.isPending && toggle.variables?.id === task.id}
+                  onToggle={() => toggle.mutate(task)}
+                  onSetNext={
+                    task.candidateId
+                      ? () =>
+                          setNextFor({
+                            projectId: task.projectId,
+                            candidateId: task.candidateId!,
+                            personId: task.personId,
+                            executiveName: task.personName ?? "This executive",
+                          })
+                      : null
+                  }
+                />
+              ))}
+            </div>
+            {loadingMore && (
+              <div className="flex items-center justify-center gap-2 px-4 py-2.5 text-note text-u-text3">
+                {mine.isFetchingNextPage ? (
+                  "Loading more…"
+                ) : (
+                  <>
+                    {moreFailed && <span>{messageFor(mine.error)}</span>}
+                    <button
+                      type="button"
+                      onClick={() => void mine.fetchNextPage()}
+                      className="font-medium text-u-accent hover:underline"
+                    >
+                      {moreFailed ? "Try again" : "Load more"}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!mine.isPlaceholderData && listed > VISIBLE && (
+          <button
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
+            className="flex w-full items-center justify-center gap-1.5 border-t border-u-border px-4 py-2 text-note font-medium text-u-text2 hover:bg-u-raised hover:text-u-text"
+          >
+            {expanded ? "Show fewer" : `Show all ${listed}`}
+            <Icon d={ICONS.chevronDown} size={13} className={cn(expanded && "rotate-180")} />
+          </button>
+        )}
+      </div>
 
       <NextActionModal target={nextFor} onClose={() => setNextFor(null)} />
     </section>

@@ -24,9 +24,12 @@ export function CandidateDrawerById({
   candidateId,
   onClose,
   onChanged,
+  focusNoteId = null,
 }: {
   project: Project;
   candidateId: string | null;
+  /** A note to open the profile on, from a bell row's link. */
+  focusNoteId?: string | null;
   onClose: () => void;
   /** After a save or a removal, for a read the mandate's rows do not cover — the report's figures. */
   onChanged?: () => void;
@@ -101,6 +104,7 @@ export function CandidateDrawerById({
           refreshRows();
         }}
         onDelete={canWrite ? setPendingRemoval : undefined}
+        focusNoteId={focusNoteId}
       />
       <RemoveCandidateDialog
         candidate={pendingRemoval}

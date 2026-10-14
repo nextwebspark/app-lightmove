@@ -313,7 +313,7 @@ describe("PipelinePage", () => {
           kind: "email",
           detail: null,
           presetId: null,
-          noteId: null,
+          note: null,
           assignee: sara,
           createdBy: sara,
           dueAt: daysAgo(3),

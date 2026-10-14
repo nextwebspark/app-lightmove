@@ -2,7 +2,9 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.LinkedNote;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.TaskSubject;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
@@ -48,6 +50,17 @@ public class CandidateTaskService {
     @Transactional(readOnly = true)
     public void requireNoteAbout(UUID workspaceId, UUID personId, UUID noteId) {
         notes.requireOnPerson(noteId, workspaceId, personId);
+    }
+
+    /** The notes tasks or bell rows point back at, by kind and date; a deleted one is simply absent. */
+    @Transactional(readOnly = true)
+    public Map<UUID, LinkedNote> linkedNotesOf(UUID workspaceId, Collection<UUID> noteIds) {
+        if (noteIds.isEmpty()) {
+            return Map.of();
+        }
+        return notes.findByWorkspaceIdAndIdIn(workspaceId, noteIds).stream()
+                .collect(Collectors.toMap(PersonNote::getId,
+                        note -> new LinkedNote(note.getId(), note.getKind(), note.getCreatedAt())));
     }
 
     @Transactional(readOnly = true)

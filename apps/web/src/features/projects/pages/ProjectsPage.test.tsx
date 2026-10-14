@@ -29,7 +29,7 @@ vi.mock("../../gettingstarted/api/gettingStartedApi", async (importOriginal) => 
 }));
 vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
-  getMyTasks: async () => ({ tasks: [], counts: { today: 0, overdue: 0, upcoming: 0, assignedByMe: 0 } }),
+  getMyTasks: async () => ({ tasks: [], counts: { today: 0, overdue: 0, upcoming: 0, assignedByMe: 0 }, hasMore: false }),
 }));
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),

@@ -8,6 +8,7 @@ import { formatInstantDate } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import * as tasksApi from "../api/tasksApi";
 import type { TaskResponse } from "../api/types";
+import { fromNoteLabel } from "../lib/linkedNote";
 import { taskKindOf } from "../lib/taskKinds";
 import { useTasksChanged } from "../lib/useTasksChanged";
 import { AutoPill, DueText } from "./TaskBits";
@@ -24,6 +25,7 @@ export function NextActionsSection({
   justCompleted,
   onCompleted,
   onOpen,
+  onShowNote,
 }: {
   projectId: string;
   candidateId: string;
@@ -33,6 +35,8 @@ export function NextActionsSection({
   onCompleted: () => void;
   /** Opens the modal on a task, or on a new one for null. */
   onOpen: (taskId: string | null) => void;
+  /** Brings the note a task was set from into view. */
+  onShowNote?: (noteId: string) => void;
 }) {
   const toast = useToast();
   const tasksChanged = useTasksChanged();
@@ -74,6 +78,7 @@ export function NextActionsSection({
               completing={complete.isPending && complete.variables === task.id}
               onComplete={() => complete.mutate(task.id)}
               onOpen={() => onOpen(task.id)}
+              onShowNote={onShowNote}
             />
           ))}
           {open.length === 0 && (
@@ -138,14 +143,17 @@ function OpenTask({
   completing,
   onComplete,
   onOpen,
+  onShowNote,
 }: {
   task: TaskResponse;
   completing: boolean;
   onComplete: () => void;
   onOpen: () => void;
+  onShowNote?: (noteId: string) => void;
 }) {
   const { user } = useAuth();
   const assigneeName = task.assignee.fullName ?? "Someone";
+  const { note } = task;
   return (
     <div className="flex items-start gap-2.5 border-b border-u-border py-2">
       <button
@@ -157,20 +165,32 @@ function OpenTask({
         onClick={onComplete}
         className="mt-px size-[18px] flex-none rounded-full border-[1.5px] border-u-border-strong transition hover:border-u-direct disabled:opacity-50"
       />
-      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-start">
-        <span className="flex min-w-0 items-center gap-1.5">
-          <Icon d={taskKindOf(task.kind).icon} size={13} className="flex-none text-u-text3" />
-          <span className="truncate text-body font-medium text-u-text">{task.title}</span>
-          {task.source === "rule" && <AutoPill />}
-        </span>
-        {task.detail && <span className="mt-0.5 block truncate text-note text-u-text3">{task.detail}</span>}
-        <span className="mt-1 flex items-center gap-1.5">
-          <DueText dueAt={task.dueAt} className="font-mono text-meta font-semibold" />
-          {task.dueAt && <span className="text-meta text-u-text3">·</span>}
-          <Avatar id={task.assignee.userId} name={assigneeName} src={task.assignee.avatarUrl} size="xs" />
-          <span className="text-meta text-u-text2">{task.assignee.userId === user?.id ? "Me" : assigneeName}</span>
-        </span>
-      </button>
+      <div className="min-w-0 flex-1">
+        <button type="button" onClick={onOpen} className="block w-full min-w-0 text-start">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <Icon d={taskKindOf(task.kind).icon} size={13} className="flex-none text-u-text3" />
+            <span className="truncate text-body font-medium text-u-text">{task.title}</span>
+            {task.source === "rule" && <AutoPill />}
+          </span>
+          {task.detail && <span className="mt-0.5 block truncate text-note text-u-text3">{task.detail}</span>}
+          <span className="mt-1 flex items-center gap-1.5">
+            <DueText dueAt={task.dueAt} className="font-mono text-meta font-semibold" />
+            {task.dueAt && <span className="text-meta text-u-text3">·</span>}
+            <Avatar id={task.assignee.userId} name={assigneeName} src={task.assignee.avatarUrl} size="xs" />
+            <span className="text-meta text-u-text2">{task.assignee.userId === user?.id ? "Me" : assigneeName}</span>
+          </span>
+        </button>
+        {note && onShowNote && (
+          <button
+            type="button"
+            onClick={() => onShowNote(note.id)}
+            className="mt-1 inline-flex items-center gap-1.5 text-meta font-medium text-u-accent hover:underline"
+          >
+            <Icon d={ICONS.fileText} size={12} className="flex-none" />
+            {fromNoteLabel(note)}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
