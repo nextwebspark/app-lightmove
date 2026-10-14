@@ -14,6 +14,7 @@ import org.springframework.ai.chat.client.advisor.SafeGuardAdvisor;
 import org.springframework.ai.chat.client.advisor.StructuredOutputValidationAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
 import org.springframework.stereotype.Service;
 
 /**
@@ -24,6 +25,12 @@ import org.springframework.stereotype.Service;
 @Service
 @Slf4j
 public class LlmCallPolicy {
+
+    /**
+     * Spring AI's own default for the schema advisor, named so the escape repair sits just inside it and
+     * mends every answer — the repair attempt's too — before it is validated.
+     */
+    private static final int SCHEMA_VALIDATION_ORDER = Ordered.LOWEST_PRECEDENCE - 2000;
 
     private final LlmSettings settings;
 
@@ -36,7 +43,7 @@ public class LlmCallPolicy {
      * bean's default advisors: a block's canned answer must bind to what that call expects back.
      */
     public Consumer<ChatClient.AdvisorSpec> forPrompt(PromptGuardSpec spec) {
-        List<Advisor> advisors = new ArrayList<>(2);
+        List<Advisor> advisors = new ArrayList<>(3);
         advisors.add(SafeGuardAdvisor.builder()
                 .sensitiveWords(injectionPhrasesFor(spec))
                 .failureResponse(spec.blockedAnswer())
@@ -46,7 +53,9 @@ public class LlmCallPolicy {
             advisors.add(StructuredOutputValidationAdvisor.builder()
                     .outputJsonSchema(AnswerSchemas.readFrom(spec.answerSchema()))
                     .maxRepeatAttempts(settings.answerRepairAttempts())
+                    .advisorOrder(SCHEMA_VALIDATION_ORDER)
                     .build());
+            advisors.add(new JsonEscapeRepairAdvisor(SCHEMA_VALIDATION_ORDER + 1));
         }
         return advisorSpec -> advisorSpec
                 .param(ChatCallLog.PROMPT_ID_ATTRIBUTE, spec.promptId())
