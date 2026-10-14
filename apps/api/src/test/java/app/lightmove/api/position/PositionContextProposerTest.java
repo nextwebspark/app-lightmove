@@ -58,7 +58,7 @@ class PositionContextProposerTest extends FlowTestSupport {
             Location: Dubai, UAE
 
             The Opportunity
-            This is a newly created role: Acme Holdings Group is establishing a group finance function
+            This is a newly-created role: Acme Holdings Group is establishing a group finance function
             for the first time as it prepares for a regional IPO. Strategic priorities for this hire
             include Capital markets readiness and Finance transformation.
 
@@ -67,6 +67,9 @@ class PositionContextProposerTest extends FlowTestSupport {
             Mobile: +971 50 123 4567
             Email: jane@acme-search.example
 
+            To succeed in this role you will bring a regional network and an outgoing personality.
+            Benefits include a retirement plan.
+            The seat opened following the retirement of the previous CFO.
             This mandate reports directly to the CEO.
             The client's board is sponsoring the search personally.
             """;
@@ -134,6 +137,92 @@ class PositionContextProposerTest extends FlowTestSupport {
 
         assertThat(fieldNamed(proposed, "mandateReason")).isEmpty();
         assertThat(valueOf(proposed, "businessDriver")).isEqualTo("Preparing for IPO");
+    }
+
+    @Test
+    @DisplayName("a mandate reason is kept where its quote says that reason in words")
+    void keepsAReasonItsQuoteStates() throws Exception {
+        Fixture f = fixture("Context Reason Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"mandateReason":"NEW_ROLE","mandateReasonSnippet":"This is a newly-created role"}
+                """);
+
+        ProposedMandateContext proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(valueOf(proposed, "mandateReason")).isEqualTo("NEW_ROLE");
+    }
+
+    @Test
+    @DisplayName("a mandate reason whose quote says nothing about why the seat is open is dropped")
+    void dropsAReasonItsQuoteDoesNotState() throws Exception {
+        Fixture f = fixture("Context Unstated Reason Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"mandateReason":"NEW_ROLE","mandateReasonSnippet":"Strategic priorities for this hire",
+                 "businessDriver":"Preparing for IPO"}
+                """);
+
+        ProposedMandateContext proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(fieldNamed(proposed, "mandateReason")).isEmpty();
+        assertThat(valueOf(proposed, "businessDriver")).isEqualTo("Preparing for IPO");
+    }
+
+    @Test
+    @DisplayName("job-ad boilerplate that only contains a reason's word inside another phrase states nothing")
+    void dropsAReasonQuotedFromBoilerplate() throws Exception {
+        Fixture f = fixture("Context Boilerplate Reason Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"mandateReason":"SUCCESSION","mandateReasonSnippet":"To succeed in this role"}
+                """);
+
+        ProposedMandateContext proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(fieldNamed(proposed, "mandateReason")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a reason word used about the person or the package, not the seat, states nothing")
+    void dropsReasonWordsNotAboutTheSeat() throws Exception {
+        Fixture f = fixture("Context Seat Words Firm", "Acme Holdings Group", "acme.example");
+        for (String answer : List.of(
+                "{\"mandateReason\":\"BACKFILL\",\"mandateReasonSnippet\":\"an outgoing personality\"}",
+                "{\"mandateReason\":\"SUCCESSION\",\"mandateReasonSnippet\":\"Benefits include a retirement plan\"}")) {
+            ProposedMandateContext proposed = proposerWith(new RecordingChatModel(answer))
+                    .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+            assertThat(fieldNamed(proposed, "mandateReason")).as(answer).isEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("a reason stated about the seat itself is kept")
+    void keepsAReasonAboutTheSeat() throws Exception {
+        Fixture f = fixture("Context Seat Reason Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"mandateReason":"SUCCESSION","mandateReasonSnippet":"following the retirement of the previous CFO"}
+                """);
+
+        ProposedMandateContext proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(valueOf(proposed, "mandateReason")).isEqualTo("SUCCESSION");
+    }
+
+    @Test
+    @DisplayName("a mandate reason with no quote is dropped")
+    void dropsAReasonWithNoQuote() throws Exception {
+        Fixture f = fixture("Context Unquoted Reason Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"mandateReason":"GROWTH_EXPANSION"}
+                """);
+
+        ProposedMandateContext proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId());
+
+        assertThat(fieldNamed(proposed, "mandateReason")).isEmpty();
     }
 
     @Test

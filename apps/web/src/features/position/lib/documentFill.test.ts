@@ -327,6 +327,9 @@ describe("list fill — kept, dropped, appended, de-duplicated, capped", () => {
 });
 
 describe("competency weights", () => {
+  const documentRows = (weights: number[]): Competency[] =>
+    weights.map((weight, i) => ({ name: `Competency ${i}`, description: null, weight, source: "DOCUMENT" }));
+
   it("splits 100 evenly across unstated rows", () => {
     const rows: Competency[] = Array.from({ length: 5 }, (_, i) => ({
       name: `Competency ${i}`,
@@ -363,6 +366,89 @@ describe("competency weights", () => {
   it("leaves the panel untouched when nothing is unstated", () => {
     const rows: Competency[] = [{ name: "A", description: null, weight: 60, source: "MANUAL" }];
     expect(balancePanelWeights(rows)).toBe(rows);
+  });
+
+  it("scales a reading's weights down to 100, keeping their order", () => {
+    const rows = documentRows([90, 85, 80]);
+    expect(balancePanelWeights(rows).map((row) => row.weight)).toEqual([35, 33, 32]);
+  });
+
+  it("scales a reading's weights up to 100", () => {
+    const rows = documentRows([10, 10, 20]);
+    expect(balancePanelWeights(rows).map((row) => row.weight)).toEqual([25, 25, 50]);
+  });
+
+  it("shares only what the typed rows leave", () => {
+    const rows: Competency[] = [
+      { name: "Typed", description: null, weight: 40, source: "MANUAL" },
+      ...documentRows([90, 85, 80]),
+    ];
+    const weights = balancePanelWeights(rows).map((row) => row.weight);
+    expect(weights[0]).toBe(40);
+    expect(weights.slice(1)).toEqual([21, 20, 19]);
+  });
+
+  it("gives a row the reading left unweighted the average of the weighted ones", () => {
+    const rows = documentRows([60, 0, 20]);
+    expect(balancePanelWeights(rows).map((row) => row.weight)).toEqual([50, 33, 17]);
+  });
+
+  it("gives a reading's rows nothing once the typed rows already fill the panel", () => {
+    const rows: Competency[] = [
+      { name: "Typed A", description: null, weight: 60, source: "MANUAL" },
+      { name: "Typed B", description: null, weight: 40, source: "MANUAL" },
+      ...documentRows([50, 30, 20]),
+    ];
+    expect(balancePanelWeights(rows).map((row) => row.weight)).toEqual([60, 40, 0, 0, 0]);
+  });
+
+  it("gives a later reading its own emphasis back once a typed row makes room", () => {
+    const zeroed = fillBrief(
+      snapshotOf({
+        technical: [
+          { name: "Typed A", description: null, weight: 60, source: "MANUAL" },
+          { name: "Typed B", description: null, weight: 40, source: "MANUAL" },
+        ],
+      }),
+      { assessment: extraction([field("technicalCompetency", "Treasury — 50 — "), field("technicalCompetency", "Audit — 50 — ")]) },
+      FILE_NAME,
+    ).next.technical;
+    expect(zeroed.map((row) => row.weight)).toEqual([60, 40, 0, 0]);
+
+    const afterRemoval = zeroed.filter((row) => row.name !== "Typed B");
+    const reread = fillBrief(
+      snapshotOf({ technical: afterRemoval }),
+      { assessment: extraction([field("technicalCompetency", "Treasury — 75 — "), field("technicalCompetency", "Audit — 25 — ")]) },
+      FILE_NAME,
+    ).next.technical;
+    expect(reread.map((row) => [row.name, row.weight])).toEqual([
+      ["Typed A", 60],
+      ["Treasury", 30],
+      ["Audit", 10],
+    ]);
+  });
+
+  it("returns a reading that already totals 100 as it is", () => {
+    const rows = documentRows([50, 30, 20]);
+    expect(balancePanelWeights(rows)).toBe(rows);
+  });
+
+  it("fills a panel to 100 from a reading that scored every competency", () => {
+    const outcome = fillBrief(
+      snapshotOf({ behavioural: [{ name: "Template row", description: null, weight: 100, source: "TEMPLATE" }] }),
+      {
+        assessment: extraction([
+          field("behaviouralCompetency", "Change Management — 90 — Lead through transformation"),
+          field("behaviouralCompetency", "Stakeholder Influence — 85 — Manage working relationships"),
+          field("behaviouralCompetency", "Resilience under Ambiguity — 80 — Handle pressure"),
+          field("behaviouralCompetency", "Strategic Leadership — 75 — Provide direction"),
+        ]),
+      },
+      FILE_NAME,
+    );
+    const weights = outcome.next.behavioural.map((row) => row.weight);
+    expect(weights).toEqual([27, 26, 24, 23]);
+    expect(weights.reduce((sum, weight) => sum + weight, 0)).toBe(100);
   });
 
   it("rebalances the panel a fill actually touches", () => {

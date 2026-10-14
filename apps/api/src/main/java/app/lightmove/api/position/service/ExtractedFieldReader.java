@@ -48,6 +48,21 @@ public class ExtractedFieldReader {
         return Optional.of(field);
     }
 
+    /**
+     * For a field the model reads rather than quotes: its own low always lowers it, and its own high raises
+     * it only where its quote was found in the document.
+     */
+    ExtractedField withStatedConfidence(ExtractedField field, String statedConfidence) {
+        if (statedConfidence == null) {
+            return field;
+        }
+        return switch (statedConfidence.trim().toLowerCase(Locale.ROOT)) {
+            case "high" -> field.snippet() == null ? field : field.withConfidence(ProposalConfidence.HIGH);
+            case "low" -> field.withConfidence(ProposalConfidence.LOW);
+            default -> field;
+        };
+    }
+
     /** Never {@code Enum.valueOf}: a token the enum does not carry is dropped rather than thrown. */
     <T extends Enum<T>> Optional<ExtractedField> enumFieldFrom(String extractorLabel, String fieldKey,
                                                                 Class<T> type, String rawValue, String rawSnippet,

@@ -529,31 +529,43 @@ function competencyFrom(value: string): Pick<Competency, "name" | "weight" | "de
 }
 
 /**
- * Splits each unstated competency's share of what a panel has left after every `MANUAL` row and every
- * `DOCUMENT` row the document actually gave a weight to (the proposer packs an omitted weight as
- * `"0"`). Leaves the panel exactly as it was once nothing is left unstated, or once the stated rows
- * already reach 100 — a panel a fill cannot balance is left to read red exactly as a hand-built one
- * would, rather than being forced to a total that hides the gap.
+ * Shares what a panel has left after its `MANUAL` rows among the rows a reading proposed, in proportion
+ * to the weight the model gave each, so the panel totals 100. A model's weight is only ever relative
+ * emphasis: a row it gave none (the proposer packs an omitted weight as `"0"`) takes the average of the
+ * ones it did, and the split is equal when it weighted nothing. A typed weight is never changed, so
+ * where the `MANUAL` rows already reach 100 the proposed rows take nothing.
  */
 export function balancePanelWeights(rows: Competency[]): Competency[] {
-  const isStated = (row: Competency) => row.source === "MANUAL" || (row.source === "DOCUMENT" && row.weight > 0);
-  const unstated = rows.filter((row) => !isStated(row));
-  if (unstated.length === 0) return rows;
+  const isTyped = (row: Competency) => row.source === "MANUAL";
+  const proposed = rows.filter((row) => !isTyped(row));
+  if (proposed.length === 0) return rows;
 
-  const stated = rows.filter(isStated).reduce((sum, row) => sum + row.weight, 0);
-  if (stated >= 100) return rows;
+  const budget = 100 - rows.filter(isTyped).reduce((sum, row) => sum + row.weight, 0);
+  if (budget <= 0) {
+    return proposed.every((row) => row.weight === 0)
+      ? rows
+      : rows.map((row) => (isTyped(row) ? row : { ...row, weight: 0 }));
+  }
 
-  const remainder = 100 - stated;
-  const share = Math.floor(remainder / unstated.length);
-  const leftover = remainder - share * unstated.length;
+  const weighted = proposed.filter((row) => row.weight > 0);
+  const average =
+    weighted.length > 0 ? weighted.reduce((sum, row) => sum + row.weight, 0) / weighted.length : 1;
+  const emphasis = proposed.map((row) => (row.weight > 0 ? row.weight : average));
+  const emphasisSum = emphasis.reduce((sum, value) => sum + value, 0);
 
-  let index = 0;
-  return rows.map((row) => {
-    if (isStated(row)) return row;
-    const weight = share + (index < leftover ? 1 : 0);
-    index++;
-    return { ...row, weight };
-  });
+  const exact = emphasis.map((value) => (value * budget) / emphasisSum);
+  const shares = exact.map(Math.floor);
+  const leftover = budget - shares.reduce((sum, share) => sum + share, 0);
+  exact
+    .map((value, position) => ({ position, fraction: value - Math.floor(value) }))
+    .sort((a, b) => b.fraction - a.fraction || a.position - b.position)
+    .slice(0, leftover)
+    .forEach(({ position }) => shares[position]++);
+
+  if (proposed.every((row, position) => row.weight === shares[position])) return rows;
+
+  let position = 0;
+  return rows.map((row) => (isTyped(row) ? row : { ...row, weight: shares[position++] }));
 }
 
 // ---------------------------------------------------------------------------------------------------

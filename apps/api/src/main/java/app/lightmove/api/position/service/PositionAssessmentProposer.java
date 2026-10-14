@@ -18,10 +18,14 @@ import app.lightmove.api.position.model.ProposedAssessment;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.model.PositionTemplateCompetency;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,6 +54,9 @@ public class PositionAssessmentProposer {
 
     /** Packs {@code "<name>[ — <weight>[ — <description>]]"}; the frontend trusts segment 2 to be the weight. */
     private static final String PACK_SEPARATOR = " — ";
+
+    /** Digits only, so a model steered into "1E999999999" never reaches {@code BigDecimal.setScale}. */
+    private static final Pattern STATED_WEIGHT = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,6})?)\\s*%?");
 
     private final PositionDocumentRedactor redactor;
     private final PositionTemplateService templates;
@@ -211,18 +218,22 @@ public class PositionAssessmentProposer {
 
     /**
      * Drops the row when a stated weight will not parse or falls outside 0-100, or when the name contains
-     * {@link #PACK_SEPARATOR} and would corrupt the packing. A missing weight is simply omitted.
+     * {@link #PACK_SEPARATOR} and would corrupt the packing. A missing weight is simply omitted; a share
+     * written as {@code "33.3"} or {@code "33%"} is rounded, since a panel asked to total 100 splits a third
+     * that way — never to 0, which the screen reads as no weight given.
      */
     private Optional<ExtractedField> competencyFieldFrom(String fieldKey, ModelCompetency competency,
                                                           Pseudonyms pseudonyms, String haystack) {
         Integer weight = null;
         if (competency.weight() != null && !competency.weight().isBlank()) {
-            try {
-                weight = Integer.parseInt(competency.weight().trim());
-            } catch (NumberFormatException e) {
+            Matcher share = STATED_WEIGHT.matcher(competency.weight().trim());
+            if (!share.matches()) {
                 return Optional.empty();
             }
-            if (weight < 0 || weight > 100) {
+            BigDecimal stated = new BigDecimal(share.group(1));
+            int rounded = stated.setScale(0, RoundingMode.HALF_UP).intValue();
+            weight = stated.signum() > 0 ? Math.max(1, rounded) : rounded;
+            if (weight > 100) {
                 return Optional.empty();
             }
         }

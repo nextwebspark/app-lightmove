@@ -11,7 +11,8 @@ import type { Competency } from "../api/types";
  * <p>A row raises itself out of the panel's headroom first and only takes from the others once the
  * total would pass 100; releasing weight below 100 lowers the total rather than inflating rows nobody
  * touched. Redistribution is what holds a *balanced* panel balanced — a half-built one is left to be
- * built.
+ * built. A panel over 100 is brought down the same way: a lowered row gives up the excess first, and
+ * the others grow only by what it releases beyond that.
  */
 export function rebalance<T extends Competency>(
   rows: T[],
@@ -43,7 +44,7 @@ export function rebalance<T extends Competency>(
     delta > 0
       ? Math.min(Math.max(0, delta - (100 - total)), poolSum)
       : total >= 100
-        ? delta
+        ? Math.min(0, delta + (total - 100))
         : 0;
 
   if (absorbed !== 0) {

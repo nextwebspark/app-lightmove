@@ -12,6 +12,7 @@
     "employmentTypeSnippet": { "type": ["string", "null"] },
     "seniority": { "type": ["string", "null"] },
     "senioritySnippet": { "type": ["string", "null"] },
+    "seniorityConfidence": { "type": ["string", "null"] },
     "responsibilities": {
       "type": "array",
       "maxItems": 5,

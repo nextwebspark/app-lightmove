@@ -23,7 +23,11 @@ Fields:
   - mandateReason: one of NEW_ROLE, BACKFILL, SUCCESSION, RESTRUCTURING, GROWTH_EXPANSION, describing
     why this mandate exists — only when the document's wording clearly says so (a brand-new position, a
     replacement for someone leaving, a succession plan, a reorganisation, or an expansion); most
-    documents never say this, and null is the common, correct answer.
+    documents never say this, and null is the common, correct answer. That the company is seeking,
+    hiring or looking for someone is not a reason: every description says so. A turnaround, a
+    transformation or a growth agenda the new hire will lead is the business context, not why the seat
+    is open. Answer NEW_ROLE only where the document calls the position new or newly created, and quote
+    the words that say which reason it is as the snippet.
   - businessDriver: a sentence or two of the business context behind the hire, if the document states
     one — often under a heading like "The Opportunity" or "Background".
   - strategicPriorities: at most 5 of the strategic priorities or objectives the document names for

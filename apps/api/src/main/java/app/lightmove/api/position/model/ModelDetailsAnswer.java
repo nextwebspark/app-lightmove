@@ -14,6 +14,7 @@ public record ModelDetailsAnswer(
         String employmentTypeSnippet,
         String seniority,
         String senioritySnippet,
+        String seniorityConfidence,
         List<ModelResponsibility> responsibilities,
         String narrative,
         String narrativeSnippet
