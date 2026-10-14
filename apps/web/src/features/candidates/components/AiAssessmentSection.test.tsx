@@ -24,7 +24,7 @@ vi.mock("../../auth/AuthProvider", () => ({
 
 vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
-  getCandidateTasks: async () => ({ open: [], done: [] }),
+  getCandidateTasks: async () => ({ open: [], done: [], doneCount: 0 }),
 }));
 
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({

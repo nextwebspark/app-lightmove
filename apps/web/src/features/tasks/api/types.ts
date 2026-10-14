@@ -41,10 +41,14 @@ export interface TaskResponse {
   editable: boolean;
 }
 
-/** One executive's tasks on one position: every open one, soonest first, and the latest five done. */
+/**
+ * One executive's tasks on one position: every open one, soonest first, and the done ones latest first — the last
+ * three, or every one when asked. `doneCount` is how many are done in all.
+ */
 export interface TasksResponse {
   open: TaskResponse[];
   done: TaskResponse[];
+  doneCount: number;
 }
 
 export interface CreateTaskRequest {

@@ -39,8 +39,9 @@ public class TaskController {
     @GetMapping("/api/v1/projects/{projectId}/candidates/{candidateId}/tasks")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public TasksResponse list(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
-                              @PathVariable UUID candidateId) {
-        return tasks.listOf(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId);
+                              @PathVariable UUID candidateId,
+                              @RequestParam(defaultValue = "false") boolean allDone) {
+        return tasks.listOf(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, allDone);
     }
 
     @PostMapping("/api/v1/projects/{projectId}/candidates/{candidateId}/tasks")

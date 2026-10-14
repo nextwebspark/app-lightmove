@@ -1,4 +1,5 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton, useToast } from "../../../components/ui";
 import { Avatar } from "../../../components/ui/Avatar";
@@ -11,11 +12,10 @@ import { taskKindOf } from "../lib/taskKinds";
 import { useTasksChanged } from "../lib/useTasksChanged";
 import { AutoPill, DueText } from "./TaskBits";
 
-const DONE_SHOWN = 5;
-
 /**
  * The executive drawer's Next actions (`Position.dc.html`, `isNextActions`): every open task on them here,
- * soonest first — ticked done in place, opened to edit — then the latest done. Staff-only.
+ * soonest first — ticked done in place, opened to edit — then the last three done, and every one on See more.
+ * Staff-only.
  */
 export function NextActionsSection({
   projectId,
@@ -36,9 +36,11 @@ export function NextActionsSection({
 }) {
   const toast = useToast();
   const tasksChanged = useTasksChanged();
+  const [allDone, setAllDone] = useState(false);
   const tasks = useQuery({
-    queryKey: tasksApi.CANDIDATE_TASKS_KEY(projectId, candidateId),
-    queryFn: ({ signal }) => tasksApi.getCandidateTasks(projectId, candidateId, signal),
+    queryKey: [...tasksApi.CANDIDATE_TASKS_KEY(projectId, candidateId), allDone ? "all-done" : "latest-done"],
+    queryFn: ({ signal }) => tasksApi.getCandidateTasks(projectId, candidateId, signal, allDone),
+    placeholderData: keepPreviousData,
   });
   const complete = useMutation({
     mutationFn: (taskId: string) => tasksApi.updateTask(taskId, { status: "done" }),
@@ -49,7 +51,8 @@ export function NextActionsSection({
     onError: (error) => toast.error(messageFor(error)),
   });
   const open = tasks.data?.open ?? [];
-  const done = (tasks.data?.done ?? []).slice(0, DONE_SHOWN);
+  const done = tasks.data?.done ?? [];
+  const doneCount = tasks.data?.doneCount ?? done.length;
 
   return (
     <section aria-label="Next actions" className="border-b border-u-border pb-3">
@@ -112,6 +115,16 @@ export function NextActionsSection({
                   </span>
                 </div>
               ))}
+              {(doneCount > done.length || allDone) && doneCount > 3 && (
+                <button
+                  type="button"
+                  aria-expanded={allDone}
+                  onClick={() => setAllDone((shown) => !shown)}
+                  className="mt-1 text-note font-medium text-u-accent hover:underline"
+                >
+                  {allDone ? "See less" : `See more · ${doneCount - done.length} more`}
+                </button>
+              )}
             </div>
           )}
         </>

@@ -27,8 +27,15 @@ export const TASK_PRESET_SUGGESTIONS_KEY = ["task-presets", "suggestions"] as co
 
 export const TASK_RULES_KEY = ["task-rules"] as const;
 
-export function getCandidateTasks(projectId: string, candidateId: string, signal?: AbortSignal): Promise<TasksResponse> {
-  return request<TasksResponse>(`/projects/${projectId}/candidates/${candidateId}/tasks`, { signal });
+/** The last three done tasks come with every read; `allDone` asks for every one. */
+export function getCandidateTasks(
+  projectId: string,
+  candidateId: string,
+  signal?: AbortSignal,
+  allDone = false,
+): Promise<TasksResponse> {
+  const query = allDone ? "?allDone=true" : "";
+  return request<TasksResponse>(`/projects/${projectId}/candidates/${candidateId}/tasks${query}`, { signal });
 }
 
 export function createTask(projectId: string, candidateId: string, task: CreateTaskRequest): Promise<TaskResponse> {

@@ -98,6 +98,7 @@ class TaskIntegrationTest extends PipelineFlowSupport {
         assertThat(done.get("status").asText()).isEqualTo("done");
         assertThat(done.at("/completedBy/fullName").asText()).isEqualTo("sara");
         assertThat(read(admin, tasksUrl(layla)).get("done")).hasSize(1);
+        assertThat(read(admin, tasksUrl(layla)).get("doneCount").asInt()).isEqualTo(1);
 
         JsonNode reopened = body(write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
                 {"status":"open","title":"Share the profile"}"""));
@@ -111,6 +112,22 @@ class TaskIntegrationTest extends PipelineFlowSupport {
                 .andReturn().getResponse().getStatus()).isEqualTo(204);
         assertThat(read(admin, tasksUrl(layla)).get("open")).isEmpty();
         assertThat(timelineKinds()).contains("TASK_CANCELLED");
+    }
+
+    @Test
+    @DisplayName("the drawer reads the last three done tasks, and every one when it asks")
+    void theLastThreeDoneUnlessAllAreAsked() throws Exception {
+        for (int index = 0; index < 5; index++) {
+            String taskId = body(created(admin, layla, "Done one " + index, adminId, "2026-11-02T09:00:00Z"))
+                    .get("id").asText();
+            write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
+                    {"status":"done"}""");
+        }
+        JsonNode latest = read(admin, tasksUrl(layla));
+        assertThat(latest.get("done")).hasSize(3);
+        assertThat(latest.get("doneCount").asInt()).isEqualTo(5);
+        assertThat(latest.get("done").get(0).get("title").asText()).isEqualTo("Done one 4");
+        assertThat(read(admin, tasksUrl(layla) + "?allDone=true").get("done")).hasSize(5);
     }
 
     @Test

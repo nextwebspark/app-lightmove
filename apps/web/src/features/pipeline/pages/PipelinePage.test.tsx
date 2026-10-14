@@ -327,6 +327,7 @@ describe("PipelinePage", () => {
         },
       ],
       done: [],
+      doneCount: 0,
     });
     renderPage("");
 

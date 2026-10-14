@@ -276,7 +276,7 @@ describe("NextActionModal", () => {
   });
 
   it("edits a task it is given, and offers Mark done and Delete", async () => {
-    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [openTask], done: [] });
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [openTask], done: [], doneCount: 0 });
     vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...openTask, status: "done" });
     const { onClose } = renderModal({ ...newTarget, taskId: "t1" });
 
@@ -296,7 +296,7 @@ describe("NextActionModal", () => {
   });
 
   it("cancels the task it edits on Delete", async () => {
-    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [openTask], done: [] });
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [openTask], done: [], doneCount: 0 });
     vi.mocked(tasksApi.cancelTask).mockResolvedValue(undefined);
     renderModal({ ...newTarget, taskId: "t1" });
 

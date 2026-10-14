@@ -36,6 +36,12 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     List<Task> findDoneOfCandidate(UUID projectId, UUID candidateId, Limit limit);
 
     @Query("""
+            select count(t) from Task t where t.projectId = :projectId and t.candidateId = :candidateId
+              and t.status = app.lightmove.api.task.constant.TaskStatus.DONE
+            """)
+    long countDoneOfCandidate(UUID projectId, UUID candidateId);
+
+    @Query("""
             select t from Task t where t.workspaceId = :workspaceId and t.assigneeUserId = :userId
               and t.status = app.lightmove.api.task.constant.TaskStatus.OPEN
             """)

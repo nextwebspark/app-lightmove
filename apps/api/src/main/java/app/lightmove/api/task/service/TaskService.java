@@ -65,7 +65,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TaskService {
 
-    private static final int DONE_SHOWN = 5;
+    /** The done tasks a drawer shows until it asks for every one; and every one is never more than this. */
+    private static final int DONE_SHOWN = 3;
+    private static final int DONE_CAP = 200;
 
     private final TaskRepository tasks;
     private final TaskPresetRepository presets;
@@ -80,18 +82,19 @@ public class TaskService {
     private final Clock clock;
 
     @Transactional(readOnly = true)
-    public TasksResponse listOf(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId) {
+    public TasksResponse listOf(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, boolean allDone) {
         projects.requireInWorkspace(projectId, workspaceId);
         people.requireSubject(projectId, candidateId);
         List<Task> open = tasks.findOfCandidates(projectId, List.of(candidateId), TaskStatus.OPEN).stream()
                 .sorted(TaskOrder.SOONEST_FIRST).toList();
-        List<Task> done = tasks.findDoneOfCandidate(projectId, candidateId, Limit.of(DONE_SHOWN));
+        List<Task> done = tasks.findDoneOfCandidate(projectId, candidateId, Limit.of(allDone ? DONE_CAP : DONE_SHOWN));
         boolean managesAll = managesAll(userId, workspaceId, projectId);
         Map<UUID, TaskResponse> shown = toDtos(workspaceId, Stream.concat(open.stream(), done.stream()).toList(),
                 task -> managesAll || isOwnedBy(task, userId)).stream()
                 .collect(Collectors.toMap(TaskResponse::id, Function.identity()));
         return new TasksResponse(open.stream().map(task -> shown.get(task.getId())).toList(),
-                done.stream().map(task -> shown.get(task.getId())).toList());
+                done.stream().map(task -> shown.get(task.getId())).toList(),
+                tasks.countDoneOfCandidate(projectId, candidateId));
     }
 
     @Transactional

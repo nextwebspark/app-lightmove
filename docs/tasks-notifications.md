@@ -39,7 +39,7 @@ Dates are ISO-8601 instants. Enum values are lower snake case.
 
 | Route | Body / query | Answer |
 |---|---|---|
-| `GET /api/v1/projects/{projectId}/candidates/{candidateId}/tasks` | | `TasksResponse` |
+| `GET /api/v1/projects/{projectId}/candidates/{candidateId}/tasks` | `allDone=true` for every done task | `TasksResponse` |
 | `POST /api/v1/projects/{projectId}/candidates/{candidateId}/tasks` | `CreateTaskRequest` | 201 `TaskResponse` |
 | `PATCH /api/v1/tasks/{taskId}` | `UpdateTaskRequest` | `TaskResponse` |
 | `DELETE /api/v1/tasks/{taskId}` | | 204 (the task is cancelled) |
@@ -59,7 +59,7 @@ interface TaskResponse {
   completedAt: string | null; completedBy: TaskPerson | null; createdAt: string;
   editable: boolean;                                       // may change, reassign or cancel it
 }
-interface TasksResponse { open: TaskResponse[]; done: TaskResponse[] }   // done: the latest five
+interface TasksResponse { open: TaskResponse[]; done: TaskResponse[]; doneCount: number }   // done: the last three, or all with allDone
 interface CreateTaskRequest {
   title: string;                // 1–200
   kind: TaskKind; assigneeUserId: string; dueAt: string;
