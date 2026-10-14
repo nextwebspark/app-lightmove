@@ -5,12 +5,14 @@ import { messageFor } from "../../../lib/errorCodes";
 import * as poolApi from "../api/poolApi";
 import type { PersonRecord } from "../api/types";
 import { usePersonRecordUpdate } from "../lib/usePersonRecordUpdate";
-import { TabSectionHeading } from "./PersonSections";
 import { TagPicker } from "./pool/TagPicker";
 import { TagPill } from "./pool/TagPill";
 
-/** The team's tags on a person, in either drawer's Records tab. Staff-only, like the person record. */
-export function PersonTagsSection({ person }: { person: PersonRecord }) {
+/**
+ * The team's tags on a person, as one line under either drawer's header — a fact about the person like
+ * their owner, so it is on view whichever tab is open. Staff-only, like the person record.
+ */
+export function PersonTagsSection({ person, className }: { person: PersonRecord; className?: string }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const changed = usePersonRecordUpdate();
@@ -29,9 +31,9 @@ export function PersonTagsSection({ person }: { person: PersonRecord }) {
   });
 
   return (
-    <section aria-label="Tags" className="pb-4">
-      <TabSectionHeading title="Tags" />
+    <section aria-label="Tags" className={className}>
       <div className="flex flex-wrap items-center gap-1.5">
+        <Icon d={ICONS.tag} size={12} className="me-0.5 flex-none text-u-text3" />
         {held.map((tag) => (
           <span key={tag.id} className="flex items-center">
             <TagPill tag={tag} className="pe-1" />

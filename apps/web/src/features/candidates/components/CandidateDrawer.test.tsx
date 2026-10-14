@@ -205,8 +205,14 @@ const otherPosition = {
   workable: false,
 };
 
-const openTab = async (name: string | RegExp) =>
-  userEvent.click(screen.getByRole("tab", { name }));
+/** A tab by its label; a count beside it (Notes 2) is part of its name, so the label is matched as a prefix. */
+const openTab = async (name: string) =>
+  userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
+
+const tabLabels = () =>
+  within(screen.getByRole("tablist", { name: "Executive sections" }))
+    .getAllByRole("tab")
+    .map((tab) => tab.textContent?.replace(/\d+$/, ""));
 
 /**
  * The profile panel and the form behind it. Three things are worth holding onto: a name opens a
@@ -641,7 +647,7 @@ describe("CandidateDrawer", () => {
     vi.mocked(personCrmApi.writePersonNote).mockResolvedValue(written);
     renderDrawer({ candidate: yasmin, company: null });
 
-    await openTab("Records");
+    await openTab("Notes");
     expect(await screen.findByText(/No notes yet/i)).toBeInTheDocument();
     expect(await screen.findByText("About Chief Financial Officer")).toBeInTheDocument();
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([written]);
@@ -685,7 +691,7 @@ describe("CandidateDrawer", () => {
     );
     renderDrawer({ candidate: yasmin, company: null });
 
-    await openTab("Timeline");
+    await openTab("Activity");
     expect(await screen.findByText("edited the profile")).toBeInTheDocument();
     expect(screen.queryByText("added to this position")).not.toBeInTheDocument();
 
@@ -904,7 +910,7 @@ describe("CandidateDrawer", () => {
       "https://linkedin.com/in/yasmin",
     );
 
-    await openTab("Contact & outreach");
+    await openTab("Contact");
     expect(screen.getByRole("link", { name: /linkedin.com\/in\/yasmin/i })).toHaveAttribute(
       "href",
       "https://linkedin.com/in/yasmin",
@@ -980,25 +986,21 @@ describe("CandidateDrawer", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("splits the profile into tabs, and opens every person on Profile", async () => {
+  it("splits the profile into the mockup's tabs, and opens the next person on the tab this one was left on", async () => {
     const { unmount } = renderDrawer({ candidate: yasmin, company: null });
 
-    expect(
-      within(screen.getByRole("tablist", { name: "Executive sections" }))
-        .getAllByRole("tab")
-        .map((tab) => tab.textContent),
-    ).toEqual(["Profile", "Contact & outreach", "Records", "Timeline"]);
-    expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
+    expect(tabLabels()).toEqual(["Career", "Notes", "Contact", "Documents", "Activity", "Positions"]);
+    expect(screen.getByRole("tab", { name: "Career" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
 
-    await openTab("Timeline");
+    await openTab("Activity");
     expect(screen.queryByRole("button", { name: /^Summary/ })).not.toBeInTheDocument();
 
     unmount();
     renderDrawer({ candidate: { ...yasmin, id: "c2", fullName: "Omar Haddad" }, company: null });
-    expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("puts the AI assessment after Background on the profile", async () => {
@@ -1010,7 +1012,7 @@ describe("CandidateDrawer", () => {
     expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background", "AI assessment"]);
   });
 
-  it("brings a linked note forward though the drawer is already open on someone else's profile tab", async () => {
+  it("brings a linked note forward though the drawer is already open on someone else's career tab", async () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
@@ -1031,24 +1033,27 @@ describe("CandidateDrawer", () => {
       },
     ]);
     renderDrawer({ candidate: yasmin, company: null }, NoteLinkArrives);
-    expect(await screen.findByRole("tab", { name: "Profile", selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Career", selected: true })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "follow the link" }));
 
-    expect(await screen.findByRole("tab", { name: "Records", selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /^Notes/, selected: true })).toBeInTheDocument();
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
-  it("keeps tags, notes and documents under Records, and other positions only when there are some", async () => {
+  it("keeps tags in the header, notes and documents on their own tabs, and lists other positions", async () => {
     const { unmount } = renderDrawer({ candidate: yasmin, company: null });
 
-    await openTab("Records");
+    // Tags are a fact about the person, on view whichever tab is open.
     expect(await screen.findByRole("button", { name: "Remove tag Board ready" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Notes" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Documents" })).toBeInTheDocument();
-    // This drawer is the current position: a person on no other has nothing to list.
+    await openTab("Notes");
+    expect(screen.getByRole("tabpanel", { name: /^Notes/ })).toContainElement(screen.getByRole("region", { name: "Notes" }));
+    await openTab("Documents");
+    expect(screen.getByRole("tabpanel", { name: /^Documents/ })).toBeVisible();
+    // This drawer is the current position: a person on no other says so rather than showing nothing.
+    await openTab("Positions");
     await waitFor(() => expect(personCrmApi.getPersonPositions).toHaveBeenCalled());
-    expect(screen.queryByRole("region", { name: "Other positions" })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Not mapped to any other positions right now/)).toBeInTheDocument();
     unmount();
 
     vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([
@@ -1066,31 +1071,34 @@ describe("CandidateDrawer", () => {
       otherPosition,
     ]);
     renderDrawer({ candidate: yasmin, company: null });
-    await openTab("Records");
+    await openTab("Positions");
 
     const others = await screen.findByRole("region", { name: "Other positions" });
     expect(within(others).getByText("Group Treasurer")).toBeInTheDocument();
     expect(within(others).queryByText("Chief Financial Officer")).not.toBeInTheDocument();
   });
 
-  it("keeps Remove from mandate and Close in a footer every tab shares", async () => {
+  it("keeps Remove from mandate, Add note and Set next action in a footer every tab shares", async () => {
     const onClose = vi.fn();
     const onRemove = vi.fn();
     renderDrawer({ candidate: yasmin, company: null, onClose, onDelete: onRemove });
 
-    await openTab("Timeline");
+    await openTab("Activity");
     await userEvent.click(screen.getByRole("button", { name: "Remove from mandate" }));
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
+    expect(within(screen.getByRole("contentinfo")).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
 
-    // The header's ✕ and the footer's button both read "Close"; the footer's comes last.
-    await userEvent.click(screen.getAllByRole("button", { name: "Close" }).at(-1)!);
+    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    expect(screen.getByRole("tab", { name: /^Notes/ })).toHaveAttribute("aria-selected", "true");
+
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
   });
 
   it("gives a client seat the profile and contact tabs alone", async () => {
     renderDrawer({ candidate: yasmin, company: null, canWrite: false });
 
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Profile", "Contact"]);
+    expect(tabLabels()).toEqual(["Career", "Contact"]);
     await openTab("Contact");
     expect(screen.getByRole("button", { name: /^Contact/ })).toBeInTheDocument();
   });
@@ -1129,7 +1137,7 @@ describe("CandidateDrawer", () => {
     });
     renderDrawer({ candidate: yasmin, company: null });
 
-    await openTab("Timeline");
+    await openTab("Activity");
     const timeline = await screen.findByRole("list", { name: "Timeline" });
     expect(within(timeline).getAllByRole("listitem")).toHaveLength(5);
 
@@ -1156,7 +1164,7 @@ describe("CandidateDrawer", () => {
       renderDrawer({ candidate: yasmin, company: null });
 
       expect(await screen.findByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
-      await openTab("Contact & outreach");
+      await openTab("Contact");
       expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Find phone/i })).not.toBeInTheDocument();
     });
@@ -1173,7 +1181,7 @@ describe("CandidateDrawer", () => {
         creditsLeft: 45,
       });
       renderDrawer({ candidate: { ...yasmin, linkedinUrl: "https://linkedin.com/in/yasmin" }, company: null }, LiveDrawer);
-      await openTab("Contact & outreach");
+      await openTab("Contact");
 
       await userEvent.click(await screen.findByRole("button", { name: /Find phone/i }));
 
@@ -1189,7 +1197,7 @@ describe("CandidateDrawer", () => {
         },
         company: null,
       });
-      await openTab("Contact & outreach");
+      await openTab("Contact");
 
       expect(await screen.findByText(/No email on record/i)).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /Find email/i })).not.toBeInTheDocument();
@@ -1211,7 +1219,7 @@ describe("CandidateDrawer", () => {
           linkedinUrl: "https://linkedin.com/in/yasmin" },
         company: null,
       });
-      await openTab("Contact & outreach");
+      await openTab("Contact");
 
       await userEvent.click(await screen.findByRole("button", { name: /Find email/i }));
 

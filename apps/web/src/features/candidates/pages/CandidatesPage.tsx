@@ -10,10 +10,8 @@ import type { PoolFilters } from "../api/types";
 import { ActivityView } from "../components/pool/ActivityView";
 import { PeopleView } from "../components/pool/PeopleView";
 import { NO_POOL_FILTERS } from "../lib/poolFilters";
-import { PersonDrawer, type PersonDrawerTab } from "../components/pool/PersonDrawer";
-
-const DRAWER_TABS: readonly PersonDrawerTab[] = ["profile", "contact", "records", "timeline"];
-const RETIRED_TABS: Readonly<Record<string, PersonDrawerTab>> = { notes: "records", documents: "records" };
+import { PersonDrawer } from "../components/pool/PersonDrawer";
+import { drawerTabOf, rememberDrawerTab, rememberedDrawerTab, WORKSPACE_TABS } from "../lib/drawerTabs";
 
 const VIEWS = [
   { value: "people", label: "People" },
@@ -36,9 +34,7 @@ export function CandidatesPage() {
   const activity = params.get("view") === "activity";
   const personId = params.get("person");
   const tabParam = params.get("tab");
-  const tab: PersonDrawerTab = DRAWER_TABS.includes(tabParam as PersonDrawerTab)
-    ? (tabParam as PersonDrawerTab)
-    : (RETIRED_TABS[tabParam ?? ""] ?? "profile");
+  const tab = tabParam ? drawerTabOf(tabParam, WORKSPACE_TABS) : rememberedDrawerTab("workspace", WORKSPACE_TABS);
 
   const navigate = useCallback(
     (change: Record<string, string | null>) =>
@@ -80,7 +76,7 @@ export function CandidatesPage() {
   return (
     <>
       {activity ? (
-        <ActivityView toggle={toggle} onOpen={(id) => navigate({ person: id, tab: "timeline" })} />
+        <ActivityView toggle={toggle} onOpen={(id) => navigate({ person: id, tab: "activity" })} />
       ) : (
         <PeopleView
           toggle={toggle}
@@ -95,7 +91,10 @@ export function CandidatesPage() {
       <PersonDrawer
         personId={personId}
         tab={tab}
-        onTabChange={(next) => navigate({ tab: next === "profile" ? null : next })}
+        onTabChange={(next) => {
+          rememberDrawerTab("workspace", next);
+          navigate({ tab: next });
+        }}
         onClose={() => navigate({ person: null, tab: null })}
       />
     </>

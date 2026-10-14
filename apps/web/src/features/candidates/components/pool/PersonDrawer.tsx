@@ -4,7 +4,6 @@ import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Drawer } from "../../../../components/ui/Drawer";
 import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { Button, DrawerSkeleton, Select, useToast } from "../../../../components/ui";
-import { TabList } from "../../../../components/ui/TabList";
 import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
@@ -17,9 +16,12 @@ import { usePoolLookups } from "../../lib/usePoolLookups";
 import { DocumentPreviewSheet, type PreviewTarget } from "../documents/DocumentPreviewSheet";
 import { DocumentsPanel } from "../documents/DocumentsPanel";
 import { PrimaryCvChip } from "../documents/PrimaryCvChip";
-import { PositionsSection } from "../PersonPositions";
-import { TabSectionHeading } from "../PersonSections";
+import { PositionsSection, type SetNextActionOn } from "../PersonPositions";
 import { PersonTagsSection } from "../PersonTagsSection";
+import { DrawerTabBar } from "../DrawerTabBar";
+import { DetailPill } from "../../../../components/ui/DetailList";
+import { WORKSPACE_TABS, type DrawerTab } from "../../lib/drawerTabs";
+import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
 import { HeaderProfileLink } from "../ProfileParts";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
@@ -28,21 +30,15 @@ import { PersonTimelineTab } from "./PersonTimelineTab";
 import { PersonContactTab } from "./PersonContactTab";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 
-export type PersonDrawerTab = "profile" | "contact" | "records" | "timeline";
-
-const TABS: { value: PersonDrawerTab; label: string }[] = [
-  { value: "profile", label: "Profile" },
-  { value: "contact", label: "Contact" },
-  { value: "records", label: "Records" },
-  { value: "timeline", label: "Timeline" },
-];
+const TAB_ID_PREFIX = "person-drawer";
 
 const DEFAULT_REASON = "Marked from the candidate drawer.";
 
 /**
- * A workspace person on the Candidates page, as `Candidates.dc.html` draws them: who they are and the
- * team's own facts about them — owner and do not contact in the header; tags, notes, documents and
- * positions under Records — laid out as a position's executive drawer is. Staff-only, like the
+ * A workspace person on the Candidates page, laid out as a position's executive drawer is — the same
+ * header, the same tabs in the same order — less what only a position holds (status, assessment,
+ * outreach). The team's own facts sit in the header: owner, do not contact and tags. A next action
+ * belongs to one position, so it is on that position's card under Positions. Staff-only, like the
  * page it opens from.
  */
 export function PersonDrawer({
@@ -52,8 +48,8 @@ export function PersonDrawer({
   onClose,
 }: {
   personId: string | null;
-  tab: PersonDrawerTab;
-  onTabChange: (tab: PersonDrawerTab) => void;
+  tab: DrawerTab;
+  onTabChange: (tab: DrawerTab) => void;
   onClose: () => void;
 }) {
   const record = useQuery({
@@ -90,8 +86,8 @@ function PersonDrawerBody({
   onClose,
 }: {
   person: PersonRecord;
-  tab: PersonDrawerTab;
-  onTabChange: (tab: PersonDrawerTab) => void;
+  tab: DrawerTab;
+  onTabChange: (tab: DrawerTab) => void;
   onClose: () => void;
 }) {
   const toast = useToast();
@@ -108,6 +104,21 @@ function PersonDrawerBody({
   const closePreview = useCallback(() => setPreview(null), []);
   const changed = usePersonRecordUpdate();
   const [adding, setAdding] = useState(false);
+  const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
+  const setNextActionOn: SetNextActionOn = (position, taskId) =>
+    setNextAction({
+      projectId: position.projectId,
+      candidateId: position.candidateId,
+      personId: person.personId,
+      executiveName: person.fullName,
+      taskId,
+    });
+  const startNote = () => {
+    onTabChange("notes");
+    window.requestAnimationFrame(() =>
+      document.getElementById(`${TAB_ID_PREFIX}-panel-notes`)?.querySelector("textarea")?.focus(),
+    );
+  };
 
   const owning = useMutation({
     mutationFn: (ownerUserId: string | null) => poolApi.setOwner(person.personId, ownerUserId),
@@ -126,136 +137,152 @@ function PersonDrawerBody({
 
   return (
     <>
-      <header className="relative border-b border-u-border px-5 pb-3 pt-4">
-        <div className="flex items-start gap-3">
-          <PersonAvatar person={person} size="xl" />
-          <div className="min-w-0 flex-1 pe-8">
-            <div className="flex items-center gap-2">
-              <h2 className="truncate text-[18px] font-semibold text-u-text">{person.fullName}</h2>
+      <header className="relative flex-none border-b border-u-border px-5 pt-4">
+        <PanelCloseButton onClose={onClose} />
+        <div className="flex items-start gap-3 pe-8">
+          <PersonAvatar person={person} size="xl" className="size-11 rounded-u-card border border-u-border-strong text-sm" />
+          <div className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <h2 className="truncate font-sans text-base font-semibold text-u-text">{person.fullName}</h2>
               <HeaderProfileLink linkedinUrl={person.linkedinUrl} />
+            </span>
+            <p className="mt-0.5 truncate font-mono text-[12.5px] text-u-text2">{person.title ?? "—"}</p>
+            <p className="mt-1 truncate font-mono text-[11.5px] text-u-text3">{context || "No employer or location recorded"}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {person.seniority && <DetailPill label={person.seniority} />}
+              <label className="flex items-center gap-1.5">
+                <span className="type-label text-u-text3">Owner</span>
+                <Select
+                  aria-label="Owner"
+                  value={person.ownerUserId ?? ""}
+                  disabled={owning.isPending}
+                  onChange={(event) => owning.mutate(event.target.value || null)}
+                  className="h-7 w-auto py-0 text-[12.5px]"
+                >
+                  <option value="">Nobody</option>
+                  {lookups.staff.map((member) => (
+                    <option key={member.userId} value={member.userId}>
+                      {member.fullName}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <button
+                type="button"
+                aria-pressed={doNotContact !== null}
+                disabled={marking.isPending}
+                onClick={() => marking.mutate(doNotContact === null)}
+                title={
+                  doNotContact
+                    ? "Clear do not contact"
+                    : "Mark do not contact — shown on every position and turns off contact lookups"
+                }
+                className={cn(
+                  "flex h-7 items-center gap-1.5 rounded-full border px-2.5 font-mono text-[11px] font-semibold",
+                  doNotContact
+                    ? "border-transparent bg-u-offlimits-tint text-u-offlimits"
+                    : "border-u-border-strong text-u-text3 hover:text-u-text2",
+                )}
+              >
+                <Icon d={ICONS.ban} size={12} />
+                Do not contact
+              </button>
+              <PrimaryCvChip documents={documents} onPreview={openPreview} />
             </div>
-            <p className="truncate text-[13px] text-u-text2">{person.title ?? "—"}</p>
-            <p className="truncate font-mono text-[11.5px] text-u-text3">{context || "No employer or location recorded"}</p>
           </div>
         </div>
-        <PanelCloseButton onClose={onClose} />
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {person.seniority && (
-            <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[10.5px] font-semibold text-u-text2">
-              {person.seniority}
-            </span>
-          )}
-          <label className="flex items-center gap-1.5">
-            <span className="type-label text-u-text3">Owner</span>
-            <Select
-              aria-label="Owner"
-              value={person.ownerUserId ?? ""}
-              disabled={owning.isPending}
-              onChange={(event) => owning.mutate(event.target.value || null)}
-              className="w-auto py-1 text-[12.5px]"
-            >
-              <option value="">Nobody</option>
-              {lookups.staff.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.fullName}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <button
-            type="button"
-            aria-pressed={doNotContact !== null}
-            disabled={marking.isPending}
-            onClick={() => marking.mutate(doNotContact === null)}
-            title={
-              doNotContact
-                ? "Clear do not contact"
-                : "Mark do not contact — shown on every position and turns off contact lookups"
-            }
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[11px] font-semibold",
-              doNotContact
-                ? "border-transparent bg-u-offlimits-tint text-u-offlimits"
-                : "border-u-border-strong text-u-text3 hover:text-u-text2",
-            )}
-          >
-            <Icon d={ICONS.ban} size={12} />
-            Do not contact
-          </button>
-          <PrimaryCvChip documents={documents} onPreview={openPreview} />
-        </div>
+        <PersonTagsSection person={person} className="mt-2.5 ps-14" />
 
         {doNotContact && (
-          <div role="note" className="mt-3 rounded-[8px] bg-u-offlimits-tint px-3 py-2 text-[12.5px] text-u-offlimits">
-            <p className="font-semibold">Do not contact</p>
-            {doNotContact.reason && <p className="mt-0.5">{doNotContact.reason}</p>}
-            <p className="mt-0.5 font-mono text-[11px] opacity-80">
+          <div role="note" className="mt-3 rounded-u-card border border-u-offlimits/30 bg-u-offlimits-tint px-3 py-2 text-[12.5px] text-u-text2">
+            <b className="font-semibold text-u-offlimits">Do not contact.</b>
+            {doNotContact.reason && ` ${doNotContact.reason}`}
+            <span className="mt-0.5 block font-mono text-[11px] text-u-text3">
               Set by {doNotContact.setByName ?? "someone"}
               {doNotContact.setAt && ` · ${new Date(doNotContact.setAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
-            </p>
+            </span>
           </div>
         )}
 
-
-        <TabList
-          label="Candidate sections"
-          idPrefix="person-drawer"
-          className="-mb-3 mt-3"
+        <DrawerTabBar
+          idPrefix={TAB_ID_PREFIX}
+          tabs={WORKSPACE_TABS}
           value={tab}
           onChange={onTabChange}
-          tabs={TABS}
+          counts={{
+            notes: notes.data?.length,
+            documents: documents.documents.data?.length,
+            positions: person.positions.length,
+          }}
         />
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4" {...tabPanelProps("person-drawer", tab)}>
-        {tab === "profile" && <PersonProfileTab person={person} />}
-        {tab === "contact" && <PersonContactTab person={person} />}
-        {tab === "records" && (
-          <>
-            <PersonTagsSection person={person} />
-            <section aria-label="Notes" className="border-t border-u-border py-4">
-              <TabSectionHeading title="Notes" />
-              <PersonNotesTab person={person} notes={notes} />
-            </section>
-            <section aria-label="Documents" className="border-t border-u-border py-4">
-              <TabSectionHeading title="Documents" />
-              <DocumentsPanel
-                scope={documentScope}
-                documents={documents}
-                personName={person.fullName.split(" ")[0]}
-                onPreview={openPreview}
-              />
-            </section>
-            <PositionsSection
-              title="Positions"
-              positions={person.positions}
-              action={
-                <button
-                  type="button"
-                  onClick={() => setAdding(true)}
-                  className="flex items-center gap-1 font-mono text-[11.5px] font-semibold text-u-accent hover:underline"
-                >
-                  <Icon d={ICONS.plus} size={11} />
-                  Add to position
-                </button>
-              }
-              empty={
-                <p className="text-[13px] text-u-text3">
-                  Not in any position right now. Everything on file stays for the next search.
-                </p>
-              }
-            />
-          </>
+      <div key={tab} className="min-h-0 flex-1 overflow-y-auto px-5" {...tabPanelProps(TAB_ID_PREFIX, tab)}>
+        {tab === "career" && (
+          <div className="py-4">
+            <PersonProfileTab person={person} />
+          </div>
         )}
-        {tab === "timeline" && <PersonTimelineTab personId={person.personId} />}
+        {tab === "notes" && (
+          <div className="py-4">
+            <PersonNotesTab person={person} notes={notes} />
+          </div>
+        )}
+        {tab === "contact" && (
+          <div className="py-4">
+            <PersonContactTab person={person} />
+          </div>
+        )}
+        {tab === "documents" && (
+          <div className="py-4">
+            <DocumentsPanel
+              scope={documentScope}
+              documents={documents}
+              personName={person.fullName.split(" ")[0]}
+              onPreview={openPreview}
+            />
+          </div>
+        )}
+        {tab === "activity" && (
+          <div className="py-4">
+            <PersonTimelineTab personId={person.personId} />
+          </div>
+        )}
+        {tab === "positions" && (
+          <PositionsSection
+            title="Positions"
+            positions={person.positions}
+            onSetNextAction={setNextActionOn}
+            action={
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="flex items-center gap-1 text-note font-semibold text-u-accent hover:underline"
+              >
+                <Icon d={ICONS.plus} size={11} />
+                Add to position
+              </button>
+            }
+            empty={
+              <p className="text-note text-u-text3">
+                Not in any position right now. Everything on file stays for the next search.
+              </p>
+            }
+          />
+        )}
       </div>
 
-      <footer className="flex justify-end border-t border-u-border px-5 py-3">
+      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
+        <Button variant="secondary" className="ms-auto" onClick={startNote}>
+          <Icon d={ICONS.plus} size={14} />
+          Add note
+        </Button>
         <Button variant="secondary" onClick={onClose}>
           Close
         </Button>
       </footer>
+
+      <NextActionModal target={nextAction} onClose={() => setNextAction(null)} />
 
       <DocumentPreviewSheet
         scope={documentScope}

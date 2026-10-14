@@ -134,7 +134,6 @@
     "arbitraryRadius": 2
   },
   "features/candidates/components/PersonPositions.tsx": {
-    "arbitraryRadius": 1,
     "arbitraryText": 3
   },
   "features/candidates/components/PersonSections.tsx": {
@@ -157,8 +156,7 @@
     "arbitraryText": 1
   },
   "features/candidates/components/pool/PersonDrawer.tsx": {
-    "arbitraryText": 11,
-    "arbitraryRadius": 2
+    "arbitraryText": 7
   },
   "features/candidates/components/pool/PersonNotesTab.tsx": {
     "arbitraryRadius": 1,

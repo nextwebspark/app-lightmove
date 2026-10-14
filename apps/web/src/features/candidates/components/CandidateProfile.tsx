@@ -5,7 +5,6 @@ import { Button, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
-import { TabList } from "../../../components/ui/TabList";
 import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate, formatNumber } from "../../../lib/format";
@@ -19,7 +18,7 @@ import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButt
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
-import { NextActionsSection } from "../../tasks/components/NextActionsSection";
+import { NextActionBar } from "../../tasks/components/NextActionBar";
 import type { TaskNote } from "../../tasks/api/types";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
@@ -40,7 +39,16 @@ import { useAiEnrichment } from "../lib/useAiEnrichment";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
 import { useProfileSections, type ProfileSection } from "../lib/useProfileSections";
+import {
+  POSITION_CLIENT_TABS,
+  POSITION_STAFF_TABS,
+  rememberDrawerTab,
+  rememberedDrawerTab,
+  type DrawerTab,
+} from "../lib/drawerTabs";
 import { CandidateAvatar } from "./CandidateAvatar";
+import { DrawerTabBar } from "./DrawerTabBar";
+import { DocumentsPanel } from "./documents/DocumentsPanel";
 import { StatusPicker } from "./StatusPicker";
 import {
   AiInferredBadge,
@@ -57,7 +65,6 @@ import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPr
 import { PrimaryCvChip } from "./documents/PrimaryCvChip";
 import {
   DoNotContactStrip,
-  DocumentsSection,
   NotesSection,
   TimelineFeed,
   usePositions,
@@ -75,20 +82,6 @@ import {
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
-
-type ProfileTab = "profile" | "contact" | "records" | "timeline";
-
-const STAFF_TABS: readonly { value: ProfileTab; label: string }[] = [
-  { value: "profile", label: "Profile" },
-  { value: "contact", label: "Contact & outreach" },
-  { value: "records", label: "Records" },
-  { value: "timeline", label: "Timeline" },
-];
-
-const CLIENT_TABS: readonly { value: ProfileTab; label: string }[] = [
-  { value: "profile", label: "Profile" },
-  { value: "contact", label: "Contact" },
-];
 
 const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
   "summary",
@@ -119,12 +112,13 @@ const TAB_ID_PREFIX = "executive-drawer";
  * <p><b>Status stays live in the header</b>, with a write of its own — it is the field that changes
  * most often and the one a researcher came to flick while reading.
  *
- * <p>Tabs split reading the person from working them — Profile, Contact &amp; outreach, Records (tags,
- * notes, documents, other positions) and Timeline; a client seat gets Profile and Contact alone.
- * Every panel stays mounted while hidden, so a half-typed note survives a look at another tab.
+ * <p>Tabs follow `Position.dc.html` — Career, Notes, Contact, Documents, Activity and Positions; a client
+ * seat gets Career and Contact alone. Every panel stays mounted while hidden, so a half-typed note
+ * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
+ * whichever tab is open, since the moment to set one is while writing the note or the email.
  *
- * <p>Keyed by the caller on the candidate's id: the open tab and section are state about this person,
- * and moving to the next profile must start it fresh, on Profile.
+ * <p>Keyed by the caller on the candidate's id: the open section is state about this person, while
+ * the tab is the viewer's — the next profile opens on the tab this one was left on.
  */
 export function CandidateProfile({
   projectId,
@@ -164,7 +158,10 @@ export function CandidateProfile({
   });
   const body = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<EditableSection | null>(null);
-  const [tab, setTab] = useState<ProfileTab>(canWrite && focusNoteId ? "records" : "profile");
+  const offeredTabs = canWrite ? POSITION_STAFF_TABS : POSITION_CLIENT_TABS;
+  const [tab, setTab] = useState<DrawerTab>(() =>
+    canWrite && focusNoteId ? "notes" : rememberedDrawerTab("position", offeredTabs),
+  );
   const [noteFocus, setNoteFocus] = useState<NoteFocus | null>(() =>
     canWrite && focusNoteId ? { noteId: focusNoteId, at: Date.now() } : null,
   );
@@ -173,18 +170,27 @@ export function CandidateProfile({
   if (focusNoteId !== linkedNoteId) {
     setLinkedNoteId(focusNoteId);
     if (canWrite && focusNoteId) {
-      setTab("records");
+      setTab("notes");
       setNoteFocus({ noteId: focusNoteId, at: (noteFocus?.at ?? 0) + 1 });
     }
   }
   const showNote = (noteId: string) => {
-    setTab("records");
+    setTab("notes");
     setNoteFocus({ noteId, at: Date.now() });
   };
-  /** Leaving the Records tab lets the note go, so coming back to it scrolls nowhere. */
-  const chooseTab = (next: ProfileTab) => {
+  /** Leaving the Notes tab lets the note go, so coming back to it scrolls nowhere. */
+  const chooseTab = (next: DrawerTab) => {
     setTab(next);
-    if (next !== "records") setNoteFocus(null);
+    rememberDrawerTab("position", next);
+    if (next !== "notes") setNoteFocus(null);
+    if (body.current) body.current.scrollTop = 0;
+  };
+  /** The footer's Add note: the Notes tab, its composer ready to type in. */
+  const startNote = () => {
+    chooseTab("notes");
+    window.requestAnimationFrame(() =>
+      document.getElementById(`${TAB_ID_PREFIX}-panel-notes`)?.querySelector("textarea")?.focus(),
+    );
   };
   const queryClient = useQueryClient();
   const positions = usePositions(projectId, candidate.id, canWrite);
@@ -192,6 +198,11 @@ export function CandidateProfile({
   const personRecord = useQuery({
     queryKey: poolApi.PERSON_RECORD_KEY(candidate.personId),
     queryFn: ({ signal }) => poolApi.getPerson(candidate.personId, signal),
+    enabled: canWrite,
+  });
+  const notes = useQuery({
+    queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => personCrmApi.getPersonNotes(projectId, candidate.id, signal),
     enabled: canWrite,
   });
 
@@ -209,6 +220,7 @@ export function CandidateProfile({
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const [nextActionDone, setNextActionDone] = useState(false);
+  const settleNextActionPrompt = useCallback(() => setNextActionDone(false), []);
   const openNextAction = (taskId: string | null, note: TaskNote | null = null) => {
     setNextActionDone(false);
     setNextAction({
@@ -239,7 +251,7 @@ export function CandidateProfile({
   const startEditing = (section: EditableSection) => {
     setEditing(section);
     if (section !== "identity") return;
-    chooseTab("profile");
+    chooseTab("career");
     if (body.current) body.current.scrollTop = 0;
   };
 
@@ -264,11 +276,12 @@ export function CandidateProfile({
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const visibleColumns = customColumns.filter((column) => !column.hidden);
   const employerLabel = candidate.companyName ?? undefined;
-  const panelProps = (value: ProfileTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
+  const firstName = candidate.fullName.trim().split(/\s+/)[0];
+  const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
     <>
-      <div className="relative flex-none border-b border-u-border px-5 py-4">
+      <div className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
         <div className="group flex items-start gap-3 pe-8">
           <CandidateAvatar
@@ -321,19 +334,36 @@ export function CandidateProfile({
             </div>
           </div>
         </div>
+        {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5 ps-[56px]" />}
         {canWrite && <DoNotContactStrip personId={candidate.personId} />}
-        <TabList
-          label="Executive sections"
+        {canWrite && (
+          <NextActionBar
+            projectId={projectId}
+            candidateId={candidate.id}
+            firstName={firstName}
+            justCompleted={nextActionDone}
+            onCompleted={() => setNextActionDone(true)}
+            onPromptSettled={settleNextActionPrompt}
+            onOpen={openNextAction}
+            onShowNote={showNote}
+            className="mt-3"
+          />
+        )}
+        <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
-          className="-mb-4 mt-4 flex-wrap gap-y-2"
+          tabs={offeredTabs}
           value={tab}
           onChange={chooseTab}
-          tabs={canWrite ? STAFF_TABS : CLIENT_TABS}
+          counts={{
+            notes: notes.data?.length,
+            documents: documents.documents.data?.length,
+            positions: otherPositions.length,
+          }}
         />
       </div>
 
       <div ref={body} className="min-h-0 flex-1 overflow-y-auto px-5">
-        <div {...panelProps("profile")}>
+        <div {...panelProps("career")}>
           {editing === "identity" ? (
             <section className="border-b border-u-border py-4">
               <SectionHeading>Details</SectionHeading>
@@ -361,18 +391,6 @@ export function CandidateProfile({
               <FoldAllButton label="Expand all" onClick={() => sections.setAll(true, PROFILE_TAB_FOLDS)} />
               <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false, PROFILE_TAB_FOLDS)} />
             </div>
-          )}
-
-          {canWrite && (
-            <NextActionsSection
-              projectId={projectId}
-              candidateId={candidate.id}
-              firstName={candidate.fullName.trim().split(/\s+/)[0]}
-              justCompleted={nextActionDone}
-              onCompleted={() => setNextActionDone(true)}
-              onOpen={openNextAction}
-              onShowNote={showNote}
-            />
           )}
 
           <CollapsibleSection
@@ -640,7 +658,7 @@ export function CandidateProfile({
             <OutreachSection
               projectId={projectId}
               candidateId={candidate.id}
-              firstName={candidate.fullName.trim().split(/\s+/)[0]}
+              firstName={firstName}
               candidateStatus={candidate.status}
               open={sections.isOpen("outreach")}
               onToggle={() => sections.toggle("outreach")}
@@ -662,34 +680,40 @@ export function CandidateProfile({
 
         {canWrite && (
           <>
-            <div {...panelProps("records")} className="pt-4">
-              {personRecord.data && <PersonTagsSection person={personRecord.data} />}
+            <div {...panelProps("notes")}>
               <NotesSection
                 projectId={projectId}
                 candidateId={candidate.id}
                 focus={noteFocus}
                 onSetNextAction={(note) => openNextAction(null, note)}
               />
-              <DocumentsSection
+            </div>
+            <div {...panelProps("documents")} className="py-4">
+              <DocumentsPanel
                 scope={documentScope}
                 documents={documents}
-                personName={candidate.fullName.split(" ")[0]}
+                personName={firstName}
                 onPreview={openPreview}
               />
-              {otherPositions.length > 0 && (
-                <PositionsSection
-                  title="Other positions"
-                  positions={otherPositions}
-                  onStatusChanged={() =>
-                    void queryClient.invalidateQueries({
-                      queryKey: personCrmApi.PERSON_POSITIONS_KEY(projectId, candidate.id),
-                    })
-                  }
-                />
-              )}
             </div>
-            <div {...panelProps("timeline")} className="py-4">
+            <div {...panelProps("activity")} className="py-4">
               <TimelineFeed projectId={projectId} candidateId={candidate.id} />
+            </div>
+            <div {...panelProps("positions")}>
+              <PositionsSection
+                title="Other positions"
+                positions={otherPositions}
+                empty={
+                  <p className="text-note text-u-text3">
+                    Not mapped to any other positions right now. Everything on file here follows {firstName} to the next one.
+                  </p>
+                }
+                onStatusChanged={() =>
+                  void queryClient.invalidateQueries({
+                    queryKey: personCrmApi.PERSON_POSITIONS_KEY(projectId, candidate.id),
+                  })
+                }
+              />
             </div>
           </>
         )}
@@ -697,15 +721,30 @@ export function CandidateProfile({
 
       <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
         {onRemove && (
-          <Button type="button" variant="secondary" className="text-u-offlimits" onClick={() => onRemove(candidate)}>
-            Remove from mandate
+          <Button
+            type="button"
+            variant="secondary"
+            aria-label="Remove from mandate"
+            title="Remove from mandate"
+            className="text-u-offlimits"
+            onClick={() => onRemove(candidate)}
+          >
+            <Icon d={ICONS.trash} size={14} className="sm:hidden" />
+            <span className="hidden sm:inline">Remove from mandate</span>
           </Button>
         )}
-        <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
-          Close
-        </Button>
+        {canWrite ? (
+          <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" onClick={startNote}>
+            <Icon d={ICONS.plus} size={14} />
+            Add note
+          </Button>
+        ) : (
+          <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
+            Close
+          </Button>
+        )}
         {canWrite && (
-          <Button type="button" onClick={() => openNextAction(null)}>
+          <Button type="button" className="whitespace-nowrap" onClick={() => openNextAction(null)}>
             <Icon d={ICONS.plus} size={14} />
             Set next action
           </Button>
