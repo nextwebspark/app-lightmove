@@ -290,24 +290,26 @@ export function CandidateProfile({
     <>
       <div className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
-        <div className="group flex items-start gap-3 pe-8">
+        <div className="group flex items-start gap-3">
           <CandidateAvatar
             projectId={projectId}
             candidate={candidate}
-            className="size-[44px] rounded-[10px] border border-u-border-strong text-sm"
+            className="size-[44px] flex-none rounded-[10px] border border-u-border-strong text-sm"
           />
           <div className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5">
-              <h2 className="font-sans text-base font-semibold">{candidate.fullName}</h2>
-              <HeaderProfileLink linkedinUrl={candidate.linkedinUrl} />
-              {pencil("identity", "details")}
-            </span>
-            <p className="mt-0.5 font-mono text-[12.5px] text-u-text2">{candidate.title ?? "—"}</p>
-            <p className="mt-1 font-mono text-[11.5px] text-u-text3">
-              {[employerLabel, candidate.locationCity, candidate.locationCountry]
-                .filter(Boolean)
-                .join(" · ") || "No employer or location recorded"}
-            </p>
+            <div className="pe-8">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <h2 className="truncate font-sans text-base font-semibold">{candidate.fullName}</h2>
+                <HeaderProfileLink linkedinUrl={candidate.linkedinUrl} />
+                {pencil("identity", "details")}
+              </span>
+              <p className="mt-0.5 truncate font-mono text-[12.5px] text-u-text2">{candidate.title ?? "—"}</p>
+              <p className="mt-1 truncate font-mono text-[11.5px] text-u-text3">
+                {[employerLabel, candidate.locationCity, candidate.locationCountry]
+                  .filter(Boolean)
+                  .join(" · ") || "No employer or location recorded"}
+              </p>
+            </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {candidate.seniority && (
                 <span className="inline-flex items-center gap-1">
@@ -337,25 +339,25 @@ export function CandidateProfile({
                 />
               )}
               {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
-              {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
+              {canWrite && <AiEnrichButton enrichment={aiEnrichment} className="ms-auto" />}
             </div>
+            {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
+            {canWrite && <DoNotContactStrip personId={candidate.personId} />}
+            {canWrite && (
+              <NextActionBar
+                projectId={projectId}
+                candidateId={candidate.id}
+                firstName={firstName}
+                justCompleted={nextActionDone}
+                onCompleted={() => setNextActionDone(true)}
+                onPromptSettled={settleNextActionPrompt}
+                onOpen={openNextAction}
+                onShowNote={showNote}
+                className="mt-3"
+              />
+            )}
           </div>
         </div>
-        {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5 ps-[56px]" />}
-        {canWrite && <DoNotContactStrip personId={candidate.personId} />}
-        {canWrite && (
-          <NextActionBar
-            projectId={projectId}
-            candidateId={candidate.id}
-            firstName={firstName}
-            justCompleted={nextActionDone}
-            onCompleted={() => setNextActionDone(true)}
-            onPromptSettled={settleNextActionPrompt}
-            onOpen={openNextAction}
-            onShowNote={showNote}
-            className="mt-3"
-          />
-        )}
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
           tabs={offeredTabs}

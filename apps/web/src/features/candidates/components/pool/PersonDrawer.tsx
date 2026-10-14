@@ -139,15 +139,17 @@ function PersonDrawerBody({
     <>
       <header className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
-        <div className="flex items-start gap-3 pe-8">
-          <PersonAvatar person={person} size="xl" className="size-11 rounded-u-card border border-u-border-strong text-sm" />
+        <div className="flex items-start gap-3">
+          <PersonAvatar person={person} size="xl" className="size-11 flex-none rounded-u-card border border-u-border-strong text-sm" />
           <div className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5">
-              <h2 className="truncate font-sans text-base font-semibold text-u-text">{person.fullName}</h2>
-              <HeaderProfileLink linkedinUrl={person.linkedinUrl} />
-            </span>
-            <p className="mt-0.5 truncate font-mono text-[12.5px] text-u-text2">{person.title ?? "—"}</p>
-            <p className="mt-1 truncate font-mono text-[11.5px] text-u-text3">{context || "No employer or location recorded"}</p>
+            <div className="pe-8">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <h2 className="truncate font-sans text-base font-semibold text-u-text">{person.fullName}</h2>
+                <HeaderProfileLink linkedinUrl={person.linkedinUrl} />
+              </span>
+              <p className="mt-0.5 truncate font-mono text-[12.5px] text-u-text2">{person.title ?? "—"}</p>
+              <p className="mt-1 truncate font-mono text-[11.5px] text-u-text3">{context || "No employer or location recorded"}</p>
+            </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {person.seniority && <DetailPill label={person.seniority} />}
               <label className="flex items-center gap-1.5">
@@ -189,20 +191,19 @@ function PersonDrawerBody({
               </button>
               <PrimaryCvChip documents={documents} onPreview={openPreview} />
             </div>
+            <PersonTagsSection person={person} className="mt-2.5" />
+            {doNotContact && (
+              <div role="note" className="mt-3 rounded-u-card border border-u-offlimits/30 bg-u-offlimits-tint px-3 py-2 text-[12.5px] text-u-text2">
+                <b className="font-semibold text-u-offlimits">Do not contact.</b>
+                {doNotContact.reason && ` ${doNotContact.reason}`}
+                <span className="mt-0.5 block font-mono text-[11px] text-u-text3">
+                  Set by {doNotContact.setByName ?? "someone"}
+                  {doNotContact.setAt && ` · ${new Date(doNotContact.setAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
+                </span>
+              </div>
+            )}
           </div>
         </div>
-        <PersonTagsSection person={person} className="mt-2.5 ps-14" />
-
-        {doNotContact && (
-          <div role="note" className="mt-3 rounded-u-card border border-u-offlimits/30 bg-u-offlimits-tint px-3 py-2 text-[12.5px] text-u-text2">
-            <b className="font-semibold text-u-offlimits">Do not contact.</b>
-            {doNotContact.reason && ` ${doNotContact.reason}`}
-            <span className="mt-0.5 block font-mono text-[11px] text-u-text3">
-              Set by {doNotContact.setByName ?? "someone"}
-              {doNotContact.setAt && ` · ${new Date(doNotContact.setAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
-            </span>
-          </div>
-        )}
 
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}

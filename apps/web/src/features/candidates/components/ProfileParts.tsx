@@ -3,6 +3,7 @@ import type { CandidateEducationEntry } from "../api/types";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { cn } from "../../../lib/cn";
 import { toBrowsableUrl } from "../../../lib/url";
+import { FITTING_PILL, LEFT_OUT_PILL, useFittingCount } from "../../../lib/useFittingCount";
 
 /**
  * The pieces an executive's profile panel is drawn from, shared by the candidate drawer and by
@@ -38,8 +39,23 @@ export function FoldAllButton({ label, onClick }: { label: string; onClick: () =
   );
 }
 
-/** The mockup's language pills, reused for skills: a row of small rounded tags under a tiny label. */
+const PILL_ROW_LINES = 2;
+const PILL =
+  "inline-flex max-w-full items-center rounded-full border border-u-border-strong bg-u-raised px-2.5 py-1 font-mono text-[12px] font-medium text-u-text2";
+const MORE_PILL =
+  "inline-flex flex-none items-center rounded-full border border-transparent px-2.5 py-1 font-mono text-note font-semibold text-u-accent";
+
+/**
+ * The mockup's language pills, reused for skills: a row of small rounded tags under a tiny label, held to
+ * two lines with "+N more" at the end of the second until it is unfolded.
+ */
 export function PillRow({ label, values, empty }: { label: string; values: readonly string[]; empty?: string }) {
+  const slot = useRef<HTMLDivElement>(null);
+  const chip = useRef<HTMLSpanElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const fitting = useFittingCount({ slot, chip, lines: PILL_ROW_LINES, contentKey: values.join("|") });
+  const hidden = Math.max(0, values.length - fitting);
+
   return (
     <div className="mt-3">
       <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
@@ -48,15 +64,33 @@ export function PillRow({ label, values, empty }: { label: string; values: reado
       {values.length === 0 ? (
         <p className="font-mono text-[12.5px] text-u-text3">{empty}</p>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {values.map((value) => (
-            <span
-              key={value}
-              className="inline-flex items-center rounded-full border border-u-border-strong bg-u-raised px-2.5 py-1 font-mono text-[12px] font-medium text-u-text2"
+        <div ref={slot} className="relative flex flex-wrap gap-1.5">
+          {values.map((value, index) => {
+            const isLeftOut = !isExpanded && index >= fitting;
+            return (
+              <span
+                key={value}
+                {...FITTING_PILL}
+                aria-hidden={isLeftOut || undefined}
+                className={cn(PILL, isLeftOut && LEFT_OUT_PILL)}
+              >
+                {value}
+              </span>
+            );
+          })}
+          {hidden > 0 && (
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              onClick={() => setIsExpanded((current) => !current)}
+              className={cn(MORE_PILL, "transition hover:bg-u-accent-tint")}
             >
-              {value}
-            </span>
-          ))}
+              {isExpanded ? "See less" : `+${hidden} more`}
+            </button>
+          )}
+          <span ref={chip} aria-hidden className={cn(MORE_PILL, LEFT_OUT_PILL)}>
+            +99 more
+          </span>
         </div>
       )}
     </div>
