@@ -16,7 +16,8 @@ rule that counts. *Shown as* is where a server refusal lands: **field** (under t
 | A value of the wrong shape (unknown enum token, bad date, text for a number) | 400, `fieldErrors: {path: "Not a valid value"}` | as above |
 | Malformed JSON | 400 "Request body could not be read", no field | banner or toast |
 | An enum token a service parses (`ApiValueEnum`) | 400 "That is not a valid *label*" | the sentence itself |
-| A value the database refuses (CHECK, too long, out of range) | 400 `VALIDATION_FAILED` — never 409; logged at warn, since validation missed it | generic sentence |
+| A value too long for its column, or a number out of range | 400 `VALIDATION_FAILED`, no field named (the driver reports a column, not a request path); logged at warn, since validation missed it | generic sentence |
+| A CHECK the database refuses | unchanged: 409 `CONFLICT` — the server writes values no caller chose, so a broken CHECK is ours | generic sentence |
 | JSON body over `lightmove.web.max-json-body-size` (2 MB) | 413 `REQUEST_TOO_LARGE` | "That request is too large" |
 | A multipart part missing | 400 `VALIDATION_FAILED` | generic sentence |
 | Autosave refused | a 4xx is **not** resent; a 5xx, 408, 429 or network failure is resent after 2 s, 5 s, 15 s | toast once, rail reads error with Retry |

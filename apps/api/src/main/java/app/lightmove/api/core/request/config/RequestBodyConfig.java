@@ -1,16 +1,14 @@
 package app.lightmove.api.core.request.config;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.config.WebSettings;
-import app.lightmove.api.core.request.service.JsonBodySizeLimit;
+import app.lightmove.api.core.request.service.JsonBodySizeFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.http.converter.autoconfigure.ServerHttpMessageConvertersCustomizer;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -20,7 +18,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Configuration
 @RequiredArgsConstructor
-public class RequestBodyConfig implements WebMvcConfigurer {
+public class RequestBodyConfig {
 
     private final LightMoveProperties properties;
 
@@ -38,9 +36,11 @@ public class RequestBodyConfig implements WebMvcConfigurer {
         };
     }
 
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        WebSettings web = properties.web();
-        registry.addInterceptor(new JsonBodySizeLimit(web.maxJsonBodySize())).addPathPatterns("/api/v1/**");
+    @Bean
+    FilterRegistrationBean<JsonBodySizeFilter> jsonBodySizeFilter() {
+        FilterRegistrationBean<JsonBodySizeFilter> registration =
+                new FilterRegistrationBean<>(new JsonBodySizeFilter(properties.web().maxJsonBodySize()));
+        registration.addUrlPatterns("/api/v1/*");
+        return registration;
     }
 }

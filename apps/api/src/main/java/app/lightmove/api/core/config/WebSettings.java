@@ -32,6 +32,6 @@ public record WebSettings(
          */
         @DefaultValue("true") boolean refuseUnknownRequestFields,
 
-        /** The largest JSON request body accepted, by its declared length; multipart has its own caps. */
+        /** The largest JSON request body read, declared length or none (chunked); multipart has its own caps. */
         @DefaultValue("2MB") DataSize maxJsonBodySize
 ) {}

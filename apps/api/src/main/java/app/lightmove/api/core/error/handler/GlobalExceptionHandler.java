@@ -3,6 +3,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.service.ClientDisconnects;
 import app.lightmove.api.core.error.service.Problems;
+import app.lightmove.api.core.request.service.RequestBodyTooLargeException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -43,8 +44,12 @@ import tools.jackson.databind.exc.UnrecognizedPropertyException;
 @Slf4j
 public class GlobalExceptionHandler {
 
-    /** Postgres' check violation, value too long for its column, and numeric value out of range. */
-    private static final Set<String> REFUSED_VALUE_STATES = Set.of("23514", "22001", "22003");
+    /**
+     * Postgres' value too long for its column and numeric value out of range: a value the caller sent past what
+     * validation checked. A CHECK violation is not here — the server writes values no caller chose, and one that
+     * breaks a CHECK is our bug, not their input.
+     */
+    private static final Set<String> REFUSED_VALUE_STATES = Set.of("22001", "22003");
 
     @ExceptionHandler(ApiException.class)
     public ProblemDetail handleApiException(ApiException ex, HttpServletRequest request) {
@@ -123,6 +128,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ProblemDetail handleUnreadable(HttpMessageNotReadableException ex, HttpServletRequest request) {
+        if (causedBy(ex, RequestBodyTooLargeException.class)) {
+            log.info("[REQUEST_TOO_LARGE] {} {} → 413", request.getMethod(), request.getRequestURI());
+            return problem(ErrorCode.REQUEST_TOO_LARGE, ErrorCode.REQUEST_TOO_LARGE.defaultMessage());
+        }
         log.debug("Unreadable request body: {}", ex.getMessage());
         if (ex.getCause() instanceof MismatchedInputException mismatch) {
             String field = RequestBodyPaths.of(mismatch);
@@ -137,6 +146,22 @@ public class GlobalExceptionHandler {
             }
         }
         return problem(ErrorCode.VALIDATION_FAILED, "Request body could not be read");
+    }
+
+    /** A body read outside a message converter (a controller reading the stream itself) reaches here bare. */
+    @ExceptionHandler(RequestBodyTooLargeException.class)
+    public ProblemDetail handleBodyTooLarge(RequestBodyTooLargeException ex, HttpServletRequest request) {
+        log.info("[REQUEST_TOO_LARGE] {} {} → 413", request.getMethod(), request.getRequestURI());
+        return problem(ErrorCode.REQUEST_TOO_LARGE, ErrorCode.REQUEST_TOO_LARGE.defaultMessage());
+    }
+
+    private static boolean causedBy(Throwable failure, Class<? extends Throwable> type) {
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (type.isInstance(cause)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Thrown only where a class is {@code @Validated}; a 500 before this handler existed. */
@@ -221,7 +246,7 @@ public class GlobalExceptionHandler {
     /** A constraint beat a service pre-check (a race): mapped to the pre-check's code, so 409 not 500. */
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
-        // A value the request validation let through and the column refused is the caller's input, not a conflict.
+        // The caller's input, not a conflict — but no field is named: the driver reports the column, not the request path.
         if (REFUSED_VALUE_STATES.contains(sqlStateOf(ex))) {
             log.warn("[VALIDATION_FAILED] the database refused a value at {} {}: {}",
                     request.getMethod(), request.getRequestURI(), constraintNameOf(ex));

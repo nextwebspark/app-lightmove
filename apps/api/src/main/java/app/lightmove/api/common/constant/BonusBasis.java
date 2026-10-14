@@ -8,26 +8,28 @@ import java.math.BigDecimal;
  * than a proportion of something else.
  */
 public enum BonusBasis {
-    PERCENT_OF_BASE(new BigDecimal("100")),
-    PERCENT_OF_TOTAL_FIXED(new BigDecimal("100")),
-    MONTHS_OF_BASE(new BigDecimal("24")),
-    FIXED_AMOUNT(null);
+    PERCENT_OF_BASE(new BigDecimal("100"), "% of base"),
+    PERCENT_OF_TOTAL_FIXED(new BigDecimal("100"), "% of total fixed pay"),
+    MONTHS_OF_BASE(new BigDecimal("24"), " months of base"),
+    FIXED_AMOUNT(null, null);
 
     /** The largest figure the basis reads as true; none for money. */
     private final BigDecimal ceiling;
 
-    BonusBasis(BigDecimal ceiling) {
+    /** What the figure counts, as it follows the number in a sentence. */
+    private final String unit;
+
+    BonusBasis(BigDecimal ceiling, String unit) {
         this.ceiling = ceiling;
+        this.unit = unit;
     }
 
     public boolean admits(BigDecimal figure) {
         return figure == null || ceiling == null || figure.compareTo(ceiling) <= 0;
     }
 
-    /** What a figure past {@link #admits} is told, a fixed sentence. */
+    /** What a figure past {@link #admits} is told: a fixed sentence built from the ceiling itself. */
     public String ceilingMessage() {
-        return this == MONTHS_OF_BASE
-                ? "A bonus is at most 24 months of base"
-                : "A bonus is at most 100% of the figure it is read against";
+        return "A bonus is at most " + ceiling.toPlainString() + unit;
     }
 }
