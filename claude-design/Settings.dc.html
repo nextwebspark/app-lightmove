@@ -211,6 +211,68 @@
           </div>
         </sc-if>
 
+        <!-- NOTIFICATIONS -->
+        <sc-if value="{{ isNotifications }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Notifications">
+            <div style="margin-bottom:18px">
+              <div style="font:600 19px/1.25 var(--sans)">Notifications</div>
+              <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">What reaches you, and where</div>
+            </div>
+
+            <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:4px 20px 14px">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 72px 72px;align-items:center;gap:12px;padding:12px 0 10px;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">
+                <span>Event</span>
+                <span style="text-align:center">In app</span>
+                <span style="text-align:center">Email</span>
+              </div>
+              <sc-for list="{{ ntRows }}" as="n" hint-placeholder-count="8">
+                <div style="{{ n.rowStyle }}">
+                  <span style="font:400 13px var(--sans);color:var(--text)">{{ n.label }}</span>
+                  <span style="display:flex;justify-content:center"><button role="switch" aria-checked="{{ n.appChecked }}" aria-label="{{ n.label }}, in app" onClick="{{ ntToggle }}" data-key="{{ n.key }}" data-channel="app" style="{{ n.appStyle }}"><span style="{{ n.appKnob }}"></span></button></span>
+                  <span style="display:flex;justify-content:center"><button role="switch" aria-checked="{{ n.emailChecked }}" aria-label="{{ n.label }}, by email" onClick="{{ ntToggle }}" data-key="{{ n.key }}" data-channel="email" style="{{ n.emailStyle }}"><span style="{{ n.emailKnob }}"></span></button></span>
+                </div>
+              </sc-for>
+              <div style="margin-top:12px;display:flex;align-items:center;justify-content:flex-end;gap:7px;font:400 11.5px var(--mono);color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4zM4 6l8 7 8-7"></path></svg>Emailed only if still unread after 10 minutes.</div>
+            </div>
+
+            <div data-screen-label="Daily digest" style="margin-top:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font:600 13px var(--sans)">Daily digest</div>
+                  <div style="margin-top:3px;font:400 11.5px var(--mono);color:var(--text3)">Every weekday at 08:00 ({{ pTz }})</div>
+                </div>
+                <button role="switch" aria-checked="{{ ntDigestChecked }}" aria-label="Daily digest" onClick="{{ ntToggleDigest }}" style="{{ ntDigestStyle }}"><span style="{{ ntDigestKnob }}"></span></button>
+              </div>
+              <sc-if value="{{ ntDigest }}">
+                <div style="margin-top:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:10px 14px">
+                  <span style="font:500 10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Preview</span>
+                  <span style="font:400 12.5px var(--mono);color:var(--text2)">14 Oct 2026 · 3 due today · 1 overdue · 2 unread mentions</span>
+                </div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ isAdmin }}">
+              <div data-screen-label="Automatic tasks" style="margin-top:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                  <span style="font:600 13px var(--sans)">Automatic tasks for the workspace</span>
+                  <span style="border-radius:4px;padding:1px 6px;font:500 10.5px var(--mono);color:var(--text3);background:var(--panel)">Admin</span>
+                </div>
+                <div style="margin-top:3px;max-width:560px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">When outreach needs a person, Uncava files a task for whoever started the sequence.</div>
+                <div style="margin-top:8px">
+                  <sc-for list="{{ ntAutoRows }}" as="a">
+                    <div style="{{ a.rowStyle }}">
+                      <span style="width:96px;flex:none;font:500 12px var(--mono);color:var(--text2)">{{ a.trigger }}</span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+                      <span style="flex:1;min-width:0;font:400 13px var(--sans);color:var(--text)">{{ a.task }}</span>
+                      <button role="switch" aria-checked="{{ a.checked }}" aria-label="Automatic task on {{ a.trigger }}" onClick="{{ ntToggleAuto }}" data-key="{{ a.key }}" style="{{ a.style }}"><span style="{{ a.knob }}"></span></button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
         <!-- SECURITY -->
         <sc-if value="{{ isSecurity }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Security">
@@ -379,6 +441,114 @@
               </sc-for>
             </div>
             <p style="margin:12px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">A retired tag stays on the people who have it and in their timeline, but can no longer be picked. A rename reaches every person at once, because a person holds the tag, not its spelling.</p>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTaskPresets }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Task presets">
+            <div style="margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px">
+              <div style="min-width:0;flex:1">
+                <div style="font:600 19px/1.25 var(--sans)">Task presets</div>
+                <div style="margin-top:4px;max-width:620px;font:400 12px/1.5 var(--mono);color:var(--text3)">Presets your team picks from when setting a next action. Anyone can still type their own.</div>
+              </div>
+              <button onClick="{{ tpStartAdd }}" style="display:flex;align-items:center;gap:8px;border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ tpAddButtonOpacity }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Add preset</button>
+            </div>
+            <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:0 16px">
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-soft);font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">
+                <span style="width:14px"></span>
+                <span style="flex:1;min-width:0">Preset</span>
+                <span style="width:104px">Type</span>
+                <span style="width:84px">Default due</span>
+                <span style="width:110px;text-align:right">Usage</span>
+                <span style="width:30px"></span>
+              </div>
+              <sc-for list="{{ tpRows }}" as="p" hint-placeholder-count="8">
+                <div data-id="{{ p.id }}" onDragOver="{{ tpDragOver }}" onDrop="{{ tpDrop }}" onDragEnd="{{ tpDragEnd }}" style="{{ p.rowStyle }}">
+                  <sc-if value="{{ p.reading }}">
+                    <span draggable="true" data-id="{{ p.id }}" onDragStart="{{ tpDragStart }}" title="Drag to reorder" style="display:grid;place-items:center;width:14px;flex:none;color:var(--text3);cursor:grab"><svg width="12" height="14" viewBox="0 0 12 18" fill="currentColor"><circle cx="3" cy="3" r="1.5"></circle><circle cx="9" cy="3" r="1.5"></circle><circle cx="3" cy="9" r="1.5"></circle><circle cx="9" cy="9" r="1.5"></circle><circle cx="3" cy="15" r="1.5"></circle><circle cx="9" cy="15" r="1.5"></circle></svg></span>
+                    <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13.5px var(--sans);color:var(--text)">{{ p.label }}</span>
+                    <span style="width:104px;flex:none"><span style="{{ p.typeStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ p.typeIcon }}"></path></svg>{{ p.typeLabel }}</span></span>
+                    <span style="width:84px;flex:none;font:400 12px var(--mono);color:var(--text2)">{{ p.dueLabel }}</span>
+                    <span style="width:110px;flex:none;text-align:right;font:400 12px var(--mono);color:var(--text3)">{{ p.usage }}</span>
+                    <span style="position:relative;width:30px;flex:none;display:flex;justify-content:flex-end">
+                      <button onClick="{{ tpToggleMenu }}" data-id="{{ p.id }}" aria-label="Actions for {{ p.label }}" aria-haspopup="menu" aria-expanded="{{ p.menuExpanded }}" style="display:grid;place-items:center;border-radius:5px;padding:4px 6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"></circle><circle cx="12" cy="12" r="1.6"></circle><circle cx="12" cy="19" r="1.6"></circle></svg></button>
+                      <sc-if value="{{ p.menuOpen }}">
+                        <div onClick="{{ closeMenus }}" style="position:fixed;inset:0;z-index:79"></div>
+                        <div role="menu" style="position:absolute;right:0;top:30px;z-index:80;width:190px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                          <button role="menuitem" onClick="{{ tpEdit }}" data-id="{{ p.id }}" style="display:block;width:100%;border-radius:6px;padding:7px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Rename</button>
+                          <button role="menuitem" onClick="{{ tpEdit }}" data-id="{{ p.id }}" style="display:block;width:100%;border-radius:6px;padding:7px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Change type</button>
+                          <button role="menuitem" onClick="{{ tpEdit }}" data-id="{{ p.id }}" style="display:block;width:100%;border-radius:6px;padding:7px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Change default due</button>
+                          <div style="margin:4px 0;height:1px;background:var(--line-soft)"></div>
+                          <button role="menuitem" onClick="{{ tpRetire }}" data-id="{{ p.id }}" title="Stop offering this preset; tasks keep it" style="display:block;width:100%;border-radius:6px;padding:7px 10px;text-align:left;font:400 13px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Retire</button>
+                        </div>
+                      </sc-if>
+                    </span>
+                  </sc-if>
+                  <sc-if value="{{ p.editing }}">
+                    <span style="width:14px;flex:none"></span>
+                    <input value="{{ tpDraftLabel }}" onChange="{{ onTpDraftLabel }}" aria-label="Preset name" style="flex:1;min-width:180px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:6px 10px;font:400 13px var(--sans);color:var(--text);outline:none">
+                    <select value="{{ tpDraftType }}" onChange="{{ onTpDraftType }}" aria-label="Type" style="width:120px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none"><option value="CALL">Call</option><option value="EMAIL">Email</option><option value="MEETING">Meeting</option><option value="FOLLOW_UP">Follow-up</option><option value="TODO">To-do</option></select>
+                    <select value="{{ tpDraftDue }}" onChange="{{ onTpDraftDue }}" aria-label="Default due" style="width:110px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none"><option value="none">None</option><option value="0">Same day</option><option value="1">+1 day</option><option value="2">+2 days</option><option value="5">+5 days</option><option value="30">+30 days</option></select>
+                    <span style="margin-left:auto;display:flex;gap:4px">
+                      <button onClick="{{ tpSave }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;opacity:{{ tpSaveOpacity }}">Save</button>
+                      <button onClick="{{ tpCancel }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Cancel</button>
+                    </span>
+                  </sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ tpAdding }}">
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line-soft)">
+                  <span style="width:14px;flex:none"></span>
+                  <input value="{{ tpDraftLabel }}" onChange="{{ onTpDraftLabel }}" placeholder="New preset, e.g. Check notice period" aria-label="Preset name" style="flex:1;min-width:180px;border-radius:6px;border:1px solid var(--sky);background:var(--panel);padding:6px 10px;font:400 13px var(--sans);color:var(--text);outline:none">
+                  <select value="{{ tpDraftType }}" onChange="{{ onTpDraftType }}" aria-label="Type" style="width:120px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none"><option value="CALL">Call</option><option value="EMAIL">Email</option><option value="MEETING">Meeting</option><option value="FOLLOW_UP">Follow-up</option><option value="TODO">To-do</option></select>
+                  <select value="{{ tpDraftDue }}" onChange="{{ onTpDraftDue }}" aria-label="Default due" style="width:110px;flex:none;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:400 12.5px var(--mono);color:var(--text);outline:none"><option value="none">None</option><option value="0">Same day</option><option value="1">+1 day</option><option value="2">+2 days</option><option value="5">+5 days</option><option value="30">+30 days</option></select>
+                  <span style="margin-left:auto;display:flex;gap:4px">
+                    <button onClick="{{ tpSave }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer;opacity:{{ tpSaveOpacity }}">Save</button>
+                    <button onClick="{{ tpCancel }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Cancel</button>
+                  </span>
+                </div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ tpHasRetired }}">
+              <div style="margin-top:12px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);overflow:hidden">
+                <button onClick="{{ tpToggleRetired }}" aria-expanded="{{ tpRetiredExpanded }}" style="display:flex;width:100%;align-items:center;gap:10px;padding:11px 16px;text-align:left;background:none;border:none;cursor:pointer" style-hover="background:var(--panel)">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="{{ tpRetiredChevStyle }}"><path d="M6 9l6 6 6-6"></path></svg>
+                  <span style="font:600 13px var(--sans);color:var(--text)">Retired</span>
+                  <span style="font:400 12px var(--mono);color:var(--text3)">{{ tpRetiredCount }}</span>
+                </button>
+                <sc-if value="{{ tpRetiredOpen }}">
+                  <div style="padding:0 16px;border-top:1px solid var(--line-soft)">
+                    <sc-for list="{{ tpRetiredRows }}" as="r">
+                      <div style="{{ r.rowStyle }}">
+                        <span style="width:14px;flex:none"></span>
+                        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13.5px var(--sans);color:var(--text2)">{{ r.label }}</span>
+                        <span style="width:104px;flex:none"><span style="{{ r.typeStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ r.typeIcon }}"></path></svg>{{ r.typeLabel }}</span></span>
+                        <span style="font:400 12px var(--mono);color:var(--text3)">{{ r.meta }}</span>
+                        <button onClick="{{ tpRestore }}" data-id="{{ r.id }}" title="Offer this preset again" style="margin-left:auto;border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Restore</button>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-if>
+            <p style="margin:12px 2px 0;max-width:620px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">A retired preset stays on the tasks that already use it, but is no longer offered. Changing a preset never changes a task already set from it.</p>
+
+            <sc-if value="{{ tpHasSuggestions }}">
+              <div data-screen-label="Most typed, not a preset" style="margin-top:20px;border-radius:10px;border:1px dashed var(--line);background:var(--panel2);padding:16px 18px">
+                <div style="font:600 13px var(--sans)">Most typed, not a preset</div>
+                <div style="margin-top:3px;font:400 11.5px var(--mono);color:var(--text3)">Titles your team typed by hand in the last 90 days.</div>
+                <div style="margin-top:8px">
+                  <sc-for list="{{ tpSuggestionRows }}" as="g">
+                    <div style="{{ g.rowStyle }}">
+                      <span style="flex:1;min-width:0;font:400 13px var(--sans);color:var(--text)">{{ g.label }}</span>
+                      <span style="font:400 12px var(--mono);color:var(--text3)">{{ g.usage }}</span>
+                      <button onClick="{{ tpFromSuggestion }}" data-label="{{ g.label }}" style="display:flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>Make a preset</button>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
           </div>
         </sc-if>
 
@@ -1575,7 +1745,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1602,7 +1772,7 @@ class Component extends DCLogic {
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -1688,6 +1858,17 @@ class Component extends DCLogic {
       ctags: [['openWork', 'Open to work', 'green', 4], ['relocate', 'Open to relocate', 'accent', 4], ['passive', 'Passive', 'neutral', 2], ['referral', 'Referral', 'violet', 2], ['prior', 'Prior placement', 'adjacent', 1], ['interviewed', 'Interviewed before', 'inferred', 1], ['boardReady', 'Board-ready', 'neutral', 0, true]]
         .map(([id, label, colour, count, retired]) => ({ id, label, colour, count, retired: !!retired })),
       ctNew: '', ctEditing: null, ctDraft: '',
+      tpresets: [
+        ['qualify', 'Call to qualify interest', 'CALL', '1', 42], ['followUpEmail', 'Send follow-up email', 'EMAIL', '2', 31],
+        ['scheduleCall', 'Schedule a call', 'MEETING', '1', 27], ['referenceCheck', 'Reference check', 'TODO', '5', 12],
+        ['shareProfile', 'Share profile with hiring manager', 'TODO', '1', 18], ['requestCv', 'Request CV', 'EMAIL', '2', 15],
+        ['debrief', 'Debrief after meeting', 'FOLLOW_UP', '0', 9], ['reengage', 'Re-engage later', 'FOLLOW_UP', '30', 6],
+        ['salarySurvey', 'Send salary survey', 'EMAIL', '2', 4, '03 Oct 2026'],
+      ].map(([id, label, type, due, count, retiredOn]) => ({ id, label, type, due, count, retired: !!retiredOn, retiredOn: retiredOn || null })),
+      tpSuggestions: [['Check notice period', 9], ['Confirm interview availability', 6]],
+      tpEditing: null, tpAdding: false, tpDraft: { label: '', type: 'TODO', due: '1' }, tpMenu: null, tpDrag: null, tpRetiredOpen: false,
+      ntPrefs: { assigned: [true, true], due: [true, true], mention: [true, true], reply: [true, true], bounce: [true, false], booked: [true, true], team: [true, false], moved: [true, false] },
+      ntDigest: true, ntAuto: { reply: true, bounce: true, booked: false },
       pstages: [
         ['identified', 'Identified', 'ACTIVE', 'neutral', [['identified', 'Identified', 'neutral', true], ['researching', 'Researching', 'neutral'], ['readyToApproach', 'Ready to approach', 'accent']]],
         ['contacted', 'Contacted', 'ACTIVE', 'accent', [['contacted', 'Contacted', 'accent', true], ['followUpSent', 'Follow-up sent', 'accent'], ['engaged', 'Engaged', 'green', true], ['callBooked', 'Call booked', 'green']]],
@@ -1894,7 +2075,7 @@ class Component extends DCLogic {
     const st = this.state, I = this.I, props = this.props;
     const isAdmin = props.isAdmin !== false, superAdmin = props.superAdmin !== false;
     let sec = st.section;
-    if (!isAdmin && ['general', 'members', 'candidate-tags', 'templates', 'template-editor'].includes(sec)) sec = 'profile';
+    if (!isAdmin && ['general', 'members', 'candidate-tags', 'task-presets', 'templates', 'template-editor'].includes(sec)) sec = 'profile';
     if (!superAdmin && ['library', 'library-editor'].includes(sec)) sec = 'profile';
     const scope = this.scopeOf(sec);
     const isTplList = sec === 'templates' || sec === 'library';
@@ -1907,8 +2088,8 @@ class Component extends DCLogic {
       return { key, label, icon, iconColor: on ? 'var(--amber)' : 'currentColor',
         style: 'display:flex;width:100%;align-items:center;justify-content:' + (c ? 'center' : 'flex-start') + ';gap:10px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'transparent') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
     };
-    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
-    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
+    const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
+    if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('task-presets', 'Task presets', 'M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
     else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('pipeline-stages', 'Pipeline stages', I.columns)] });
     if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
 
@@ -2176,6 +2357,62 @@ class Component extends DCLogic {
           retireLabel: t.retired ? 'Restore' : 'Retire', retireTitle: t.retired ? 'Offer this tag again' : 'Stop offering this tag; people keep it',
           swatches: Object.keys(COLOURS).map((key) => ({ key, on: t.colour === key, style: 'width:14px;height:14px;border-radius:50%;padding:0;cursor:pointer;background:' + COLOURS[key][0] + ';border:2px solid ' + (t.colour === key ? 'var(--text)' : 'transparent') })) };
       }),
+      isTaskPresets: sec === 'task-presets', tpAdding: st.tpAdding,
+      tpDraftLabel: st.tpDraft.label, tpDraftType: st.tpDraft.type, tpDraftDue: st.tpDraft.due,
+      tpSaveOpacity: st.tpDraft.label.trim() ? 1 : 0.5, tpAddButtonOpacity: st.tpAdding || st.tpEditing ? 0.5 : 1,
+      ...(() => {
+        const TYPES = {
+          CALL: ['Call', 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z', 'var(--u-direct)', 'var(--u-direct-tint)'],
+          EMAIL: ['Email', 'M4 4h16v16H4zM4 6l8 7 8-7', 'var(--u-accent)', 'var(--u-accent-tint)'],
+          MEETING: ['Meeting', 'M3 5h18v16H3zM16 3v4M8 3v4M3 10h18', 'var(--u-chart-5)', 'color-mix(in srgb, var(--u-chart-5) 16%, transparent)'],
+          FOLLOW_UP: ['Follow-up', 'M15 14l5-5-5-5M20 9H9a5 5 0 0 0-5 5v6', 'var(--u-adjacent)', 'var(--u-adjacent-tint)'],
+          TODO: ['To-do', 'M3 3h18v18H3zM8 12l3 3 5-6', 'var(--text2)', 'var(--panel)'],
+        };
+        const DUE = { none: 'None', 0: 'Same day', 1: '+1 day', 2: '+2 days', 5: '+5 days', 30: '+30 days' };
+        const chip = (type) => 'display:inline-flex;align-items:center;gap:5px;white-space:nowrap;border-radius:999px;padding:2px 9px;font:500 11.5px var(--sans);color:' + TYPES[type][2] + ';background:' + TYPES[type][3];
+        const times = (n) => (n === 1 ? 'once' : n + ' times');
+        const live = st.tpresets.filter((p) => !p.retired);
+        const retired = st.tpresets.filter((p) => p.retired);
+        const taken = st.tpresets.map((p) => p.label.toLowerCase());
+        const suggestions = st.tpSuggestions.filter(([label]) => !taken.includes(label.toLowerCase()));
+        const row = (i) => 'display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:11px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '');
+        return {
+          tpRows: live.map((p, i) => {
+            const editing = st.tpEditing === p.id;
+            return { id: p.id, label: p.label, editing, reading: !editing, menuOpen: st.tpMenu === p.id, menuExpanded: st.tpMenu === p.id ? 'true' : 'false',
+              typeLabel: TYPES[p.type][0], typeIcon: TYPES[p.type][1], typeStyle: chip(p.type), dueLabel: DUE[p.due], usage: p.count ? 'Used ' + times(p.count) : 'Not used yet',
+              rowStyle: row(i) + ';opacity:' + (st.tpDrag === p.id ? 0.45 : 1) };
+          }),
+          tpHasRetired: retired.length > 0, tpRetiredOpen: st.tpRetiredOpen, tpRetiredExpanded: st.tpRetiredOpen ? 'true' : 'false', tpRetiredCount: String(retired.length),
+          tpRetiredChevStyle: 'flex:none;color:var(--text2);transition:transform .2s;transform:rotate(' + (st.tpRetiredOpen ? 0 : -90) + 'deg)',
+          tpRetiredRows: retired.map((p, i) => ({ id: p.id, label: p.label, typeLabel: TYPES[p.type][0], typeIcon: TYPES[p.type][1], typeStyle: chip(p.type),
+            meta: 'Retired ' + p.retiredOn + ' · used ' + times(p.count), rowStyle: row(i) })),
+          tpHasSuggestions: suggestions.length > 0,
+          tpSuggestionRows: suggestions.map(([label, n], i) => ({ label, usage: 'typed ' + times(n), rowStyle: 'display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:9px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') })),
+        };
+      })(),
+      isNotifications: sec === 'notifications', ntDigest: st.ntDigest,
+      ...(() => {
+        const sw = (on) => ({ style: 'position:relative;height:18px;width:32px;flex:none;border-radius:999px;border:none;padding:0;cursor:pointer;transition:background .15s;background:' + (on ? 'var(--u-accent)' : 'var(--line)'),
+          knob: 'position:absolute;top:2px;left:' + (on ? 16 : 2) + 'px;width:14px;height:14px;border-radius:50%;transition:left .15s;background:' + (on ? '#fff' : 'var(--text3)') });
+        const EVENTS = [['assigned', 'A task is assigned to me'], ['due', 'A task of mine is due soon or overdue'], ['mention', 'Someone @mentions me'], ['reply', 'An executive replies to my sequence'],
+          ['bounce', 'An email of mine bounces'], ['booked', 'A call is booked through my link'], ['team', "I'm added to a position's team"], ['moved', 'Tasks are moved to me']];
+        const AUTO = [['reply', 'Reply', 'Reply to {name}'], ['bounce', 'Bounce', 'Find a working email for {name}'], ['booked', 'Booked call', 'Debrief {name}']];
+        const digest = sw(st.ntDigest);
+        return {
+          ntRows: EVENTS.map(([key, label], i) => {
+            const [app, email] = st.ntPrefs[key]; const a = sw(app), m = sw(email);
+            return { key, label, appChecked: String(app), emailChecked: String(email), appStyle: a.style, appKnob: a.knob, emailStyle: m.style, emailKnob: m.knob,
+              rowStyle: 'display:grid;grid-template-columns:minmax(0,1fr) 72px 72px;align-items:center;gap:12px;padding:11px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') };
+          }),
+          ntDigestChecked: String(st.ntDigest), ntDigestStyle: digest.style, ntDigestKnob: digest.knob,
+          ntAutoRows: AUTO.map(([key, trigger, task], i) => {
+            const s = sw(st.ntAuto[key]);
+            return { key, trigger, task, checked: String(st.ntAuto[key]), style: s.style, knob: s.knob,
+              rowStyle: 'display:flex;align-items:center;gap:12px;padding:10px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') };
+          }),
+        };
+      })(),
       isPipelineStages: sec === 'pipeline-stages', psReadOnly: !isAdmin, psDraft: st.psDraft, psNewStage: st.psNewStage, psAddStageOpacity: st.psNewStage.trim() ? 1 : 0.5,
       psAllLabel: st.pstages.length && st.pstages.every((s) => st.psOpen[s.id]) ? 'Collapse all' : 'Expand all',
       psBlockedOpen: !!st.psBlockedId, psBlockedName: (st.pstages.find((s) => s.id === st.psBlockedId) || {}).name || '',
@@ -2361,7 +2598,7 @@ class Component extends DCLogic {
         this.showToast(name + ' disconnected');
       },
       toggleWsMenu: () => this.setState({ wsMenuOpen: !st.wsMenuOpen }),
-      closeMenus: () => this.setState({ wsMenuOpen: false, infoOpen: false, columnsOpen: false }),
+      closeMenus: () => this.setState({ wsMenuOpen: false, infoOpen: false, columnsOpen: false, tpMenu: null }),
       goSection: (e) => {
         const target = e.currentTarget.dataset.section;
         if (target === 'billing') { location.href = 'Billing.dc.html'; return; }
@@ -2445,6 +2682,67 @@ class Component extends DCLogic {
       },
       recolourCtag: (e) => { const d = e.currentTarget.dataset; this.setState({ ctags: st.ctags.map((t) => (t.id === d.id ? Object.assign({}, t, { colour: d.colour }) : t)) }); },
       retireCtag: (e) => { const id = e.currentTarget.dataset.id; this.setState({ ctags: st.ctags.map((t) => (t.id === id ? Object.assign({}, t, { retired: !t.retired }) : t)) }); },
+      tpStartAdd: () => { if (st.tpAdding || st.tpEditing) return; this.setState({ tpAdding: true, tpMenu: null, tpDraft: { label: '', type: 'TODO', due: '1' } }); },
+      tpFromSuggestion: (e) => this.setState({ tpAdding: true, tpEditing: null, tpMenu: null, tpDraft: { label: e.currentTarget.dataset.label, type: 'TODO', due: '1' } }),
+      tpToggleMenu: (e) => { const id = e.currentTarget.dataset.id; this.setState({ tpMenu: st.tpMenu === id ? null : id }); },
+      tpEdit: (e) => {
+        const p = st.tpresets.find((x) => x.id === e.currentTarget.dataset.id);
+        this.setState({ tpEditing: p.id, tpAdding: false, tpMenu: null, tpDraft: { label: p.label, type: p.type, due: p.due } });
+      },
+      onTpDraftLabel: (e) => this.setState({ tpDraft: Object.assign({}, st.tpDraft, { label: e.target.value }) }),
+      onTpDraftType: (e) => this.setState({ tpDraft: Object.assign({}, st.tpDraft, { type: e.target.value }) }),
+      onTpDraftDue: (e) => this.setState({ tpDraft: Object.assign({}, st.tpDraft, { due: e.target.value }) }),
+      tpCancel: () => this.setState({ tpEditing: null, tpAdding: false }),
+      tpSave: () => {
+        const label = st.tpDraft.label.trim();
+        if (!label) return;
+        if (st.tpresets.some((p) => p.id !== st.tpEditing && p.label.toLowerCase() === label.toLowerCase())) { this.showToast('That preset already exists'); return; }
+        const fields = { label, type: st.tpDraft.type, due: st.tpDraft.due };
+        if (st.tpAdding) {
+          this.setState({ tpresets: [...st.tpresets, Object.assign({ id: 'p' + Date.now(), count: 0, retired: false, retiredOn: null }, fields)], tpAdding: false });
+          this.showToast('Preset added for the whole team');
+          return;
+        }
+        this.setState({ tpresets: st.tpresets.map((p) => (p.id === st.tpEditing ? Object.assign({}, p, fields) : p)), tpEditing: null });
+        this.showToast('Preset saved');
+      },
+      tpRetire: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState({ tpMenu: null, tpresets: st.tpresets.map((p) => (p.id === id ? Object.assign({}, p, { retired: true, retiredOn: '14 Oct 2026' }) : p)) });
+        this.showToast('Retired — tasks that use it keep it');
+      },
+      tpRestore: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState({ tpresets: st.tpresets.map((p) => (p.id === id ? Object.assign({}, p, { retired: false, retiredOn: null }) : p)) });
+        this.showToast('Preset offered again');
+      },
+      tpToggleRetired: () => this.setState({ tpRetiredOpen: !st.tpRetiredOpen }),
+      tpDragStart: (e) => {
+        const id = e.currentTarget.dataset.id;
+        e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (err) { /* noop */ }
+        this.setState({ tpDrag: id, tpMenu: null });
+      },
+      tpDragOver: (e) => e.preventDefault(),
+      tpDragEnd: () => { if (this.state.tpDrag) this.setState({ tpDrag: null }); },
+      tpDrop: (e) => {
+        e.preventDefault();
+        const drag = this.state.tpDrag; const target = e.currentTarget.dataset.id;
+        if (!drag || drag === target) { this.setState({ tpDrag: null }); return; }
+        const list = this.state.tpresets.slice();
+        const [moved] = list.splice(list.findIndex((p) => p.id === drag), 1);
+        list.splice(list.findIndex((p) => p.id === target), 0, moved);
+        this.setState({ tpDrag: null, tpresets: list });
+      },
+      ntToggle: (e) => {
+        const d = e.currentTarget.dataset; const [app, email] = st.ntPrefs[d.key];
+        this.setState({ ntPrefs: Object.assign({}, st.ntPrefs, { [d.key]: d.channel === 'app' ? [!app, email] : [app, !email] }) });
+      },
+      ntToggleDigest: () => { this.setState({ ntDigest: !st.ntDigest }); this.showToast(st.ntDigest ? 'Daily digest off' : 'Daily digest on'); },
+      ntToggleAuto: (e) => {
+        const key = e.currentTarget.dataset.key;
+        this.setState({ ntAuto: Object.assign({}, st.ntAuto, { [key]: !st.ntAuto[key] }) });
+        this.showToast('Saved for the whole workspace');
+      },
       onPsNewStage: (e) => this.setState({ psNewStage: e.target.value }),
       onPsNewStatus: (e) => { const id = e.currentTarget.dataset.id; this.setState({ psNewStatus: Object.assign({}, st.psNewStatus, { [id]: e.target.value }) }); },
       onPsDraft: (e) => this.setState({ psDraft: e.target.value }),
