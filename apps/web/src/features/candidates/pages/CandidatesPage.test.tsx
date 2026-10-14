@@ -10,6 +10,7 @@ import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as poolApi from "../api/poolApi";
+import * as tasksApi from "../../tasks/api/tasksApi";
 import type { CandidateTag, PersonNote, PersonRecord, PoolPage, PoolRow } from "../api/types";
 import { CandidatesPage } from "./CandidatesPage";
 
@@ -42,6 +43,10 @@ vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
   projects: vi.fn(),
+}));
+vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
+  getCandidateTasks: vi.fn(),
 }));
 vi.mock("../../../lib/saveBlob", () => ({ saveBlob: vi.fn() }));
 
@@ -433,7 +438,7 @@ describe("CandidatesPage", () => {
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
   });
 
-  it("keeps tags, notes, documents and positions under Records, and contacts under Contact", async () => {
+  it("draws the position drawer's tabs, less what only a position holds, with tags in the header", async () => {
     vi.mocked(poolApi.getPerson).mockResolvedValue({
       ...record,
       contacts: { ...record.contacts, emails: [{ address: "fatima@example.com", kind: "work", verified: true, status: null, source: "manual", foundAt: "2026-09-01T00:00:00Z" }] },
@@ -441,25 +446,79 @@ describe("CandidatesPage", () => {
     renderPage("/candidates?person=person-1");
 
     expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
-      "Profile",
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual([
+      "Career",
+      "Notes",
       "Contact",
-      "Records",
-      "Timeline",
+      "Documents",
+      "Activity",
+      "Positions",
     ]);
-    expect(screen.queryByRole("button", { name: "Remove tag Open to work" })).not.toBeInTheDocument();
+    // Tags are the person's, on view whichever tab is open.
+    expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: "Contact" }));
     expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: "Records" }));
-    expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
-    for (const section of ["Tags", "Notes", "Documents", "Positions"]) {
-      expect(screen.getByRole("region", { name: section })).toBeInTheDocument();
-    }
+    await userEvent.click(screen.getByRole("tab", { name: /^Notes/ }));
+    expect(await screen.findByLabelText("New note")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /^Positions/ }));
     expect(
       within(screen.getByRole("region", { name: "Positions" })).getByRole("button", { name: /Add to position/ }),
     ).toBeInTheDocument();
+  });
+
+  it("carries each workable position's next action on its card, and offers one where there is none", async () => {
+    const workable = (candidateId: string, projectId: string, positionTitle: string) => ({
+      ...record.positions[0],
+      candidateId,
+      projectId,
+      positionTitle,
+      workable: true,
+    });
+    vi.mocked(poolApi.getPerson).mockResolvedValue({
+      ...record,
+      positions: [workable("c1", "p1", "Chief Financial Officer"), workable("c2", "p2", "Group Treasurer")],
+    });
+    vi.mocked(tasksApi.getCandidateTasks).mockImplementation(async (projectId) => ({
+      open:
+        projectId === "p1"
+          ? [
+              {
+                id: "t1",
+                projectId: "p1",
+                projectTitle: "Chief Financial Officer",
+                candidateId: "c1",
+                personId: "person-1",
+                personName: "Fatima Al Mazrouei",
+                title: "Call about the package",
+                kind: "call",
+                detail: null,
+                presetId: null,
+                note: null,
+                assignee: { userId: "u1", fullName: "Alok Kumar", avatarUrl: null },
+                createdBy: null,
+                dueAt: null,
+                status: "open",
+                source: "manual",
+                rule: null,
+                completedAt: null,
+                completedBy: null,
+                createdAt: "2026-10-01T00:00:00Z",
+                editable: true,
+              },
+            ]
+          : [],
+      done: [],
+      doneCount: 0,
+    }));
+    renderPage("/candidates?person=person-1&tab=positions");
+
+    const positions = await screen.findByRole("region", { name: "Positions" });
+    expect(await within(positions).findByText("Call about the package")).toBeInTheDocument();
+    expect(await within(positions).findByText("No next action here")).toBeInTheDocument();
+    expect(within(positions).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
   });
 
   it("asks before deleting a note", async () => {
@@ -574,7 +633,7 @@ describe("CandidatesPage", () => {
 
     expect(await screen.findByText("tagged Fatima Al Mazrouei Open to work")).toBeInTheDocument();
     await userEvent.click(screen.getByText("tagged Fatima Al Mazrouei Open to work"));
-    expect(await screen.findByRole("tab", { name: /Timeline/, selected: true })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: /Activity/, selected: true })).toBeInTheDocument();
   });
 
   it("says the workspace has nobody yet rather than drawing an empty grid", async () => {

@@ -19,6 +19,8 @@ import app.lightmove.api.position.dto.ResponsibilityDto;
 import app.lightmove.api.position.dto.StrategicPriorityDto;
 import app.lightmove.api.position.model.CompensationPackage;
 import app.lightmove.api.position.model.MandateContext;
+import app.lightmove.api.position.model.BriefCompetencies;
+import app.lightmove.api.position.model.BriefCompetency;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionBenefit;
 import app.lightmove.api.position.model.PositionCompetency;
@@ -73,6 +75,23 @@ public class PositionService {
         Position position = briefs.find(workspaceId, projectId)
                 .orElseGet(() -> Position.forProject(projectId, null));
         return assembler.compensationOf(position);
+    }
+
+    /**
+     * The brief's competencies alone, for the candidate scorecard: the one read another feature takes of the
+     * assessment step, so it is bound to these two records rather than the brief's DTOs. Like
+     * {@link #compensationOf}, it never drafts a brief.
+     */
+    @Transactional(readOnly = true)
+    public BriefCompetencies competenciesOf(UUID workspaceId, UUID projectId) {
+        Position position = briefs.find(workspaceId, projectId)
+                .orElseGet(() -> Position.forProject(projectId, null));
+        return new BriefCompetencies(
+                position.getCompetencies().stream()
+                        .map(competency -> new BriefCompetency(competency.getPanel(), competency.getName(),
+                                competency.getDescription(), competency.getWeight()))
+                        .toList(),
+                position.getTechnicalShare());
     }
 
     /** For a reader that must not write: an undrafted brief reads blank. */

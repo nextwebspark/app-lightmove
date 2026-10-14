@@ -52,8 +52,17 @@ timed, about a position or about the person, shared by every mandate that maps t
 (decision D1). A note a door sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
 Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
 may change or remove one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
-never quotes it, so a removed note leaves no copy. The executive drawer draws **Positions** (every
-mandate mapping the person, this one first), **Notes** and **Timeline** for staff, through the
+never quotes it, so a removed note leaves no copy. Both person drawers — a position's executive drawer and the
+Candidates page's — share one header (tags beside owner and do not contact) and one tab order,
+`Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
+retired `?tab=records|timeline` links still land), a client seat reading Career and Contact alone; the
+workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
+consultant's own scorecard against the brief's competencies: 0–10 or unscored (an open question, never a zero) per
+competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
+`lib/scorecardScoring.ts`), plus evidence and a five-section report, saved from the footer as a draft or **Mark
+reviewed & submit**. A score snapshots its criterion and is matched on panel + name, so one the brief drops is kept,
+uncounted. A stale save is `CANDIDATE_ASSESSMENT_STALE`; it is staff-only (`WORK_EXECUTE`, never on `CandidateResponse`). The executive drawer draws **Positions** (every
+mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
 person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
@@ -67,7 +76,7 @@ uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
-`components/documents`: the Candidates drawer's Documents tab, the executive drawer's Documents section, a
+`components/documents`: both drawers' Documents tab, a
 header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` is the server's own lock, which the Contact section reads rather
@@ -351,8 +360,9 @@ the mockups: if a screen isn't being built this session, its tables and entities
 candidate is scored against. It owns `app_lm_position` and its owned lists, and it depends on `project`
 because the mandate keeps two of the fields the screen shows: the role title, which step one edits, and
 the one target date (V8), which the screen only displays — it is set on the project and nowhere else.
-Nothing else depends on it: the one reverse edge that existed — `project`'s `ReportService` reading the
-position repository for the report's salary band — went with the report.
+Two features read it: `enrichment` takes the whole brief (`PositionService.briefOf`) for sourcing and the AI
+assessment, and `candidate`'s scorecard only `competenciesOf` — `position`'s own `BriefCompetencies` record, never
+the brief's DTOs. `position` depends on neither.
 
 `positiontemplate` is the **role-template library** a brief is drafted from — the shared library, each
 firm's copies and own templates, the picker, and the JSON export/import. It is admin-curated reference
@@ -568,7 +578,9 @@ the person forward to Engaged once per position — a booking after a reply incl
 **Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
 (`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
 that executive's earliest open one — `task` answers `candidate`'s `NextActionLookup`, so the board, the drawer, My
-tasks and the bell read the same rows (V132's free-text `next_action` columns became open tasks and are no longer
+tasks and the bell read the same rows. In the executive drawer it is a fixed-height bar in the header, on every tab
+(`NextActionBar`: the earliest open task, ticked done in place, the rest in a popover grouped overdue/today/upcoming);
+off a position, the Candidates drawer shows it on each Positions card (V132's free-text `next_action` columns became open tasks and are no longer
 written). A task goes, and a note's `@[Name](user:<uuid>)` / `@[team](team)` mention reaches, only someone who may
 work the position — `WORK_EXECUTE`, read again on every save (`ProjectAccess.allows`) — never a client seat; a note
 about no position mentions nobody. Anyone on the team completes a task; changing, reassigning or cancelling it is
@@ -1040,6 +1052,9 @@ due-soon/overdue notice stamps; V132's next actions backfilled as open tasks), `
 the email claim), `app_lm_notification_preference` (no row is on) and `app_lm_notification_digest` (one per person
 per local day), and widens the activity kinds with `TASK_CREATED`, `TASK_COMPLETED`, `TASK_REOPENED`,
 `TASK_REASSIGNED` and `TASK_CANCELLED`.
+V135 adds `app_lm_candidate_scorecard` — one per mapping (`candidate_id` unique, cascading), `status` `DRAFT |
+REVIEWED` with `reviewed_at` set exactly when reviewed (CHECK), the scores a jsonb array of `{panel, name, weight,
+score, evidence}` snapshots and the report a jsonb object — and widens the activity kinds with `ASSESSMENT_REVIEWED`.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

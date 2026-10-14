@@ -14,13 +14,10 @@ import {
   type Mention,
 } from "../../tasks/lib/mentions";
 import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
-import type { DocumentScope } from "../api/documentsApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
-import type { PersonDocument, PersonDocumentVersion, PersonNote, PersonNoteKind } from "../api/types";
+import type { PersonNote, PersonNoteKind } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
-import type { PersonDocuments } from "../lib/usePersonDocuments";
-import { DocumentsPanel } from "./documents/DocumentsPanel";
 import { NoteCard, NoteKindPicker, noteAnchorOf } from "./NoteParts";
 
 /**
@@ -130,8 +127,7 @@ export function NotesSection({
   }, [focus, loaded]);
 
   return (
-    <section aria-label="Notes" className="border-t border-u-border py-4">
-      <TabSectionHeading title="Notes" />
+    <section aria-label="Notes" className="py-4">
       <div className="flex flex-col gap-3">
         <div className="rounded-[8px] border border-u-border p-2.5">
           <NoteKindPicker value={kind} onChange={setKind} />
@@ -205,25 +201,6 @@ export function NotesSection({
 /** The note a task is set from, as the task will name it: by kind and date. */
 export function taskNoteOf(note: PersonNote): TaskNote {
   return { id: note.id, kind: note.kind, writtenAt: note.createdAt };
-}
-
-export function DocumentsSection({
-  scope,
-  documents,
-  personName,
-  onPreview,
-}: {
-  scope: DocumentScope;
-  documents: PersonDocuments;
-  personName: string;
-  onPreview: (document: PersonDocument, version: PersonDocumentVersion) => void;
-}) {
-  return (
-    <section aria-label="Documents" className="border-t border-u-border py-4">
-      <TabSectionHeading title="Documents" />
-      <DocumentsPanel scope={scope} documents={documents} personName={personName} compact onPreview={onPreview} />
-    </section>
-  );
 }
 
 export function TabSectionHeading({ title, action }: { title: string; action?: ReactNode }) {

@@ -25,5 +25,7 @@ window.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver;
 
 afterEach(() => {
   cleanup();
+  // A drawer remembers its last tab for the session; one test's choice must not open the next on it.
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });

@@ -8,7 +8,9 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
 
 - **A next action is a task.** One `app_lm_task` row per job, on one executive of one position (`project_id` +
   `candidate_id`, the person beside them). The Pipeline card's Next action is that executive's earliest open
-  task, so the board, the drawer, My tasks and the bell read the same rows. V133 turned every V132
+  task, so the board, the drawer, My tasks and the bell read the same rows. The executive drawer draws it as a
+  bar in its header — on every tab, since the moment to set one is while writing the note or the email — with the
+  rest in a popover; the Candidates drawer draws it on each position's card. V133 turned every V132
   `next_action` into an open task; the V132 columns stay, unwritten, until the cleanup migration (#606's).
 - **The team is the boundary.** A task is assigned, and a note mentions, only someone who may work the
   position — `WORK_EXECUTE` on it, re-read when saved — which is its staff seats and the workspace's admins.
