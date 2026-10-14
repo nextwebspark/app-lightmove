@@ -18,6 +18,8 @@ import app.lightmove.api.position.model.ProposedAssessment;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.model.PositionTemplateCompetency;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -211,15 +213,20 @@ public class PositionAssessmentProposer {
 
     /**
      * Drops the row when a stated weight will not parse or falls outside 0-100, or when the name contains
-     * {@link #PACK_SEPARATOR} and would corrupt the packing. A missing weight is simply omitted.
+     * {@link #PACK_SEPARATOR} and would corrupt the packing. A missing weight is simply omitted; a share
+     * written as {@code "33.3"} or {@code "33%"} is rounded, since a panel asked to total 100 splits a third
+     * that way — never to 0, which the screen reads as no weight given.
      */
     private Optional<ExtractedField> competencyFieldFrom(String fieldKey, ModelCompetency competency,
                                                           Pseudonyms pseudonyms, String haystack) {
         Integer weight = null;
         if (competency.weight() != null && !competency.weight().isBlank()) {
             try {
-                weight = Integer.parseInt(competency.weight().trim());
-            } catch (NumberFormatException e) {
+                BigDecimal stated = new BigDecimal(competency.weight().trim().replaceFirst("%$", "").trim());
+                weight = stated.signum() > 0
+                        ? Math.max(1, stated.setScale(0, RoundingMode.HALF_UP).intValueExact())
+                        : stated.setScale(0, RoundingMode.HALF_UP).intValueExact();
+            } catch (NumberFormatException | ArithmeticException e) {
                 return Optional.empty();
             }
             if (weight < 0 || weight > 100) {

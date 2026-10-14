@@ -319,7 +319,8 @@ cd apps/web && npm run build && npx vitest
   document attached, 400 on a legacy `.doc`, 403 for a seat without `PROJECT_EDIT`, 404 for a foreign
   project.
 - `lib/documentFill.test.ts` (#396) — the scalar keep/replace matrix, list drop/keep/append/de-dupe/
-  ceilings, competency weight balancing, undo one/all/after-edit, the `location`→`locationCity` undo
+  ceilings, competency weight balancing (a reading's weights are relative emphasis, scaled so each
+  panel totals 100 beside whatever was typed), undo one/all/after-edit, the `location`→`locationCity` undo
   key mismatch, NaN-guarded notice parsing.
 - `lib/orgChart.test.ts` (#396) — the reporting merge (manager mint/rename, direct-report drop/keep/
   de-dupe, coordinates preserved), `suggestedSeats`/`addSuggestedSeat`.

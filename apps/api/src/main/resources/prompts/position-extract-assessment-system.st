@@ -38,16 +38,21 @@ Fields:
     not pad the list to reach five, and do not invent a criterion the document does not state.
   - technical: at most 5 technical competencies the document implies or names, each with a short name
     (4 words or fewer), an optional one-sentence description (10 words or fewer, plain imperative —
-    "Owns IFRS reporting and audit readiness"), an optional weight from 0 to 100, and a snippet where
-    one supports it.
+    "Owns IFRS reporting and audit readiness"), an optional weight — that competency's share of its
+    panel, a whole number from 1 to 100 — and a snippet where one supports it.
   - behavioural: at most 5 behavioural or leadership competencies the document implies or names, in the
     same shape as technical.
 
 For both panels, choose the five the document itself weights most heavily — never simply the first
-five encountered. Propose a competency's name and description confidently even when the document gives
-you nothing to base a weight on; only propose a weight when the document's own emphasis makes one
-defensible, and never propose one outside 0-100. Do not try to make either panel's weights total 100 —
-balancing the panel is the reviewer's job, not yours. Do not pad either list to reach five.
+five encountered. Do not pad either list to reach five.
+
+A weight is a share of the panel, never a score out of 100: the weights of one panel's competencies
+total exactly 100, and the two panels are weighted separately. Give the larger shares to the
+competencies the document emphasises most — by its order, by repetition, by "key", "critical" or
+"essential" wording, by how much of the text it spends on them, and by how central each is to the role
+the document describes. Weight every competency you propose. Give two competencies the same share only
+where the document gives them no difference in emphasis at all, and an entire panel equal shares only
+when nothing in the document separates any of them.
 
 You may be given, after the document's text, a list of this role's usual competency names. Where a
 competency you find in the document matches one of those names in meaning, reuse that exact name,

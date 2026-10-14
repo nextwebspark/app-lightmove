@@ -59,8 +59,8 @@ export function CompetencyTable({
 
   // A hand edit always makes the row theirs — see the sibling fix in CriteriaList.tsx and
   // templates/components/CompetencyPanel.tsx's own `patch`/`handleAddRow` for the same reason. Beyond
-  // the sparkle and Undo, this also keeps `documentFill.ts#balancePanelWeights`'s `isStated` check from
-  // treating a hand-set weight as unstated and sweeping it into the next reading's even-split rebalance.
+  // the sparkle and Undo, this also keeps `documentFill.ts#balancePanelWeights` from treating a hand-set
+  // weight as a proposal and rescaling it into the next reading's share of the panel.
   const patch = (index: number, changes: Partial<IdentifiedCompetency>) =>
     onChange(rows.map((row, i) => (i === index ? { ...row, ...changes, source: "MANUAL" } : row)));
 
@@ -127,8 +127,8 @@ export function CompetencyTable({
                     onPatch={(changes) => patch(index, changes)}
                     // Committing a typed weight is a hand edit too, even though it goes through
                     // `rebalance` rather than `patch` — the one row a person actually set is stamped
-                    // MANUAL so `balancePanelWeights`'s `isStated` check never sweeps it back into the
-                    // next reading's even split.
+                    // MANUAL so `balancePanelWeights` never rescales it into the next reading's share
+                    // of the panel.
                     onCommitWeight={(weight) =>
                       onChange(
                         rebalance(rows, index, weight, lockedIndices).map((row, i) =>
