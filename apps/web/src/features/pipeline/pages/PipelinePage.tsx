@@ -19,7 +19,7 @@ import { PipelineBoard } from "../components/PipelineBoard";
 import { PipelineList } from "../components/PipelineList";
 import { StagePills } from "../components/StagePills";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
-import { useClientVisibility, useRankMove, useStageDrop } from "../lib/usePipelineWrites";
+import { useBoardMove, useClientVisibility, useRankMove } from "../lib/usePipelineWrites";
 
 type PipelineView = "list" | "board";
 
@@ -103,7 +103,7 @@ function StaffPipeline() {
 
   const visibility = useClientVisibility(project.id);
   const rankMove = useRankMove(project.id, queryKey);
-  const stageDrop = useStageDrop(project.id);
+  const boardMove = useBoardMove(project.id, queryKey);
 
   const rows = pipeline.data?.rows ?? [];
   const stageCounts = pipeline.data?.stageCounts ?? [];
@@ -204,7 +204,7 @@ function StaffPipeline() {
           selectedIds={selectedIds}
           onToggleSelected={toggleSelected}
           onOpen={setOpenCandidateId}
-          onDrop={(drop) => stageDrop.mutate(drop)}
+          onMove={(placement) => boardMove.mutate(placement)}
           onToggleVisible={toggleVisible}
           onOpenNextAction={openNextAction}
         />
