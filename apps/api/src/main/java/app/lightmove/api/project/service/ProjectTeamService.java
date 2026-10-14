@@ -20,6 +20,8 @@ import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.model.ProjectMember;
+import app.lightmove.api.project.model.ProjectSeatTaken;
+import app.lightmove.api.project.model.ProjectSeatVacated;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
@@ -34,6 +36,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +63,7 @@ public class ProjectTeamService {
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final LightMoveProperties properties;
+    private final ApplicationEventPublisher events;
 
     /** Seats the member with this one staff role, or moves them to it. Idempotent. */
     @Transactional
@@ -78,6 +82,7 @@ public class ProjectTeamService {
 
         if (seat == null) {
             seats.save(ProjectMember.of(projectId, memberId, Set.of(rbac.role(role)), userId));
+            events.publishEvent(new ProjectSeatTaken(workspaceId, projectId, membership.getUserId(), userId));
             auditTeamChange(userId, workspaceId, projectId, memberId, "add", httpRequest);
             notifySeated(userId, project, membership, role, true);
             return projectService.responseFor(workspaceId, project, ProjectAudience.STAFF);
@@ -96,6 +101,9 @@ public class ProjectTeamService {
                 requireAnotherProjectLead(projectId);
             }
             seat.changeRoles(granted);
+            if (!heldStaffRole) {
+                events.publishEvent(new ProjectSeatTaken(workspaceId, projectId, membership.getUserId(), userId));
+            }
             auditTeamChange(userId, workspaceId, projectId, memberId, "roles", httpRequest);
             notifySeated(userId, project, membership, role, !heldStaffRole);
         }
@@ -114,6 +122,10 @@ public class ProjectTeamService {
             requireAnotherProjectLead(projectId);
         }
 
+        if (holdsStaffRole(seat)) {
+            access.userIdOfMember(memberId, workspaceId).ifPresent(leaving ->
+                    events.publishEvent(new ProjectSeatVacated(workspaceId, projectId, leaving, userId)));
+        }
         seats.delete(seat);
         auditTeamChange(userId, workspaceId, projectId, memberId, "remove", httpRequest);
         return projectService.responseFor(workspaceId, project, ProjectAudience.STAFF);
@@ -297,6 +309,10 @@ public class ProjectTeamService {
                     "That representative belongs to a different organisation");
         }
         return representative;
+    }
+
+    private static boolean holdsStaffRole(ProjectMember seat) {
+        return seat.getRoles().stream().anyMatch(role -> !role.is(ProjectRole.CLIENT));
     }
 
     private boolean holdsLead(ProjectMember seat) {

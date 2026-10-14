@@ -6,10 +6,13 @@ import static app.lightmove.api.core.email.render.EmailPhrase.strong;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.render.EmailAction;
+import app.lightmove.api.core.email.render.EmailBlock;
 import app.lightmove.api.core.email.render.EmailContent;
 import app.lightmove.api.core.email.render.EmailNote;
 import app.lightmove.api.core.email.render.EmailParagraph;
 import app.lightmove.api.core.email.render.EmailRenderer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
 
@@ -270,6 +273,53 @@ public class EmailTemplates {
                         plain(firstName(recipientName)), strong(workspaceName)),
                 new EmailAction("Choose a plan", billingLink),
                 EmailNote.of("You get this because you manage billing for the workspace.")));
+    }
+
+    /** A task someone else put on the recipient, still unread in the bell after the email delay. */
+    public EmailMessage buildTaskAssignedEmail(String recipient, String recipientName, String actorName,
+                                               String taskTitle, String executiveName, String positionTitle,
+                                               String due, String link) {
+        return renderer.render(recipient, "%s assigned you: %s".formatted(actorName, taskTitle), EmailContent.of(
+                "A task for you",
+                EmailParagraph.of("Hi %s — %s assigned you %s on %s for the %s search, due %s.",
+                        plain(firstName(recipientName)), plain(actorName), strong(taskTitle), strong(executiveName),
+                        plain(positionTitle), strong(due)),
+                new EmailAction("Open the task", link),
+                EmailNote.of("You get this because it was still unread in Uncava. Change what Uncava emails you "
+                        + "in Settings → Notifications.")));
+    }
+
+    /** A mention in a note, still unread after the email delay. Names the note and never quotes it. */
+    public EmailMessage buildMentionedEmail(String recipient, String recipientName, String actorName,
+                                            String executiveName, String positionTitle, String link) {
+        return renderer.render(recipient, "%s mentioned you in a note".formatted(actorName), EmailContent.of(
+                "You were mentioned",
+                EmailParagraph.of("Hi %s — %s mentioned you in a note on %s for the %s search.",
+                        plain(firstName(recipientName)), plain(actorName), strong(executiveName),
+                        plain(positionTitle)),
+                new EmailAction("Read the note", link),
+                EmailNote.of("Notes stay in Uncava, so this email doesn't carry it. Change what Uncava emails you "
+                        + "in Settings → Notifications.")));
+    }
+
+    /** The morning's summary: what is due today, what is overdue, and mentions still unread. */
+    public EmailMessage buildNotificationDigestEmail(String recipient, String recipientName, String date,
+                                                     int dueToday, int overdue, int unreadMentions,
+                                                     List<String> lines, String link) {
+        List<EmailBlock> blocks = new ArrayList<>();
+        blocks.add(EmailParagraph.of("Hi %s — here is your day: %s due today, %s overdue and %s unread.",
+                plain(firstName(recipientName)), strong(countOf(dueToday, "task")), strong(countOf(overdue, "task")),
+                strong(countOf(unreadMentions, "mention"))));
+        lines.forEach(line -> blocks.add(EmailParagraph.of("%s", plain(line))));
+        blocks.add(new EmailAction("Open My tasks", link));
+        blocks.add(EmailNote.of("A digest goes each morning there is something on your list. Turn it off in "
+                + "Settings → Notifications."));
+        return renderer.render(recipient, "Your Uncava day — %s".formatted(date),
+                new EmailContent("Your day in Uncava", blocks));
+    }
+
+    private static String countOf(int count, String noun) {
+        return count == 1 ? "1 " + noun : count + " " + noun + "s";
     }
 
     private static String creditsLeftOf(long credits) {

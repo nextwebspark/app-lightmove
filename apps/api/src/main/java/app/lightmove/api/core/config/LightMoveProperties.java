@@ -30,5 +30,6 @@ public record LightMoveProperties(
         RecallSettings recall,
         PublicApiSettings publicApi,
         McpSettings mcp,
-        BillingSettings billing
+        BillingSettings billing,
+        NotificationSettings notifications
 ) {}

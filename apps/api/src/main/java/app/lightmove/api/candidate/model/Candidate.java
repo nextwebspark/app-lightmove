@@ -38,8 +38,6 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Candidate extends BaseEntity {
 
-    public static final int MAX_NEXT_ACTION = 200;
-
     @Column(name = "project_id", nullable = false, updatable = false)
     private UUID projectId;
 
@@ -100,15 +98,6 @@ public class Candidate extends BaseEntity {
     /** False hides them from a client seat on every read it can reach; staff always see them (V132). */
     @Column(name = "client_visible", nullable = false)
     private boolean clientVisible = true;
-
-    @Column(name = "next_action")
-    private String nextAction;
-
-    @Column(name = "next_action_due")
-    private Instant nextActionDue;
-
-    @Column(name = "next_action_set_by")
-    private UUID nextActionSetBy;
 
     public static Candidate mapped(UUID projectId, UUID addedBy, UUID triageCompanyId, Person person,
                                    CandidateSource source, CandidateStatusDefinition status,
@@ -186,19 +175,6 @@ public class Candidate extends BaseEntity {
         boolean changed = clientVisible != visible;
         this.clientVisible = visible;
         return changed;
-    }
-
-    /** A blank text clears the action and its date together. */
-    public void planNextAction(String text, Instant due, UUID setBy) {
-        if (text == null || text.isBlank()) {
-            this.nextAction = null;
-            this.nextActionDue = null;
-            this.nextActionSetBy = null;
-            return;
-        }
-        this.nextAction = text.strip();
-        this.nextActionDue = due;
-        this.nextActionSetBy = setBy;
     }
 
     /** Moves the person to another of the mandate's companies, or off the universe altogether. */

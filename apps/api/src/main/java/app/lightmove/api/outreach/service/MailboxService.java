@@ -82,6 +82,12 @@ public class MailboxService {
                 mailbox.map(bookingPages::isOfferedFor).orElseGet(bookingPages::isOffered));
     }
 
+    /** The zone the person's connected mailbox works in, the one their day is read in; none without a mailbox. */
+    @Transactional(readOnly = true)
+    public Optional<ZoneId> timeZoneOf(UUID userId, UUID workspaceId) {
+        return connections.findByWorkspaceIdAndUserId(workspaceId, userId).map(MailboxConnection::zone);
+    }
+
     private ConnectedMailboxResponse responseOf(MailboxConnection mailbox, UUID userId, UUID workspaceId) {
         boolean movesOffNylas = mailbox.getGateway() == MailboxGatewayKind.NYLAS
                 && gateway.holdsRefreshTokens(workspaceId, mailbox.getProvider()) && cipher.isAvailable();

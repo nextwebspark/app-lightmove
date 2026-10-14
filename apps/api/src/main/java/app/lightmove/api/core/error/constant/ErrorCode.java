@@ -228,6 +228,14 @@ public enum ErrorCode {
     /** The closed stage stays last, and a reorder names every live stage or status exactly once. */
     PIPELINE_ORDER_INVALID(HttpStatus.CONFLICT, "That order does not match the pipeline"),
 
+    /** Changing, reassigning or cancelling a task is its creator's, its assignee's, the lead's or an admin's. */
+    TASK_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who set this task, whoever holds it, or the lead can change it"),
+
+    /** A task goes, and a mention reaches, only someone who works the position. */
+    TASK_ASSIGNEE_NOT_ON_TEAM(HttpStatus.BAD_REQUEST, "That person isn't on this position's team"),
+
+    TASK_PRESET_EXISTS(HttpStatus.CONFLICT, "Your team already has that preset"),
+
     /** A person's owner is a colleague: an active member who is not a client representative. */
     PERSON_OWNER_NOT_STAFF(HttpStatus.BAD_REQUEST, "The owner must be someone on your team"),
 

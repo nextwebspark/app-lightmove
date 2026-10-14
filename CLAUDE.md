@@ -341,7 +341,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -564,6 +564,25 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 (`toAddress`, never merely the ledger — the booking form's address is typed by whoever holds the link),
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
+
+**Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
+(`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
+that executive's earliest open one — `task` answers `candidate`'s `NextActionLookup`, so the board, the drawer, My
+tasks and the bell read the same rows (V132's free-text `next_action` columns became open tasks and are no longer
+written). A task goes, and a note's `@[Name](user:<uuid>)` / `@[team](team)` mention reaches, only someone who may
+work the position — `WORK_EXECUTE`, read again on every save (`ProjectAccess.allows`) — never a client seat; a note
+about no position mentions nobody. Anyone on the team completes a task; changing, reassigning or cancelling it is
+its creator's, its holder's, `TEAM_MANAGE`'s or `WORKSPACE_MANAGE`'s (`TASK_NOT_YOURS`). A seat that goes
+(`ProjectSeatVacated`, from the team screen or a member's removal) hands its open tasks to the position's first
+lead in the same transaction. Presets are the workspace's catalog (`app_lm_workspace_task_preset`, V98's
+seeded-on-first-read, retired-not-deleted idiom); free text is a title only. Rules file tasks from outreach — a
+reply, a bounce, a booked call — once per event (`rule_key`, unique), each switchable per workspace.
+`notification` is the bell: `NotificationRules` turns those events (and a mention, a seat taken, a task falling
+due) into `app_lm_notification` rows after commit, each recipient re-checked first; rows of one `group_key` fold
+while unread; a row names a note and never quotes it; `core/stream`'s per-user channel (`lm_user_stream`,
+`/me/notifications/stream`) nudges the open tabs. Email goes only for an assignment or a mention still unread
+after `lightmove.notifications.email-delay`, and a weekday digest at 08:00 in the person's mailbox zone, each
+claimed once. All of it is staff-only and rides no `CandidateResponse`, report, public API or MCP read.
 
 `publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
 script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
@@ -1012,6 +1031,13 @@ admin's invoicing; either ends the trial's grant there and then (`AppTrialConver
 once it has (`TRIAL_ENDING`/`TRIAL_ENDED` claims). The SPA counts it down in the banner and the topbar chip, and the
 ended sheet offers Choose a plan.
 `trial.enabled: false` (the test profile's) founds workspaces with no subscription, as before.
+V133 adds tasks and the bell: `app_lm_task` (person beside the nullable mapping, `rule_key` unique where set,
+due-soon/overdue notice stamps; V132's next actions backfilled as open tasks), `app_lm_workspace_task_preset`
+(seeded eight per workspace), `app_lm_workspace_task_rule` (no row is on), `app_lm_note_mention`,
+`app_lm_notification` (one live row per `group_key` while unread, by partial unique index; `email_due_at`/`emailed_at`
+the email claim), `app_lm_notification_preference` (no row is on) and `app_lm_notification_digest` (one per person
+per local day), and widens the activity kinds with `TASK_CREATED`, `TASK_COMPLETED`, `TASK_REOPENED`,
+`TASK_REASSIGNED` and `TASK_CANCELLED`.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

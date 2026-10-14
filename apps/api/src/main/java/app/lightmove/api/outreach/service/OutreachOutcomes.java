@@ -5,13 +5,16 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
+import app.lightmove.api.outreach.model.OutreachBounced;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
+import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +30,7 @@ class OutreachOutcomes {
     private final OutreachSequenceRepository sequences;
     private final CandidateOutreachService people;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
 
     /** {@code actor} is the consultant who pressed Stop, or null when the send-time re-check ended the run. */
     @Transactional(propagation = Propagation.MANDATORY)
@@ -46,6 +50,9 @@ class OutreachOutcomes {
         people.recordReplied(enrollment.getWorkspaceId(), enrollment.getProjectId(), enrollment.getPersonId(),
                 enrollment.getSequenceId(), sequenceNameOf(enrollment));
         audited(ProjectEventType.OUTREACH_REPLIED, enrollment, null, null).record();
+        events.publishEvent(new OutreachReplied(enrollment.getWorkspaceId(), enrollment.getProjectId(),
+                enrollment.getCandidateId(), enrollment.getPersonId(), enrollment.getId(),
+                enrollment.getSenderUserId()));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -54,6 +61,9 @@ class OutreachOutcomes {
         people.recordStopped(enrollment.getWorkspaceId(), enrollment.getProjectId(), enrollment.getPersonId(), null,
                 enrollment.getSequenceId(), sequenceNameOf(enrollment), EnrollmentStatus.BOUNCED.name());
         audited(ProjectEventType.OUTREACH_BOUNCED, enrollment, null, null).record();
+        events.publishEvent(new OutreachBounced(enrollment.getWorkspaceId(), enrollment.getProjectId(),
+                enrollment.getCandidateId(), enrollment.getPersonId(), enrollment.getId(),
+                enrollment.getSenderUserId()));
     }
 
     /**

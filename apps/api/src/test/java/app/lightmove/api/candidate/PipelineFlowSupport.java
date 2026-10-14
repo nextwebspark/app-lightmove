@@ -14,7 +14,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /** A firm, its positions, its people at each seat, and the pipeline routes they call, for the pipeline's tests. */
-abstract class PipelineFlowSupport extends FlowTestSupport {
+public abstract class PipelineFlowSupport extends FlowTestSupport {
 
     protected static final String PIPELINE = "/api/v1/workspace/pipeline";
 

@@ -5,6 +5,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.Collection;
 import java.util.List;
@@ -58,6 +59,28 @@ public class ProjectAccess {
     public Set<UUID> projectsReadAsClient(UUID userId, UUID workspaceId, Collection<UUID> projectIds) {
         Set<UUID> worked = projectsWithAction(userId, workspaceId, projectIds, ProjectAction.WORK_EXECUTE);
         return projectIds.stream().filter(projectId -> !worked.contains(projectId)).collect(Collectors.toSet());
+    }
+
+    /**
+     * {@link #requireAction} as a question about someone other than the caller — may this person, named as an
+     * assignee or in a mention, do {@code action} on the project now. Nobody outside the workspace may.
+     */
+    public boolean allows(UUID userId, UUID workspaceId, UUID projectId, ProjectAction action) {
+        try {
+            return !projectsWithAction(userId, workspaceId, List.of(projectId), action).isEmpty();
+        } catch (ApiException notMember) {
+            return false;
+        }
+    }
+
+    /** The project's seated users whose seat holds {@code action}; a workspace admin with no seat is not listed. */
+    public List<UUID> seatedUsersWithAction(UUID projectId, ProjectAction action) {
+        return seats.findSeatedUserIdsWithAction(projectId, action.name(), MemberStatus.ACTIVE);
+    }
+
+    /** The project's leads, first seated first. */
+    public List<UUID> leadsOf(UUID projectId) {
+        return seats.findLeadUserIds(projectId, MemberStatus.ACTIVE);
     }
 
     public void requireAction(UUID userId, UUID workspaceId, UUID projectId, ProjectAction action) {
