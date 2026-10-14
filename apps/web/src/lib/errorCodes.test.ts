@@ -27,6 +27,30 @@ describe("messageFor", () => {
     expect(messageFor(failure("IMPORT_TOO_MANY_ROWS", detail))).toBe(detail);
   });
 
+  it("names the field a validation refusal named, for a screen with no input to put it under", () => {
+    const refused = new ApiRequestError({
+      code: "VALIDATION_FAILED",
+      detail: "One or more fields are invalid",
+      status: 400,
+      correlationId: "c1",
+      fieldErrors: { "responsibilities[20].text": "size must be between 0 and 200", positionTitle: "Required" },
+    });
+
+    expect(messageFor(refused)).toBe("Text: size must be between 0 and 200");
+  });
+
+  it("reads a camel-cased field as words", () => {
+    const refused = new ApiRequestError({
+      code: "VALIDATION_FAILED",
+      detail: "One or more fields are invalid",
+      status: 400,
+      correlationId: "c1",
+      fieldErrors: { positionTitle: "Enter a title" },
+    });
+
+    expect(messageFor(refused)).toBe("Position title: Enter a title");
+  });
+
   it("drops the reference when the response carried none", () => {
     expect(messageFor(failure("INTERNAL_ERROR", "Something went wrong on our end", "none"))).toBe(
       "Something went wrong. Try again.",

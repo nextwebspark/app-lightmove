@@ -17,6 +17,7 @@ export function TagListInput({
   placeholder,
   ariaLabel,
   maxItems,
+  maxItemLength,
   disabled,
   options,
   listId,
@@ -26,6 +27,8 @@ export function TagListInput({
   placeholder?: string;
   ariaLabel: string;
   maxItems?: number;
+  /** The longest one chip the server takes; typing stops there rather than the save being refused. */
+  maxItemLength?: number;
   disabled?: boolean;
   options?: readonly ComboboxOption[];
   /** Unique per rendered field when `options` is given — it wires the input to its own listbox. */
@@ -106,6 +109,7 @@ export function TagListInput({
         {!disabled && !isFull && (
           <input
             value={draft}
+            maxLength={maxItemLength}
             aria-label={ariaLabel}
             placeholder={values.length === 0 ? placeholder : undefined}
             {...(options && {

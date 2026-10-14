@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ApiRequestError } from "./apiClient";
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
@@ -11,6 +12,16 @@ export class AutosaveFailedError extends Error {
     super("The last change could not be saved.", { cause });
     this.name = "AutosaveFailedError";
   }
+}
+
+/**
+ * A refusal of the payload itself (a 400, a 403, a 409 over a stale version) is refused again unchanged; only a
+ * failure of the trip — the network, a 5xx, a timeout, a rate limit — is worth sending the same edit again.
+ */
+function isWorthResending(error: unknown): boolean {
+  if (!(error instanceof ApiRequestError)) return true;
+  const status = error.problem.status;
+  return status >= 500 || status === 408 || status === 429;
 }
 
 export interface AutosaveOptions {
@@ -27,8 +38,8 @@ export interface AutosaveOptions {
  * the delay, on unmount, and immediately via `flush()`. Concurrent schedules collapse to one save —
  * the screens that use it have no Save button, so this is the only write path for their section.
  *
- * <p>A refused save keeps its payload and reads `"error"` until a save lands: it is resent after
- * each of {@link AUTOSAVE_RETRY_DELAYS_MS}, and `flush()` rejects rather than letting a caller act as
+ * <p>A refused save keeps its payload and reads `"error"` until a save lands: a failed trip is resent after
+ * each of {@link AUTOSAVE_RETRY_DELAYS_MS} (a refusal of the payload is not — it would only be refused again), and `flush()` rejects rather than letting a caller act as
  * if the edit were stored — a "Draft saved" over a dropped edit is what lost people's typing.
  */
 export function useAutosave<T>(save: (payload: T) => Promise<unknown>, options: AutosaveOptions = {}) {
@@ -86,7 +97,7 @@ export function useAutosave<T>(save: (payload: T) => Promise<unknown>, options: 
         reported.current = true;
         onErrorRef.current?.(error);
       }
-      const delay = AUTOSAVE_RETRY_DELAYS_MS[failures.current - 1];
+      const delay = isWorthResending(error) ? AUTOSAVE_RETRY_DELAYS_MS[failures.current - 1] : undefined;
       // Never resent once the screen is gone: a remount reads the server afresh, and a late resend
       // of this older payload would overwrite whatever is typed there.
       if (delay !== undefined && !unmounted.current) {

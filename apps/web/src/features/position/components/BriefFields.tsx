@@ -1,4 +1,4 @@
-import { useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 
@@ -326,12 +326,17 @@ export function StatusBadge({
  * headline figures a screen only reads back (the package total, the team size) are the larger face;
  * a field the hand goes to is this one.
  */
+/** Past fifteen digits a JavaScript number stops holding the figure typed, and Java's `long` soon refuses it. */
+const MAX_FIGURE_DIGITS = 15;
+
 export function FigureInput({
   value,
   onChange,
   grouped = false,
   max,
+  decimals = 0,
   className,
+  onBlur,
   ...rest
 }: {
   value: number | null;
@@ -339,17 +344,27 @@ export function FigureInput({
   /** Thousands separators while typing — money, never a percentage. */
   grouped?: boolean;
   max?: number;
+  /** Places after the point a figure may carry (a 7.5% bonus); 0 keeps digits only. */
+  decimals?: number;
 } & Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "max" | "size">) {
+  // While a decimal is being typed the text runs ahead of the number: "7." is 7 until the next digit lands.
+  const [typing, setTyping] = useState<string | null>(null);
+  const shown = typing ?? (value === null ? "" : grouped ? value.toLocaleString("en-GB") : String(value));
   return (
     <input
       {...rest}
-      inputMode="numeric"
-      value={value === null ? "" : grouped ? value.toLocaleString("en-GB") : String(value)}
+      inputMode={decimals > 0 ? "decimal" : "numeric"}
+      value={shown}
       onChange={(event) => {
-        const digits = event.target.value.replace(/[^\d]/g, "");
-        if (!digits) return onChange(null);
-        const figure = Number(digits);
-        onChange(max !== undefined ? Math.min(figure, max) : figure);
+        const text = figureText(event.target.value, decimals);
+        const figure = text && text !== "." ? Number(text) : null;
+        const kept = figure !== null && max !== undefined && figure > max ? max : figure;
+        setTyping(decimals > 0 ? (kept === figure ? text : String(kept)) : null);
+        onChange(kept);
+      }}
+      onBlur={(event) => {
+        setTyping(null);
+        onBlur?.(event);
       }}
       className={cn(
         "min-w-0 border-b border-u-border bg-transparent py-1.5 type-figure-input text-u-text outline-none transition placeholder:text-u-text3 focus:border-u-accent",
@@ -357,4 +372,13 @@ export function FigureInput({
       )}
     />
   );
+}
+
+/** What was typed, reduced to a figure: digits, one point when decimals are allowed, and no more than fits. */
+export function figureText(typed: string, decimals: number): string {
+  const kept = typed.replace(decimals > 0 ? /[^\d.]/g : /[^\d]/g, "");
+  const [whole = "", ...rest] = kept.split(".");
+  const integer = whole.slice(0, MAX_FIGURE_DIGITS);
+  if (decimals === 0 || rest.length === 0) return integer;
+  return `${integer}.${rest.join("").slice(0, decimals)}`;
 }

@@ -52,7 +52,7 @@ class GettingStartedIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roleTitle":"CFO","department":"Group Finance","location":null,
+                                {"roleTitle":"CFO","department":"Group Finance","locationCity":null,
                                  "employmentType":null,"seniority":null,"responsibilities":[],
                                  "narrative":null,"fieldSources":{}}"""))
                 .andExpect(status().isOk());
@@ -213,7 +213,7 @@ class GettingStartedIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"roleTitle":"CFO","department":null,"location":null,"employmentType":null,
+                                {"roleTitle":"CFO","department":null,"locationCity":null,"employmentType":null,
                                  "seniority":null,"responsibilities":[],"narrative":null,"fieldSources":{}}"""))
                 .andExpect(status().isOk());
 

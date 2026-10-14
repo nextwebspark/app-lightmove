@@ -4,13 +4,15 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { EMAIL_FIELD_ERROR_CODES, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
+import { EMAIL_FIELD_ERROR_CODES, fieldLabelOf, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
 import { signupSchema, type SignupValues } from "../schemas";
+
+const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = ["fullName", "email", "password", "confirmPassword"];
 import { clearSignupRestart, signupRestartName } from "../signupRestart";
 
 /**
@@ -70,14 +72,19 @@ export function SignupPage() {
       }
 
       // Field-level messages the server produced (its rules are the ones that actually count).
-      const fieldErrors = error.fieldErrors;
-      const fields = Object.keys(fieldErrors) as (keyof SignupValues)[];
-      if (fields.length > 0) {
-        fields.forEach((field) => setError(field, { message: fieldErrors[field] }));
-        return;
+      // Only fields with an input take an inline error: one set on any other (termsAccepted) renders nowhere,
+      // and the form just sits there refusing to submit.
+      const unattributed: string[] = [];
+      for (const [field, message] of Object.entries(error.fieldErrors)) {
+        if (SIGNUP_INPUTS.includes(field as keyof SignupValues)) {
+          setError(field as keyof SignupValues, { message });
+        } else {
+          unattributed.push(`${fieldLabelOf(field)}: ${message}`);
+        }
       }
+      if (Object.keys(error.fieldErrors).length > 0 && unattributed.length === 0) return;
 
-      setFormError(messageFor(error));
+      setFormError(unattributed[0] ?? messageFor(error));
     }
   };
 

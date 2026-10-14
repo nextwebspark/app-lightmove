@@ -230,6 +230,11 @@ build. The design tokens in `styles/theme.css` and the `ApiError` shape are the 
 both; that is deliberate, and a shared package for a few dozen lines would couple the two for less than
 it costs.
 
+**The API refuses a request field its DTO does not declare** (`lightmove.web.refuse-unknown-request-fields`). Installed
+copies of the extension lag the store by weeks, so a field it sends — `CaptureCompanyRequest`'s and
+`SaveCandidateRequest`'s, and `refreshToken` on the refresh — is never removed or renamed on the server; retire one
+only once no supported release sends it. Adding a field to the extension's payload needs the API to take it first.
+
 The manifest is generated from `manifest.config.ts` so its paths and the bundle cannot drift. Never
 hand-edit a built `manifest.json`.
 

@@ -157,7 +157,7 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"fullName":"Rania Aziz","companyName":"A Firm",
+                                {"fullName":"Rania Aziz","employerName":"A Firm",
                                  "compensation":{"currency":"AED","baseSalary":1800000,"bonus":810000,
                                                  "longTermIncentive":1000000,
                                                  "allowanceLines":[{"label":"Housing","amount":414000},
@@ -186,7 +186,7 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"fullName":"Omar Haddad","companyName":"A Firm",
+                                {"fullName":"Omar Haddad","employerName":"A Firm",
                                  "compensation":{"longTermIncentiveTypes":["phantom"]}}"""))
                 .andExpect(status().isBadRequest());
     }
@@ -200,7 +200,7 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"fullName":"Omar Haddad","companyName":"A Firm",
+                                {"fullName":"Omar Haddad","employerName":"A Firm",
                                  "compensation":{"noticePeriod":"6 weeks, negotiable"}}"""))
                 .andExpect(status().isCreated());
 

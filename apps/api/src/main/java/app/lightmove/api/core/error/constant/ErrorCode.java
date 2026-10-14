@@ -129,6 +129,7 @@ public enum ErrorCode {
 
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That file is too large"),
 
+    REQUEST_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That request is too large"),
     MCP_REQUEST_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "That request is too large"),
 
     UNSUPPORTED_FILE_TYPE(HttpStatus.BAD_REQUEST, "That file type is not supported"),
