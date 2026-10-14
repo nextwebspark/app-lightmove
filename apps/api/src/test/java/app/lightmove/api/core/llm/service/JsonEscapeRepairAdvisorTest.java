@@ -48,6 +48,14 @@ class JsonEscapeRepairAdvisorTest {
     }
 
     @Test
+    @DisplayName("a lone backslash ending the text is left for the validator to refuse")
+    void leavesATrailingBackslash() {
+        String answer = "{\"a\":\"cut off \\";
+
+        assertThat(JsonEscapeRepairAdvisor.withValidEscapes(answer)).isSameAs(answer);
+    }
+
+    @Test
     @DisplayName("an answer with no backslash at all is returned as it came")
     void leavesPlainAnswersAlone() {
         String answer = "{\"roleTitle\":\"Chief Financial Officer\"}";

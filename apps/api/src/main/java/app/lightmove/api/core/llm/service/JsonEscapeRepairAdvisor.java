@@ -3,6 +3,7 @@ package app.lightmove.api.core.llm.service;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
 import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
@@ -16,6 +17,7 @@ import org.springframework.ai.chat.model.Generation;
  * at temperature 0 wrote {@code "\协"} in a snippet, and its repair attempt wrote the same answer again.
  */
 @RequiredArgsConstructor
+@Slf4j
 final class JsonEscapeRepairAdvisor implements CallAdvisor {
 
     private static final String VALID_ESCAPES = "\"\\/bfnrt";
@@ -46,6 +48,8 @@ final class JsonEscapeRepairAdvisor implements CallAdvisor {
         if (!repaired) {
             return response;
         }
+        log.info("Prompt {} answered with an escape JSON does not have; its backslash was dropped before "
+                + "validation.", request.context() == null ? null : request.context().get(ChatCallLog.PROMPT_ID_ATTRIBUTE));
         return response.mutate()
                 .chatResponse(ChatResponse.builder().from(answer).generations(generations).build())
                 .build();

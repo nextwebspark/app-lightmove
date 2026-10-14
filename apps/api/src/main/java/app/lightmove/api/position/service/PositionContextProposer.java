@@ -45,17 +45,16 @@ public class PositionContextProposer {
             "new ([a-z]+ )?(role|position|post|seat)", "newly[- ](created|established|formed)",
             "created (this|the) role");
     private static final Pattern BACKFILL_WORDING = reasonWording(
-            "replace", "replacement (for|of)", "replacing", "outgoing", "backfill", "vacated",
-            "(is|are|has been|was) leaving",
-            "departure of", "resigned", "resignation", "moved on", "stepp(ing|ed|s) down");
+            "replace (the|our|their) [a-z]+", "replacement (for|of)", "replacing (the|our|their)", "backfill",
+            "vacated", "(is|are|has been|was) leaving", "departure of", "resigned", "resignation of",
+            "stepp(ing|ed|s) down");
     private static final Pattern SUCCESSION_WORDING = reasonWording(
-            "succession", "successor", "retire(s|d|ment|ing)?");
+            "succession (plan|planning) for", "successor (to|of|for)", "retirement of", "(is|are|will be) retiring");
     private static final Pattern RESTRUCTURING_WORDING = reasonWording(
-            "restructur(e|ed|ing)", "reorgani[sz](e|ed|ation|ing)", "new (organisation|organization)al structure",
-            "merger");
+            "restructur(e|ed|ing) of", "following (a|the) (restructur(e|ing)|reorgani[sz]ation|merger)",
+            "reorgani[sz](ation|ing) of", "new (organisation|organization)al structure");
     private static final Pattern GROWTH_EXPANSION_WORDING = reasonWording(
-            "expansion", "expan(d|ds|ding) into", "new market", "new office", "newly opened",
-            "launch(ing)? (of|in)");
+            "expan(d|ds|ding|sion) into", "new office", "newly opened");
 
     private final PositionDocumentRedactor redactor;
     private final ExtractedFieldReader fieldReader;

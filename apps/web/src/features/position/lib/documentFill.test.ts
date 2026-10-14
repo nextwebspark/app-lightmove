@@ -402,6 +402,32 @@ describe("competency weights", () => {
     expect(balancePanelWeights(rows).map((row) => row.weight)).toEqual([60, 40, 0, 0, 0]);
   });
 
+  it("gives a later reading its own emphasis back once a typed row makes room", () => {
+    const zeroed = fillBrief(
+      snapshotOf({
+        technical: [
+          { name: "Typed A", description: null, weight: 60, source: "MANUAL" },
+          { name: "Typed B", description: null, weight: 40, source: "MANUAL" },
+        ],
+      }),
+      { assessment: extraction([field("technicalCompetency", "Treasury — 50 — "), field("technicalCompetency", "Audit — 50 — ")]) },
+      FILE_NAME,
+    ).next.technical;
+    expect(zeroed.map((row) => row.weight)).toEqual([60, 40, 0, 0]);
+
+    const afterRemoval = zeroed.filter((row) => row.name !== "Typed B");
+    const reread = fillBrief(
+      snapshotOf({ technical: afterRemoval }),
+      { assessment: extraction([field("technicalCompetency", "Treasury — 75 — "), field("technicalCompetency", "Audit — 25 — ")]) },
+      FILE_NAME,
+    ).next.technical;
+    expect(reread.map((row) => [row.name, row.weight])).toEqual([
+      ["Typed A", 60],
+      ["Treasury", 30],
+      ["Audit", 10],
+    ]);
+  });
+
   it("returns a reading that already totals 100 as it is", () => {
     const rows = documentRows([50, 30, 20]);
     expect(balancePanelWeights(rows)).toBe(rows);

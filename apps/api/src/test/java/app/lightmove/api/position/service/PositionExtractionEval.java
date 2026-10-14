@@ -64,7 +64,8 @@ import tools.jackson.databind.json.JsonMapper;
  * field key to its acceptable answers, every item a list field may state, or {@code []} where the document
  * states none; a key left out is not scored. Without one a field is scored on coverage, snippet
  * verification, confidence and run-to-run agreement alone. {@code baseline} swaps in any
- * {@code prompts/<id>-baseline-*} kept under test resources.
+ * {@code prompts/<id>-baseline-*} kept under test resources — a frozen copy of a prompt as it shipped
+ * before a change, never edited, so the before number can be run again.
  * The report — counts and weights, never a document's name or text — is appended to
  * {@code docs/eval/position-extraction-eval.md}.
  */

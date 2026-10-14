@@ -26,10 +26,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class LlmCallPolicy {
 
-    /**
-     * Spring AI's own default for the schema advisor, named so the escape repair sits just inside it and
-     * mends every answer — the repair attempt's too — before it is validated.
-     */
+    /** Spring AI's own default for the schema advisor, named so the escape repair can sit just inside it. */
     private static final int SCHEMA_VALIDATION_ORDER = Ordered.LOWEST_PRECEDENCE - 2000;
 
     private final LlmSettings settings;

@@ -309,6 +309,22 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a weight in exponent notation is refused before any arithmetic, and drops its competency")
+    void refusesAnExponentWeight() throws Exception {
+        Fixture f = fixture("Assessment Weight Exponent Firm", "Acme Holdings Group", "acme.example");
+        RecordingChatModel model = new RecordingChatModel("""
+                {"criteria":[],"technical":[{"name":"Overflow","weight":"1E999999999"},{"name":"Treasury","weight":"40"}]}
+                """);
+
+        ProposedAssessment proposed = proposerWith(model)
+                .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
+
+        assertThat(proposed.fields()).filteredOn(field -> field.fieldKey().equals("technicalCompetency"))
+                .extracting(ExtractedField::value)
+                .containsExactly("Treasury — 40");
+    }
+
+    @Test
     @DisplayName("a competency proposed with a description but no weight keeps the description, "
             + "packed behind a default weight rather than losing it to a positional shift")
     void keepsADescriptionWhenNoWeightWasProposed() throws Exception {
