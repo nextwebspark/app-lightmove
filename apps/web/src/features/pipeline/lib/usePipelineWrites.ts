@@ -4,7 +4,8 @@ import { messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import * as pipelineApi from "../api/pipelineApi";
-import type { PipelinePage, PipelineRankMove, PipelineRow } from "../api/types";
+import type { PipelinePage, PipelineRankMove, PipelineRow, PipelineStageCount } from "../api/types";
+import type { BoardPlacement } from "./pipelineView";
 
 type Snapshot = [QueryKey, PipelinePage | undefined][];
 
@@ -86,17 +87,55 @@ export function useRankMove(projectId: string, queryKey: QueryKey) {
   });
 }
 
-/** A card dropped on a stage: the existing status write, with that stage's default status. */
-export function useStageDrop(projectId: string) {
+/**
+ * A card dropped on the board: the status write when it changes stage, then the rank write that puts it where it
+ * was dropped, as one mutation so no refetch lands between them. The board shows the new order at once.
+ */
+export function useBoardMove(projectId: string, queryKey: QueryKey) {
+  const queryClient = useQueryClient();
   const toast = useToast();
   const rowsChanged = useProjectRowsChanged();
   return useMutation({
-    mutationFn: ({ candidateId, status }: { candidateId: string; status: string; stageLabel: string }) =>
-      candidatesApi.changeCandidateStatus(projectId, candidateId, status),
-    onSuccess: (saved, { stageLabel }) => {
-      toast(`${saved.fullName} moved to ${stageLabel} · ${saved.statusLabel ?? saved.status}`);
-      void rowsChanged(projectId);
+    mutationFn: async (placement: BoardPlacement) => {
+      const saved = placement.status
+        ? await candidatesApi.changeCandidateStatus(projectId, placement.candidateId, placement.status)
+        : null;
+      if (!placement.move) return { saved, rankRefused: null };
+      try {
+        await pipelineApi.movePipelineRank(projectId, placement.candidateId, placement.move);
+        return { saved, rankRefused: null };
+      } catch (error) {
+        if (!saved) throw error;
+        return { saved, rankRefused: error };
+      }
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onMutate: async (placement) => {
+      await queryClient.cancelQueries({ queryKey: pipelineApi.PIPELINE_KEY_PREFIX(projectId) });
+      const previous = queryClient.getQueryData<PipelinePage>(queryKey);
+      if (previous) {
+        queryClient.setQueryData<PipelinePage>(queryKey, {
+          ...previous,
+          rows: placement.rows,
+          stageCounts: recounted(previous.stageCounts, placement.fromStageKey, placement.stageKey),
+        });
+      }
+      return previous;
+    },
+    onError: (error, _placement, previous) => {
+      if (previous) queryClient.setQueryData(queryKey, previous);
+      toast.error(messageFor(error));
+    },
+    onSuccess: ({ saved, rankRefused }, { stageLabel }) => {
+      if (rankRefused) toast.error(messageFor(rankRefused));
+      else if (saved) toast(`${saved.fullName} moved to ${stageLabel} · ${saved.statusLabel ?? saved.status}`);
+    },
+    onSettled: () => void rowsChanged(projectId),
   });
+}
+
+function recounted(stageCounts: PipelineStageCount[], from: string, to: string): PipelineStageCount[] {
+  if (from === to) return stageCounts;
+  return stageCounts.map((stage) =>
+    stage.key === from ? { ...stage, count: stage.count - 1 } : stage.key === to ? { ...stage, count: stage.count + 1 } : stage,
+  );
 }

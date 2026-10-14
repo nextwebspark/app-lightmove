@@ -1,5 +1,5 @@
 import { cn } from "../../../lib/cn";
-import { pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
+import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import type { PipelineStageCount } from "../api/types";
 
 /** What each seeded stage is for, as the mockup captions it; a stage the workspace added has none. */
@@ -41,14 +41,14 @@ export function StagePills({
         aria-pressed={allPressed}
         onClick={() => onSelect("")}
         className={cn(
-          "flex flex-none items-center gap-1.5 self-center rounded-u-control px-2.5 py-1.5 transition hover:bg-u-raised",
-          allPressed && "bg-u-raised",
+          "flex flex-none items-center gap-1.5 self-center rounded-u-control px-2.5 py-1.5 transition",
+          allPressed ? "bg-u-raised ring-1 ring-u-border-strong" : "hover:bg-u-raised",
         )}
       >
         <span className={cn("whitespace-nowrap text-note font-semibold", allPressed ? "text-u-text" : "text-u-text2")}>
           All
         </span>
-        <Count value={total} pressed={allPressed} />
+        <Count value={total} swatch={allPressed ? "bg-u-text" : null} />
       </button>
       {active.map((stage) => (
         <Pill
@@ -98,36 +98,40 @@ function Pill({
       aria-pressed={pressed}
       onClick={() => onSelect(pressed ? "" : stage.key)}
       className={cn(
-        "relative flex flex-col items-start gap-1 overflow-hidden rounded-t-u-control px-3.5 pb-2.5 pt-2 text-start transition hover:bg-u-raised",
+        "relative flex flex-col items-start gap-1 overflow-hidden rounded-t-u-control px-3.5 pb-2.5 pt-2 text-start transition",
+        pressed ? pipelineColourClass(stage.colour) : "hover:bg-u-raised",
         className,
       )}
     >
       <span className="flex w-full min-w-0 items-center gap-1.5">
         <span aria-hidden className={cn("size-[7px] flex-none rounded-full", pipelineSwatchClass(stage.colour))} />
-        <span className={cn("whitespace-nowrap text-note font-semibold", pressed ? "text-u-text" : "text-u-text2")}>
+        <span className={cn("whitespace-nowrap text-note font-semibold", pressed ? "text-current" : "text-u-text2")}>
           {label}
         </span>
-        <Count value={stage.count} pressed={pressed} />
+        <Count value={stage.count} swatch={pressed ? pipelineSwatchClass(stage.colour) : null} />
       </span>
-      {caption && <span className="w-full truncate text-eyebrow text-u-text3">{caption}</span>}
+      {caption && (
+        <span className={cn("w-full truncate text-eyebrow", pressed ? "text-u-text2" : "text-u-text3")}>{caption}</span>
+      )}
       <span
         aria-hidden
         className={cn(
           "absolute inset-x-0 bottom-0 rounded-sm",
           pipelineSwatchClass(stage.colour),
-          pressed ? "h-[3px] opacity-100" : "h-0.5 opacity-70",
+          pressed ? "h-[3px] opacity-100" : "h-0.5 opacity-35",
         )}
       />
     </button>
   );
 }
 
-function Count({ value, pressed }: { value: number; pressed: boolean }) {
+/** The count chip, filled in the stage's own colour while its pill is the one pressed. */
+function Count({ value, swatch }: { value: number; swatch: string | null }) {
   return (
     <span
       className={cn(
-        "grid h-[18px] min-w-[18px] flex-none place-items-center rounded-sm bg-u-border px-1 font-mono text-eyebrow font-medium",
-        pressed ? "text-u-text" : "text-u-text3",
+        "grid h-[18px] min-w-[18px] flex-none place-items-center rounded-sm px-1 font-mono text-eyebrow font-medium",
+        swatch ? cn(swatch, "text-u-bg") : "bg-u-border text-u-text3",
       )}
     >
       {value}

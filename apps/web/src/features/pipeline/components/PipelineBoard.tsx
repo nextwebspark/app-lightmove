@@ -2,24 +2,33 @@ import { useState, type DragEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
+import type { CandidatePipelineStage } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { defaultStatusOf, findStatus, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import type { PipelineCatalog } from "../../workspace/api/types";
 import type { PipelineRow, PipelineStageCount } from "../api/types";
-import { daysInStage, inactiveGroupsOf, shortDate } from "../lib/pipelineView";
+import {
+  boardPlacementOf,
+  daysInStage,
+  inactiveGroupsOf,
+  shortDate,
+  type BoardPlacement,
+  type BoardTarget,
+} from "../lib/pipelineView";
 import { NextActionText, VisibilityToggle } from "./PipelineControls";
 
-/** Where a dropped card goes: a status key, and the stage it lands in, for the toast. */
-export interface BoardDrop {
-  candidateId: string;
-  status: string;
-  stageLabel: string;
+/** The drop the pointer is over: a column and the card it would land before, or an Inactive group. */
+interface DropSlot {
+  key: string;
+  beforeId: string | null;
+  lands: boolean;
 }
 
 /**
  * The pipeline as a board: one column per active stage, and the closed stage beside them as Inactive,
- * grouped by status. Dropping a card on a column gives that stage's default status; on an Inactive group,
- * that status. A stage with no default to give is not a drop target.
+ * grouped by status. A card dropped in its own column is reordered; on another column it takes that
+ * stage's default status and lands where it was dropped; on an Inactive group, that status. A stage with
+ * no default to give accepts only its own cards.
  */
 export function PipelineBoard({
   projectId,
@@ -29,7 +38,7 @@ export function PipelineBoard({
   selectedIds,
   onToggleSelected,
   onOpen,
-  onDrop,
+  onMove,
   onToggleVisible,
 }: {
   projectId: string;
@@ -39,37 +48,60 @@ export function PipelineBoard({
   selectedIds: ReadonlySet<string>;
   onToggleSelected: (candidateId: string) => void;
   onOpen: (candidateId: string) => void;
-  onDrop: (drop: BoardDrop) => void;
+  onMove: (placement: BoardPlacement) => void;
   onToggleVisible: (row: PipelineRow) => void;
 }) {
   const [dragging, setDragging] = useState<PipelineRow | null>(null);
-  const [overKey, setOverKey] = useState<string | null>(null);
+  const [over, setOver] = useState<DropSlot | null>(null);
   const [inactiveOpen, setInactiveOpen] = useState(true);
+  const [landed, setLanded] = useState<{ basis: readonly PipelineRow[]; rows: PipelineRow[] } | null>(null);
+  if (landed && landed.basis !== rows) setLanded(null);
+  const shown = landed?.basis === rows ? landed.rows : rows;
+
   const columns = stageCounts.filter((stage) => stage.kind === "active");
   const closed = stageCounts.find((stage) => stage.kind === "closed") ?? null;
-  const inactive = rows.filter((row) => row.pipelineStage.kind === "closed");
-  const groups = inactiveGroupsOf(rows, catalog);
-  const activeCount = rows.length - inactive.length;
+  const inactive = shown.filter((row) => row.pipelineStage.kind === "closed");
+  const groups = inactiveGroupsOf(shown, catalog);
+  const activeCount = shown.length - inactive.length;
 
   const defaultOf = (stageKey: string) => {
     const stage = catalog.stages.find((candidate) => candidate.key === stageKey);
     return stage ? defaultStatusOf(stage) : null;
   };
 
-  const dropTarget = (key: string, target: { status: string; stageLabel: string } | null, accepts: boolean) => ({
+  const columnTarget = (stage: PipelineStageCount, beforeId: string | null): BoardTarget | null => {
+    if (!dragging) return null;
+    if (dragging.pipelineStage.key === stage.key) return { stage: stageOf(stage), status: null, beforeId };
+    const fallback = defaultOf(stage.key);
+    return fallback ? { stage: stageOf(stage), status: fallback, beforeId } : null;
+  };
+
+  /**
+   * The browser slides a refused drop's ghost back to where it started, which reads as the card bouncing,
+   * so every slot that takes the card accepts the drop, its own included; only a real move is written.
+   */
+  const dropTarget = (key: string, targetAt: (event: DragEvent<HTMLElement>) => BoardTarget | null) => ({
     onDragOver: (event: DragEvent<HTMLElement>) => {
-      if (!dragging || !target || !accepts) return;
+      if (!dragging) return;
+      const target = targetAt(event);
+      if (!target) return;
       event.preventDefault();
-      if (overKey !== key) setOverKey(key);
+      if (over?.key === key && over.beforeId === target.beforeId) return;
+      setOver({ key, beforeId: target.beforeId, lands: boardPlacementOf(shown, dragging.candidateId, target) !== null });
     },
-    onDragLeave: () => setOverKey((current) => (current === key ? null : current)),
+    onDragLeave: (event: DragEvent<HTMLElement>) => {
+      if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+      setOver((current) => (current?.key === key ? null : current));
+    },
     onDrop: (event: DragEvent<HTMLElement>) => {
       event.preventDefault();
-      const moved = dragging;
+      const target = targetAt(event);
+      const placement = dragging && target ? boardPlacementOf(shown, dragging.candidateId, target) : null;
       setDragging(null);
-      setOverKey(null);
-      if (!moved || !target || !accepts) return;
-      onDrop({ candidateId: moved.candidateId, status: target.status, stageLabel: target.stageLabel });
+      setOver(null);
+      if (!placement) return;
+      setLanded({ basis: rows, rows: placement.rows });
+      onMove(placement);
     },
   });
 
@@ -84,7 +116,7 @@ export function PipelineBoard({
     },
     onDragEnd: () => {
       setDragging(null);
-      setOverKey(null);
+      setOver(null);
     },
   });
 
@@ -93,18 +125,20 @@ export function PipelineBoard({
       <div className="flex min-h-0 flex-1 items-stretch gap-2 overflow-x-auto [scrollbar-width:none]">
         {columns.map((stage) => {
           const fallback = defaultOf(stage.key);
-          const cards = rows.filter((row) => row.pipelineStage.key === stage.key);
-          const accepts = fallback !== null && dragging?.pipelineStage.key !== stage.key;
-          const isOver = overKey === stage.key && dragging !== null;
+          const cards = shown.filter((row) => row.pipelineStage.key === stage.key);
+          const slot = dragging && over?.key === stage.key && over.lands ? over : null;
+          const restages = slot !== null && dragging?.pipelineStage.key !== stage.key;
+          const lineBefore = (candidateId: string) => slot?.beforeId === candidateId;
+          const lineAfterLast = slot !== null && slot.beforeId === null && cards.length > 0;
           return (
             <section
               key={stage.key}
               aria-label={stage.label}
               data-drop-target={fallback ? "true" : "false"}
-              {...dropTarget(stage.key, fallback && { status: fallback.key, stageLabel: stage.label }, accepts)}
+              {...dropTarget(stage.key, (event) => columnTarget(stage, beforeIdAt(event.currentTarget, event.clientY)))}
               className={cn(
                 "flex min-h-0 min-w-[180px] flex-1 flex-col gap-2 rounded-u-chip border bg-u-raised p-[7px] transition-colors",
-                isOver ? "border-u-accent" : "border-transparent",
+                restages ? "border-u-accent" : "border-transparent",
               )}
             >
               <header className="relative flex flex-none flex-col gap-1 px-1.5 pb-2.5">
@@ -120,25 +154,28 @@ export function PipelineBoard({
                   className={cn(
                     "absolute inset-x-1.5 bottom-0 h-0.5 rounded-sm",
                     pipelineSwatchClass(stage.colour),
-                    isOver ? "opacity-100" : "opacity-35",
+                    restages ? "opacity-100" : "opacity-35",
                   )}
                 />
               </header>
-              <div className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto [scrollbar-width:none]">
-                {cards.map((row) => (
+              <div className="-my-1.5 flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto py-1.5 [scrollbar-width:none]">
+                {cards.map((row, index) => (
                   <article
                     key={row.candidateId}
                     aria-label={row.fullName}
+                    data-card-id={row.candidateId}
                     {...cardDrag(row)}
                     onClick={() => onOpen(row.candidateId)}
                     className={cn(
-                      "flex flex-none cursor-pointer flex-col gap-2.5 rounded-u-chip border bg-u-sunken p-3 transition",
+                      "relative flex flex-none cursor-pointer flex-col gap-2.5 rounded-u-chip border bg-u-sunken p-3 transition",
                       selectedIds.has(row.candidateId)
                         ? "border-u-accent"
                         : "border-u-border-strong hover:border-u-text3",
                       dragging?.candidateId === row.candidateId && "opacity-40",
                     )}
                   >
+                    {lineBefore(row.candidateId) && <DropLine edge="top" />}
+                    {lineAfterLast && index === cards.length - 1 && <DropLine edge="bottom" />}
                     <span className="flex self-start" onClick={(event) => event.stopPropagation()}>
                       <SelectionCheckbox
                         checked={selectedIds.has(row.candidateId)}
@@ -172,7 +209,12 @@ export function PipelineBoard({
                   </article>
                 ))}
                 {cards.length === 0 && (
-                  <div className="grid min-h-[90px] place-items-center rounded-u-chip border border-dashed border-u-border p-3 text-center text-meta text-u-text3">
+                  <div
+                    className={cn(
+                      "grid min-h-[90px] place-items-center rounded-u-chip border border-dashed p-3 text-center text-meta transition-colors",
+                      restages ? "border-u-accent bg-u-accent-tint text-u-accent" : "border-u-border text-u-text3",
+                    )}
+                  >
                     {fallback ? "Drop an executive here" : "No default status to give"}
                   </div>
                 )}
@@ -210,12 +252,11 @@ export function PipelineBoard({
                   <InactiveGroup
                     label={closed.label}
                     rows={[]}
-                    isOver={overKey === closed.key && dragging !== null}
-                    dropProps={dropTarget(
-                      closed.key,
-                      defaultOf(closed.key) && { status: defaultOf(closed.key)!.key, stageLabel: closed.label },
-                      true,
-                    )}
+                    isOver={dragging !== null && over?.key === `status:${closed.key}` && over.lands}
+                    dropProps={dropTarget(`status:${closed.key}`, () => {
+                      const fallback = defaultOf(closed.key);
+                      return fallback ? { stage: stageOf(closed), status: fallback, beforeId: null } : null;
+                    })}
                   />
                 )}
                 {groups.map((group) => {
@@ -226,10 +267,12 @@ export function PipelineBoard({
                       key={group.status}
                       label={group.label}
                       rows={group.rows}
-                      isOver={overKey === group.status && dragging !== null}
+                      isOver={dragging !== null && over?.key === `status:${group.status}` && over.lands}
                       onOpen={onOpen}
                       cardDrag={cardDrag}
-                      dropProps={dropTarget(group.status, { status: group.status, stageLabel: closed.label }, accepts)}
+                      dropProps={dropTarget(`status:${group.status}`, () =>
+                        status && accepts ? { stage: stageOf(closed), status, beforeId: null } : null,
+                      )}
                     />
                   );
                 })}
@@ -307,4 +350,30 @@ function InactiveGroup({
       {rows.length === 0 && <span className="text-eyebrow text-u-text3">None</span>}
     </div>
   );
+}
+
+/** Where a dragged card would land, drawn in the gap beside a card so nothing shifts under the pointer. */
+function DropLine({ edge }: { edge: "top" | "bottom" }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-x-1 h-0.5 rounded-full bg-u-accent",
+        edge === "top" ? "-top-[7px]" : "-bottom-[7px]",
+      )}
+    />
+  );
+}
+
+/** The card the pointer is above the middle of, in the column under it; null past the last card. */
+function beforeIdAt(column: HTMLElement, clientY: number): string | null {
+  for (const card of column.querySelectorAll<HTMLElement>("[data-card-id]")) {
+    const box = card.getBoundingClientRect();
+    if (clientY < box.top + box.height / 2) return card.dataset.cardId ?? null;
+  }
+  return null;
+}
+
+function stageOf({ key, label, colour, kind, position }: PipelineStageCount): CandidatePipelineStage {
+  return { key, label, colour, kind, position };
 }
