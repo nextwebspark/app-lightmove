@@ -16,7 +16,9 @@ public record CriterionScore(CompetencyPanel panel, String name, int weight, Int
         return keyOf(panel, name);
     }
 
-    public boolean isEmpty() {
+    // Never isEmpty(): Hibernate's JSON mapper read it as an "empty" property, wrote it into the column and then
+    // refused to read it back, so the first save with a score answered 500.
+    public boolean holdsNothing() {
         return score == null && (evidence == null || evidence.isBlank());
     }
 

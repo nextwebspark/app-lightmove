@@ -51,7 +51,7 @@ final class ScorecardScoring {
         Set<String> briefKeys = brief.stream().map(ScorecardCriterion::matchKey).collect(Collectors.toSet());
         List<CriterionScore> retired = stored.stream()
                 .filter(score -> !briefKeys.contains(score.matchKey()))
-                .filter(score -> !score.isEmpty())
+                .filter(score -> !score.holdsNothing())
                 .toList();
         return new ScorecardTally(roundOne(overall), scoredCount, brief.size(), panels, retired);
     }

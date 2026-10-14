@@ -117,7 +117,7 @@ public class CandidateScorecardService {
             String evidence = score.evidence() == null || score.evidence().isBlank() ? null : score.evidence();
             CriterionScore stored = new CriterionScore(criterion.panel(), criterion.name(), criterion.weight(),
                     score.score(), evidence);
-            if (!stored.isEmpty()) {
+            if (!stored.holdsNothing()) {
                 kept.putIfAbsent(stored.matchKey(), stored);
             }
         }
