@@ -1,6 +1,7 @@
 package app.lightmove.api.task.dto;
 
 import app.lightmove.api.task.model.Task;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
@@ -10,7 +11,8 @@ import java.util.UUID;
  * it. A blank {@code detail} clears it.
  */
 public record UpdateTaskRequest(
-        @Size(max = Task.MAX_TITLE) String title,
+        @Size(max = Task.MAX_TITLE) @Pattern(regexp = Task.ONE_LINE, message = Task.ONE_LINE_ONLY)
+        String title,
         String kind,
         UUID assigneeUserId,
         Instant dueAt,

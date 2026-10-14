@@ -28,6 +28,9 @@ import lombok.NoArgsConstructor;
 public class Task extends BaseEntity {
 
     public static final int MAX_TITLE = 200;
+    /** A title is one line: it becomes an email subject. */
+    public static final String ONE_LINE = "[^\\r\\n]*";
+    public static final String ONE_LINE_ONLY = "Keep it to one line";
     public static final int MAX_DETAIL = 500;
 
     @Column(name = "workspace_id", nullable = false, updatable = false)

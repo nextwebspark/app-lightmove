@@ -28,7 +28,9 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   `pg_notify` channel on `core/stream`'s one LISTEN connection). Email goes only for *assigned to you* and
   *mentioned*, and only if still unread after `lightmove.notifications.email-delay` (10 minutes); a daily
   digest goes at 08:00 in the user's mailbox time zone (else `default-time-zone`), claimed once per user per
-  day. Preferences are per kind × channel, defaulted on.
+  day. Each email is claimed before it is sent, so one the mail service refuses is logged at error with its ids and
+  never resent: a second copy is worse than a missed one. Preferences are per kind × channel, defaulted on. A person
+  holds at most ten live streams per workspace; an eleventh closes their oldest.
 - **Staff-only, all of it.** Nothing here rides `CandidateResponse`, the report, the public API or MCP.
 
 ## Wire contract

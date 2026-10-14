@@ -47,6 +47,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
+| Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |
 | ☐ Own app secret / expiry | ≤ 2048, any date | `@Size(2048)`, any date | field |
 | ☐ Invitation role | always sent | not required (500 when absent) | — |
 
@@ -100,6 +101,8 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |
 | ☐ Candidates search `q`, `page` | none | unbounded `q`; `page × size` overflows | — |
+| Next action title | trimmed, ≤ 200, one line, required | `@NotBlank @Size(200)`, no line break (it becomes an email subject) | banner |
+| Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
 
 ### Import, export, outreach, assistant
 | Field | Client | Server | Shown as |

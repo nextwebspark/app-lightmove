@@ -21,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
@@ -35,6 +36,7 @@ class TaskIntegrationTest extends PipelineFlowSupport {
 
     @Autowired private ApplicationEventPublisher events;
     @Autowired private TransactionTemplate transactions;
+    @Autowired private JdbcTemplate db;
 
     private String projectId;
     private String researcher;
@@ -172,6 +174,32 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("a title is one line, since it becomes an email subject")
+    void aTitleIsOneLine() throws Exception {
+        MvcResult refused = write(admin, "POST", tasksUrl(layla), """
+                {"title":"Call back\\r\\nBcc: someone@example.com","kind":"todo","assigneeUserId":"%s",
+                 "dueAt":"2026-11-02T09:00:00Z"}""".formatted(researcherId));
+
+        assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+        assertThat(body(refused).at("/fieldErrors/title").asText()).isEqualTo("Keep it to one line");
+    }
+
+    @Test
+    @DisplayName("a change that changes nothing is not audited")
+    void aChangeThatChangesNothingIsNotAudited() throws Exception {
+        String taskId = body(created(admin, layla, "Request CV", adminId, "2026-11-02T09:00:00Z")).get("id").asText();
+
+        write(admin, "PATCH", "/api/v1/tasks/" + taskId, "{}");
+        write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
+                {"title":"Request CV"}""");
+        assertThat(updatesAuditedOf(taskId)).isZero();
+
+        write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
+                {"title":"Request the latest CV"}""");
+        assertThat(updatesAuditedOf(taskId)).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a teammate leaving the position hands their open tasks to its lead, who is told")
     void leavingHandsTasksToTheLead() throws Exception {
         String taskId = body(created(admin, layla, "Request CV", researcherId, "2026-11-02T09:00:00Z"))
@@ -299,6 +327,12 @@ class TaskIntegrationTest extends PipelineFlowSupport {
         read(admin, candidatesUrl(projectId) + "/" + layla + "/timeline").get("entries")
                 .forEach(entry -> kinds.add(entry.get("kind").asText()));
         return kinds;
+    }
+
+    private int updatesAuditedOf(String taskId) {
+        return db.queryForObject("""
+                SELECT count(*) FROM app_lm_audit_event
+                WHERE event_type = 'TASK_UPDATED' AND metadata ->> 'taskId' = ?""", Integer.class, taskId);
     }
 
     private String tasksUrl(String candidateId) {

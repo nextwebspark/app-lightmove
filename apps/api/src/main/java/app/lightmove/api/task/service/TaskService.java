@@ -132,6 +132,7 @@ public class TaskService {
         if (changesTheTask) {
             requireMayChange(userId, task);
         }
+        EditableTask before = EditableTask.of(task);
         if (request.title() != null) {
             retitle(task, request.title());
         }
@@ -150,11 +151,22 @@ public class TaskService {
         if (request.status() != null) {
             changeStatus(task, request.status(), userId);
         }
-        audited(ProjectEventType.TASK_UPDATED, task, userId, httpRequest)
-                .detailIfPresent("status", request.status())
-                .detailIfPresent("reassigned", request.assigneeUserId() == null ? null : "true")
-                .record();
+        if (!before.equals(EditableTask.of(task))) {
+            audited(ProjectEventType.TASK_UPDATED, task, userId, httpRequest)
+                    .detailIfPresent("status", request.status())
+                    .detailIfPresent("reassigned", request.assigneeUserId() == null ? null : "true")
+                    .record();
+        }
         return single(task, mayChange(userId, task));
+    }
+
+    private record EditableTask(String title, TaskKind kind, String detail, Instant dueAt, UUID assigneeUserId,
+                                TaskStatus status) {
+
+        static EditableTask of(Task task) {
+            return new EditableTask(task.getTitle(), task.getKind(), task.getDetail(), task.getDueAt(),
+                    task.getAssigneeUserId(), task.getStatus());
+        }
     }
 
     @Transactional
