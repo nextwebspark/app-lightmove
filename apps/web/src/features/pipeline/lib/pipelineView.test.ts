@@ -70,7 +70,7 @@ describe("a drop on the board", () => {
   const targetIn = (statusKey: string, beforeId: string | null, keepStatus = false): BoardTarget => {
     const found = findStatus(aSeededCatalog(), statusKey)!;
     const { key, label, colour, kind, position } = found.stage;
-    return { stage: { key, label, colour, kind, position }, status: keepStatus ? null : found.status, beforeId, ranked: true };
+    return { stage: { key, label, colour, kind, position }, status: keepStatus ? null : found.status, beforeId };
   };
 
   it("reorders within a stage, sending only the new neighbours", () => {
@@ -111,12 +111,12 @@ describe("a drop on the board", () => {
     expect(empty.move).toBeNull();
   });
 
-  it("sets an Inactive status without a rank write", () => {
-    const placement = boardPlacementOf(rows, "a", { ...targetIn("notInterested", null), ranked: false })!;
+  it("files a card dropped on an Inactive status last in the closed stage, where the rank write keeps it", () => {
+    const placement = boardPlacementOf(rows, "a", targetIn("notInterested", null))!;
 
+    expect(order(placement.rows)).toEqual(["b", "c", "d", "e", "f", "a"]);
     expect(placement.status).toBe("notInterested");
-    expect(placement.move).toBeNull();
-    expect(boardPlacementOf(rows, "f", { ...targetIn("offLimits", null), ranked: false })).toBeNull();
+    expect(placement.move).toEqual({ afterCandidateId: "f", beforeCandidateId: null });
   });
 });
 

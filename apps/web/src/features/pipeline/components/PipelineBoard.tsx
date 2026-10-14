@@ -71,9 +71,9 @@ export function PipelineBoard({
 
   const columnTarget = (stage: PipelineStageCount, beforeId: string | null): BoardTarget | null => {
     if (!dragging) return null;
-    if (dragging.pipelineStage.key === stage.key) return { stage: stageOf(stage), status: null, beforeId, ranked: true };
+    if (dragging.pipelineStage.key === stage.key) return { stage: stageOf(stage), status: null, beforeId };
     const fallback = defaultOf(stage.key);
-    return fallback ? { stage: stageOf(stage), status: fallback, beforeId, ranked: true } : null;
+    return fallback ? { stage: stageOf(stage), status: fallback, beforeId } : null;
   };
 
   /**
@@ -82,13 +82,12 @@ export function PipelineBoard({
    */
   const dropTarget = (key: string, targetAt: (event: DragEvent<HTMLElement>) => BoardTarget | null) => ({
     onDragOver: (event: DragEvent<HTMLElement>) => {
+      if (!dragging) return;
       const target = targetAt(event);
-      if (!dragging || !target) return;
+      if (!target) return;
       event.preventDefault();
-      const lands = boardPlacementOf(shown, dragging.candidateId, target) !== null;
-      if (over?.key !== key || over.beforeId !== target.beforeId || over.lands !== lands) {
-        setOver({ key, beforeId: target.beforeId, lands });
-      }
+      if (over?.key === key && over.beforeId === target.beforeId) return;
+      setOver({ key, beforeId: target.beforeId, lands: boardPlacementOf(shown, dragging.candidateId, target) !== null });
     },
     onDragLeave: (event: DragEvent<HTMLElement>) => {
       if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
@@ -256,7 +255,7 @@ export function PipelineBoard({
                     isOver={dragging !== null && over?.key === `status:${closed.key}` && over.lands}
                     dropProps={dropTarget(`status:${closed.key}`, () => {
                       const fallback = defaultOf(closed.key);
-                      return fallback ? { stage: stageOf(closed), status: fallback, beforeId: null, ranked: false } : null;
+                      return fallback ? { stage: stageOf(closed), status: fallback, beforeId: null } : null;
                     })}
                   />
                 )}
@@ -272,9 +271,7 @@ export function PipelineBoard({
                       onOpen={onOpen}
                       cardDrag={cardDrag}
                       dropProps={dropTarget(`status:${group.status}`, () =>
-                        status && accepts
-                          ? { stage: stageOf(closed), status, beforeId: null, ranked: false }
-                          : null,
+                        status && accepts ? { stage: stageOf(closed), status, beforeId: null } : null,
                       )}
                     />
                   );

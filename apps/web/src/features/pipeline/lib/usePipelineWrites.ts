@@ -100,15 +100,14 @@ export function useBoardMove(projectId: string, queryKey: QueryKey) {
       const saved = placement.status
         ? await candidatesApi.changeCandidateStatus(projectId, placement.candidateId, placement.status)
         : null;
-      if (placement.move) {
-        try {
-          await pipelineApi.movePipelineRank(projectId, placement.candidateId, placement.move);
-        } catch (error) {
-          if (!saved) throw error;
-          toast.error(messageFor(error));
-        }
+      if (!placement.move) return { saved, rankRefused: null };
+      try {
+        await pipelineApi.movePipelineRank(projectId, placement.candidateId, placement.move);
+        return { saved, rankRefused: null };
+      } catch (error) {
+        if (!saved) throw error;
+        return { saved, rankRefused: error };
       }
-      return saved;
     },
     onMutate: async (placement) => {
       await queryClient.cancelQueries({ queryKey: pipelineApi.PIPELINE_KEY_PREFIX(projectId) });
@@ -126,8 +125,9 @@ export function useBoardMove(projectId: string, queryKey: QueryKey) {
       if (previous) queryClient.setQueryData(queryKey, previous);
       toast.error(messageFor(error));
     },
-    onSuccess: (saved, { stageLabel }) => {
-      if (saved) toast(`${saved.fullName} moved to ${stageLabel} · ${saved.statusLabel ?? saved.status}`);
+    onSuccess: ({ saved, rankRefused }, { stageLabel }) => {
+      if (rankRefused) toast.error(messageFor(rankRefused));
+      else if (saved) toast(`${saved.fullName} moved to ${stageLabel} · ${saved.statusLabel ?? saved.status}`);
     },
     onSettled: () => void rowsChanged(projectId),
   });

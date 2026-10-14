@@ -324,6 +324,27 @@ describe("PipelinePage", () => {
     expect(pipelineApi.movePipelineRank).not.toHaveBeenCalled();
   });
 
+  it("says only that the order was refused when the status saved but the rank did not", async () => {
+    vi.mocked(candidatesApi.changeCandidateStatus).mockResolvedValue({
+      fullName: "Amal Haddad",
+      status: "screened",
+      statusLabel: "Screened",
+    } as Candidate);
+    vi.mocked(pipelineApi.movePipelineRank).mockRejectedValue(
+      new ApiRequestError({ code: "PIPELINE_ORDER_INVALID", detail: "moved", status: 409, correlationId: "c1" }),
+    );
+    renderPage("");
+    const qualified = await screen.findByRole("region", { name: "Qualified" });
+
+    fireEvent.dragStart(screen.getByRole("article", { name: "Amal Haddad" }));
+    fireEvent.dragOver(qualified);
+    fireEvent.drop(qualified);
+
+    expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
+    expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened");
+    expect(screen.queryByText("Amal Haddad moved to Qualified · Screened")).not.toBeInTheDocument();
+  });
+
   it("reorders a card within its own column without changing its status", async () => {
     vi.mocked(pipelineApi.movePipelineRank).mockReturnValue(new Promise(() => {}));
     renderPage("");
