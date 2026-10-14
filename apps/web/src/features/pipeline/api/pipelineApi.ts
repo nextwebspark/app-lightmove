@@ -28,18 +28,6 @@ export function movePipelineRank(projectId: string, candidateId: string, move: P
   });
 }
 
-/** A blank text clears the next action. */
-export function setNextAction(
-  projectId: string,
-  candidateId: string,
-  nextAction: { text: string | null; dueAt: string | null },
-): Promise<PipelineRow> {
-  return request<PipelineRow>(`/projects/${projectId}/candidates/${candidateId}/next-action`, {
-    method: "PUT",
-    body: nextAction,
-  });
-}
-
 export function setClientVisibility(projectId: string, candidateId: string, clientVisible: boolean): Promise<PipelineRow> {
   return request<PipelineRow>(`/projects/${projectId}/candidates/${candidateId}/client-visibility`, {
     method: "PUT",

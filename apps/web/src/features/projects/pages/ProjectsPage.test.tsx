@@ -27,6 +27,10 @@ vi.mock("../../gettingstarted/api/gettingStartedApi", async (importOriginal) => 
   ...(await importOriginal<typeof import("../../gettingstarted/api/gettingStartedApi")>()),
   gettingStarted: vi.fn(),
 }));
+vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
+  getMyTasks: async () => ({ tasks: [], counts: { today: 0, overdue: 0, upcoming: 0, assignedByMe: 0 }, hasMore: false }),
+}));
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
   members: vi.fn(),
@@ -265,17 +269,20 @@ describe("ProjectsPage — staff and the Getting started card", () => {
     expect(screen.getByRole("button", { name: /new position/i })).toBeInTheDocument();
   });
 
-  it("shows the card on My positions but not on All positions", async () => {
+  it("shows the card and My tasks on My positions but not on All positions", async () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([aMandate]);
     vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(checklist(false));
 
     const { unmount } = renderPage("my");
     expect(await screen.findByText("Get your first map in 30 minutes")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "My tasks" })).toBeInTheDocument();
+    expect(await screen.findByText("Nothing due today.")).toBeInTheDocument();
     unmount();
 
     renderPage("all");
     expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
     expect(screen.queryByText("Get your first map in 30 minutes")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "My tasks" })).not.toBeInTheDocument();
   });
 });
 

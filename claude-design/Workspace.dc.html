@@ -105,6 +105,12 @@
       </div>
     </div>
     <div style="flex:none;display:flex;align-items:center;gap:10px">
+      <a href="Notifications.dc.html" data-screen-label="Notifications bell" aria-label="{{ bellLabel }}" title="Notifications" style="position:relative;display:grid;place-items:center;width:30px;height:30px;border-radius:6px;color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ icons.bell }}"></path></svg>
+        <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}">
+          <span style="position:absolute;top:1px;right:0;min-width:15px;height:15px;padding:0 4px;border-radius:999px;background:var(--red);box-shadow:0 0 0 2px var(--bg);color:#fff;font:700 9.5px/15px var(--u-num);text-align:center">{{ unreadCount }}</span>
+        </sc-if>
+      </a>
       <span data-screen-label="Current workspace" title="Current workspace: Al-Futtaim" style="display:flex;align-items:center;gap:8px;min-width:0;border:1px solid var(--line-soft);border-radius:7px;padding:4px 10px 4px 6px"><img src="assets/al-futtaim-logo.png" alt="" style="width:18px;height:18px;object-fit:contain;flex:none"><span style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 12px var(--mono);color:var(--text2)">Al-Futtaim</span></span>
       <image-slot id="{{ me.slotId }}" title="{{ me.name }}" shape="circle" style="width:26px;height:26px" placeholder=""></image-slot>
     </div>
@@ -156,6 +162,97 @@
               </div>
             </sc-if>
           </div>
+        </sc-if>
+
+        <sc-if value="{{ showTasks }}" hint-placeholder-val="{{ true }}">
+          <section data-screen-label="My tasks" aria-label="My tasks" style="margin-bottom:22px;border-radius:12px;border:1px solid var(--line);background:var(--panel);overflow:hidden">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:12px 14px 12px 16px;border-bottom:{{ taskHeadBorder }}">
+              <div style="font:600 14px var(--sans);color:var(--text)">My tasks</div>
+              <div role="tablist" aria-label="Task views" style="display:flex;flex-wrap:wrap;gap:2px;border-radius:7px;border:1px solid var(--line-soft);background:var(--panel2);padding:2px">
+                <sc-for list="{{ taskTabs }}" as="tb" hint-placeholder-count="4">
+                  <button role="tab" aria-selected="{{ tb.selected }}" onClick="{{ setTaskTab }}" data-tab="{{ tb.key }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:5px;border:none;padding:5px 10px;font:500 12px var(--sans);background:{{ tb.bg }};color:{{ tb.color }};box-shadow:{{ tb.shadow }};cursor:pointer" style-hover="color:var(--text)">
+                    {{ tb.label }}<span style="font:500 11px var(--u-num);color:{{ tb.countColor }}">· {{ tb.count }}</span>
+                  </button>
+                </sc-for>
+              </div>
+              <button onClick="{{ newTask }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:6px 10px;font:500 12.5px var(--sans);color:var(--text2);background:none;border:1px solid transparent;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+                New task
+              </button>
+              <button onClick="{{ toggleTasksCard }}" aria-label="{{ tasksToggleLabel }}" aria-expanded="{{ tasksOpenAria }}" title="{{ tasksToggleLabel }}" style="flex:none;width:28px;height:28px;padding:0;display:grid;place-items:center;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transform:rotate({{ tasksChevronTurn }});transition:transform .18s ease"><path d="{{ icons.chevronDown }}"></path></svg>
+              </button>
+            </div>
+
+            <sc-if value="{{ tasksOpen }}" hint-placeholder-val="{{ true }}">
+              <div id="my-tasks-list" onScroll="{{ onTaskListScroll }}" style="overflow:auto;max-height:{{ taskListMax }}">
+                <div role="list" aria-label="{{ taskListLabel }}">
+                  <sc-for list="{{ taskRows }}" as="t" hint-placeholder-count="5">
+                    <div role="listitem" style="display:grid;grid-template-columns:{{ taskCols }};min-width:{{ taskMin }};align-items:center;gap:12px;min-height:50px;padding:7px 16px;border-bottom:{{ t.divider }}" style-hover="background:var(--panel2)">
+                      <button role="checkbox" aria-checked="{{ t.done }}" aria-label="{{ t.checkLabel }}" onClick="{{ toggleTask }}" data-id="{{ t.id }}" style="width:18px;height:18px;padding:0;display:grid;place-items:center;border-radius:5px;border:1.5px solid {{ t.boxBorder }};background:{{ t.boxBg }};cursor:pointer" style-hover="border-color:var(--text2)">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" style="color:#fff;opacity:{{ t.tickOpacity }}"><path d="M20 6 9 17l-5-5"></path></svg>
+                      </button>
+                      <span title="{{ t.typeLabel }}" style="width:26px;height:26px;display:grid;place-items:center;border-radius:6px;background:var(--panel2);color:var(--text2);opacity:{{ t.fade }}">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ t.typeIcon }}"></path></svg>
+                      </span>
+                      <span style="min-width:0;display:flex;align-items:center;gap:8px;opacity:{{ t.fade }}">
+                        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text);text-decoration:{{ t.strike }}">{{ t.title }}</span>
+                        <sc-if value="{{ t.auto }}" hint-placeholder-val="{{ false }}">
+                          <span title="{{ t.autoTitle }}" style="flex:none;display:inline-flex;align-items:center;gap:3px;border-radius:999px;background:var(--ai-dim);padding:2px 7px 2px 5px;font:600 10.5px var(--sans);color:var(--ai)">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="{{ icons.sparkle }}"></path></svg>Auto
+                          </span>
+                        </sc-if>
+                      </span>
+                      <span style="min-width:0;display:flex;align-items:center;gap:8px;opacity:{{ t.fade }}">
+                        <span style="position:relative;width:24px;height:24px;flex:none;border-radius:50%;background:{{ t.exec.bg }};color:{{ t.exec.fg }};display:grid;place-items:center;font:600 9.5px var(--sans)">
+                          {{ t.exec.initials }}
+                          <image-slot id="{{ t.exec.slotId }}" title="{{ t.exec.name }}" shape="circle" style="position:absolute;inset:0;width:24px;height:24px" placeholder=""></image-slot>
+                        </span>
+                        <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text2)">{{ t.exec.name }}</span>
+                      </span>
+                      <a href="{{ t.posHref }}" title="{{ t.posTitle }}" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12.5px var(--sans);color:var(--text3);text-decoration:none;opacity:{{ t.fade }}" style-hover="color:var(--text);text-decoration:underline">{{ t.posTitle }}</a>
+                      <span style="min-width:0;display:flex;align-items:center">
+                        <sc-if value="{{ t.open }}" hint-placeholder-val="{{ true }}">
+                          <span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap;border-radius:999px;background:{{ t.dueBg }};padding:3px 9px;font:500 11.5px var(--u-num);color:{{ t.dueColor }}">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="flex:none"><path d="{{ t.dueIcon }}"></path></svg>{{ t.due }}
+                          </span>
+                        </sc-if>
+                        <sc-if value="{{ t.done }}" hint-placeholder-val="{{ false }}">
+                          <span style="white-space:nowrap;font:500 12px var(--sans);color:var(--green)">Done ·
+                            <button onClick="{{ setNextTask }}" data-id="{{ t.id }}" style="padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer" style-hover="text-decoration:underline">Set the next one?</button>
+                          </span>
+                        </sc-if>
+                      </span>
+                      <sc-if value="{{ showAssignee }}" hint-placeholder-val="{{ false }}">
+                        <span title="{{ t.assignee.title }}" style="min-width:0;display:flex;align-items:center;gap:7px;opacity:{{ t.fade }}">
+                          <span style="position:relative;width:24px;height:24px;flex:none;border-radius:50%;background:{{ t.assignee.bg }};color:{{ t.assignee.fg }};display:grid;place-items:center;font:600 9.5px var(--sans)">
+                            {{ t.assignee.initials }}
+                            <image-slot id="{{ t.assignee.slotId }}" title="{{ t.assignee.name }}" shape="circle" style="position:absolute;inset:0;width:24px;height:24px" placeholder=""></image-slot>
+                          </span>
+                          <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12.5px var(--sans);color:var(--text2)">{{ t.assignee.first }}</span>
+                        </span>
+                      </sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ noTasks }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:28px 16px;font:400 13px var(--sans);color:var(--text3)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"></path></svg>
+                      {{ noTasksMsg }}
+                    </div>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ loadingMoreTasks }}" hint-placeholder-val="{{ false }}">
+                  <div role="status" style="padding:12px 16px;text-align:center;font:400 12.5px var(--sans);color:var(--text3)">Loading more…</div>
+                </sc-if>
+              </div>
+              <sc-if value="{{ hasMoreTasks }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ toggleAllTasks }}" style="display:flex;width:100%;align-items:center;justify-content:center;gap:6px;padding:9px 16px;border:none;border-top:1px solid var(--line-soft);background:none;font:500 12.5px var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                  {{ moreTasksLabel }}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ moreTasksIcon }}"></path></svg>
+                </button>
+              </sc-if>
+            </sc-if>
+          </section>
         </sc-if>
 
         <sc-if value="{{ showSkeleton }}" hint-placeholder-val="{{ false }}">
@@ -755,7 +852,29 @@ class Component extends DCLogic {
       briefcase: 'M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2',
       calendar: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z',
       sparkle: 'M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z',
+      bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
+      clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2',
+      alert: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 8v4M12 16h.01',
+      chevronDown: 'm6 9 6 6 6-6',
+      chevronUp: 'm18 15-6-6-6 6',
     };
+
+    this.TASK_TYPES = {
+      call: { label: 'Call', icon: 'M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z' },
+      email: { label: 'Email', icon: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2ZM22 6l-10 7L2 6' },
+      meeting: { label: 'Meeting', icon: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z' },
+      followup: { label: 'Follow-up', icon: 'M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11' },
+      todo: { label: 'To-do', icon: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11' },
+    };
+    this.TASK_TABS = [
+      { key: 'today', label: 'Today', empty: 'Nothing due today.' },
+      { key: 'overdue', label: 'Overdue', empty: 'Nothing overdue.' },
+      { key: 'upcoming', label: 'Upcoming', empty: 'Nothing coming up.' },
+      { key: 'assigned', label: 'Assigned by me', empty: 'Nothing assigned by you.' },
+    ];
+    this.TASK_TODAY = '2026-10-14';
+    this.TASK_VISIBLE = 5;
+    this.TASK_PAGE = 20;
 
     this.TINTS = [
       ['var(--u-accent-tint)', 'var(--u-accent)'], ['color-mix(in srgb, var(--u-chart-5) 16%, transparent)', 'var(--u-chart-5)'], ['var(--panel2)', 'var(--text2)'],
@@ -821,6 +940,36 @@ class Component extends DCLogic {
       { id: 'p6', department: 'Financial Services', pos: 'Head of Credit Risk', type: 'executive', stage: 'DELIVERED', health: 'DONE', target: '2026-06-01', cos: 33, cand: 31, team: [['yh', 'LEAD'], ['yi', 'RESEARCHER'], ['sa', 'RESEARCHER']], reps: [] },
       { id: 'p7', department: 'Retail', pos: 'Regional Store Operations Manager, M&S', type: 'mapping', stage: 'MAPPING', health: 'OFF', target: '2026-10-25', cos: 17, cand: 6, team: [['ok', 'LEAD'], ['da', 'RESEARCHER']], reps: [] },
     ];
+    const taskSeed = [
+      { id: 't1', type: 'call', title: 'Reference check', exec: 'Ahmed Saleh', project: 'p1', date: '2026-10-14', time: '16:00', assignee: 'yh', by: 'yh' },
+      { id: 't2', type: 'followup', title: 'Reply to Lina Farouk', exec: 'Lina Farouk', project: 'p3', date: '2026-10-14', time: '11:30', assignee: 'yh', by: 'yh', auto: 'Filed by Uncava when Lina replied to step 2 of the outreach sequence' },
+      { id: 't3', type: 'meeting', title: 'Screening call', exec: 'Karim Nassar', project: 'p4', date: '2026-10-14', time: '14:00', assignee: 'yh', by: 'yh' },
+      { id: 't4', type: 'email', title: 'Send profile to the hiring manager', exec: 'Rania Aziz', project: 'p3', date: '2026-10-03', time: '17:00', assignee: 'yh', by: 'yh' },
+      { id: 't5', type: 'followup', title: 'Chase compensation details', exec: 'Hassan Al Amiri', project: 'p1', date: '2026-10-15', time: '09:00', assignee: 'yh', by: 'yh' },
+      { id: 't6', type: 'email', title: 'Confirm the interview slot', exec: 'Nadia Mansour', project: 'p4', date: '2026-10-16', time: '10:00', assignee: 'yh', by: 'yh' },
+      { id: 't7', type: 'todo', title: 'Verify notice period', exec: 'Fadi Rahman', project: 'p2', date: '2026-10-19', time: '09:00', assignee: 'yh', by: 'yh' },
+      { id: 't8', type: 'call', title: 'Second-round call', exec: 'Mona El-Sayed', project: 'p3', date: '2026-10-20', time: '15:30', assignee: 'yh', by: 'yh' },
+      { id: 't9', type: 'followup', title: 'Debrief Tariq Jaber', exec: 'Tariq Jaber', project: 'p1', date: '2026-10-21', time: '09:00', assignee: 'yh', by: 'yh', auto: 'Filed by Uncava when Tariq booked a call through your link' },
+      { id: 't10', type: 'todo', title: 'Update CV and background', exec: 'Leila Darwish', project: 'p4', date: '2026-10-23', time: '12:00', assignee: 'yh', by: 'yh' },
+      { id: 'a1', type: 'call', title: 'Reference check', exec: 'Youssef Barakat', project: 'p1', date: '2026-10-14', time: '15:00', assignee: 'ok', by: 'yh' },
+      { id: 'a2', type: 'email', title: 'Send the brief', exec: 'Huda Al Qasimi', project: 'p3', date: '2026-10-08', time: '12:00', assignee: 'da', by: 'yh' },
+      { id: 'a3', type: 'meeting', title: 'Screening call', exec: 'Ziad Khoury', project: 'p4', date: '2026-10-17', time: '11:00', assignee: 'yi', by: 'yh' },
+      { id: 'a4', type: 'todo', title: 'Confirm availability', exec: 'Salma Haddad', project: 'p2', date: '2026-10-22', time: '09:00', assignee: 'da', by: 'yh' },
+    ];
+    const fillerWork = [
+      ['call', 'Call to qualify interest'], ['email', 'Send follow-up email'], ['meeting', 'Screening interview'],
+      ['followup', 'Chase a reply on the role'], ['todo', 'Request CV'], ['call', 'Reference check'],
+      ['email', 'Share profile with hiring manager'], ['meeting', 'Meet to discuss the package'],
+      ['followup', 'Follow up after the interview'], ['todo', 'Verify current package'],
+    ];
+    const fillerPeople = taskSeed.filter((t) => t.assignee === 'yh').map((t) => [t.exec, t.project]);
+    const fillerTimes = ['09:00', '10:30', '12:00', '14:00', '15:30', '17:00'];
+    const manyTasks = !flag('manyTasks', props.manyTasks) ? [] : Array.from({ length: 45 }, (_, i) => {
+      const [type, title] = fillerWork[i % fillerWork.length];
+      const [exec, project] = fillerPeople[(i + Math.floor(i / fillerWork.length)) % fillerPeople.length];
+      const date = new Date(Date.parse(this.TASK_TODAY + 'T00:00:00Z') + (1 + Math.floor(i * 4 / 5)) * 86400000).toISOString().slice(0, 10);
+      return { id: 'm' + (i + 1), type, title, exec, project, date, time: fillerTimes[i % fillerTimes.length], assignee: 'yh', by: 'yh' };
+    });
     const projects = empty ? [] : pureClient ? seed.filter((p) => p.reps.includes('khalid')) : seed;
     const clients = empty ? [] : ['Automotive', 'Retail', 'Real Estate', 'Financial Services'];
 
@@ -840,7 +989,18 @@ class Component extends DCLogic {
       inviteOpen: flag('invite', props.inviteOpen) && !pureClient,
       draft: this.blankDraft(),
       invite: { email: '', role: 'MEMBER', error: '' },
+      tasks: empty || pureClient || flag('noTasks', props.noTasks) ? [] : [...taskSeed, ...manyTasks],
+      taskTab: ['today', 'overdue', 'upcoming', 'assigned'].includes(params.get('tasks')) ? params.get('tasks') : 'today',
+      tasksExpanded: false,
+      taskReveal: this.TASK_PAGE,
+      taskLoadingMore: false,
+      tasksCollapsed: (() => { try { return localStorage.getItem('lm-my-tasks-collapsed') === '1'; } catch (e) { return false; } })(),
+      doneTasks: {},
     };
+    if (!params.get('tasks')) {
+      const holds = (tab) => this.state.tasks.some((t) => this.taskTabOf(t) === tab);
+      this.state.taskTab = ['today', 'overdue', 'upcoming'].find(holds) || 'today';
+    }
     if (flag('drawer', props.drawerOpen)) {
       const first = this.projectRows(this.state)[0];
       if (first) this.state.drawerId = first.id;
@@ -867,6 +1027,15 @@ class Component extends DCLogic {
   componentWillUnmount() {
     if (this._esc) document.removeEventListener('keydown', this._esc);
     clearTimeout(this._toastTimer);
+    clearTimeout(this._taskMoreTimer);
+  }
+
+  taskListReset() {
+    clearTimeout(this._taskMoreTimer);
+    this._taskMoreTimer = null;
+    const box = document.getElementById('my-tasks-list');
+    if (box) box.scrollTop = 0;
+    return { tasksExpanded: false, taskReveal: this.TASK_PAGE, taskLoadingMore: false };
   }
 
   showToast(msg) {
@@ -880,6 +1049,29 @@ class Component extends DCLogic {
   formatDate(iso) {
     if (!iso) return '—';
     return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  taskTabOf(t) {
+    if (t.assignee !== 'yh') return t.by === 'yh' ? 'assigned' : null;
+    if (t.date < this.TASK_TODAY) return 'overdue';
+    return t.date === this.TASK_TODAY ? 'today' : 'upcoming';
+  }
+
+  taskDue(t) {
+    const tomorrow = new Date(new Date(this.TASK_TODAY + 'T00:00:00').getTime() + 86400000).toISOString().slice(0, 10);
+    if (t.date < this.TASK_TODAY) return { label: 'Overdue · ' + this.formatDate(t.date), color: 'var(--red)', bg: 'var(--red-dim)', icon: this.ICONS.alert };
+    if (t.date === this.TASK_TODAY) return { label: 'Today · ' + t.time, color: 'var(--u-signal)', bg: 'var(--u-signal-tint)', icon: this.ICONS.clock };
+    if (t.date === tomorrow) return { label: 'Tomorrow · ' + t.time, color: 'var(--text2)', bg: 'var(--panel2)', icon: this.ICONS.clock };
+    return { label: this.formatDate(t.date) + ', ' + t.time, color: 'var(--text2)', bg: 'var(--panel2)', icon: this.ICONS.clock };
+  }
+
+  avatarOf(name, slotPrefix, tintIndex) {
+    const parts = name.split(/\s+/);
+    const t = this.TINTS[tintIndex % this.TINTS.length];
+    return {
+      name, first: parts[0], initials: (parts[0][0] + parts[parts.length - 1][0]).toUpperCase(),
+      slotId: slotPrefix + '-' + name.toLowerCase().replace(/[^a-z]+/g, '-'), bg: t[0], fg: t[1],
+    };
   }
 
   isActive(p) { return p.stage !== 'DELIVERED' && p.stage !== 'CLOSED'; }
@@ -1151,8 +1343,99 @@ class Component extends DCLogic {
       || (this.props || {}).workspaces || 'one';
     const otherWorkspaces = wsMode === 'one' ? [] : [{ id: 'meridian', name: 'Meridian Search Partners', mark: 'M' }];
     const workspaceInvitations = wsMode === 'several-with-invite' ? [{ id: 'inv-northgate', name: 'Northgate Search' }] : [];
+    const taskTabMeta = this.TASK_TABS.find((tb) => tb.key === st.taskTab);
+    const tabTasks = st.tasks.filter((t) => this.taskTabOf(t) === st.taskTab)
+      .sort((a, b) => (a.date + a.time < b.date + b.time ? -1 : 1));
+    const shownTasks = tabTasks.slice(0, st.tasksExpanded ? st.taskReveal : this.TASK_VISIBLE);
+    const onAssigned = st.taskTab === 'assigned';
+    const taskRows = shownTasks.map((t, i) => {
+      const done = !!st.doneTasks[t.id];
+      const due = this.taskDue(t);
+      const p = st.projects.find((x) => x.id === t.project);
+      const type = this.TASK_TYPES[t.type];
+      const mate = this.member(t.assignee);
+      return {
+        id: t.id, title: t.title, done, open: !done,
+        typeIcon: type.icon, typeLabel: type.label,
+        checkLabel: (done ? 'Reopen ' : 'Complete ') + t.title,
+        boxBorder: done ? 'var(--green)' : 'var(--line)',
+        boxBg: done ? 'var(--green)' : 'transparent',
+        tickOpacity: done ? '1' : '0',
+        fade: done ? '.45' : '1',
+        strike: done ? 'line-through' : 'none',
+        auto: !!t.auto, autoTitle: t.auto || '',
+        exec: this.avatarOf(t.exec, 'task-exec', t.exec.length),
+        posTitle: p ? p.pos : '',
+        posHref: p ? 'Position.dc.html?page=universe&unit=' + encodeURIComponent(p.department) + '&pos=' + encodeURIComponent(p.pos) : '#',
+        due: due.label, dueColor: due.color, dueBg: due.bg, dueIcon: due.icon,
+        assignee: { ...this.avatarOf(mate.name, 'task-mate', mate.tint), title: 'Assigned to ' + mate.name },
+        divider: i < shownTasks.length - 1 || st.taskLoadingMore ? '1px solid var(--line-soft)' : 'none',
+      };
+    });
 
     return {
+      showTasks: st.view === 'my' && !st.pureClient && !st.loading && st.projects.length > 0,
+      taskTabs: this.TASK_TABS.map((tb) => {
+        const on = tb.key === st.taskTab;
+        return {
+          key: tb.key, label: tb.label, selected: on ? 'true' : 'false',
+          count: st.tasks.filter((t) => this.taskTabOf(t) === tb.key && !st.doneTasks[t.id]).length,
+          bg: on ? 'var(--panel)' : 'transparent',
+          color: on ? 'var(--text)' : 'var(--text2)',
+          shadow: on ? '0 0 0 1px var(--line-soft), 0 1px 2px rgba(0,0,0,.08)' : 'none',
+          countColor: on ? 'var(--text2)' : 'var(--text3)',
+        };
+      }),
+      setTaskTab: (e) => {
+        const tab = e.currentTarget.dataset.tab;
+        if (st.tasksCollapsed) { try { localStorage.setItem('lm-my-tasks-collapsed', '0'); } catch (e) {} }
+        this.setState({ taskTab: tab, tasksCollapsed: false, ...this.taskListReset() });
+      },
+      tasksOpen: !st.tasksCollapsed,
+      tasksOpenAria: st.tasksCollapsed ? 'false' : 'true',
+      tasksToggleLabel: st.tasksCollapsed ? 'Expand My tasks' : 'Collapse My tasks',
+      tasksChevronTurn: st.tasksCollapsed ? '-90deg' : '0deg',
+      taskHeadBorder: st.tasksCollapsed ? 'none' : '1px solid var(--line-soft)',
+      toggleTasksCard: () => {
+        const c = !st.tasksCollapsed;
+        try { localStorage.setItem('lm-my-tasks-collapsed', c ? '1' : '0'); } catch (e) {}
+        this.setState({ tasksCollapsed: c });
+      },
+      taskListMax: st.tasksExpanded ? '460px' : 'none',
+      onTaskListScroll: (e) => {
+        const box = e.currentTarget;
+        if (!st.tasksExpanded || this._taskMoreTimer || st.taskReveal >= tabTasks.length) return;
+        if (box.scrollHeight - box.scrollTop - box.clientHeight > 120) return;
+        this.setState({ taskLoadingMore: true });
+        this._taskMoreTimer = setTimeout(() => {
+          this._taskMoreTimer = null;
+          this.setState({ taskLoadingMore: false, taskReveal: this.state.taskReveal + this.TASK_PAGE });
+        }, 600);
+      },
+      loadingMoreTasks: st.taskLoadingMore,
+      taskListLabel: taskTabMeta.label + ' tasks',
+      taskRows,
+      showAssignee: onAssigned,
+      taskCols: '18px 26px minmax(200px, 1.4fr) minmax(160px, 1fr) minmax(140px, 1fr) 188px' + (onAssigned ? ' 112px' : ''),
+      taskMin: onAssigned ? '1000px' : '880px',
+      noTasks: tabTasks.length === 0,
+      noTasksMsg: taskTabMeta.empty,
+      hasMoreTasks: tabTasks.length > this.TASK_VISIBLE,
+      moreTasksLabel: st.tasksExpanded ? 'Show fewer' : 'Show all ' + tabTasks.length,
+      moreTasksIcon: st.tasksExpanded ? this.ICONS.chevronUp : this.ICONS.chevronDown,
+      toggleAllTasks: () => this.setState(st.tasksExpanded ? this.taskListReset() : { tasksExpanded: true, taskReveal: this.TASK_PAGE }),
+      toggleTask: (e) => {
+        const id = e.currentTarget.dataset.id;
+        this.setState({ doneTasks: { ...st.doneTasks, [id]: !st.doneTasks[id] } });
+      },
+      setNextTask: (e) => {
+        const t = st.tasks.find((x) => x.id === e.currentTarget.dataset.id);
+        this.showToast('New task for ' + t.exec + ' — pick a type and a due date');
+      },
+      newTask: () => this.showToast('New task — pick an executive, a type and a due date'),
+      hasUnread: true,
+      unreadCount: '5',
+      bellLabel: 'Notifications, 5 unread',
       icons: this.ICONS,
       isAdmin,
       me: st.pureClient

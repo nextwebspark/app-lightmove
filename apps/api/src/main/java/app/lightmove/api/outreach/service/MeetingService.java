@@ -22,6 +22,7 @@ import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.FreeSlots;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
+import app.lightmove.api.outreach.model.OutreachCallBooked;
 import app.lightmove.api.outreach.model.PersonMeeting;
 import app.lightmove.api.outreach.model.SendingWindow;
 import app.lightmove.api.outreach.model.SlotPage;
@@ -46,6 +47,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -77,6 +79,7 @@ public class MeetingService {
     private final UserRepository users;
     private final AuditService audit;
     private final TransactionTemplate transactions;
+    private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -196,6 +199,8 @@ public class MeetingService {
             MailboxConnection fresh = mailboxes.findById(mailbox.getId()).orElse(mailbox);
             meetingSync.keep(fresh, created, recipient.personId(), userId, false);
             people.recordMeetingBooked(userId, projectId, candidateId, created.startsAt(), false);
+            events.publishEvent(new OutreachCallBooked(workspaceId, projectId, candidateId, recipient.personId(),
+                    userId, created.startsAt(), created.endsAt(), false));
             enrollments.findByProjectIdAndPersonIdInAndStatusIn(projectId, List.of(recipient.personId()),
                             EnrollmentStatus.LIVE)
                     .forEach(enrollment -> outcomes.booked(enrollment, userId, false, now, httpRequest));

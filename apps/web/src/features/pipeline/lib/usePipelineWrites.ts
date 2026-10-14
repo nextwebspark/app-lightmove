@@ -52,20 +52,6 @@ export function useClientVisibility(projectId: string) {
   });
 }
 
-export function useNextAction(projectId: string) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  return useMutation({
-    mutationFn: ({ candidateId, text, dueAt }: { candidateId: string; text: string | null; dueAt: string | null }) =>
-      pipelineApi.setNextAction(projectId, candidateId, { text, dueAt }),
-    onSuccess: (saved) => {
-      patchRow(queryClient, projectId, saved.candidateId, () => saved);
-      toast(saved.nextAction ? "Next action saved" : "Next action cleared");
-    },
-    onError: (error) => toast.error(messageFor(error)),
-  });
-}
-
 /** A row dragged within its stage: the list shows the new order at once, and the server keeps it. */
 export function useRankMove(projectId: string, queryKey: QueryKey) {
   const queryClient = useQueryClient();

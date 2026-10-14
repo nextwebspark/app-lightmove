@@ -64,7 +64,16 @@ public enum PersonActivityKind {
     DOCUMENT_REMOVED,
     DOCUMENT_VERSION_REMOVED,
 
-    /** The line carries the action's text and due date as set, or that it was cleared. */
+    /** V132's free-text next action; no longer written since V133 made a next action a task. */
     NEXT_ACTION_SET,
-    CLIENT_VISIBILITY_CHANGED
+    CLIENT_VISIBILITY_CHANGED,
+
+    /** The line carries the task's id, title and kind as they were, and who holds it. */
+    TASK_CREATED,
+    TASK_COMPLETED,
+    TASK_REOPENED,
+
+    /** The line names who held the task before and who holds it now. */
+    TASK_REASSIGNED,
+    TASK_CANCELLED
 }

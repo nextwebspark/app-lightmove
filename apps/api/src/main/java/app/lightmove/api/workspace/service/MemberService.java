@@ -12,6 +12,7 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.model.MemberAccessNarrowed;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,6 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,6 +42,7 @@ public class MemberService {
     private final OAuthGrantService oauthGrants;
     private final SeatAllowance seats;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
 
     /** Replace-set semantics; self-demotion is allowed under the same last-admin rule. */
     @Transactional
@@ -68,6 +71,7 @@ public class MemberService {
         if (staffAfter != wasStaff) {
             seats.onStaffSeatsChanged(workspaceId);
         }
+        events.publishEvent(new MemberAccessNarrowed(workspaceId, member.getUserId(), actorId));
 
         audit.event(WorkspaceEventType.MEMBER_ROLE_CHANGED)
                 .actor(actorId).workspace(workspaceId).target("member", memberId).from(request)
@@ -90,6 +94,7 @@ public class MemberService {
 
         member.remove();
         detachment.detach(memberId);
+        events.publishEvent(new MemberAccessNarrowed(workspaceId, member.getUserId(), actorId));
         if (holdsStaffRole(member)) {
             seats.onStaffSeatsChanged(workspaceId);
         }

@@ -32,6 +32,7 @@ export function CandidateDrawer({
   onSaved,
   onDelete,
   onMarkNoExecutiveFound,
+  focusNoteId = null,
 }: {
   open: boolean;
   projectId: string;
@@ -53,6 +54,8 @@ export function CandidateDrawer({
   /** Flags the company as researched-and-nobody-suitable and closes the panel — the add form's other
    *  outcome. Only meaningful with a `company`, so callers without one pass nothing. */
   onMarkNoExecutiveFound?: () => void;
+  /** A note to open the profile on — a bell row's — rather than on the Profile tab. */
+  focusNoteId?: string | null;
 }) {
   const queryClient = useQueryClient();
   const live = useQuery({
@@ -81,6 +84,7 @@ export function CandidateDrawer({
           onClose={onClose}
           onSaved={handleSaved}
           onRemove={canWrite ? onDelete : undefined}
+          focusNoteId={focusNoteId}
         />
       ) : (
         <AddCandidateForm

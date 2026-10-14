@@ -1,9 +1,15 @@
 import type { CandidatePipelineStage } from "../../candidates/api/types";
+import type { TaskKind, TaskPerson } from "../../tasks/api/types";
 
-/** What has to happen next with someone, when, and who said so. */
-export interface NextAction {
+/** The executive's earliest open task on the position: what the card and the list row show as Next action. */
+export interface CandidateNextAction {
+  taskId: string;
   text: string;
+  kind: TaskKind;
   dueAt: string | null;
+  assignee: TaskPerson;
+  /** Every open task on them here, this one included. */
+  openCount: number;
   setByName: string | null;
 }
 
@@ -21,7 +27,7 @@ export interface PipelineRow {
   pipelineStage: CandidatePipelineStage;
   addedAt: string;
   statusChangedAt: string;
-  nextAction: NextAction | null;
+  nextAction: CandidateNextAction | null;
   clientVisible: boolean;
   /** When research last landed; the photo is asked for only once it has. */
   enrichedAt?: string | null;

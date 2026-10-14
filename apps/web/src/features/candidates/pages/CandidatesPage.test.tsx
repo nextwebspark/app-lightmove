@@ -10,7 +10,7 @@ import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as poolApi from "../api/poolApi";
-import type { CandidateTag, PersonRecord, PoolPage, PoolRow } from "../api/types";
+import type { CandidateTag, PersonNote, PersonRecord, PoolPage, PoolRow } from "../api/types";
 import { CandidatesPage } from "./CandidatesPage";
 
 vi.mock("../api/poolApi", async (importOriginal) => ({
@@ -529,6 +529,40 @@ describe("CandidatesPage", () => {
         expect.objectContaining({ projectId: "p1" }),
       ),
     );
+  });
+
+  it("sets the next action on the position the note was saved about, whatever the select says by then", async () => {
+    let answer!: (note: PersonNote) => void;
+    vi.mocked(poolApi.writePoolNote).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+    renderPage("/candidates?person=person-1&tab=records");
+
+    await userEvent.selectOptions(await screen.findByLabelText("Position this note is about"), "p1");
+    await userEvent.type(screen.getByLabelText("New note"), "Wants the package first.");
+    await userEvent.click(screen.getByRole("button", { name: "Save & set next action" }));
+    await userEvent.selectOptions(screen.getByLabelText("Position this note is about"), "");
+    answer({
+      id: "n1",
+      kind: "call",
+      body: "Wants the package first.",
+      pinned: false,
+      projectId: "p1",
+      projectTitle: "Chief Financial Officer",
+      authorUserId: "u1",
+      authorName: "Alok Kumar",
+      authorAvatarUrl: null,
+      createdAt: "2026-10-03T08:00:00Z",
+      editedAt: null,
+      editedByName: null,
+      editable: true,
+    });
+
+    expect(await screen.findByRole("dialog", { name: "Set next action" })).toBeInTheDocument();
+    expect(screen.getByText("Linked to a call note · 03 Oct 2026")).toBeInTheDocument();
   });
 
   it("reads the activity feed with whom each line is about, and opens that person on their timeline", async () => {

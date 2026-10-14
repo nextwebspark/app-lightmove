@@ -40,7 +40,8 @@ import org.springframework.transaction.annotation.Transactional;
  * A person's notes, shared by every mandate that maps them and read by staff only (decision D1). Anyone
  * who reaches the person may write one or pin one; only its author, or a holder of
  * {@code WORKSPACE_MANAGE}, may change or remove it. Every write is a timeline line naming the note,
- * never quoting it, so a removed note leaves no copy of its words behind.
+ * never quoting it, so a removed note leaves no copy of its words behind. A note about a position may mention
+ * its team ({@link NoteMentions}); one about no position mentions nobody.
  */
 @Service
 @RequiredArgsConstructor
@@ -56,6 +57,7 @@ public class PersonNoteService {
     private final WorkspaceAccess workspaceAccess;
     private final ProjectAccess projectAccess;
     private final PersonActivityRecorder activity;
+    private final NoteMentions mentions;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
@@ -86,6 +88,7 @@ public class PersonNoteService {
             }
         }
         PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), userId);
+        mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_ADDED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("noteId", note.getId().toString())
@@ -100,6 +103,7 @@ public class PersonNoteService {
         PersonNoteKind kind = kindOf(request);
         PersonNote note = requireEditable(userId, workspaceId, personId, noteId);
         note.revise(kind, request.body().strip(), userId);
+        mentions.keep(note, userId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_EDITED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)

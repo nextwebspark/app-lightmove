@@ -2,17 +2,22 @@ package app.lightmove.api.project.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.project.constant.ProjectStage;
+import app.lightmove.api.project.model.ProjectSeatVacated;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
+import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.service.MemberDetachment;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 /**
  * Member removal: no live mandate may lose its only lead, and the seats go too. A sole lead on a
  * DELIVERED/CLOSED mandate deliberately does not block, or removal would become impossible over time.
+ * Each staff seat's going is announced first, so the work it held can be handed on in the same transaction.
  */
 @Service
 @RequiredArgsConstructor
@@ -22,6 +27,8 @@ public class ProjectMemberDetachment implements MemberDetachment {
             List.of(ProjectStage.DELIVERED, ProjectStage.CLOSED);
 
     private final ProjectMemberRepository seats;
+    private final WorkspaceMemberRepository members;
+    private final ApplicationEventPublisher events;
 
     @Override
     public void assertRemovable(UUID memberId) {
@@ -32,6 +39,10 @@ public class ProjectMemberDetachment implements MemberDetachment {
 
     @Override
     public void detach(UUID memberId) {
+        members.findById(memberId).ifPresent(member -> seats.findByMemberId(memberId).stream()
+                .filter(seat -> seat.getRoles().stream().anyMatch(role -> !role.is(ProjectRole.CLIENT)))
+                .forEach(seat -> events.publishEvent(new ProjectSeatVacated(member.getWorkspaceId(),
+                        seat.getProjectId(), member.getUserId(), null))));
         seats.deleteByMemberId(memberId);
     }
 }

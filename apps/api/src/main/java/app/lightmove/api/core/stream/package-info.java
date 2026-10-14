@@ -8,7 +8,8 @@
  * app.lightmove.api.core.stream.PostgresStreamListener} holds the instance's single {@code LISTEN}ing
  * connection and dispatches by channel to a {@link
  * app.lightmove.api.core.stream.PostgresNotificationHandler}, so a second stream costs a channel
- * rather than a fifth of the connection pool. The project stream is one such handler.
+ * rather than a fifth of the connection pool. The project stream is one such handler; a person's own stream
+ * (the notification bell, keyed by person and workspace) is the other.
  *
  * <p>The write side goes through Postgres rather than calling the emitters directly, for two reasons
  * that are both load-bearing. Cloud Run runs up to two instances, and the instance that commits an

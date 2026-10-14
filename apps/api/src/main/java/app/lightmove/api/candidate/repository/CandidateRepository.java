@@ -148,6 +148,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query("select c.person.id from Candidate c where c.id = :id and c.projectId = :projectId")
     Optional<UUID> findPersonIdByIdAndProjectId(UUID id, UUID projectId);
 
+    /** The mandate's row for a person, by id alone. */
+    @Query("select c.id from Candidate c where c.projectId = :projectId and c.person.id = :personId")
+    Optional<UUID> findIdByProjectIdAndPersonId(UUID projectId, UUID personId);
+
     /** {@link #findPersonIdByIdAndProjectId} as a client seat reads it: nobody hidden from the client. */
     @Query("select c.person.id from Candidate c where c.id = :id and c.projectId = :projectId "
             + "and c.clientVisible = true")

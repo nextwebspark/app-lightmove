@@ -6,6 +6,7 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.MailboxConnection;
+import app.lightmove.api.outreach.model.OutreachCallBooked;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +38,7 @@ class LinkBookings {
     private final MeetingSync meetings;
     private final OutreachOutcomes outcomes;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void apply(MailboxConnection mailbox, BookingMade booking, Instant now) {
@@ -61,7 +64,7 @@ class LinkBookings {
         emailed.stream()
                 .filter(OutreachEnrollment::isListening)
                 .forEach(enrollment -> outcomes.booked(enrollment, null, true, now, null));
-        latestPerPosition(emailed).forEach(enrollment -> engaged(enrollment, booking));
+        latestPerPosition(emailed).forEach(enrollment -> engaged(mailbox, enrollment, booking));
     }
 
     /** One line and one move per position, however many runs that position had with them. */
@@ -73,9 +76,12 @@ class LinkBookings {
         return List.copyOf(latest.values());
     }
 
-    private void engaged(OutreachEnrollment enrollment, BookingMade booking) {
+    private void engaged(MailboxConnection mailbox, OutreachEnrollment enrollment, BookingMade booking) {
         people.recordMeetingBooked(null, enrollment.getProjectId(), enrollment.getCandidateId(), booking.startsAt(),
                 true);
+        events.publishEvent(new OutreachCallBooked(enrollment.getWorkspaceId(), enrollment.getProjectId(),
+                enrollment.getCandidateId(), enrollment.getPersonId(), mailbox.getUserId(), booking.startsAt(),
+                booking.endsAt(), true));
         audit.projectEvent(ProjectEventType.OUTREACH_MEETING_BOOKED, null, enrollment.getWorkspaceId(),
                         enrollment.getProjectId(), null)
                 .detail("enrollmentId", enrollment.getId().toString())

@@ -66,6 +66,15 @@ public enum ProjectEventType implements AuditEventType {
     CANDIDATE_PIPELINE_REORDERED,
     CANDIDATE_NEXT_ACTION_SET,
     CANDIDATE_CLIENT_VISIBILITY_CHANGED,
+
+    /** A task on an executive: filed, changed (reassigned, rescheduled, completed, reopened) or cancelled. */
+    TASK_CREATED,
+    TASK_UPDATED,
+    TASK_CANCELLED,
+    TASK_PRESET_CREATED,
+    TASK_PRESET_UPDATED,
+    TASK_PRESETS_REORDERED,
+    TASK_RULES_CHANGED,
     EXECUTIVE_SOURCING_REQUESTED,
     EXECUTIVE_SOURCING_COMPLETED,
 

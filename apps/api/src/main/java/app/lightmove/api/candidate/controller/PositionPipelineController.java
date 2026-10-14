@@ -4,7 +4,6 @@ import app.lightmove.api.candidate.dto.PipelineRowResponse;
 import app.lightmove.api.candidate.dto.PositionPipelineResponse;
 import app.lightmove.api.candidate.dto.RankPipelineRowRequest;
 import app.lightmove.api.candidate.dto.SetClientVisibilityRequest;
-import app.lightmove.api.candidate.dto.SetNextActionRequest;
 import app.lightmove.api.candidate.service.PositionPipelineService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
@@ -25,7 +24,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * A position's Pipeline page. {@code WORK_EXECUTE} throughout, reads included: the next action, the
  * team's order and the visibility switch are staff working facts a client seat never reads. Moving someone
- * between stages is the ordinary status change on {@code CandidateController}.
+ * between stages is the ordinary status change on {@code CandidateController}; a next action is a task,
+ * written through {@code task}'s routes.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}")
@@ -51,16 +51,6 @@ public class PositionPipelineController {
                                     HttpServletRequest httpRequest) {
         return pipeline.rank(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, request,
                 httpRequest);
-    }
-
-    @PutMapping("/candidates/{candidateId}/next-action")
-    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
-    public PipelineRowResponse nextAction(@AuthenticationPrincipal AuthPrincipal principal,
-                                          @PathVariable UUID projectId, @PathVariable UUID candidateId,
-                                          @Valid @RequestBody SetNextActionRequest request,
-                                          HttpServletRequest httpRequest) {
-        return pipeline.setNextAction(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                request, httpRequest);
     }
 
     @PutMapping("/candidates/{candidateId}/client-visibility")

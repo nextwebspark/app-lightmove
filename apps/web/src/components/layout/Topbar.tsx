@@ -7,6 +7,7 @@ import { isPureClient } from "../../features/auth/roles";
 import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
 import { CreditChip } from "../../features/billing/components/CreditChip";
 import { useHelp } from "../../features/help/HelpProvider";
+import { NotificationBell } from "../../features/notifications/components/NotificationBell";
 import { useTheme } from "../../features/theme/useTheme";
 import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
 import { AppIcon, Avatar, useToast } from "../ui";
@@ -17,7 +18,7 @@ import { useDropdownMenu } from "./useDropdownMenu";
 
 /**
  * The 46px header: the workspace menu on the workspace's own name at the left, the account menu on the avatar at
- * the right — the convention people bring from every other tool. A project passes its people as `actions`, and
+ * the right — the convention people bring from every other tool — and, for staff, the notification bell. A project passes its people as `actions`, and
  * settings and project screens a breadcrumb led by the workspace menu. Below `lg` it also carries the nav drawer's
  * button.
  */
@@ -35,6 +36,7 @@ export function Topbar({
 }) {
   const { user } = useAuth();
   const toast = useToast();
+  const isStaff = !!user?.workspace && !isPureClient(user.workspace.roles);
 
   useEffect(() => {
     const moved = takeWorkspaceMove();
@@ -61,6 +63,7 @@ export function Topbar({
       <div className="flex flex-none items-center gap-2.5">
         <CreditChip />
         {actions}
+        {isStaff && <NotificationBell />}
         <HelpButton />
         {user && <AccountMenu />}
       </div>

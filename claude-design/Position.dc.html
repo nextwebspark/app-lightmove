@@ -957,12 +957,17 @@
                           </div>
                         </div>
                         <span style="font:400 12px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.company }}</span>
-                        <div style="display:flex;flex-direction:column;gap:5px;min-width:0">
-                          <span style="font:500 12px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.nextText }}</span>
+                        <button data-id="{{ c.id }}" onClick="{{ openNextAction }}" title="{{ c.nextTitle }}" style="display:flex;flex-direction:column;gap:5px;min-width:0;margin:-4px;padding:4px;border-radius:6px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit" style-hover="background:var(--line-soft)">
+                          <span style="{{ c.nextTextStyle }}">{{ c.nextText }}</span>
                           <sc-if value="{{ c.hasNext }}">
-                            <span style="{{ c.dueStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style="flex:none"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2"></path></svg>{{ c.nextDue }}</span>
+                            <span style="display:flex;align-items:center;gap:6px;min-width:0;width:100%">
+                              <span style="{{ c.dueStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style="flex:none"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2"></path></svg>{{ c.nextDue }}</span>
+                              <span style="flex:1"></span>
+                              <sc-if value="{{ c.hasMore }}"><span style="font:500 10px var(--sans);color:var(--text3)">+{{ c.more }}</span></sc-if>
+                              <span title="{{ c.whoName }}" style="{{ c.whoStyle }}">{{ c.whoInitials }}</span>
+                            </span>
                           </sc-if>
-                        </div>
+                        </button>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--line-soft)">
                           <span style="font:400 10px var(--sans);color:var(--text3);white-space:nowrap">{{ c.inStage }}</span>
                           <button data-id="{{ c.id }}" onClick="{{ togglePipelineVisible }}" role="switch" aria-checked="{{ c.visibleOn }}" title="Toggle client visibility" style="display:inline-flex;align-items:center;gap:5px;border:none;background:none;padding:0;cursor:pointer;font:400 10px var(--sans);color:var(--text2);white-space:nowrap">
@@ -1045,10 +1050,13 @@
                   <span title="Status" style="max-width:100%;padding-left:2px;font:400 11px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.statusLabel }}</span>
                 </div>
                 <div style="font:400 11.5px var(--mono);color:var(--text3);line-height:1.6">{{ r.added }}<br>{{ r.stageDate }}</div>
-                <div style="font-size:12.5px;line-height:1.6">
-                  <div style="color:var(--text2)">{{ r.nextText }}</div>
-                  <sc-if value="{{ r.hasNext }}"><div style="font:600 11px var(--mono);color:{{ r.dueColor }}">{{ r.nextDue }}</div></sc-if>
-                </div>
+                <button data-id="{{ r.id }}" onClick="{{ openNextAction }}" title="{{ r.nextTitle }}" style="display:flex;align-items:center;gap:8px;min-width:0;margin:-4px;padding:4px;border-radius:6px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit" style-hover="background:var(--line-soft)">
+                  <sc-if value="{{ r.hasNext }}"><span title="{{ r.whoName }}" style="{{ r.whoStyle }}">{{ r.whoInitials }}</span></sc-if>
+                  <span style="min-width:0;font-size:12.5px;line-height:1.6">
+                    <span style="display:block;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.nextText }}</span>
+                    <sc-if value="{{ r.hasNext }}"><span style="display:block;font:600 11px var(--mono);color:{{ r.dueColor }}">{{ r.nextDue }}{{ r.moreLabel }}</span></sc-if>
+                  </span>
+                </button>
                 <button data-id="{{ r.id }}" onClick="{{ togglePipelineVisible }}" role="switch" aria-checked="{{ r.visibleOn }}" aria-label="Visible to client" title="{{ r.visTitle }}" style="display:inline-flex;align-items:center;gap:5px;justify-self:start;border:none;background:none;padding:4px 0;cursor:pointer;font:400 11.5px var(--sans);color:var(--text2);white-space:nowrap">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="{{ r.visIconStyle }}"><path d="{{ r.visIcon }}"></path></svg>{{ r.visLabel }}</button>
               </div>
@@ -1701,6 +1709,40 @@
                   <sc-if value="{{ cd.orLive }}"><button onClick="{{ stopSequence }}" style="margin-top:6px;border-radius:6px;padding:5px 11px;font:500 12px var(--sans);background:none;border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Stop sequence</button></sc-if>
                 </sc-if>
 
+                <sc-if value="{{ sx.isNextActions }}">
+                  <sc-for list="{{ cd.naOpen }}" as="t">
+                    <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-soft)">
+                      <button data-id="{{ t.id }}" onClick="{{ completeTask }}" role="checkbox" aria-checked="false" aria-label="Mark {{ t.title }} done" style="margin-top:1px;width:18px;height:18px;flex:none;border-radius:50%;border:1.5px solid var(--line);background:none;cursor:pointer;padding:0" style-hover="border-color:var(--green)"></button>
+                      <button data-id="{{ t.id }}" onClick="{{ editTask }}" style="min-width:0;flex:1;border:none;background:none;padding:0;text-align:left;cursor:pointer;font-family:inherit">
+                        <span style="display:flex;align-items:center;gap:6px;min-width:0">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="{{ t.icon }}"></path></svg>
+                          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:500 13px var(--sans);color:var(--text)">{{ t.title }}</span>
+                          <sc-if value="{{ t.auto }}"><span title="Filed by Uncava from outreach" style="flex:none;border-radius:4px;padding:0 5px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;background:var(--ai-dim);color:var(--ai)">Auto</span></sc-if>
+                        </span>
+                        <sc-if value="{{ t.hasDetail }}"><span style="display:block;margin-top:2px;font:400 12px var(--sans);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.detail }}</span></sc-if>
+                        <sc-if value="{{ t.hasNote }}"><span role="link" tabIndex="0" data-id="{{ t.noteId }}" onClick="{{ openLinkedNote }}" style="display:flex;align-items:center;gap:5px;width:max-content;max-width:100%;margin-top:3px;font:500 11.5px var(--sans);color:var(--sky);cursor:pointer" style-hover="text-decoration:underline"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.fileText }}"></path></svg>{{ t.noteLine }}</span></sc-if>
+                        <span style="display:flex;align-items:center;gap:6px;margin-top:5px">
+                          <span style="{{ t.dueStyle }}">{{ t.due }}</span>
+                          <span style="color:var(--text3);font-size:11px">·</span>
+                          <span style="{{ t.whoStyle }}">{{ t.whoInitials }}</span>
+                          <span style="font:400 11.5px var(--sans);color:var(--text2)">{{ t.whoName }}</span>
+                        </span>
+                      </button>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ cd.naEmpty }}"><p style="margin:0;font:400 12.5px/1.5 var(--sans);color:var(--text3)">No next action for {{ cd.first }}. Every executive in play should have one.</p></sc-if>
+                  <sc-if value="{{ cd.naJustDone }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:8px;border-radius:8px;background:var(--green-dim);padding:8px 10px;font:400 12.5px var(--sans);color:var(--text2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4"><path d="m5 13 4 4L19 7"></path></svg><span style="flex:1">Done. Set the next one?</span><button onClick="{{ setNextAction }}" style="border-radius:6px;padding:3px 10px;font:600 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer">Set next action</button></div>
+                  </sc-if>
+                  <button onClick="{{ setNextAction }}" style="margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:0;border:none;background:none;font:500 12.5px var(--sans);color:var(--sky);cursor:pointer" style-hover="text-decoration:underline"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"></path></svg>Add a next action</button>
+                  <sc-if value="{{ cd.naHasDone }}">
+                    <div style="margin:12px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Done</div>
+                    <sc-for list="{{ cd.naDone }}" as="t">
+                      <div style="display:flex;align-items:center;gap:10px;padding:4px 0;font:400 12.5px var(--sans);color:var(--text3)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.4" style="flex:none"><path d="m5 13 4 4L19 7"></path></svg><span style="text-decoration:line-through;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ t.title }}</span><span style="flex:none;font:400 11px var(--mono)">{{ t.done }}</span></div>
+                    </sc-for>
+                  </sc-if>
+                </sc-if>
+
                 <sc-if value="{{ sx.isMeetings }}">
                   <sc-if value="{{ cd.mtEmpty }}"><p style="margin:0;font:400 12.5px/1.5 var(--sans);color:var(--text3)">No meetings with {{ cd.first }} on your team's calendars yet.</p></sc-if>
                   <sc-if value="{{ cd.mtHasUpcoming }}">
@@ -1780,16 +1822,43 @@
                         </sc-for>
                       </div>
                       <p style="margin:16px 0 0;display:flex;align-items:center;gap:5px;font:400 11px var(--sans);color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 16v-4M12 8h.01M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"></path></svg>Illustrative draft · Not added to the candidate record</p>
-                      <div style="margin-top:16px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:12px">
+                      <div style="position:relative;margin-top:16px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:12px">
+                        <sc-if value="{{ cd.mentionOpen }}" hint-placeholder-val="{{ false }}">
+                          <div role="listbox" aria-label="Mention someone on this position's team" data-screen-label="Mention picker" style="position:absolute;left:12px;bottom:44px;z-index:6;width:300px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:5px">
+                            <button onClick="{{ mentionTeam }}" role="option" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;border:none;background:none;padding:7px 9px;text-align:left;cursor:pointer;font-family:inherit" style-hover="background:var(--panel2)">
+                              <span style="display:flex;flex:none"><span style="{{ cd.teamAv1 }}">OK</span><span style="{{ cd.teamAv2 }}">SA</span></span>
+                              <span style="flex:1;font:600 13px var(--sans);color:var(--text)">@team</span>
+                              <span style="font:400 11px var(--sans);color:var(--text3)">Everyone on this position</span>
+                            </button>
+                            <div style="height:1px;background:var(--line-soft);margin:4px 2px"></div>
+                            <sc-for list="{{ cd.mentionTeam }}" as="m" hint-placeholder-count="4">
+                              <button data-id="{{ m.key }}" onClick="{{ pickMention }}" role="option" style="display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;border:none;background:none;padding:7px 9px;text-align:left;cursor:pointer;font-family:inherit" style-hover="background:var(--panel2)">
+                                <span style="{{ m.avStyle }}">{{ m.initials }}</span>
+                                <span style="flex:1;font:500 13px var(--sans);color:var(--text)">{{ m.name }}</span>
+                                <span style="{{ m.roleStyle }}">{{ m.role }}</span>
+                              </button>
+                            </sc-for>
+                            <p style="margin:4px 0 0;padding:6px 9px 3px;border-top:1px solid var(--line-soft);font:400 11px var(--sans);color:var(--text3)">Only this position's team. They're told who mentioned them, never what the note says.</p>
+                          </div>
+                        </sc-if>
                         <textarea value="{{ cd.noteText }}" onChange="{{ onNoteText }}" rows="3" maxLength="4000" aria-label="Note" placeholder="What was said, and what happens next…" style="width:100%;resize:vertical;border:none;background:none;padding:0;font:400 14px/1.55 var(--sans);color:var(--text);outline:none"></textarea>
                         <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
                           <span style="display:flex;align-items:center;gap:16px;color:var(--text3)">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"></path></svg>
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M19 4h-9M14 20H5M14.7 4.5 9.3 19.5"></path></svg>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M9 6h11M9 12h11M9 18h11M5 6h.01M5 12h.01M5 18h.01"></path></svg>
+                            <button onClick="{{ toggleMention }}" title="Mention a teammate (type @)" aria-label="Mention a teammate" style="display:grid;place-items:center;width:22px;height:22px;margin:-4px 0;border-radius:5px;border:none;background:{{ cd.mentionBtnBg }};color:inherit;cursor:pointer;padding:0;font:600 13px var(--sans)" style-hover="color:var(--text)">@</button>
                           </span>
                           <span style="font:400 10px var(--sans);color:var(--text3)">{{ cd.noteCharCount }} characters</span>
                         </div>
+                        <sc-if value="{{ cd.hasMentions }}">
+                          <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                            <span style="font:400 11px var(--sans);color:var(--text3)">Notifies</span>
+                            <sc-for list="{{ cd.mentions }}" as="m">
+                              <span style="display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 8px 2px 2px;background:var(--u-accent-tint);font:500 12px var(--sans);color:var(--u-accent)"><span style="{{ m.avStyle }}">{{ m.initials }}</span>@{{ m.name }}<button data-id="{{ m.key }}" onClick="{{ removeMention }}" aria-label="Remove {{ m.name }}" style="border:none;background:none;padding:0 0 0 2px;color:inherit;opacity:.7;cursor:pointer">×</button></span>
+                            </sc-for>
+                          </div>
+                        </sc-if>
                       </div>
                       <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
                         <label style="display:flex;flex-direction:column;gap:7px;font:500 11px var(--sans);color:var(--text3)">Event date
@@ -1800,32 +1869,12 @@
                         </label>
                       </div>
                       <p style="margin:16px 0 0;display:flex;align-items:center;gap:7px;font:400 11px var(--sans);color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5z"></path></svg>Visible to: Internal team · Client contacts cannot see notes</p>
-                      <div style="margin-top:16px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:14px">
-                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                          <input type="checkbox" checked="{{ cd.followUpOn }}" onChange="{{ toggleFollowUp }}" style="width:16px;height:16px;border-radius:3px;accent-color:var(--amber-btn)">
-                          <span style="font:600 12px var(--sans);color:var(--text)">Create a linked follow-up</span>
-                          <span style="font:400 11px var(--sans);color:var(--text3)">Optional</span>
-                        </label>
-                        <sc-if value="{{ cd.followUpOn }}" hint-placeholder-val="{{ true }}">
-                          <p style="margin:8px 0 0;font:400 11px var(--sans);color:var(--text3)">A separate task linked to this note. Draft owner and date below.</p>
-                          <input value="{{ cd.followUpTitle }}" onChange="{{ onFollowUpTitle }}" placeholder="Follow-up task" aria-label="Follow-up task" style="margin-top:10px;width:100%;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:0 10px;font:400 12px var(--sans);color:var(--text);outline:none;box-sizing:border-box">
-                          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                            <label style="display:flex;flex-direction:column;gap:7px;font:500 11px var(--sans);color:var(--text3)">Owner
-                              <select value="{{ cd.followUpOwner }}" onChange="{{ setFollowUpOwner }}" style="height:36px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:0 10px;font:400 12px var(--sans);color:var(--text);outline:none">
-                                <sc-for list="{{ cd.followUpOwnerOptions }}" as="oo"><option value="{{ oo.value }}">{{ oo.label }}</option></sc-for>
-                              </select>
-                            </label>
-                            <label style="display:flex;flex-direction:column;gap:7px;font:500 11px var(--sans);color:var(--text3)">Due date
-                              <input type="date" value="{{ cd.followUpDue }}" onChange="{{ onFollowUpDue }}" style="height:36px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:0 10px;font:400 12px var(--sans);color:var(--text);outline:none">
-                            </label>
-                          </div>
-                        </sc-if>
-                      </div>
                       <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;gap:8px">
-                        <span style="font:400 10px var(--sans);color:var(--text3)">Logged date is set when saved</span>
-                        <span style="display:flex;align-items:center;gap:8px">
+                        <span style="flex:1;min-width:0;font:400 10px var(--sans);color:var(--text3)">Logged date is set when saved</span>
+                        <span style="display:flex;flex:none;align-items:center;gap:8px">
                         <button onClick="{{ closeNoteComposer }}" style="height:38px;border-radius:6px;padding:0 14px;font:600 13px var(--sans);background:var(--panel);border:1px solid var(--line-soft);color:var(--text3);cursor:pointer" style-hover="color:var(--text)">Cancel</button>
-                        <button onClick="{{ saveNoteStub }}" style="height:38px;border-radius:6px;padding:0 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ cd.saveNoteOpacity }}" style-hover="filter:brightness(1.05)">{{ cd.saveNoteLabel }}</button>
+                        <button onClick="{{ saveNoteAndSetNextAction }}" style="height:38px;border-radius:6px;padding:0 14px;font:600 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer;opacity:{{ cd.saveNoteOpacity }}" style-hover="border-color:var(--text3)">Save &amp; set next action</button>
+                        <button onClick="{{ saveNoteStub }}" style="height:38px;border-radius:6px;padding:0 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ cd.saveNoteOpacity }}" style-hover="filter:brightness(1.05)">Save note</button>
                         </span>
                       </div>
                     </div>
@@ -1854,7 +1903,7 @@
                   <sc-if value="{{ cd.hasPinnedNotes }}" hint-placeholder-val="{{ false }}">
                     <h4 style="margin:20px 0 8px;display:flex;align-items:center;gap:6px;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.pin }}"></path></svg>Pinned context<span style="border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono);color:var(--text2)">{{ cd.pinnedCount }}</span></h4>
                     <sc-for list="{{ cd.pinnedNotes }}" as="n" hint-placeholder-count="1">
-                      <div style="position:relative;margin-bottom:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);background:var(--amber-dim);padding:16px">
+                      <div id="{{ n.domId }}" style="{{ n.cardStyle }}">
                         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ n.kindIcon }}"></path></svg>
                           <span style="font:600 12px var(--sans);color:var(--amber)">{{ n.kind }}</span>
@@ -1885,7 +1934,7 @@
                   </div>
                   <p style="margin:0 0 10px;font:400 11px var(--sans);color:var(--text3)">Sample entries below illustrate the history layout.</p>
                   <sc-for list="{{ cd.recentNotes }}" as="n" hint-placeholder-count="2">
-                    <div style="position:relative;margin-bottom:10px;border-radius:8px;border:1px solid var(--line-soft);background:var(--panel);padding:16px">
+                    <div id="{{ n.domId }}" style="{{ n.cardStyle }}">
                       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--amber)"><path d="{{ n.kindIcon }}"></path></svg>
                         <span style="font:600 12px var(--sans);color:var(--amber)">{{ n.kind }}</span>
@@ -2002,6 +2051,116 @@
         </div>
       </sc-if>
     </aside>
+  </sc-if>
+
+  <sc-if value="{{ na.open }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeNextAction }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4)">
+      <!-- A next action is a task: one row per job, assigned to someone on this position's team. The card shows
+           the earliest open one. Staff-only: a client contact never sees a task, a picker row or a notification. -->
+      <div role="dialog" aria-modal="true" aria-label="{{ na.heading }}" data-screen-label="Next action" onClick="{{ stop }}" style="width:540px;max-width:94vw;max-height:92vh;overflow-y:auto;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:20px 22px 0">
+          <div style="min-width:0;flex:1">
+            <div style="font:600 16px var(--sans)">{{ na.heading }}</div>
+            <div style="margin-top:3px;display:flex;align-items:center;gap:6px;font:400 12.5px var(--sans);color:var(--text3)"><span style="{{ na.execStyle }}">{{ na.execInitials }}</span>{{ na.execName }} · {{ roleTitle }}</div>
+          </div>
+          <button onClick="{{ closeNextAction }}" aria-label="Close" style="display:grid;place-items:center;width:28px;height:28px;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+        </div>
+
+        <div style="padding:18px 22px 4px;display:flex;flex-direction:column;gap:16px">
+          <label style="display:flex;flex-direction:column;gap:7px;font:500 11.5px var(--sans);color:var(--text3);position:relative">What needs doing
+            <input value="{{ na.what }}" onChange="{{ onNaWhat }}" onFocus="{{ openNaPresets }}" placeholder="Pick a preset or type your own…" aria-label="What needs doing" style="height:38px;border-radius:6px;border:1px solid {{ na.whatBorder }};background:var(--panel2);padding:0 12px;font:400 13.5px var(--sans);color:var(--text);outline:none">
+            <sc-if value="{{ na.presetsOpen }}" hint-placeholder-val="{{ true }}">
+              <div role="listbox" style="position:absolute;left:0;right:0;top:66px;z-index:5;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:5px;max-height:260px;overflow-y:auto">
+                <sc-if value="{{ na.hasFree }}">
+                  <button onClick="{{ useNaFree }}" role="option" style="display:flex;width:100%;align-items:center;gap:9px;border-radius:6px;border:none;background:none;padding:8px 9px;text-align:left;cursor:pointer;font:400 13px var(--sans);color:var(--text)" style-hover="background:var(--panel2)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="{{ ic.pencil }}"></path></svg><span style="flex:1">Use “{{ na.what }}”</span><span style="font:400 11px var(--sans);color:var(--text3)">Your own</span></button>
+                  <div style="height:1px;background:var(--line-soft);margin:4px 2px"></div>
+                </sc-if>
+                <div style="padding:4px 9px 2px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Presets</div>
+                <sc-for list="{{ na.presets }}" as="pr" hint-placeholder-count="5">
+                  <button data-id="{{ pr.index }}" onClick="{{ pickNaPreset }}" role="option" style="display:flex;width:100%;align-items:center;gap:9px;border-radius:6px;border:none;background:none;padding:8px 9px;text-align:left;cursor:pointer;font:400 13px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ pr.icon }}"></path></svg>
+                    <span style="flex:1">{{ pr.label }}</span>
+                    <span style="font:400 11px var(--sans);color:var(--text3)">{{ pr.kind }} · {{ pr.dueLabel }}</span>
+                  </button>
+                </sc-for>
+                <sc-if value="{{ na.noPresets }}"><p style="margin:0;padding:6px 9px;font:400 12px var(--sans);color:var(--text3)">No preset matches. Your text is saved as written.</p></sc-if>
+                <a href="Settings.dc.html?section=task-presets" style="display:block;margin-top:4px;padding:6px 9px;border-top:1px solid var(--line-soft);font:500 11.5px var(--sans);color:var(--text3)">Presets are your workspace's · Manage in Settings</a>
+              </div>
+            </sc-if>
+          </label>
+
+          <div style="display:flex;flex-direction:column;gap:7px;font:500 11.5px var(--sans);color:var(--text3)">Type
+            <div role="radiogroup" aria-label="Type" style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ na.kinds }}" as="k" hint-placeholder-count="5">
+                <button data-id="{{ k.key }}" onClick="{{ setNaKind }}" role="radio" aria-checked="{{ k.on }}" style="{{ k.style }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ k.icon }}"></path></svg>{{ k.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px;font:500 11.5px var(--sans);color:var(--text3);position:relative">Assign to
+            <button onClick="{{ toggleNaWho }}" aria-haspopup="listbox" aria-expanded="{{ na.whoOpen }}" style="display:flex;align-items:center;gap:9px;height:40px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:0 10px;cursor:pointer;font-family:inherit;text-align:left">
+              <span style="{{ na.whoStyle }}">{{ na.whoInitials }}</span>
+              <span style="flex:1;font:500 13.5px var(--sans);color:var(--text)">{{ na.whoLabel }}</span>
+              <span style="{{ na.whoRoleStyle }}">{{ na.whoRole }}</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
+            <sc-if value="{{ na.whoOpen }}" hint-placeholder-val="{{ false }}">
+              <div role="listbox" style="position:absolute;left:0;right:0;top:68px;z-index:5;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);padding:5px">
+                <sc-for list="{{ na.team }}" as="m" hint-placeholder-count="5">
+                  <button data-id="{{ m.key }}" onClick="{{ pickNaWho }}" role="option" aria-selected="{{ m.on }}" style="{{ m.rowStyle }}" style-hover="background:var(--panel2)">
+                    <span style="{{ m.avStyle }}">{{ m.initials }}</span>
+                    <span style="flex:1;font:500 13px var(--sans);color:var(--text)">{{ m.label }}</span>
+                    <span style="{{ m.roleStyle }}">{{ m.role }}</span>
+                    <sc-if value="{{ m.on }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2.6"><path d="m5 13 4 4L19 7"></path></svg></sc-if>
+                  </button>
+                </sc-for>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;padding:7px 9px 4px;border-top:1px solid var(--line-soft);font:400 11.5px var(--sans);color:var(--text3)">
+                  <span>This position's team only</span>
+                  <a href="?tab=team" style="font:500 11.5px var(--sans)">Not here? Add to team →</a>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:7px;font:500 11.5px var(--sans);color:var(--text3)">Due
+            <div style="display:grid;grid-template-columns:1fr 120px;gap:10px">
+              <input type="date" value="{{ na.date }}" onChange="{{ onNaDate }}" aria-label="Due date" style="height:38px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:0 10px;font:400 13px var(--sans);color:var(--text);outline:none">
+              <input type="time" value="{{ na.time }}" onChange="{{ onNaTime }}" aria-label="Due time" style="height:38px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:0 10px;font:400 13px var(--sans);color:var(--text);outline:none">
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <sc-for list="{{ na.quick }}" as="qk" hint-placeholder-count="4">
+                <button data-id="{{ qk.key }}" onClick="{{ pickNaQuick }}" style="{{ qk.style }}">{{ qk.label }}</button>
+              </sc-for>
+            </div>
+            <span style="font:400 11.5px var(--sans);color:var(--text2)">Due {{ na.dueLabel }} · Asia/Dubai</span>
+          </div>
+
+          <label style="display:flex;flex-direction:column;gap:7px;font:500 11.5px var(--sans);color:var(--text3)">Detail <span style="font-weight:400">Optional</span>
+            <input value="{{ na.detail }}" onChange="{{ onNaDetail }}" placeholder="e.g. Ask about notice period" aria-label="Detail" style="height:38px;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:0 12px;font:400 13px var(--sans);color:var(--text);outline:none">
+          </label>
+
+          <sc-if value="{{ na.notifies }}">
+            <p style="margin:0;display:flex;align-items:flex-start;gap:7px;font:400 12px/1.5 var(--sans);color:var(--text2)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;margin-top:2px"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg><span><b style="font-weight:600;color:var(--text)">{{ na.whoName }}</b> is told in the app, and by email if it's still unread after 10 minutes.</span></p>
+          </sc-if>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <sc-if value="{{ na.hasNote }}">
+              <p style="margin:0;display:flex;align-items:center;gap:7px;font:400 11.5px var(--sans);color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="{{ ic.fileText }}"></path></svg>{{ na.noteLine }}</p>
+            </sc-if>
+            <p style="margin:0;display:flex;align-items:center;gap:7px;font:400 11px var(--sans);color:var(--text3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM5 11V7a7 7 0 0 1 14 0v4M5 11h14v9H5z"></path></svg>Internal team only · Client contacts never see tasks</p>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;padding:16px 22px 20px">
+          <sc-if value="{{ na.editing }}">
+            <button onClick="{{ completeNaTask }}" style="display:inline-flex;align-items:center;gap:6px;height:38px;border-radius:6px;padding:0 12px;font:600 13px var(--sans);background:none;border:1px solid var(--line);color:var(--green);cursor:pointer" style-hover="border-color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m5 13 4 4L19 7"></path></svg>Mark done</button>
+            <button onClick="{{ deleteNaTask }}" aria-label="Delete task" title="Delete task" style="display:grid;place-items:center;width:38px;height:38px;border-radius:6px;background:none;border:1px solid var(--line);color:var(--text3);cursor:pointer" style-hover="color:var(--red);border-color:var(--red)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.trash }}"></path></svg></button>
+          </sc-if>
+          <span style="flex:1"></span>
+          <button onClick="{{ closeNextAction }}" style="height:38px;border-radius:6px;padding:0 14px;font:600 13px var(--sans);background:var(--panel);border:1px solid var(--line-soft);color:var(--text3);cursor:pointer" style-hover="color:var(--text)">Cancel</button>
+          <button onClick="{{ saveNextAction }}" style="height:38px;border-radius:6px;padding:0 16px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer;opacity:{{ na.saveOpacity }}" style-hover="filter:brightness(1.05)">{{ na.saveLabel }}</button>
+        </div>
+      </div>
+    </div>
   </sc-if>
 
   <sc-if value="{{ showDuplicate }}" hint-placeholder-val="{{ false }}">
@@ -2626,6 +2785,7 @@ const CRM = {
   e13: { tags: ["Open to work"], owner: "Yara Haddad", last: ["Marked Interested on this position", "Yara Haddad · 20 Sep"] }
 };
 const NOTE_ICON = { Call: "M7 2h10v20H7zM11 19h2", Meeting: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4", Email: "M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm18 2-10 7L2 6", Note: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5" };
+const NOTE_KIND_PHRASE = { note: "a note", general: "a note", call: "a call note", meeting: "a meeting note", email: "an email note" };
 const ASSESS_DEFAULT = { ea: 8, cyber: 6, itops: 7, lead: 8, stake: 6, change: 7, resil: 7 };
 const ASSESS_OPEN_DEFAULT = ["ea"];
 const REPORT_SECTIONS = [
@@ -2664,12 +2824,39 @@ const PIPE_OUTCOMES = [];
 const PIPE_STATUS_OF = { e01: "qualified", e02: "identified", e03: "researching", e04: "readyToApproach", e05: "notInterested", e06: "engaged", e07: "contacted", e08: "offLimits", e09: "interestedPackageGap", e10: "identified", e11: "outOfScope", e12: "presentedToClient", e13: "shortlisted", e14: "identified" };
 const PIPE_STAGE_DATE = { e05: "2026-09-24", e08: "2026-09-12", e01: "2026-09-22", e02: "2026-09-19", e03: "2026-09-19", e04: "2026-09-17", e06: "2026-09-11", e07: "2026-09-08", e09: "2026-08-31", e10: "2026-08-27", e11: "2026-08-18", e12: "2026-09-02", e13: "2026-09-20", e14: "2026-09-16" };
 const PIPE_AVATAR = { e05: 53, e08: 25, e01: 47, e02: 12, e03: 44, e04: 33, e06: 14, e07: 51, e09: 29, e10: 15, e11: 60, e12: 22, e13: 36, e14: 8 };
+// The card's Next action is the executive's earliest open task on this position; `more` counts the rest.
 const PIPE_NEXT = {
-  e01: { text: "Share candidate report", due: "Today · 16:00", tone: "today" },
-  e13: { text: "Complete references", due: "Overdue · 03 Oct", tone: "overdue" },
-  e12: { text: "Confirm package range", due: "Today · 14:30", tone: "today" },
-  e09: { text: "Book introductory call", due: "Overdue · 03 Oct", tone: "overdue" },
-  e06: { text: "Send follow-up note", due: "08 Oct", tone: "plain" }
+  e01: { text: "Share profile with hiring manager", due: "Today · 16:00", tone: "today", who: "yh", more: 1 },
+  e13: { text: "Reference check", due: "Overdue · 03 Oct 2026", tone: "overdue", who: "sa", more: 0 },
+  e12: { text: "Confirm package range", due: "Today · 14:30", tone: "today", who: "yi", more: 0 },
+  e09: { text: "Schedule a call", due: "Overdue · 03 Oct 2026", tone: "overdue", who: "ok", more: 2 },
+  e06: { text: "Reply to Rania Khoury", due: "08 Oct 2026, 09:00", tone: "plain", who: "yi", more: 0, auto: true }
+};
+// The position's team: staff seats only, never a client seat. "Me" leads every picker.
+const TEAM = [
+  { key: "yh", name: "Yara Haddad", role: "Lead", me: true },
+  { key: "da", name: "Dana Aboud", role: "Researcher" },
+  { key: "ok", name: "Omar Khalil", role: "Researcher" },
+  { key: "sa", name: "Sara Al-Mansour", role: "Researcher" },
+  { key: "yi", name: "Yousef Iman", role: "Researcher" }
+];
+const TEAM_OF = Object.fromEntries(TEAM.map((m) => [m.key, m]));
+const TASK_KINDS = [["CALL", "Call", "M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2Z"], ["EMAIL", "Email", "M4 4h16v16H4zM22 6l-10 7L2 6"], ["MEETING", "Meeting", "M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"], ["FOLLOW_UP", "Follow-up", "M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5"], ["TODO", "To-do", "m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"]];
+const TASK_KIND = Object.fromEntries(TASK_KINDS.map(([k, label, icon]) => [k, { label, icon }]));
+// Settings → Task presets: the workspace's catalog. Anything typed that is not one of these is a title only.
+const TASK_PRESETS = [
+  ["Call to qualify interest", "CALL", 1], ["Send follow-up email", "EMAIL", 2], ["Schedule a call", "MEETING", 1],
+  ["Reference check", "TODO", 5], ["Share profile with hiring manager", "TODO", 1], ["Request CV", "EMAIL", 2],
+  ["Debrief after meeting", "FOLLOW_UP", 0], ["Re-engage later", "FOLLOW_UP", 30]
+];
+// The drawer's Next actions: open first (soonest due), then the last few done.
+const NEXT_TASKS = {
+  e01: [
+    { id: "t1", title: "Share profile with hiring manager", kind: "TODO", who: "yh", due: "Today · 16:00", tone: "today", by: "Omar Khalil" },
+    { id: "t2", title: "Call to qualify interest", kind: "CALL", who: "da", due: "09 Oct 2026, 10:00", tone: "plain", by: "Yara Haddad", detail: "Ask about notice period and the Riyadh move", note: { id: "e01-n0", kind: "call", date: "2026-09-14" } },
+    { id: "t3", title: "Debrief after meeting", kind: "FOLLOW_UP", who: "yh", done: "Done 30 Sep 2026 by Yara Haddad", auto: true }
+  ],
+  e06: [{ id: "t4", title: "Reply to Rania Khoury", kind: "EMAIL", who: "yi", due: "08 Oct 2026, 09:00", tone: "plain", by: "Uncava", auto: true, detail: "Replied to CFO — first approach" }]
 };
 // [sequence, sender, state, steps sent, replied/booked when] — the run's own rows; Outreach.dc.html draws the page.
 const OUTREACH = {
@@ -2712,6 +2899,7 @@ const avatar = (id, size, extra) => { const [bg, fg] = tintOf(id); return `width
 const trimA = (v) => (v >= 10 ? String(Math.round(v)) : v.toFixed(1).replace(/\.0$/, ""));
 const money = (a) => (a == null ? "—" : a >= 1e9 ? `$${trimA(a / 1e9)}B` : a >= 1e6 ? `$${trimA(a / 1e6)}M` : `$${a.toLocaleString("en-US")}`);
 const dateGB = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+const linkedNoteLine = (lead, note) => [`${lead} ${NOTE_KIND_PHRASE[note.kind] || "a note"}`, note.date ? dateGB(note.date) : null].filter(Boolean).join(" · ");
 const pipeAvatar = (name, dark) => { const ini = name.split(/\s+/).filter(Boolean).map((w) => w[0]).filter((c) => /[A-Z]/.test(c)); const t = (ini[0] || "") + (ini.length > 1 ? ini[ini.length - 1] : ""); const bg = dark ? "#2A2D33" : "#E6E8EE", fg = dark ? "#B8BEC8" : "#4C5462"; return "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="${bg}"/><text x="32" y="33" text-anchor="middle" dominant-baseline="middle" font-family="Inter,system-ui,sans-serif" font-size="22" font-weight="600" fill="${fg}">${t}</text></svg>`); };
 const shortDate = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 const addDays = (iso, days) => { const d = new Date(`${iso}T00:00:00`); d.setDate(d.getDate() + days); const p = (n) => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
@@ -2834,7 +3022,9 @@ class Component extends DCLogic {
       cdTab: pick("cdTab", "career"), summaryMore: false, tlAll: false, aiRunning: false, outreachStopped: {},
       assessView: "scores", assessScore: {}, assessOpen: {}, reportOpen: {}, reportAiOpen: {}, reportAiAction: {}, reportScopeOpen: true,
       noteComposerOpen: true, noteKind: "call", noteText: "", noteEventDate: "2026-09-30",
-      followUpOn: true, followUpTitle: "", followUpOwner: "yi", followUpDue: "2026-10-05",
+      noteFlash: null,
+      naModal: flag("nextAction", false) ? { mode: "new", execId: "e01" } : null, naWhat: "", naPresetIdx: null, naKind: "CALL", naWho: "yh", naDate: "2026-10-05", naTime: "09:00",
+      naDetail: "", naPresetsOpen: true, naWhoOpen: false, tasksDone: {}, naJustDone: false, mentionOpen: false, mentions: ["sa"],
       notesSearch: "", notesFilterType: "all", notesFiltersOpen: true, notesSortNewest: true, noteMenuOpen: null,
       sec: { summary: true, experience: true, education: false, compensation: false, background: false, ai: false, columns: false, contact: true, outreach: true }, docHist: {}, docTray: false,
       mapSel: "c01", mapOpen: { "United Arab Emirates": true, "Saudi Arabia": true, Qatar: true, Oman: true, Bahrain: true, c01: true }, mapExecs: true, mapPanel: true,
@@ -2853,6 +3043,36 @@ class Component extends DCLogic {
     clearTimeout(this._t);
     this.setState({ toast: msg });
     this._t = setTimeout(() => this.setState({ toast: null }), 2200);
+  }
+
+  naVals() {
+    const s = this.state;
+    if (!s.naModal) return { open: false };
+    const ex = E.find((x) => x.id === s.naModal.execId) || E[0];
+    const q = s.naWhat.trim().toLowerCase();
+    const presets = TASK_PRESETS.map(([label, kind, days], index) => ({ index, label, kind: TASK_KIND[kind].label, icon: TASK_KIND[kind].icon, dueLabel: days === 0 ? "Same day" : `+${days} day${days === 1 ? "" : "s"}` }))
+      .filter((pr) => !q || pr.label.toLowerCase().includes(q));
+    const exact = TASK_PRESETS.some(([label]) => label.toLowerCase() === q);
+    const who = TEAM_OF[s.naWho];
+    const roleStyle = (role) => `flex:none;border-radius:999px;padding:1px 8px;font:600 10px var(--sans);${role === "Lead" ? "background:var(--u-accent-tint);color:var(--u-accent)" : "background:var(--line-soft);color:var(--text3)"}`;
+    const QUICK = [["today", "Today 17:00", "2026-10-04", "17:00"], ["tomorrow", "Tomorrow 09:00", "2026-10-05", "09:00"], ["in3", "In 3 days", "2026-10-07", "09:00"], ["monday", "Next Monday", "2026-10-06", "09:00"]];
+    return {
+      open: true, heading: s.naModal.mode === "edit" ? "Edit next action" : "Set next action", editing: s.naModal.mode === "edit",
+      hasNote: !!s.naModal.note, noteLine: s.naModal.note ? linkedNoteLine("Linked to", s.naModal.note) : "",
+      execName: ex.name, execInitials: initials(ex.name), execStyle: avatar(ex.id, 18, "font-size:8px"),
+      what: s.naWhat, whatBorder: s.naPresetsOpen ? "var(--u-accent)" : "var(--line)", presetsOpen: s.naPresetsOpen, presets, noPresets: presets.length === 0, hasFree: !!q && !exact,
+      kinds: TASK_KINDS.map(([key, label, icon]) => { const on = s.naKind === key;
+        return { key, label, icon, on, style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;border:1px solid ${on ? "transparent" : "var(--line)"};background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--u-accent)" : "var(--text3)"}` }; }),
+      whoOpen: s.naWhoOpen, whoName: who.name, whoLabel: who.me ? `Me · ${who.name}` : who.name, whoRole: who.role, whoRoleStyle: roleStyle(who.role),
+      whoInitials: initials(who.name), whoStyle: avatar(who.key, 24, "font-size:9.5px"), notifies: !who.me,
+      team: TEAM.map((m) => ({ key: m.key, label: m.me ? `Me · ${m.name}` : m.name, role: m.role, roleStyle: roleStyle(m.role), on: m.key === s.naWho,
+        initials: initials(m.name), avStyle: avatar(m.key, 26, "font-size:10px"),
+        rowStyle: `display:flex;width:100%;align-items:center;gap:10px;border-radius:6px;border:none;padding:7px 9px;text-align:left;cursor:pointer;font-family:inherit;background:${m.key === s.naWho ? "var(--panel2)" : "none"}${m.me ? ";margin-bottom:3px" : ""}` })),
+      date: s.naDate, time: s.naTime, dueLabel: `${dateGB(s.naDate)}, ${s.naTime}`,
+      quick: QUICK.map(([key, label, d, t]) => { const on = s.naDate === d && s.naTime === t;
+        return { key, label, style: `border-radius:999px;padding:3px 10px;font:500 11.5px var(--sans);cursor:pointer;border:1px solid ${on ? "transparent" : "var(--line)"};background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--u-accent)" : "var(--text2)"}` }; }),
+      detail: s.naDetail, saveOpacity: q ? 1 : 0.5, saveLabel: who.me ? "Save" : `Save & notify ${who.name.split(" ")[0]}`
+    };
   }
 
   stageOf(c) { return this.state.stageOf[c.id] || c.stage; }
@@ -3171,6 +3391,8 @@ class Component extends DCLogic {
     const facts = (xs) => { const f = xs.filter(Boolean); return f.length ? f.join(" · ") : null; };
     const noticeSummary = comp ? (comp[5] === "None" ? "No notice period" : `${comp[5]} notice`) : null;
     const crm = crmOf(e);
+    const noteCard = (n, rest) => { const k = `${e.id}-n${crm.notes.indexOf(n)}`; const on = s.noteFlash === k;
+      return { domId: `note-${k}`, cardStyle: `position:relative;margin-bottom:10px;border-radius:8px;padding:16px;transition:background .4s,border-color .4s,box-shadow .4s;${on ? "border:1px solid var(--u-accent);background:var(--u-accent-tint);box-shadow:0 0 0 3px var(--ring)" : rest}` }; };
     const crmShown = cw;
     const timeline = crm.timeline || [[ADDED_BY[e.id], "added to the candidates from this position", dateGB(e.added), SOURCES[e.source].label]];
     const docs = CRM_DOCS[e.id] || [];
@@ -3181,8 +3403,12 @@ class Component extends DCLogic {
     const runState = run && s.outreachStopped[e.id] ? "stopped" : run && run[2];
     const meet = MEETINGS[e.id] || { upcoming: [], past: [] };
     const tab = this.cdTabOf();
+    const naAll = (NEXT_TASKS[e.id] || []).filter((t) => !s.tasksDone[t.id]);
+    const naOpen = naAll.filter((t) => !t.done);
+    const naDone = [...(NEXT_TASKS[e.id] || []).filter((t) => s.tasksDone[t.id]).map((t) => Object.assign({}, t, { done: "Done just now by Yara Haddad" })), ...naAll.filter((t) => t.done)];
     const TABS = {
       profile: [
+        cw ? { id: "nextActions", plain: true, title: "Next actions", icon: I.calendar, count: naOpen.length || undefined } : null,
         { id: "summary", fold: true, title: "Summary", summary: firstLine(summary), pencil: "summary" },
         { id: "experience", fold: true, title: "Experience", count: postCount, summary: `${e.title} at ${company} · ${countOf(postCount, "post")}`, pencil: "experience" },
         edu.length ? { id: "education", fold: true, title: "Education", count: edu.length, summary: `${edu[0][1]}, ${edu[0][0]}` } : null,
@@ -3208,7 +3434,7 @@ class Component extends DCLogic {
         canBook: d.id === "meetings" && cw && !crm.dnc && e.emails.length > 0,
         isSummary: d.id === "summary", isExperience: d.id === "experience", isEducation: d.id === "education", isComp: d.id === "compensation", isBackground: d.id === "background", isAi: d.id === "ai",
         isContact: d.id === "contact", isOutreach: d.id === "outreach", isMeetings: d.id === "meetings", isColumns: d.id === "columns",
-        isTags: d.id === "tags", isPositions: d.id === "positions", isNotes: d.id === "notes", isDocuments: d.id === "documents", isTimeline: d.id === "timeline" };
+        isNextActions: d.id === "nextActions", isTags: d.id === "tags", isPositions: d.id === "positions", isNotes: d.id === "notes", isDocuments: d.id === "documents", isTimeline: d.id === "timeline" };
     });
     const shownTimeline = s.tlAll ? timeline : timeline.slice(0, 5);
     const summaryLong = !!summary && summary.length > 220;
@@ -3225,6 +3451,11 @@ class Component extends DCLogic {
     const st = STATUS[this.statusOf(e)];
     return {
       id: e.id, breadcrumb: `${this.state.page === "pipeline" ? "PIPELINE" : "IN UNIVERSE"} / CANDIDATE RECORD`,
+      naOpen: naOpen.map((t) => ({ id: t.id, title: t.title, icon: TASK_KIND[t.kind].icon, auto: !!t.auto, hasDetail: !!t.detail, detail: t.detail || "", due: t.due,
+        hasNote: !!t.note, noteId: t.note ? t.note.id : "", noteLine: t.note ? linkedNoteLine("From", t.note) : "",
+        dueStyle: `font:600 11px var(--mono);white-space:nowrap;color:${t.tone === "overdue" ? "var(--red)" : t.tone === "today" ? "var(--amber)" : "var(--text3)"}`,
+        whoName: TEAM_OF[t.who].me ? "Me" : TEAM_OF[t.who].name, whoInitials: initials(TEAM_OF[t.who].name), whoStyle: avatar(t.who, 18, "font-size:8px") })),
+      naEmpty: naOpen.length === 0, naHasDone: naDone.length > 0, naDone: naDone.map((t) => ({ title: t.title, done: t.done })), naJustDone: !!s.naJustDone,
       name: e.name, initials: initials(e.name), slotId2: "exec-drawer-" + e.id, avStyle: avatar(e.id, 44, "border-radius:10px;border:1px solid var(--line);font-size:14px"),
       hasLi: !!e.li, noLi: !e.li, liHandle: e.li || "", liUrl: e.li ? `linkedin.com/in/${e.li}` : "", liLocked: e.source === "extension", liEditable: e.source !== "extension",
       title: e.title || "—", context: [company, e.city, e.country].filter(Boolean).join(" · ") || "No employer or location recorded",
@@ -3265,22 +3496,27 @@ class Component extends DCLogic {
         title, here, added: `Added by ${by} · ${when}`, status: STATUS[status].label, pill: `${DPILL}color:${STATUS[status].fg};background:${STATUS[status].bg}`, border: here ? "color-mix(in srgb,var(--amber) 45%,transparent)" : "var(--line-soft)" })),
       noteKinds: [["call", "Call", I.phone], ["note", "Note", I.noteIcon], ["meeting", "Meeting", I.members], ["email", "Email", I.mail]].map(([key, label, icon]) => { const on = s.noteKind === key;
         return { key, label, icon, on, style: `display:inline-flex;align-items:center;gap:6px;border-radius:6px;padding:5px 10px;font:500 12px var(--sans);cursor:pointer;border:1px solid ${on ? "transparent" : "var(--line)"};background:${on ? "var(--u-accent-tint)" : "none"};color:${on ? "var(--u-accent)" : "var(--text3)"}` }; }),
+      mentionOpen: !!s.mentionOpen, mentionBtnBg: s.mentionOpen ? "var(--line-soft)" : "none",
+      teamAv1: avatar("ok", 20, "font-size:8px;border:2px solid var(--panel)"), teamAv2: avatar("sa", 20, "font-size:8px;border:2px solid var(--panel);margin-left:-7px"),
+      mentionTeam: TEAM.filter((m) => !m.me).map((m) => ({ key: m.key, name: m.name, role: m.role, initials: initials(m.name), avStyle: avatar(m.key, 24, "font-size:9px"),
+        roleStyle: `flex:none;border-radius:999px;padding:1px 8px;font:600 10px var(--sans);${m.role === "Lead" ? "background:var(--u-accent-tint);color:var(--u-accent)" : "background:var(--line-soft);color:var(--text3)"}` })),
+      hasMentions: s.mentions.length > 0, mentions: s.mentions.map((k) => k === "team" ? { key: k, name: "team", initials: "", avStyle: "display:none" } : { key: k, name: TEAM_OF[k].name, initials: initials(TEAM_OF[k].name), avStyle: avatar(k, 18, "font-size:7.5px") }),
       noteComposerOpen: s.noteComposerOpen, notComposerOpen: !s.noteComposerOpen, noteText: s.noteText, noteEventDate: s.noteEventDate, noteCharCount: s.noteText.length,
-      followUpOn: s.followUpOn, followUpTitle: s.followUpTitle, followUpOwner: s.followUpOwner, followUpDue: s.followUpDue,
-      saveNoteOpacity: s.noteText.trim() ? 1 : 0.5, saveNoteLabel: s.followUpOn ? "Save note & follow-up" : "Save note",
+      saveNoteOpacity: s.noteText.trim() ? 1 : 0.5,
       notesSearch: s.notesSearch, notesFilterType: s.notesFilterType,
-      followUpOwnerOptions: [["yh", "Yara Haddad"], ["yi", "Yousef Iman"], ["sa", "Sara Al-Mansour"], ["ok", "Omar Khalil"], ["da", "Dana Aboud"]].map(([value, label]) => ({ value, label })),
       notesTypeOptions: [{ value: "all", label: "Type: All" }, { value: "note", label: "Note" }, { value: "call", label: "Call" }, { value: "meeting", label: "Meeting" }, { value: "email", label: "Email" }],
       notesAuthorOptions: [{ value: "all", label: "Author: Anyone" }], notesPosOptions: [{ value: "all", label: "Position: All" }],
       notesFiltersOpen: s.notesFiltersOpen, notesSortLabel: s.notesSortNewest ? "Newest event first" : "Oldest event first",
       pinnedCount: crm.notes.filter((n) => n[5]).length,
-      pinnedNotes: crm.notes.filter((n) => n[5]).map((n, i) => { const k = `p${i}`; return { id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k }; }),
+      pinnedNotes: crm.notes.filter((n) => n[5]).map((n, i) => { const k = `p${i}`; return Object.assign({ id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k },
+        noteCard(n, "border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);background:var(--amber-dim)")); }),
       hasPinnedNotes: crm.notes.some((n) => n[5]),
       recentNotes: crm.notes.filter((n) => {
         const matchesType = s.notesFilterType === "all" || n[1].toLowerCase() === s.notesFilterType;
         const q = (s.notesSearch || "").trim().toLowerCase();
         return !n[5] && matchesType && (!q || n[4].toLowerCase().includes(q));
-      }).map((n, i) => { const k = `r${i}`; return { id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k }; }),
+      }).map((n, i) => { const k = `r${i}`; return Object.assign({ id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k },
+        noteCard(n, "border:1px solid var(--line-soft);background:var(--panel)")); }),
       noNotes: crm.notes.length === 0,
       hasCv: crmShown && !!cvDoc, cvLabel: cvDoc ? `CV · v${cvDoc[6][0][0]} · ${cvDoc[4].split(" · ")[1]}` : "",
       docs: docs.map((d, i) => {
@@ -3785,7 +4021,7 @@ class Component extends DCLogic {
   teamVals() {
     const s = this.state;
     const manage = s.canManage && !s.clientRep;
-    const staff = [{ id: "m1", name: "Yara Haddad", role: "LEAD", self: !s.clientRep }, { id: "m3", name: "Sara Al-Mansour", role: "RESEARCHER" }, { id: "m4", name: "Omar Khalil", role: "RESEARCHER" }];
+    const staff = [{ id: "m1", name: "Yara Haddad", role: "LEAD", self: !s.clientRep }, { id: "m3", name: "Sara Al-Mansour", role: "RESEARCHER" }, { id: "m4", name: "Omar Khalil", role: "RESEARCHER" }, { id: "m5", name: "Dana Aboud", role: "RESEARCHER" }, { id: "m6", name: "Yousef Iman", role: "RESEARCHER" }];
     const leads = staff.filter((m) => m.role === "LEAD");
     const chip = (m, role) => {
       const held = m.role === role;
@@ -3932,19 +4168,49 @@ class Component extends DCLogic {
       setNoteKind: (e) => set({ noteKind: id(e) }),
       onNoteText: (e) => set({ noteText: e.target.value }),
       onNoteEventDate: (e) => set({ noteEventDate: e.target.value }),
-      toggleFollowUp: () => set({ followUpOn: !this.state.followUpOn }),
-      onFollowUpTitle: (e) => set({ followUpTitle: e.target.value }),
-      setFollowUpOwner: (e) => set({ followUpOwner: e.target.value }),
-      onFollowUpDue: (e) => set({ followUpDue: e.target.value }),
       onNotesSearch: (e) => set({ notesSearch: e.target.value }),
       setNotesFilterType: (e) => set({ notesFilterType: e.target.value }),
       toggleNotesFilters: () => set({ notesFiltersOpen: !this.state.notesFiltersOpen }),
       toggleNotesSort: () => set({ notesSortNewest: !this.state.notesSortNewest }),
       toggleNoteMenu: (e) => { e.stopPropagation(); const k = id(e); const st = this.state; set({ noteMenuOpen: st.noteMenuOpen === k ? null : k }); },
-      saveNoteStub: () => { const st = this.state; set({ noteText: "", noteComposerOpen: false }); this.showToast(st.followUpOn ? "Note saved with a linked follow-up" : "Note saved — your team sees it on every position"); },
+      saveNoteStub: () => { set({ noteText: "", noteComposerOpen: false }); this.showToast("Note saved — your team sees it on every position"); },
+      saveNoteAndSetNextAction: () => { const st = this.state;
+        set({ noteText: "", noteComposerOpen: false, naModal: { mode: "new", execId: st.candId, note: { kind: st.noteKind, date: st.noteEventDate } }, naWhat: "", naPresetIdx: null, naKind: "CALL", naWho: "yh", naDate: "2026-10-05", naTime: "09:00", naDetail: "", naPresetsOpen: true, naWhoOpen: false, naJustDone: false });
+        this.showToast("Note saved"); },
+      openLinkedNote: (e) => { e.stopPropagation(); const k = id(e);
+        set({ cdTab: "notes", notesSearch: "", notesFilterType: "all", noteFlash: k });
+        setTimeout(() => { const el = document.getElementById(`note-${k}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+        clearTimeout(this._noteFlashT); this._noteFlashT = setTimeout(() => this.setState({ noteFlash: null }), 2000); },
       pinNoteStub: () => this.showToast("Pinned to this record"),
       deleteNoteStub: () => this.showToast("Note deleted — the timeline keeps a line saying so"),
-      setNextAction: () => this.showToast("Setting the next action is coming soon"),
+      setNextAction: () => set({ naModal: { mode: "new", execId: this.state.candId }, naWhat: "", naPresetIdx: null, naKind: "CALL", naWho: "yh", naDate: "2026-10-05", naTime: "09:00", naDetail: "", naPresetsOpen: true, naWhoOpen: false, naJustDone: false }),
+      openNextAction: (e) => { e.stopPropagation(); const k = id(e); const n = PIPE_NEXT[k];
+        set(n ? { naModal: { mode: "edit", execId: k }, naWhat: n.text, naKind: "TODO", naWho: n.who, naDate: "2026-10-04", naTime: "16:00", naDetail: "", naPresetsOpen: false, naWhoOpen: false }
+          : { naModal: { mode: "new", execId: k }, naWhat: "", naKind: "CALL", naWho: "yh", naDate: "2026-10-05", naTime: "09:00", naDetail: "", naPresetsOpen: true, naWhoOpen: false }); },
+      editTask: (e) => { const t = (NEXT_TASKS[this.state.candId] || []).find((x) => x.id === id(e));
+        if (t) set({ naModal: { mode: "edit", execId: this.state.candId, taskId: t.id, note: t.note || null }, naWhat: t.title, naKind: t.kind, naWho: t.who, naDate: "2026-10-04", naTime: "16:00", naDetail: t.detail || "", naPresetsOpen: false, naWhoOpen: false }); },
+      completeTask: (e) => { const k = id(e); set({ tasksDone: Object.assign({}, this.state.tasksDone, { [k]: true }), naJustDone: true }); },
+      closeNextAction: () => set({ naModal: null }),
+      toggleMention: () => set({ mentionOpen: !this.state.mentionOpen }),
+      pickMention: (e) => { const k = id(e); const st = this.state; set({ mentionOpen: false, mentions: st.mentions.includes(k) ? st.mentions : [...st.mentions, k], noteText: `${st.noteText}@${TEAM_OF[k].name} ` }); },
+      mentionTeam: () => { const st = this.state; set({ mentionOpen: false, mentions: st.mentions.includes("team") ? st.mentions : [...st.mentions, "team"], noteText: `${st.noteText}@team ` }); },
+      removeMention: (e) => { const k = id(e); set({ mentions: this.state.mentions.filter((x) => x !== k) }); },
+      onNaWhat: (e) => set({ naWhat: e.target.value, naPresetsOpen: true, naPresetIdx: null }),
+      openNaPresets: () => set({ naPresetsOpen: true, naWhoOpen: false }),
+      useNaFree: () => set({ naPresetsOpen: false, naPresetIdx: null }),
+      pickNaPreset: (e) => { const [label, kind, days] = TASK_PRESETS[Number(id(e))]; const d = new Date("2026-10-04T12:00:00"); d.setDate(d.getDate() + days);
+        set({ naWhat: label, naKind: kind, naPresetIdx: Number(id(e)), naDate: d.toISOString().slice(0, 10), naTime: days === 0 ? "17:00" : "09:00", naPresetsOpen: false }); },
+      setNaKind: (e) => set({ naKind: id(e) }),
+      toggleNaWho: () => set({ naWhoOpen: !this.state.naWhoOpen, naPresetsOpen: false }),
+      pickNaWho: (e) => set({ naWho: id(e), naWhoOpen: false }),
+      onNaDate: (e) => set({ naDate: e.target.value }),
+      onNaTime: (e) => set({ naTime: e.target.value }),
+      pickNaQuick: (e) => { const q = { today: ["2026-10-04", "17:00"], tomorrow: ["2026-10-05", "09:00"], in3: ["2026-10-07", "09:00"], monday: ["2026-10-06", "09:00"] }[id(e)]; set({ naDate: q[0], naTime: q[1] }); },
+      onNaDetail: (e) => set({ naDetail: e.target.value }),
+      saveNextAction: () => { const st = this.state; if (!st.naWhat.trim()) return; const who = TEAM_OF[st.naWho];
+        set({ naModal: null }); this.showToast(who.me ? `Next action set · due ${dateGB(st.naDate)}, ${st.naTime}` : `Assigned to ${who.name} · they've been notified`); },
+      completeNaTask: () => { const t = this.state.naModal && this.state.naModal.taskId; set(Object.assign({ naModal: null, naJustDone: true }, t ? { tasksDone: Object.assign({}, this.state.tasksDone, { [t]: true }) } : {})); this.showToast("Done · the timeline has a line for it"); },
+      deleteNaTask: () => { set({ naModal: null }); this.showToast("Task deleted"); },
       setAssessView: (e) => set({ assessView: id(e) }),
       toggleAssessCriterion: (e) => { const k = id(e); const st = this.state; const open = st.assessOpen[k] ?? ASSESS_OPEN_DEFAULT.includes(k); set({ assessOpen: Object.assign({}, st.assessOpen, { [k]: !open }) }); },
       incAssessScore: (e) => { e.stopPropagation(); const k = id(e); const st = this.state; const cur = st.assessScore[k] ?? ASSESS_DEFAULT[k]; set({ assessScore: Object.assign({}, st.assessScore, { [k]: Math.min(10, cur + 1) }) }); },
@@ -4128,6 +4394,7 @@ class Component extends DCLogic {
       askVisible: !((isStage || isPipeline) && (s.drawer === "company" || s.drawer === "candidate")),
       co: isStage && s.drawer === "company" ? this.coVals() : {}, cd: (isStage || isPipeline) && s.drawer === "candidate" ? this.cdVals() : { cdSections: [] },
       cdSections: (isStage || isPipeline) && s.drawer === "candidate" ? this.cdVals().cdSections : [],
+      na: this.naVals(),
       cdTabProfile: this.cdTabOf() === "career", cdTabAssessment: this.cdTabOf() === "assessment", cdNotAssessment: this.cdTabOf() !== "assessment",
       av: this.cdTabOf() === "assessment" ? this.assessmentVals(s) : { sections: [] },
       cdTabs: (cw ? [["career", "Career"], ["notes", "Notes"], ["assessment", "Assessment"], ["contact", "Contact"], ["documents", "Documents"], ["timeline", "Activity"], ["positions", "Positions"]] : [["career", "Career"], ["contact", "Contact"]]).map(([key, label]) => {
@@ -4168,7 +4435,9 @@ class Component extends DCLogic {
     const tone = { overdue: "var(--red)", today: "var(--amber)" };
     const card = (r) => {
       const d = Math.max(0, daysBetween(r.stIso, TODAY));
-      return { id: r.id, avatarSrc: r.avatarSrc, name: r.name, title: r.title, company: r.company, hasNext: r.hasNext, nextText: r.hasNext ? r.nextText : "No next action",
+      return { id: r.id, avatarSrc: r.avatarSrc, name: r.name, title: r.title, company: r.company, hasNext: r.hasNext, nextText: r.hasNext ? r.nextText : "No next action · Set one",
+        nextTitle: r.nextTitle, nextTextStyle: `font:500 12px var(--sans);color:${r.hasNext ? "var(--text)" : "var(--text3)"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%`,
+        hasMore: r.more > 0, more: r.more, whoName: r.whoName, whoInitials: r.whoInitials, whoStyle: r.whoStyle,
         nextDue: r.nextDue, dueStyle: `display:flex;align-items:center;gap:5px;font:400 11px var(--sans);white-space:nowrap;color:${tone[r.nextTone] || "var(--text2)"}`,
         inStage: `${d}d in stage`, visibleOn: r.visibleOn, visLabel: r.visibleOn ? "Client visible" : "Internal only", visIcon: r.visibleOn ? I.eye : I.eyeOff,
         visIconStyle: `flex:none;color:${r.visibleOn ? "var(--amber)" : "var(--text3)"}`,
@@ -4225,7 +4494,9 @@ class Component extends DCLogic {
         stageKey: st, stageLabel: stageDef.label, stageDot: stageDef.dot, statusKey, statusLabel: STATUS[statusKey].label,
         stageBadgeStyle: `display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 10px;box-sizing:border-box;font:600 12px var(--sans);color:${stageDef.dot};${st === "identified" ? `background:transparent;box-shadow:inset 0 0 0 1px ${stageDef.dot}` : `background:color-mix(in srgb, ${stageDef.dot} 16%, var(--panel2))`}`,
         added: `Added ${shortDate(e.added)}`, stageDate: `${stageDef.label} ${shortDate(stIso)}`, stIso, coName: co ? co.name : (e.coName || ""), nextTone: next ? next.tone : "",
-        hasNext: !!next, nextText: next ? next.text : "—", nextDue: next ? next.due : "",
+        hasNext: !!next, nextText: next ? next.text : "Set next action", nextDue: next ? next.due : "", nextTitle: next ? "Edit next action" : "Set next action",
+        more: next ? next.more : 0, moreLabel: next && next.more ? ` · +${next.more} more` : "",
+        whoName: next ? TEAM_OF[next.who].name : "", whoInitials: next ? initials(TEAM_OF[next.who].name) : "", whoStyle: next ? avatar(next.who, 22, "font-size:9px") : "",
         dueColor: next ? (next.tone === "overdue" ? "var(--red)" : next.tone === "today" ? "var(--amber)" : "var(--text3)") : "var(--text3)",
         photoUrl: `https://i.pravatar.cc/64?img=${PIPE_AVATAR[e.id]}`,
         avatarSrc: pipeAvatar(e.name, s.dark !== false),

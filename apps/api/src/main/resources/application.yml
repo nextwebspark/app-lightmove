@@ -707,6 +707,17 @@ lightmove:
     max-documents-per-person: ${PERSON_DOCUMENT_MAX_PER_PERSON:50}
     max-versions-per-document: ${PERSON_DOCUMENT_MAX_VERSIONS:20}
 
+  # The bell (epic #862). An assignment or a mention still unread after email-delay is emailed; the digest goes at
+  # digest-hour in each person's own zone. The crons are UTC and spelled out: @Scheduled reads them.
+  notifications:
+    email-delay: ${NOTIFICATION_EMAIL_DELAY:10m}
+    email-scan: ${NOTIFICATION_EMAIL_SCAN_CRON:0 * * * * *}
+    digest-scan: ${NOTIFICATION_DIGEST_SCAN_CRON:0 0 * * * *}
+    digest-hour: ${NOTIFICATION_DIGEST_HOUR:8}
+    due-scan: ${NOTIFICATION_DUE_SCAN_CRON:0 */5 * * * *}
+    due-soon-window: ${NOTIFICATION_DUE_SOON_WINDOW:1h}
+    default-time-zone: ${NOTIFICATION_DEFAULT_TIME_ZONE:Asia/Dubai}
+
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:
     enforce: ${BILLING_ENFORCE:true}

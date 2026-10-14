@@ -21,7 +21,7 @@ class CanonicalOriginRedirectFilterTest {
     private final CanonicalOriginRedirectFilter filter = new CanonicalOriginRedirectFilter(
             new LightMoveProperties(null, null,
                     new WebSettings(BASE_URL, List.of(BASE_URL), "/auth/callback", 0, true, DataSize.ofMegabytes(2)),
-                    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+                    null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final MockFilterChain chain = new MockFilterChain();

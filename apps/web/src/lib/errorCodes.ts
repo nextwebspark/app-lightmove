@@ -55,6 +55,8 @@ export type ApiErrorCode =
   | "PIPELINE_ORDER_INVALID"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
+  | "TASK_ASSIGNEE_NOT_ON_TEAM"
+  | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "ASSISTANT_UNAVAILABLE"
   | "ASSISTANT_BUSY"
@@ -134,7 +136,8 @@ export type ApiErrorCode =
   | "API_KEY_LIMIT_REACHED"
   | "API_KEY_READS_NOTHING"
   | "OAUTH_GRANT_NOT_FOUND"
-  | "INTERNAL_ERROR";
+  | "INTERNAL_ERROR"
+  | "TASK_PRESET_EXISTS";
 
 const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   ASSISTANT_UNAVAILABLE: "The assistant could not answer just now. Try again in a moment.",
@@ -173,6 +176,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_DOCUMENT_DUPLICATE: "That file is already on this candidate.",
   PERSON_DOCUMENT_NOT_YOURS: "Only the person who uploaded this, or an admin, can remove it.",
   PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",
+  TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
+  TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
   CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
   PIPELINE_STATUS_SYSTEM: "Built-in statuses can be renamed and recoloured, but not retired or moved.",
@@ -251,6 +256,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "Booking links aren't available for your mailbox. Remove the booking link from the emails to start this sequence.",
   OUTREACH_BOOKING_LINK_FAILED: "Your booking page couldn't be set up, so nothing was sent. Try again in a moment.",
   OAUTH_GRANT_NOT_FOUND: "That app is already disconnected. Reload to see the current list.",
+  TASK_PRESET_EXISTS: "Your team already has that preset.",
 };
 
 /**

@@ -6,28 +6,55 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
-import { aPipelinePage, aPipelineRow } from "../../../test/fixtures/pipelineRows";
+import { aNextAction, aPipelinePage, aPipelineRow } from "../../../test/fixtures/pipelineRows";
 import type { WorkspaceRole } from "../../auth/api/types";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
+import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
+import * as tasksApi from "../../tasks/api/tasksApi";
 import * as catalogApi from "../../workspace/api/pipelineApi";
 import * as pipelineApi from "../api/pipelineApi";
 import type { PipelineRow } from "../api/types";
 import PipelinePage from "./PipelinePage";
 
-const viewer: { id: string; workspace: { roles: WorkspaceRole[] } } = { id: "u1", workspace: { roles: ["ADMIN"] } };
+const viewer: { id: string; fullName: string; avatarUrl: null; workspace: { roles: WorkspaceRole[] } } = {
+  id: "u1",
+  fullName: "Yara Haddad",
+  avatarUrl: null,
+  workspace: { roles: ["ADMIN"] },
+};
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: viewer }) }));
 vi.mock("../api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/pipelineApi")>()),
   getPipeline: vi.fn(),
   movePipelineRank: vi.fn(),
-  setNextAction: vi.fn(),
   setClientVisibility: vi.fn(),
 }));
 vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/pipelineApi")>()),
   pipelineCatalog: vi.fn(),
+}));
+vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
+  getTaskPresets: vi.fn(),
+  getCandidateTasks: vi.fn(),
+  createTask: vi.fn(),
+  updateTask: vi.fn(),
+}));
+vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
+  projects: vi.fn(),
+}));
+vi.mock("../../candidates/components/CandidateDrawerById", () => ({
+  CandidateDrawerById: ({ candidateId, onClose }: { candidateId: string | null; onClose: () => void }) =>
+    candidateId ? (
+      <div role="dialog" aria-label={`Executive ${candidateId}`}>
+        <button type="button" onClick={onClose}>
+          Close drawer
+        </button>
+      </div>
+    ) : null,
 }));
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../candidates/api/candidatesApi")>()),
@@ -63,6 +90,14 @@ const daysAgo = (days: number) => {
   return moment.toISOString();
 };
 
+const laterToday = () => {
+  const moment = new Date();
+  moment.setHours(23, 59, 0, 0);
+  return moment.toISOString();
+};
+
+const sara = { userId: "u3", fullName: "Sara Al-Mansour", avatarUrl: null };
+
 const rows: PipelineRow[] = [
   aPipelineRow({ candidateId: "a", status: "identified", fullName: "Amal Haddad" }),
   aPipelineRow({ candidateId: "b", status: "researching", fullName: "Bilal Saeed" }),
@@ -70,13 +105,19 @@ const rows: PipelineRow[] = [
     candidateId: "c",
     status: "engaged",
     fullName: "Carla Mendes",
-    nextAction: { text: "Send follow-up note", dueAt: daysAgo(3), setByName: "Yara Haddad" },
+    nextAction: aNextAction({
+      taskId: "t-carla",
+      text: "Send follow-up note",
+      dueAt: daysAgo(3),
+      assignee: sara,
+      openCount: 3,
+    }),
   }),
   aPipelineRow({
     candidateId: "d",
     status: "qualified",
     fullName: "Dina Farouk",
-    nextAction: { text: "Share candidate report", dueAt: new Date().toISOString(), setByName: null },
+    nextAction: aNextAction({ taskId: "t-dina", text: "Share candidate report", dueAt: laterToday() }),
   }),
   aPipelineRow({ candidateId: "e", status: "offLimits", fullName: "Elias Nader", clientVisible: false }),
   aPipelineRow({ candidateId: "f", status: "notInterested", fullName: "Farah Aziz" }),
@@ -112,6 +153,16 @@ describe("PipelinePage", () => {
     vi.resetAllMocks();
     viewer.workspace.roles = ["ADMIN"];
     vi.mocked(catalogApi.pipelineCatalog).mockResolvedValue(aSeededCatalog());
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      {
+        ...project,
+        team: [
+          { memberId: "m1", userId: "u1", fullName: "Yara Haddad", avatarUrl: null, workspaceRoles: ["ADMIN"], projectRoles: ["LEAD"] },
+          { memberId: "m3", userId: "u3", fullName: "Sara Al-Mansour", avatarUrl: null, workspaceRoles: ["MEMBER"], projectRoles: ["RESEARCHER"] },
+        ],
+      },
+    ]);
+    vi.mocked(tasksApi.getTaskPresets).mockResolvedValue([]);
     vi.mocked(pipelineApi.getPipeline).mockImplementation(async (_projectId, query) => ({
       ...aPipelinePage(query.pipelineStage ? rows.filter((r) => r.pipelineStage.key === query.pipelineStage) : rows),
       stageCounts: aPipelinePage(rows).stageCounts,
@@ -194,37 +245,123 @@ describe("PipelinePage", () => {
     expect(pills.getByRole("button", { name: /^All\s*7(?!\d)/ })).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("draws each row's stage with its status beneath, and a next action red when overdue and amber today", async () => {
+  it("draws each row's stage with its status beneath, and its next action with its due, assignee and how many more", async () => {
     renderPage();
     await screen.findByRole("row", { name: "Carla Mendes" });
 
     expect(within(row("Bilal Saeed")).getByText("Identified")).toBeInTheDocument();
     expect(within(row("Bilal Saeed")).getByText("Researching")).toBeInTheDocument();
-    const overdue = within(row("Carla Mendes")).getByText(/^Overdue · /);
+    const carla = within(row("Carla Mendes"));
+    expect(carla.getByText("Send follow-up note")).toBeInTheDocument();
+    const overdue = carla.getByText(/^Overdue · \d{2} [A-Z][a-z]{2} \d{4}$/);
     expect(overdue).toHaveAttribute("data-tone", "overdue");
     expect(overdue).toHaveClass("text-u-offlimits");
-    const today = within(row("Dina Farouk")).getByText(/^Today · /);
+    expect(carla.getByText("· +2 more")).toBeInTheDocument();
+    expect(carla.getByTitle("Assigned to Sara Al-Mansour")).toBeInTheDocument();
+    const today = within(row("Dina Farouk")).getByText("Today · 23:59");
     expect(today).toHaveAttribute("data-tone", "today");
     expect(today).toHaveClass("text-u-signal");
-    expect(within(row("Amal Haddad")).getByText("No next action")).toBeInTheDocument();
+    expect(within(row("Dina Farouk")).queryByText(/more/)).not.toBeInTheDocument();
+    expect(within(row("Amal Haddad")).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
   });
 
-  it("sets a next action in place", async () => {
-    vi.mocked(pipelineApi.setNextAction).mockResolvedValue({
-      ...rows[0],
-      nextAction: { text: "Book introductory call", dueAt: null, setByName: "Alok Kumar" },
-    });
+  it("draws the board card's next action, its +N and its assignee, and offers one where there is none", async () => {
+    renderPage("");
+
+    const carla = within(await screen.findByRole("article", { name: "Carla Mendes" }));
+    expect(carla.getByText("Send follow-up note")).toBeInTheDocument();
+    expect(carla.getByText("+2")).toBeInTheDocument();
+    expect(carla.getByTitle("Assigned to Sara Al-Mansour")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("article", { name: "Amal Haddad" })).getByText("No next action · Set one"),
+    ).toBeInTheDocument();
+  });
+
+  it("sets a next action in the modal, with me first and chosen, and posts it as a task", async () => {
+    vi.mocked(tasksApi.createTask).mockResolvedValue({} as never);
     renderPage();
     await screen.findByRole("row", { name: "Amal Haddad" });
 
-    await userEvent.click(screen.getByRole("button", { name: "Edit next action for Amal Haddad" }));
-    await userEvent.type(within(row("Amal Haddad")).getByLabelText("Next action"), "Book introductory call");
-    await userEvent.click(within(row("Amal Haddad")).getByRole("button", { name: "Save" }));
+    await userEvent.click(within(row("Amal Haddad")).getByRole("button", { name: "Set next action" }));
+    const field = await screen.findByRole("combobox", { name: "What needs doing" });
+    const dialog = within(screen.getByRole("dialog", { name: "Set next action" }));
+    await userEvent.type(field, "Book introductory call");
+    expect(dialog.getByRole("button", { name: /^Assign to/ })).toHaveAccessibleName("Assign to Me · Yara Haddad");
+    await userEvent.click(dialog.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
-      expect(pipelineApi.setNextAction).toHaveBeenCalledWith("p1", "a", { text: "Book introductory call", dueAt: null }),
+      expect(tasksApi.createTask).toHaveBeenCalledWith(
+        "p1",
+        "a",
+        expect.objectContaining({ title: "Book introductory call", kind: "call", assigneeUserId: "u1", presetId: null }),
+      ),
     );
-    expect(await within(row("Amal Haddad")).findByText("Book introductory call")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Set next action" })).not.toBeInTheDocument());
+  });
+
+  it("opens the earliest task to edit from the board card", async () => {
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({
+      open: [
+        {
+          id: "t-carla",
+          projectId: "p1",
+          projectTitle: "Chief Financial Officer",
+          candidateId: "c",
+          personId: "person-c",
+          personName: "Carla Mendes",
+          title: "Send follow-up note",
+          kind: "email",
+          detail: null,
+          presetId: null,
+          note: null,
+          assignee: sara,
+          createdBy: sara,
+          dueAt: daysAgo(3),
+          status: "open",
+          source: "manual",
+          rule: null,
+          completedAt: null,
+          completedBy: null,
+          createdAt: daysAgo(5),
+          editable: true,
+        },
+      ],
+      done: [],
+      doneCount: 0,
+    });
+    renderPage("");
+
+    await userEvent.click(
+      within(await screen.findByRole("article", { name: "Carla Mendes" })).getByRole("button", {
+        name: /Send follow-up note/,
+      }),
+    );
+
+    expect(await screen.findByRole("combobox", { name: "What needs doing" })).toHaveValue("Send follow-up note");
+    expect(screen.getByRole("dialog", { name: "Edit next action" })).toBeInTheDocument();
+    expect(tasksApi.getCandidateTasks).toHaveBeenCalledWith("p1", "c", expect.anything());
+    expect(screen.queryByRole("dialog", { name: /^Executive/ })).not.toBeInTheDocument();
+  });
+
+  it("opens the executive the address names, and drops them from it on close", async () => {
+    renderPage("?view=list&candidate=c");
+
+    expect(await screen.findByRole("dialog", { name: "Executive c" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Close drawer" }));
+
+    expect(screen.queryByRole("dialog", { name: "Executive c" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(/^\?view=list$/);
+  });
+
+  it("writes the executive it opens into the address", async () => {
+    renderPage();
+    await screen.findByRole("row", { name: "Amal Haddad" });
+
+    await userEvent.click(within(row("Amal Haddad")).getByRole("button", { name: "Amal Haddad" }));
+
+    expect(await screen.findByRole("dialog", { name: "Executive a" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("?view=list&candidate=a");
   });
 
   it("flips client visibility at once and puts it back when the server refuses", async () => {

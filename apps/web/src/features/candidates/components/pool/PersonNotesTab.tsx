@@ -1,12 +1,23 @@
 import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, LinesSkeleton, Select, TextArea, useToast } from "../../../../components/ui";
+import { Button, LinesSkeleton, Select, useToast } from "../../../../components/ui";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../../lib/useSubmitShortcut";
 import * as poolApi from "../../api/poolApi";
 import type { PersonNote, PersonNoteKind, PersonRecord } from "../../api/types";
 import { NOTE_KINDS } from "../../lib/noteKinds";
 import { NoteCard, NoteKindPicker } from "../NoteParts";
+import { taskNoteOf } from "../PersonSections";
+import { MentionTextArea } from "../../../tasks/components/MentionTextArea";
+import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
+import {
+  mentionsPresent,
+  NOTE_MAX_STORED,
+  NOTE_TOO_LONG,
+  serializeMentions,
+  type Mention,
+} from "../../../tasks/lib/mentions";
+import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
 
 /**
  * The Notes tab: a composer about a position or about the person, and the team's notes, pinned first.
@@ -24,40 +35,72 @@ export function PersonNotesTab({
   const [kind, setKind] = useState<PersonNoteKind>("call");
   const [about, setAbout] = useState("");
   const [text, setText] = useState("");
+  const [mentions, setMentions] = useState<Mention[]>([]);
+  const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
+  const team = usePositionTeam(about || null);
+  const mapping = person.positions.find((position) => position.projectId === about) ?? null;
 
+  const changeAbout = (projectId: string) => {
+    setAbout(projectId);
+    setMentions([]);
+  };
+
+  const body = about ? serializeMentions(text.trim(), mentionsPresent(text, mentions)) : text.trim();
+  const tooLong = body.length > NOTE_MAX_STORED;
+  // The position travels with the save: the select may change before the answer comes back.
   const saving = useMutation({
-    mutationFn: () =>
-      poolApi.writePoolNote(person.personId, { kind, body: text.trim(), projectId: about || null }),
-    onSuccess: () => {
+    mutationFn: (_save: { nextActionOn: typeof mapping }) =>
+      poolApi.writePoolNote(person.personId, { kind, body, projectId: about || null }),
+    onSuccess: (note, { nextActionOn }) => {
       setText("");
-      toast("Note saved — your team sees it on every position");
+      setMentions([]);
       refresh();
+      if (nextActionOn) {
+        toast("Note saved");
+        setNextAction({
+          projectId: nextActionOn.projectId,
+          candidateId: nextActionOn.candidateId,
+          personId: person.personId,
+          executiveName: person.fullName,
+          note: taskNoteOf(note),
+        });
+      } else {
+        toast("Note saved — your team sees it on every position");
+      }
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = text.trim().length > 0 && !saving.isPending;
-  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate());
+  const canSave = text.trim().length > 0 && !tooLong && !saving.isPending;
+  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate({ nextActionOn: null }));
   const list = notes.data ?? [];
 
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-[8px] border border-u-border p-2.5">
         <NoteKindPicker value={kind} onChange={setKind} />
-        <TextArea
+        <MentionTextArea
           value={text}
-          onChange={(event) => setText(event.target.value)}
+          onChange={setText}
+          mentions={mentions}
+          onMentionsChange={setMentions}
+          teammates={about ? team.teammates : null}
           onKeyDown={handleKeyDown}
           rows={3}
-          maxLength={4000}
-          aria-label="New note"
+          maxLength={NOTE_MAX_STORED}
+          ariaLabel="New note"
           placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
           className="font-sans text-[13px]/[1.55]"
         />
+        {tooLong && (
+          <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+            {NOTE_TOO_LONG}
+          </p>
+        )}
         <div className="mt-2 flex items-center gap-2">
           <Select
             aria-label="Position this note is about"
             value={about}
-            onChange={(event) => setAbout(event.target.value)}
+            onChange={(event) => changeAbout(event.target.value)}
             className="w-auto min-w-0 flex-1 py-1 text-[12.5px]"
           >
             <option value="">No position — about the person</option>
@@ -67,7 +110,23 @@ export function PersonNotesTab({
               </option>
             ))}
           </Select>
-          <Button className="px-3 py-1.5 text-[12.5px]" disabled={!canSave} loading={saving.isPending} onClick={() => saving.mutate()}>
+          {mapping && (
+            <Button
+              size="xs"
+              variant="secondary"
+              disabled={!canSave}
+              loading={saving.isPending && saving.variables.nextActionOn !== null}
+              onClick={() => saving.mutate({ nextActionOn: mapping })}
+            >
+              Save & set next action
+            </Button>
+          )}
+          <Button
+            size="xs"
+            disabled={!canSave}
+            loading={saving.isPending && saving.variables.nextActionOn === null}
+            onClick={() => saving.mutate({ nextActionOn: null })}
+          >
             Save note
           </Button>
         </div>
@@ -91,6 +150,7 @@ export function PersonNotesTab({
           ))}
         </ul>
       )}
+      <NextActionModal target={nextAction} onClose={() => setNextAction(null)} />
     </div>
   );
 }

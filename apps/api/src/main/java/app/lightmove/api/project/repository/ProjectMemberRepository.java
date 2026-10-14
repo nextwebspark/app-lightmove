@@ -2,6 +2,7 @@ package app.lightmove.api.project.repository;
 
 import app.lightmove.api.project.constant.ProjectStage;
 import app.lightmove.api.project.model.ProjectMember;
+import app.lightmove.api.workspace.constant.MemberStatus;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -62,6 +63,24 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
             """)
     long countSoleLeadSeatsExcludingStages(@Param("memberId") UUID memberId,
                                            @Param("doneStages") Collection<ProjectStage> doneStages);
+
+    /** The users seated on the project whose seat holds the action, active members only. */
+    @Query("""
+            select distinct wm.userId from ProjectMember pm join pm.roles r join r.actions a, WorkspaceMember wm
+            where pm.projectId = :projectId and wm.id = pm.memberId and wm.status = :status
+              and a.name = :actionName
+            """)
+    List<UUID> findSeatedUserIdsWithAction(@Param("projectId") UUID projectId,
+                                           @Param("actionName") String actionName,
+                                           @Param("status") MemberStatus status);
+
+    /** The project's leads, first seated first, active members only. */
+    @Query("""
+            select wm.userId from ProjectMember pm join pm.roles r, WorkspaceMember wm
+            where pm.projectId = :projectId and wm.id = pm.memberId and wm.status = :status and r.name = 'LEAD'
+            order by pm.createdAt, pm.id
+            """)
+    List<UUID> findLeadUserIds(@Param("projectId") UUID projectId, @Param("status") MemberStatus status);
 
     @Modifying
     long deleteByMemberId(UUID memberId);

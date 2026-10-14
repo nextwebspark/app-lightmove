@@ -6,6 +6,7 @@ import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -75,6 +76,11 @@ public class WorkspaceAccess {
 
     public boolean isAdmin(WorkspaceMember member) {
         return members.findRoleNames(member.getId()).contains(WorkspaceRole.ADMIN.name());
+    }
+
+    /** The account behind a membership row of this workspace, whatever the row's status. */
+    public Optional<UUID> userIdOfMember(UUID memberId, UUID workspaceId) {
+        return members.findByIdAndWorkspaceId(memberId, workspaceId).map(WorkspaceMember::getUserId);
     }
 
     public WorkspaceMember requireActiveMemberRow(UUID memberId, UUID workspaceId) {

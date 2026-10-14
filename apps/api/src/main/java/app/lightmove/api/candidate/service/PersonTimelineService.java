@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.model.CandidateTag;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonActivity;
+import app.lightmove.api.candidate.model.NoteMentionTokens;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.PersonDocument;
 import app.lightmove.api.candidate.repository.CandidateTagRepository;
@@ -47,7 +48,8 @@ public class PersonTimelineService {
     private static final Set<String> DETAIL_KEYS = Set.of("door", "backgroundConfirmed", "from", "to", "vendor",
             "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind", "tagId", "tag",
             "ownerUserId", "owner", "documentId", "version", "category", "versions", "fromLabel", "toLabel",
-            "text", "dueAt", "cleared", "visible");
+            "text", "dueAt", "cleared", "visible", "taskId", "title", "taskKind", "assignee", "previousAssignee",
+            "rule");
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
@@ -183,7 +185,7 @@ public class PersonTimelineService {
     }
 
     private static String excerptOf(String body) {
-        String flat = body.strip().replaceAll("\\s+", " ");
+        String flat = NoteMentionTokens.plainTextOf(body).strip().replaceAll("\\s+", " ");
         return flat.length() <= EXCERPT_LENGTH ? flat : flat.substring(0, EXCERPT_LENGTH - 1).strip() + "…";
     }
 

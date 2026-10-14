@@ -7,6 +7,14 @@ import { cn } from "../../../lib/cn";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
 import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
+import { NoteBody } from "../../tasks/components/NoteBody";
+import {
+  displayTextOf,
+  mentionsIn,
+  NOTE_MAX_STORED,
+  NOTE_TOO_LONG,
+  serializeMentions,
+} from "../../tasks/lib/mentions";
 
 /** The composer's kind chips: a radio group with one tab stop, the arrows moving the choice. */
 export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onChange: (kind: PersonNoteKind) => void }) {
@@ -45,6 +53,11 @@ export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onC
   );
 }
 
+/** The id a note's card carries, so a task set from it can bring it into view. */
+export function noteAnchorOf(noteId: string): string {
+  return `note-${noteId}`;
+}
+
 /** What a card may do to its note; a card drawn without them only reads. */
 export interface NoteCardActions {
   onPin: () => void;
@@ -58,13 +71,41 @@ export interface NoteCardActions {
  * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete asks first,
  * because a removed note leaves no copy of its words anywhere.
  */
-export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCardActions }) {
+export function NoteCard({
+  note,
+  actions,
+  flashAt = null,
+}: {
+  note: PersonNote;
+  actions?: NoteCardActions;
+  /**
+   * Brought into view from the task set from it: an accent wash that fades, played again for each new value. The
+   * wash is its own element so the card keeps its identity, and with it the keyboard focus it was given.
+   */
+  flashAt?: number | null;
+}) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [draft, setDraft] = useState(note.body);
+  const [draft, setDraft] = useState(() => displayTextOf(note.body));
+  const revised = serializeMentions(draft.trim(), mentionsIn(note.body));
+  const revisedTooLong = revised.length > NOTE_MAX_STORED;
 
   return (
-    <li className={cn("rounded-[8px] border px-3 py-2.5", note.pinned ? "border-u-accent/60 bg-u-raised" : "border-u-border")}>
+    <li
+      id={noteAnchorOf(note.id)}
+      tabIndex={-1}
+      className={cn(
+        "relative rounded-[8px] border px-3 py-2.5 outline-none",
+        note.pinned ? "border-u-accent/60 bg-u-raised" : "border-u-border",
+      )}
+    >
+      {flashAt !== null && (
+        <span
+          key={flashAt}
+          aria-hidden
+          className="animate-note-flash pointer-events-none absolute -inset-px rounded-[inherit] border border-transparent"
+        />
+      )}
       <div className="flex items-center gap-2">
         <Avatar id={note.authorUserId} name={note.authorName ?? "Someone"} src={note.authorAvatarUrl} size="sm" />
         <span className="text-[12.5px] font-semibold">{note.authorName ?? "Someone"}</span>
@@ -90,8 +131,8 @@ export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCa
           className="mt-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (draft.trim()) {
-              actions.onRevise(draft.trim());
+            if (draft.trim() && !revisedTooLong) {
+              actions.onRevise(revised);
               setEditing(false);
             }
           }}
@@ -100,21 +141,31 @@ export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCa
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             rows={3}
-            maxLength={4000}
+            maxLength={NOTE_MAX_STORED}
             aria-label="Edit note"
             className="font-sans text-[13px]/[1.55]"
           />
+          {revisedTooLong && (
+            <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+              {NOTE_TOO_LONG}
+            </p>
+          )}
           <div className="mt-2 flex justify-end gap-2">
             <Button type="button" variant="secondary" className="px-3 py-1 text-[12px]" onClick={() => setEditing(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="px-3 py-1 text-[12px]" disabled={!draft.trim()} loading={actions.busy}>
+            <Button
+              type="submit"
+              className="px-3 py-1 text-[12px]"
+              disabled={!draft.trim() || revisedTooLong}
+              loading={actions.busy}
+            >
               Save
             </Button>
           </div>
         </form>
       ) : (
-        <p className="mt-1.5 whitespace-pre-wrap text-[13px]/[1.55] text-u-text2">{note.body}</p>
+        <NoteBody body={note.body} className="mt-1.5 whitespace-pre-wrap text-[13px]/[1.55] text-u-text2" />
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
         {note.projectTitle && <span>About {note.projectTitle}</span>}
@@ -148,7 +199,7 @@ export function NoteCard({ note, actions }: { note: PersonNote; actions?: NoteCa
                 <button
                   type="button"
                   onClick={() => {
-                    setDraft(note.body);
+                    setDraft(displayTextOf(note.body));
                     setEditing(true);
                   }}
                   className="hover:text-u-text"

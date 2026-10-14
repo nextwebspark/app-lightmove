@@ -6,14 +6,15 @@ import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import type { PipelineRow } from "../api/types";
 import { rankMoveOf, shortDate } from "../lib/pipelineView";
-import { NextActionEditor, NextActionText, VisibilityToggle } from "./PipelineControls";
+import { VisibilityToggle } from "./PipelineControls";
+import { ListNextAction } from "./PipelineNextAction";
 
 const ROW_GRID =
   "grid grid-cols-[28px_20px_minmax(220px,2fr)_140px_170px_minmax(180px,1.2fr)_90px] items-center gap-2.5 px-5";
 
 /**
  * The pipeline as a list (`Position.dc.html`, `pipeline`): one row per executive in stage order, dragged
- * by its handle to reorder within its stage, its next action and client visibility set in place.
+ * by its handle to reorder within its stage, its client visibility set in place and its next action in the modal.
  */
 export function PipelineList({
   projectId,
@@ -24,8 +25,7 @@ export function PipelineList({
   onOpen,
   onMove,
   onToggleVisible,
-  onSaveNextAction,
-  savingNextActionId,
+  onOpenNextAction,
 }: {
   projectId: string;
   rows: readonly PipelineRow[];
@@ -35,11 +35,9 @@ export function PipelineList({
   onOpen: (candidateId: string) => void;
   onMove: (move: NonNullable<ReturnType<typeof rankMoveOf>>, candidateId: string) => void;
   onToggleVisible: (row: PipelineRow) => void;
-  onSaveNextAction: (row: PipelineRow, text: string | null, dueAt: string | null, done: () => void) => void;
-  savingNextActionId: string | null;
+  onOpenNextAction: (row: PipelineRow) => void;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const ids = rows.map((row) => row.candidateId);
   const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
   const someSelected = ids.some((id) => selectedIds.has(id));
@@ -89,7 +87,7 @@ export function PipelineList({
             key={row.candidateId}
             role="row"
             aria-label={row.fullName}
-            draggable={editingId !== row.candidateId}
+            draggable
             onDragStart={(event) => {
               if (event.dataTransfer) {
                 event.dataTransfer.effectAllowed = "move";
@@ -158,24 +156,8 @@ export function PipelineList({
               <br />
               {row.pipelineStage.label} {shortDate(row.statusChangedAt)}
             </span>
-            <span role="cell" className="min-w-0 text-note" onClick={(event) => event.stopPropagation()}>
-              {editingId === row.candidateId ? (
-                <NextActionEditor
-                  nextAction={row.nextAction}
-                  saving={savingNextActionId === row.candidateId}
-                  onCancel={() => setEditingId(null)}
-                  onSave={(text, dueAt) => onSaveNextAction(row, text, dueAt, () => setEditingId(null))}
-                />
-              ) : (
-                <button
-                  type="button"
-                  aria-label={`Edit next action for ${row.fullName}`}
-                  onClick={() => setEditingId(row.candidateId)}
-                  className="w-full rounded-u-control text-start hover:bg-u-sunken"
-                >
-                  <NextActionText nextAction={row.nextAction} />
-                </button>
-              )}
+            <span role="cell" className="min-w-0">
+              <ListNextAction row={row} onOpen={onOpenNextAction} />
             </span>
             <span role="cell">
               <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />

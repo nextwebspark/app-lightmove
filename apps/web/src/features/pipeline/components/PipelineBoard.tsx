@@ -15,7 +15,8 @@ import {
   type BoardPlacement,
   type BoardTarget,
 } from "../lib/pipelineView";
-import { NextActionText, VisibilityToggle } from "./PipelineControls";
+import { VisibilityToggle } from "./PipelineControls";
+import { BoardNextAction } from "./PipelineNextAction";
 
 /** The drop the pointer is over: a column and the card it would land before, or an Inactive group. */
 interface DropSlot {
@@ -40,6 +41,7 @@ export function PipelineBoard({
   onOpen,
   onMove,
   onToggleVisible,
+  onOpenNextAction,
 }: {
   projectId: string;
   rows: readonly PipelineRow[];
@@ -50,6 +52,7 @@ export function PipelineBoard({
   onOpen: (candidateId: string) => void;
   onMove: (placement: BoardPlacement) => void;
   onToggleVisible: (row: PipelineRow) => void;
+  onOpenNextAction: (row: PipelineRow) => void;
 }) {
   const [dragging, setDragging] = useState<PipelineRow | null>(null);
   const [over, setOver] = useState<DropSlot | null>(null);
@@ -194,7 +197,7 @@ export function PipelineBoard({
                       </span>
                     </span>
                     <span className="truncate text-meta text-u-text3">{row.companyName ?? "—"}</span>
-                    <NextActionText nextAction={row.nextAction} className="text-meta" />
+                    <BoardNextAction row={row} onOpen={onOpenNextAction} />
                     <span className="flex items-center justify-between gap-2 border-t border-u-border pt-2">
                       <span className="whitespace-nowrap text-eyebrow text-u-text3">
                         {daysInStage(row.statusChangedAt)}d in stage

@@ -6,8 +6,7 @@ import { ICONS } from "./Icon";
  * The settings sections that exist, in the mockup's groups.
  *
  * One table drives the rail, the breadcrumb and where `/settings` opens, so a section cannot appear in the rail
- * under one name and in the header under another. The mockup's Notifications is absent until its screen is built:
- * an item that leads nowhere is worse than no item. Team lives at `/team`, the one roster, and is listed here so an
+ * under one name and in the header under another. Team lives at `/team`, the one roster, and is listed here so an
  * admin looking for it in Settings finds it.
  */
 export type SettingsGroupLabel = "Your account" | "Workspace" | "Platform";
@@ -27,6 +26,7 @@ export interface SettingsSection {
 
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/profile", label: "Profile", icon: ICONS.profile, group: "Your account" },
+  { to: "/settings/notifications", label: "Notifications", icon: ICONS.bell, group: "Your account", staffOnly: true },
   { to: "/settings/security", label: "Security", icon: ICONS.lock, group: "Your account" },
   { to: "/settings/workspaces", label: "Workspaces", icon: ICONS.allProjects, group: "Your account" },
   { to: "/settings/api-keys", label: "API keys", icon: ICONS.key, group: "Your account", staffOnly: true },
@@ -41,6 +41,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     leavesShell: "Opens the Team page, outside Settings",
   },
   { to: "/settings/candidate-tags", label: "Candidate tags", icon: ICONS.tag, group: "Workspace" },
+  { to: "/settings/task-presets", label: "Task presets", icon: ICONS.checklist, group: "Workspace" },
   {
     to: "/settings/pipeline-stages",
     label: "Pipeline stages",
@@ -56,9 +57,9 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 
 /**
  * The sections this caller reaches. Your account is everyone's — a portal guest has a name and a timezone like
- * anyone else — except API keys and Connected AI apps, which are staff's. Workspace is admin-only but for Team,
- * Pipeline stages and Billing, which every staff member reads, and Platform is Uncava staff's. Hiding them is presentation; the route
- * guards are the gate.
+ * anyone else — except Notifications, API keys and Connected AI apps, which are staff's. Workspace is admin-only
+ * but for Team, Pipeline stages and Billing, which every staff member reads, and Platform is Uncava staff's.
+ * Hiding them is presentation; the route guards are the gate.
  */
 export function visibleSettingsSections(user: User | null): SettingsSection[] {
   const roles = user?.workspace?.roles ?? [];

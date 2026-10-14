@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
@@ -17,7 +18,9 @@ import { CustomFieldsFieldset } from "../../customcolumns/components/CustomField
 import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButton";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
-import { DrawerNextAction } from "../../pipeline/components/DrawerNextAction";
+import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
+import { NextActionsSection } from "../../tasks/components/NextActionsSection";
+import type { TaskNote } from "../../tasks/api/types";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
@@ -58,6 +61,7 @@ import {
   NotesSection,
   TimelineFeed,
   usePositions,
+  type NoteFocus,
 } from "./PersonSections";
 import { PositionsSection } from "./PersonPositions";
 import { PersonTagsSection } from "./PersonTagsSection";
@@ -131,6 +135,7 @@ export function CandidateProfile({
   onClose,
   onSaved,
   onRemove,
+  focusNoteId = null,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -144,6 +149,8 @@ export function CandidateProfile({
   onSaved: (saved: Candidate) => void;
   /** Absent for a reader who may not write. */
   onRemove?: (candidate: Candidate) => void;
+  /** A note to open on — a bell row's: the Records tab, scrolled to it. */
+  focusNoteId?: string | null;
 }) {
   const sections = useProfileSections();
   /**
@@ -157,7 +164,28 @@ export function CandidateProfile({
   });
   const body = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<EditableSection | null>(null);
-  const [tab, setTab] = useState<ProfileTab>("profile");
+  const [tab, setTab] = useState<ProfileTab>(canWrite && focusNoteId ? "records" : "profile");
+  const [noteFocus, setNoteFocus] = useState<NoteFocus | null>(() =>
+    canWrite && focusNoteId ? { noteId: focusNoteId, at: Date.now() } : null,
+  );
+  // A link to a note while this drawer is already open changes only the prop: bring that note forward too.
+  const [linkedNoteId, setLinkedNoteId] = useState(focusNoteId);
+  if (focusNoteId !== linkedNoteId) {
+    setLinkedNoteId(focusNoteId);
+    if (canWrite && focusNoteId) {
+      setTab("records");
+      setNoteFocus({ noteId: focusNoteId, at: (noteFocus?.at ?? 0) + 1 });
+    }
+  }
+  const showNote = (noteId: string) => {
+    setTab("records");
+    setNoteFocus({ noteId, at: Date.now() });
+  };
+  /** Leaving the Records tab lets the note go, so coming back to it scrolls nowhere. */
+  const chooseTab = (next: ProfileTab) => {
+    setTab(next);
+    if (next !== "records") setNoteFocus(null);
+  };
   const queryClient = useQueryClient();
   const positions = usePositions(projectId, candidate.id, canWrite);
   const otherPositions = (positions.data ?? []).filter((position) => position.projectId !== projectId);
@@ -179,6 +207,19 @@ export function CandidateProfile({
   const documentScope: DocumentScope = { kind: "position", projectId, candidateId: candidate.id };
   const documents = usePersonDocuments(documentScope, canWrite);
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
+  const [nextActionDone, setNextActionDone] = useState(false);
+  const openNextAction = (taskId: string | null, note: TaskNote | null = null) => {
+    setNextActionDone(false);
+    setNextAction({
+      projectId,
+      candidateId: candidate.id,
+      personId: candidate.personId,
+      executiveName: candidate.fullName,
+      taskId,
+      note,
+    });
+  };
   const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
     setPreview({ documentId: document.id, versionId: version.id });
   const closePreview = useCallback(() => setPreview(null), []);
@@ -198,7 +239,7 @@ export function CandidateProfile({
   const startEditing = (section: EditableSection) => {
     setEditing(section);
     if (section !== "identity") return;
-    setTab("profile");
+    chooseTab("profile");
     if (body.current) body.current.scrollTop = 0;
   };
 
@@ -278,7 +319,6 @@ export function CandidateProfile({
               {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
               {canWrite && <AiEnrichButton enrichment={aiEnrichment} />}
             </div>
-            {canWrite && <DrawerNextAction projectId={projectId} candidateId={candidate.id} />}
           </div>
         </div>
         {canWrite && <DoNotContactStrip personId={candidate.personId} />}
@@ -287,7 +327,7 @@ export function CandidateProfile({
           idPrefix={TAB_ID_PREFIX}
           className="-mb-4 mt-4 flex-wrap gap-y-2"
           value={tab}
-          onChange={setTab}
+          onChange={chooseTab}
           tabs={canWrite ? STAFF_TABS : CLIENT_TABS}
         />
       </div>
@@ -321,6 +361,18 @@ export function CandidateProfile({
               <FoldAllButton label="Expand all" onClick={() => sections.setAll(true, PROFILE_TAB_FOLDS)} />
               <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false, PROFILE_TAB_FOLDS)} />
             </div>
+          )}
+
+          {canWrite && (
+            <NextActionsSection
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={candidate.fullName.trim().split(/\s+/)[0]}
+              justCompleted={nextActionDone}
+              onCompleted={() => setNextActionDone(true)}
+              onOpen={openNextAction}
+              onShowNote={showNote}
+            />
           )}
 
           <CollapsibleSection
@@ -612,7 +664,12 @@ export function CandidateProfile({
           <>
             <div {...panelProps("records")} className="pt-4">
               {personRecord.data && <PersonTagsSection person={personRecord.data} />}
-              <NotesSection projectId={projectId} candidateId={candidate.id} />
+              <NotesSection
+                projectId={projectId}
+                candidateId={candidate.id}
+                focus={noteFocus}
+                onSetNextAction={(note) => openNextAction(null, note)}
+              />
               <DocumentsSection
                 scope={documentScope}
                 documents={documents}
@@ -647,7 +704,21 @@ export function CandidateProfile({
         <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
           Close
         </Button>
+        {canWrite && (
+          <Button type="button" onClick={() => openNextAction(null)}>
+            <Icon d={ICONS.plus} size={14} />
+            Set next action
+          </Button>
+        )}
       </footer>
+
+      {canWrite && (
+        <NextActionModal
+          target={nextAction}
+          onClose={() => setNextAction(null)}
+          onCompleted={() => setNextActionDone(true)}
+        />
+      )}
 
       {canWrite && (
         <DocumentPreviewSheet
