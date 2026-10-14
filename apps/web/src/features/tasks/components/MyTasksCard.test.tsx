@@ -230,6 +230,26 @@ describe("MyTasksCard", () => {
     expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
   });
 
+  it("counts a tick against the tab it was made on, though the reader has moved on", async () => {
+    let answer!: (task: TaskResponse) => void;
+    vi.mocked(tasksApi.updateTask).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+    renderCard();
+    await screen.findByRole("list", { name: "Today tasks" });
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Reply to Rania Khoury" }));
+    await userEvent.click(tab(/^Overdue/));
+    await screen.findByRole("list", { name: "Overdue tasks" });
+    answer({ ...BY_VIEW.today[0], status: "done" });
+
+    await waitFor(() => expect(tab(/^Today/)).toHaveAccessibleName("Today · 5"));
+    expect(tab(/^Overdue/)).toHaveAccessibleName("Overdue · 1");
+  });
+
   it("strikes a completed task where it is and offers the next one", async () => {
     vi.mocked(tasksApi.updateTask).mockImplementation(async (taskId) => ({
       ...BY_VIEW.today.find((task) => task.id === taskId)!,

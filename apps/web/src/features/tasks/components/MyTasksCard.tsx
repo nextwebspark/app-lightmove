@@ -99,21 +99,25 @@ export function MyTasksCard() {
   if (chosen === null && mine.data && !mine.isPlaceholderData) {
     setChosen(firstTabWithTasks(mine.data.pages[0].counts));
   }
+  // The tab travels with the tick: the reader may move to another before the answer comes back. Every tab read so
+  // far carries the counts, so each is told; only the tab ticked on holds the row.
   const toggle = useMutation({
-    mutationFn: (task: TaskResponse) =>
+    mutationFn: ({ task }: { task: TaskResponse; on: (typeof TABS)[number] }) =>
       tasksApi.updateTask(task.id, { status: task.status === "done" ? "open" : "done" }),
-    onSuccess: (saved) => {
-      queryClient.setQueryData<InfiniteData<MyTasksResponse, number>>(tasksApi.MY_TASKS_KEY(view), (current) =>
-        current
-          ? {
-              ...current,
-              pages: current.pages.map((slice) => ({
-                ...slice,
-                tasks: slice.tasks.map((task) => (task.id === saved.id ? saved : task)),
-                counts: { ...slice.counts, [tab.count]: slice.counts[tab.count] + (saved.status === "done" ? -1 : 1) },
-              })),
-            }
-          : current,
+    onSuccess: (saved, { on }) => {
+      queryClient.setQueriesData<InfiniteData<MyTasksResponse, number>>(
+        { queryKey: [...tasksApi.TASKS_KEY_PREFIX, "mine"] },
+        (current) =>
+          current
+            ? {
+                ...current,
+                pages: current.pages.map((slice) => ({
+                  ...slice,
+                  tasks: slice.tasks.map((task) => (task.id === saved.id ? saved : task)),
+                  counts: { ...slice.counts, [on.count]: slice.counts[on.count] + (saved.status === "done" ? -1 : 1) },
+                })),
+              }
+            : current,
       );
       tasksChanged(saved.projectId, { keepMyTasks: true });
     },
@@ -231,8 +235,8 @@ export function MyTasksCard() {
                   task={task}
                   withAssignee={withAssignee}
                   divider={index < shown.length - 1 || loadingMore}
-                  busy={toggle.isPending && toggle.variables?.id === task.id}
-                  onToggle={() => toggle.mutate(task)}
+                  busy={toggle.isPending && toggle.variables?.task.id === task.id}
+                  onToggle={() => toggle.mutate({ task, on: tab })}
                   onSetNext={
                     task.candidateId
                       ? () =>

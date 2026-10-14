@@ -313,6 +313,19 @@ describe("NextActionModal", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
+  it("clears a detail emptied on an edit, rather than leaving the old one standing", async () => {
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [openTask], done: [], doneCount: 0 });
+    vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...openTask, detail: null });
+    renderModal({ ...newTarget, taskId: "t1" });
+
+    await userEvent.clear(await screen.findByRole("textbox", { name: "Detail" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(tasksApi.updateTask).toHaveBeenCalledWith("t1", expect.objectContaining({ detail: "" })),
+    );
+  });
+
   it("cancels the task it edits on Delete", async () => {
     vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [openTask], done: [], doneCount: 0 });
     vi.mocked(tasksApi.cancelTask).mockResolvedValue(undefined);

@@ -8,7 +8,13 @@ import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
 import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
 import { NoteBody } from "../../tasks/components/NoteBody";
-import { displayTextOf, mentionsIn, serializeMentions } from "../../tasks/lib/mentions";
+import {
+  displayTextOf,
+  mentionsIn,
+  NOTE_MAX_STORED,
+  NOTE_TOO_LONG,
+  serializeMentions,
+} from "../../tasks/lib/mentions";
 
 /** The composer's kind chips: a radio group with one tab stop, the arrows moving the choice. */
 export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onChange: (kind: PersonNoteKind) => void }) {
@@ -68,27 +74,38 @@ export interface NoteCardActions {
 export function NoteCard({
   note,
   actions,
-  flash = false,
+  flashAt = null,
 }: {
   note: PersonNote;
   actions?: NoteCardActions;
-  /** Brought into view from the task set from it: an accent wash that fades. */
-  flash?: boolean;
+  /**
+   * Brought into view from the task set from it: an accent wash that fades, played again for each new value. The
+   * wash is its own element so the card keeps its identity, and with it the keyboard focus it was given.
+   */
+  flashAt?: number | null;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [draft, setDraft] = useState(() => displayTextOf(note.body));
+  const revised = serializeMentions(draft.trim(), mentionsIn(note.body));
+  const revisedTooLong = revised.length > NOTE_MAX_STORED;
 
   return (
     <li
       id={noteAnchorOf(note.id)}
       tabIndex={-1}
       className={cn(
-        "rounded-[8px] border px-3 py-2.5 outline-none",
+        "relative rounded-[8px] border px-3 py-2.5 outline-none",
         note.pinned ? "border-u-accent/60 bg-u-raised" : "border-u-border",
-        flash && "animate-note-flash",
       )}
     >
+      {flashAt !== null && (
+        <span
+          key={flashAt}
+          aria-hidden
+          className="animate-note-flash pointer-events-none absolute -inset-px rounded-[inherit] border border-transparent"
+        />
+      )}
       <div className="flex items-center gap-2">
         <Avatar id={note.authorUserId} name={note.authorName ?? "Someone"} src={note.authorAvatarUrl} size="sm" />
         <span className="text-[12.5px] font-semibold">{note.authorName ?? "Someone"}</span>
@@ -114,8 +131,8 @@ export function NoteCard({
           className="mt-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (draft.trim()) {
-              actions.onRevise(serializeMentions(draft.trim(), mentionsIn(note.body)));
+            if (draft.trim() && !revisedTooLong) {
+              actions.onRevise(revised);
               setEditing(false);
             }
           }}
@@ -124,15 +141,25 @@ export function NoteCard({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             rows={3}
-            maxLength={4000}
+            maxLength={NOTE_MAX_STORED}
             aria-label="Edit note"
             className="font-sans text-[13px]/[1.55]"
           />
+          {revisedTooLong && (
+            <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+              {NOTE_TOO_LONG}
+            </p>
+          )}
           <div className="mt-2 flex justify-end gap-2">
             <Button type="button" variant="secondary" className="px-3 py-1 text-[12px]" onClick={() => setEditing(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="px-3 py-1 text-[12px]" disabled={!draft.trim()} loading={actions.busy}>
+            <Button
+              type="submit"
+              className="px-3 py-1 text-[12px]"
+              disabled={!draft.trim() || revisedTooLong}
+              loading={actions.busy}
+            >
               Save
             </Button>
           </div>

@@ -110,9 +110,11 @@ public class Notification extends BaseEntity {
         }
     }
 
+    /** Read before its email went, it never sends one: marking it unread later is a reminder, not news. */
     public void markRead(Instant at) {
         if (readAt == null) {
             this.readAt = at;
+            this.emailDueAt = null;
         }
     }
 

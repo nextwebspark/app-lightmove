@@ -53,6 +53,11 @@ export function mentionsPresent(text: string, mentions: readonly Mention[]): Men
   return mentions.filter((mention) => text.includes(mentionLabel(mention)));
 }
 
+/** What a note may hold as stored, each mention spelled out as its token (`PersonNote.MAX_BODY`). */
+export const NOTE_MAX_STORED = 4000;
+
+export const NOTE_TOO_LONG = "Too long once its mentions are saved. Shorten it a little.";
+
 /** The composer's text as the server keeps it: every picked `@Name` written as its token. */
 export function serializeMentions(text: string, mentions: readonly Mention[]): string {
   const longestFirst = [...mentions].sort((a, b) => mentionLabel(b).length - mentionLabel(a).length);

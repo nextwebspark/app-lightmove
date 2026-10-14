@@ -574,7 +574,9 @@ work the position — `WORK_EXECUTE`, read again on every save (`ProjectAccess.a
 about no position mentions nobody. Anyone on the team completes a task; changing, reassigning or cancelling it is
 its creator's, its holder's, `TEAM_MANAGE`'s or `WORKSPACE_MANAGE`'s (`TASK_NOT_YOURS`). A seat that goes
 (`ProjectSeatVacated`, from the team screen or a member's removal) hands its open tasks to the position's first
-lead in the same transaction. Presets are the workspace's catalog (`app_lm_workspace_task_preset`, V98's
+lead in the same transaction, and so does a role change or removal (`MemberAccessNarrowed`) for a task held on a
+position its holder worked only as an admin. The due scan claims inside a `TransactionTemplate`: a scheduled call
+is a self-invocation, and without a transaction the after-commit listeners never hear it. Presets are the workspace's catalog (`app_lm_workspace_task_preset`, V98's
 seeded-on-first-read, retired-not-deleted idiom); free text is a title only. Rules file tasks from outreach — a
 reply, a bounce, a booked call — once per event (`rule_key`, unique), each switchable per workspace.
 `notification` is the bell: `NotificationRules` turns those events (and a mention, a seat taken, a task falling
@@ -1038,6 +1040,8 @@ due-soon/overdue notice stamps; V132's next actions backfilled as open tasks), `
 the email claim), `app_lm_notification_preference` (no row is on) and `app_lm_notification_digest` (one per person
 per local day), and widens the activity kinds with `TASK_CREATED`, `TASK_COMPLETED`, `TASK_REOPENED`,
 `TASK_REASSIGNED` and `TASK_CANCELLED`.
+V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
+note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):
 who a workspace hires for — client companies, or its own business units. Chosen at creation with **no
 default** (`CreateWorkspaceRequest.mode` is required, the organisation step preselects nothing) and

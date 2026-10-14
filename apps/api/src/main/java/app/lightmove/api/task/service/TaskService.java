@@ -133,6 +133,7 @@ public class TaskService {
             requireMayChange(userId, task);
         }
         EditableTask before = EditableTask.of(task);
+        UUID assignedBefore = task.getAssigneeUserId();
         if (request.title() != null) {
             retitle(task, request.title());
         }
@@ -154,7 +155,7 @@ public class TaskService {
         if (!before.equals(EditableTask.of(task))) {
             audited(ProjectEventType.TASK_UPDATED, task, userId, httpRequest)
                     .detailIfPresent("status", request.status())
-                    .detailIfPresent("reassigned", request.assigneeUserId() == null ? null : "true")
+                    .detailIfPresent("reassigned", assignedBefore.equals(task.getAssigneeUserId()) ? null : "true")
                     .record();
         }
         return single(task, mayChange(userId, task));
@@ -271,6 +272,9 @@ public class TaskService {
     }
 
     private void reassign(Task task, UUID assigneeUserId, UUID actor) {
+        if (assigneeUserId.equals(task.getAssigneeUserId())) {
+            return;
+        }
         requireOnTeam(assigneeUserId, task.getWorkspaceId(), task.getProjectId());
         UUID previous = task.getAssigneeUserId();
         if (task.reassign(assigneeUserId)) {

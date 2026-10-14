@@ -90,7 +90,7 @@ public class NotificationService {
         Instant now = clock.instant();
         if (Boolean.TRUE.equals(request.read())) {
             row.markRead(now);
-        } else if (Boolean.FALSE.equals(request.read())) {
+        } else if (Boolean.FALSE.equals(request.read()) && mayBeUnread(row)) {
             row.markUnread();
         }
         if (Boolean.TRUE.equals(request.clearSnooze())) {
@@ -107,6 +107,12 @@ public class NotificationService {
         }
         stream.publish(userId, workspaceId);
         return toDtos(workspaceId, List.of(row)).getFirst();
+    }
+
+    /** A group holds one unread row: an older one stays read once a newer one is waiting. */
+    private boolean mayBeUnread(Notification row) {
+        return row.getArchivedAt() != null || row.getReadAt() == null
+                || rows.lockLiveGroup(row.getRecipientUserId(), row.getWorkspaceId(), row.getGroupKey()).isEmpty();
     }
 
     /** Every row in one pass: the people, executives, positions and tasks they name, read once each. */

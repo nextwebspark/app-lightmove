@@ -161,6 +161,57 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("an email goes only to whoever still holds the task, still wants email, about a note still there")
+    void anEmailIsCheckedAgainWhenItGoes() throws Exception {
+        String moved = assign(researcherId, "Request CV", Instant.now().plus(2, ChronoUnit.DAYS));
+        reassign(moved, userIdOf(admin));
+        assign(researcherId, "Reference check", Instant.now().plus(2, ChronoUnit.DAYS));
+        write(researcher, "PUT", "/api/v1/me/notification-preferences", """
+                {"digest":true,"kinds":[{"kind":"task_assigned","inApp":true,"email":false}]}""");
+        String noteId = body(write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/notes", """
+                {"kind":"call","body":"@[sara](user:%s) please call her back"}""".formatted(researcherId)))
+                .get("id").asText();
+        mvc.perform(delete(candidatesUrl(projectId) + "/" + layla + "/notes/" + noteId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        emailEveryUnread();
+
+        assertThat(email.subjectsFor(researcherAddress))
+                .noneMatch(subject -> subject.contains("assigned you") || subject.contains("mentioned you"));
+    }
+
+    @Test
+    @DisplayName("a row read before its email time sends none, even marked unread again")
+    void aRowReadInTimeNeverEmails() throws Exception {
+        assign(researcherId, "Request CV", Instant.now().plus(2, ChronoUnit.DAYS));
+        String rowId = rowsOfKind(researcher, "task_assigned").getFirst().get("id").asText();
+
+        markRead(researcher, rowId, true);
+        markRead(researcher, rowId, false);
+        emailEveryUnread();
+
+        assertThat(email.subjectsFor(researcherAddress)).noneMatch(subject -> subject.contains("assigned you"));
+        assertThat(rowsOfKind(researcher, "task_assigned").getFirst().get("read").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("an older row stays read when marked unread while a newer one of its group waits")
+    void anOlderRowStaysReadBesideANewerOne() throws Exception {
+        String taskId = assign(researcherId, "Request CV", Instant.now().plus(2, ChronoUnit.DAYS));
+        String older = rowsOfKind(researcher, "task_assigned").getFirst().get("id").asText();
+        markRead(researcher, older, true);
+        reassign(taskId, userIdOf(admin));
+        reassign(taskId, researcherId);
+
+        markRead(researcher, older, false);
+
+        List<JsonNode> rows = rowsOfKind(researcher, "task_assigned");
+        assertThat(rows).hasSize(2);
+        assertThat(rows.stream().filter(row -> !row.get("read").asBoolean()).toList()).hasSize(1);
+    }
+
+    @Test
     @DisplayName("a weekday morning's digest goes once, in the person's own zone")
     void theDigestGoesOncePerMorning() throws Exception {
         assign(researcherId, "Call to qualify interest", Instant.now().minus(1, ChronoUnit.HOURS));
@@ -180,13 +231,13 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a task falling due rings once")
+    @DisplayName("a task falling due rings once, from the scheduled scan as from a direct one")
     void aTaskFallingDueRingsOnce() throws Exception {
         assign(researcherId, "Schedule a call", Instant.now().plus(30, ChronoUnit.MINUTES));
         write(researcher, "POST", "/api/v1/me/notifications/read", """
                 {"all":true}""");
 
-        dueScanner.scanAt(Instant.now());
+        dueScanner.scheduledScan();
         dueScanner.scanAt(Instant.now());
 
         List<JsonNode> due = rowsOfKind(researcher, "task_due_soon");
@@ -220,10 +271,26 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
         awaitContent(stream, "\"kind\":\"notifications\"");
     }
 
-    private void assign(String assigneeId, String title, Instant dueAt) throws Exception {
-        assertThat(write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/tasks", """
+    private String assign(String assigneeId, String title, Instant dueAt) throws Exception {
+        MvcResult created = write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/tasks", """
                 {"title":"%s","kind":"todo","assigneeUserId":"%s","dueAt":"%s"}"""
-                .formatted(title, assigneeId, dueAt)).getResponse().getStatus()).isEqualTo(201);
+                .formatted(title, assigneeId, dueAt));
+        assertThat(created.getResponse().getStatus()).isEqualTo(201);
+        return body(created).get("id").asText();
+    }
+
+    private void reassign(String taskId, String assigneeId) throws Exception {
+        assertThat(write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
+                {"assigneeUserId":"%s"}""".formatted(assigneeId)).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    private void markRead(String token, String notificationId, boolean read) throws Exception {
+        assertThat(write(token, "PATCH", "/api/v1/me/notifications/" + notificationId, """
+                {"read":%s}""".formatted(read)).getResponse().getStatus()).isEqualTo(200);
+    }
+
+    private void emailEveryUnread() {
+        emails.emailUnreadAt(Instant.now().plus(11, ChronoUnit.MINUTES));
     }
 
     private void replied(String candidateId) {

@@ -12,7 +12,8 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   `next_action` into an open task; the V132 columns stay, unwritten, until the cleanup migration (#606's).
 - **The team is the boundary.** A task is assigned, and a note mentions, only someone who may work the
   position — `WORK_EXECUTE` on it, re-read when saved — which is its staff seats and the workspace's admins.
-  Never a client seat. A seat that goes moves its holder's open tasks there to the position's first lead.
+  Never a client seat. A seat that goes moves its holder's open tasks there to the position's first lead, as does
+  losing the admin role or leaving the workspace for a task on a position its holder worked only as an admin.
 - **Presets** are the workspace's catalog (`app_lm_workspace_task_preset`): seeded on first read, edited
   under `WORKSPACE_MANAGE`, retired rather than deleted. Free text is a title only.
 - **Rules** file tasks from outreach — a reply (`Reply to {name}`), a bounce (`Find a working email for
@@ -29,8 +30,11 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   *mentioned*, and only if still unread after `lightmove.notifications.email-delay` (10 minutes); a daily
   digest goes at 08:00 in the user's mailbox time zone (else `default-time-zone`), claimed once per user per
   day. Each email is claimed before it is sent, so one the mail service refuses is logged at error with its ids and
-  never resent: a second copy is worse than a missed one. Preferences are per kind × channel, defaulted on. A person
-  holds at most ten live streams per workspace; an eleventh closes their oldest.
+  never resent: a second copy is worse than a missed one. When it goes it is asked again whether the person still
+  works the position, still wants that kind by email, still holds the task and, for a mention, whether the note is
+  still there; a row read before its time never sends, even marked unread later, and an older row of a group stays
+  read while a newer one waits. Preferences are per kind × channel, defaulted on. A person holds at most ten live
+  streams per workspace; an eleventh closes their oldest.
 - **Staff-only, all of it.** Nothing here rides `CandidateResponse`, the report, the public API or MCP.
 
 ## Wire contract

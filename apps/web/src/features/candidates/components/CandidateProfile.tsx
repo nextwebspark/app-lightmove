@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -102,9 +102,6 @@ const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
 
 const TAB_ID_PREFIX = "executive-drawer";
 
-/** How long a note brought into view stays marked: its flash, and the window a late load still scrolls in. */
-const NOTE_FOCUS_MS = 2600;
-
 /**
  * One executive, read first and corrected a section at a time.
  *
@@ -171,15 +168,24 @@ export function CandidateProfile({
   const [noteFocus, setNoteFocus] = useState<NoteFocus | null>(() =>
     canWrite && focusNoteId ? { noteId: focusNoteId, at: Date.now() } : null,
   );
+  // A link to a note while this drawer is already open changes only the prop: bring that note forward too.
+  const [linkedNoteId, setLinkedNoteId] = useState(focusNoteId);
+  if (focusNoteId !== linkedNoteId) {
+    setLinkedNoteId(focusNoteId);
+    if (canWrite && focusNoteId) {
+      setTab("records");
+      setNoteFocus({ noteId: focusNoteId, at: (noteFocus?.at ?? 0) + 1 });
+    }
+  }
   const showNote = (noteId: string) => {
     setTab("records");
     setNoteFocus({ noteId, at: Date.now() });
   };
-  useEffect(() => {
-    if (!noteFocus) return;
-    const settle = window.setTimeout(() => setNoteFocus(null), NOTE_FOCUS_MS);
-    return () => window.clearTimeout(settle);
-  }, [noteFocus]);
+  /** Leaving the Records tab lets the note go, so coming back to it scrolls nowhere. */
+  const chooseTab = (next: ProfileTab) => {
+    setTab(next);
+    if (next !== "records") setNoteFocus(null);
+  };
   const queryClient = useQueryClient();
   const positions = usePositions(projectId, candidate.id, canWrite);
   const otherPositions = (positions.data ?? []).filter((position) => position.projectId !== projectId);
@@ -233,7 +239,7 @@ export function CandidateProfile({
   const startEditing = (section: EditableSection) => {
     setEditing(section);
     if (section !== "identity") return;
-    setTab("profile");
+    chooseTab("profile");
     if (body.current) body.current.scrollTop = 0;
   };
 
@@ -321,7 +327,7 @@ export function CandidateProfile({
           idPrefix={TAB_ID_PREFIX}
           className="-mb-4 mt-4 flex-wrap gap-y-2"
           value={tab}
-          onChange={setTab}
+          onChange={chooseTab}
           tabs={canWrite ? STAFF_TABS : CLIENT_TABS}
         />
       </div>

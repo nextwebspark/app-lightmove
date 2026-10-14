@@ -215,7 +215,8 @@ function NextActionForm({
         kind,
         assigneeUserId: assigneeId,
         dueAt: dueAt!,
-        detail: detail.trim() || null,
+        // A blank detail clears it on an edit; null would leave the old one standing.
+        detail: task ? detail.trim() : detail.trim() || null,
       };
       return task
         ? tasksApi.updateTask(task.id, change)

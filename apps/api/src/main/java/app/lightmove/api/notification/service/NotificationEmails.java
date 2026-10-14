@@ -118,7 +118,8 @@ public class NotificationEmails {
     }
 
     private boolean stillTheirs(Notification row) {
-        return workspaceAccess.isStaff(row.getRecipientUserId(), row.getWorkspaceId())
+        return preferences.of(row.getRecipientUserId(), row.getWorkspaceId(), row.getKind().preference()).email()
+                && workspaceAccess.isStaff(row.getRecipientUserId(), row.getWorkspaceId())
                 && (row.getProjectId() == null || projectAccess.allows(row.getRecipientUserId(), row.getWorkspaceId(),
                         row.getProjectId(), ProjectAction.WORK_EXECUTE));
     }
@@ -137,14 +138,15 @@ public class NotificationEmails {
                 .map(Project::getPositionTitle).orElse("a");
         String link = linkOf(row.getProjectId(), row.getCandidateId());
         User to = recipient.get();
-        if (row.getKind() == NotificationKind.MENTIONED) {
+        if (row.getKind() == NotificationKind.MENTIONED && row.getNoteId() != null) {
             return Optional.of(templates.buildMentionedEmail(to.getEmail(), to.getFullName(), actorName, executive,
                     position, link));
         }
         if (row.getKind() == NotificationKind.TASK_ASSIGNED && row.getTaskId() != null) {
             ZoneId zone = zones.zoneOf(row.getRecipientUserId(), row.getWorkspaceId());
             return tasks.find(row.getWorkspaceId(), row.getTaskId())
-                    .filter(task -> "open".equals(task.status()))
+                    .filter(task -> "open".equals(task.status())
+                            && row.getRecipientUserId().equals(task.assignee().userId()))
                     .map(task -> templates.buildTaskAssignedEmail(to.getEmail(), to.getFullName(), actorName,
                             task.title(), executive, position, dueOf(task, zone), link));
         }

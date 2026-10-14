@@ -6,7 +6,13 @@ import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
 import type { TaskNote } from "../../tasks/api/types";
 import { MentionTextArea } from "../../tasks/components/MentionTextArea";
-import { mentionsPresent, serializeMentions, type Mention } from "../../tasks/lib/mentions";
+import {
+  mentionsPresent,
+  NOTE_MAX_STORED,
+  NOTE_TOO_LONG,
+  serializeMentions,
+  type Mention,
+} from "../../tasks/lib/mentions";
 import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
 import type { DocumentScope } from "../api/documentsApi";
 import * as personCrmApi from "../api/personCrmApi";
@@ -89,12 +95,10 @@ export function NotesSection({
   const [text, setText] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
 
+  const body = serializeMentions(text.trim(), mentionsPresent(text, mentions));
+  const tooLong = body.length > NOTE_MAX_STORED;
   const saving = useMutation({
-    mutationFn: (_thenNextAction: boolean) =>
-      personCrmApi.writePersonNote(projectId, candidateId, {
-        kind,
-        body: serializeMentions(text.trim(), mentionsPresent(text, mentions)),
-      }),
+    mutationFn: (_thenNextAction: boolean) => personCrmApi.writePersonNote(projectId, candidateId, { kind, body }),
     onSuccess: (note, thenNextAction) => {
       setText("");
       setMentions([]);
@@ -113,7 +117,7 @@ export function NotesSection({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = text.trim().length > 0 && !saving.isPending;
+  const canSave = text.trim().length > 0 && !tooLong && !saving.isPending;
   const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate(false));
   const list = notes.data ?? [];
   const loaded = notes.isSuccess;
@@ -139,11 +143,16 @@ export function NotesSection({
             teammates={team.teammates}
             onKeyDown={handleKeyDown}
             rows={2}
-            maxLength={4000}
+            maxLength={NOTE_MAX_STORED}
             ariaLabel="New note"
             placeholder="What was said, and what happens next…"
             className="font-sans text-body"
           />
+          {tooLong && (
+            <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+              {NOTE_TOO_LONG}
+            </p>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <span className="min-w-0 flex-1 truncate font-mono text-meta text-u-text3">
               About {thisPosition ?? "this position"}
@@ -183,10 +192,9 @@ export function NotesSection({
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {list.map((note) => {
-              const flash = focus?.noteId === note.id;
-              return <NoteCard key={flash ? `${note.id}:${focus.at}` : note.id} note={note} flash={flash} />;
-            })}
+            {list.map((note) => (
+              <NoteCard key={note.id} note={note} flashAt={focus?.noteId === note.id ? focus.at : null} />
+            ))}
           </ul>
         )}
       </div>

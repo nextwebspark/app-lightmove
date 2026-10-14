@@ -200,6 +200,25 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("an admin without a seat who stops being one hands their open tasks there to the lead")
+    void aDemotedAdminHandsTheirTasksToTheLead() throws Exception {
+        String omar = member("omar");
+        String omarMember = memberIdOf(admin, "omar@" + domain);
+        String omarId = userIdOf(omar);
+        assertThat(write(admin, "PATCH", "/api/v1/members/" + omarMember, """
+                {"roles":["ADMIN","MEMBER"]}""").getResponse().getStatus()).isEqualTo(200);
+        created(admin, layla, "Request CV", omarId, "2026-11-02T09:00:00Z");
+
+        assertThat(write(admin, "PATCH", "/api/v1/members/" + omarMember, """
+                {"roles":["MEMBER"]}""").getResponse().getStatus()).isEqualTo(200);
+
+        JsonNode open = read(admin, tasksUrl(layla)).get("open");
+        assertThat(open).hasSize(1);
+        assertThat(open.get(0).at("/assignee/userId").asText()).isEqualTo(adminId);
+        assertThat(timelineKinds()).contains("TASK_REASSIGNED");
+    }
+
+    @Test
     @DisplayName("a teammate leaving the position hands their open tasks to its lead, who is told")
     void leavingHandsTasksToTheLead() throws Exception {
         String taskId = body(created(admin, layla, "Request CV", researcherId, "2026-11-02T09:00:00Z"))

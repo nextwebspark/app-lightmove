@@ -152,6 +152,19 @@ function BriefArrivesLate(props: Parameters<typeof CandidateDrawer>[0]) {
   );
 }
 
+/** A link to one of the person's notes, followed while their drawer is already open. */
+function NoteLinkArrives(props: Parameters<typeof CandidateDrawer>[0]) {
+  const [focusNoteId, setFocusNoteId] = useState<string | null>(null);
+  return (
+    <>
+      <button type="button" onClick={() => setFocusNoteId("n1")}>
+        follow the link
+      </button>
+      <CandidateDrawer {...props} focusNoteId={focusNoteId} />
+    </>
+  );
+}
+
 /**
  * What the page does with a save's answer: shows it. The panel renders whatever it is handed, so a
  * test of "the profile now reads as saved" needs a caller that hands the answer back.
@@ -995,6 +1008,35 @@ describe("CandidateDrawer", () => {
       .getAllByRole("button", { name: /^(Summary|Experience|Compensation|Background|AI assessment)/ })
       .map((fold) => fold.textContent?.match(/^(Summary|Experience|Compensation|Background|AI assessment)/)?.[0]);
     expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background", "AI assessment"]);
+  });
+
+  it("brings a linked note forward though the drawer is already open on someone else's profile tab", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+      {
+        id: "n1",
+        kind: "call",
+        body: "Open to a move in Q1.",
+        pinned: false,
+        projectId: "p1",
+        projectTitle: "Chief Financial Officer",
+        authorUserId: "u1",
+        authorName: "Alok Kumar",
+        authorAvatarUrl: null,
+        createdAt: "2026-10-03T08:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+      },
+    ]);
+    renderDrawer({ candidate: yasmin, company: null }, NoteLinkArrives);
+    expect(await screen.findByRole("tab", { name: "Profile", selected: true })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "follow the link" }));
+
+    expect(await screen.findByRole("tab", { name: "Records", selected: true })).toBeInTheDocument();
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
   it("keeps tags, notes and documents under Records, and other positions only when there are some", async () => {

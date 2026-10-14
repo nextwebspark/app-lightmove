@@ -15,7 +15,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Tells an assignee when an open task falls due within the hour and again once it is overdue — each once per due
@@ -47,6 +47,7 @@ public class TaskDueScanner {
             """;
 
     private final JdbcTemplate jdbc;
+    private final TransactionTemplate transactions;
     private final TaskRepository tasks;
     private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
@@ -57,9 +58,16 @@ public class TaskDueScanner {
         scanAt(clock.instant());
     }
 
-    /** One pass; the announcements go once the claims commit. */
-    @Transactional
+    /**
+     * One pass; the announcements go once the claims commit. The transaction is the template's, not an annotation's:
+     * the scheduled call is a self-invocation, and without one the after-commit listeners never hear a claim.
+     */
     public int scanAt(Instant now) {
+        Integer announced = transactions.execute(status -> claimAndAnnounce(now));
+        return announced == null ? 0 : announced;
+    }
+
+    private int claimAndAnnounce(Instant now) {
         Timestamp at = Timestamp.from(now);
         List<UUID> dueSoon = jdbc.queryForList(CLAIM_DUE_SOON, UUID.class, at, at,
                 Timestamp.from(now.plus(properties.notifications().dueSoonWindow())), BATCH);

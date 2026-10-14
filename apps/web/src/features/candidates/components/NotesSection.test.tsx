@@ -64,15 +64,18 @@ const aNote = (body: string, kind: PersonNote["kind"] = "general"): PersonNote =
 });
 
 function renderNotes(props: Partial<ComponentProps<typeof NotesSection>> = {}) {
-  render(
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const tree = (more: Partial<ComponentProps<typeof NotesSection>>) => (
     <MemoryRouter>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider client={client}>
         <ToastProvider>
-          <NotesSection projectId="p1" candidateId="c1" {...props} />
+          <NotesSection projectId="p1" candidateId="c1" {...more} />
         </ToastProvider>
       </QueryClientProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+  const view = render(tree(props));
+  return { rerender: (more: Partial<ComponentProps<typeof NotesSection>>) => view.rerender(tree(more)) };
 }
 
 const composer = () => screen.getByRole("textbox", { name: "New note" });
@@ -183,11 +186,28 @@ describe("the note composer", () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([aNote("Follow up after Q3 close")]);
-    renderNotes({ focus: { noteId: "n1", at: 1 } });
+    const { rerender } = renderNotes({ focus: { noteId: "n1", at: 1 } });
 
     const card = (await screen.findByText("Follow up after Q3 close")).closest("li") as HTMLElement;
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: "center", behavior: "smooth" }));
     expect(card).toHaveFocus();
-    expect(card).toHaveClass("animate-note-flash");
+    expect(card.querySelector(".animate-note-flash")).not.toBeNull();
+
+    rerender({ focus: null });
+
+    expect(screen.getByText("Follow up after Q3 close").closest("li")).toBe(card);
+    expect(card).toHaveFocus();
+  });
+
+  it("holds a note that its mentions would carry past the limit", async () => {
+    renderNotes();
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    await userEvent.type(composer(), "Call @sa");
+    await userEvent.click(screen.getByRole("option", { name: /Sara Al-Mansour/ }));
+    await userEvent.paste("x".repeat(3970));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too long once its mentions are saved");
+    expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
   });
 });

@@ -59,7 +59,7 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     @Modifying
     @Query(value = """
-            UPDATE app_lm_notification SET read_at = :now, version = version + 1
+            UPDATE app_lm_notification SET read_at = :now, email_due_at = NULL, version = version + 1
             WHERE recipient_user_id = :recipientUserId AND workspace_id = :workspaceId AND read_at IS NULL
               AND archived_at IS NULL
             """, nativeQuery = true)
@@ -67,7 +67,7 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
 
     @Modifying
     @Query(value = """
-            UPDATE app_lm_notification SET read_at = :now, version = version + 1
+            UPDATE app_lm_notification SET read_at = :now, email_due_at = NULL, version = version + 1
             WHERE recipient_user_id = :recipientUserId AND workspace_id = :workspaceId AND id IN (:ids)
               AND read_at IS NULL
             """, nativeQuery = true)

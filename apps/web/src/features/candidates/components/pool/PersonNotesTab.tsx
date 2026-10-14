@@ -10,7 +10,13 @@ import { NoteCard, NoteKindPicker } from "../NoteParts";
 import { taskNoteOf } from "../PersonSections";
 import { MentionTextArea } from "../../../tasks/components/MentionTextArea";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
-import { mentionsPresent, serializeMentions, type Mention } from "../../../tasks/lib/mentions";
+import {
+  mentionsPresent,
+  NOTE_MAX_STORED,
+  NOTE_TOO_LONG,
+  serializeMentions,
+  type Mention,
+} from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
 
 /**
@@ -39,22 +45,21 @@ export function PersonNotesTab({
     setMentions([]);
   };
 
+  const body = about ? serializeMentions(text.trim(), mentionsPresent(text, mentions)) : text.trim();
+  const tooLong = body.length > NOTE_MAX_STORED;
+  // The position travels with the save: the select may change before the answer comes back.
   const saving = useMutation({
-    mutationFn: (_thenNextAction: boolean) =>
-      poolApi.writePoolNote(person.personId, {
-        kind,
-        body: about ? serializeMentions(text.trim(), mentionsPresent(text, mentions)) : text.trim(),
-        projectId: about || null,
-      }),
-    onSuccess: (note, thenNextAction) => {
+    mutationFn: (_save: { nextActionOn: typeof mapping }) =>
+      poolApi.writePoolNote(person.personId, { kind, body, projectId: about || null }),
+    onSuccess: (note, { nextActionOn }) => {
       setText("");
       setMentions([]);
       refresh();
-      if (thenNextAction && mapping) {
+      if (nextActionOn) {
         toast("Note saved");
         setNextAction({
-          projectId: mapping.projectId,
-          candidateId: mapping.candidateId,
+          projectId: nextActionOn.projectId,
+          candidateId: nextActionOn.candidateId,
           personId: person.personId,
           executiveName: person.fullName,
           note: taskNoteOf(note),
@@ -65,8 +70,8 @@ export function PersonNotesTab({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = text.trim().length > 0 && !saving.isPending;
-  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate(false));
+  const canSave = text.trim().length > 0 && !tooLong && !saving.isPending;
+  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate({ nextActionOn: null }));
   const list = notes.data ?? [];
 
   return (
@@ -81,11 +86,16 @@ export function PersonNotesTab({
           teammates={about ? team.teammates : null}
           onKeyDown={handleKeyDown}
           rows={3}
-          maxLength={4000}
+          maxLength={NOTE_MAX_STORED}
           ariaLabel="New note"
           placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
           className="font-sans text-[13px]/[1.55]"
         />
+        {tooLong && (
+          <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+            {NOTE_TOO_LONG}
+          </p>
+        )}
         <div className="mt-2 flex items-center gap-2">
           <Select
             aria-label="Position this note is about"
@@ -105,8 +115,8 @@ export function PersonNotesTab({
               size="xs"
               variant="secondary"
               disabled={!canSave}
-              loading={saving.isPending && saving.variables}
-              onClick={() => saving.mutate(true)}
+              loading={saving.isPending && saving.variables.nextActionOn !== null}
+              onClick={() => saving.mutate({ nextActionOn: mapping })}
             >
               Save & set next action
             </Button>
@@ -114,8 +124,8 @@ export function PersonNotesTab({
           <Button
             size="xs"
             disabled={!canSave}
-            loading={saving.isPending && !saving.variables}
-            onClick={() => saving.mutate(false)}
+            loading={saving.isPending && saving.variables.nextActionOn === null}
+            onClick={() => saving.mutate({ nextActionOn: null })}
           >
             Save note
           </Button>
