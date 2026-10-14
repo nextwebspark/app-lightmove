@@ -3,6 +3,7 @@ package app.lightmove.api.position.dto;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -21,7 +22,9 @@ public record PutReportingStructureRequest(
         @Size(max = 160, message = "That is too long — a sentence, not a paragraph")
         String teamSize,
 
-        @Min(value = 0, message = "Notice cannot be negative") Integer noticeValue,
+        @Min(value = 0, message = "Notice cannot be negative")
+        @Max(value = 999, message = "That notice period is too long")
+        Integer noticeValue,
         NoticeUnit noticeUnit,
 
         /** Null defaults every key of this step to {@code MANUAL}. */

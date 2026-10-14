@@ -7,6 +7,7 @@ import { cn } from "../../../lib/cn";
 import { useSortableSensors, VERTICAL_LIST_MODIFIERS } from "../../../lib/sortableSensors";
 import type { ProposalConfidence } from "../api/types";
 import type { IdentifiedCompetency } from "../lib/competencyRows";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import type { ListReceipt } from "../lib/documentFill";
 import { rebalance } from "../lib/rebalance";
 import { BriefButton, ColumnHead, Eyebrow, RemoveDot, StatusBadge } from "./BriefFields";
@@ -229,13 +230,17 @@ function CompetencyRow({
       <input
         value={row.name}
         aria-label={`${panelTitle} competency ${index + 1} name`}
+        aria-invalid={!row.name.trim()}
+        maxLength={BRIEF_LIMITS.competencyName}
+        placeholder="Name it, or remove the row"
         onChange={(event) => onPatch({ name: event.target.value })}
-        className="min-w-0 bg-transparent text-body font-medium text-u-text outline-none"
+        className="min-w-0 bg-transparent text-body font-medium text-u-text outline-none placeholder:font-normal placeholder:text-u-offlimits"
       />
 
       <input
         value={row.description ?? ""}
         aria-label={`${named} description`}
+        maxLength={BRIEF_LIMITS.competencyDescription}
         placeholder="What this measures…"
         onChange={(event) => onPatch({ description: event.target.value || null })}
         className="min-w-0 bg-transparent text-body text-u-text2 outline-none placeholder:text-u-text3/70"

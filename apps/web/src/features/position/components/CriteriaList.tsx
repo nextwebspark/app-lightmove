@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Criterion, CriterionMode } from "../api/types";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import type { StepReceipt } from "../lib/documentFill";
 import { BriefButton, ChipGroup, RemoveDot, type ChipOption } from "./BriefFields";
 import { ProvenanceMarker } from "./ProvenanceMarker";
@@ -35,9 +36,14 @@ export function CriteriaList({
       criteria.map((criterion, i) => (i === index ? { ...criterion, ...changes, source: "MANUAL" } : criterion)),
     );
 
+  const isFull = criteria.length >= BRIEF_LIMITS.criteria;
   const add = () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || isFull) return;
+    if (criteria.some((criterion) => criterion.text.trim().toLowerCase() === text.toLowerCase())) {
+      setDraft("");
+      return;
+    }
     onChange([...criteria, { text, mode: "REQUIRED", source: "MANUAL" }]);
     setDraft("");
   };
@@ -49,8 +55,11 @@ export function CriteriaList({
           <input
             value={criterion.text}
             aria-label={`Criterion ${index + 1}`}
+            aria-invalid={!criterion.text.trim()}
+            maxLength={BRIEF_LIMITS.criterion}
+            placeholder="Write the criterion, or remove the line"
             onChange={(event) => patch(index, { text: event.target.value })}
-            className="min-w-[160px] flex-1 bg-transparent text-body text-u-text outline-none"
+            className="min-w-[160px] flex-1 bg-transparent text-body text-u-text outline-none placeholder:text-u-offlimits"
           />
           {criterion.source === "TEMPLATE" && (
             <span className="flex-none rounded-[4px] bg-u-accent-tint px-1.5 py-0.5 type-tag text-u-accent">
@@ -83,7 +92,9 @@ export function CriteriaList({
         <input
           value={draft}
           aria-label="Add a criterion"
-          placeholder="+ Add a criterion…"
+          maxLength={BRIEF_LIMITS.criterion}
+          disabled={isFull}
+          placeholder={isFull ? `At most ${BRIEF_LIMITS.criteria} criteria` : "+ Add a criterion…"}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter") return;

@@ -3,12 +3,12 @@ package app.lightmove.api.position.dto;
 import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.common.constant.BonusBasis;
 import app.lightmove.api.common.constant.IncentiveType;
+import app.lightmove.api.core.validation.CurrencyCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.util.List;
@@ -19,7 +19,7 @@ import java.util.List;
  */
 public record PutCompensationRequest(
         @NotNull(message = "Choose a currency")
-        @Pattern(regexp = "[A-Z]{3}", message = "Use a three-letter currency code")
+        @CurrencyCode(message = "Choose a currency from the list")
         String currency,
 
         @Min(value = 0, message = "Salary cannot be negative") Long salaryMin,

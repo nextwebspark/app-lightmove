@@ -33,6 +33,7 @@ import { StepFooter } from "../components/StepFooter";
 import { ReviewStep } from "../components/steps/ReviewStep";
 import { RoleBriefStep } from "../components/steps/RoleBriefStep";
 import { forWire, identify, moveRow, toggle, type IdentifiedCompetency } from "../lib/competencyRows";
+import { BRIEF_LIMITS } from "../lib/briefLimits";
 import {
   fieldCountOf,
   fillBrief,
@@ -317,11 +318,14 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   const changeCompensation = (patch: Partial<Compensation>, immediate = false) => {
     const next = { ...compensation, ...patch };
     setCompensation(next);
+    // A benefit cleared to retype is held back like a blank title: the server refuses an unnamed line.
+    if (next.benefits.some((benefit) => !benefit.name.trim())) return;
     compensationSave.schedule(next);
     if (immediate) compensationSave.saveNow();
   };
   const changeCriteria = (next: Criterion[]) => {
     setCriteria(next);
+    if (next.some((criterion) => !criterion.text.trim())) return;
     criteriaSave.schedule(next);
   };
 
@@ -340,6 +344,7 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     setTechnical(nextTechnical);
     setBehavioural(nextBehavioural);
     setTechnicalShare(nextShare);
+    if ([...nextTechnical, ...nextBehavioural].some((row) => !row.name.trim())) return;
     competenciesSave.schedule({
       technical: forWire(nextTechnical),
       behavioural: forWire(nextBehavioural),
@@ -778,7 +783,13 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
               onChangeReporting={changeReporting}
               onChangeTargetDate={(isoDate) => updateTargetDate.mutate(isoDate)}
               onPickTemplate={(template) => applyTemplate.mutate(template)}
-              onAttachDocument={(file) => attachDocument.mutate(file)}
+              onAttachDocument={(file) => {
+                if (file.size > BRIEF_LIMITS.documentBytes) {
+                  toast.error("That file is too large. Attach one under 10 MB.");
+                  return;
+                }
+                attachDocument.mutate(file);
+              }}
               onRemoveDocument={() => removeDocument.mutate()}
               onDownloadDocument={() => downloadDocument.mutate()}
               onExtractDocument={onExtractDocument}
