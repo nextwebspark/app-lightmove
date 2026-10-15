@@ -29,4 +29,11 @@ public record CapturedCompanyDetails(String companyName, String industry, String
         logoUrl = browsableUrlOrNull(logoUrl);
         sourceUrl = browsableUrlOrNull(sourceUrl);
     }
+
+    /** A person's employer as research names one: the name, its LinkedIn page and its logo, nothing more. */
+    public static CapturedCompanyDetails employerNamed(String companyName, String companyLinkedinUrl,
+                                                       String logoUrl) {
+        return new CapturedCompanyDetails(companyName, null, null, null, null, null, null, companyLinkedinUrl,
+                null, null, logoUrl, null, null);
+    }
 }

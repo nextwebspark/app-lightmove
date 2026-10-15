@@ -119,6 +119,7 @@ public class CandidateService {
     private final CandidateResponseMapper responses;
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
+    private final PersonEmployerResolver employerResolver;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -127,7 +128,7 @@ public class CandidateService {
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
-                            CandidatePipelineCatalog pipeline,
+                            CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
                             LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
@@ -145,6 +146,7 @@ public class CandidateService {
         this.stream = stream;
         this.listConfig = properties.company().list();
         this.pipeline = pipeline;
+        this.employerResolver = employerResolver;
     }
 
     /**
@@ -337,10 +339,14 @@ public class CandidateService {
         // A capture of someone already researched costs no second vendor call: the person's profile is
         // the research. The mandate still wants them scored against its own brief.
         if (source == CandidateSource.EXTENSION && isLinkedInProfileUrl(details.linkedinUrl())) {
-            events.publishEvent(candidate.getPerson().isResearched()
-                    ? new CandidateAiEnrichRequested(candidate.getId(), projectId, workspaceId, userId,
-                            AiEnrichTrigger.CAPTURE)
-                    : new CandidateCapturedEvent(candidate.getId(), projectId, details.linkedinUrl()));
+            if (candidate.getPerson().isResearched()) {
+                mapToKnownEmployer(workspaceId, projectId, candidate);
+                events.publishEvent(new CandidateAiEnrichRequested(candidate.getId(), projectId, workspaceId,
+                        userId, AiEnrichTrigger.CAPTURE));
+            } else {
+                events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
+                        details.linkedinUrl()));
+            }
         }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
@@ -469,8 +475,8 @@ public class CandidateService {
                 activity.record(candidate, candidate.getAddedBy(), PersonActivityKind.RESEARCHED,
                         PersonActivityDetails.of("vendor", enriched.vendor()));
             }
-            candidate.adoptEmployer(enriched.employerName());
-            mapToEmployer(projectId, candidate, enriched);
+            mapToEmployer(projectId, candidate, CapturedCompanyDetails.employerNamed(enriched.employerName(),
+                    enriched.employerLinkedinUrl(), enriched.employerLogoUrl()));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
             projects.findById(projectId).ifPresent(project -> events.publishEvent(
                     new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
@@ -730,26 +736,38 @@ public class CandidateService {
     }
 
     /**
-     * An unmapped candidate whose research names an employer gets that company filed into the
-     * mandate's universe and is mapped to it. Skipped when the mandate already maps someone of the
-     * same name at that company — the scope {@link #refuseDuplicate} holds a mandate to.
+     * A captured person the workspace already researched is filed on this mandate under the employer it
+     * already knows them at ({@link PersonEmployerResolver#knownEmployerOf}), as research would have filed
+     * them, with no second vendor call.
      */
-    private void mapToEmployer(UUID projectId, Candidate candidate, EnrichedProfile enriched) {
-        if (candidate.getTriageCompanyId() != null || enriched.employerName() == null) {
+    private void mapToKnownEmployer(UUID workspaceId, UUID projectId, Candidate candidate) {
+        Person person = candidate.getPerson();
+        List<Candidate> elsewhere = candidates.findPositionsOfPerson(workspaceId, person.getId()).stream()
+                .filter(row -> !row.getProjectId().equals(projectId))
+                .toList();
+        employerResolver.knownEmployerOf(workspaceId, person, elsewhere)
+                .ifPresent(employer -> mapToEmployer(projectId, candidate, employer));
+    }
+
+    /**
+     * An unmapped candidate whose employer is named — by research, or by what the workspace already knows of
+     * them — gets that company filed into the mandate's universe and is mapped to it, and the grid is told
+     * a company moved. Skipped when the mandate already maps someone of the same name at that company —
+     * the scope {@link #refuseDuplicate} holds a mandate to.
+     */
+    private void mapToEmployer(UUID projectId, Candidate candidate, CapturedCompanyDetails employer) {
+        candidate.adoptEmployer(employer.companyName());
+        if (candidate.getTriageCompanyId() != null || employer.companyName() == null) {
             return;
         }
         // An employer somebody already stated outranks the vendor's, as enrich() also refuses to
         // overwrite it: mapping would otherwise reintroduce through employBy() exactly what that
         // guard just prevented.
         if (candidate.getCompanyName() != null
-                && !candidate.getCompanyName().equalsIgnoreCase(enriched.employerName())) {
+                && !candidate.getCompanyName().equalsIgnoreCase(employer.companyName())) {
             return;
         }
-        TriageCompanyResponse company = triage.captureFromResearch(projectId,
-                candidate.getAddedBy(), new CapturedCompanyDetails(
-                        enriched.employerName(), null, null, null, null, null, null,
-                        enriched.employerLinkedinUrl(), null, null, enriched.employerLogoUrl(),
-                        null, null));
+        TriageCompanyResponse company = triage.captureFromResearch(projectId, candidate.getAddedBy(), employer);
 
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
@@ -762,6 +780,7 @@ public class CandidateService {
             return;
         }
         candidate.employBy(company.id(), company.companyName());
+        stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
     }
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {

@@ -42,7 +42,7 @@ name different profiles; never by phone (a switchboard is on everyone) and never
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
 person. A profile is one person's: an edit that would give a second person of the workspace the same
-LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone already researched spends no second vendor call. Every change to a
+LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A plugin capture of someone already researched spends no second vendor call, and is filed under the employer their latest position recorded (`PersonEmployerResolver.knownEmployerOf`, that position's company row's LinkedIn page and all). Every change to a
 person — added, mapped, unmapped, status, profile, contacts, research, AI — is a line of
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
@@ -406,9 +406,10 @@ holds only what a mandate *did* about a company. **`candidate` is the people sid
 `Person` per human, and one `Candidate` row per mandate that maps them, belonging to the *project* and
 only optionally to one of its triaged companies, because a researcher meets people at companies the
 universe does not carry. It depends on
-`triagecompany` through three public methods — resolving the company an executive is mapped to,
-filing a researched employer into the universe, and reading company rows' logos for the Candidates
-page (`logoUrlsOf`) — and `triagecompany` never depends back.
+`triagecompany` through four public methods — resolving the company an executive is mapped to,
+filing a researched employer into the universe, reading company rows' logos for the Candidates
+page (`logoUrlsOf`), and reading the company row a known person's other position recorded (`get`) —
+and `triagecompany` never depends back.
 **`customcolumn` is the columns a mandate added to its own grid** — definitions only, plus the one
 method (`applyTo`) that decides what a row may store in them, since the bag is open and nothing else
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it

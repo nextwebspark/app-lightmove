@@ -260,6 +260,47 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(companies).hasSize(1);
     }
 
+    /** Two market rows share the name, so only the first position's LinkedIn page can pick a42. */
+    @Test
+    @DisplayName("a capture of someone researched for another position is filed under that employer, unresearched")
+    void aCaptureOfSomeoneAlreadyResearchedIsFiledUnderTheirEmployer() throws Exception {
+        String first = mandate("Known Employer Firm");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        universe.company("a42", "Al Rawabi Dairy").linkedin("http://www.linkedin.com/company/alrawabi").insert();
+        universe.company("a43", "Al Rawabi Dairy").linkedin("http://www.linkedin.com/company/alrawabi-ksa").insert();
+        enricher.answerWith(RESEARCH);
+
+        capture(first, "Sample Person", "sample-profile");
+        capture(second, "Sample Person", "sample-profile");
+
+        assertThat(enricher.fetchedUrls()).hasSize(1);
+        JsonNode onSecond = firstCandidateOf(second);
+        assertThat(onSecond.get("companyName").asText()).isEqualTo("Al Rawabi Dairy");
+        mvc.perform(get(triageUrl(second) + "?status=inUniverse")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(jsonPath("$.companies.length()").value(1))
+                .andExpect(jsonPath("$.companies[0].id").value(onSecond.get("triageCompanyId").asText()))
+                .andExpect(jsonPath("$.companies[0].apolloAccountId").value("a42"));
+    }
+
+    @Test
+    @DisplayName("a capture of someone whose research named no employer stays unmapped on every position")
+    void aCaptureOfSomeoneResearchedWithoutAnEmployerStaysUnmapped() throws Exception {
+        String first = mandate("Employerless Known Firm");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        enricher.answerWith(new EnrichedProfile("Advisor", null, null, null, null, null, null,
+                List.of(new CandidateCareerEntry("Somewhere", "Advisor", "2020 –", null)),
+                null, null, null, null, EnrichmentVendor.HARVESTAPI));
+
+        capture(first, "Sample Person", "sample-profile");
+        capture(second, "Sample Person", "sample-profile");
+
+        assertThat(firstCandidateOf(second).get("triageCompanyId").isNull()).isTrue();
+        mvc.perform(get(triageUrl(second) + "?status=inUniverse")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(jsonPath("$.companies.length()").value(0));
+    }
+
     @Test
     @DisplayName("only an extension capture with a real profile URL spends a research call")
     void onlyARealProfileCaptureIsSpentOn() throws Exception {
@@ -738,19 +779,22 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
         adminToken = login(alok);
+        return mandateInSameWorkspace("Head of Retail");
+    }
 
+    private String mandateInSameWorkspace(String positionTitle) throws Exception {
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"customName":"Research Client"}"""))
+                                {"customName":"%s Unit"}""".formatted(positionTitle)))
                 .andReturn()).get("id").asText();
         return body(mvc.perform(post("/api/v1/projects")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"clientId":"%s","positionTitle":"Head of Retail"}
-                                """.formatted(clientId)))
+                                {"clientId":"%s","positionTitle":"%s"}
+                                """.formatted(clientId, positionTitle)))
                 .andReturn()).get("id").asText();
     }
 }

@@ -147,8 +147,8 @@ public class PeopleSearchFiling {
     /** A company the market does not carry is filed with the facts ContactOut gave about it. */
     private static CapturedCompanyDetails employerDetails(EnrichedProfile research, CompanyFacts company) {
         if (company == null) {
-            return new CapturedCompanyDetails(research.employerName(), null, null, null, null, null, null,
-                    research.employerLinkedinUrl(), null, null, research.employerLogoUrl(), null, null);
+            return CapturedCompanyDetails.employerNamed(research.employerName(), research.employerLinkedinUrl(),
+                    research.employerLogoUrl());
         }
         String website = company.website() != null ? company.website()
                 : company.domain() == null ? null : "https://" + company.domain();

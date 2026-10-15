@@ -344,7 +344,8 @@ spelled one way. So:
 >   CONTACTS_EDITED, CONTACT_FOUND, RESEARCHED, AI_ASSESSED`. The door rides in `details` (so no
 >   `IMPORTED`), and a confirmed background is a `PROFILE_EDITED` detail.
 > - **Research once.** A plugin capture of someone already researched spends no vendor call; the new
->   mandate still has them scored against its own brief.
+>   mandate still has them scored against its own brief, and files them under the employer their latest
+>   position recorded, as research would have — that position's company row, LinkedIn page and all.
 > - The within-mandate name rule (`CANDIDATE_ALREADY_MAPPED` for a second person of one name at one
 >   company) is held by the service alone now that V36's name indexes are gone.
 > - Scripts that write or read the tables directly moved with it: `ops/dev/seed-report.sql` files a person
