@@ -14,10 +14,13 @@ import app.lightmove.api.candidate.model.CandidateScorecard;
 import app.lightmove.api.candidate.model.ScorecardReport;
 import app.lightmove.api.candidate.service.CandidateScorecardService;
 import app.lightmove.api.candidate.service.CandidateService;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 class AiDraftWriterTest {
@@ -52,5 +55,33 @@ class AiDraftWriterTest {
         assertThatThrownBy(() -> writer.writeScorecard(WORKSPACE, PROJECT, CANDIDATE, CONSULTANT, DRAFT))
                 .isInstanceOf(ObjectOptimisticLockingFailureException.class);
         verify(scorecards, times(2)).applyAiDraft(WORKSPACE, PROJECT, CANDIDATE, CONSULTANT, DRAFT);
+    }
+
+    @Test
+    @DisplayName("two first saves of one scorecard are a race: the loser writes once more over the winner's row")
+    void aFirstSaveRaceIsAskedOnceMore() {
+        CandidateScorecardResponse written = mock(CandidateScorecardResponse.class);
+        when(scorecards.applyAiDraft(any(), any(), any(), any(), any()))
+                .thenThrow(violationOf(CandidateScorecard.ONE_PER_MAPPING))
+                .thenReturn(written);
+
+        assertThat(writer.writeScorecard(WORKSPACE, PROJECT, CANDIDATE, CONSULTANT, DRAFT)).isSameAs(written);
+        verify(scorecards, times(2)).applyAiDraft(WORKSPACE, PROJECT, CANDIDATE, CONSULTANT, DRAFT);
+    }
+
+    @Test
+    @DisplayName("a value the database refuses is no race: it is thrown at once, never written twice")
+    void aGenuineViolationIsNotRetried() {
+        when(scorecards.applyAiDraft(any(), any(), any(), any(), any()))
+                .thenThrow(violationOf("app_lm_candidate_scorecard_ai_drafted_chk"));
+
+        assertThatThrownBy(() -> writer.writeScorecard(WORKSPACE, PROJECT, CANDIDATE, CONSULTANT, DRAFT))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        verify(scorecards, times(1)).applyAiDraft(WORKSPACE, PROJECT, CANDIDATE, CONSULTANT, DRAFT);
+    }
+
+    private static DataIntegrityViolationException violationOf(String constraint) {
+        return new DataIntegrityViolationException("refused",
+                new ConstraintViolationException("refused", new SQLException("refused"), constraint));
     }
 }

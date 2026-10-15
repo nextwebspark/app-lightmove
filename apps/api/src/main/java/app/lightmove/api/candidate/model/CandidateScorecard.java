@@ -36,6 +36,9 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CandidateScorecard extends BaseEntity {
 
+    /** The unique constraint two first saves of one assessment race on. */
+    public static final String ONE_PER_MAPPING = "app_lm_candidate_scorecard_candidate_uk";
+
     public static final int MIN_SCORE = 0;
     public static final int MAX_SCORE = 10;
     public static final int MAX_EVIDENCE = 2000;
@@ -118,34 +121,10 @@ public class CandidateScorecard extends BaseEntity {
      * holding an earlier untouched draft. Answers whether anything on file changed; a change makes it a draft again.
      */
     public boolean applyAiDraft(List<CriterionScore> draftedScores, ScorecardReport draftedReport, Instant at) {
-        Map<String, CriterionScore> merged = new LinkedHashMap<>();
-        scores.forEach(score -> merged.putIfAbsent(score.matchKey(), score));
         Set<String> drafted = new HashSet<>(aiDrafted);
-        boolean changed = false;
-        for (CriterionScore proposed : draftedScores) {
-            String key = proposed.matchKey();
-            CriterionScore held = merged.get(key);
-            if (proposed.holdsNothing() || (held != null && !drafted.contains(key))) {
-                continue;
-            }
-            changed |= !proposed.sameJudgementAs(held);
-            merged.put(key, proposed);
-            drafted.add(key);
-        }
-        ScorecardReport nextReport = report;
-        for (ScorecardReportSection section : ScorecardReportSection.values()) {
-            String proposed = draftedReport.textOf(section);
-            String held = report.textOf(section);
-            String key = draftKeyOf(section);
-            if (proposed == null || (held != null && !drafted.contains(key))) {
-                continue;
-            }
-            changed |= !proposed.equals(held);
-            nextReport = nextReport.withText(section, proposed);
-            drafted.add(key);
-        }
-        this.scores = new ArrayList<>(merged.values());
-        this.report = nextReport;
+        boolean scoresChanged = takeDraftedScores(draftedScores, drafted);
+        boolean reportChanged = takeDraftedReport(draftedReport, drafted);
+        boolean changed = scoresChanged || reportChanged;
         this.aiDrafted = drafted;
         this.aiDraftedAt = at;
         if (changed) {
@@ -161,6 +140,41 @@ public class CandidateScorecard extends BaseEntity {
         boolean sectionOpen = Arrays.stream(ScorecardReportSection.values())
                 .anyMatch(section -> report.textOf(section) == null || aiDrafted.contains(draftKeyOf(section)));
         return criterionOpen || sectionOpen;
+    }
+
+    private boolean takeDraftedScores(List<CriterionScore> draftedScores, Set<String> drafted) {
+        Map<String, CriterionScore> merged = byKey(scores);
+        boolean changed = false;
+        for (CriterionScore proposed : draftedScores) {
+            String key = proposed.matchKey();
+            CriterionScore held = merged.get(key);
+            if (proposed.holdsNothing() || (held != null && !drafted.contains(key))) {
+                continue;
+            }
+            changed |= !proposed.sameJudgementAs(held);
+            merged.put(key, proposed);
+            drafted.add(key);
+        }
+        this.scores = new ArrayList<>(merged.values());
+        return changed;
+    }
+
+    private boolean takeDraftedReport(ScorecardReport draftedReport, Set<String> drafted) {
+        ScorecardReport nextReport = report;
+        boolean changed = false;
+        for (ScorecardReportSection section : ScorecardReportSection.values()) {
+            String proposed = draftedReport.textOf(section);
+            String held = report.textOf(section);
+            String key = draftKeyOf(section);
+            if (proposed == null || (held != null && !drafted.contains(key))) {
+                continue;
+            }
+            changed |= !proposed.equals(held);
+            nextReport = nextReport.withText(section, proposed);
+            drafted.add(key);
+        }
+        this.report = nextReport;
+        return changed;
     }
 
     private void reopen() {

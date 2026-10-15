@@ -27,7 +27,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * The drawer's two AI buttons, answered while the consultant waits. Not transactional: no transaction is held across
- * a model call, and a use is recorded only once its answer is on file.
+ * a model call, and a use is recorded only once its answer is on file. The fair-use ceiling is therefore soft — two
+ * presses at once both pass the check — and the per-user {@code LlmBudget} is what bounds the overshoot.
  */
 @Service
 @RequiredArgsConstructor

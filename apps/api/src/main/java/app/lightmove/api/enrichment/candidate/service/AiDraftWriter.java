@@ -3,8 +3,10 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
 import app.lightmove.api.candidate.model.AiScorecardDraft;
+import app.lightmove.api.candidate.model.CandidateScorecard;
 import app.lightmove.api.candidate.service.CandidateScorecardService;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.core.error.service.ConstraintViolations;
 import java.util.UUID;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
@@ -34,10 +36,16 @@ class AiDraftWriter {
         return onceMoreIfRaced(() -> scorecards.applyAiDraft(workspaceId, projectId, candidateId, requestedBy, draft));
     }
 
+    /** Asks again only after a race — a lost {@code @Version}, or two first saves of one scorecard. */
     private static <T> T onceMoreIfRaced(Supplier<T> write) {
         try {
             return write.get();
-        } catch (ObjectOptimisticLockingFailureException | DataIntegrityViolationException raced) {
+        } catch (ObjectOptimisticLockingFailureException raced) {
+            return write.get();
+        } catch (DataIntegrityViolationException refused) {
+            if (!CandidateScorecard.ONE_PER_MAPPING.equals(ConstraintViolations.nameOf(refused))) {
+                throw refused;
+            }
             return write.get();
         }
     }
