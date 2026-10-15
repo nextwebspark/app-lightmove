@@ -117,11 +117,13 @@ public class NotificationEmails {
         return email != null && email.isPresent();
     }
 
+    /** A row about an archived position is claimed and never sent, rather than sent late after a restore. */
     private boolean stillTheirs(Notification row) {
         return preferences.of(row.getRecipientUserId(), row.getWorkspaceId(), row.getKind().preference()).email()
                 && workspaceAccess.isStaff(row.getRecipientUserId(), row.getWorkspaceId())
-                && (row.getProjectId() == null || projectAccess.allows(row.getRecipientUserId(), row.getWorkspaceId(),
-                        row.getProjectId(), ProjectAction.WORK_EXECUTE));
+                && (row.getProjectId() == null || (!projects.existsByIdAndArchivedAtIsNotNull(row.getProjectId())
+                        && projectAccess.allows(row.getRecipientUserId(), row.getWorkspaceId(),
+                                row.getProjectId(), ProjectAction.WORK_EXECUTE)));
     }
 
     private Optional<EmailMessage> emailOf(Notification row) {

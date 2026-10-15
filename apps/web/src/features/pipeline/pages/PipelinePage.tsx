@@ -12,6 +12,7 @@ import { CandidateDrawerById } from "../../candidates/components/CandidateDrawer
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
+import { isArchived } from "../../projects/lib/filtering";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as pipelineApi from "../api/pipelineApi";
 import type { PipelineRow } from "../api/types";
@@ -109,7 +110,7 @@ function StaffPipeline() {
 
   const rows = pipeline.data?.rows ?? [];
   const stageCounts = pipeline.data?.stageCounts ?? [];
-  const outreachOffered = mailbox.data?.offered === true;
+  const outreachOffered = mailbox.data?.offered === true && !isArchived(project);
 
   const openNextAction = (row: PipelineRow) =>
     setNextActionFor({

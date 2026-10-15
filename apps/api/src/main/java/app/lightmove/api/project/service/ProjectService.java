@@ -13,11 +13,14 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.text.service.ConfirmationName;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.constant.ProjectHealth;
+import app.lightmove.api.project.constant.ProjectListScope;
 import app.lightmove.api.project.constant.ProjectStage;
 import app.lightmove.api.project.dto.AttachedRepresentativeResponse;
 import app.lightmove.api.project.dto.CreateProjectRequest;
+import app.lightmove.api.project.dto.ProjectArchivePreviewResponse;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
@@ -27,6 +30,7 @@ import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.model.Project;
+import app.lightmove.api.project.model.ProjectArchived;
 import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.model.ProjectTimeline;
 import app.lightmove.api.project.repository.ClientRepository;
@@ -36,9 +40,11 @@ import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +55,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,16 +82,24 @@ public class ProjectService {
     private final RbacService rbac;
     private final UserRepository users;
     private final AuditService audit;
+    private final ProjectOutreachCounter outreachCounter;
+    private final ProjectTaskCounter taskCounter;
+    private final ApplicationEventPublisher events;
+    private final Clock clock;
 
+    /** A pure client is never shown an archived position, whatever the scope asked. */
     @Transactional(readOnly = true)
-    public List<ProjectResponse> list(UUID userId, UUID workspaceId) {
+    public List<ProjectResponse> list(UUID userId, UUID workspaceId, ProjectListScope scope) {
         WorkspaceMember member = access.requireActiveMember(userId, workspaceId);
-        List<Project> all = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId);
+        boolean pureClient = access.isPureClient(member.getId());
+        List<Project> all = scope == ProjectListScope.WITH_ARCHIVED && !pureClient
+                ? projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId)
+                : projects.findByWorkspaceIdAndArchivedAtIsNullOrderByCreatedAtDesc(workspaceId);
         if (all.isEmpty()) {
             return List.of();
         }
         // Staff browse every mandate; a pure client sees only the ones they are attached to (seated on).
-        if (access.isPureClient(member.getId())) {
+        if (pureClient) {
             Set<UUID> seated = seats.findByMemberId(member.getId()).stream()
                     .map(ProjectMember::getProjectId).collect(Collectors.toSet());
             all = all.stream().filter(project -> seated.contains(project.getId())).toList();
@@ -109,10 +124,10 @@ public class ProjectService {
         return forClient.stream().map(project -> toResponse(project, assembly)).toList();
     }
 
-    /** Every mandate of the workspace, seat or none: a workspace API key's list. */
+    /** Every live mandate of the workspace, seat or none: a workspace API key's list. */
     @Transactional(readOnly = true)
     public List<ProjectResponse> listInWorkspace(UUID workspaceId) {
-        List<Project> all = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId);
+        List<Project> all = projects.findByWorkspaceIdAndArchivedAtIsNullOrderByCreatedAtDesc(workspaceId);
         if (all.isEmpty()) {
             return List.of();
         }
@@ -136,7 +151,7 @@ public class ProjectService {
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
         WorkspaceMember creator = access.requireActiveMember(userId, workspaceId);
-        Client client = requireClient(request.clientId(), workspaceId);
+        Client client = requireLiveClient(request.clientId(), workspaceId);
 
         ProjectTimeline timeline = ProjectTimeline.resolve(request.projectType(), request.startDate(),
                 request.deliveryDate(), request.mappingTargetDate());
@@ -172,9 +187,62 @@ public class ProjectService {
         return responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
-    private Client requireClient(UUID clientId, UUID workspaceId) {
-        return clients.findByIdAndWorkspaceId(clientId, workspaceId)
+    /** What an archive would touch, for the warning the lead reads before typing the title. */
+    @Transactional(readOnly = true)
+    public ProjectArchivePreviewResponse archivePreview(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return new ProjectArchivePreviewResponse(outreachCounter.countLiveRuns(projectId),
+                taskCounter.countOpen(projectId));
+    }
+
+    /**
+     * Puts the position away: out of every list, its live outreach stopped in this transaction, each stopped run
+     * its own audited line. The typed title is checked here, not only in the browser. The row is locked, so a
+     * second archive waits, then changes nothing and records nothing.
+     */
+    @Transactional
+    public ProjectResponse archive(UUID userId, UUID workspaceId, UUID projectId, String confirmName,
+                                   HttpServletRequest httpRequest) {
+        Project project = projects.lockToArchive(projectId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (!ConfirmationName.matches(project.getPositionTitle(), confirmName)) {
+            throw ApiException.of(ErrorCode.ARCHIVE_NAME_MISMATCH);
+        }
+        if (project.archive(userId, clock.instant())) {
+            events.publishEvent(new ProjectArchived(workspaceId, projectId, userId));
+            log.info("User {} archived project {} in workspace {}", userId, projectId, workspaceId);
+            audit.projectEvent(ProjectEventType.PROJECT_ARCHIVED, userId, workspaceId, projectId, httpRequest)
+                    .detail("position", project.getPositionTitle())
+                    .record();
+        }
+        return responseFor(workspaceId, project, ProjectAudience.STAFF);
+    }
+
+    /** Back in every list; runs the archive stopped stay stopped. Never under an archived business unit. */
+    @Transactional
+    public ProjectResponse restore(UUID userId, UUID workspaceId, UUID projectId, HttpServletRequest httpRequest) {
+        Project project = projects.lockToArchive(projectId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (project.isArchived()) {
+            requireLiveClient(project.getClientId(), workspaceId);
+        }
+        if (project.restore()) {
+            log.info("User {} restored project {} in workspace {}", userId, projectId, workspaceId);
+            audit.projectEvent(ProjectEventType.PROJECT_RESTORED, userId, workspaceId, projectId, httpRequest)
+                    .detail("position", project.getPositionTitle())
+                    .record();
+        }
+        return responseFor(workspaceId, project, ProjectAudience.STAFF);
+    }
+
+    /** Shares the archive's lock on the record, so an archive deciding on it now sees this position, or refuses it. */
+    private Client requireLiveClient(UUID clientId, UUID workspaceId) {
+        Client client = clients.lockToOpenPositionUnder(clientId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (client.isArchived()) {
+            throw ApiException.of(ErrorCode.CLIENT_ARCHIVED);
+        }
+        return client;
     }
 
     /**
@@ -194,10 +262,15 @@ public class ProjectService {
 
         Map<UUID, WorkspaceMember> memberById = access.activeMembers(workspaceId).stream()
                 .collect(Collectors.toMap(WorkspaceMember::getId, Function.identity()));
-        Map<UUID, User> userById = users
+        Map<UUID, User> userById = new HashMap<>(users
                 .findAllById(memberById.values().stream().map(WorkspaceMember::getUserId).toList())
                 .stream()
-                .collect(Collectors.toMap(User::getId, Function.identity()));
+                .collect(Collectors.toMap(User::getId, Function.identity())));
+        List<UUID> formerArchivers = forProjects.stream().map(Project::getArchivedBy)
+                .filter(archiver -> archiver != null && !userById.containsKey(archiver)).distinct().toList();
+        if (!formerArchivers.isEmpty()) {
+            users.findAllById(formerArchivers).forEach(user -> userById.put(user.getId(), user));
+        }
         Map<UUID, Client> clientById = clients.findByWorkspaceIdOrderByNameAsc(workspaceId).stream()
                 .collect(Collectors.toMap(Client::getId, Function.identity()));
 
@@ -246,6 +319,7 @@ public class ProjectService {
                 assembly.reachedOutCountByProject().getOrDefault(project.getId(), 0L));
 
         Client client = assembly.clientById().get(project.getClientId());
+        User archiver = project.getArchivedBy() == null ? null : assembly.userById().get(project.getArchivedBy());
         return new ProjectResponse(
                 project.getId(), project.getClientId(),
                 client == null ? "" : client.getName(),
@@ -259,7 +333,9 @@ public class ProjectService {
                 assembly.mappedCandidateCountByProject().getOrDefault(project.getId(), 0L),
                 assembly.engagedCountByProject().getOrDefault(project.getId(), 0L),
                 mappedCompanies,
-                project.getCreatedAt());
+                project.getCreatedAt(),
+                project.getArchivedAt(),
+                archiver == null ? null : archiver.getFullName());
     }
 
     private List<AttachedRepresentativeResponse> attachedRepresentativesOf(Project project, Assembly assembly) {

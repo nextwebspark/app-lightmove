@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.PipelineFlowSupport;
 import app.lightmove.api.outreach.model.OutreachReplied;
+import app.lightmove.api.task.service.TaskDueScanner;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -37,6 +38,7 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     @Autowired private ApplicationEventPublisher events;
     @Autowired private TransactionTemplate transactions;
     @Autowired private JdbcTemplate db;
+    @Autowired private TaskDueScanner dueScanner;
 
     private String projectId;
     private String researcher;
@@ -171,6 +173,35 @@ class TaskIntegrationTest extends PipelineFlowSupport {
         JsonNode second = read(admin, "/api/v1/me/tasks?view=upcoming&size=2&offset=2");
         assertThat(titles(second)).containsExactly("In 4 days");
         assertThat(second.get("hasMore").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("an archived position's tasks leave My tasks and the due scan, and come back when it is restored")
+    void anArchivedPositionsTasksGoQuiet() throws Exception {
+        Instant now = Instant.now();
+        String overdueId = body(created(admin, layla, "Overdue one", adminId,
+                now.minus(30, ChronoUnit.MINUTES).toString())).get("id").asText();
+        created(admin, layla, "Sara's one", researcherId, now.plus(1, ChronoUnit.DAYS).toString());
+        assertThat(read(admin, "/api/v1/projects/" + projectId + "/archive-preview").get("openTasks").asInt())
+                .isEqualTo(2);
+
+        assertThat(write(admin, "POST", "/api/v1/projects/" + projectId + "/archive", """
+                {"confirmName":"Chief Financial Officer"}""").getResponse().getStatus()).isEqualTo(200);
+        dueScanner.scanAt(now);
+
+        JsonNode archived = read(admin, "/api/v1/me/tasks?view=overdue");
+        assertThat(titles(archived)).isEmpty();
+        assertThat(archived.at("/counts/overdue").asInt()).isZero();
+        assertThat(archived.at("/counts/assignedByMe").asInt()).isZero();
+        assertThat(read(admin, tasksUrl(layla)).get("open")).hasSize(2);
+        assertThat(overdueNoticeOf(overdueId)).isNull();
+
+        assertThat(write(admin, "POST", "/api/v1/projects/" + projectId + "/restore", "{}")
+                .getResponse().getStatus()).isEqualTo(200);
+        dueScanner.scanAt(now);
+
+        assertThat(titles(read(admin, "/api/v1/me/tasks?view=overdue"))).containsExactly("Overdue one");
+        assertThat(overdueNoticeOf(overdueId)).isNotNull();
     }
 
     @Test
@@ -352,6 +383,11 @@ class TaskIntegrationTest extends PipelineFlowSupport {
         return db.queryForObject("""
                 SELECT count(*) FROM app_lm_audit_event
                 WHERE event_type = 'TASK_UPDATED' AND metadata ->> 'taskId' = ?""", Integer.class, taskId);
+    }
+
+    private Object overdueNoticeOf(String taskId) {
+        return db.queryForObject("select overdue_notified_at from app_lm_task where id = ?::uuid", Object.class,
+                taskId);
     }
 
     private String tasksUrl(String candidateId) {

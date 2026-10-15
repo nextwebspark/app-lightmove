@@ -23,6 +23,8 @@ const base: Project = {
   engagedCandidates: 0,
   mappedCompanies: 12,
   createdAt: "2026-08-27T09:00:00Z",
+  archivedAt: null,
+  archivedByName: null,
 };
 
 const today = new Date(2026, 8, 24, 15, 30);

@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, HealthInline, StagePill } from "../../../components/ui";
+import { ArchivedPill, Avatar, HealthInline, StagePill } from "../../../components/ui";
 import {
   LOCAL_ROW_MODELS,
   DATA_GRID_FEATURES,
@@ -17,7 +17,7 @@ import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { compareDate, compareNumber, compareText } from "../../../lib/gridSortFns";
 import { formatDate } from "../../../lib/format";
 import type { Project, TeamMember } from "../api/types";
-import { STAGE_ORDER } from "./filtering";
+import { isArchived, STAGE_ORDER } from "./filtering";
 import { deadlineOf } from "./timeline";
 import { usePositionsOriginState } from "./positionsOrigin";
 
@@ -66,7 +66,7 @@ export const projectColumns = helper.columns([
     // The stages are a sequence, not an alphabet: Brief comes before Universe, not after Outreach.
     sortFn: (a, b) =>
       compareNumber(STAGE_ORDER.indexOf(a.original.stage), STAGE_ORDER.indexOf(b.original.stage)),
-    cell: (info) => <StagePill stage={info.getValue()} />,
+    cell: (info) => (isArchived(info.row.original) ? <ArchivedPill /> : <StagePill stage={info.getValue()} />),
   }),
 
   helper.accessor("health", {
@@ -74,7 +74,7 @@ export const projectColumns = helper.columns([
     header: "Health",
     enableSorting: false,
     meta: { share: 0, min: 92 },
-    cell: (info) => <HealthInline health={info.getValue()} />,
+    cell: (info) => (isArchived(info.row.original) ? null : <HealthInline health={info.getValue()} />),
   }),
 
   helper.display({

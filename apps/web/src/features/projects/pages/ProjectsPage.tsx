@@ -14,6 +14,7 @@ import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
+import { liveClients } from "../../clients/lib/filtering";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
@@ -114,6 +115,19 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip: "allstages", query: "" }).length,
     [projects, view, clientOnly, myMemberId],
   );
+  const archivedCount = useMemo(
+    () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip: "archived", query: "" }).length,
+    [projects, view, clientOnly, myMemberId],
+  );
+  // Archived is offered only once there is something under it, set apart from the stages it is not one of.
+  const chips = useMemo(
+    () =>
+      CHIPS.filter((candidate) => candidate.key !== "archived" || archivedCount > 0 || chip === "archived").map(
+        (candidate) =>
+          candidate.key === "archived" ? { ...candidate, count: archivedCount, separated: true } : candidate,
+      ),
+    [archivedCount, chip],
+  );
   // Nothing on My positions because nobody has seated them yet — not because a filter found nothing.
   const firstUse =
     view === "my" &&
@@ -202,7 +216,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           }
         />
         {modalOpen && (
-          <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />
+          <NewProjectModal open onClose={() => setModalOpen(false)} clients={liveClients(clients)} />
         )}
       </>
     );
@@ -212,7 +226,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     <>
       <PageHeader
         title={view === "my" ? "My positions" : "All positions"}
-        subtitle={`${countLabel(rows.length, unfilteredCount, filtered)} · workspace ${user?.workspace?.name ?? ""}`}
+        subtitle={`${chip === "archived" ? `${rows.length} archived` : countLabel(rows.length, unfilteredCount, filtered)} · workspace ${user?.workspace?.name ?? ""}`}
         action={clientOnly ? undefined : newProjectButton}
       />
 
@@ -226,7 +240,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           onQueryChange={setQuery}
           onQueryBlur={flushQuery}
           placeholder={`Search ${vocabulary.unitLower} or position…`}
-          chips={CHIPS}
+          chips={chips}
           activeChip={chip}
           onChipChange={setChip}
           trailing={
@@ -259,9 +273,11 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         <ListEmptyState
           firstUse={firstUse}
           openCount={projects.filter(isActive).length}
+          archivedCount={archivedCount}
           filtered={filtered}
           onClearFilters={clearFilters}
           onShowAllStages={() => setChip("allstages")}
+          onShowArchived={() => setChip("archived")}
         />
       ) : (
         <div className="flex flex-col gap-3">
@@ -292,7 +308,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       <ProjectDrawer project={openProject} onClose={() => setOpenProjectId(null)} />
 
       {modalOpen && (
-        <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />
+        <NewProjectModal open onClose={() => setModalOpen(false)} clients={liveClients(clients)} />
       )}
     </>
   );
@@ -301,15 +317,19 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 function ListEmptyState({
   firstUse,
   openCount,
+  archivedCount,
   filtered,
   onClearFilters,
   onShowAllStages,
+  onShowArchived,
 }: {
   firstUse: boolean;
   openCount: number;
+  archivedCount: number;
   filtered: boolean;
   onClearFilters: () => void;
   onShowAllStages: () => void;
+  onShowArchived: () => void;
 }) {
   if (firstUse) {
     const positions = openCount === 1 ? "1 open position" : `${openCount} open positions`;
@@ -344,11 +364,20 @@ function ListEmptyState({
     <EmptyState
       icon={<Icon d={ICONS.briefcase} size={24} />}
       title="No active positions"
-      body="Every position here is delivered or closed."
+      body={
+        archivedCount > 0
+          ? "Every position here is delivered, closed or archived."
+          : "Every position here is delivered or closed."
+      }
     >
       <Button variant="secondary" onClick={onShowAllStages}>
         Show all stages
       </Button>
+      {archivedCount > 0 && (
+        <Button variant="secondary" onClick={onShowArchived}>
+          Show archived ({archivedCount})
+        </Button>
+      )}
     </EmptyState>
   );
 }

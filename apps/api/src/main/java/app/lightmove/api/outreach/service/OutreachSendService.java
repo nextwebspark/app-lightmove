@@ -28,6 +28,7 @@ import app.lightmove.api.outreach.repository.OutreachEnrollmentClaims;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
+import app.lightmove.api.project.repository.ProjectRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -66,6 +67,7 @@ public class OutreachSendService {
     private final CandidateOutreachService people;
     private final OutreachPersonalisation personalisation;
     private final OutreachOutcomes outcomes;
+    private final ProjectRepository projects;
     private final MailboxGateway gateway;
     private final TransactionTemplate transactions;
     private final AuditService audit;
@@ -139,6 +141,10 @@ public class OutreachSendService {
         if (!enrollment.isLive()) {
             // Answered or stopped while it waited in the batch.
             enrollment.releaseClaim();
+            return null;
+        }
+        if (projects.existsByIdAndArchivedAtIsNotNull(enrollment.getProjectId())) {
+            outcomes.stop(enrollment, OutreachStopReason.POSITION_ARCHIVED, null, now, null);
             return null;
         }
         MailboxConnection mailbox = mailboxes

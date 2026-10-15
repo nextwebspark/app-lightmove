@@ -7,6 +7,7 @@ import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -78,6 +79,12 @@ public class Client extends BaseEntity {
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
+    @Column(name = "archived_by")
+    private UUID archivedBy;
+
     /** The source pair is recorded so provenance survives an editable rename. */
     public static Client fromUniverse(UUID workspaceId, String apolloAccountId, String name,
                                       String sector, String hqCountry, String hqCity, String domain,
@@ -121,6 +128,29 @@ public class Client extends BaseEntity {
 
     public void describePersona(HiringPersona persona) {
         this.persona = persona == null ? HiringPersona.empty() : persona;
+    }
+
+    public boolean isArchived() {
+        return archivedAt != null;
+    }
+
+    /** Whether anything changed: archiving an archived record is a no-op, and records nothing. */
+    public boolean archive(UUID by, Instant at) {
+        if (isArchived()) {
+            return false;
+        }
+        this.archivedAt = at;
+        this.archivedBy = by;
+        return true;
+    }
+
+    public boolean restore() {
+        if (!isArchived()) {
+            return false;
+        }
+        this.archivedAt = null;
+        this.archivedBy = null;
+        return true;
     }
 
     /** The source id when the record was picked from the universe; null for one typed in by hand. */

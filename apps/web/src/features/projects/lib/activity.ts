@@ -82,6 +82,10 @@ function phraseOf(entry: ProjectActivityEntry): Phrase | null {
   switch (entry.type) {
     case "PROJECT_CREATED":
       return fixed(entry.type, "created the position");
+    case "PROJECT_ARCHIVED":
+      return fixed(entry.type, "archived the position");
+    case "PROJECT_RESTORED":
+      return fixed(entry.type, "restored the position");
     case "POSITION_UPDATED":
       return fixed(entry.type, "updated the brief");
     case "POSITION_TEMPLATE_APPLIED":

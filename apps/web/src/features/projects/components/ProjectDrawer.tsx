@@ -2,10 +2,10 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Drawer, HealthPill, Spinner, StagePill } from "../../../components/ui";
+import { ArchivedPill, Avatar, Button, Drawer, HealthPill, Spinner, StagePill, useToast } from "../../../components/ui";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { cn } from "../../../lib/cn";
-import { formatDate, formatNumber } from "../../../lib/format";
+import { formatDate, formatInstantDate, formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { projectActivity, projectActivityKey } from "../api/projectsApi";
@@ -16,12 +16,14 @@ import type {
   StaffRole,
   TeamMember,
 } from "../api/types";
-import { canExecuteProjectWork, canManageProjectAccess } from "../lib/access";
+import { canArchivePosition, canExecuteProjectWork, canManageProjectAccess } from "../lib/access";
+import { isArchived } from "../lib/filtering";
 import { activityLines, formatActivityTime } from "../lib/activity";
 import { projectProgress } from "../lib/projectProgress";
 import { staffRoleOf } from "../lib/projectTeamColumns";
 import { usePositionsOriginState } from "../lib/positionsOrigin";
 import { deadlineOf } from "../lib/timeline";
+import { ArchivePositionDialog, PositionActionsMenu, useRestorePosition } from "./PositionArchive";
 
 /**
  * The projects list's read-only summary of one position (Workspace.dc.html's "Position drawer"):
@@ -39,17 +41,44 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
   const originState = usePositionsOriginState();
   const isStaff = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
   const canManageAccess = canManageProjectAccess(project, user?.id, user?.workspace?.roles);
+  const isLead = canArchivePosition(project, user?.id);
+  const archived = isArchived(project);
+  const titleGutter = isLead && !archived ? "pe-20" : "pe-8";
   const staff = staffLeadsFirst(project.team);
+  const toast = useToast();
+  const restoring = useRestorePosition(project);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
 
   return (
     <Drawer open onClose={onClose} label={`${project.positionTitle} — ${project.clientName}`}>
       <div className="relative border-b border-u-border px-5 pb-3.5 pt-[18px]">
         <PanelCloseButton onClose={onClose} />
-        <div className="pe-8 text-meta font-medium uppercase tracking-[0.08em] text-u-text3">{project.clientName}</div>
-        <div className="mt-1 pe-8 text-subhead font-semibold text-u-text">{project.positionTitle}</div>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          <StagePill stage={project.stage} />
-          <HealthPill health={project.health} />
+        <PositionActionsMenu
+          project={project}
+          onArchive={() => setConfirmingArchive(true)}
+          className="absolute end-12 top-3.5"
+        />
+        <div className={cn("text-meta font-medium uppercase tracking-[0.08em] text-u-text3", titleGutter)}>
+          {project.clientName}
+        </div>
+        <div className={cn("mt-1 text-subhead font-semibold text-u-text", titleGutter)}>
+          {project.positionTitle}
+        </div>
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          {archived ? (
+            <>
+              <ArchivedPill />
+              <span className="font-mono text-meta text-u-text3">
+                {formatInstantDate(project.archivedAt)}
+                {project.archivedByName ? ` · ${project.archivedByName}` : ""}
+              </span>
+            </>
+          ) : (
+            <>
+              <StagePill stage={project.stage} />
+              <HealthPill health={project.health} />
+            </>
+          )}
         </div>
       </div>
 
@@ -114,16 +143,33 @@ function ProjectDrawerPanel({ project, onClose }: { project: Project; onClose: (
         {isStaff && <RecentActivity projectId={project.id} />}
       </div>
 
-      <div className="flex-none border-t border-u-border px-5 py-3.5">
+      <div className="flex flex-none gap-2.5 border-t border-u-border px-5 py-3.5">
+        {archived && isLead && (
+          <Button variant="secondary" loading={restoring.isPending} onClick={() => restoring.mutate()}>
+            Restore
+          </Button>
+        )}
         <Link
           to={`/projects/${project.id}`}
           state={originState}
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-u-accent-solid bg-u-accent-solid px-3.5 py-[11px] text-body font-semibold text-white transition hover:bg-u-accent-solid/90"
+          className="flex flex-1 items-center justify-center gap-2 rounded-md border border-u-accent-solid bg-u-accent-solid px-3.5 py-[11px] text-body font-semibold text-white transition hover:bg-u-accent-solid/90"
         >
           Open position
           <Icon d={ICONS.arrowRight} size={14} />
         </Link>
       </div>
+
+      {confirmingArchive && (
+        <ArchivePositionDialog
+          project={project}
+          onClose={() => setConfirmingArchive(false)}
+          onArchived={() => {
+            setConfirmingArchive(false);
+            toast.success(`${project.positionTitle} archived`);
+            onClose();
+          }}
+        />
+      )}
     </Drawer>
   );
 }

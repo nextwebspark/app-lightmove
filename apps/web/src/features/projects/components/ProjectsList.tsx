@@ -1,6 +1,6 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { useMemo } from "react";
-import { CompanyLogo, HealthInline, StagePill } from "../../../components/ui";
+import { ArchivedPill, CompanyLogo, HealthInline, StagePill } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
@@ -17,6 +17,7 @@ import {
   TeamStack,
   type ProjectSortField,
 } from "../lib/projectColumns";
+import { isArchived } from "../lib/filtering";
 import { projectGroupingFor } from "../lib/grouping";
 import { deadlineOf } from "../lib/timeline";
 
@@ -101,11 +102,11 @@ function ProjectCard({ project, onOpen }: { project: Project; onOpen: () => void
             </div>
             <div className="mt-0.5 text-[13.5px] font-semibold text-u-text">{project.positionTitle}</div>
           </div>
-          <HealthInline health={project.health} />
+          {!isArchived(project) && <HealthInline health={project.health} />}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <StagePill stage={project.stage} />
+          {isArchived(project) ? <ArchivedPill /> : <StagePill stage={project.stage} />}
           <span className="font-mono text-[11px] text-u-text3">
             Lead · {leadOf(project.team)?.fullName ?? "—"}
           </span>

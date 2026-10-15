@@ -6,8 +6,12 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.text.service.ConfirmationName;
 import app.lightmove.api.core.text.service.WebsiteDomain;
 import app.lightmove.api.core.security.rbac.ProjectRole;
+import app.lightmove.api.project.constant.ClientListScope;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ClientType;
 import app.lightmove.api.project.dto.ClientDetailResponse;
@@ -29,8 +33,11 @@ import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -51,14 +58,19 @@ public class ClientService {
     private final ApolloCompanyQueryService companies;
     private final ClientRepresentativeService representativeService;
     private final ProjectService projectService;
+    private final UserRepository users;
     private final AuditService audit;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
-    public List<ClientListResponse> list(UUID workspaceId) {
-        List<Client> allClients = clients.findByWorkspaceIdOrderByNameAsc(workspaceId);
+    public List<ClientListResponse> list(UUID workspaceId, ClientListScope scope) {
+        List<Client> allClients = scope == ClientListScope.WITH_ARCHIVED
+                ? clients.findByWorkspaceIdOrderByNameAsc(workspaceId)
+                : clients.findByWorkspaceIdAndArchivedAtIsNullOrderByNameAsc(workspaceId);
         if (allClients.isEmpty()) {
             return List.of();
         }
+        Map<UUID, String> archiverNames = namesOf(allClients.stream().map(Client::getArchivedBy).toList());
 
         Map<UUID, List<Project>> mandatesByClient = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId)
                 .stream()
@@ -73,7 +85,8 @@ public class ClientService {
         return allClients.stream()
                 .map(client -> toListResponse(client,
                         mandatesByClient.getOrDefault(client.getId(), List.of()),
-                        repsByClient.getOrDefault(client.getId(), List.of())))
+                        repsByClient.getOrDefault(client.getId(), List.of()),
+                        archiverNameOf(client, archiverNames)))
                 .toList();
     }
 
@@ -81,7 +94,10 @@ public class ClientService {
     public ClientDetailResponse get(UUID workspaceId, UUID clientId) {
         Client client = requireClient(workspaceId, clientId);
         List<ClientMandateResponse> mandates = mandatesFor(workspaceId, clientId);
-        long active = mandates.stream().filter(mandate -> !mandate.stage().isDone()).count();
+        long active = mandates.stream()
+                .filter(mandate -> mandate.archivedAt() == null && !mandate.stage().isDone()).count();
+        long delivered = mandates.stream()
+                .filter(mandate -> mandate.archivedAt() == null && mandate.stage().isDone()).count();
 
         List<RepresentativeResponse> reps = representatives.findByClientIdOrderByCreatedAtAsc(clientId).stream()
                 .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
@@ -92,7 +108,8 @@ public class ClientService {
         return new ClientDetailResponse(client.getId(), client.getName(), client.universeAccountId(),
                 client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),
                 client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getPersona(),
-                active, mandates.size() - active, reps, mandates);
+                active, delivered, reps, mandates, client.getArchivedAt(),
+                archiverNameOf(client, namesOf(Collections.singletonList(client.getArchivedBy()))));
     }
 
     @Transactional
@@ -102,9 +119,7 @@ public class ClientService {
                 ? fromUniverse(userId, workspaceId, request)
                 : fromCustom(userId, workspaceId, request);
 
-        if (clients.findByWorkspaceIdAndNameIgnoreCase(workspaceId, client.getName()).isPresent()) {
-            throw ApiException.of(ErrorCode.CLIENT_ALREADY_EXISTS);
-        }
+        refuseNameHeld(workspaceId, client.getName());
         Client saved = clients.save(client);
 
         audit.event(ProjectEventType.CLIENT_CREATED)
@@ -124,7 +139,8 @@ public class ClientService {
                         : List.of(new RepAvatar(primaryContact.fullName(), primaryContact.status())),
                 new ViewerSummary(
                         primaryContact != null && primaryContact.status() == ClientRepStatus.ACTIVE ? 1 : 0,
-                        primaryContact != null && primaryContact.status() == ClientRepStatus.INVITED ? 1 : 0));
+                        primaryContact != null && primaryContact.status() == ClientRepStatus.INVITED ? 1 : 0),
+                null);
     }
 
     @Transactional
@@ -133,9 +149,8 @@ public class ClientService {
         Client client = requireClient(workspaceId, clientId);
 
         String name = request.name().trim();
-        if (!name.equalsIgnoreCase(client.getName())
-                && clients.findByWorkspaceIdAndNameIgnoreCase(workspaceId, name).isPresent()) {
-            throw ApiException.of(ErrorCode.CLIENT_ALREADY_EXISTS);
+        if (!name.equalsIgnoreCase(client.getName())) {
+            refuseNameHeld(workspaceId, name);
         }
 
         client.applyDetails(name, request.sector(), request.hqCountry(), request.domain(),
@@ -145,6 +160,45 @@ public class ClientService {
                 .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
                 .record();
 
+        return get(workspaceId, clientId);
+    }
+
+    /**
+     * Puts the record away, typed name and all — only once none of its positions is live, since archiving a
+     * position is its lead's call and never this one's. The row is locked first, so a position opened under it
+     * meanwhile is either seen here or refused there.
+     */
+    @Transactional
+    public ClientDetailResponse archive(UUID userId, UUID workspaceId, UUID clientId, String confirmName,
+                                        HttpServletRequest httpRequest) {
+        Client client = clients.lockToArchive(clientId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (!ConfirmationName.matches(client.getName(), confirmName)) {
+            throw ApiException.of(ErrorCode.ARCHIVE_NAME_MISMATCH);
+        }
+        List<UUID> livePositions = projects.findByWorkspaceIdAndClientIdAndArchivedAtIsNull(workspaceId, clientId)
+                .stream().map(Project::getId).toList();
+        if (!livePositions.isEmpty()) {
+            throw ApiException.withProperty(ErrorCode.CLIENT_HAS_LIVE_POSITIONS, "positionIds", livePositions);
+        }
+        if (client.archive(userId, clock.instant())) {
+            audit.event(ProjectEventType.CLIENT_ARCHIVED)
+                    .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                    .detail("name", client.getName())
+                    .record();
+        }
+        return get(workspaceId, clientId);
+    }
+
+    @Transactional
+    public ClientDetailResponse restore(UUID userId, UUID workspaceId, UUID clientId, HttpServletRequest httpRequest) {
+        Client client = requireClient(workspaceId, clientId);
+        if (client.restore()) {
+            audit.event(ProjectEventType.CLIENT_RESTORED)
+                    .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                    .detail("name", client.getName())
+                    .record();
+        }
         return get(workspaceId, clientId);
     }
 
@@ -212,14 +266,36 @@ public class ClientService {
                 request.customDomain(), userId);
     }
 
+    /** An archived holder is named apart: the caller offers to restore it rather than reuse it. */
+    private void refuseNameHeld(UUID workspaceId, String name) {
+        clients.findByWorkspaceIdAndNameIgnoreCase(workspaceId, name).ifPresent(holder -> {
+            throw ApiException.of(
+                    holder.isArchived() ? ErrorCode.CLIENT_NAME_ARCHIVED : ErrorCode.CLIENT_ALREADY_EXISTS);
+        });
+    }
+
+    /** Null-safe both ways: an immutable map answers a null key with an exception, not null. */
+    private Map<UUID, String> namesOf(List<UUID> userIds) {
+        List<UUID> named = userIds.stream().filter(Objects::nonNull).distinct().toList();
+        return named.isEmpty() ? Map.of() : users.findAllById(named).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+    }
+
+    private static String archiverNameOf(Client client, Map<UUID, String> names) {
+        return client.getArchivedBy() == null ? null : names.get(client.getArchivedBy());
+    }
+
     private Client requireClient(UUID workspaceId, UUID clientId) {
         return clients.findByIdAndWorkspaceId(clientId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     private ClientListResponse toListResponse(Client client, List<Project> mandates,
-                                              List<ClientRepresentative> reps) {
-        long active = mandates.stream().filter(project -> !project.getStage().isDone()).count();
+                                              List<ClientRepresentative> reps, String archivedByName) {
+        long active = mandates.stream()
+                .filter(project -> !project.isArchived() && !project.getStage().isDone()).count();
+        long delivered = mandates.stream()
+                .filter(project -> !project.isArchived() && project.getStage().isDone()).count();
         ClientType type = mandates.isEmpty() ? ClientType.PROSPECT : ClientType.RETAINED;
 
         List<RepAvatar> contacts = reps.stream()
@@ -229,8 +305,8 @@ public class ClientService {
         long viewersActive = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.ACTIVE).count();
         long viewersInvited = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.INVITED).count();
 
-        return ClientListResponse.of(client, type, active, mandates.size() - active, contacts,
-                new ViewerSummary(viewersActive, viewersInvited));
+        return ClientListResponse.of(client, type, active, delivered, contacts,
+                new ViewerSummary(viewersActive, viewersInvited), archivedByName);
     }
 
     private static ClientMandateResponse toMandate(ProjectResponse project) {
@@ -240,6 +316,6 @@ public class ClientService {
                 .findFirst()
                 .orElse(null);
         return new ClientMandateResponse(project.id(), project.positionTitle(), project.stage(),
-                project.health(), leadName, project.targetDate());
+                project.health(), leadName, project.targetDate(), project.archivedAt());
     }
 }

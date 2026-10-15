@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { Chip } from "./Chip";
 
@@ -24,7 +24,8 @@ export function ListToolbar<TChip extends string>({
   /** Leaving the box, which a click on a row does first. */
   onQueryBlur?: () => void;
   placeholder: string;
-  chips: readonly { key: TChip; label: string }[];
+  /** `separated` sets a chip apart from the ones before it — Archived, which is not a stage. */
+  chips: readonly { key: TChip; label: string; count?: number; separated?: boolean }[];
   activeChip: TChip;
   onChipChange: (chip: TChip) => void;
   /** The grid's own controls — the Columns menu. Shown only where the grid is, from `md` up. */
@@ -46,10 +47,13 @@ export function ListToolbar<TChip extends string>({
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {chips.map(({ key, label }) => (
-          <Chip key={key} selected={activeChip === key} onClick={() => onChipChange(key)}>
-            {label}
-          </Chip>
+        {chips.map(({ key, label, count, separated }) => (
+          <Fragment key={key}>
+            {separated && <span aria-hidden="true" className="mx-0.5 h-4 w-px self-center bg-u-border-strong" />}
+            <Chip selected={activeChip === key} count={count} onClick={() => onChipChange(key)}>
+              {label}
+            </Chip>
+          </Fragment>
         ))}
       </div>
 

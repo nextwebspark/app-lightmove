@@ -16,6 +16,12 @@ public enum ProjectAction {
      */
     CLIENT_ACCESS_MANAGE,
 
+    /**
+     * Archive or restore the position, LEAD only — and the one action a workspace admin does not hold without a
+     * seat, since putting a position away is its lead's call (V137).
+     */
+    PROJECT_ARCHIVE,
+
     /** The gate on every project-content GET, held by every seat including a CLIENT. */
     WORK_VIEW,
 

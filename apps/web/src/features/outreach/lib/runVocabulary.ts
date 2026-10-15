@@ -23,6 +23,7 @@ export const STOP_NOTES: Record<StopReason, string> = {
   BOOKING_LINK_UNAVAILABLE: "Booking link unavailable",
   SEND_FAILED: "The mail service refused it",
   SEND_UNCERTAIN: "A send may not have gone",
+  POSITION_ARCHIVED: "Position archived",
 };
 
 export type RunFilter = "all" | "inFlight" | "replied" | "booked" | "bounced" | "stopped";

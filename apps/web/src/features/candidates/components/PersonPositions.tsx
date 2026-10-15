@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { useToast } from "../../../components/ui";
+import { ArchivedPill, useToast } from "../../../components/ui";
 import { formatInstantDate } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import { changeCandidateStatus, CANDIDATES_KEY_PREFIX } from "../api/candidatesApi";
@@ -105,6 +105,7 @@ function PositionCard({
           {CANDIDATE_SOURCE_STYLES[position.source]?.label ?? position.source}
         </span>
       </div>
+      {position.positionArchived && <ArchivedPill />}
       {position.workable ? (
         <StatusPicker
           aria-label={`Status on ${position.positionTitle ?? "this position"}`}

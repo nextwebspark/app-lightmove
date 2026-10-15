@@ -1,6 +1,7 @@
 package app.lightmove.api.task.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.task.model.Task;
 import app.lightmove.api.task.model.TaskFallingDue;
 import app.lightmove.api.task.repository.TaskRepository;
@@ -20,7 +21,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Tells an assignee when an open task falls due within the hour and again once it is overdue — each once per due
  * date, claimed in one statement ({@code SKIP LOCKED}) so two instances never both announce a task. A task long
- * past its date is not news: only one that went overdue within the lookback is announced.
+ * past its date is not news: only one that went overdue within the lookback is announced. An archived position's
+ * tasks are not claimed, so one restored within the lookback is still announced.
  */
 @Component
 @RequiredArgsConstructor
@@ -29,10 +31,14 @@ public class TaskDueScanner {
     private static final Duration OVERDUE_LOOKBACK = Duration.ofDays(2);
     private static final int BATCH = 500;
 
+    private static final String ON_LIVE_POSITION =
+            "  AND project_id NOT IN (" + ProjectRepository.ARCHIVED_IDS_SQL + ")\n";
+
     private static final String CLAIM_DUE_SOON = """
             UPDATE app_lm_task SET due_soon_notified_at = ?, version = version + 1
              WHERE id IN (SELECT id FROM app_lm_task
                            WHERE status = 'OPEN' AND due_soon_notified_at IS NULL AND due_at > ? AND due_at <= ?
+            """ + ON_LIVE_POSITION + """
                            ORDER BY due_at LIMIT ? FOR UPDATE SKIP LOCKED)
             RETURNING id
             """;
@@ -42,6 +48,7 @@ public class TaskDueScanner {
                    version = version + 1
              WHERE id IN (SELECT id FROM app_lm_task
                            WHERE status = 'OPEN' AND overdue_notified_at IS NULL AND due_at <= ? AND due_at > ?
+            """ + ON_LIVE_POSITION + """
                            ORDER BY due_at LIMIT ? FOR UPDATE SKIP LOCKED)
             RETURNING id
             """;

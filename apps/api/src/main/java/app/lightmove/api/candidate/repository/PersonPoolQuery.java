@@ -28,16 +28,18 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class PersonPoolQuery {
 
-    /** A position still being worked: one whose stage is not {@link ProjectStage#isDone}. */
+    /** A position still being worked: not archived, and its stage not {@link ProjectStage#isDone}. */
     private static final String IN_ACTIVE_POSITION = """
             EXISTS (SELECT 1 FROM app_lm_project_candidate m JOIN app_lm_project pr ON pr.id = m.project_id
-                    WHERE m.person_id = p.id AND pr.stage NOT IN (:doneStages))""";
+                    WHERE m.person_id = p.id AND pr.stage NOT IN (:doneStages) AND pr.archived_at IS NULL)""";
 
     private static final List<String> DONE_STAGES = Arrays.stream(ProjectStage.values())
             .filter(ProjectStage::isDone).map(Enum::name).toList();
 
-    private static final String IN_NO_POSITION =
-            "NOT EXISTS (SELECT 1 FROM app_lm_project_candidate m WHERE m.person_id = p.id)";
+    /** On no position anyone can see: someone mapped only to archived ones counts as in none. */
+    private static final String IN_NO_POSITION = """
+            NOT EXISTS (SELECT 1 FROM app_lm_project_candidate m JOIN app_lm_project pr ON pr.id = m.project_id
+                        WHERE m.person_id = p.id AND pr.archived_at IS NULL)""";
 
     private static final String OWNED_BY_CALLER = "p.owner_user_id = :caller";
 

@@ -6,7 +6,7 @@ import type { Client } from "../api/types";
  * mirroring the projects feature's own filtering module.
  */
 
-export const CLIENT_CHIP_KEYS = ["all", "active", "noreps"] as const;
+export const CLIENT_CHIP_KEYS = ["all", "active", "noreps", "archived"] as const;
 
 export type ChipKey = (typeof CLIENT_CHIP_KEYS)[number];
 
@@ -15,7 +15,17 @@ export function chipsFor(vocabulary: WorkspaceVocabulary): { key: ChipKey; label
     { key: "all", label: `All ${vocabulary.unitsLower}` },
     { key: "active", label: "Active positions" },
     { key: "noreps", label: `No ${vocabulary.contactLower}` },
+    { key: "archived", label: "Archived" },
   ];
+}
+
+export function isArchivedClient(client: Pick<Client, "archivedAt">): boolean {
+  return Boolean(client.archivedAt);
+}
+
+/** Every record but the archived ones: what the registry's count and every picker offer. */
+export function liveClients(clients: Client[]): Client[] {
+  return clients.filter((client) => !isArchivedClient(client));
 }
 
 export function filterClients(
@@ -25,6 +35,7 @@ export function filterClients(
   const query = options.query.trim().toLowerCase();
 
   return clients.filter((client) => {
+    if ((options.chip === "archived") !== isArchivedClient(client)) return false;
     if (options.chip === "active" && client.activeMandates === 0) return false;
     if (options.chip === "noreps" && client.contacts.length > 0) return false;
     if (query && !client.name.toLowerCase().includes(query)) return false;

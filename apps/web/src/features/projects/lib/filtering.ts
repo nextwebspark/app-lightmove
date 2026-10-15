@@ -23,12 +23,22 @@ export const CHIPS = [
   { key: "MAPPING", label: "Mapping" },
   { key: "OUTREACH", label: "Outreach" },
   { key: "DELIVERED", label: "Delivered" },
+  { key: "archived", label: "Archived" },
 ] as const;
 
 export type ChipKey = (typeof CHIPS)[number]["key"];
 
+export function isArchived(project: Project): boolean {
+  return Boolean(project.archivedAt);
+}
+
+/** Every position but the archived ones: what a list, a picker or a count offers. */
+export function livePositions(projects: Project[]): Project[] {
+  return projects.filter((project) => !isArchived(project));
+}
+
 export function isActive(project: Project): boolean {
-  return project.stage !== "DELIVERED" && project.stage !== "CLOSED";
+  return !isArchived(project) && project.stage !== "DELIVERED" && project.stage !== "CLOSED";
 }
 
 export function filterProjects(
@@ -41,8 +51,14 @@ export function filterProjects(
     if (options.view === "my" && !project.team.some((seat) => seat.memberId === options.myMemberId)) {
       return false;
     }
+    if ((options.chip === "archived") !== isArchived(project)) return false;
     if (options.chip === "active" && !isActive(project)) return false;
-    if (options.chip !== "active" && options.chip !== "allstages" && project.stage !== options.chip) {
+    if (
+      options.chip !== "active" &&
+      options.chip !== "allstages" &&
+      options.chip !== "archived" &&
+      project.stage !== options.chip
+    ) {
       return false;
     }
     if (query && !`${project.clientName} ${project.positionTitle}`.toLowerCase().includes(query)) {

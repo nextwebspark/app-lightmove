@@ -5,7 +5,9 @@ import { useAuth } from "../../features/auth/AuthProvider";
 import { isPureClient } from "../../features/auth/roles";
 import * as poolApi from "../../features/candidates/api/poolApi";
 import * as clientsApi from "../../features/clients/api/clientsApi";
+import { liveClients } from "../../features/clients/lib/filtering";
 import * as projectsApi from "../../features/projects/api/projectsApi";
+import { isActive, livePositions } from "../../features/projects/lib/filtering";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppShell } from "./AppShell";
@@ -64,7 +66,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   });
 
   const myMemberId = members?.find((m) => m.userId === user?.id)?.memberId;
-  const active = projects?.filter((p) => p.stage !== "DELIVERED" && p.stage !== "CLOSED");
+  const active = projects?.filter(isActive);
   const myCount = myMemberId
     ? active?.filter((p) => p.team.some((seat) => seat.memberId === myMemberId)).length
     : undefined;
@@ -78,7 +80,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         label: "Positions",
         items: [
           { to: `/${listSearch}`, label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
-          { to: `/all${listSearch}`, label: "All positions", icon: ICONS.allProjects, count: projects?.length },
+          { to: `/all${listSearch}`, label: "All positions", icon: ICONS.allProjects, count: projects && livePositions(projects).length },
         ],
       };
 
@@ -90,7 +92,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
           label: "Workspace",
           items: [
             { to: "/candidates", label: "Candidates", icon: ICONS.candidates, count: poolSize },
-            { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients?.length },
+            { to: "/clients", label: vocabulary.units, icon: ICONS.clients, count: clients && liveClients(clients).length },
             { to: "/team", label: "Team", icon: ICONS.team, count: members?.length },
             { to: "/settings", label: "Settings", icon: ICONS.settings },
           ],

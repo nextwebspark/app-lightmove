@@ -16,6 +16,7 @@ import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.pairing.model.PairedStage;
 import app.lightmove.api.pairing.service.StagePairingService;
+import app.lightmove.api.project.constant.ProjectListScope;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
@@ -71,7 +72,8 @@ public class PublicReadService {
         paging.requireValidPage(pageNumber, pageSize);
         List<ProjectResponse> visible = reader.readsWholeWorkspace()
                 ? projects.listInWorkspace(reader.workspaceId())
-                : readableByUser(reader, projects.list(reader.userId(), reader.workspaceId()));
+                : readableByUser(reader,
+                        projects.list(reader.userId(), reader.workspaceId(), ProjectListScope.LIVE));
         String wanted = title == null ? "" : title.strip().toLowerCase(Locale.ROOT);
         List<ProjectResponse> matching = visible.stream()
                 .filter(project -> project.positionTitle().toLowerCase(Locale.ROOT).contains(wanted))

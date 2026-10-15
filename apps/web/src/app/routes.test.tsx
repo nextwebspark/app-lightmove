@@ -526,6 +526,8 @@ describe("routes — back from a position", () => {
         engagedCandidates: 0,
         mappedCompanies: 0,
         createdAt: "2026-07-13T10:00:00Z",
+        archivedAt: null,
+        archivedByName: null,
       },
     ]);
   });

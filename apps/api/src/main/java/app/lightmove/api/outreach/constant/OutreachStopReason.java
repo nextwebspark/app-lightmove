@@ -35,5 +35,8 @@ public enum OutreachStopReason {
     SEND_FAILED,
 
     /** A send was under way when its dispatcher died, so nobody knows whether it went. Never resent. */
-    SEND_UNCERTAIN
+    SEND_UNCERTAIN,
+
+    /** The position was archived; restoring it does not start the run again. */
+    POSITION_ARCHIVED
 }

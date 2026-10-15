@@ -1,5 +1,5 @@
 import { request } from "../../../lib/apiClient";
-import type { Project, ProjectActivityPage, ProjectType, StaffRole } from "./types";
+import type { Project, ProjectActivityPage, ProjectArchivePreview, ProjectType, StaffRole } from "./types";
 
 /**
  * Every call the projects feature makes, plus the query keys its screens share. Clients are their own
@@ -9,8 +9,24 @@ import type { Project, ProjectActivityPage, ProjectType, StaffRole } from "./typ
 
 export const PROJECTS_KEY = ["projects"] as const;
 
+/** Archived positions too, so one opens by link; every screen that lists them filters with `isArchived`. */
 export function projects(): Promise<Project[]> {
-  return request<Project[]>("/projects");
+  return request<Project[]>("/projects?includeArchived=true");
+}
+
+export const archivePreviewKey = (projectId: string) => ["projects", projectId, "archive-preview"] as const;
+
+export function archivePreview(projectId: string): Promise<ProjectArchivePreview> {
+  return request<ProjectArchivePreview>(`/projects/${projectId}/archive-preview`);
+}
+
+/** The lead's alone; the typed title is checked again by the server. */
+export function archiveProject(projectId: string, confirmName: string): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/archive`, { method: "POST", body: { confirmName } });
+}
+
+export function restoreProject(projectId: string): Promise<Project> {
+  return request<Project>(`/projects/${projectId}/restore`, { method: "POST" });
 }
 
 export const ACTIVITY_PAGE_SIZE = 20;

@@ -29,6 +29,10 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
             + "from OutreachEnrollment e where e.projectId = :projectId group by e.sequenceId")
     List<SequenceEnrollmentCount> countBySequenceOfProject(UUID projectId);
 
+    List<OutreachEnrollment> findByProjectIdAndStatusIn(UUID projectId, Collection<EnrollmentStatus> statuses);
+
+    long countByProjectIdAndStatusIn(UUID projectId, Collection<EnrollmentStatus> statuses);
+
     Optional<OutreachEnrollment> findByIdAndWorkspaceIdAndProjectId(UUID id, UUID workspaceId, UUID projectId);
 
     @Query("select e.status as status, count(e) as total, sum(e.nextStep) as sent, "

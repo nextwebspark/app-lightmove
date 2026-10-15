@@ -1,11 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { Avatar, Button, Input, StagePill, useToast } from "../../../components/ui";
+import { ArchivedPill, Avatar, Button, Input, StagePill, useToast } from "../../../components/ui";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as clientsApi from "../api/clientsApi";
-import type { ClientDetail, ClientRepresentative } from "../api/types";
+import type { ClientDetail, ClientMandate, ClientRepresentative } from "../api/types";
 
 /** The parts of a client record both drawers draw: its people, its positions, and the drawer's foot. */
 
@@ -17,44 +17,46 @@ export function ClientPositions({
   onOpenMandate: (mandateId: string) => void;
 }) {
   const vocabulary = useWorkspaceVocabulary();
+  const live = client.mandates.filter((mandate) => !mandate.archivedAt);
+  const archived = client.mandates.filter((mandate) => mandate.archivedAt);
   return (
     <>
       <SectionLabel className="mt-[18px]">Open positions</SectionLabel>
-      {client.mandates.length === 0 ? (
+      {live.length === 0 ? (
         <p className="py-2 font-mono text-[12px] text-u-text3">
-          No positions yet — open one for this {vocabulary.unitLower}.
+          {archived.length > 0 || client.archivedAt
+            ? "No open positions."
+            : `No positions yet — open one for this ${vocabulary.unitLower}.`}
         </p>
       ) : (
-        client.mandates.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => onOpenMandate(m.id)}
-            className="flex w-full items-center gap-2.5 rounded-[7px] px-2 py-2 text-left hover:bg-u-raised"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium text-u-text">{m.positionTitle}</span>
-              <span className="block font-mono text-[11px] text-u-text3">Lead · {m.leadName ?? "—"}</span>
-            </span>
-            <StagePill stage={m.stage} />
-            <span className="text-u-text3">›</span>
-          </button>
-        ))
+        live.map((mandate) => <MandateRow key={mandate.id} mandate={mandate} onOpen={onOpenMandate} />)
+      )}
+      {archived.length > 0 && (
+        <>
+          <SectionLabel className="mt-[18px]">Archived positions</SectionLabel>
+          {archived.map((mandate) => (
+            <MandateRow key={mandate.id} mandate={mandate} onOpen={onOpenMandate} />
+          ))}
+        </>
       )}
     </>
   );
 }
 
-export function ClientDrawerFoot({ onClose, onNewMandate }: { onClose: () => void; onNewMandate: () => void }) {
+function MandateRow({ mandate, onOpen }: { mandate: ClientMandate; onOpen: (mandateId: string) => void }) {
   return (
-    <div className="flex items-center justify-between border-t border-u-border px-5 py-3">
-      <Button variant="ghost" onClick={onClose}>
-        Close
-      </Button>
-      <Button variant="secondary" onClick={onNewMandate}>
-        ＋ New position
-      </Button>
-    </div>
+    <button
+      type="button"
+      onClick={() => onOpen(mandate.id)}
+      className="flex w-full items-center gap-2.5 rounded-[7px] px-2 py-2 text-left hover:bg-u-raised"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13px] font-medium text-u-text">{mandate.positionTitle}</span>
+        <span className="block font-mono text-[11px] text-u-text3">Lead · {mandate.leadName ?? "—"}</span>
+      </span>
+      {mandate.archivedAt ? <ArchivedPill /> : <StagePill stage={mandate.stage} />}
+      <span className="text-u-text3">›</span>
+    </button>
   );
 }
 

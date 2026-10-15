@@ -71,7 +71,7 @@ class RbacCatalogTest {
                 "CANDIDATE_POOL_MANAGE", "API_KEY_MANAGE");
         grantsAre(RoleScope.WORKSPACE, "CLIENT");
         grantsAre(RoleScope.PROJECT, "LEAD", "PROJECT_EDIT", "TEAM_MANAGE", "WORK_VIEW", "WORK_EXECUTE",
-                "CLIENT_ACCESS_MANAGE");
+                "CLIENT_ACCESS_MANAGE", "PROJECT_ARCHIVE");
         grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_VIEW", "WORK_EXECUTE");
         grantsAre(RoleScope.PROJECT, "CLIENT", "WORK_VIEW");
         grantsAre(RoleScope.PLATFORM, "SUPER_ADMIN", "TEMPLATE_LIBRARY_MANAGE", "CREDIT_GRANT",

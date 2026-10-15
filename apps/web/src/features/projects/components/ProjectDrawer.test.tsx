@@ -11,6 +11,9 @@ import { ProjectDrawer } from "./ProjectDrawer";
 vi.mock("../api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof projectsApi>()),
   projectActivity: vi.fn(),
+  archivePreview: vi.fn(),
+  archiveProject: vi.fn(),
+  restoreProject: vi.fn(),
 }));
 
 const viewer: { id: string; workspace: { roles: WorkspaceRole[] } } = { id: "u-m2", workspace: { roles: ["MEMBER"] } };
@@ -65,6 +68,8 @@ const project: Project = {
   engagedCandidates: 2,
   mappedCompanies: 3,
   createdAt: "2026-07-13T10:00:00Z",
+  archivedAt: null,
+  archivedByName: null,
 };
 
 const entry = (id: number, type: string, details: Record<string, string> = {}): ProjectActivityEntry => ({
@@ -221,6 +226,55 @@ describe("ProjectDrawer", () => {
     for (const invite of screen.getAllByRole("link", { name: "+ Invite" })) {
       expect(invite).toHaveAttribute("href", "/projects/p1/team");
     }
+  });
+
+  it("offers its lead alone a way to archive it, behind a warning and the typed title", async () => {
+    vi.mocked(projectsApi.archivePreview).mockResolvedValue({ liveOutreachRuns: 3, openTasks: 1 });
+    vi.mocked(projectsApi.archiveProject).mockResolvedValue({
+      ...project,
+      archivedAt: "2026-10-14T09:00:00Z",
+      archivedByName: "Lee Lead",
+    });
+    renderDrawer();
+
+    await userEvent.click(screen.getByRole("button", { name: "More for CFO Search" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /archive position/i }));
+
+    expect(await screen.findByText(/3 outreach runs stop/)).toBeInTheDocument();
+    expect(screen.getByText(/1 open task leaves/)).toBeInTheDocument();
+    const confirm = screen.getByRole("button", { name: "Archive position" });
+    expect(confirm).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText("Position title"), "cfo search");
+    expect(confirm).toBeEnabled();
+    await userEvent.click(confirm);
+
+    await waitFor(() => expect(projectsApi.archiveProject).toHaveBeenCalledWith("p1", "cfo search"));
+  });
+
+  it("offers no archiving to a researcher, nor to an admin without a lead's seat", () => {
+    viewer.id = "u-m1";
+    const { unmount } = renderDrawer();
+    expect(screen.queryByRole("button", { name: "More for CFO Search" })).not.toBeInTheDocument();
+    unmount();
+
+    viewer.id = "u-admin";
+    viewer.workspace.roles = ["ADMIN"];
+    renderDrawer();
+    expect(screen.queryByRole("button", { name: "More for CFO Search" })).not.toBeInTheDocument();
+  });
+
+  it("draws an archived position as archived, and its lead restores it in one click", async () => {
+    vi.mocked(projectsApi.restoreProject).mockResolvedValue(project);
+    renderDrawer({ ...project, archivedAt: "2026-10-14T09:00:00Z", archivedByName: "Lee Lead" });
+
+    expect(screen.getByText("Archived")).toBeInTheDocument();
+    expect(screen.queryByText("At risk")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More for CFO Search" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Restore" }));
+
+    await waitFor(() => expect(projectsApi.restoreProject).toHaveBeenCalledWith("p1"));
   });
 
   it("opens the position", async () => {

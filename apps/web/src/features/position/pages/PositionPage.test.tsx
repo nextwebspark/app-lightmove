@@ -64,6 +64,8 @@ const project: Project = {
   engagedCandidates: 0,
   mappedCompanies: 0,
   createdAt: "2026-07-01T00:00:00Z",
+  archivedAt: null,
+  archivedByName: null,
 };
 
 const seeded: Position = {

@@ -124,7 +124,8 @@ public class PersonRecordService {
                             row.getAddedBy(), filer == null ? null : filer.getFullName(), row.getCreatedAt(),
                             row.getSource().value(), workable.contains(row.getProjectId()),
                             row.getStatus().getLabel(), row.getStatus().getColour().value(),
-                            CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt());
+                            CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt(),
+                            mandate != null && mandate.isArchived());
                 })
                 .toList();
     }

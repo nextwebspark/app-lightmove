@@ -17,6 +17,7 @@ export function AppShell({
   navBackLink,
   breadcrumb,
   topbarActions,
+  notice,
   contentClassName,
   assistantContext = "Workspace",
   assistantProjectId = null,
@@ -26,6 +27,11 @@ export function AppShell({
   navBackLink?: SidebarItem;
   breadcrumb?: ReactNode;
   topbarActions?: ReactNode;
+  /**
+   * A line about the whole screen — an archived position's — between the topbar and the page. Outside `main`,
+   * whose height the viewport-filling tabs size their own scrolling against.
+   */
+  notice?: ReactNode;
   contentClassName?: string;
   /** Which mandate the assistant is asking about here. A workspace screen has none. */
   assistantContext?: string;
@@ -56,6 +62,8 @@ export function AppShell({
           navOpen={navOpen}
           onMenuClick={() => setNavOpen(true)}
         />
+
+        {notice && <div className="px-3.5 pb-2.5">{notice}</div>}
 
         <div className="flex min-h-0 flex-1 px-3.5 pb-3.5">
           {navOpen && (

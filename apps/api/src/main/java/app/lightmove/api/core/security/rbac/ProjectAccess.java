@@ -18,8 +18,8 @@ import org.springframework.stereotype.Service;
 /**
  * The project-tier mirror of {@link WorkspaceAccess}, re-read from the database every check. The
  * ladder: active membership, else 404; the project in this workspace, else 404 — <b>before</b> the
- * admin bypass, so an admin is never authorised outside their tenant; the workspace-ADMIN bypass; a
- * seat, else 403; the action from the seat's roles, else 403.
+ * admin bypass, so an admin is never authorised outside their tenant; the workspace-ADMIN bypass (every
+ * action but archiving); a seat, else 403; the action from the seat's roles, else 403.
  */
 @Service
 @RequiredArgsConstructor
@@ -40,7 +40,7 @@ public class ProjectAccess {
             return Set.of();
         }
         WorkspaceMember member = workspaceAccess.requireActiveMember(userId, workspaceId);
-        if (workspaceAccess.isAdmin(member)) {
+        if (workspaceAccess.isAdmin(member) && adminBypasses(action)) {
             return projects.findIdsInWorkspace(workspaceId, projectIds);
         }
         return seats.findProjectIdsWithAction(member.getId(), projectIds, action.name());
@@ -83,6 +83,11 @@ public class ProjectAccess {
         return seats.findLeadUserIds(projectId, MemberStatus.ACTIVE);
     }
 
+    /** Every action but {@link ProjectAction#PROJECT_ARCHIVE}: an admin seats themselves as lead to archive. */
+    private static boolean adminBypasses(ProjectAction action) {
+        return action != ProjectAction.PROJECT_ARCHIVE;
+    }
+
     public void requireAction(UUID userId, UUID workspaceId, UUID projectId, ProjectAction action) {
         WorkspaceMember member = workspaceAccess.requireActiveMember(userId, workspaceId);
 
@@ -92,7 +97,7 @@ public class ProjectAccess {
         // endpoint that trusts the gate alone would otherwise act cross-tenant.)
         projects.requireInWorkspace(projectId, workspaceId);
 
-        if (workspaceAccess.isAdmin(member)) {
+        if (workspaceAccess.isAdmin(member) && adminBypasses(action)) {
             return;
         }
 

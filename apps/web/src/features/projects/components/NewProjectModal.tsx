@@ -139,7 +139,7 @@ export function NewProjectModal({
           // The user meant that unit. Re-fetch rather than trust the prop — a colleague may have
           // created it after this modal's list was cached.
           const fresh = await clientsApi.clients();
-          const existing = fresh.find((c) => c.name.toLowerCase() === unitName.toLowerCase());
+          const existing = fresh.find((c) => !c.archivedAt && c.name.toLowerCase() === unitName.toLowerCase());
           if (!existing) throw clientError;
           resolvedClientId = existing.id;
         }

@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * A teammate leaving a position hands its lead their open tasks there, in the transaction that removes the seat,
  * so nothing they held is left with someone who can no longer open it. The same goes for a member who loses the
  * admin role or leaves the workspace: a task on a position they worked only as an admin goes to its lead. A position
- * with no other lead — only a delivered or closed one can be left so — keeps the tasks where they are.
+ * with no other lead — only a delivered, closed or archived one can be left so — keeps the tasks where they are.
  */
 @Component
 @RequiredArgsConstructor

@@ -62,6 +62,8 @@ describe("ReportsPage", () => {
     engagedCandidates: 0,
     mappedCompanies: 0,
     createdAt: "2026-07-21T10:00:00Z",
+    archivedAt: null,
+    archivedByName: null,
   };
 
   /** A tile's share of the treemap, in percent — what its area says about its sector. */

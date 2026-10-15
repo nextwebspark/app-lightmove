@@ -220,7 +220,7 @@ public class TaskService {
     @Transactional(readOnly = true)
     public DueDigest dueDigestOf(UUID userId, UUID workspaceId, ZoneId zone, Instant now, int lineCap) {
         LocalDate today = LocalDate.ofInstant(now, zone);
-        List<Task> due = tasks.findOpenAssignedTo(workspaceId, userId).stream()
+        List<Task> due = tasks.findOpenAssignedToOnLivePositions(workspaceId, userId).stream()
                 .filter(task -> task.getDueAt() != null
                         && !LocalDate.ofInstant(task.getDueAt(), zone).isAfter(today))
                 .sorted(TaskOrder.SOONEST_FIRST)

@@ -20,5 +20,6 @@ public record PersonPositionResponse(
         String statusLabel,
         String statusColour,
         CandidatePipelineStageDto pipelineStage,
-        Instant statusChangedAt
+        Instant statusChangedAt,
+        boolean positionArchived
 ) {}

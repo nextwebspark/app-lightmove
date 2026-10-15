@@ -7,6 +7,7 @@ import { useWorkspaceMode, useWorkspaceVocabulary } from "../../workspace/lib/vo
 import * as clientsApi from "../api/clientsApi";
 import type { Client } from "../api/types";
 import type { CompanyPick } from "../lib/companyPick";
+import { liveClients } from "../lib/filtering";
 import { BusinessUnitCombobox } from "./BusinessUnitCombobox";
 import { CompanyPicker } from "./CompanyPicker";
 
@@ -34,7 +35,11 @@ export function NewClientModal({
   const toast = useToast();
   const vocabulary = useWorkspaceVocabulary();
   const isAgency = useWorkspaceMode() === "AGENCY";
-  const existingNames = useMemo(() => new Set(clients.map((client) => client.name.toLowerCase())), [clients]);
+  const holdersByName = useMemo(
+    () => new Map(clients.map((client) => [client.name.toLowerCase(), client])),
+    [clients],
+  );
+  const existingNames = useMemo(() => new Set(holdersByName.keys()), [holdersByName]);
 
   const [pick, setPick] = useState<CompanyPick | null>(null);
   const [unitName, setUnitName] = useState("");
@@ -44,9 +49,11 @@ export function NewClientModal({
   const [error, setError] = useState<string | null>(null);
 
   const trimmedUnitName = unitName.trim();
-  const unitExists = existingNames.has(trimmedUnitName.toLowerCase());
-  const unitNameError = unitExists
-    ? `${trimmedUnitName} is already a ${vocabulary.unitLower}`
+  const holder = holdersByName.get(trimmedUnitName.toLowerCase());
+  const unitNameError = holder
+    ? holder.archivedAt
+      ? `${trimmedUnitName} is an archived ${vocabulary.unitLower} — restore it from the Archived list`
+      : `${trimmedUnitName} is already a ${vocabulary.unitLower}`
     : trimmedUnitName.length > MAX_UNIT_NAME_LENGTH
       ? `That name is too long — keep it to ${MAX_UNIT_NAME_LENGTH} characters or fewer`
       : undefined;
@@ -140,7 +147,7 @@ export function NewClientModal({
         <Field label={vocabulary.unit} error={trimmedUnitName ? unitNameError : undefined}>
           <BusinessUnitCombobox
             value={unitName}
-            clients={clients}
+            clients={liveClients(clients)}
             invalid={!!trimmedUnitName && !!unitNameError}
             onChange={(name) => {
               setUnitName(name);

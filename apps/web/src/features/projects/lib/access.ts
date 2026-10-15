@@ -38,3 +38,12 @@ export function canManageProjectAccess(
   const seat = project.team.find((member) => member.userId === userId);
   return seat?.projectRoles.includes("LEAD") ?? false;
 }
+
+/**
+ * Whether this user may archive or restore the position — the client mirror of `PROJECT_ARCHIVE`, its lead's
+ * alone. Unlike every other project action, a workspace admin without a lead's seat does not hold it.
+ */
+export function canArchivePosition(project: Project, userId: string | undefined): boolean {
+  const seat = project.team.find((member) => member.userId === userId);
+  return seat?.projectRoles.includes("LEAD") ?? false;
+}

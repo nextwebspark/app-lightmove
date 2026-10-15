@@ -17,6 +17,7 @@ import app.lightmove.api.outreach.model.DraftedOpener;
 import app.lightmove.api.outreach.model.OpenerBrief;
 import app.lightmove.api.position.dto.PositionDetailsDto;
 import app.lightmove.api.position.service.PositionService;
+import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.service.ClientService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
@@ -42,6 +43,7 @@ public class OutreachOpenerService {
     private final CandidateOutreachService people;
     private final PositionService positions;
     private final ClientService clients;
+    private final ProjectRepository projects;
     private final OutreachOpenerDrafter drafter;
     private final OutreachEligibility eligibility;
     private final LlmBudgetGuard llmBudget;
@@ -51,6 +53,7 @@ public class OutreachOpenerService {
 
     public List<DraftedOpener> draft(UUID userId, UUID workspaceId, UUID projectId, List<UUID> candidateIds,
                                      HttpServletRequest httpRequest) {
+        projects.requireNotArchived(projectId);
         List<UUID> distinct = candidateIds.stream().distinct().toList();
         requireAllMayBeApproached(workspaceId, projectId, distinct);
         Map<UUID, CandidateDossier> dossiers = new LinkedHashMap<>();
