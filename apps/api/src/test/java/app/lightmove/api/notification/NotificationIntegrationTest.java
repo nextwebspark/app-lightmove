@@ -182,6 +182,24 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("an archived position's rows leave the bell and are never emailed; restoring brings them back")
+    void anArchivedPositionGoesQuietInTheBell() throws Exception {
+        assign(researcherId, "Request CV", Instant.now().plus(2, ChronoUnit.DAYS));
+
+        assertThat(write(admin, "POST", "/api/v1/projects/" + projectId + "/archive", """
+                {"confirmName":"Chief Financial Officer"}""").getResponse().getStatus()).isEqualTo(200);
+        assertThat(rowsOfKind(researcher, "task_assigned")).isEmpty();
+        emailEveryUnread();
+
+        assertThat(write(admin, "POST", "/api/v1/projects/" + projectId + "/restore", "{}")
+                .getResponse().getStatus()).isEqualTo(200);
+        assertThat(rowsOfKind(researcher, "task_assigned")).hasSize(1);
+        emailEveryUnread();
+
+        assertThat(email.subjectsFor(researcherAddress)).noneMatch(subject -> subject.contains("assigned you"));
+    }
+
+    @Test
     @DisplayName("a row read before its email time sends none, even marked unread again")
     void aRowReadInTimeNeverEmails() throws Exception {
         assign(researcherId, "Request CV", Instant.now().plus(2, ChronoUnit.DAYS));

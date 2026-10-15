@@ -99,6 +99,8 @@ describe("ProjectsPage — pure client", () => {
     engagedCandidates: 0,
     mappedCompanies: 0,
     createdAt: "2026-07-13T10:00:00Z",
+    archivedAt: null,
+    archivedByName: null,
   };
 
   const renderPage = () =>
@@ -223,6 +225,8 @@ describe("ProjectsPage — staff and the Getting started card", () => {
     engagedCandidates: 0,
     mappedCompanies: 0,
     createdAt: "2026-07-13T10:00:00Z",
+    archivedAt: null,
+    archivedByName: null,
   };
 
   const renderPage = (view: "my" | "all") =>
@@ -341,6 +345,8 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     engagedCandidates: 0,
     mappedCompanies: 0,
     createdAt: "2026-07-13T10:00:00Z",
+    archivedAt: null,
+    archivedByName: null,
   });
   const me = { memberId: "m-me", userId: "u1", fullName: "Mona Member", email: "mona@firm.example", avatarUrl: null, roles: ["MEMBER"], joinedAt: null };
 
@@ -399,6 +405,31 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     expect(screen.getByPlaceholderText(/Search business unit or position/)).toHaveValue("");
     // Back on the default stage: the subtitle stops counting "of".
     expect(screen.getByText(/^1 position ·/)).toBeInTheDocument();
+  });
+
+  it("keeps an archived position out of every stage, under an Archived chip of its own", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      position("p1", "CFO Search", [seatOf("m-me", "u1")]),
+      {
+        ...position("p2", "Old Search", [seatOf("m-me", "u1")]),
+        archivedAt: "2026-10-01T09:00:00Z",
+        archivedByName: "Mona Member",
+      },
+    ]);
+    const user = userEvent.setup();
+
+    renderPage("all");
+    await screen.findAllByText("CFO Search");
+    expect(screen.queryByText("Old Search")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "All stages" }));
+    expect(screen.queryByText("Old Search")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^Archived/ }));
+
+    expect(await screen.findAllByText("Old Search")).not.toHaveLength(0);
+    expect(screen.queryByText("CFO Search")).not.toBeInTheDocument();
   });
 
   it("reads its stage and search from the address, so a return finds the list as it was left", async () => {

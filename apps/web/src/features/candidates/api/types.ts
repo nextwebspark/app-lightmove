@@ -310,6 +310,7 @@ export interface PersonPosition {
   source: CandidateSource;
   /** Whether the viewer may move this mapping's status: they hold the position's WORK_EXECUTE. */
   workable: boolean;
+  positionArchived?: boolean;
 }
 
 /** The kinds of line a person's history holds; the server's `PersonActivityKind` names. */

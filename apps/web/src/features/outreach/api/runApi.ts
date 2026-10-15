@@ -23,7 +23,8 @@ export type StopReason =
   | "MAILBOX_MOVED"
   | "BOOKING_LINK_UNAVAILABLE"
   | "SEND_FAILED"
-  | "SEND_UNCERTAIN";
+  | "SEND_UNCERTAIN"
+  | "POSITION_ARCHIVED";
 
 export interface OutreachRun {
   id: string;

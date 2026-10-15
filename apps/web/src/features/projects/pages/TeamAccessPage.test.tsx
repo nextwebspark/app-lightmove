@@ -151,6 +151,8 @@ describe("TeamAccessPage", () => {
     engagedCandidates: 0,
     mappedCompanies: 0,
     createdAt: "2026-07-13T10:00:00Z",
+    archivedAt: null,
+    archivedByName: null,
   };
 
   // The page reads the project from ProjectLayout's outlet — a bare shell stands in for the layout.

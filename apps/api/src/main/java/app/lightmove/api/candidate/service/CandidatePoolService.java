@@ -300,7 +300,8 @@ public class CandidatePoolService {
                             mandate == null ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
                             row.getAddedBy(), null, row.getCreatedAt(), row.getSource().value(), false,
                             row.getStatus().getLabel(), row.getStatus().getColour().value(),
-                            CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt());
+                            CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt(),
+                            mandate != null && mandate.isArchived());
                 })
                 .toList();
     }

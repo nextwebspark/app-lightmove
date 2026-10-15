@@ -13,6 +13,7 @@ import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.service.MailboxService;
 import app.lightmove.api.position.service.PositionService;
+import app.lightmove.api.project.constant.ProjectListScope;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.workspace.service.InvitationService;
@@ -57,7 +58,7 @@ public class GettingStartedService {
             return new GettingStartedResponse(true, null, List.of());
         }
 
-        List<ProjectResponse> positionsOfWorkspace = projects.list(userId, workspaceId);
+        List<ProjectResponse> positionsOfWorkspace = projects.list(userId, workspaceId, ProjectListScope.LIVE);
         MailboxResponse mailbox = mailboxes.view(userId, workspaceId);
         Set<GettingStartedStep> offered = EnumSet.allOf(GettingStartedStep.class);
         if (!mailbox.offered()) {

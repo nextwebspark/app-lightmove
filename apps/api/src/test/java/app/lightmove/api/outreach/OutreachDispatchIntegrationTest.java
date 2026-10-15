@@ -709,6 +709,52 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         assertThat(enrollmentOf(priya).get("status")).isEqualTo("SCHEDULED");
     }
 
+    @Test
+    @DisplayName("archiving the position stops its runs at once, and restoring it sends nothing more")
+    void archivingStopsTheRuns() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        assertThat(body(as(consultant, get("/api/v1/projects/" + projectId + "/archive-preview")).andReturn())
+                .get("liveOutreachRuns").asInt()).isEqualTo(1);
+
+        as(consultant, post("/api/v1/projects/" + projectId + "/archive").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"confirmName\":\"group cfo\"}"))
+                .andExpect(status().isOk());
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED")
+                .containsEntry("stop_reason", "POSITION_ARCHIVED");
+        assertThat(activityKinds(priya)).contains("OUTREACH_STOPPED");
+
+        as(consultant, post("/api/v1/projects/" + projectId + "/restore")).andExpect(status().isOk());
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED");
+    }
+
+    @Test
+    @DisplayName("nothing starts on an archived position, and a run that raced the archive stops at its send")
+    void anArchivedPositionStartsNothing() throws Exception {
+        String sequenceId = createSequence("First approach");
+        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        start(sequenceId, priya, "priya@" + domain, null);
+        jdbc.update("update app_lm_project set archived_at = now(), archived_by = created_by where id = ?::uuid",
+                projectId);
+
+        MvcResult refused = startTimed(sequenceId, List.of(person(rajesh, "rajesh@" + domain, null)), "")
+                .andExpect(status().isConflict())
+                .andReturn();
+        assertThat(codeOf(refused)).isEqualTo("PROJECT_ARCHIVED");
+
+        dispatcher.dispatchAt(monday);
+
+        assertThat(gateway.sent()).isEmpty();
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED")
+                .containsEntry("stop_reason", "POSITION_ARCHIVED");
+    }
+
     private static void await(CountDownLatch go) {
         try {
             go.await();

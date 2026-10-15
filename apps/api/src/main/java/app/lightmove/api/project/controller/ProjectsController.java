@@ -5,10 +5,13 @@ import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
+import app.lightmove.api.project.constant.ProjectListScope;
+import app.lightmove.api.project.dto.ArchiveProjectRequest;
 import app.lightmove.api.project.dto.AttachRepresentativeRequest;
 import app.lightmove.api.project.dto.CreateProjectRequest;
 import app.lightmove.api.project.dto.InviteRepresentativeRequest;
 import app.lightmove.api.project.dto.ProjectActivityResponse;
+import app.lightmove.api.project.dto.ProjectArchivePreviewResponse;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.PutTeamMemberRequest;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
@@ -50,10 +53,16 @@ public class ProjectsController {
     private final ClientRepresentativeService representatives;
     private final ProjectActivityService activity;
 
+    /**
+     * Live positions, unless {@code include=archived} asks for the archived ones too — the SPA does, to open
+     * one by link; the extension and anything older never see them.
+     */
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
-    public List<ProjectResponse> list(@AuthenticationPrincipal AuthPrincipal principal) {
-        return projects.list(principal.userId(), principal.requireWorkspaceId());
+    public List<ProjectResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
+                                      @RequestParam(required = false) String include) {
+        ProjectListScope scope = "archived".equals(include) ? ProjectListScope.WITH_ARCHIVED : ProjectListScope.LIVE;
+        return projects.list(principal.userId(), principal.requireWorkspaceId(), scope);
     }
 
     @PostMapping
@@ -86,6 +95,31 @@ public class ProjectsController {
                                   HttpServletRequest httpRequest) {
         return projects.update(
                 principal.userId(), principal.requireWorkspaceId(), projectId, request, httpRequest);
+    }
+
+    @GetMapping("/{projectId}/archive-preview")
+    @RequireProjectPermission(ProjectAction.PROJECT_ARCHIVE)
+    public ProjectArchivePreviewResponse archivePreview(@AuthenticationPrincipal AuthPrincipal principal,
+                                                        @PathVariable UUID projectId) {
+        return projects.archivePreview(principal.requireWorkspaceId(), projectId);
+    }
+
+    @PostMapping("/{projectId}/archive")
+    @RequireProjectPermission(ProjectAction.PROJECT_ARCHIVE)
+    public ProjectResponse archive(@AuthenticationPrincipal AuthPrincipal principal,
+                                   @PathVariable UUID projectId,
+                                   @Valid @RequestBody ArchiveProjectRequest request,
+                                   HttpServletRequest httpRequest) {
+        return projects.archive(principal.userId(), principal.requireWorkspaceId(), projectId,
+                request.confirmName(), httpRequest);
+    }
+
+    @PostMapping("/{projectId}/restore")
+    @RequireProjectPermission(ProjectAction.PROJECT_ARCHIVE)
+    public ProjectResponse restore(@AuthenticationPrincipal AuthPrincipal principal,
+                                   @PathVariable UUID projectId,
+                                   HttpServletRequest httpRequest) {
+        return projects.restore(principal.userId(), principal.requireWorkspaceId(), projectId, httpRequest);
     }
 
     @PutMapping("/{projectId}/members/{memberId}")

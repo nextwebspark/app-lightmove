@@ -55,6 +55,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Field | Client | Server | Shown as |
 |---|---|---|---|
 | Position title | trimmed, ≤ 160 | `@NotBlank @Size(160)` | field |
+| Archive position: title typed back | Archive stays off until it matches — case, spacing and dashes forgiven (`confirmationNameMatches`) | `@NotBlank`; `ConfirmationName`, same rule → `ARCHIVE_NAME_MISMATCH` (400) | banner |
 | Delivery / mapping target date | ordered | `ProjectTimeline` | field |
 | Start / delivery / mapping / target date | ordered | 2000–2100 (`@PlausibleDate`) | field |
 | ☐ Client contact position | required | optional | banner |

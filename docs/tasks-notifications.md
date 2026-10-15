@@ -37,6 +37,9 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   still there; a row read before its time never sends, even marked unread later, and an older row of a group stays
   read while a newer one waits. Preferences are per kind × channel, defaulted on. A person holds at most ten live
   streams per workspace; an eleventh closes their oldest.
+- **An archived position goes quiet** (V137). Its tasks and bell rows are kept but left out of My tasks, the
+  counts, the digest, the due scan and the bell until it is restored; an email due about it is claimed and never
+  sent. The position's own reads — the drawer, the board — still show its tasks.
 - **Staff-only, all of it.** Nothing here rides `CandidateResponse`, the report, the public API or MCP.
 
 ## Wire contract

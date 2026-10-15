@@ -5,7 +5,8 @@ import { Modal } from "./Modal";
 /**
  * The one question asked before an action that cannot be taken back: the title names the object, the
  * body the consequence, and the confirm button is the verb itself ("Stop sequence", never "OK").
- * A reversible action does not come here — it acts at once and offers Undo. `tone="primary"` is for one
+ * A reversible action does not come here — it acts at once and offers Undo — except archiving, which hides work
+ * from the whole team and so always asks, its name typed back. `tone="primary"` is for one
  * that destroys nothing but is too large to take back by hand, such as adding every company a filter finds.
  */
 export function ConfirmDialog({

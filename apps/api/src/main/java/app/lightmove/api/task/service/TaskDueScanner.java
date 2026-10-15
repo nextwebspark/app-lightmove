@@ -20,7 +20,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Tells an assignee when an open task falls due within the hour and again once it is overdue — each once per due
  * date, claimed in one statement ({@code SKIP LOCKED}) so two instances never both announce a task. A task long
- * past its date is not news: only one that went overdue within the lookback is announced.
+ * past its date is not news: only one that went overdue within the lookback is announced. An archived position's
+ * tasks are not claimed, so one restored within the lookback is still announced.
  */
 @Component
 @RequiredArgsConstructor
@@ -31,8 +32,10 @@ public class TaskDueScanner {
 
     private static final String CLAIM_DUE_SOON = """
             UPDATE app_lm_task SET due_soon_notified_at = ?, version = version + 1
-             WHERE id IN (SELECT id FROM app_lm_task
+             WHERE id IN (SELECT id FROM app_lm_task t
                            WHERE status = 'OPEN' AND due_soon_notified_at IS NULL AND due_at > ? AND due_at <= ?
+                             AND NOT EXISTS (SELECT 1 FROM app_lm_project p
+                                             WHERE p.id = t.project_id AND p.archived_at IS NOT NULL)
                            ORDER BY due_at LIMIT ? FOR UPDATE SKIP LOCKED)
             RETURNING id
             """;
@@ -40,8 +43,10 @@ public class TaskDueScanner {
     private static final String CLAIM_OVERDUE = """
             UPDATE app_lm_task SET overdue_notified_at = ?, due_soon_notified_at = coalesce(due_soon_notified_at, ?),
                    version = version + 1
-             WHERE id IN (SELECT id FROM app_lm_task
+             WHERE id IN (SELECT id FROM app_lm_task t
                            WHERE status = 'OPEN' AND overdue_notified_at IS NULL AND due_at <= ? AND due_at > ?
+                             AND NOT EXISTS (SELECT 1 FROM app_lm_project p
+                                             WHERE p.id = t.project_id AND p.archived_at IS NOT NULL)
                            ORDER BY due_at LIMIT ? FOR UPDATE SKIP LOCKED)
             RETURNING id
             """;

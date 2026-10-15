@@ -52,11 +52,11 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
             """)
     long countByRoleName(@Param("projectId") UUID projectId, @Param("roleName") String roleName);
 
-    /** Live mandates where this member is the sole LEAD; delivered/closed ones don't count. */
+    /** Live mandates where this member is the sole LEAD; delivered, closed and archived ones don't count. */
     @Query("""
             select count(distinct pm.id) from ProjectMember pm join pm.roles r, Project p
             where p.id = pm.projectId and pm.memberId = :memberId
-              and r.name = 'LEAD' and p.stage not in :doneStages
+              and r.name = 'LEAD' and p.stage not in :doneStages and p.archivedAt is null
               and not exists (
                   select 1 from ProjectMember other join other.roles r2
                   where other.projectId = pm.projectId and other.id <> pm.id and r2.name = 'LEAD')

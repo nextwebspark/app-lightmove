@@ -79,6 +79,15 @@ export interface Project {
   /** Universe companies with at least one executive mapped at them: the side panel's coverage. */
   mappedCompanies: number;
   createdAt: string;
+  /** Set on a position put away; it then shows only under the Archived chip and by link. */
+  archivedAt: string | null;
+  archivedByName: string | null;
+}
+
+/** What archiving a position would touch, read for the warning before the lead confirms. */
+export interface ProjectArchivePreview {
+  liveOutreachRuns: number;
+  openTasks: number;
 }
 
 /**

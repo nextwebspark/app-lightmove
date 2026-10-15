@@ -31,6 +31,16 @@ export function StagePill({ stage }: { stage: ProjectStage }) {
   );
 }
 
+/** Drawn in place of the stage pill on a position put away, so it never reads as one still being worked. */
+export function ArchivedPill() {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-dashed border-u-border-strong px-[9px] py-[3px] font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-u-text3">
+      <Icon d={ICONS.archive} size={11} />
+      Archived
+    </span>
+  );
+}
+
 type HealthGlyph = "trendingUp" | "warning" | "trendingDown" | "checkCircle";
 
 /** Icon-led health indicators (Uncava status spec), so the state never rests on colour alone. */

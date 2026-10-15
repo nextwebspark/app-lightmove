@@ -81,7 +81,10 @@ public class ClientService {
     public ClientDetailResponse get(UUID workspaceId, UUID clientId) {
         Client client = requireClient(workspaceId, clientId);
         List<ClientMandateResponse> mandates = mandatesFor(workspaceId, clientId);
-        long active = mandates.stream().filter(mandate -> !mandate.stage().isDone()).count();
+        long active = mandates.stream()
+                .filter(mandate -> mandate.archivedAt() == null && !mandate.stage().isDone()).count();
+        long delivered = mandates.stream()
+                .filter(mandate -> mandate.archivedAt() == null && mandate.stage().isDone()).count();
 
         List<RepresentativeResponse> reps = representatives.findByClientIdOrderByCreatedAtAsc(clientId).stream()
                 .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
@@ -92,7 +95,7 @@ public class ClientService {
         return new ClientDetailResponse(client.getId(), client.getName(), client.universeAccountId(),
                 client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),
                 client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getPersona(),
-                active, mandates.size() - active, reps, mandates);
+                active, delivered, reps, mandates);
     }
 
     @Transactional
@@ -219,7 +222,10 @@ public class ClientService {
 
     private ClientListResponse toListResponse(Client client, List<Project> mandates,
                                               List<ClientRepresentative> reps) {
-        long active = mandates.stream().filter(project -> !project.getStage().isDone()).count();
+        long active = mandates.stream()
+                .filter(project -> !project.isArchived() && !project.getStage().isDone()).count();
+        long delivered = mandates.stream()
+                .filter(project -> !project.isArchived() && project.getStage().isDone()).count();
         ClientType type = mandates.isEmpty() ? ClientType.PROSPECT : ClientType.RETAINED;
 
         List<RepAvatar> contacts = reps.stream()
@@ -229,7 +235,7 @@ public class ClientService {
         long viewersActive = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.ACTIVE).count();
         long viewersInvited = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.INVITED).count();
 
-        return ClientListResponse.of(client, type, active, mandates.size() - active, contacts,
+        return ClientListResponse.of(client, type, active, delivered, contacts,
                 new ViewerSummary(viewersActive, viewersInvited));
     }
 
@@ -240,6 +246,6 @@ public class ClientService {
                 .findFirst()
                 .orElse(null);
         return new ClientMandateResponse(project.id(), project.positionTitle(), project.stage(),
-                project.health(), leadName, project.targetDate());
+                project.health(), leadName, project.targetDate(), project.archivedAt());
     }
 }

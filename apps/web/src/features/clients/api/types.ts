@@ -55,6 +55,7 @@ export interface ClientMandate {
   health: ProjectHealth;
   leadName: string | null;
   targetDate: string | null;
+  archivedAt?: string | null;
 }
 
 export interface ClientDetail {

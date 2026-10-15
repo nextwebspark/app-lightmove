@@ -9,6 +9,8 @@ public enum ProjectEventType implements AuditEventType {
     PROJECT_CREATED,
     PROJECT_UPDATED,
     PROJECT_TEAM_CHANGED,
+    PROJECT_ARCHIVED,
+    PROJECT_RESTORED,
 
     CLIENT_CREATED,
     CLIENT_UPDATED,

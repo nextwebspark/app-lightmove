@@ -17,6 +17,17 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 
     List<Project> findByWorkspaceIdOrderByCreatedAtDesc(UUID workspaceId);
 
+    List<Project> findByWorkspaceIdAndArchivedAtIsNullOrderByCreatedAtDesc(UUID workspaceId);
+
+    boolean existsByIdAndArchivedAtIsNotNull(UUID id);
+
+    /** Refuses whatever would start new work — outreach above all — on an archived position. */
+    default void requireNotArchived(UUID id) {
+        if (existsByIdAndArchivedAtIsNotNull(id)) {
+            throw ApiException.of(ErrorCode.PROJECT_ARCHIVED);
+        }
+    }
+
     Optional<Project> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
     /** Of {@code ids}, the ones that are this workspace's projects. */

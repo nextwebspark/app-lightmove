@@ -25,6 +25,8 @@ const project = (overrides: Partial<Project>): Project => ({
   engagedCandidates: 0,
   mappedCompanies: 0,
   createdAt: "2026-07-01T00:00:00Z",
+  archivedAt: null,
+  archivedByName: null,
   ...overrides,
 });
 
@@ -61,5 +63,15 @@ describe("filterProjects", () => {
 
     const byPosition = filterProjects([mine], { view: "all", chip: "allstages", query: "cfo" });
     expect(byPosition).toHaveLength(1);
+  });
+
+  it("an archived position shows under the Archived chip and under no other", () => {
+    const archived = project({ id: "archived", archivedAt: "2026-10-01T09:00:00Z", archivedByName: "Alok" });
+    const all = [mine, delivered, archived];
+
+    for (const chip of ["active", "allstages", "MAPPING"] as const) {
+      expect(filterProjects(all, { view: "all", chip, query: "" }).map((p) => p.id)).not.toContain("archived");
+    }
+    expect(filterProjects(all, { view: "all", chip: "archived", query: "" }).map((p) => p.id)).toEqual(["archived"]);
   });
 });

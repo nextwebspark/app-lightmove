@@ -122,6 +122,8 @@ export type ApiErrorCode =
   | "MEETING_BOOK_FAILED"
   | "MEETING_CALENDAR_UNAVAILABLE"
   | "WORKSPACE_NAME_MISMATCH"
+  | "ARCHIVE_NAME_MISMATCH"
+  | "PROJECT_ARCHIVED"
   | "TEMPLATE_STALE"
   | "TEMPLATE_FALLBACK_REQUIRED"
   | "TEMPLATE_FILE_UNREADABLE"
@@ -155,6 +157,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CLIENT_ALREADY_EXISTS: "That name is already taken.",
   PROJECT_LAST_LEAD: "A position must keep at least one lead.",
   WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
+  ARCHIVE_NAME_MISMATCH: "Type the name exactly as shown to confirm.",
+  PROJECT_ARCHIVED: "This position is archived. Restore it to start outreach.",
   FORBIDDEN: "You don't have permission to do this.",
   API_KEY_NOT_FOUND: "That key no longer exists. Reload to see the current list.",
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",

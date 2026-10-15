@@ -30,6 +30,7 @@ import * as positionApi from "../../position/api/positionApi";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
+import { isArchived } from "../../projects/lib/filtering";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type * as talentMapTypes from "../../talentmap/api/types";
 import { TalentMapView } from "../../talentmap/components/TalentMapView";
@@ -334,7 +335,11 @@ function TriageStage() {
   const mailbox = useMailbox(canWrite);
   /** Ticked companies' executives go to Add to sequence; never from Declined. */
   const addToSequenceOffered =
-    canWrite && stage.status !== "declined" && view === "table" && mailbox.data?.offered === true;
+    canWrite &&
+    stage.status !== "declined" &&
+    view === "table" &&
+    mailbox.data?.offered === true &&
+    !isArchived(project);
   const selectionOffered = findExecutivesOffered || addToSequenceOffered;
   const selectionCap = addToSequenceOffered ? Math.max(findExecutivesCap, ADD_TO_SEQUENCE_COMPANY_CAP) : findExecutivesCap;
   const selectionAction = addToSequenceOffered ? "Add to sequence" : "Find executives";

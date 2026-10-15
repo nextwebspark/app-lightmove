@@ -598,6 +598,17 @@ while unread; a row names a note and never quotes it; `core/stream`'s per-user c
 after `lightmove.notifications.email-delay`, and a weekday digest at 08:00 in the person's mailbox zone, each
 claimed once. All of it is staff-only and rides no `CandidateResponse`, report, public API or MCP read.
 
+**A position is archived, never deleted** (V137): its lead alone — `PROJECT_ARCHIVE`, the one project action a
+workspace admin does not hold without a seat (they seat themselves as lead first) — types its title back in a warning
+that counts what it stops (`GET …/archive-preview`), and `POST /projects/{id}/archive` stamps `archived_at`. It then
+leaves every list and count (`GET /projects` answers live positions unless `?include=archived`, which the SPA sends
+and filters, so a link still opens one; a pure client never gets archived ones), the pickers, the public API and MCP
+lists, My tasks, the due scan and the bell (rows kept, back on restore; their emails dropped), and its live runs stop
+as `POSITION_ARCHIVED` in the same transaction (`ProjectArchived` → `PositionArchiveOutreach`) — a Start or an
+opener draft there is `PROJECT_ARCHIVED`. Nothing is frozen and nothing deleted; the screens stay editable under an
+Archived banner, and Restore (one click, the same gate) brings it back without restarting a run. The ⋯ beside the
+side panel's Close and in the position's topbar is where it lives; the list draws an Archived chip after the stages.
+
 `publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
 script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
 with Swagger UI at `/api/v1/public/docs`. Its credential is an **API key** (V114 `app_lm_api_key`), made in
@@ -1055,6 +1066,8 @@ per local day), and widens the activity kinds with `TASK_CREATED`, `TASK_COMPLET
 V135 adds `app_lm_candidate_scorecard` — one per mapping (`candidate_id` unique, cascading), `status` `DRAFT |
 REVIEWED` with `reviewed_at` set exactly when reviewed (CHECK), the scores a jsonb array of `{panel, name, weight,
 score, evidence}` snapshots and the report a jsonb object — and widens the activity kinds with `ASSESSMENT_REVIEWED`.
+V137 adds `app_lm_project.archived_at` / `archived_by` (both or neither, by CHECK), seeds `PROJECT_ARCHIVE` to LEAD
+alone, and adds `POSITION_ARCHIVED` to the enrollment's `stop_reason` CHECK.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

@@ -16,7 +16,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Member removal: no live mandate may lose its only lead, and the seats go too. A sole lead on a
- * DELIVERED/CLOSED mandate deliberately does not block, or removal would become impossible over time.
+ * DELIVERED/CLOSED or archived mandate deliberately does not block, or removal would become impossible over
+ * time; an admin seats a new lead to restore one.
  * Each staff seat's going is announced first, so the work it held can be handed on in the same transaction.
  */
 @Service

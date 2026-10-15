@@ -111,6 +111,11 @@ public enum ErrorCode {
     WORKSPACE_NAME_MISMATCH(HttpStatus.BAD_REQUEST,
             "Type the workspace name exactly to confirm deletion"),
 
+    ARCHIVE_NAME_MISMATCH(HttpStatus.BAD_REQUEST, "Type the name exactly to confirm archiving"),
+
+    /** Outreach on an archived position is stopped, and nothing new may start there until it is restored. */
+    PROJECT_ARCHIVED(HttpStatus.CONFLICT, "This position is archived. Restore it to start outreach"),
+
     /** A database constraint fired ahead of its service-level pre-check — two requests raced. */
     CONFLICT(HttpStatus.CONFLICT, "That conflicts with something that already exists. Try again"),
 

@@ -30,6 +30,7 @@ import app.lightmove.api.outreach.model.SequenceTokens;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
+import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
@@ -67,6 +68,7 @@ public class OutreachEnrollmentService {
     private final OutreachPersonalisation personalisation;
     private final BookingPages bookingPages;
     private final OutreachOutcomes outcomes;
+    private final ProjectRepository projects;
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final Clock clock;
@@ -97,6 +99,7 @@ public class OutreachEnrollmentService {
 
     public StartSequenceResponse start(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                        StartSequenceRequest request, HttpServletRequest httpRequest) {
+        projects.requireNotArchived(projectId);
         List<UUID> candidateIds = request.people().stream().map(EnrollPersonRequest::candidateId).toList();
         if (new HashSet<>(candidateIds).size() != candidateIds.size()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Someone is listed twice");

@@ -4,6 +4,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as projectsApi from "../../projects/api/projectsApi";
 import { canExecuteProjectWork } from "../../projects/lib/access";
+import { livePositions } from "../../projects/lib/filtering";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as poolApi from "../api/poolApi";
 
@@ -11,8 +12,8 @@ import * as poolApi from "../api/poolApi";
  * What the Candidates page names things by: the tag catalog, the colleagues who may own someone, and the
  * positions people can be in. Each rides the cache the rest of the app reads it from.
  *
- * <p>`positions` is every one, for filtering by; `workablePositions` only those the viewer may add
- * someone to, since adding is the position's own `WORK_EXECUTE`.
+ * <p>`positions` is every live one, for filtering by; `workablePositions` only those the viewer may add
+ * someone to, since adding is the position's own `WORK_EXECUTE`. An archived position is in neither.
  */
 export function usePoolLookups() {
   const { user } = useAuth();
@@ -23,7 +24,7 @@ export function usePoolLookups() {
   return useMemo(() => {
     const catalog = tags.data ?? [];
     const staff = (members.data ?? []).filter((member) => !isPureClient(member.roles));
-    const positions = projects.data ?? [];
+    const positions = livePositions(projects.data ?? []);
     return {
       tags: catalog,
       offeredTags: catalog.filter((tag) => !tag.retired),

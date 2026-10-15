@@ -40,6 +40,7 @@ const STOP_REASONS: Record<string, string> = {
   BOOKING_LINK_UNAVAILABLE: "The sender's booking link had no page behind it",
   SEND_FAILED: "The mail service refused the email",
   SEND_UNCERTAIN: "A send may not have gone through, so nothing more was sent",
+  POSITION_ARCHIVED: "The position was archived",
   BOUNCED: "The address bounced",
   BOOKED: "A call was booked",
 };

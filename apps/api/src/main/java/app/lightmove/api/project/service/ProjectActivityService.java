@@ -34,6 +34,8 @@ public class ProjectActivityService {
 
     private static final Set<ProjectEventType> SHOWN = EnumSet.of(
             ProjectEventType.PROJECT_CREATED,
+            ProjectEventType.PROJECT_ARCHIVED,
+            ProjectEventType.PROJECT_RESTORED,
             ProjectEventType.POSITION_UPDATED,
             ProjectEventType.POSITION_TEMPLATE_APPLIED,
             ProjectEventType.POSITION_PUBLISHED,

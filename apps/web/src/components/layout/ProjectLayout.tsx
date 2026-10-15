@@ -1,14 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { Outlet, useLocation, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { NotFoundPage } from "../../app/NotFoundPage";
 import { useAuth } from "../../features/auth/AuthProvider";
 import * as pipelineApi from "../../features/pipeline/api/pipelineApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import { canExecuteProjectWork } from "../../features/projects/lib/access";
 import type { Project } from "../../features/projects/api/types";
+import {
+  ArchivePositionDialog,
+  PositionActionsMenu,
+  PositionArchivedNotice,
+} from "../../features/projects/components/PositionArchive";
 import { ProjectPeopleBar } from "../../features/projects/components/ProjectPeopleBar";
+import { isArchived } from "../../features/projects/lib/filtering";
 import { cn } from "../../lib/cn";
-import { Spinner } from "../ui";
+import { Spinner, useToast } from "../ui";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { type SidebarGroup } from "./Sidebar";
@@ -50,6 +57,9 @@ export function ProjectLayout() {
   const { projectId } = useParams();
   const origin = usePositionsOrigin(projectId);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
   // `includes`, not `endsWith`: the Companies stages are a path segment deep (/companies/universe),
   // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
   // wide grid ending in mid-air.
@@ -149,7 +159,13 @@ export function ProjectLayout() {
           positionsHref={origin.path.startsWith("/clients") ? "/" : origin.path}
         />
       }
-      topbarActions={<ProjectPeopleBar project={project} />}
+      topbarActions={
+        <div className="flex min-w-0 items-center gap-1">
+          <ProjectPeopleBar project={project} />
+          <PositionActionsMenu project={project} onArchive={() => setConfirmingArchive(true)} />
+        </div>
+      }
+      notice={isArchived(project) ? <PositionArchivedNotice project={project} /> : undefined}
       navGroups={groups}
       navBackLink={{ to: origin.path, label: origin.label, title: `Back to ${origin.label}`, icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
@@ -161,6 +177,17 @@ export function ProjectLayout() {
       )}
     >
       <Outlet context={{ project } satisfies ProjectOutletContext} />
+      {confirmingArchive && (
+        <ArchivePositionDialog
+          project={project}
+          onClose={() => setConfirmingArchive(false)}
+          onArchived={() => {
+            setConfirmingArchive(false);
+            toast.success(`${project.positionTitle} archived`);
+            navigate(origin.path.startsWith("/clients") ? "/" : origin.path);
+          }}
+        />
+      )}
     </AppShell>
   );
 }
