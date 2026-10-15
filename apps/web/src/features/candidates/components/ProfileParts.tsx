@@ -58,8 +58,8 @@ export function PersonHeaderLayout({
             <HeaderProfileLink linkedinUrl={linkedinUrl} />
             {nameAction}
           </span>
-          <p className="mt-0.5 truncate font-mono text-[12.5px] text-u-text2">{title ?? "—"}</p>
-          <p className="mt-1 truncate font-mono text-[11.5px] text-u-text3">
+          <p className="mt-0.5 truncate font-mono text-note text-u-text2">{title ?? "—"}</p>
+          <p className="mt-1 truncate font-mono text-meta text-u-text3">
             {context || "No employer or location recorded"}
           </p>
         </div>
@@ -87,10 +87,7 @@ const PILL =
 const MORE_PILL =
   "inline-flex flex-none items-center rounded-full border border-transparent px-2.5 py-1 font-mono text-note font-semibold text-u-accent";
 
-/**
- * The mockup's language pills, reused for skills: a row of small rounded tags under a tiny label, held to
- * two lines with "+N more" at the end of the second until it is unfolded.
- */
+/** The mockup's language pills, reused for skills, held to two lines until "+N more" unfolds them. */
 export function PillRow({ label, values, empty }: { label: string; values: readonly string[]; empty?: string }) {
   const slot = useRef<HTMLDivElement>(null);
   const chip = useRef<HTMLSpanElement>(null);

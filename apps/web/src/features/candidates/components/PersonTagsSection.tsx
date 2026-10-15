@@ -14,11 +14,7 @@ import { TagPill } from "./pool/TagPill";
 
 const MORE_CHIP = "rounded-full bg-u-raised px-1.5 font-mono text-meta font-semibold text-u-text2";
 
-/**
- * The team's tags on a person, as one line under either drawer's header — a fact about the person like
- * their owner, so it is on view whichever tab is open. Tags past the line fold into a "+N" chip, so the
- * header never grows. Staff-only, like the person record.
- */
+/** The team's tags on a person, one line under either drawer's header; the rest fold into "+N". Staff-only. */
 export function PersonTagsSection({ person, className }: { person: PersonRecord; className?: string }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -48,8 +44,6 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
   });
   const hidden = Math.max(0, held.length - fitting);
 
-  const untag = (tagId: string) => untagging.mutate(tagId);
-
   return (
     <section aria-label="Tags" className={cn("flex items-center gap-1.5", className)}>
       <Icon d={ICONS.tag} size={12} className="me-0.5 flex-none text-u-text3" />
@@ -60,7 +54,7 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
             <RemovableTagPill
               key={tag.id}
               tag={tag}
-              onRemove={untag}
+              onRemove={untagging.mutate}
               removing={untagging.isPending}
               {...FITTING_PILL}
               aria-hidden={isLeftOut || undefined}
@@ -85,7 +79,12 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
                 </div>
                 <div className="flex flex-wrap gap-1.5 px-1 pb-1">
                   {held.map((tag) => (
-                    <RemovableTagPill key={tag.id} tag={tag} onRemove={untag} removing={untagging.isPending} />
+                    <RemovableTagPill
+                      key={tag.id}
+                      tag={tag}
+                      onRemove={untagging.mutate}
+                      removing={untagging.isPending}
+                    />
                   ))}
                 </div>
               </div>
@@ -103,7 +102,7 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
   );
 }
 
-/** A tag that can be taken off, in the slot the row measures and the popover lists. */
+/** A removable tag. Never shrinks: a squeezed tag would measure as fitting, and "+N" would never show. */
 function RemovableTagPill({
   tag,
   onRemove,
@@ -116,7 +115,7 @@ function RemovableTagPill({
   removing: boolean;
 } & ComponentPropsWithoutRef<"span">) {
   return (
-    <span {...slot} className={cn("flex min-w-0", className)}>
+    <span {...slot} className={cn("flex flex-none", className)}>
       <TagPill tag={tag} onRemove={() => onRemove(tag.id)} removing={removing} />
     </span>
   );

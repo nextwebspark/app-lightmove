@@ -4,18 +4,12 @@ import { pillsThatFit } from "./pillsThatFit";
 /** Spread on each pill `useFittingCount` measures; one past the count also wears {@link LEFT_OUT_PILL}. */
 export const FITTING_PILL = { "data-fitting-pill": "" } as const;
 
-/**
- * A pill the row has no room for: out of the flow and unseen, but still laid out at its natural width so
- * the next measurement can read it. Rendered rather than dropped, so each value is in the row once.
- */
+/** A pill the row has no room for: unseen, but still laid out so the next measurement can read it. */
 export const LEFT_OUT_PILL = "invisible absolute start-0 top-0";
 
 /**
- * How many of `slot`'s pills fit in `lines` lines, keeping room for `chip` (a hidden copy of the "+N"
- * chip at its widest) and `tail`, measured again whenever the slot is resized and once the page's fonts
- * have loaded, since a pill first drawn in a fallback font is measured at the wrong width. Hiding pills
- * changes the row's height, so the observer fires once more after each change; it measures the same count,
- * and React keeps the state as it is.
+ * How many of `slot`'s pills fit in `lines` lines beside `chip` and `tail`. Measured again on a resize and
+ * once fonts load, since a pill drawn in a fallback font reads at the wrong width.
  */
 export function useFittingCount({
   slot,

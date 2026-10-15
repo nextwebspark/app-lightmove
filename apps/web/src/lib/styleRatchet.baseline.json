@@ -191,7 +191,7 @@
     "arbitraryRadius": 3
   },
   "features/candidates/components/ProfileParts.tsx": {
-    "arbitraryText": 12
+    "arbitraryText": 10
   },
   "features/candidates/components/ProfileSectionForm.tsx": {
     "arbitraryText": 3
