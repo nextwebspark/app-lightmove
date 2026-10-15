@@ -61,7 +61,7 @@ import {
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
-import { ClampedText, EducationList, FoldAllButton, HeaderProfileLink, PillRow } from "./ProfileParts";
+import { ClampedText, EducationList, FoldAllButton, PersonHeaderLayout, PillRow } from "./ProfileParts";
 import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
 import { PrimaryCvChip } from "./documents/PrimaryCvChip";
@@ -302,71 +302,66 @@ export function CandidateProfile({
     <>
       <div className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
-        <div className="group flex items-start gap-3 pe-8">
-          <CandidateAvatar
-            projectId={projectId}
-            candidate={candidate}
-            className="size-[44px] rounded-[10px] border border-u-border-strong text-sm"
-          />
-          <div className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5">
-              <h2 className="font-sans text-base font-semibold">{candidate.fullName}</h2>
-              <HeaderProfileLink linkedinUrl={candidate.linkedinUrl} />
-              {pencil("identity", "details")}
-            </span>
-            <p className="mt-0.5 font-mono text-[12.5px] text-u-text2">{candidate.title ?? "—"}</p>
-            <p className="mt-1 font-mono text-[11.5px] text-u-text3">
-              {[employerLabel, candidate.locationCity, candidate.locationCountry]
-                .filter(Boolean)
-                .join(" · ") || "No employer or location recorded"}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {candidate.seniority && (
-                <span className="inline-flex items-center gap-1">
-                  <DetailPill label={candidate.seniority} />
-                  {candidate.aiInferredFields.includes("seniority") && <AiInferredBadge />}
-                </span>
-              )}
-              <DetailPill
-                label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
-                className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
+        <PersonHeaderLayout
+          avatar={
+            <CandidateAvatar
+              projectId={projectId}
+              candidate={candidate}
+              className="size-[44px] rounded-[10px] border border-u-border-strong text-sm"
+            />
+          }
+          fullName={candidate.fullName}
+          linkedinUrl={candidate.linkedinUrl}
+          nameAction={pencil("identity", "details")}
+          title={candidate.title}
+          context={[employerLabel, candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
+        >
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {candidate.seniority && (
+              <span className="inline-flex items-center gap-1">
+                <DetailPill label={candidate.seniority} />
+                {candidate.aiInferredFields.includes("seniority") && <AiInferredBadge />}
+              </span>
+            )}
+            <DetailPill
+              label={CANDIDATE_SOURCE_STYLES[candidate.source].label}
+              className={CANDIDATE_SOURCE_STYLES[candidate.source].className}
+            />
+            {canWrite ? (
+              <StatusPicker
+                value={candidate.status}
+                currentLabel={candidate.statusLabel}
+                aria-label="Status"
+                disabled={changeStatus.isPending}
+                onChange={(status) =>
+                  changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                }
+                className="h-7"
               />
-              {canWrite ? (
-                <StatusPicker
-                  value={candidate.status}
-                  currentLabel={candidate.statusLabel}
-                  aria-label="Status"
-                  disabled={changeStatus.isPending}
-                  onChange={(status) =>
-                    changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
-                  }
-                  className="h-7"
-                />
-              ) : (
-                <DetailPill
-                  label={statusStyle(candidate.status, candidate).label}
-                  className={statusStyle(candidate.status, candidate).className}
-                />
-              )}
-              {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
-            </div>
+            ) : (
+              <DetailPill
+                label={statusStyle(candidate.status, candidate).label}
+                className={statusStyle(candidate.status, candidate).className}
+              />
+            )}
+            {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
           </div>
-        </div>
-        {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5 ps-[56px]" />}
-        {canWrite && <DoNotContactStrip personId={candidate.personId} />}
-        {canWrite && (
-          <NextActionBar
-            projectId={projectId}
-            candidateId={candidate.id}
-            firstName={firstName}
-            justCompleted={nextActionDone}
-            onCompleted={() => setNextActionDone(true)}
-            onPromptSettled={settleNextActionPrompt}
-            onOpen={openNextAction}
-            onShowNote={showNote}
-            className="mt-3"
-          />
-        )}
+          {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
+          {canWrite && <DoNotContactStrip personId={candidate.personId} />}
+          {canWrite && (
+            <NextActionBar
+              projectId={projectId}
+              candidateId={candidate.id}
+              firstName={firstName}
+              justCompleted={nextActionDone}
+              onCompleted={() => setNextActionDone(true)}
+              onPromptSettled={settleNextActionPrompt}
+              onOpen={openNextAction}
+              onShowNote={showNote}
+              className="mt-3"
+            />
+          )}
+        </PersonHeaderLayout>
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
           tabs={offeredTabs}

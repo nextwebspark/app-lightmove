@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { CandidateEducationEntry } from "../api/types";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { cn } from "../../../lib/cn";
 import { toBrowsableUrl } from "../../../lib/url";
+import { FITTING_PILL, LEFT_OUT_PILL, useFittingCount } from "../../../lib/useFittingCount";
 
 /**
  * The pieces an executive's profile panel is drawn from, shared by the candidate drawer and by
@@ -10,7 +11,7 @@ import { toBrowsableUrl } from "../../../lib/url";
  */
 
 /** LinkedIn's own mark beside the name, through the same guard as the Contact row's link. */
-export function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
+function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
   const profileUrl = toBrowsableUrl(linkedinUrl);
   if (!profileUrl) return null;
   return (
@@ -26,6 +27,48 @@ export function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null 
   );
 }
 
+/**
+ * Both person drawers' header: the photo, then one column for the name, title and context line and everything
+ * the drawer puts under them, so the two headers cannot drift apart.
+ */
+export function PersonHeaderLayout({
+  avatar,
+  fullName,
+  linkedinUrl,
+  nameAction,
+  title,
+  context,
+  children,
+}: {
+  avatar: ReactNode;
+  fullName: string;
+  linkedinUrl: string | null;
+  nameAction?: ReactNode;
+  title: string | null;
+  context: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="group flex items-start gap-3">
+      <div className="flex flex-none">{avatar}</div>
+      <div className="min-w-0 flex-1">
+        <div className="pe-8">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <h2 className="truncate font-sans text-base font-semibold text-u-text">{fullName}</h2>
+            <HeaderProfileLink linkedinUrl={linkedinUrl} />
+            {nameAction}
+          </span>
+          <p className="mt-0.5 truncate font-mono text-note text-u-text2">{title ?? "—"}</p>
+          <p className="mt-1 truncate font-mono text-meta text-u-text3">
+            {context || "No employer or location recorded"}
+          </p>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function FoldAllButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
@@ -38,8 +81,20 @@ export function FoldAllButton({ label, onClick }: { label: string; onClick: () =
   );
 }
 
-/** The mockup's language pills, reused for skills: a row of small rounded tags under a tiny label. */
+const PILL_ROW_LINES = 2;
+const PILL =
+  "inline-flex max-w-full items-center rounded-full border border-u-border-strong bg-u-raised px-2.5 py-1 font-mono text-[12px] font-medium text-u-text2";
+const MORE_PILL =
+  "inline-flex flex-none items-center rounded-full border border-transparent px-2.5 py-1 font-mono text-note font-semibold text-u-accent";
+
+/** The mockup's language pills, reused for skills, held to two lines until "+N more" unfolds them. */
 export function PillRow({ label, values, empty }: { label: string; values: readonly string[]; empty?: string }) {
+  const slot = useRef<HTMLDivElement>(null);
+  const chip = useRef<HTMLSpanElement>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const fitting = useFittingCount({ slot, chip, lines: PILL_ROW_LINES, contentKey: values.join("|") });
+  const hidden = Math.max(0, values.length - fitting);
+
   return (
     <div className="mt-3">
       <div className="mb-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
@@ -48,15 +103,33 @@ export function PillRow({ label, values, empty }: { label: string; values: reado
       {values.length === 0 ? (
         <p className="font-mono text-[12.5px] text-u-text3">{empty}</p>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
-          {values.map((value) => (
-            <span
-              key={value}
-              className="inline-flex items-center rounded-full border border-u-border-strong bg-u-raised px-2.5 py-1 font-mono text-[12px] font-medium text-u-text2"
+        <div ref={slot} className="relative flex flex-wrap gap-1.5">
+          {values.map((value, index) => {
+            const isLeftOut = !isExpanded && index >= fitting;
+            return (
+              <span
+                key={`${index}:${value}`}
+                {...FITTING_PILL}
+                aria-hidden={isLeftOut || undefined}
+                className={cn(PILL, isLeftOut && LEFT_OUT_PILL)}
+              >
+                {value}
+              </span>
+            );
+          })}
+          {hidden > 0 && (
+            <button
+              type="button"
+              aria-expanded={isExpanded}
+              onClick={() => setIsExpanded((current) => !current)}
+              className={cn(MORE_PILL, "transition hover:bg-u-accent-tint")}
             >
-              {value}
-            </span>
-          ))}
+              {isExpanded ? "See less" : `+${hidden} more`}
+            </button>
+          )}
+          <span ref={chip} aria-hidden className={cn(MORE_PILL, LEFT_OUT_PILL)}>
+            +{values.length} more
+          </span>
         </div>
       )}
     </div>
