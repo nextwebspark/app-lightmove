@@ -2,6 +2,7 @@ package app.lightmove.api.project.dto;
 
 import app.lightmove.api.project.constant.ClientType;
 import app.lightmove.api.project.model.Client;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,15 +18,17 @@ public record ClientListResponse(
         long activeMandates,
         long deliveredMandates,
         List<RepAvatar> contacts,
-        ViewerSummary viewers
+        ViewerSummary viewers,
+        Instant archivedAt,
+        String archivedByName
 ) {
 
     /** The one place a row is assembled: four adjacent {@code String}s are a transposition nothing catches. */
     public static ClientListResponse of(Client client, ClientType type, long activeMandates,
                                         long deliveredMandates, List<RepAvatar> contacts,
-                                        ViewerSummary viewers) {
+                                        ViewerSummary viewers, String archivedByName) {
         return new ClientListResponse(client.getId(), client.getName(), type, client.getSector(),
                 client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), activeMandates,
-                deliveredMandates, contacts, viewers);
+                deliveredMandates, contacts, viewers, client.getArchivedAt(), archivedByName);
     }
 }

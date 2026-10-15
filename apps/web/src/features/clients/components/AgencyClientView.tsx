@@ -12,7 +12,8 @@ import type { HiringPersona } from "../../workspace/api/types";
 import { PersonaFields } from "../../workspace/components/PersonaFields";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail, UpdateClientPayload } from "../api/types";
-import { ClientDrawerFoot, ClientPositions, DrawerField, Representatives } from "./ClientRecordParts";
+import { ClientArchivedNotice, ClientDrawerActions } from "./ClientArchive";
+import { ClientPositions, DrawerField, Representatives } from "./ClientRecordParts";
 
 /**
  * An agency's client, drawn as the company panel Strategy and Companies open: the company's own facts
@@ -55,6 +56,7 @@ export function AgencyClientView({
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5">
+        <ClientArchivedNotice client={client} className="mt-4" />
         {company && <CompanyFactsSections company={company} />}
         <ClientDetailsSection client={client} editsCompanyFacts={accountId === null} />
         <ClientPersonaSection client={client} />
@@ -66,7 +68,7 @@ export function AgencyClientView({
         </section>
       </div>
 
-      <ClientDrawerFoot onClose={onClose} onNewMandate={onNewMandate} />
+      <ClientDrawerActions client={client} onClose={onClose} onNewMandate={onNewMandate} />
     </>
   );
 }

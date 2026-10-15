@@ -3,6 +3,8 @@ package app.lightmove.api.project.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
+import app.lightmove.api.project.constant.ClientListScope;
+import app.lightmove.api.project.dto.ArchiveClientRequest;
 import app.lightmove.api.project.dto.ClientDetailResponse;
 import app.lightmove.api.project.dto.ClientListResponse;
 import app.lightmove.api.project.dto.CreateClientRequest;
@@ -26,12 +28,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The client registry, gated on {@code CLIENT_RECORD_MANAGE} (ADMIN and MEMBER). The workspace comes
- * from the principal, never the path.
+ * The client registry, gated on {@code CLIENT_RECORD_MANAGE} (ADMIN and MEMBER), its archive on
+ * {@code WORKSPACE_MANAGE}. The workspace comes from the principal, never the path.
  */
 @RestController
 @RequestMapping("/api/v1/clients")
@@ -41,10 +44,13 @@ public class ClientsController {
     private final ClientService clients;
     private final ClientRepresentativeService representatives;
 
+    /** Live records, unless {@code include=archived} asks for the archived ones too, as the SPA does. */
     @GetMapping
     @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
-    public List<ClientListResponse> list(@AuthenticationPrincipal AuthPrincipal principal) {
-        return clients.list(principal.requireWorkspaceId());
+    public List<ClientListResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
+                                         @RequestParam(required = false) String include) {
+        return clients.list(principal.requireWorkspaceId(),
+                "archived".equals(include) ? ClientListScope.WITH_ARCHIVED : ClientListScope.LIVE);
     }
 
     @PostMapping
@@ -73,6 +79,25 @@ public class ClientsController {
                                        HttpServletRequest httpRequest) {
         return clients.update(
                 principal.userId(), principal.requireWorkspaceId(), clientId, request, httpRequest);
+    }
+
+    /** The firm's own call, so an admin's: it takes the record out of every list and the New position picker. */
+    @PostMapping("/{clientId}/archive")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public ClientDetailResponse archive(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID clientId,
+                                        @Valid @RequestBody ArchiveClientRequest request,
+                                        HttpServletRequest httpRequest) {
+        return clients.archive(principal.userId(), principal.requireWorkspaceId(), clientId, request.confirmName(),
+                httpRequest);
+    }
+
+    @PostMapping("/{clientId}/restore")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public ClientDetailResponse restore(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @PathVariable UUID clientId,
+                                        HttpServletRequest httpRequest) {
+        return clients.restore(principal.userId(), principal.requireWorkspaceId(), clientId, httpRequest);
     }
 
     /** An agency client's persona, the hiring context the assistant reads for this client's mandates. */
