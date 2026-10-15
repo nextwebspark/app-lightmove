@@ -1,0 +1,180 @@
+package app.lightmove.api.enrichment.candidate.service;
+
+import app.lightmove.api.candidate.model.AiScorecardDraft;
+import app.lightmove.api.candidate.model.CandidateDossier;
+import app.lightmove.api.candidate.model.CandidateScorecard;
+import app.lightmove.api.candidate.model.CriterionScore;
+import app.lightmove.api.candidate.model.ScorecardReport;
+import app.lightmove.api.common.constant.CompetencyPanel;
+import app.lightmove.api.core.llm.model.BlockedAnswer;
+import app.lightmove.api.core.llm.service.StructuredPrompt;
+import app.lightmove.api.core.llm.service.StructuredPromptFactory;
+import app.lightmove.api.position.model.AssessmentBrief;
+import app.lightmove.api.position.model.BriefCompetency;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+/**
+ * One model call drafting a consultant's assessment: for each of the brief's competencies a score out of 10 and the
+ * evidence for it, and the five report sections. The total out of 100 is never the model's — {@code ScorecardScoring}
+ * weighs the scores exactly as it weighs a consultant's. Every failure answers empty.
+ */
+@Service
+@Slf4j
+public class CandidateScorecardDrafter {
+
+    private static final String PROMPT_ID = "candidate-scorecard-draft";
+
+    private static final String BLOCKED = "{\"report\":{\"careerSummary\":\"" + BlockedAnswer.MARKER + "\"}}";
+
+    private final StructuredPrompt prompt;
+
+    public CandidateScorecardDrafter(StructuredPromptFactory prompts) {
+        this.prompt = prompts.create(PROMPT_ID, BLOCKED);
+    }
+
+    public Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief) {
+        Map<String, BriefCompetency> competencyById = idsOf(brief.competencies().competencies());
+        if (competencyById.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            ModelAnswer answered = ask(dossier, brief, competencyById);
+            if (answered == null || (answered.report() != null
+                    && BlockedAnswer.matches(answered.report().careerSummary()))) {
+                return Optional.empty();
+            }
+            return Optional.of(new AiScorecardDraft(scoresOf(answered.scores(), competencyById),
+                    reportOf(answered.report())));
+        } catch (RuntimeException e) {
+            // No credentials, Vertex unreachable or an unbindable answer: store nothing this time.
+            log.warn("Candidate scorecard draft skipped: {}", e.toString());
+            return Optional.empty();
+        }
+    }
+
+    private ModelAnswer ask(CandidateDossier dossier, AssessmentBrief brief,
+                            Map<String, BriefCompetency> competencyById) {
+        return prompt.ask(ModelAnswer.class, user -> user.text("""
+                THE CANDIDATE (their LinkedIn profile)
+                {profile}
+
+                THE ROLE
+                Title: {roleTitle}
+                Level: {seniority}
+                Department: {department}
+                Location: {location}
+                About the role: {narrative}
+                Business driver: {businessDriver}
+                Strategic priorities: {priorities}
+
+                Responsibilities:
+                {responsibilities}
+
+                Selection criteria:
+                {criteria}
+
+                Competencies to score (technical carries {technicalShare}% of the assessment, behavioural the rest):
+                {competencies}
+                """)
+                .param("profile", DossierText.of(dossier))
+                .param("roleTitle", DossierText.orNotStated(brief.roleTitle()))
+                .param("seniority", brief.seniority() == null ? DossierText.NOT_STATED : brief.seniority().value())
+                .param("department", DossierText.orNotStated(brief.department()))
+                .param("location", locationOf(brief))
+                .param("narrative", DossierText.orNotStated(brief.narrative()))
+                .param("businessDriver", DossierText.orNotStated(brief.businessDriver()))
+                .param("priorities", DossierText.listOf(brief.strategicPriorities()))
+                .param("responsibilities", linesOf(brief.responsibilities()))
+                .param("criteria", brief.criteria().isEmpty() ? DossierText.NOT_STATED : brief.criteria().stream()
+                        .map(criterion -> "- (%s) %s".formatted(
+                                criterion.mode().name().toLowerCase(Locale.ROOT), criterion.text()))
+                        .collect(Collectors.joining("\n")))
+                .param("technicalShare", brief.competencies().technicalShare())
+                .param("competencies", competencyById.entrySet().stream()
+                        .map(entry -> "- %s [%s, weight %d] %s%s".formatted(entry.getKey(),
+                                entry.getValue().panel().value(), entry.getValue().weight(), entry.getValue().name(),
+                                entry.getValue().description() == null ? "" : ": " + entry.getValue().description()))
+                        .collect(Collectors.joining("\n"))));
+    }
+
+    /** T1, T2, … for the technical panel and B1, B2, … for the behavioural, each in the brief's own order. */
+    static Map<String, BriefCompetency> idsOf(List<BriefCompetency> competencies) {
+        Map<String, BriefCompetency> byId = new LinkedHashMap<>();
+        int technical = 0;
+        int behavioural = 0;
+        for (BriefCompetency competency : competencies) {
+            String id = competency.panel() == CompetencyPanel.TECHNICAL ? "T" + ++technical : "B" + ++behavioural;
+            byId.put(id, competency);
+        }
+        return byId;
+    }
+
+    private static List<CriterionScore> scoresOf(List<ModelScore> answered,
+                                                 Map<String, BriefCompetency> competencyById) {
+        Map<String, CriterionScore> byKey = new LinkedHashMap<>();
+        for (ModelScore score : answered == null ? List.<ModelScore>of() : answered) {
+            BriefCompetency competency = score.id() == null ? null
+                    : competencyById.get(score.id().trim().toUpperCase(Locale.ROOT));
+            if (competency == null) {
+                continue;
+            }
+            CriterionScore drafted = new CriterionScore(competency.panel(), competency.name(), competency.weight(),
+                    scoreOf(score.score()), trimmed(score.evidence(), CandidateScorecard.MAX_EVIDENCE));
+            if (!drafted.holdsNothing()) {
+                byKey.putIfAbsent(drafted.matchKey(), drafted);
+            }
+        }
+        return new ArrayList<>(byKey.values());
+    }
+
+    private static Integer scoreOf(Integer score) {
+        return score == null || score < CandidateScorecard.MIN_SCORE || score > CandidateScorecard.MAX_SCORE
+                ? null : score;
+    }
+
+    private static ScorecardReport reportOf(ModelReport answered) {
+        if (answered == null) {
+            return ScorecardReport.empty();
+        }
+        int max = CandidateScorecard.MAX_REPORT_SECTION;
+        return new ScorecardReport(trimmed(answered.careerSummary(), max), trimmed(answered.coreValue(), max),
+                trimmed(answered.concerns(), max), trimmed(answered.workingStyle(), max),
+                trimmed(answered.motivation(), max));
+    }
+
+    private static String trimmed(String text, int max) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        String stripped = text.strip();
+        return stripped.length() <= max ? stripped : stripped.substring(0, max).strip();
+    }
+
+    private static String locationOf(AssessmentBrief brief) {
+        String location = Stream.of(brief.locationCity(), brief.locationCountry())
+                .filter(part -> part != null && !part.isBlank())
+                .collect(Collectors.joining(", "));
+        return location.isEmpty() ? DossierText.NOT_STATED : location;
+    }
+
+    private static String linesOf(List<String> lines) {
+        return lines.isEmpty() ? DossierText.NOT_STATED
+                : lines.stream().map(line -> "- " + line).collect(Collectors.joining("\n"));
+    }
+
+    private record ModelAnswer(List<ModelScore> scores, ModelReport report) {}
+
+    private record ModelScore(String id, String evidence, Integer score) {}
+
+    private record ModelReport(String careerSummary, String coreValue, String concerns, String workingStyle,
+                               String motivation) {}
+}

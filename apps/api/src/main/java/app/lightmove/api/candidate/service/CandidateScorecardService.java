@@ -1,10 +1,12 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.AiRunScope;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ScorecardStatus;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
 import app.lightmove.api.candidate.dto.CriterionScoreRequest;
 import app.lightmove.api.candidate.dto.SaveScorecardRequest;
+import app.lightmove.api.candidate.model.AiScorecardDraft;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateScorecard;
 import app.lightmove.api.candidate.model.CriterionScore;
@@ -20,6 +22,8 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.stream.ProjectStreamKind;
+import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.position.model.BriefCompetencies;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.repository.ProjectRepository;
@@ -34,6 +38,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -52,6 +57,7 @@ public class CandidateScorecardService {
     private final UserRepository users;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final ProjectStreamPublisher stream;
 
     @Transactional(readOnly = true)
     public CandidateScorecardResponse read(UUID workspaceId, UUID projectId, UUID candidateId) {
@@ -94,6 +100,47 @@ public class CandidateScorecardService {
                 .detail("wasReviewed", String.valueOf(wasReviewed))
                 .record();
         return respond(saved, brief);
+    }
+
+    /**
+     * The AI's draft written over everything no consultant holds a judgement on, against the brief as it stands now:
+     * a criterion the brief dropped while the model read is let go, and each score takes today's weight.
+     * {@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT} callback, where a
+     * joined transaction writes nothing; a racing save fails it, and the caller asks again over the fresh row.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public CandidateScorecardResponse applyAiDraft(UUID workspaceId, UUID projectId, UUID candidateId,
+                                                   UUID requestedBy, AiScorecardDraft draft) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        BriefScoring brief = briefOf(workspaceId, projectId);
+        CandidateScorecard scorecard = scorecards.findByCandidateIdAndWorkspaceId(candidate.getId(), workspaceId)
+                .orElseGet(() -> CandidateScorecard.startFor(candidate, workspaceId));
+        scorecard.applyAiDraft(alignedToBrief(draft.scores(), brief.criteria()), draft.report(), Instant.now());
+        CandidateScorecard saved = scorecards.saveAndFlush(scorecard);
+        activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED,
+                PersonActivityDetails.of("scope", AiRunScope.ASSESSMENT));
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        return respond(saved, brief);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isAiDrafted(UUID candidateId) {
+        return scorecards.existsByCandidateIdAndAiDraftedAtIsNotNull(candidateId);
+    }
+
+    static List<CriterionScore> alignedToBrief(List<CriterionScore> drafted, List<ScorecardCriterion> brief) {
+        Map<String, ScorecardCriterion> briefByKey = new LinkedHashMap<>();
+        brief.forEach(criterion -> briefByKey.putIfAbsent(criterion.matchKey(), criterion));
+        Map<String, CriterionScore> aligned = new LinkedHashMap<>();
+        for (CriterionScore score : drafted) {
+            ScorecardCriterion criterion = briefByKey.get(score.matchKey());
+            if (criterion != null) {
+                aligned.putIfAbsent(criterion.matchKey(), new CriterionScore(criterion.panel(), criterion.name(),
+                        criterion.weight(), score.score(), score.evidence()));
+            }
+        }
+        return new ArrayList<>(aligned.values());
     }
 
     /**

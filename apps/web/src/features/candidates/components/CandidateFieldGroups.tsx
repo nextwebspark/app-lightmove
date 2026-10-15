@@ -669,12 +669,16 @@ function AmountField({
  * Marks a value an AI inference proposed that nobody has reviewed yet — `Candidate.aiInferredFields`.
  * The same sparkle, size and ink the brief's {@link ProvenanceMarker} wears, so AI-filled reads alike on both screens.
  */
-export function AiInferredBadge() {
+export function AiInferredBadge({
+  title = "AI-suggested — saving the Background section confirms it",
+}: {
+  title?: string;
+}) {
   return (
     <span
       role="img"
       aria-label="AI-suggested"
-      title="AI-suggested — saving the Background section confirms it"
+      title={title}
       className="grid size-4 flex-none place-items-center text-u-inferred"
     >
       <Icon d={ICONS.sparkle} size={13} />

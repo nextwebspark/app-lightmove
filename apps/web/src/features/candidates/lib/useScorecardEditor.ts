@@ -3,21 +3,36 @@ import { useState } from "react";
 import { useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import * as scorecardApi from "../api/scorecardApi";
-import type { CandidateScorecard, ScorecardReport } from "../api/scorecardTypes";
+import type { CandidateScorecard, ScorecardCriterion, ScorecardReport } from "../api/scorecardTypes";
 import { criterionKey, tallyOf, type LiveTally } from "./scorecardScoring";
 
 export type ReportSection = keyof ScorecardReport;
+
+const REPORT_SECTIONS: readonly ReportSection[] = [
+  "careerSummary",
+  "coreValue",
+  "concerns",
+  "workingStyle",
+  "motivation",
+];
 
 interface CriterionDraft {
   score: number | null;
   evidence: string;
 }
 
-/** What the consultant has changed since the read they started from, kept until it is saved. */
-interface ScorecardDraft {
-  baseVersion: number | null;
+interface ScorecardValues {
   scores: Record<string, CriterionDraft>;
   report: ScorecardReport;
+}
+
+/**
+ * What the consultant has changed since the read they started from, kept until it is saved. `base` is that read's
+ * values, so a refused stale save can be laid over the newer one keeping only what the consultant changed.
+ */
+interface ScorecardDraft extends ScorecardValues {
+  baseVersion: number | null;
+  base?: ScorecardValues;
 }
 
 const DRAFT_KEY = (candidateId: string) => `lm.scorecard-draft.${candidateId}`;
@@ -26,7 +41,7 @@ const DRAFT_KEY = (candidateId: string) => `lm.scorecard-draft.${candidateId}`;
  * The Assessment tab's state: the saved assessment, and the consultant's unsaved changes over it. Unsaved
  * changes are kept in this tab's session too, so closing the drawer or the page by accident loses nothing —
  * reopening the executive brings them back, marked as restored. A save names the version it started from;
- * a teammate's save in between is refused (`CANDIDATE_ASSESSMENT_STALE`) rather than overwritten.
+ * a teammate's save, or an AI draft, in between is refused (`CANDIDATE_ASSESSMENT_STALE`) rather than overwritten.
  */
 export function useScorecardEditor(projectId: string, candidateId: string, enabled: boolean) {
   const queryClient = useQueryClient();
@@ -89,9 +104,25 @@ export function useScorecardEditor(projectId: string, candidateId: string, enabl
     },
   });
 
+  const assessing = useMutation({
+    mutationFn: () => scorecardApi.assessWithAi(projectId, candidateId),
+    onSuccess: (answer) => {
+      queryClient.setQueryData(scorecardApi.SCORECARD_KEY(projectId, candidateId), answer);
+      setDraft(null);
+      setRestored(false);
+      setStale(false);
+      toast("The AI drafted what was still open — check each score before you mark it reviewed");
+    },
+    onError: (error) => toast.error(messageFor(error)),
+  });
+
   const view = current();
   const scoreOf = (key: string) => view?.scores[key]?.score ?? null;
   const tally: LiveTally | null = saved.data ? tallyOf(saved.data.panels, scoreOf) : null;
+  const savedCriterion = (key: string): ScorecardCriterion | undefined =>
+    saved.data?.panels
+      .flatMap((panel) => panel.criteria)
+      .find((criterion) => criterionKey(criterion.panel, criterion.name) === key);
 
   return {
     saved,
@@ -101,9 +132,23 @@ export function useScorecardEditor(projectId: string, candidateId: string, enabl
     stale,
     isSaving: saving.isPending,
     savingReviewed: saving.isPending && saving.variables === true,
+    isAssessing: assessing.isPending,
     scoreOf,
     evidenceOf: (key: string) => view?.scores[key]?.evidence ?? "",
     reportOf: (section: ReportSection) => view?.report[section] ?? "",
+    /** Still the AI's untouched draft — on file, and not changed here since. */
+    isAiDrafted: (key: string) => {
+      const criterion = savedCriterion(key);
+      const entry = view?.scores[key];
+      return (
+        criterion?.aiDrafted === true &&
+        (entry?.score ?? null) === criterion.score &&
+        (entry?.evidence ?? "") === (criterion.evidence ?? "")
+      );
+    },
+    isReportAiDrafted: (section: ReportSection) =>
+      saved.data?.reportAiDrafted.includes(section) === true &&
+      (view?.report[section] ?? "") === (saved.data.report[section] ?? ""),
     setScore: (key: string, score: number | null) =>
       change((from) => ({
         ...from,
@@ -117,24 +162,26 @@ export function useScorecardEditor(projectId: string, candidateId: string, enabl
     setReport: (section: ReportSection, text: string) =>
       change((from) => ({ ...from, report: { ...from.report, [section]: text } })),
     save: (markReviewed: boolean) => saving.mutate(markReviewed),
+    assessWithAi: () => assessing.mutate(),
     discard: () => {
       setDraft(null);
       setRestored(false);
       setStale(false);
     },
-    /** After a refused stale save: take the teammate's version and start over from it. */
-    reload: () => {
-      setDraft(null);
-      setRestored(false);
+    /** After a refused stale save: take the newer version, with what was changed here laid back over it. */
+    reload: async () => {
+      const mine = draft;
       setStale(false);
-      void saved.refetch();
+      setRestored(false);
+      const { data: fresh } = await saved.refetch();
+      if (fresh) setDraft(mine ? rebased(mine, fresh) : null);
     },
   };
 }
 
 export type ScorecardEditor = ReturnType<typeof useScorecardEditor>;
 
-function draftOf(scorecard: CandidateScorecard): ScorecardDraft {
+function valuesOf(scorecard: CandidateScorecard): ScorecardValues {
   const scores: Record<string, CriterionDraft> = {};
   for (const panel of scorecard.panels) {
     for (const criterion of panel.criteria) {
@@ -144,7 +191,35 @@ function draftOf(scorecard: CandidateScorecard): ScorecardDraft {
       };
     }
   }
-  return { baseVersion: scorecard.version, scores, report: { ...scorecard.report } };
+  return { scores, report: { ...scorecard.report } };
+}
+
+function draftOf(scorecard: CandidateScorecard): ScorecardDraft {
+  const values = valuesOf(scorecard);
+  return { ...values, baseVersion: scorecard.version, base: values };
+}
+
+/**
+ * The newer version with this tab's own changes on top. A change is what differs from the read the tab started
+ * from; a draft stored before `base` was kept counts everything in it as a change. Nothing changed is no draft.
+ */
+function rebased(mine: ScorecardDraft, fresh: CandidateScorecard): ScorecardDraft | null {
+  const next = draftOf(fresh);
+  let changed = false;
+  for (const [key, entry] of Object.entries(mine.scores)) {
+    const was = mine.base?.scores[key];
+    if (was && was.score === entry.score && was.evidence === entry.evidence) continue;
+    if (!(key in next.scores)) continue;
+    next.scores = { ...next.scores, [key]: entry };
+    changed = true;
+  }
+  for (const section of REPORT_SECTIONS) {
+    const text = mine.report[section];
+    if (mine.base && (mine.base.report[section] ?? "") === (text ?? "")) continue;
+    next.report = { ...next.report, [section]: text };
+    changed = true;
+  }
+  return changed ? next : null;
 }
 
 function readStoredDraft(candidateId: string): ScorecardDraft | null {

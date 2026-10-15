@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
+import app.lightmove.api.candidate.constant.AiRunScope;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactSource;
@@ -15,8 +16,6 @@ import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
-import app.lightmove.api.candidate.model.CandidateAiEnrichState;
-import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateContact;
@@ -32,6 +31,7 @@ import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
+import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonPhoto;
@@ -39,6 +39,7 @@ import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.candidate.repository.CandidateScorecardRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -104,6 +105,7 @@ public class CandidateService {
             Sort.by(Sort.Direction.ASC, "createdAt").and(Sort.by(Sort.Direction.ASC, "person.fullName"));
 
     private final CandidateRepository candidates;
+    private final CandidateScorecardRepository scorecards;
     private final PersonRepository people;
     private final PersonMatcher matcher;
     private final PersonActivityRecorder activity;
@@ -120,7 +122,8 @@ public class CandidateService {
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
 
-    public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
+    public CandidateService(CandidateRepository candidates, CandidateScorecardRepository scorecards,
+                            PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
                             PersonPhotoRepository photos,
                             ProjectRepository projects, TriageCompanyService triage,
@@ -130,6 +133,7 @@ public class CandidateService {
                             CandidatePipelineCatalog pipeline,
                             LightMoveProperties properties) {
         this.candidates = candidates;
+        this.scorecards = scorecards;
         this.people = people;
         this.matcher = matcher;
         this.activity = activity;
@@ -463,7 +467,7 @@ public class CandidateService {
             // Two mandates capturing one new person before either's research lands each queue a call;
             // the second finds the person researched, but its own mandate still wants the employer
             // filed and the person scored. Only a row with both done has nothing left to do.
-            if (!fresh && candidate.getAiAssessment() != null) {
+            if (!fresh && scorecards.existsByCandidateIdAndAiDraftedAtIsNotNull(candidateId)) {
                 return;
             }
             if (fresh) {
@@ -484,7 +488,7 @@ public class CandidateService {
     /**
      * A vendor search hit, filed and researched in one write — a Find executives pick or a People search
      * tick: the hit is the profile, so there is no vendor call to wait for and no
-     * {@code CandidateCapturedEvent}. The deep enrichment is queued only where {@code filing} asks.
+     * {@code CandidateCapturedEvent}. The automatic AI run is queued only where {@code filing} asks.
      *
      * <p>The employer a filing names is captured in the same transaction, so a person refused by the
      * duplicate guards — {@code CANDIDATE_ALREADY_MAPPED}, which the caller counts as a skip — or failing
@@ -603,55 +607,42 @@ public class CandidateService {
         });
     }
 
-    /**
-     * The last AI assessment, nationality reading and failed run, staff-only — none is carried on
-     * {@link CandidateResponse}. Empty when the candidate has never been enriched.
-     */
+    /** The nationality classifier's last reading, staff-only — never carried on {@link CandidateResponse}. */
     @Transactional(readOnly = true)
-    public Optional<CandidateAiEnrichState> aiAssessmentOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public Optional<NationalityReading> nationalityReadingOf(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
-        Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        NationalityReading reading = candidate.getPerson().getAiNationalityReading();
-        if (candidate.getAiAssessment() == null && reading == null && candidate.getAiEnrichFailedAt() == null) {
-            return Optional.empty();
-        }
-        return Optional.of(new CandidateAiEnrichState(candidate.getAiAssessment(), reading,
-                candidate.getAiEnrichFailedAt()));
+        return Optional.ofNullable(candidates.requireInProject(candidateId, projectId).getPerson()
+                .getAiNationalityReading());
     }
 
-    /** Stamps a run that produced nothing, so the drawer says so at once; a later success clears it. */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordAiEnrichFailure(UUID projectId, UUID candidateId) {
-        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
-            candidate.recordAiEnrichFailure();
-            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-        });
+    /** Whether the classifier has answered for this executive, so an automatic run never asks it twice. */
+    @Transactional(readOnly = true)
+    public boolean hasNationalityReading(UUID projectId, UUID candidateId) {
+        return candidates.findByIdAndProjectId(candidateId, projectId)
+                .map(candidate -> candidate.getPerson().getAiNationalityReading() != null)
+                .orElse(false);
     }
 
     /**
-     * The AI enrichment's own write: background into whichever fields are still empty, the assessment
-     * and the nationality reading each replaced whole. A run whose assessment failed is stamped as
-     * failed even when its nationality reading landed. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing
-     * drawer edit wins by {@code @Version} the same way. The background and the nationality reading are
-     * the person's; the assessment is against this mandate's brief and stays on its row.
+     * The AI's background proposals: whichever of gender, years and seniority are still empty, and the nationality
+     * reading. Both are the person's. {@code REQUIRES_NEW} for {@link #applyResearch}'s reason; a racing drawer edit
+     * wins by {@code @Version}, and the caller asks again over the fresh row.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void applyAiEnrichment(UUID projectId, UUID candidateId, UUID requestedBy,
-                                  CandidateAiEnrichment enrichment) {
-        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
-            Person person = candidate.getPerson();
-            if (enrichment.isAssessed()) {
-                person.proposeBackground(enrichment.background());
-                candidate.recordAiAssessment(enrichment.assessment());
-                activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED);
-            } else {
-                candidate.recordAiEnrichFailure();
-            }
-            if (enrichment.nationalityReading() != null) {
-                person.recordNationalityReading(enrichment.nationalityReading());
-            }
-            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-        });
+    public CandidateResponse applyAiBackground(UUID projectId, UUID candidateId, UUID requestedBy,
+                                               InferredBackground background, NationalityReading reading) {
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        Person person = candidate.getPerson();
+        if (background != null) {
+            person.proposeBackground(background);
+        }
+        if (reading != null) {
+            person.recordNationalityReading(reading);
+        }
+        activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED,
+                PersonActivityDetails.of("scope", AiRunScope.BACKGROUND));
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        return responses.toDto(candidate);
     }
 
     /**

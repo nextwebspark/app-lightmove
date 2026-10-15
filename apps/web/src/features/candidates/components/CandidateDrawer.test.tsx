@@ -35,6 +35,7 @@ vi.mock("../api/scorecardApi", async (importOriginal) => ({
   ...(await importOriginal<typeof scorecardApi>()),
   getScorecard: vi.fn(),
   saveScorecard: vi.fn(),
+  assessWithAi: vi.fn(),
 }));
 vi.mock("../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof poolApi>()),
@@ -1010,13 +1011,14 @@ describe("CandidateDrawer", () => {
     expect(screen.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("puts the AI assessment after Background on the profile", async () => {
+  it("keeps the AI assessment off the profile: it is the Assessment tab's", async () => {
     renderDrawer({ candidate: yasmin, company: null });
 
     const folds = screen
       .getAllByRole("button", { name: /^(Summary|Experience|Compensation|Background|AI assessment)/ })
       .map((fold) => fold.textContent?.match(/^(Summary|Experience|Compensation|Background|AI assessment)/)?.[0]);
-    expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background", "AI assessment"]);
+    expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background"]);
+    expect(screen.queryByRole("button", { name: "AI deep enrich" })).not.toBeInTheDocument();
   });
 
   it("brings a linked note forward though the drawer is already open on someone else's career tab", async () => {
@@ -1246,6 +1248,7 @@ describe("CandidateDrawer", () => {
       score: null,
       points: 0,
       evidence: null,
+      aiDrafted: false,
     });
     const blank: CandidateScorecard = {
       status: "draft",
@@ -1273,6 +1276,8 @@ describe("CandidateDrawer", () => {
       ],
       retired: [],
       report: { careerSummary: null, coreValue: null, concerns: null, workingStyle: null, motivation: null },
+      reportAiDrafted: [],
+      aiDraftedAt: null,
       updatedAt: null,
       updatedByName: null,
       reviewedAt: null,
@@ -1335,6 +1340,49 @@ describe("CandidateDrawer", () => {
 
       expect(await screen.findByRole("alert")).toHaveTextContent(/saved this assessment after you opened it/);
       expect(screen.getByLabelText("Leadership score")).toHaveTextContent("5");
+    });
+
+    it("drafts the open scores with AI, marks them until edited, and holds off while changes are unsaved", async () => {
+      const drafted: CandidateScorecard = {
+        ...blank,
+        version: 1,
+        aiDraftedAt: "2026-10-14T10:00:00Z",
+        panels: [
+          {
+            ...blank.panels[0],
+            criteria: [
+              {
+                ...criterion("technical", "Treasury", 100, 60),
+                score: 8,
+                evidence: "Ran group treasury",
+                aiDrafted: true,
+              },
+            ],
+          },
+          blank.panels[1],
+        ],
+        report: { ...blank.report, concerns: "Reporting unproven" },
+        reportAiDrafted: ["concerns"],
+      };
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      vi.mocked(scorecardApi.assessWithAi).mockResolvedValue(drafted);
+      renderDrawer({ candidate: yasmin, company: null });
+      await openTab("Assessment");
+
+      await userEvent.click(await screen.findByRole("button", { name: "Raise Leadership" }));
+      expect(screen.getByRole("button", { name: "Assess with AI" })).toBeDisabled();
+      await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Assess with AI" }));
+
+      await waitFor(() => expect(scorecardApi.assessWithAi).toHaveBeenCalledWith("p1", "c1"));
+      expect(await screen.findByLabelText("Treasury score")).toHaveTextContent("8");
+      expect(screen.getByText(/^AI drafted/)).toBeInTheDocument();
+      const treasuryRow = screen.getByRole("group", { name: "Score for Treasury" }).closest("div.overflow-hidden");
+      expect(within(treasuryRow as HTMLElement).getByRole("img", { name: "AI-suggested" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Lower Treasury" }));
+      expect(within(treasuryRow as HTMLElement).queryByRole("img", { name: "AI-suggested" })).not.toBeInTheDocument();
     });
 
     it("points to the brief when it has nothing to score against", async () => {

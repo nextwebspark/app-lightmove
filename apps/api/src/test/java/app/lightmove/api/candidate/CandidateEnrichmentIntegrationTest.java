@@ -54,16 +54,32 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
             new EnrichedPhoto(PHOTO_BYTES, "image/jpeg"), EnrichmentVendor.BRIGHTDATA);
 
     /**
-     * The stub answers both prompts of a run with this one document, so it carries both shapes: the
-     * assessment's fields and the nationality classifier's. Each call binds the half it asked for.
+     * The stub answers both background prompts of a run with this one document, so it carries both shapes: the
+     * background call's fields and the nationality classifier's. Each call binds the half it asked for.
      */
     private static final String AI_ENRICHMENT = """
             {"category":"Emirati","confidence":"high","evidence_for":["Emiratisation graduate programme"],
              "evidence_against":[],"rule_applied":"none",
-             "gender":"female","yearsExperience":14,"seniority":"N-1",
-             "summary":"A proven GCC finance leader.",
-             "technical":{"score":8,"positives":["Led a dairy IPO"],"negatives":["No energy exposure"]},
-             "behavioural":{"score":6,"positives":["Board-facing"],"negatives":[]}}""";
+             "gender":"female","yearsExperience":14,"seniority":"N-1"}""";
+
+    /** What only the assessment prompt is answered with, picked out by its system text. */
+    private static final String DRAFTING_PROMPT = "drafting an assessment";
+
+    private static final String SCORECARD_DRAFT = """
+            {"scores":[{"id":"T1","evidence":"Ran group treasury at a listed dairy.","score":8},
+                       {"id":"T2","evidence":"Nothing on reporting in the profile.","score":null},
+                       {"id":"B1","evidence":"Board-facing as Group CFO.","score":6}],
+             "report":{"careerSummary":"A GCC finance leader.","coreValue":"Treasury depth.",
+                       "concerns":"Reporting is unproven; probe it.","workingStyle":"To confirm at interview.",
+                       "motivation":"Four years in role; to establish."}}""";
+
+    /** Every new mandate is drafted from a template carrying competencies; a test wanting none clears them. */
+    private static final String NO_COMPETENCIES = """
+            {"technical":[],"behavioural":[]}""";
+
+    private static final String COMPETENCIES = """
+            {"technical":[{"name":"Treasury","weight":60},{"name":"Reporting","weight":40}],
+             "behavioural":[{"name":"Leadership","weight":100}],"technicalShare":60}""";
 
     @Autowired private RecordingProfileEnricher enricher;
     @Autowired private StubChatModel model;
@@ -348,9 +364,10 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a complete background is left alone while the assessment is still made")
-    void aCompleteBackgroundIsLeftAlone() throws Exception {
+    @DisplayName("a capture with nothing missing and a brief with no competencies asks the model nothing")
+    void nothingToDoAsksTheModelNothing() throws Exception {
         String projectId = mandate("Full Background Firm");
+        competencies(projectId, NO_COMPETENCIES);
         enricher.answerWith(RESEARCH);
         model.answerWith(AI_ENRICHMENT);
 
@@ -360,78 +377,110 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         JsonNode researched = firstCandidateOf(projectId);
         assertThat(researched.get("nationality").asText()).isEqualTo("Saudi");
         assertThat(researched.get("aiInferredFields")).isEmpty();
-        JsonNode assessment = assessmentOf(projectId, researched.get("id").asText(), adminToken);
-        assertThat(assessment.get("technical").get("score").asInt()).isEqualTo(8);
-        // Nationality was on the row, so the classifier was never asked and no reading is stored.
-        assertThat(assessment.get("nationalityReading").isNull()).isTrue();
+        assertThat(model.prompts()).isEmpty();
     }
 
     @Test
-    @DisplayName("a capture's enrichment stores the assessment, and never on the row")
-    void aCaptureStoresTheAssessment() throws Exception {
+    @DisplayName("a capture drafts the assessment against the brief, weighed exactly as a consultant's scores are")
+    void aCaptureDraftsTheAssessment() throws Exception {
         String projectId = mandate("Assessed Capture Firm");
+        competencies(projectId, COMPETENCIES);
         enricher.answerWith(RESEARCH);
         model.answerWith(AI_ENRICHMENT);
+        model.answerWhenSystemContains(DRAFTING_PROMPT, SCORECARD_DRAFT);
 
         String candidateId = capture(projectId, "Sample Person", "sample-profile");
 
-        JsonNode assessment = assessmentOf(projectId, candidateId, adminToken);
-        assertThat(assessment.get("summary").asText()).isEqualTo("A proven GCC finance leader.");
-        assertThat(assessment.get("technical").get("positives")).extracting(JsonNode::asText)
-                .containsExactly("Led a dairy IPO");
-        assertThat(assessment.get("behavioural").get("score").asInt()).isEqualTo(6);
-        assertThat(assessment.get("assessedAt").isNull()).isFalse();
-        JsonNode reading = assessment.get("nationalityReading");
-        assertThat(reading.get("category").asText()).isEqualTo("Emirati");
-        assertThat(reading.get("confidence").asText()).isEqualTo("high");
-        assertThat(reading.get("evidenceFor")).extracting(JsonNode::asText)
-                .containsExactly("Emiratisation graduate programme");
+        JsonNode scorecard = scorecardOf(projectId, candidateId);
+        assertThat(scorecard.get("status").asText()).isEqualTo("draft");
+        assertThat(scorecard.get("overall").asDouble()).isEqualTo(52.8);
+        JsonNode treasury = scorecard.get("panels").get(0).get("criteria").get(0);
+        assertThat(treasury.get("score").asInt()).isEqualTo(8);
+        assertThat(treasury.get("evidence").asText()).isEqualTo("Ran group treasury at a listed dairy.");
+        assertThat(treasury.get("aiDrafted").asBoolean()).isTrue();
+        JsonNode reporting = scorecard.get("panels").get(0).get("criteria").get(1);
+        assertThat(reporting.get("score").isNull()).isTrue();
+        assertThat(reporting.get("evidence").asText()).isEqualTo("Nothing on reporting in the profile.");
+        assertThat(scorecard.get("report").get("concerns").asText()).isEqualTo("Reporting is unproven; probe it.");
+        assertThat(scorecard.get("reportAiDrafted")).hasSize(5);
+        assertThat(scorecard.get("aiDraftedAt").isNull()).isFalse();
+        assertThat(nationalityReadingOf(projectId, candidateId).get("category").asText()).isEqualTo("Emirati");
         // The candidate read is also a client's read, so neither the assessment nor the reading rides on it.
         JsonNode row = firstCandidateOf(projectId);
         assertThat(row.has("aiAssessment")).isFalse();
-        assertThat(row.has("aiNationalityReading")).isFalse();
         assertThat(row.has("nationalityReading")).isFalse();
     }
 
     @Test
-    @DisplayName("the button enriches a hand-added executive, and never sends their contacts or pay")
-    void theButtonEnrichesAHandAddedExecutive() throws Exception {
-        String projectId = mandate("Button Firm");
+    @DisplayName("Suggest with AI fills a hand-added executive's background, never sending their contacts, pay or note")
+    void suggestWithAiFillsTheBackground() throws Exception {
+        String projectId = mandate("Background Button Firm");
         model.answerWith(AI_ENRICHMENT);
-        String candidateId = body(mvc.perform(post(candidatesUrl(projectId))
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Hand Typed","title":"Group CFO","note":"private-note-text",
-                                 "emails":[{"value":"hand.typed@example.com"}],
-                                 "phones":[{"value":"+971 50 555 0101"}],
-                                 "compensation":{"currency":"AED","baseSalary":987654}}"""))
-                .andExpect(status().isCreated())
-                .andReturn()).get("id").asText();
+        String candidateId = handAdded(projectId);
         assertThat(model.lastPrompt()).isNull();
-
-        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/ai-assessment")
+        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/nationality-reading")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNoContent());
-        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/ai-enrich")
-                        .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isAccepted());
 
+        JsonNode filled = body(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/background/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(filled.get("nationality").asText()).isEqualTo("Emirati");
+        assertThat(filled.get("gender").asText()).isEqualTo("female");
+        assertThat(filled.get("aiInferredFields")).hasSize(4);
         assertThat(model.prompts()).hasSize(2).allSatisfy(sent ->
                 assertThat(sent.getUserMessage().getText()).contains("Hand Typed", "Group CFO")
                         .doesNotContain("hand.typed@example.com", "555", "987654", "private-note-text"));
-        JsonNode enriched = firstCandidateOf(projectId);
-        assertThat(enriched.get("nationality").asText()).isEqualTo("Emirati");
-        assertThat(assessmentOf(projectId, candidateId, adminToken).get("technical").get("score").asInt())
-                .isEqualTo(8);
-        assertThat(db.queryForList("SELECT units FROM app_lm_usage_event WHERE project_id = ?::uuid AND kind = ?",
-                Integer.class, projectId, "AI_ENRICH")).as("one press is one enrichment towards fair use")
-                .containsExactly(1);
+        assertThat(usedUnits(projectId)).as("one press is one use towards fair use").containsExactly(1);
+
+        model.reset();
+        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/background/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+        assertThat(model.prompts()).as("nothing left to propose asks nothing and spends nothing").isEmpty();
+        assertThat(usedUnits(projectId)).containsExactly(1);
     }
 
     @Test
-    @DisplayName("a client representative can read the executive but neither run nor read the AI assessment")
-    void aClientSeatSeesNoAiAssessment() throws Exception {
+    @DisplayName("Assess with AI drafts every competency a consultant left open, and never overwrites one they scored")
+    void assessWithAiNeverOverwritesAConsultant() throws Exception {
+        String projectId = mandate("Assessment Button Firm");
+        competencies(projectId, COMPETENCIES);
+        model.answerWhenSystemContains(DRAFTING_PROMPT, SCORECARD_DRAFT);
+        String candidateId = handAdded(projectId);
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId + "/assessment")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"version":null,"markReviewed":false,
+                                 "scores":[{"panel":"technical","name":"Treasury","score":3,"evidence":"Referee doubts"}],
+                                 "report":{"careerSummary":"My own words."}}"""))
+                .andExpect(status().isOk());
+
+        JsonNode drafted = body(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/assessment/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        JsonNode treasury = drafted.get("panels").get(0).get("criteria").get(0);
+        assertThat(treasury.get("score").asInt()).isEqualTo(3);
+        assertThat(treasury.get("evidence").asText()).isEqualTo("Referee doubts");
+        assertThat(treasury.get("aiDrafted").asBoolean()).isFalse();
+        JsonNode leadership = drafted.get("panels").get(1).get("criteria").get(0);
+        assertThat(leadership.get("score").asInt()).isEqualTo(6);
+        assertThat(leadership.get("aiDrafted").asBoolean()).isTrue();
+        assertThat(drafted.get("report").get("careerSummary").asText()).isEqualTo("My own words.");
+        assertThat(drafted.get("reportAiDrafted")).extracting(JsonNode::asText).doesNotContain("careerSummary");
+        assertThat(model.lastPrompt().getUserMessage().getText()).contains("T1 [technical, weight 60] Treasury")
+                .doesNotContain("hand.typed@example.com", "987654", "private-note-text");
+        assertThat(usedUnits(projectId)).containsExactly(1);
+    }
+
+    @Test
+    @DisplayName("a client representative can read the executive but neither run the AI nor read what it wrote")
+    void aClientSeatSeesNoAi() throws Exception {
         String projectId = mandate("Client Seat Firm");
         String candidateId = body(mvc.perform(post(candidatesUrl(projectId))
                         .header("Authorization", "Bearer " + adminToken)
@@ -458,10 +507,13 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
         mvc.perform(get(candidatesUrl(projectId)).header("Authorization", "Bearer " + clientToken))
                 .andExpect(status().isOk());
-        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/ai-enrich")
+        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/background/ai")
                         .header("Authorization", "Bearer " + clientToken))
                 .andExpect(status().isForbidden());
-        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/ai-assessment")
+        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/assessment/ai")
+                        .header("Authorization", "Bearer " + clientToken))
+                .andExpect(status().isForbidden());
+        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/nationality-reading")
                         .header("Authorization", "Bearer " + clientToken))
                 .andExpect(status().isForbidden());
     }
@@ -495,31 +547,32 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         JsonNode row = firstCandidateOf(projectId);
         assertThat(row.get("nationality").isNull()).isTrue();
         assertThat(row.get("aiInferredFields")).extracting(JsonNode::asText).doesNotContain("nationality");
-        JsonNode reading = assessmentOf(projectId, candidateId, adminToken).get("nationalityReading");
+        JsonNode reading = nationalityReadingOf(projectId, candidateId);
         assertThat(reading.get("category").asText()).isEqualTo("Emirati");
         assertThat(reading.get("confidence").asText()).isEqualTo("medium");
     }
 
     @Test
-    @DisplayName("a run that produces nothing is recorded, so the drawer can say it failed")
-    void aFailedRunIsRecorded() throws Exception {
+    @DisplayName("an unusable answer is refused, writing and charging nothing, and a brief without competencies too")
+    void anUnusableAnswerChargesNothing() throws Exception {
         String projectId = mandate("Failed Run Firm");
-        String candidateId = body(mvc.perform(post(candidatesUrl(projectId))
-                        .header("Authorization", "Bearer " + adminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Unreadable Answer"}"""))
-                .andExpect(status().isCreated())
-                .andReturn()).get("id").asText();
+        competencies(projectId, NO_COMPETENCIES);
+        String candidateId = handAdded(projectId);
 
-        // StubChatModel's default reply binds to nothing: the run produces no assessment.
-        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/ai-enrich")
+        // StubChatModel's default reply binds to nothing.
+        String unusable = codeOf(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/background/ai")
                         .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isBadGateway())
+                .andReturn());
+        assertThat(unusable).isEqualTo("AI_UNAVAILABLE");
+        assertThat(firstCandidateOf(projectId).get("aiInferredFields")).isEmpty();
 
-        JsonNode state = assessmentOf(projectId, candidateId, adminToken);
-        assertThat(state.get("failedAt").isNull()).isFalse();
-        assertThat(state.get("assessedAt").isNull()).isTrue();
+        String noCriteria = codeOf(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/assessment/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andReturn());
+        assertThat(noCriteria).isEqualTo("CANDIDATE_ASSESSMENT_NO_CRITERIA");
+        assertThat(usedUnits(projectId)).isEmpty();
     }
 
     /** The drawer's section save: the row as it stands, with the section's fields over it. */
@@ -537,11 +590,44 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
     }
 
-    private JsonNode assessmentOf(String projectId, String candidateId, String token) throws Exception {
-        return body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/ai-assessment")
-                        .header("Authorization", "Bearer " + token))
+    private JsonNode scorecardOf(String projectId, String candidateId) throws Exception {
+        return body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/assessment")
+                        .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andReturn());
+    }
+
+    private JsonNode nationalityReadingOf(String projectId, String candidateId) throws Exception {
+        return body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/nationality-reading")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private String handAdded(String projectId) throws Exception {
+        return body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Hand Typed","title":"Group CFO","note":"private-note-text",
+                                 "emails":[{"value":"hand.typed@example.com"}],
+                                 "phones":[{"value":"+971 50 555 0101"}],
+                                 "compensation":{"currency":"AED","baseSalary":987654}}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private void competencies(String projectId, String body) throws Exception {
+        mvc.perform(put("/api/v1/projects/" + projectId + "/position/competencies")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk());
+    }
+
+    private List<Integer> usedUnits(String projectId) {
+        return db.queryForList("SELECT units FROM app_lm_usage_event WHERE project_id = ?::uuid AND kind = ?",
+                Integer.class, projectId, "AI_ENRICH");
     }
 
     private String capture(String projectId, String fullName, String slug) throws Exception {

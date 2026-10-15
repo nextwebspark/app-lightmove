@@ -19,3 +19,10 @@ export function saveScorecard(
     body: payload,
   });
 }
+
+/** Assess with AI: drafts every score and section nobody has written, and answers the assessment as it now stands. */
+export function assessWithAi(projectId: string, candidateId: string): Promise<CandidateScorecard> {
+  return request<CandidateScorecard>(`/projects/${projectId}/candidates/${candidateId}/assessment/ai`, {
+    method: "POST",
+  });
+}

@@ -61,7 +61,15 @@ consultant's own scorecard against the brief's competencies: 0–10 or unscored 
 competency, out of 100 by each panel's `technical_share` (`ScorecardScoring`, mirrored live by
 `lib/scorecardScoring.ts`), plus evidence and a five-section report, saved from the footer as a draft or **Mark
 reviewed & submit**. A score snapshots its criterion and is matched on panel + name, so one the brief drops is kept,
-uncounted. A stale save is `CANDIDATE_ASSESSMENT_STALE`; it is staff-only (`WORK_EXECUTE`, never on `CandidateResponse`). The executive drawer draws **Positions** (every
+uncounted. A stale save is `CANDIDATE_ASSESSMENT_STALE`; it is staff-only (`WORK_EXECUTE`, never on `CandidateResponse`).
+**Assess with AI** (V136, `POST …/candidates/{id}/assessment/ai`, answered while the consultant waits) drafts it:
+`CandidateScorecardDrafter` sends the `CandidateDossier` and the brief's `AssessmentBrief` seam (role, criteria,
+competencies with ids — never compensation or the internal context) and gets back, per competency, evidence then a
+0–10 score against an anchored rubric (null where the profile shows nothing either way) and the five sections; the
+weights and the total stay `ScorecardScoring`'s. It writes only what nobody holds — an empty value, or one still in
+`ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
+`ai_drafted`, and **Mark reviewed & submit** adopts every AI value. The same draft runs unprompted where research
+lands (below). The executive drawer draws **Positions** (every
 mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
 position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
 the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
@@ -160,7 +168,7 @@ neighbours only — nobody living elsewhere is searched for, and a brief with no
 the vendor matched the headline and sends no relevance order, so it reads the *current role's* title:
 a function word first, then its level against the brief's seat) and the first `picks-per-company` are each filed through `CandidateService.addSourced` — the search hit *is* the research, so no
 second vendor call — as `AI_SOURCED` (no badge on the grid; the drawer's source reads "Sourced"), and
-the same deep enrichment a capture gets writes the assessment, fired with the `SOURCING` trigger that
+the same automatic AI run a capture gets drafts the assessment, fired with the `SOURCING` trigger that
 skips the per-user LLM meter. A company whose search finds **nobody** is searched again with other title
 words (`SourcingSpecRefiner`), up to `max-search-rounds`: the first search that finds anybody is the
 last. The refiner reads the brief, the company's headcount and every word each earlier round tried — its own earlier answers
@@ -197,8 +205,8 @@ comes back, and is billed, because ContactOut cannot exclude one — the grid ma
 The selection bar and the person panel file the ticked people at **In universe, Shortlisted or
 Declined** — the stage lands on their employer, filed by `captureFromResearch` as `PEOPLE_SEARCH` and
 matched to the market where it can be, while an employer already held keeps its stage — from the
-cache, never the vendor (`addResearched`, `PEOPLE_SEARCH`, `enriched_by = CONTACTOUT`, no AI
-enrichment). V94 keeps each ContactOut profile whole (`source_record`) beside the Bright Data-shaped
+cache, never the vendor (`addResearched`, `PEOPLE_SEARCH`, `enriched_by = CONTACTOUT`), and the automatic
+AI run follows, on the `PEOPLE_SEARCH` trigger that skips the per-user meter like `SOURCING`. V94 keeps each ContactOut profile whole (`source_record`) beside the Bright Data-shaped
 `raw`, so the panel shows everything it sent — headline, company facts, certifications, projects, the
 free contact-availability flags — a fold per part, drawn only when it has something; once the person is
 in the mandate the panel's Contact fold is the candidate drawer's, Find email and phone included. The
@@ -216,17 +224,20 @@ theme opens dark. It states only what the rows carry: a candidate's
 status but no pipeline outcome, and a package in another currency is counted rather than converted.
 **Gender (V56) is recorded on a candidate, or proposed and flagged — never silently inferred** — the
 chapter divides by the executives who have one on file, not by the headcount, so a mandate nobody has
-recorded reads as unmeasured rather than as a pool of one gender. **AI enrichment** is two
-ungrounded Gemini calls at temperature 0 (no web search — grounding was too slow) run by
-`CandidateAiEnrichWorker` after a capture's vendor research lands, and again from the drawer's
-**AI deep enrich** button (`POST …/candidates/{id}/ai-enrich`, 202, `WORK_EXECUTE`), one budget unit
-for both. The assessment call (`CandidateAiEnricher`) reads the profile alone and always proposes its
+recorded reads as unmeasured rather than as a pool of one gender. **The AI on an executive** is ungrounded
+Gemini calls at temperature 0 (no web search — grounding was too slow): the background (`CandidateAiEnricher` and
+the nationality classifier) and the assessment draft (above). `CandidateAiEnrichWorker` runs both unprompted once
+a capture's research lands, Find executives files someone or People Search does — asking nothing when nothing is
+missing and the brief has no competencies or a draft already — and the drawer runs each on its own, synchronously:
+**Suggest with AI** in the Background section's header (`POST …/candidates/{id}/background/ai`, offered while
+gender, years or seniority is empty, or nationality is with no reading yet) and **Assess with AI**. Each press is
+its own `LlmBudget` meter and one `AI_ENRICH` fair-use unit, recorded only once its answer is on file; a model that
+answers nothing usable is `AI_UNAVAILABLE`, charging nothing. The old panel-level assessment and its header button
+are gone (V79's `ai_assessment` and V80's `ai_enrich_failed_at` frozen, unmapped). The background call
+(`CandidateAiEnricher`) reads the profile alone and always proposes its
 most probable value — never "unknown" — for whichever of gender, years of experience and seniority
 level are still empty — a value already on the row always stands, and each filled one is flagged in
-`ai_inferred_fields` (V78, an "AI" badge) until a researcher changes it — and scores the executive 1–10
-on the brief's technical and behavioural competencies with at most five positives and five negatives
-each, and a summary (V79 `ai_assessment`, replaced whole per run; a `sources` key left by earlier
-grounded runs is ignored on read). **Nationality is the deliberate exception: it may be "Unknown"**,
+`ai_inferred_fields` (V78, an "AI" badge) until a researcher changes it. **Nationality is the deliberate exception: it may be "Unknown"**,
 because a wrong one costs more than a blank. It is `CandidateNationalityClassifier`'s, asked only while
 the field is empty, against an evidence rubric (`candidate-nationality-system.st`: residence, a GCC
 employer and a regional business school are not evidence; a GCC nationality needs positive evidence;
@@ -239,7 +250,7 @@ field null and the drawer says the AI could not tell. `NationalityEval` (`@Tag("
 profiles, exported by `ops/eval/export-golden.sh` — and appends counts to `docs/eval/nationality-eval.md`. **The model never sees a
 candidate's contacts, compensation, note or custom fields**: its input is the `CandidateDossier`
 allowlist. The assessment ranks a person and the nationality reading reasons about their origin, so both are
-staff-only — one read (`GET …/ai-assessment`, `WORK_EXECUTE`) and never on `CandidateResponse`, which a
+staff-only — `GET …/candidates/{id}/assessment` and `…/nationality-reading`, `WORK_EXECUTE` — and never on `CandidateResponse`, which a
 client seat reads; a filled seniority, like gender, is a mapping fact and is. **Nationality is counted
 in eleven groups** — the Gulf six by name, and everyone else as Western expat (all of Europe, the east
 included), South Asian, Asian (East and South-East), Arab expat, non-GCC, or Other expat (any country
@@ -866,8 +877,8 @@ V78 adds `app_lm_project_candidate.ai_inferred_fields` jsonb — the keys (`nati
 changed since.
 V79 adds `app_lm_project_candidate.ai_assessment` jsonb — the AI enrichment's summary, per-panel
 score with positives and negatives, and source links; the model's own reading, replaced whole per run.
-V80 adds `ai_enrich_failed_at` — the last AI enrichment run that produced nothing, so the drawer says
-so at once; a later success clears it. Saving the drawer's Background section (`confirmBackground`)
+V80 adds `ai_enrich_failed_at` — the last AI enrichment run that produced nothing. Both are frozen since V136,
+unmapped and unwritten, left for a later cleanup to drop. Saving the drawer's Background section (`confirmBackground`)
 confirms its AI values and clears `ai_inferred_fields`.
 V83 adds `app_lm_project_candidate.ai_nationality_reading` jsonb — the nationality classifier's last
 reading (category or Unknown, confidence, evidence, rule), replaced whole per run and staff-only.
@@ -964,7 +975,7 @@ hold — captures it only on a find and releases it on a miss or a failure; the 
 `creditsLeft`.
 Search and AI carry no price (#738): V123's `app_lm_usage_event` records each use with its estimated vendor cost once
 the work succeeds (`UsageRecorder`) — a People Search page the first time *this workspace* reads it, bought or cached;
-a Find executives run's filed executives; an AI deep enrich press; the people an opener was written for; an assistant
+a Find executives run's filed executives; a Suggest with AI or Assess with AI press; the people an opener was written for; an assistant
 ask, whose turn also keeps its model and tokens (V123 re-adds the columns V70 dropped). `FairUseGuard` refuses a use that would pass the
 month's ceiling — staff seats × `lightmove.billing.fair-use.<kind>-per-seat`, `0` for none — with 429
 `FAIR_USE_REACHED` (`kind`, `resetsAt`), after `LlmBudgetGuard` and before any vendor or model is asked.
@@ -1055,6 +1066,8 @@ per local day), and widens the activity kinds with `TASK_CREATED`, `TASK_COMPLET
 V135 adds `app_lm_candidate_scorecard` — one per mapping (`candidate_id` unique, cascading), `status` `DRAFT |
 REVIEWED` with `reviewed_at` set exactly when reviewed (CHECK), the scores a jsonb array of `{panel, name, weight,
 score, evidence}` snapshots and the report a jsonb object — and widens the activity kinds with `ASSESSMENT_REVIEWED`.
+V136 gives it `ai_drafted` (jsonb array: the criterion match keys and `report:<section>` still holding the AI's
+untouched draft) and `ai_drafted_at`, and freezes V79's `ai_assessment` and V80's `ai_enrich_failed_at`.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

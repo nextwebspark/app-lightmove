@@ -7,6 +7,8 @@ import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { formatInstantDate } from "../../../../lib/format";
 import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
+import { AiActionButton } from "../AiActionButton";
+import { AiInferredBadge } from "../CandidateFieldGroups";
 import type { ScorecardCriterion, ScorecardPanel } from "../../api/scorecardTypes";
 import { criterionKey, type LivePanel } from "../../lib/scorecardScoring";
 import type { ReportSection, ScorecardEditor } from "../../lib/useScorecardEditor";
@@ -27,11 +29,13 @@ const MAX_EVIDENCE = 2000;
 const MAX_SECTION = 4000;
 /** Where a first press of + lands: the middle of the scale, one step either way from a view. */
 const FIRST_SCORE = 5;
+const AI_DRAFT_TITLE = "AI-drafted — change it and it is yours";
 
 /**
  * The drawer's Assessment tab (`Position.dc.html`, Assessment): the consultant's own scores against the brief's
  * competencies, totalled out of 100 as they move, and a written report in five sections. Saved from the footer
- * — Save draft, or Mark reviewed & submit. Staff-only: it ranks a person.
+ * — Save draft, or Mark reviewed & submit. Assess with AI drafts whatever nobody has written, never a consultant's
+ * own value. Staff-only: it ranks a person.
  */
 export function AssessmentTab({ projectId, editor }: { projectId: string; editor: ScorecardEditor }) {
   const [view, setView] = useState<AssessmentView>("scores");
@@ -72,8 +76,10 @@ export function AssessmentTab({ projectId, editor }: { projectId: string; editor
     <div className="pb-4">
       {editor.stale && (
         <Banner tone="danger">
-          <span className="flex-1">Someone saved this assessment after you opened it. Your changes are still here.</span>
-          <BannerButton onClick={editor.reload}>Reload theirs</BannerButton>
+          <span className="flex-1">
+            Someone saved this assessment after you opened it — a teammate, or the AI. Your changes are still here.
+          </span>
+          <BannerButton onClick={editor.reload}>Reload, keeping mine</BannerButton>
         </Banner>
       )}
       {editor.restored && editor.isDirty && !editor.stale && (
@@ -82,6 +88,26 @@ export function AssessmentTab({ projectId, editor }: { projectId: string; editor
           <BannerButton onClick={editor.discard}>Discard</BannerButton>
         </Banner>
       )}
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <span className="text-meta text-u-text3">
+          {scorecard.aiDraftedAt
+            ? `AI drafted ${formatInstantDate(scorecard.aiDraftedAt)} · it never changes a score or section you wrote`
+            : "The AI scores each competency from the profile and drafts the report; you review every word"}
+        </span>
+        <AiActionButton
+          label="Assess with AI"
+          busyLabel="Assessing…"
+          isBusy={editor.isAssessing}
+          disabled={editor.isDirty || editor.isSaving || tally.criteriaCount === 0}
+          title={
+            editor.isDirty
+              ? "Save or discard your changes first"
+              : "Score every open competency from the profile, with the evidence, and draft the report"
+          }
+          onClick={editor.assessWithAi}
+        />
+      </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 border-y border-u-border py-3.5">
         <div className="min-w-24 flex-1">
@@ -222,6 +248,7 @@ function CriterionRow({
             className={cn("flex-none text-u-text3 transition-transform", open && "rotate-90")}
           />
           <span className="truncate text-note font-semibold text-u-text">{criterion.name}</span>
+          {editor.isAiDrafted(key) && <AiInferredBadge title={AI_DRAFT_TITLE} />}
           {evidence.trim() && (
             <Icon d={ICONS.fileText} size={11} className="flex-none text-u-text3" aria-label="Has evidence" />
           )}
@@ -413,7 +440,10 @@ function ReportSections({ editor }: { editor: ScorecardEditor }) {
                 className={cn("flex-none text-u-text3 transition-transform", isOpen && "rotate-90")}
               />
               <span className="min-w-0 flex-1">
-                <span className="block text-note font-semibold text-u-text">{section.title}</span>
+                <span className="flex items-center gap-1 text-note font-semibold text-u-text">
+                  {section.title}
+                  {editor.isReportAiDrafted(section.id) && <AiInferredBadge title={AI_DRAFT_TITLE} />}
+                </span>
                 {!isOpen && text.trim() && (
                   <span className="mt-0.5 block truncate text-meta text-u-text3">{text.trim()}</span>
                 )}

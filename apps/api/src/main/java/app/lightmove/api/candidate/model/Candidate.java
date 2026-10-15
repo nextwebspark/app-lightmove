@@ -60,14 +60,6 @@ public class Candidate extends BaseEntity {
     @Column(name = "status_changed_at", nullable = false)
     private Instant statusChangedAt;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "ai_assessment")
-    private CandidateAiAssessment aiAssessment;
-
-    /** The last AI enrichment run that produced nothing (V80); a later success clears it. */
-    @Column(name = "ai_enrich_failed_at")
-    private Instant aiEnrichFailedAt;
-
     /**
      * Values for this project's CANDIDATE custom columns, keyed by the column's {@code field_key}.
      * The columns are the mandate's, so their values are too.
@@ -136,16 +128,6 @@ public class Candidate extends BaseEntity {
     /** The mandate's half of a save: where the person works for this mandate. */
     public void describe(CandidateDetails details) {
         this.companyName = details.employerName();
-    }
-
-    /** Replaces the last AI assessment whole — it is the model's own reading, not anybody's edit. */
-    public void recordAiAssessment(CandidateAiAssessment assessment) {
-        this.aiAssessment = assessment;
-        this.aiEnrichFailedAt = null;
-    }
-
-    public void recordAiEnrichFailure() {
-        this.aiEnrichFailedAt = Instant.now();
     }
 
     /**
