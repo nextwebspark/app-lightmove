@@ -128,6 +128,7 @@ export function DocumentCard({
           <Popover
             label={`More for ${document.title}`}
             align="right"
+            placement="auto"
             width={236}
             triggerClassName={ICON_BUTTON}
             trigger={() => <Icon d={ICONS.more} size={14} />}

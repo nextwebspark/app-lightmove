@@ -237,8 +237,7 @@ describe("ProjectDrawer", () => {
     });
     renderDrawer();
 
-    await userEvent.click(screen.getByRole("button", { name: "More for CFO Search" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: /archive position/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
 
     expect(await screen.findByText(/3 outreach runs stop/)).toBeInTheDocument();
     expect(screen.getByText(/1 open task leaves/)).toBeInTheDocument();
@@ -255,13 +254,13 @@ describe("ProjectDrawer", () => {
   it("offers no archiving to a researcher, nor to an admin without a lead's seat", () => {
     viewer.id = "u-m1";
     const { unmount } = renderDrawer();
-    expect(screen.queryByRole("button", { name: "More for CFO Search" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
     unmount();
 
     viewer.id = "u-admin";
     viewer.workspace.roles = ["ADMIN"];
     renderDrawer();
-    expect(screen.queryByRole("button", { name: "More for CFO Search" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
   });
 
   it("draws an archived position as archived, and its lead restores it in one click", async () => {
@@ -270,7 +269,7 @@ describe("ProjectDrawer", () => {
 
     expect(screen.getByText("Archived")).toBeInTheDocument();
     expect(screen.queryByText("At risk")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "More for CFO Search" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Restore" }));
 
