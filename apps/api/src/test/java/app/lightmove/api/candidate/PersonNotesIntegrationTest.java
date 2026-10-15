@@ -10,8 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.StubChatModel;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,47 +24,164 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.JsonNode;
 
 /**
- * A person's notes and history (V96): one set of notes whichever mandate they are read from, written
- * and timed by name, changed only by their author or an admin, and never shown to a client seat — not
- * on the notes routes, not on the row a client reads, not through the workspace's own routes.
+ * A person's notes and history (V96): a note about a position read on that position alone, one for all
+ * positions on every one, both on the workspace's Candidates page; written and timed by name, changed only by
+ * their author or an admin, and never shown to a client seat — not on the notes routes, not on the row a
+ * client reads, not through the workspace's own routes.
  */
 @IntegrationTest
 class PersonNotesIntegrationTest extends FlowTestSupport {
 
+    private static final String FATIMA = """
+            {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-notes"}""";
+
+    /** Answers both background prompts of a Suggest with AI press, each binding the half it asked for. */
+    private static final String AI_BACKGROUND = """
+            {"category":"Emirati","confidence":"high","evidence_for":["Emiratisation graduate programme"],
+             "evidence_against":[],"rule_applied":"none",
+             "gender":"female","yearsExperience":14,"seniority":"N-1"}""";
+
     @Autowired JdbcTemplate db;
+    @Autowired StubChatModel model;
 
     private String admin;
     private String saraEmail;
 
     @Test
-    @DisplayName("a note written on one position is read from every other, with its author, kind and context")
-    void aNoteIsSharedAcrossPositions() throws Exception {
-        firm("Shared Notes Firm");
+    @DisplayName("a note about one position is read there and on the Candidates page, never on another position")
+    void aPositionsNoteStaysOnIt() throws Exception {
+        firm("Position Notes Firm");
         String cfo = mandate("Chief Financial Officer");
         String credit = mandate("Head of Credit Risk");
-        JsonNode onCfo = add(cfo, """
-                {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-notes"}""");
-        JsonNode onCredit = add(credit, """
-                {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-notes"}""");
+        JsonNode onCfo = add(cfo, FATIMA);
+        String onCredit = add(credit, FATIMA).get("id").asText();
 
         write(admin, cfo, onCfo.get("id").asText(), "call", "Open to a group CFO move; wants Dubai.");
 
-        JsonNode fromCredit = notes(admin, credit, onCredit.get("id").asText());
-        assertThat(fromCredit).hasSize(1);
-        JsonNode note = fromCredit.get(0);
+        JsonNode fromCfo = notes(admin, cfo, onCfo.get("id").asText());
+        assertThat(fromCfo).hasSize(1);
+        JsonNode note = fromCfo.get(0);
         assertThat(note.get("kind").asText()).isEqualTo("call");
         assertThat(note.get("body").asText()).isEqualTo("Open to a group CFO move; wants Dubai.");
+        assertThat(note.get("projectId").asText()).isEqualTo(cfo);
         assertThat(note.get("projectTitle").asText()).isEqualTo("Chief Financial Officer");
         assertThat(note.get("authorName").asText()).isEqualTo("Alok Kumar");
         assertThat(note.get("editable").asBoolean()).isTrue();
         assertThat(note.get("createdAt").isNull()).isFalse();
 
-        JsonNode fromPool = body(mvc.perform(get("/api/v1/candidates/" + onCfo.get("personId").asText() + "/notes")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isOk())
-                .andReturn());
+        assertThat(notes(admin, credit, onCredit)).isEmpty();
+        JsonNode fromPool = poolNotes(onCfo.get("personId").asText());
         assertThat(fromPool).hasSize(1);
         assertThat(fromPool.get(0).get("id").asText()).isEqualTo(note.get("id").asText());
+
+        JsonNode onCreditsTimeline = timeline(credit, onCredit, "notes").get("entries");
+        assertThat(kindsOf(onCreditsTimeline)).containsExactly("NOTE_ADDED");
+        assertThat(onCreditsTimeline.get(0).get("projectTitle").asText()).isEqualTo("Chief Financial Officer");
+        assertThat(onCreditsTimeline.get(0).get("noteExcerpt").isNull()).isTrue();
+        assertThat(timeline(cfo, onCfo.get("id").asText(), "notes").get("entries").get(0).get("noteExcerpt").asText())
+                .startsWith("Open to a group CFO move");
+    }
+
+    @Test
+    @DisplayName("a note for all positions, written from one, is read on every position the person is in")
+    void anAllPositionsNoteIsReadOnEvery() throws Exception {
+        firm("All Positions Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        JsonNode onCfo = add(cfo, FATIMA);
+        String onCredit = add(credit, FATIMA).get("id").asText();
+
+        JsonNode written = writeForAllPositions(admin, cfo, onCfo.get("id").asText(), "meeting",
+                "Prefers a listed company.");
+        assertThat(written.get("projectId").isNull()).isTrue();
+        assertThat(written.get("projectTitle").isNull()).isTrue();
+
+        JsonNode fromCredit = notes(admin, credit, onCredit);
+        assertThat(fromCredit).hasSize(1);
+        assertThat(fromCredit.get(0).get("id").asText()).isEqualTo(written.get("id").asText());
+        assertThat(timeline(credit, onCredit, "notes").get("entries").get(0).get("noteExcerpt").asText())
+                .isEqualTo("Prefers a listed company.");
+        assertThat(poolNotes(onCfo.get("personId").asText())).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("another position's note is not found from this one, to change, pin, remove or set a task from")
+    void anotherPositionsNoteIsNotFoundHere() throws Exception {
+        firm("Foreign Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        String onCfo = add(cfo, FATIMA).get("id").asText();
+        String onCredit = add(credit, FATIMA).get("id").asText();
+        String noteId = write(admin, cfo, onCfo, "general", "Board seat at a bank.").get("id").asText();
+
+        mvc.perform(put(notesUrl(credit, onCredit) + "/" + noteId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Rewritten from another position."}"""))
+                .andExpect(status().isNotFound());
+        mvc.perform(patch(notesUrl(credit, onCredit) + "/" + noteId + "/pin")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"pinned":true}"""))
+                .andExpect(status().isNotFound());
+        mvc.perform(delete(notesUrl(credit, onCredit) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNotFound());
+        String adminId = db.queryForObject("select id::text from app_lm_user where email = ?", String.class,
+                "alok@" + domain);
+        mvc.perform(post("/api/v1/projects/" + credit + "/candidates/" + onCredit + "/tasks")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Call back","kind":"call","assigneeUserId":"%s","dueAt":"%s","noteId":"%s"}"""
+                                .formatted(adminId, Instant.now().plus(2, ChronoUnit.DAYS), noteId)))
+                .andExpect(status().isNotFound());
+
+        JsonNode kept = notes(admin, cfo, onCfo);
+        assertThat(kept).hasSize(1);
+        assertThat(kept.get(0).get("body").asText()).isEqualTo("Board seat at a bank.");
+        assertThat(kept.get(0).get("pinned").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a task already pointing at another position's note names none, while its own position's is named")
+    void aTaskNamesOnlyANoteItsPositionReads() throws Exception {
+        firm("Linked Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        String onCfo = add(cfo, FATIMA).get("id").asText();
+        String onCredit = add(credit, FATIMA).get("id").asText();
+        String noteId = write(admin, cfo, onCfo, "call", "Asked about the bank's board.").get("id").asText();
+
+        String onCfoTask = task(cfo, onCfo, noteId);
+        String onCreditTask = task(credit, onCredit, null);
+        db.update("update app_lm_task set note_id = ?::uuid where id = ?::uuid", noteId, onCreditTask);
+
+        assertThat(openTask(cfo, onCfo, onCfoTask).at("/note/id").asText()).isEqualTo(noteId);
+        assertThat(openTask(credit, onCredit, onCreditTask).get("note").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("an AI run on one position reads its own notes and those for all positions, never another's")
+    void anAiRunReadsWhatItsPositionReads() throws Exception {
+        firm("AI Notes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        String onCfo = add(cfo, FATIMA).get("id").asText();
+        String onCredit = add(credit, FATIMA).get("id").asText();
+        write(admin, cfo, onCfo, "call", "Only the CFO team reads this.");
+        writeForAllPositions(admin, cfo, onCfo, "general", "Every position reads this.");
+        write(admin, credit, onCredit, "general", "The credit team's own reading.");
+        model.answerWith(AI_BACKGROUND);
+
+        mvc.perform(post("/api/v1/projects/" + credit + "/candidates/" + onCredit + "/background/ai")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+
+        assertThat(model.prompts()).isNotEmpty().allSatisfy(sent -> assertThat(sent.getUserMessage().getText())
+                .contains("Every position reads this.", "The credit team's own reading.")
+                .doesNotContain("Only the CFO team"));
     }
 
     @Test
@@ -216,6 +337,15 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"kind":"general","body":"About no position at all."}"""))
                 .andExpect(status().isCreated());
+        String bothRefused = codeOf(mvc.perform(post("/api/v1/candidates/" + personId + "/notes")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"About one position and all.","projectId":"%s",
+                                 "allPositions":true}""".formatted(credit)))
+                .andExpect(status().isBadRequest())
+                .andReturn());
+        assertThat(bothRefused).isEqualTo("VALIDATION_FAILED");
     }
 
     @Test
@@ -396,6 +526,11 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
         }
     }
 
+    @AfterEach
+    void resetTheModel() {
+        model.reset();
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private void firm(String name) throws Exception {
@@ -467,6 +602,51 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json.writeValueAsString(java.util.Map.of("kind", kind, "body", text))))
                 .andExpect(status().isCreated())
+                .andReturn());
+    }
+
+    private JsonNode writeForAllPositions(String token, String projectId, String candidateId, String kind,
+                                          String text) throws Exception {
+        return body(mvc.perform(post(notesUrl(projectId, candidateId))
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("kind", kind, "body", text,
+                                "allPositions", true))))
+                .andExpect(status().isCreated())
+                .andReturn());
+    }
+
+    private String task(String projectId, String candidateId, String noteId) throws Exception {
+        String adminId = db.queryForObject("select id::text from app_lm_user where email = ?", String.class,
+                "alok@" + domain);
+        String linked = noteId == null ? "" : ",\"noteId\":\"" + noteId + "\"";
+        return body(mvc.perform(post("/api/v1/projects/" + projectId + "/candidates/" + candidateId + "/tasks")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Call back","kind":"call","assigneeUserId":"%s","dueAt":"%s"%s}"""
+                                .formatted(adminId, Instant.now().plus(2, ChronoUnit.DAYS), linked)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private JsonNode openTask(String projectId, String candidateId, String taskId) throws Exception {
+        JsonNode open = body(mvc.perform(get("/api/v1/projects/" + projectId + "/candidates/" + candidateId + "/tasks")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("open");
+        for (JsonNode task : open) {
+            if (task.get("id").asText().equals(taskId)) {
+                return task;
+            }
+        }
+        throw new AssertionError("no open task " + taskId);
+    }
+
+    private JsonNode poolNotes(String personId) throws Exception {
+        return body(mvc.perform(get("/api/v1/candidates/" + personId + "/notes")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
                 .andReturn());
     }
 

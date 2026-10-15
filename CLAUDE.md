@@ -47,9 +47,13 @@ person — added, mapped, unmapped, status, profile, contacts, research, AI — 
 `app_lm_person_activity` naming who did it, on which mandate, and when, written in the same transaction
 as the change (`PersonActivityRecorder`); the security audit trail is written as before, beside it.
 **Notes are the person's (V96)**, never a field of the row: typed (note, call, meeting, email), authored,
-timed, about a position or about the person, shared by every mandate that maps them and **staff-only** —
-`CandidateResponse`, the talent map and the report carry none, because a client seat reads all three
-(decision D1). A note a door sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
+timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
+seat reads all three (decision D1). A note is about one position or about the person: read from a position,
+only that position's and the person's ("All positions") show, and another position's is not found
+(`NoteViewpoint`) — not listed, not quoted on the timeline, not changed, pinned or linked to a task
+there, never sent to that position's AI — while the Candidates page reads them all (D1, revised 2026-10-15).
+The position drawer's composer offers This position or All positions, never another position. A note a door
+sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
 Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
 may change or remove one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
 never quotes it, so a removed note leaves no copy. Both person drawers — a position's executive drawer and the
@@ -253,11 +257,12 @@ field null and the drawer says the AI could not tell. `NationalityEval` (`@Tag("
 `./mvnw test`) scores both prompts against a golden set that never enters the repository — real
 profiles, exported by `ops/eval/export-golden.sh` — and appends counts to `docs/eval/nationality-eval.md`. **Every
 AI run on an executive reads the person's notes and documents too** (`CandidateMaterialService` →
-`CandidateMaterialReader`): every note, newest first, and the text of the latest file of each document (a PDF, DOCX,
-DOC or TXT; an image or a scan without a text layer is left out), each held to a length, and the audit line counts
-how many of each went. **The model never sees a candidate's contacts, compensation fields or custom fields**: the
-profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` — the one copy of the email and phone
-patterns, which `PositionDocumentRedactor` uses too — takes every address and number out of the About, the notes and
+`CandidateMaterialReader`): every note that position reads, newest first, and the text of the latest file of each
+document (a PDF, DOCX, DOC or TXT; an image or a scan without a text layer is left out), each held to a length,
+and the audit line counts how many of each went. **The model never sees a candidate's contacts, compensation
+fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` —
+the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
+and number out of the About, the notes and
 the documents first, sparing dates, ranges and money; a figure a note or a CV states is sent as written. The assessment ranks a person and the nationality reading reasons about their origin, so both are
 staff-only — `GET …/candidates/{id}/assessment` and `…/nationality-reading`, `WORK_EXECUTE` — and never on `CandidateResponse`, which a
 client seat reads; a filled seniority, like gender, is a mapping fact and is. **Nationality is counted

@@ -134,8 +134,8 @@ public class NotificationService {
                 row.getEventCount(), TaskPeople.personOf(row.getActorUserId(), actors), row.getProjectId(),
                 valueOf(projectTitles, row.getProjectId()), row.getPersonId(), row.getCandidateId(),
                 valueOf(personNames, row.getPersonId()), row.getTaskId(), valueOf(taskTitles, row.getTaskId()),
-                TaskNoteDto.of(row.getNoteId(), notes), row.names(), dueOf(row), row.getLatestAt(), row.getReadAt() != null,
-                row.getSnoozedUntil())).toList();
+                TaskNoteDto.of(row.getNoteId(), row.getProjectId(), notes), row.names(), dueOf(row), row.getLatestAt(),
+                row.getReadAt() != null, row.getSnoozedUntil())).toList();
     }
 
     /** {@code Map.of()} answers a null key with a {@code NullPointerException}, not a null. */

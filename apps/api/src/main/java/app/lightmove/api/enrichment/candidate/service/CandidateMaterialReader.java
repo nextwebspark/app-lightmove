@@ -23,10 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Writes out what the team has filed on a person for a prompt: every note, newest first, and the text of the latest
- * file of every document a text can be read from — an image or a scan without a text layer is left out. Emails and
- * phone numbers are taken out of both, and each is held to a share of the prompt, so one long file never crowds out
- * the rest.
+ * Writes out what the team has filed on a person for a prompt: every note the position reads, newest first, and the
+ * text of the latest file of every document a text can be read from — an image or a scan without a text layer is left
+ * out. Emails and phone numbers are taken out of both, and each is held to a share of the prompt, so one long file
+ * never crowds out the rest.
  */
 @Component
 @RequiredArgsConstructor

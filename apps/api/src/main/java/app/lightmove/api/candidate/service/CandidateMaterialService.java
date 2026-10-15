@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateMaterial;
 import app.lightmove.api.candidate.model.DocumentOnFile;
 import app.lightmove.api.candidate.model.NoteOnFile;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonDocumentVersion;
 import app.lightmove.api.candidate.model.StoredDocumentFile;
@@ -22,8 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * What the AI runs on an executive read beyond the profile: the person's notes and documents, which are the
- * workspace's and shared by every mandate mapping them. Reading here audits nothing; the run that asked does.
+ * What the AI runs on an executive read beyond the profile: the person's documents, shared by every position
+ * mapping them, and the notes this position reads — its own and those about no position. Reading here audits
+ * nothing; the run that asked does.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,7 +48,7 @@ public class CandidateMaterialService {
     public CandidateMaterial materialOf(UUID projectId, UUID candidateId) {
         return candidates.findByIdAndProjectId(candidateId, projectId)
                 .map(Candidate::getPerson)
-                .map(this::materialOf)
+                .map(person -> materialOf(person, projectId))
                 .orElse(CandidateMaterial.NONE);
     }
 
@@ -54,9 +56,9 @@ public class CandidateMaterialService {
         return documentFiles.open(file);
     }
 
-    private CandidateMaterial materialOf(Person person) {
+    private CandidateMaterial materialOf(Person person, UUID projectId) {
         List<NoteOnFile> written = notes
-                .findByWorkspaceIdAndPersonIdOrderByCreatedAtDesc(person.getWorkspaceId(), person.getId())
+                .findReadableNewestFirst(person.getWorkspaceId(), person.getId(), NoteViewpoint.position(projectId))
                 .stream()
                 .map(note -> new NoteOnFile(note.getKind(), note.getCreatedAt(), note.getProjectTitle(),
                         note.getBody()))

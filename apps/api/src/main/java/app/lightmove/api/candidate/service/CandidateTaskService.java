@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.LinkedNote;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.TaskSubject;
@@ -46,10 +47,10 @@ public class CandidateTaskService {
                 : candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateTaskService::subjectOf);
     }
 
-    /** A linked follow-up's note must be one of the person's own; anything else is a 404. */
+    /** A linked follow-up's note must be one of the person's own that the position reads; anything else is a 404. */
     @Transactional(readOnly = true)
-    public void requireNoteAbout(UUID workspaceId, UUID personId, UUID noteId) {
-        notes.requireOnPerson(noteId, workspaceId, personId);
+    public void requireNoteAbout(UUID workspaceId, UUID personId, UUID projectId, UUID noteId) {
+        notes.requireReadable(noteId, workspaceId, personId, NoteViewpoint.position(projectId));
     }
 
     /** The notes tasks or bell rows point back at, by kind and date; a deleted one is simply absent. */
@@ -60,7 +61,8 @@ public class CandidateTaskService {
         }
         return notes.findByWorkspaceIdAndIdIn(workspaceId, noteIds).stream()
                 .collect(Collectors.toMap(PersonNote::getId,
-                        note -> new LinkedNote(note.getId(), note.getKind(), note.getCreatedAt())));
+                        note -> new LinkedNote(note.getId(), note.getKind(), note.getCreatedAt(),
+                                note.getProjectId())));
     }
 
     @Transactional(readOnly = true)

@@ -18,7 +18,7 @@ import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
-import { NoteCard, NoteKindPicker, noteAnchorOf } from "./NoteParts";
+import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
@@ -89,13 +89,25 @@ export function NotesSection({
   const positions = usePositions(projectId, candidateId);
   const thisPosition = positions.data?.find((row) => row.projectId === projectId)?.positionTitle;
   const [kind, setKind] = useState<PersonNoteKind>("general");
+  const [scope, setScope] = useState<NoteScope>("position");
   const [text, setText] = useState("");
   const [mentions, setMentions] = useState<Mention[]>([]);
+  const forEveryPosition = scope === "everywhere";
 
-  const body = serializeMentions(text.trim(), mentionsPresent(text, mentions));
+  const changeScope = (next: NoteScope) => {
+    setScope(next);
+    setMentions([]);
+  };
+
+  const body = forEveryPosition ? text.trim() : serializeMentions(text.trim(), mentionsPresent(text, mentions));
   const tooLong = body.length > NOTE_MAX_STORED;
   const saving = useMutation({
-    mutationFn: (_thenNextAction: boolean) => personCrmApi.writePersonNote(projectId, candidateId, { kind, body }),
+    mutationFn: (_thenNextAction: boolean) =>
+      personCrmApi.writePersonNote(
+        projectId,
+        candidateId,
+        forEveryPosition ? { kind, body, allPositions: true } : { kind, body },
+      ),
     onSuccess: (note, thenNextAction) => {
       setText("");
       setMentions([]);
@@ -109,7 +121,7 @@ export function NotesSection({
         toast("Note saved");
         onSetNextAction(taskNoteOf(note));
       } else {
-        toast("Note saved — your team sees it on every position");
+        toast(note.projectId ? "Note saved" : "Note saved — your team sees it on every position");
       }
     },
     onError: (error) => toast.error(messageFor(error)),
@@ -136,7 +148,7 @@ export function NotesSection({
             onChange={setText}
             mentions={mentions}
             onMentionsChange={setMentions}
-            teammates={team.teammates}
+            teammates={forEveryPosition ? null : team.teammates}
             onKeyDown={handleKeyDown}
             rows={2}
             maxLength={NOTE_MAX_STORED}
@@ -149,10 +161,10 @@ export function NotesSection({
               {NOTE_TOO_LONG}
             </p>
           )}
-          <div className="mt-2 flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate font-mono text-meta text-u-text3">
-              About {thisPosition ?? "this position"}
-            </span>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <NoteScopePicker positionTitle={thisPosition} value={scope} onChange={changeScope} />
+            </div>
             {onSetNextAction && (
               <Button
                 type="button"
@@ -183,8 +195,8 @@ export function NotesSection({
           <LinesSkeleton />
         ) : list.length === 0 ? (
           <p className="text-[13px]/[1.6] text-u-text3">
-            No notes yet. A note you save here is shared with the team on every position this person
-            is in.
+            No notes yet. A note saved here stays with this position; choose All positions to share it with
+            every position this person is in.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">

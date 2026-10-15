@@ -143,6 +143,47 @@ describe("the note composer", () => {
     );
   });
 
+  it("keeps a note on this position unless it is for all positions, which mentions nobody", async () => {
+    vi.mocked(personCrmApi.writePersonNote).mockImplementation(async (_p, _c, note) => ({
+      ...aNote(note.body, note.kind),
+      projectId: note.allPositions ? null : "p1",
+      projectTitle: note.allPositions ? null : "Chief Financial Officer",
+    }));
+    renderNotes();
+    await screen.findByRole("button", { name: "Mention a teammate" });
+    const scope = within(screen.getByRole("radiogroup", { name: "Who reads this note" }));
+    expect(scope.getByRole("radio", { name: "This position" })).toBeChecked();
+
+    await userEvent.type(composer(), "Call @");
+    await userEvent.click(screen.getByRole("option", { name: /Sara Al-Mansour/ }));
+    await userEvent.click(scope.getByRole("radio", { name: "All positions" }));
+
+    expect(screen.queryByRole("button", { name: "Mention a teammate" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Notifies")).not.toBeInTheDocument();
+    await userEvent.type(composer(), "back about any role");
+    await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+
+    await waitFor(() =>
+      expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
+        kind: "general",
+        body: "Call @Sara Al-Mansour back about any role",
+        allPositions: true,
+      }),
+    );
+    expect(await screen.findByText("Note saved — your team sees it on every position")).toBeInTheDocument();
+  });
+
+  it("names the position a note is about, and says when one is for all positions", async () => {
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+      aNote("Wants Dubai"),
+      { ...aNote("Prefers a listed company"), id: "n2", projectId: null, projectTitle: null },
+    ]);
+    renderNotes();
+
+    expect(await screen.findByText("About Chief Financial Officer")).toBeInTheDocument();
+    expect(screen.getByText("All positions", { selector: "span" })).toBeInTheDocument();
+  });
+
   it("draws a saved note's mentions as chips, never the token", async () => {
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
       aNote("Ask @[Sara Al-Mansour](user:u3) to call, cc @[team](team)"),

@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.repository.CandidateRepository;
@@ -37,11 +38,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A person's notes, shared by every mandate that maps them and read by staff only (decision D1). Anyone
- * who reaches the person may write one or pin one; only its author, or a holder of
- * {@code WORKSPACE_MANAGE}, may change or remove it. Every write is a timeline line naming the note,
- * never quoting it, so a removed note leaves no copy of its words behind. A note about a position may mention
- * its team ({@link NoteMentions}); one about no position mentions nobody.
+ * A person's notes, read by staff only (decision D1) and only as far as the caller's {@link NoteViewpoint} reads.
+ * Anyone who reaches a note may pin it; only its author, or a holder of {@code WORKSPACE_MANAGE}, may change or
+ * remove it. Every write is a timeline line naming the note, never quoting it, so a removed note leaves no copy.
+ * A note about a position may mention its team ({@link NoteMentions}); one about no position mentions nobody.
  */
 @Service
 @RequiredArgsConstructor
@@ -61,20 +61,19 @@ public class PersonNoteService {
     private final AuditService audit;
 
     @Transactional(readOnly = true)
-    public List<PersonNoteResponse> list(UUID userId, UUID workspaceId, UUID personId) {
+    public List<PersonNoteResponse> list(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint) {
         people.requireInWorkspace(personId, workspaceId);
-        List<PersonNote> found = notes.findByWorkspaceIdAndPersonIdOrderByPinnedDescCreatedAtDesc(workspaceId,
-                personId);
+        List<PersonNote> found = notes.findReadablePinnedFirst(workspaceId, personId, viewpoint);
         boolean mayEditAny = mayEditAny(userId, workspaceId);
         Map<UUID, User> authors = usersOf(found);
         return found.stream().map(note -> toDto(note, authors, mayEditAny || note.isWrittenBy(userId))).toList();
     }
 
     /**
-     * {@code aboutProjectId} is the position the note is about: the route's own under a position, the
-     * request's on the workspace's routes. Reading the pool is any staff member's (D2), but filing a note
-     * against a mandate is work on it, so the caller needs that mandate's seat, and the person must be
-     * mapped there.
+     * {@code aboutProjectId} is the position the note is about, null for one about the person on every
+     * position: under a position, the route's own unless the note is for all positions; on the workspace's
+     * routes, the request's. Reading the pool is any staff member's (D2), but filing a note against a mandate
+     * is work on it, so the caller needs that mandate's seat, and the person must be mapped there.
      */
     @Transactional
     public PersonNoteResponse write(UUID userId, UUID workspaceId, UUID personId, UUID aboutProjectId,
@@ -97,11 +96,11 @@ public class PersonNoteService {
     }
 
     @Transactional
-    public PersonNoteResponse revise(UUID userId, UUID workspaceId, UUID personId, UUID noteId,
-                                     WritePersonNoteRequest request, HttpServletRequest httpRequest) {
+    public PersonNoteResponse revise(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
+                                     UUID noteId, WritePersonNoteRequest request, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
         PersonNoteKind kind = kindOf(request);
-        PersonNote note = requireEditable(userId, workspaceId, personId, noteId);
+        PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         note.revise(kind, request.body().strip(), userId);
         mentions.keep(note, userId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_EDITED,
@@ -114,9 +113,10 @@ public class PersonNoteService {
     }
 
     @Transactional
-    public void remove(UUID userId, UUID workspaceId, UUID personId, UUID noteId, HttpServletRequest httpRequest) {
+    public void remove(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint, UUID noteId,
+                       HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
-        PersonNote note = requireEditable(userId, workspaceId, personId, noteId);
+        PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_REMOVED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
         notes.delete(note);
@@ -128,10 +128,10 @@ public class PersonNoteService {
 
     /** Pinning orders the list; it is nobody's edit, so it leaves no timeline line, only an audit event. */
     @Transactional
-    public PersonNoteResponse pin(UUID userId, UUID workspaceId, UUID personId, UUID noteId, boolean pinned,
-                                  HttpServletRequest httpRequest) {
+    public PersonNoteResponse pin(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
+                                  UUID noteId, boolean pinned, HttpServletRequest httpRequest) {
         people.requireInWorkspace(personId, workspaceId);
-        PersonNote note = notes.requireOnPerson(noteId, workspaceId, personId);
+        PersonNote note = notes.requireReadable(noteId, workspaceId, personId, viewpoint);
         note.pin(pinned);
         audit.event(ProjectEventType.PERSON_NOTE_PINNED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -166,8 +166,9 @@ public class PersonNoteService {
         return note;
     }
 
-    private PersonNote requireEditable(UUID userId, UUID workspaceId, UUID personId, UUID noteId) {
-        PersonNote note = notes.requireOnPerson(noteId, workspaceId, personId);
+    private PersonNote requireEditable(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
+                                       UUID noteId) {
+        PersonNote note = notes.requireReadable(noteId, workspaceId, personId, viewpoint);
         if (!mayEdit(userId, workspaceId, note)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }

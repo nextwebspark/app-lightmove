@@ -16,10 +16,54 @@ import {
   serializeMentions,
 } from "../../tasks/lib/mentions";
 
-/** The composer's kind chips: a radio group with one tab stop, the arrows moving the choice. */
+/** Who reads a note written inside a position: that position's team, or every position's. */
+export type NoteScope = "position" | "everywhere";
+
 export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onChange: (kind: PersonNoteKind) => void }) {
+  return (
+    <NoteChoiceChips label="Kind of note" options={NOTE_KINDS} value={value} onChange={onChange} className="mb-2" />
+  );
+}
+
+/** Inside a position a note is about it or about the person on every position, never about another position. */
+export function NoteScopePicker({
+  positionTitle,
+  value,
+  onChange,
+}: {
+  positionTitle: string | null | undefined;
+  value: NoteScope;
+  onChange: (scope: NoteScope) => void;
+}) {
+  return (
+    <NoteChoiceChips
+      label="Who reads this note"
+      options={[
+        { value: "position", label: "This position", title: positionTitle ?? undefined },
+        { value: "everywhere", label: "All positions" },
+      ]}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+/** The composer's chips: a radio group with one tab stop, the arrows moving the choice. */
+function NoteChoiceChips<TValue extends string>({
+  label,
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  label: string;
+  options: readonly { value: TValue; label: string; title?: string }[];
+  value: TValue;
+  onChange: (value: TValue) => void;
+  className?: string;
+}) {
   const keys = useRadioGroupKeys(
-    NOTE_KINDS.map((kind) => kind.value),
+    options.map((option) => option.value),
     value,
     onChange,
   );
@@ -27,17 +71,18 @@ export function NoteKindPicker({ value, onChange }: { value: PersonNoteKind; onC
     <div
       ref={keys.ref}
       role="radiogroup"
-      aria-label="Kind of note"
+      aria-label={label}
       onKeyDown={keys.onKeyDown}
-      className="mb-2 flex flex-wrap gap-1.5"
+      className={cn("flex flex-wrap gap-1.5", className)}
     >
-      {NOTE_KINDS.map((option) => (
+      {options.map((option) => (
         <button
           key={option.value}
           type="button"
           role="radio"
           aria-checked={value === option.value}
           tabIndex={value === option.value ? 0 : -1}
+          title={option.title}
           onClick={() => onChange(option.value)}
           className={cn(
             "rounded-full border px-2.5 py-0.5 font-mono text-[11px] transition",
@@ -168,7 +213,11 @@ export function NoteCard({
         <NoteBody body={note.body} className="mt-1.5 whitespace-pre-wrap text-[13px]/[1.55] text-u-text2" />
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
-        {note.projectTitle && <span>About {note.projectTitle}</span>}
+        {note.projectTitle ? (
+          <span>About {note.projectTitle}</span>
+        ) : (
+          note.projectId === null && <span>All positions</span>
+        )}
         {note.editedAt && (
           <span title={new Date(note.editedAt).toLocaleString()}>Edited by {note.editedByName ?? "someone"}</span>
         )}
