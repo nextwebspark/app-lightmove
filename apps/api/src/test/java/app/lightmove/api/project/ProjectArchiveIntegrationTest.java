@@ -64,7 +64,7 @@ class ProjectArchiveIntegrationTest extends PipelineFlowSupport {
         assertThat(archived.get("archivedByName").asText()).isEqualTo("sara");
 
         assertThat(ids(list(sara, ""))).doesNotContain(projectId);
-        assertThat(ids(list(sara, "?include=archived"))).contains(projectId);
+        assertThat(ids(list(sara, "?includeArchived=true"))).contains(projectId);
         assertThat(activityTypes()).contains("PROJECT_ARCHIVED");
 
         JsonNode restored = body(mvc.perform(post("/api/v1/projects/" + projectId + "/restore")
@@ -108,7 +108,7 @@ class ProjectArchiveIntegrationTest extends PipelineFlowSupport {
 
         archive(sara, TITLE);
 
-        assertThat(ids(list(client, "?include=archived"))).doesNotContain(projectId);
+        assertThat(ids(list(client, "?includeArchived=true"))).doesNotContain(projectId);
     }
 
     @Test

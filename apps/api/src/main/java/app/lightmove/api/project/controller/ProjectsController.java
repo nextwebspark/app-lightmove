@@ -54,15 +54,15 @@ public class ProjectsController {
     private final ProjectActivityService activity;
 
     /**
-     * Live positions, unless {@code include=archived} asks for the archived ones too — the SPA does, to open
-     * one by link; the extension and anything older never see them.
+     * Live positions, unless {@code includeArchived} asks for the archived ones too — the SPA does, to open one by
+     * link; the extension and anything older never see them.
      */
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
     public List<ProjectResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
-                                      @RequestParam(required = false) String include) {
-        ProjectListScope scope = "archived".equals(include) ? ProjectListScope.WITH_ARCHIVED : ProjectListScope.LIVE;
-        return projects.list(principal.userId(), principal.requireWorkspaceId(), scope);
+                                      @RequestParam(defaultValue = "false") boolean includeArchived) {
+        return projects.list(principal.userId(), principal.requireWorkspaceId(),
+                includeArchived ? ProjectListScope.WITH_ARCHIVED : ProjectListScope.LIVE);
     }
 
     @PostMapping

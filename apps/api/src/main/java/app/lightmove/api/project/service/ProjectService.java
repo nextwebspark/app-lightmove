@@ -196,23 +196,23 @@ public class ProjectService {
     }
 
     /**
-     * Puts the position away: out of every list, its live outreach stopped in this transaction. The typed
-     * title is checked here, not only in the browser. A second archive changes nothing and records nothing.
+     * Puts the position away: out of every list, its live outreach stopped in this transaction, each stopped run
+     * its own audited line. The typed title is checked here, not only in the browser. The row is locked, so a
+     * second archive waits, then changes nothing and records nothing.
      */
     @Transactional
     public ProjectResponse archive(UUID userId, UUID workspaceId, UUID projectId, String confirmName,
                                    HttpServletRequest httpRequest) {
-        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        Project project = projects.lockToArchive(projectId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (!ConfirmationName.matches(project.getPositionTitle(), confirmName)) {
             throw ApiException.of(ErrorCode.ARCHIVE_NAME_MISMATCH);
         }
-        long liveRuns = outreachCounter.countLiveRuns(projectId);
         if (project.archive(userId, clock.instant())) {
             events.publishEvent(new ProjectArchived(workspaceId, projectId, userId));
             log.info("User {} archived project {} in workspace {}", userId, projectId, workspaceId);
             audit.projectEvent(ProjectEventType.PROJECT_ARCHIVED, userId, workspaceId, projectId, httpRequest)
                     .detail("position", project.getPositionTitle())
-                    .detail("outreachStopped", liveRuns)
                     .record();
         }
         return responseFor(workspaceId, project, ProjectAudience.STAFF);
@@ -221,7 +221,8 @@ public class ProjectService {
     /** Back in every list; runs the archive stopped stay stopped. Never under an archived business unit. */
     @Transactional
     public ProjectResponse restore(UUID userId, UUID workspaceId, UUID projectId, HttpServletRequest httpRequest) {
-        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        Project project = projects.lockToArchive(projectId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (project.isArchived()) {
             requireLiveClient(project.getClientId(), workspaceId);
         }

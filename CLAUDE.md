@@ -621,7 +621,7 @@ claimed once. All of it is staff-only and rides no `CandidateResponse`, report, 
 **A position is archived, never deleted** (V137): its lead alone — `PROJECT_ARCHIVE`, the one project action a
 workspace admin does not hold without a seat (they seat themselves as lead first) — types its title back in a warning
 that counts what it stops (`GET …/archive-preview`), and `POST /projects/{id}/archive` stamps `archived_at`. It then
-leaves every list and count (`GET /projects` answers live positions unless `?include=archived`, which the SPA sends
+leaves every list and count (`GET /projects` answers live positions unless `?includeArchived=true`, which the SPA sends
 and filters, so a link still opens one; a pure client never gets archived ones), the pickers, the public API and MCP
 lists, My tasks, the due scan and the bell (rows kept, back on restore; their emails dropped), and its live runs stop
 as `POSITION_ARCHIVED` in the same transaction (`ProjectArchived` → `PositionArchiveOutreach`) — a Start or an
@@ -630,7 +630,7 @@ Archived banner, and Restore (one click, the same gate) brings it back without r
 side panel's Close and in the position's topbar is where it lives; the list draws an Archived chip after the stages.
 **A business unit or client is archived the same way** (V138), but by a workspace admin (`WORKSPACE_MANAGE`), from
 the ⋯ in its drawer's foot, and only once none of its positions is live — `CLIENT_HAS_LIVE_POSITIONS` names them,
-since archiving those is their leads' call. It leaves the registry's list (`GET /clients?include=archived` as above)
+since archiving those is their leads' call. It leaves the registry's list (`GET /clients?includeArchived=true` as above)
 and the New position picker; nothing is opened or restored under it (`CLIENT_ARCHIVED`, the record row locked
 against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
 `CLIENT_ALREADY_EXISTS`, whose caller reuses the record it names).

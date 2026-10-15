@@ -2,6 +2,7 @@ package app.lightmove.api.task.repository;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.task.constant.TaskStatus;
 import app.lightmove.api.task.model.Task;
 import java.time.Instant;
@@ -20,9 +21,7 @@ import org.springframework.data.jpa.repository.Query;
  */
 public interface TaskRepository extends JpaRepository<Task, UUID> {
 
-    String ON_LIVE_POSITION = """
-              and not exists (select 1 from Project p where p.id = t.projectId and p.archivedAt is not null)
-            """;
+    String ON_LIVE_POSITION = " and t.projectId not in (" + ProjectRepository.ARCHIVED_IDS_JPQL + ")\n";
 
     Optional<Task> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
@@ -49,12 +48,14 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
             """)
     long countDoneOfCandidate(UUID projectId, UUID candidateId);
 
+    /** Every open task of theirs, an archived position's included: the handover's read, never a screen's. */
     @Query("""
             select t from Task t where t.workspaceId = :workspaceId and t.assigneeUserId = :userId
               and t.status = app.lightmove.api.task.constant.TaskStatus.OPEN
             """)
     List<Task> findOpenAssignedTo(UUID workspaceId, UUID userId);
 
+    /** What My tasks and the digest read: {@link #findOpenAssignedTo} without an archived position's. */
     @Query("""
             select t from Task t where t.workspaceId = :workspaceId and t.assigneeUserId = :userId
               and t.status = app.lightmove.api.task.constant.TaskStatus.OPEN
@@ -68,9 +69,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
                    count(*) FILTER (WHERE due_at IS NULL OR due_at >= :tomorrow) AS upcoming
             FROM app_lm_task
             WHERE workspace_id = :workspaceId AND assignee_user_id = :userId AND status = 'OPEN'
-              AND NOT EXISTS (SELECT 1 FROM app_lm_project p
-                              WHERE p.id = app_lm_task.project_id AND p.archived_at IS NOT NULL)
-            """, nativeQuery = true)
+            """ + "  AND project_id NOT IN (" + ProjectRepository.ARCHIVED_IDS_SQL + ")", nativeQuery = true)
     MyTaskTally tallyOpenAssignedTo(UUID workspaceId, UUID userId, Instant now, Instant tomorrow);
 
     @Query("""

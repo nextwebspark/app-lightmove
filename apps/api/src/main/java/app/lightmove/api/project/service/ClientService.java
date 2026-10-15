@@ -34,6 +34,7 @@ import app.lightmove.api.strategy.model.CompanyRow;
 import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -85,7 +86,7 @@ public class ClientService {
                 .map(client -> toListResponse(client,
                         mandatesByClient.getOrDefault(client.getId(), List.of()),
                         repsByClient.getOrDefault(client.getId(), List.of()),
-                        client.getArchivedBy() == null ? null : archiverNames.get(client.getArchivedBy())))
+                        archiverNameOf(client, archiverNames)))
                 .toList();
     }
 
@@ -108,8 +109,7 @@ public class ClientService {
                 client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),
                 client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getPersona(),
                 active, delivered, reps, mandates, client.getArchivedAt(),
-                client.getArchivedBy() == null ? null : users.findById(client.getArchivedBy())
-                        .map(User::getFullName).orElse(null));
+                archiverNameOf(client, namesOf(Collections.singletonList(client.getArchivedBy()))));
     }
 
     @Transactional
@@ -274,10 +274,15 @@ public class ClientService {
         });
     }
 
+    /** Null-safe both ways: an immutable map answers a null key with an exception, not null. */
     private Map<UUID, String> namesOf(List<UUID> userIds) {
         List<UUID> named = userIds.stream().filter(Objects::nonNull).distinct().toList();
         return named.isEmpty() ? Map.of() : users.findAllById(named).stream()
                 .collect(Collectors.toMap(User::getId, User::getFullName));
+    }
+
+    private static String archiverNameOf(Client client, Map<UUID, String> names) {
+        return client.getArchivedBy() == null ? null : names.get(client.getArchivedBy());
     }
 
     private Client requireClient(UUID workspaceId, UUID clientId) {

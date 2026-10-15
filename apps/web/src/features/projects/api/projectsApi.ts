@@ -11,7 +11,7 @@ export const PROJECTS_KEY = ["projects"] as const;
 
 /** Archived positions too, so one opens by link; every screen that lists them filters with `isArchived`. */
 export function projects(): Promise<Project[]> {
-  return request<Project[]>("/projects?include=archived");
+  return request<Project[]>("/projects?includeArchived=true");
 }
 
 export const archivePreviewKey = (projectId: string) => ["projects", projectId, "archive-preview"] as const;

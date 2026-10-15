@@ -3,6 +3,7 @@ package app.lightmove.api.notification.repository;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.notification.model.Notification;
+import app.lightmove.api.project.repository.ProjectRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -17,10 +18,8 @@ import org.springframework.data.jpa.repository.Query;
  */
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-    String ON_LIVE_POSITION = """
-              AND NOT EXISTS (SELECT 1 FROM app_lm_project p
-                              WHERE p.id = app_lm_notification.project_id AND p.archived_at IS NOT NULL)
-            """;
+    String ON_LIVE_POSITION =
+            "  AND (project_id IS NULL OR project_id NOT IN (" + ProjectRepository.ARCHIVED_IDS_SQL + "))\n";
 
     Optional<Notification> findByIdAndWorkspaceIdAndRecipientUserId(UUID id, UUID workspaceId, UUID recipientUserId);
 

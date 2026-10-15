@@ -44,13 +44,13 @@ public class ClientsController {
     private final ClientService clients;
     private final ClientRepresentativeService representatives;
 
-    /** Live records, unless {@code include=archived} asks for the archived ones too, as the SPA does. */
+    /** Live records, unless {@code includeArchived} asks for the archived ones too, as the SPA does. */
     @GetMapping
     @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
     public List<ClientListResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
-                                         @RequestParam(required = false) String include) {
+                                         @RequestParam(defaultValue = "false") boolean includeArchived) {
         return clients.list(principal.requireWorkspaceId(),
-                "archived".equals(include) ? ClientListScope.WITH_ARCHIVED : ClientListScope.LIVE);
+                includeArchived ? ClientListScope.WITH_ARCHIVED : ClientListScope.LIVE);
     }
 
     @PostMapping

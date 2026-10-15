@@ -17,7 +17,7 @@ export const clientKey = (clientId: string) => ["clients", clientId] as const;
 
 /** Archived records too; every list and picker filters with `isArchivedClient`. */
 export function clients(): Promise<Client[]> {
-  return request<Client[]>("/clients?include=archived");
+  return request<Client[]>("/clients?includeArchived=true");
 }
 
 /** A workspace admin's alone, once none of its positions is live; the typed name is checked again by the server. */

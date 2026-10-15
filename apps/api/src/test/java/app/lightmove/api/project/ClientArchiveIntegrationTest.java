@@ -41,7 +41,7 @@ class ClientArchiveIntegrationTest extends PipelineFlowSupport {
         assertThat(archived.get("archivedAt").isNull()).isFalse();
         assertThat(archived.get("archivedByName").asText()).isEqualTo("Alok Kumar");
         assertThat(ids(list(""))).doesNotContain(clientId);
-        assertThat(ids(list("?include=archived"))).contains(clientId);
+        assertThat(ids(list("?includeArchived=true"))).contains(clientId);
 
         assertThat(write(admin, "POST", "/api/v1/clients/" + clientId + "/restore", "{}").getResponse().getStatus())
                 .isEqualTo(200);
