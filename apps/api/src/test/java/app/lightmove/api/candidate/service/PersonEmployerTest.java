@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
@@ -14,9 +15,12 @@ import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PipelineTestStatuses;
 import app.lightmove.api.candidate.model.PersonEmployer;
+import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +38,15 @@ class PersonEmployerTest {
             null, null, List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present", null)),
             List.of(), List.of(), List.of(), null, EnrichmentVendor.BRIGHTDATA);
 
-    private final PersonEmployerResolver resolver = new PersonEmployerResolver(mock(TriageCompanyReadService.class));
+    private static final String COMPANY_PAGE = "https://www.linkedin.com/company/alrawabi/";
+
+    private static final String COMPANY_LOGO = "https://media.example.com/alrawabi-row.png";
+
+    private static final UUID WORKSPACE = UUID.randomUUID();
+
+    private final TriageCompanyReadService companies = mock(TriageCompanyReadService.class);
+
+    private final PersonEmployerResolver resolver = new PersonEmployerResolver(companies);
 
     @Test
     @DisplayName("a position recording the researched employer carries its company row and research's logo")
@@ -89,6 +101,31 @@ class PersonEmployerTest {
     }
 
     @Test
+    @DisplayName("a further position files someone under their last position's company row, LinkedIn page and all")
+    void aFurtherPositionFilesUnderTheCompanyRow() {
+        Person person = researched();
+        UUID companyId = UUID.randomUUID();
+        Candidate position = mappedAt(person, companyId, "Al Rawabi Dairy");
+        when(companies.get(WORKSPACE, position.getProjectId(), companyId)).thenReturn(companyRow(companyId));
+
+        assertThat(resolver.knownEmployerOf(WORKSPACE, person, List.of(position)))
+                .contains(CapturedCompanyDetails.employerNamed("Al Rawabi Dairy", COMPANY_PAGE, COMPANY_LOGO));
+    }
+
+    @Test
+    @DisplayName("a position that recorded the name alone borrows the row an older position at that employer holds")
+    void aNameOnlyPositionBorrowsAnOlderRow() {
+        Person person = researched();
+        UUID companyId = UUID.randomUUID();
+        Candidate older = mappedAt(person, companyId, "Al Rawabi Dairy");
+        Candidate newer = mappedAt(person, null, "al rawabi dairy");
+        when(companies.get(WORKSPACE, older.getProjectId(), companyId)).thenReturn(companyRow(companyId));
+
+        assertThat(resolver.knownEmployerOf(WORKSPACE, person, List.of(older, newer)))
+                .contains(CapturedCompanyDetails.employerNamed("Al Rawabi Dairy", COMPANY_PAGE, COMPANY_LOGO));
+    }
+
+    @Test
     @DisplayName("on no position, a further position files someone under research's employer")
     void aFurtherPositionFallsBackToResearch() {
         assertThat(resolver.knownEmployerOf(UUID.randomUUID(), researched(), List.of()))
@@ -115,6 +152,12 @@ class PersonEmployerTest {
     private static Candidate mappedAt(Person person, UUID triageCompanyId, String companyName) {
         return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId, person,
                 CandidateSource.MANUAL, PipelineTestStatuses.identified(), details(companyName));
+    }
+
+    private static TriageCompanyResponse companyRow(UUID id) {
+        return new TriageCompanyResponse(id, "a42", "extension", "inUniverse", null, false, "Al Rawabi Dairy",
+                null, null, null, null, null, null, COMPANY_PAGE, null, null, null, COMPANY_LOGO, Map.of(),
+                Instant.now());
     }
 
     private static CandidateDetails details(String employerName) {

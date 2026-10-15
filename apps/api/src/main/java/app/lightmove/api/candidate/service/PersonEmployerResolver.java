@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonEmployer;
 import app.lightmove.api.candidate.model.ResearchedEmployerMark;
+import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.List;
@@ -56,20 +57,31 @@ public class PersonEmployerResolver {
                 .map(Candidate::getCompanyName)
                 .filter(name -> name != null && !name.isBlank())
                 .findFirst();
-        if (recorded.isEmpty()) {
-            return Optional.ofNullable(researched)
-                    .filter(mark -> mark.name() != null)
-                    .map(mark -> CapturedCompanyDetails.employerNamed(mark.name(), null, mark.logoUrl()));
+        if (recorded.isPresent()) {
+            return Optional.of(recordedEmployer(workspaceId, recorded.get(), newestFirst, researched));
         }
-        String name = recorded.get();
-        return newestFirst.stream()
+        return Optional.ofNullable(researched)
+                .filter(mark -> mark.name() != null)
+                .map(mark -> CapturedCompanyDetails.employerNamed(mark.name(), null, mark.logoUrl()));
+    }
+
+    /**
+     * The company row of the newest position at {@code name}, which need not be the position that named it:
+     * one added from the Candidates page records the name alone, while an older position at that employer
+     * still holds its row. With no row anywhere, the name alone.
+     */
+    private CapturedCompanyDetails recordedEmployer(UUID workspaceId, String name, List<Candidate> newestFirst,
+                                                    ResearchedEmployerMark researched) {
+        Optional<Candidate> backed = newestFirst.stream()
                 .filter(row -> row.getTriageCompanyId() != null && name.equalsIgnoreCase(row.getCompanyName()))
-                .findFirst()
-                .map(row -> triageCompanies.get(workspaceId, row.getProjectId(), row.getTriageCompanyId()))
-                .map(company -> CapturedCompanyDetails.employerNamed(company.companyName(),
-                        company.companyLinkedinUrl(), company.logoUrl()))
-                .or(() -> Optional.of(CapturedCompanyDetails.employerNamed(name, null,
-                        researchedLogoOf(researched, name))));
+                .findFirst();
+        if (backed.isEmpty()) {
+            return CapturedCompanyDetails.employerNamed(name, null, researchedLogoOf(researched, name));
+        }
+        TriageCompanyResponse company = triageCompanies.get(workspaceId, backed.get().getProjectId(),
+                backed.get().getTriageCompanyId());
+        return CapturedCompanyDetails.employerNamed(company.companyName(), company.companyLinkedinUrl(),
+                company.logoUrl());
     }
 
     /** Keyed by person id: the position's company row's logo, else research's; a person with neither is absent. */
