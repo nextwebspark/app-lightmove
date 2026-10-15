@@ -4,7 +4,6 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { Popover } from "../../../components/ui/Popover";
-import { cn } from "../../../lib/cn";
 import { confirmationNameMatches } from "../../../lib/confirmationName";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
@@ -25,15 +24,7 @@ const MENU_ITEM =
   "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-note text-u-offlimits hover:bg-u-raised";
 
 /** The ⋯ beside a position's header controls, drawn only for its lead: what is done to the position itself. */
-export function PositionActionsMenu({
-  project,
-  onArchive,
-  className,
-}: {
-  project: Project;
-  onArchive: () => void;
-  className?: string;
-}) {
+export function PositionActionsMenu({ project, onArchive }: { project: Project; onArchive: () => void }) {
   const { user } = useAuth();
   if (isArchived(project) || !canArchivePosition(project, user?.id)) return null;
   return (
@@ -42,7 +33,7 @@ export function PositionActionsMenu({
       align="right"
       width={220}
       hasPopup="menu"
-      triggerClassName={cn(MORE_BUTTON, className)}
+      triggerClassName={MORE_BUTTON}
       trigger={() => <Icon d={ICONS.more} size={16} />}
     >
       {(close) => (

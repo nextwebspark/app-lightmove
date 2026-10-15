@@ -631,10 +631,11 @@ and filters, so a link still opens one; a pure client never gets archived ones),
 lists, My tasks, the due scan and the bell (rows kept, back on restore; their emails dropped), and its live runs stop
 as `POSITION_ARCHIVED` in the same transaction (`ProjectArchived` → `PositionArchiveOutreach`) — a Start or an
 opener draft there is `PROJECT_ARCHIVED`. Nothing is frozen and nothing deleted; the screens stay editable under an
-Archived banner, and Restore (one click, the same gate) brings it back without restarting a run. The ⋯ beside the
-side panel's Close and in the position's topbar is where it lives; the list draws an Archived chip after the stages.
+Archived banner, and Restore (one click, the same gate) brings it back without restarting a run. It lives in the side
+panel's foot (Archive at the start, Open position at the end; no menu of one) and the ⋯ of the position's topbar; the
+list draws an Archived chip after the stages.
 **A business unit or client is archived the same way** (V138), but by a workspace admin (`WORKSPACE_MANAGE`), from
-the ⋯ in its drawer's foot, and only once none of its positions is live — `CLIENT_HAS_LIVE_POSITIONS` names them,
+Archive at the start of its drawer's foot, and only once none of its positions is live — `CLIENT_HAS_LIVE_POSITIONS` names them,
 since archiving those is their leads' call. It leaves the registry's list (`GET /clients?includeArchived=true` as above)
 and the New position picker; nothing is opened or restored under it (`CLIENT_ARCHIVED`, the record row locked
 against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
