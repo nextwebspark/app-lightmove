@@ -37,6 +37,9 @@ export interface Client {
   deliveredMandates: number;
   contacts: RepAvatar[];
   viewers: ViewerSummary;
+  /** Set on a record put away; it then shows only under the Archived chip. */
+  archivedAt?: string | null;
+  archivedByName?: string | null;
 }
 
 export interface ClientRepresentative {
@@ -76,6 +79,8 @@ export interface ClientDetail {
   deliveredMandates: number;
   representatives: ClientRepresentative[];
   mandates: ClientMandate[];
+  archivedAt?: string | null;
+  archivedByName?: string | null;
 }
 
 /** Either a universe pick (`company`) or a custom record (`customName`), plus an optional primary contact. */

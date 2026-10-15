@@ -22,7 +22,7 @@ import {
   clientColumnsFor,
   type ClientSortField,
 } from "../lib/clientColumns";
-import { chipsFor, CLIENT_CHIP_KEYS, filterClients, type ChipKey } from "../lib/filtering";
+import { chipsFor, CLIENT_CHIP_KEYS, filterClients, liveClients, type ChipKey } from "../lib/filtering";
 import { useAddressedSearch } from "../../../lib/useAddressedSearch";
 import { useSearchParams } from "react-router-dom";
 
@@ -38,7 +38,6 @@ export function ClientsPage() {
   const columns = useMemo(() => clientColumnsFor(vocabulary), [vocabulary]);
   const layoutColumns = useMemo(() => layoutColumnsOf(columns), [columns]);
   const hideableColumns = useMemo(() => hideableColumnsOf(columns), [columns]);
-  const chips = useMemo(() => chipsFor(vocabulary), [vocabulary]);
   // In the address, with the open record, so the way back from a position opened here finds the page as left.
   const { query, setQuery, flushQuery, chip, setChip } = useAddressedSearch<ChipKey>("show", CLIENT_CHIP_KEYS, "all");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,6 +74,18 @@ export function ClientsPage() {
   });
 
   const rows = useMemo(() => filterClients(clients, { chip, query }), [clients, chip, query]);
+  const live = useMemo(() => liveClients(clients), [clients]);
+  const archivedCount = clients.length - live.length;
+  // Archived is offered only once there is something under it, set apart from the filters it is not one of.
+  const chips = useMemo(
+    () =>
+      chipsFor(vocabulary)
+        .filter((candidate) => candidate.key !== "archived" || archivedCount > 0 || chip === "archived")
+        .map((candidate) =>
+          candidate.key === "archived" ? { ...candidate, count: archivedCount, separated: true } : candidate,
+        ),
+    [vocabulary, archivedCount, chip],
+  );
 
   // Narrowing the registry returns to the first page — page 3 of a two-row result is a blank grid —
   // and a registry that shrank under the reader is clamped back onto its last page.
@@ -128,7 +139,7 @@ export function ClientsPage() {
     <>
       <PageHeader
         title={vocabulary.units}
-        subtitle={`${clients.length} ${clients.length === 1 ? vocabulary.unitLower : vocabulary.unitsLower} · shared across reqs`}
+        subtitle={`${live.length} ${live.length === 1 ? vocabulary.unitLower : vocabulary.unitsLower} · shared across reqs`}
         action={newClientButton}
       />
 
@@ -205,7 +216,7 @@ export function ClientsPage() {
         <NewProjectModal
           open
           onClose={() => setNewMandateOpen(false)}
-          clients={clients}
+          clients={live}
           lockedClientId={openClientId ?? undefined}
         />
       )}

@@ -56,4 +56,14 @@ describe("filterClients", () => {
     const other = client({ id: "other", name: "Agthia", sector: "FMCG" });
     expect(filterClients([retained, other], { chip: "all", query: "fmcg" })).toEqual([]);
   });
+
+  it("an archived record shows under the Archived chip and under no other", () => {
+    const archived = client({ id: "archived", name: "Old Unit", archivedAt: "2026-10-01T09:00:00Z" });
+    const all = [retained, prospect, archived];
+
+    for (const chip of ["all", "active", "noreps"] as const) {
+      expect(filterClients(all, { chip, query: "" }).map((c) => c.id)).not.toContain("archived");
+    }
+    expect(filterClients(all, { chip: "archived", query: "" }).map((c) => c.id)).toEqual(["archived"]);
+  });
 });

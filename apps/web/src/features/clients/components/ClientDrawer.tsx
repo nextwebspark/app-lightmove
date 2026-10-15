@@ -22,7 +22,8 @@ import type { ClientDetail, ClientMandate } from "../api/types";
 import { openPositionsLabel } from "../lib/openPositions";
 import { AgencyClientView } from "./AgencyClientView";
 import { ClientMark } from "./ClientMark";
-import { ClientDrawerFoot, ClientPositions, DrawerField, Representatives, SectionLabel } from "./ClientRecordParts";
+import { ClientArchivedNotice, ClientDrawerActions } from "./ClientArchive";
+import { ClientPositions, DrawerField, Representatives, SectionLabel } from "./ClientRecordParts";
 import { usePositionsOriginState } from "../../projects/lib/positionsOrigin";
 
 /**
@@ -145,7 +146,8 @@ function ClientRecordView({
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-[18px]">
-        <div className="flex gap-2.5">
+        <ClientArchivedNotice client={client} />
+        <div className="mt-4 flex gap-2.5 first:mt-0">
           <StatTile value={String(client.activeMandates)} label="Open" />
           <StatTile value={String(client.deliveredMandates)} label="Filled" />
           <StatTile value={String(client.representatives.length)} label="Managers" />
@@ -191,7 +193,7 @@ function ClientRecordView({
         <ClientPositions client={client} onOpenMandate={onOpenMandate} />
       </div>
 
-      <ClientDrawerFoot onClose={onClose} onNewMandate={onNewMandate} />
+      <ClientDrawerActions client={client} onClose={onClose} onNewMandate={onNewMandate} />
     </>
   );
 }
