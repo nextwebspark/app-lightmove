@@ -25,7 +25,7 @@ public enum PersonActivityKind {
     /** A vendor's research filled in the profile. */
     RESEARCHED,
 
-    /** The AI enrichment scored the person against a mandate's brief. */
+    /** The AI proposed background or drafted the assessment against a mandate's brief; {@code scope} says which. */
     AI_ASSESSED,
 
     /** The line carries the note's id, never its text: deleting a note must take the words with it. */

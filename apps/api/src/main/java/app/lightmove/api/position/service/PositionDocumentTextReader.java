@@ -26,6 +26,23 @@ public class PositionDocumentTextReader {
     }
 
     public String read(byte[] content) {
+        String trimmed = textOf(content);
+        if (trimmed.length() > settings.maxCharacters()) {
+            // Refused whole: taking the first N characters would silently decide what mattered.
+            throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
+                    "That document has more than " + settings.maxCharacters() + " characters. "
+                            + "Shorten it to the role description and attach it again.");
+        }
+        return trimmed;
+    }
+
+    /** The text's first {@code maxCharacters}, for a reader that holds each file to its own share of a prompt. */
+    public String readUpTo(byte[] content, int maxCharacters) {
+        String trimmed = textOf(content);
+        return trimmed.length() <= maxCharacters ? trimmed : trimmed.substring(0, maxCharacters).strip();
+    }
+
+    private String textOf(byte[] content) {
         PositionDocumentFormatReader reader = formatReaders.stream()
                 .filter(candidate -> candidate.supports(content))
                 .findFirst()
@@ -36,12 +53,6 @@ public class PositionDocumentTextReader {
             throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
                     "This looks like a scanned image with no text layer. "
                             + "Save it as .docx or PDF, with a text layer, and try again.");
-        }
-        if (trimmed.length() > settings.maxCharacters()) {
-            // Refused whole: taking the first N characters would silently decide what mattered.
-            throw ApiException.userFacing(ErrorCode.POSITION_DOCUMENT_UNREADABLE,
-                    "That document has more than " + settings.maxCharacters() + " characters. "
-                            + "Shorten it to the role description and attach it again.");
         }
         return trimmed;
     }

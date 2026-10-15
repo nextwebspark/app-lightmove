@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "score": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    "report": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "careerSummary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "coreValue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "concerns": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workingStyle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "motivation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  },
+  "required": [
+    "scores",
+    "report"
+  ]
+}

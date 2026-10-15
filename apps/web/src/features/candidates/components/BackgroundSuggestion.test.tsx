@@ -1,18 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import * as candidatesApi from "../api/candidatesApi";
-import type { Candidate, CandidateAiAssessment } from "../api/types";
+import type { Candidate, NationalityReading } from "../api/types";
 import { CandidateDrawer } from "./CandidateDrawer";
 
 vi.mock("../api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof candidatesApi>()),
   getCandidate: vi.fn(),
-  getAiAssessment: vi.fn(),
-  requestAiEnrich: vi.fn(),
+  getNationalityReading: vi.fn(),
+  suggestBackground: vi.fn(),
   updateCandidate: vi.fn(),
 }));
 
@@ -92,20 +92,29 @@ const yasmin: Candidate = {
   },
 };
 
-const assessed: CandidateAiAssessment = {
-  summary: "A proven GCC finance leader.",
-  technical: { score: 8, positives: ["Led a dairy IPO"], negatives: ["No energy exposure"] },
-  behavioural: { score: null, positives: [], negatives: [] },
-  assessedAt: "2026-09-20T10:00:00Z",
-  nationalityReading: null,
-  failedAt: null,
-};
-
 const unrecorded: Candidate = { ...yasmin, nationality: null };
 
-const renderDrawer = (canWrite = true, candidate: Candidate = yasmin) =>
+const reading = (overrides: Partial<NationalityReading>): NationalityReading => ({
+  category: "Arab expat, non-GCC",
+  confidence: "medium",
+  evidenceFor: [],
+  evidenceAgainst: [],
+  rule: "B",
+  readAt: "2026-09-27T10:00:00Z",
+  ...overrides,
+});
+
+let client: QueryClient;
+
+/** The reading's query settled, so an absence asserted next is the answer and not the first render. */
+const readingSettled = () =>
+  waitFor(() =>
+    expect(client.getQueryState(candidatesApi.NATIONALITY_READING_KEY("p1", "c1"))?.status).toMatch(/success|error/),
+  );
+
+const renderDrawer = (canWrite = true, candidate: Candidate = yasmin, onSaved = () => {}) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={client}>
       <ToastProvider>
         <CandidateDrawer
           open
@@ -115,77 +124,73 @@ const renderDrawer = (canWrite = true, candidate: Candidate = yasmin) =>
           customColumns={[]}
           canWrite={canWrite}
           onClose={() => {}}
-          onSaved={() => {}}
+          onSaved={onSaved}
         />
       </ToastProvider>
     </QueryClientProvider>,
   );
 
 /**
- * The profile's AI assessment: staff read two scores with their reasons, and a client seat is never
- * shown the fold or the button — the server would refuse the read anyway.
+ * The Background section's AI: Suggest with AI in its header while something is still missing that the AI has not
+ * read, and the nationality classifier's reading offered as a suggestion. A client seat is offered neither.
  */
-describe("AI assessment", () => {
+describe("Background AI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.mocked(candidatesApi.getCandidate).mockResolvedValue(yasmin);
-    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue(assessed);
-    vi.mocked(candidatesApi.requestAiEnrich).mockResolvedValue(undefined);
+    vi.mocked(candidatesApi.getNationalityReading).mockResolvedValue(null);
     vi.mocked(contactLookupApi.getContactLookupConfig).mockResolvedValue({ enabled: false });
   });
 
-  it("shows the summary, both panels and their reasons", async () => {
-    renderDrawer();
-    await userEvent.click(screen.getByRole("button", { name: /^AI assessment/ }));
+  it("offers Suggest with AI while background is missing, and hands back what it filled", async () => {
+    const user = userEvent.setup();
+    const missing: Candidate = { ...yasmin, gender: null, yearsExperience: null };
+    const filled: Candidate = { ...missing, gender: "female", yearsExperience: 18, aiInferredFields: ["gender"] };
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(missing);
+    vi.mocked(candidatesApi.suggestBackground).mockResolvedValue(filled);
+    const onSaved = vi.fn();
+    renderDrawer(true, missing, onSaved);
 
-    expect(await screen.findByText("A proven GCC finance leader.")).toBeInTheDocument();
-    expect(screen.getByText("Led a dairy IPO")).toBeInTheDocument();
-    expect(within(screen.getByRole("list", { name: "Negatives" })).getByText("No energy exposure"))
-      .toBeInTheDocument();
-    expect(screen.getByText("Not enough in the brief or the evidence to judge.")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Suggest with AI" }));
+
+    await waitFor(() => expect(candidatesApi.suggestBackground).toHaveBeenCalledWith("p1", "c1"));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(filled));
   });
 
-  it("queues a deep enrichment from the header button", async () => {
-    const user = userEvent.setup();
+  it("offers nothing once the background is complete", async () => {
     renderDrawer();
-    await screen.findByText("A proven GCC finance leader.");
 
-    await user.click(screen.getByRole("button", { name: "AI deep enrich" }));
-
-    await waitFor(() => expect(candidatesApi.requestAiEnrich).toHaveBeenCalledWith("p1", "c1"));
-    expect(await screen.findByRole("button", { name: /Enriching/ })).toBeDisabled();
+    await readingSettled();
+    expect(screen.queryByRole("button", { name: "Suggest with AI" })).not.toBeInTheDocument();
   });
 
-  it("says at once when the run fails, instead of waiting out the timeout", async () => {
-    const user = userEvent.setup();
-    renderDrawer();
-    await screen.findByText("A proven GCC finance leader.");
-    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
-      ...assessed,
-      failedAt: "2026-09-25T10:00:00Z",
-    });
+  it("still offers Suggest with AI for a missing gender when the nationality reading cannot be read", async () => {
+    const missing: Candidate = { ...yasmin, gender: null };
+    vi.mocked(candidatesApi.getNationalityReading).mockRejectedValue(new Error("offline"));
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(missing);
+    renderDrawer(true, missing);
 
-    await user.click(screen.getByRole("button", { name: "AI deep enrich" }));
+    await readingSettled();
+    expect(screen.getByRole("button", { name: "Suggest with AI" })).toBeEnabled();
+  });
 
-    expect(await screen.findByText("The AI enrichment failed — try again", {}, { timeout: 5000 }))
-      .toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "AI deep enrich" })).toBeEnabled();
-    expect(screen.getByText(/Last AI enrichment failed/)).toBeInTheDocument();
+  it("holds the Background pencil while the AI writes, so its form cannot save over the answer", async () => {
+    const missing: Candidate = { ...yasmin, gender: null };
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(missing);
+    vi.mocked(candidatesApi.suggestBackground).mockReturnValue(new Promise(() => {}));
+    renderDrawer(true, missing);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Suggest with AI" }));
+
+    expect(await screen.findByRole("button", { name: "Edit background" })).toBeDisabled();
   });
 
   it("offers a medium nationality reading as a suggestion, and Accept records it", async () => {
     const user = userEvent.setup();
-    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
-      ...assessed,
-      nationalityReading: {
-        category: "Arab expat, non-GCC",
-        confidence: "medium",
-        evidenceFor: ["BCom, Cairo University"],
-        evidenceAgainst: ["Career entirely in Dubai"],
-        rule: "B",
-        readAt: "2026-09-27T10:00:00Z",
-      },
-    });
+    vi.mocked(candidatesApi.getNationalityReading).mockResolvedValue(
+      reading({ evidenceFor: ["BCom, Cairo University"], evidenceAgainst: ["Career entirely in Dubai"] }),
+    );
     vi.mocked(candidatesApi.getCandidate).mockResolvedValue(unrecorded);
     vi.mocked(candidatesApi.updateCandidate).mockResolvedValue({ ...unrecorded, nationality: "Arab expat, non-GCC" });
     renderDrawer(true, unrecorded);
@@ -195,6 +200,7 @@ describe("AI assessment", () => {
     expect(await screen.findByText("Arab expat, non-GCC")).toBeInTheDocument();
     expect(screen.getByText("(medium confidence)")).toBeInTheDocument();
     expect(screen.getByText("BCom, Cairo University")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest with AI" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Accept" }));
 
@@ -205,17 +211,9 @@ describe("AI assessment", () => {
   });
 
   it("says when the classifier could not tell, and offers nothing to accept", async () => {
-    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
-      ...assessed,
-      nationalityReading: {
-        category: "Unknown",
-        confidence: "low",
-        evidenceFor: [],
-        evidenceAgainst: [],
-        rule: "E",
-        readAt: "2026-09-27T10:00:00Z",
-      },
-    });
+    vi.mocked(candidatesApi.getNationalityReading).mockResolvedValue(
+      reading({ category: "Unknown", confidence: "low", rule: "E" }),
+    );
     vi.mocked(candidatesApi.getCandidate).mockResolvedValue(unrecorded);
     renderDrawer(true, unrecorded);
 
@@ -225,30 +223,20 @@ describe("AI assessment", () => {
   });
 
   it("shows no suggestion once a nationality is on the row", async () => {
-    vi.mocked(candidatesApi.getAiAssessment).mockResolvedValue({
-      ...assessed,
-      nationalityReading: {
-        category: "Western expat",
-        confidence: "medium",
-        evidenceFor: [],
-        evidenceAgainst: [],
-        rule: "none",
-        readAt: "2026-09-27T10:00:00Z",
-      },
-    });
+    vi.mocked(candidatesApi.getNationalityReading).mockResolvedValue(reading({ category: "Western expat" }));
     renderDrawer();
 
-    expect(await screen.findByText("A proven GCC finance leader.")).toBeInTheDocument();
+    await readingSettled();
+    await userEvent.click(await screen.findByRole("button", { name: /^Background/ }));
     expect(screen.queryByText(/AI suggests nationality/)).not.toBeInTheDocument();
   });
 
-  it("offers a client seat neither the fold nor the button, and never asks for the assessment", async () => {
-    renderDrawer(false);
+  it("offers a client seat no AI and never asks for the reading", async () => {
+    renderDrawer(false, { ...yasmin, gender: null });
 
     expect(await screen.findByText("Yasmin El-Sayed", { selector: "h2" })).toBeInTheDocument();
     await waitFor(() => expect(candidatesApi.getCandidate).toHaveBeenCalled());
-    expect(screen.queryByText("AI assessment")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "AI deep enrich" })).not.toBeInTheDocument();
-    expect(candidatesApi.getAiAssessment).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Suggest with AI" })).not.toBeInTheDocument();
+    expect(candidatesApi.getNationalityReading).not.toHaveBeenCalled();
   });
 });

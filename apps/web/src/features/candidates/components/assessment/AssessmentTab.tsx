@@ -7,6 +7,8 @@ import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { formatInstantDate } from "../../../../lib/format";
 import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
+import { AiActionButton } from "../AiActionButton";
+import { AiInferredBadge } from "../AiInferredBadge";
 import type { ScorecardCriterion, ScorecardPanel } from "../../api/scorecardTypes";
 import { criterionKey, type LivePanel } from "../../lib/scorecardScoring";
 import type { ReportSection, ScorecardEditor } from "../../lib/useScorecardEditor";
@@ -27,11 +29,14 @@ const MAX_EVIDENCE = 2000;
 const MAX_SECTION = 4000;
 /** Where a first press of + lands: the middle of the scale, one step either way from a view. */
 const FIRST_SCORE = 5;
+const AI_DRAFT_TITLE = "AI-drafted — change it and it is yours";
+const AI_LINE_ID = "assessment-ai-line";
 
 /**
  * The drawer's Assessment tab (`Position.dc.html`, Assessment): the consultant's own scores against the brief's
  * competencies, totalled out of 100 as they move, and a written report in five sections. Saved from the footer
- * — Save draft, or Mark reviewed & submit. Staff-only: it ranks a person.
+ * — Save draft, or Mark reviewed & submit. Assess with AI drafts whatever nobody has written, never a consultant's
+ * own value. Staff-only: it ranks a person.
  */
 export function AssessmentTab({ projectId, editor }: { projectId: string; editor: ScorecardEditor }) {
   const [view, setView] = useState<AssessmentView>("scores");
@@ -72,8 +77,10 @@ export function AssessmentTab({ projectId, editor }: { projectId: string; editor
     <div className="pb-4">
       {editor.stale && (
         <Banner tone="danger">
-          <span className="flex-1">Someone saved this assessment after you opened it. Your changes are still here.</span>
-          <BannerButton onClick={editor.reload}>Reload theirs</BannerButton>
+          <span className="flex-1">
+            Someone saved this assessment after you opened it — a teammate, or the AI. Your changes are still here.
+          </span>
+          <BannerButton onClick={() => void editor.reload()}>Reload, keeping mine</BannerButton>
         </Banner>
       )}
       {editor.restored && editor.isDirty && !editor.stale && (
@@ -82,6 +89,19 @@ export function AssessmentTab({ projectId, editor }: { projectId: string; editor
           <BannerButton onClick={editor.discard}>Discard</BannerButton>
         </Banner>
       )}
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <span id={AI_LINE_ID} className="text-meta text-u-text3">
+          {aiLineOf(editor, scorecard.aiDraftedAt)}
+        </span>
+        <AiActionButton
+          label="Assess with AI"
+          isBusy={editor.isAssessing}
+          disabled={editor.isDirty || editor.isSaving || !editor.hasOpen}
+          describedBy={AI_LINE_ID}
+          onClick={editor.assessWithAi}
+        />
+      </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3 border-y border-u-border py-3.5">
         <div className="min-w-24 flex-1">
@@ -222,6 +242,7 @@ function CriterionRow({
             className={cn("flex-none text-u-text3 transition-transform", open && "rotate-90")}
           />
           <span className="truncate text-note font-semibold text-u-text">{criterion.name}</span>
+          {editor.isAiDrafted(key) && <AiInferredBadge label="AI-drafted" title={AI_DRAFT_TITLE} />}
           {evidence.trim() && (
             <Icon d={ICONS.fileText} size={11} className="flex-none text-u-text3" aria-label="Has evidence" />
           )}
@@ -233,6 +254,7 @@ function CriterionRow({
         <ScoreStepper
           name={criterion.name}
           score={score}
+          isLocked={editor.isAssessing}
           onChange={(next) => editor.setScore(key, next)}
         />
         <span className="flex w-14 flex-none flex-col items-end">
@@ -255,6 +277,7 @@ function CriterionRow({
             <TextArea
               rows={3}
               value={evidence}
+              disabled={editor.isAssessing}
               maxLength={MAX_EVIDENCE}
               onChange={(event) => editor.setEvidence(key, event.target.value)}
               placeholder="What you saw that earns this score — a role, a result, what a referee said…"
@@ -266,6 +289,7 @@ function CriterionRow({
             {score !== null && (
               <button
                 type="button"
+                disabled={editor.isAssessing}
                 onClick={() => editor.setScore(key, null)}
                 className="flex-none text-meta font-medium text-u-text3 hover:text-u-text"
               >
@@ -283,10 +307,12 @@ function CriterionRow({
 function ScoreStepper({
   name,
   score,
+  isLocked,
   onChange,
 }: {
   name: string;
   score: number | null;
+  isLocked: boolean;
   onChange: (score: number | null) => void;
 }) {
   const step = "grid h-7 w-7 place-items-center text-u-text3 hover:text-u-text disabled:opacity-35 disabled:hover:text-u-text3";
@@ -300,7 +326,7 @@ function ScoreStepper({
         <button
           type="button"
           aria-label={`Lower ${name}`}
-          disabled={score === null || score <= 0}
+          disabled={isLocked || score === null || score <= 0}
           onClick={() => score !== null && onChange(score - 1)}
           className={step}
         >
@@ -316,7 +342,7 @@ function ScoreStepper({
         <button
           type="button"
           aria-label={`Raise ${name}`}
-          disabled={score !== null && score >= 10}
+          disabled={isLocked || (score !== null && score >= 10)}
           onClick={() => onChange(score === null ? FIRST_SCORE : score + 1)}
           className={step}
         >
@@ -413,7 +439,10 @@ function ReportSections({ editor }: { editor: ScorecardEditor }) {
                 className={cn("flex-none text-u-text3 transition-transform", isOpen && "rotate-90")}
               />
               <span className="min-w-0 flex-1">
-                <span className="block text-note font-semibold text-u-text">{section.title}</span>
+                <span className="flex items-center gap-1 text-note font-semibold text-u-text">
+                  {section.title}
+                  {editor.isReportAiDrafted(section.id) && <AiInferredBadge label="AI-drafted" title={AI_DRAFT_TITLE} />}
+                </span>
                 {!isOpen && text.trim() && (
                   <span className="mt-0.5 block truncate text-meta text-u-text3">{text.trim()}</span>
                 )}
@@ -433,6 +462,7 @@ function ReportSections({ editor }: { editor: ScorecardEditor }) {
                   aria-label={section.title}
                   rows={5}
                   value={text}
+                  disabled={editor.isAssessing}
                   maxLength={MAX_SECTION}
                   onChange={(event) => editor.setReport(section.id, event.target.value)}
                   placeholder={section.placeholder}
@@ -503,6 +533,16 @@ function BannerButton({ onClick, children }: { onClick: () => void; children: Re
       {children}
     </button>
   );
+}
+
+/** Says what the button will do — or, while it cannot, why — so the reason is read, not only hovered. */
+function aiLineOf(editor: ScorecardEditor, aiDraftedAt: string | null): string {
+  if (editor.isAssessing) return "The AI is reading the profile, notes and documents…";
+  if (editor.isDirty) return "Save or discard your changes before the AI drafts";
+  if (!editor.hasOpen) return "Every score and section is your team's — nothing is left for the AI to draft";
+  return aiDraftedAt
+    ? `AI drafted ${formatInstantDate(aiDraftedAt)} · it never changes a score or section you wrote`
+    : "The AI scores each open competency from the profile, your notes and the documents on file";
 }
 
 function formatPoints(points: number): string {

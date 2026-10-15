@@ -62,6 +62,18 @@ describe("timelineLines", () => {
     ).toMatchObject({ text: "marked Call booked on this position", detail: "Reached out → Call booked" });
   });
 
+  it("tells the AI's background suggestions from its drafted assessment, and reads an older line as the latter", () => {
+    expect(lineOf({ kind: "AI_ASSESSED", details: { scope: "BACKGROUND" } })).toMatchObject({
+      text: "had the AI suggest the background",
+      detail: null,
+    });
+    expect(lineOf({ kind: "AI_ASSESSED", details: { scope: "ASSESSMENT" } })).toMatchObject({
+      text: "had the AI assess them on this position",
+      detail: "Scored against this brief",
+    });
+    expect(lineOf({ kind: "AI_ASSESSED", details: {} }).text).toBe("had the AI assess them");
+  });
+
   it("says whether the executive was shown to the client or hidden from them", () => {
     expect(lineOf({ kind: "CLIENT_VISIBILITY_CHANGED", details: { visible: "false" } })).toMatchObject({
       text: "hid them from the client on this position",

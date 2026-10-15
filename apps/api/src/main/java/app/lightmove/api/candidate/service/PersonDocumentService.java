@@ -189,8 +189,7 @@ public class PersonDocumentService {
                 .detail("versionId", versionId.toString())
                 .detail("preview", Boolean.toString(preview))
                 .record();
-        return new StoredDocumentFile(version.getFileName(), version.getContentType(), version.getSizeBytes(),
-                version.getStorageKey(), isPreviewable(version.getContentType()));
+        return version.toStoredFile(isPreviewable(version.getContentType()));
     }
 
     public InputStream open(StoredDocumentFile file) {

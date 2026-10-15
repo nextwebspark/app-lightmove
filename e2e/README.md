@@ -108,7 +108,7 @@ ran at all. `application-e2e.yml` therefore sets `spring.ai.model.chat` and `.em
 `none` and `lightmove.llm.enabled: false`, which registers a model that fails every call
 (`DisabledLlmConfig`): each AI feature then takes the path it takes when Vertex is unreachable — the
 import's header matcher, the brief's heuristic reader, an empty reading, `ASSISTANT_UNAVAILABLE`.
-**No script here calls an AI route** (`/ai-enrich`, `/ai-assessment`, `/assistant`,
+**No script here calls an AI route** (`/background/ai`, `/assessment/ai`, `/assistant`,
 `/position/document/extract/*`, `/llm/*`), and no SPA journey presses an AI button or attaches a
 document, which reads it. What a model *says* is the AI evaluation suite's to judge, not this one's.
 The one AI-adjacent case left is 18's unknown import header, which proves the mapping falls back

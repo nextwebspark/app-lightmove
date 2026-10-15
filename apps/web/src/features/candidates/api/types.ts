@@ -229,13 +229,6 @@ export interface SaveCandidatePayload {
   existingPersonId?: string;
 }
 
-/** One competency panel's AI reading: a 1–10 score (null when the model could not judge) and why. */
-export interface CompetencyPanelAssessment {
-  score: number | null;
-  positives: string[];
-  negatives: string[];
-}
-
 /** How strongly the classifier's evidence supports its category; only `high` fills the field. */
 export type NationalityConfidence = "high" | "medium" | "low";
 
@@ -250,19 +243,6 @@ export interface NationalityReading {
   evidenceAgainst: string[];
   rule: string;
   readAt: string;
-}
-
-/**
- * A candidate's last AI assessment, nationality reading and last failed run — staff-only, read on
- * its own and never carried on `Candidate`. The assessment fields are null until a run has succeeded.
- */
-export interface CandidateAiAssessment {
-  summary: string | null;
-  technical: CompetencyPanelAssessment | null;
-  behavioural: CompetencyPanelAssessment | null;
-  assessedAt: string | null;
-  nationalityReading: NationalityReading | null;
-  failedAt: string | null;
 }
 
 /** What a note records, as the composer offers it. */

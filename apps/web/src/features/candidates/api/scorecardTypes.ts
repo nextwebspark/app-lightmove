@@ -17,6 +17,8 @@ export interface ScorecardCriterion {
   score: number | null;
   points: number;
   evidence: string | null;
+  /** Still the AI's draft, untouched by anyone: it wears a sparkle until a consultant changes it. */
+  aiDrafted: boolean;
 }
 
 export interface ScorecardPanelTally {
@@ -48,6 +50,10 @@ export interface CandidateScorecard {
   /** Scores given against criteria the brief no longer has: kept and shown, never counted. */
   retired: ScorecardCriterion[];
   report: ScorecardReport;
+  /** The report sections still holding the AI's untouched draft. */
+  reportAiDrafted: (keyof ScorecardReport)[];
+  /** When the AI last drafted it; null when it never has. */
+  aiDraftedAt: string | null;
   updatedAt: string | null;
   updatedByName: string | null;
   reviewedAt: string | null;
