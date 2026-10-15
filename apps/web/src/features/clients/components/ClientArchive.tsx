@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, FormError, Input, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
 import { confirmationNameMatches } from "../../../lib/confirmationName";
 import { messageFor } from "../../../lib/errorCodes";
@@ -15,18 +14,13 @@ import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail } from "../api/types";
 import { isArchivedClient } from "../lib/filtering";
 
-const MORE_BUTTON =
-  "grid flex-none place-items-center rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-text";
-const MENU_ITEM =
-  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-note text-u-offlimits hover:bg-u-raised";
-
 /** Archiving a record is the firm's own call: a workspace admin's, as `WORKSPACE_MANAGE` is. */
 export function useMayArchiveClients(): boolean {
   const { user } = useAuth();
   return user?.workspace?.roles.includes("ADMIN") ?? false;
 }
 
-/** The foot of both record drawers: Close, then what may be done to the record — or Restore, once it is archived. */
+/** The foot of both record drawers: Archive for an admin — or Restore, once it is archived — then New position. */
 export function ClientDrawerActions({
   client,
   onClose,
@@ -42,53 +36,26 @@ export function ClientDrawerActions({
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
   const archived = isArchivedClient(client);
+  if (archived && !mayArchive) return null;
 
   return (
     <div className="flex items-center gap-2 border-t border-u-border px-5 py-3">
-      <Button variant="ghost" onClick={onClose}>
-        Close
-      </Button>
-      <span className="flex-1" />
-      {archived ? (
-        mayArchive && (
+      {mayArchive &&
+        (archived ? (
           <Button variant="secondary" loading={restoring.isPending} onClick={() => restoring.mutate()}>
             Restore {vocabulary.unitLower}
           </Button>
-        )
-      ) : (
-        <>
-          {mayArchive && (
-            <Popover
-              label={`More for ${client.name}`}
-              align="right"
-              placement="auto"
-              width={240}
-              hasPopup="menu"
-              triggerClassName={MORE_BUTTON}
-              trigger={() => <Icon d={ICONS.more} size={16} />}
-            >
-              {(close) => (
-                <div role="menu" aria-label={`${client.name} actions`}>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={MENU_ITEM}
-                    onClick={() => {
-                      close();
-                      setConfirming(true);
-                    }}
-                  >
-                    <Icon d={ICONS.archive} size={13} />
-                    Archive {vocabulary.unitLower}…
-                  </button>
-                </div>
-              )}
-            </Popover>
-          )}
-          <Button variant="secondary" onClick={onNewMandate}>
-            ＋ New position
+        ) : (
+          <Button variant="ghost" className="-ms-3.5" onClick={() => setConfirming(true)}>
+            <Icon d={ICONS.archive} size={14} />
+            Archive
           </Button>
-        </>
+        ))}
+      <span className="flex-1" />
+      {!archived && (
+        <Button variant="secondary" onClick={onNewMandate}>
+          ＋ New position
+        </Button>
       )}
 
       {confirming && (

@@ -120,8 +120,7 @@ describe("ClientDrawer — archiving the record", () => {
     renderDrawer();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole("button", { name: "More for Automotive" }));
-    await user.click(screen.getByRole("menuitem", { name: /archive business unit/i }));
+    await user.click(await screen.findByRole("button", { name: "Archive" }));
 
     expect(await screen.findByRole("link", { name: "Head of Retail" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Old Search" })).not.toBeInTheDocument();
@@ -134,8 +133,7 @@ describe("ClientDrawer — archiving the record", () => {
     renderDrawer();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole("button", { name: "More for Automotive" }));
-    await user.click(screen.getByRole("menuitem", { name: /archive business unit/i }));
+    await user.click(await screen.findByRole("button", { name: "Archive" }));
     const confirm = await screen.findByRole("button", { name: "Archive business unit" });
     expect(confirm).toBeDisabled();
     await user.type(screen.getByLabelText("Name to confirm"), "automotive");
@@ -150,7 +148,7 @@ describe("ClientDrawer — archiving the record", () => {
     renderDrawer();
 
     expect(await screen.findByText("Business unit record")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "More for Automotive" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
   });
 
   it("draws an archived record as archived, with Restore in place of New position", async () => {
