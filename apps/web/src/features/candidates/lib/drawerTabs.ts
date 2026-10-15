@@ -26,14 +26,8 @@ export const POSITION_STAFF_TABS: readonly DrawerTab[] = [
 
 export const POSITION_CLIENT_TABS: readonly DrawerTab[] = ["career", "contact"];
 
-export const WORKSPACE_TABS: readonly DrawerTab[] = [
-  "career",
-  "notes",
-  "contact",
-  "documents",
-  "activity",
-  "positions",
-];
+/** The position drawer's own tabs, less what only a position holds — so a new tab reaches both drawers. */
+export const WORKSPACE_TABS: readonly DrawerTab[] = POSITION_STAFF_TABS.filter((tab) => tab !== "assessment");
 
 /** Links written before the split — `?tab=records`, a bell's `tab=timeline` — still land somewhere sensible. */
 const RETIRED_TABS: Readonly<Record<string, DrawerTab>> = {

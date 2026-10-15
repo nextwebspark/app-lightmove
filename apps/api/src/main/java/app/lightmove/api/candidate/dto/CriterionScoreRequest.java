@@ -4,12 +4,12 @@ import app.lightmove.api.candidate.model.CandidateScorecard;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /** One criterion's score as sent: the brief's panel and name it was given against, matched on save. */
 public record CriterionScoreRequest(
-        @NotBlank @Pattern(regexp = "technical|behavioural", message = "That is not a competency panel")
+        /** {@code technical} or {@code behavioural} — {@link app.lightmove.api.common.constant.CompetencyPanel}'s tokens. */
+        @NotBlank
         String panel,
         @NotBlank @Size(max = 120)
         String name,

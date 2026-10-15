@@ -21,9 +21,8 @@ export interface ScorecardCriterion {
 
 export interface ScorecardPanelTally {
   panel: ScorecardPanel;
-  /** The panel's part of the assessment's 100. */
+  /** The panel's part of the assessment's 100: what a 10 on every criterion earns. */
   share: number;
-  maxPoints: number;
   points: number;
   average: number | null;
   scoredCount: number;

@@ -6,7 +6,6 @@ import java.util.List;
 public record ScorecardPanelResponse(
         String panel,
         int share,
-        double maxPoints,
         double points,
         Double average,
         int scoredCount,
@@ -14,8 +13,8 @@ public record ScorecardPanelResponse(
 ) {
 
     static ScorecardPanelResponse of(ScorecardPanelTally panel) {
-        return new ScorecardPanelResponse(ScorecardCriterionResponse.panelOf(panel.panel().name()), panel.share(),
-                panel.maxPoints(), panel.points(), panel.average(), panel.scoredCount(),
+        return new ScorecardPanelResponse(panel.panel().value(), panel.share(),
+                panel.points(), panel.average(), panel.scoredCount(),
                 panel.criteria().stream().map(ScorecardCriterionResponse::of).toList());
     }
 }

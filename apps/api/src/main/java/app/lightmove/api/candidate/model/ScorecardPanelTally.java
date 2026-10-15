@@ -12,7 +12,6 @@ import java.util.List;
 public record ScorecardPanelTally(
         CompetencyPanel panel,
         int share,
-        double maxPoints,
         double points,
         Double average,
         int scoredCount,

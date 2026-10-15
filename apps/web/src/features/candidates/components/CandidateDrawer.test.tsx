@@ -1257,7 +1257,6 @@ describe("CandidateDrawer", () => {
         {
           panel: "technical",
           share: 60,
-          maxPoints: 60,
           points: 0,
           average: null,
           scoredCount: 0,
@@ -1266,7 +1265,6 @@ describe("CandidateDrawer", () => {
         {
           panel: "behavioural",
           share: 40,
-          maxPoints: 40,
           points: 0,
           average: null,
           scoredCount: 0,
