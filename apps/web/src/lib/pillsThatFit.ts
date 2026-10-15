@@ -7,35 +7,38 @@ export interface PillRowLayout {
   tail?: readonly number[];
 }
 
+interface WrapState {
+  line: number;
+  used: number;
+  isLineStart: boolean;
+}
+
+const ROW_START: WrapState = { line: 1, used: 0, isLineStart: true };
+
 /**
  * How many pills, in order, a wrapping row of `available` width holds within `lines` lines — keeping room
- * for the chip and the tail on the last line whenever any pill is left out.
+ * for the chip and the tail on the last line whenever any pill is left out. The pills are wrapped once, and
+ * each shorter count is tried from where its own pills left the row.
  */
 export function pillsThatFit(widths: readonly number[], available: number, layout: PillRowLayout): number {
   const { gap, lines, chip, tail = [] } = layout;
-  if (fitsWithin([...widths, ...tail], available, gap, lines)) return widths.length;
+  const place = (state: WrapState, item: number) => placed(state, item, available, gap);
+  const fits = (state: WrapState, after: readonly number[]) => after.reduce(place, state).line <= lines;
+
+  const afterPills = [ROW_START];
+  for (const width of widths) afterPills.push(place(afterPills[afterPills.length - 1], width));
+  if (fits(afterPills[widths.length], tail)) return widths.length;
+
+  const chipAndTail = [chip, ...tail];
   for (let count = widths.length - 1; count > 0; count--) {
-    if (fitsWithin([...widths.slice(0, count), chip, ...tail], available, gap, lines)) return count;
+    if (fits(afterPills[count], chipAndTail)) return count;
   }
   return 0;
 }
 
-function fitsWithin(items: readonly number[], available: number, gap: number, lines: number): boolean {
-  let line = 1;
-  let used = 0;
-  let isLineStart = true;
-  for (const item of items) {
-    const width = Math.min(item, available);
-    if (isLineStart) {
-      used = width;
-      isLineStart = false;
-    } else if (used + gap + width <= available) {
-      used += gap + width;
-    } else {
-      line += 1;
-      if (line > lines) return false;
-      used = width;
-    }
-  }
-  return true;
+function placed(state: WrapState, item: number, available: number, gap: number): WrapState {
+  const width = Math.min(item, available);
+  if (state.isLineStart) return { line: state.line, used: width, isLineStart: false };
+  if (state.used + gap + width <= available) return { ...state, used: state.used + gap + width };
+  return { line: state.line + 1, used: width, isLineStart: false };
 }

@@ -100,7 +100,7 @@
   },
   "features/candidates/components/CandidateProfile.tsx": {
     "arbitraryRadius": 1,
-    "arbitraryText": 4
+    "arbitraryText": 2
   },
   "features/candidates/components/CareerTimeline.tsx": {
     "arbitraryText": 5
@@ -156,7 +156,7 @@
     "arbitraryText": 1
   },
   "features/candidates/components/pool/PersonDrawer.tsx": {
-    "arbitraryText": 7
+    "arbitraryText": 5
   },
   "features/candidates/components/pool/PersonNotesTab.tsx": {
     "arbitraryRadius": 1,
@@ -191,7 +191,7 @@
     "arbitraryRadius": 3
   },
   "features/candidates/components/ProfileParts.tsx": {
-    "arbitraryText": 10
+    "arbitraryText": 12
   },
   "features/candidates/components/ProfileSectionForm.tsx": {
     "arbitraryText": 3

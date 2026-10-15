@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { CandidateEducationEntry } from "../api/types";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { cn } from "../../../lib/cn";
@@ -11,7 +11,7 @@ import { FITTING_PILL, LEFT_OUT_PILL, useFittingCount } from "../../../lib/useFi
  */
 
 /** LinkedIn's own mark beside the name, through the same guard as the Contact row's link. */
-export function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
+function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null }) {
   const profileUrl = toBrowsableUrl(linkedinUrl);
   if (!profileUrl) return null;
   return (
@@ -24,6 +24,48 @@ export function HeaderProfileLink({ linkedinUrl }: { linkedinUrl: string | null 
     >
       <NetworkMark network="linkedin" size={16} />
     </a>
+  );
+}
+
+/**
+ * Both person drawers' header: the photo, then one column for the name, title and context line and everything
+ * the drawer puts under them, so the two headers cannot drift apart.
+ */
+export function PersonHeaderLayout({
+  avatar,
+  fullName,
+  linkedinUrl,
+  nameAction,
+  title,
+  context,
+  children,
+}: {
+  avatar: ReactNode;
+  fullName: string;
+  linkedinUrl: string | null;
+  nameAction?: ReactNode;
+  title: string | null;
+  context: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="group flex items-start gap-3">
+      <div className="flex flex-none">{avatar}</div>
+      <div className="min-w-0 flex-1">
+        <div className="pe-8">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <h2 className="truncate font-sans text-base font-semibold text-u-text">{fullName}</h2>
+            <HeaderProfileLink linkedinUrl={linkedinUrl} />
+            {nameAction}
+          </span>
+          <p className="mt-0.5 truncate font-mono text-[12.5px] text-u-text2">{title ?? "—"}</p>
+          <p className="mt-1 truncate font-mono text-[11.5px] text-u-text3">
+            {context || "No employer or location recorded"}
+          </p>
+        </div>
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -69,7 +111,7 @@ export function PillRow({ label, values, empty }: { label: string; values: reado
             const isLeftOut = !isExpanded && index >= fitting;
             return (
               <span
-                key={value}
+                key={`${index}:${value}`}
                 {...FITTING_PILL}
                 aria-hidden={isLeftOut || undefined}
                 className={cn(PILL, isLeftOut && LEFT_OUT_PILL)}
@@ -89,7 +131,7 @@ export function PillRow({ label, values, empty }: { label: string; values: reado
             </button>
           )}
           <span ref={chip} aria-hidden className={cn(MORE_PILL, LEFT_OUT_PILL)}>
-            +99 more
+            +{values.length} more
           </span>
         </div>
       )}

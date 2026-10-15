@@ -101,16 +101,13 @@ export function NationalitySuggestion({
 }
 
 /** The fold's header action: runs the enrichment, and says so while it runs. */
-export function AiEnrichButton({ enrichment, className }: { enrichment: AiEnrichment; className?: string }) {
+export function AiEnrichButton({ enrichment }: { enrichment: AiEnrichment }) {
   return (
     <button
       type="button"
       onClick={enrichment.start}
       disabled={enrichment.isRunning}
-      className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-md border border-u-inferred/40 bg-u-inferred-tint px-2.5 font-mono text-[11.5px] font-semibold text-u-inferred transition hover:border-u-inferred disabled:cursor-progress disabled:opacity-60",
-        className,
-      )}
+      className="inline-flex items-center gap-1.5 rounded-md border border-u-inferred/40 bg-u-inferred-tint px-2 py-1 font-mono text-[11.5px] font-semibold text-u-inferred transition hover:border-u-inferred disabled:cursor-progress disabled:opacity-60"
     >
       <span aria-hidden>✦</span>
       {enrichment.isRunning ? "Enriching…" : "AI deep enrich"}

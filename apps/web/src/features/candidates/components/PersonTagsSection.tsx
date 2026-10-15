@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useRef, type ComponentPropsWithoutRef } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
@@ -48,13 +48,7 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
   });
   const hidden = Math.max(0, held.length - fitting);
 
-  const removablePill = (tag: CandidateTag) => (
-    <TagPill
-      tag={tag}
-      onRemove={() => untagging.mutate(tag.id)}
-      removing={untagging.isPending}
-    />
-  );
+  const untag = (tagId: string) => untagging.mutate(tagId);
 
   return (
     <section aria-label="Tags" className={cn("flex items-center gap-1.5", className)}>
@@ -63,15 +57,16 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
         {held.map((tag, index) => {
           const isLeftOut = index >= fitting;
           return (
-            <span
+            <RemovableTagPill
               key={tag.id}
+              tag={tag}
+              onRemove={untag}
+              removing={untagging.isPending}
               {...FITTING_PILL}
               aria-hidden={isLeftOut || undefined}
               inert={isLeftOut}
-              className={cn("flex min-w-0", isLeftOut && LEFT_OUT_PILL)}
-            >
-              {removablePill(tag)}
-            </span>
+              className={cn(isLeftOut && LEFT_OUT_PILL)}
+            />
           );
         })}
         {hidden > 0 && (
@@ -90,9 +85,7 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
                 </div>
                 <div className="flex flex-wrap gap-1.5 px-1 pb-1">
                   {held.map((tag) => (
-                    <span key={tag.id} className="flex min-w-0">
-                      {removablePill(tag)}
-                    </span>
+                    <RemovableTagPill key={tag.id} tag={tag} onRemove={untag} removing={untagging.isPending} />
                   ))}
                 </div>
               </div>
@@ -103,9 +96,28 @@ export function PersonTagsSection({ person, className }: { person: PersonRecord;
           <TagPicker person={person} tags={tags} onChanged={changed} />
         </span>
         <span ref={chip} aria-hidden className={cn(MORE_CHIP, LEFT_OUT_PILL)}>
-          +99
+          +{held.length}
         </span>
       </div>
     </section>
+  );
+}
+
+/** A tag that can be taken off, in the slot the row measures and the popover lists. */
+function RemovableTagPill({
+  tag,
+  onRemove,
+  removing,
+  className,
+  ...slot
+}: {
+  tag: CandidateTag;
+  onRemove: (tagId: string) => void;
+  removing: boolean;
+} & ComponentPropsWithoutRef<"span">) {
+  return (
+    <span {...slot} className={cn("flex min-w-0", className)}>
+      <TagPill tag={tag} onRemove={() => onRemove(tag.id)} removing={removing} />
+    </span>
   );
 }
