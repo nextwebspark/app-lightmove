@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.model.CandidateMaterial;
 import app.lightmove.api.candidate.model.DocumentOnFile;
 import app.lightmove.api.candidate.model.NoteOnFile;
 import app.lightmove.api.candidate.service.CandidateMaterialService;
+import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.storage.constant.DocumentFormat;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
 import java.io.IOException;
@@ -24,7 +25,8 @@ import org.springframework.stereotype.Component;
 /**
  * Writes out what the team has filed on a person for a prompt: every note, newest first, and the text of the latest
  * file of every document a text can be read from — an image or a scan without a text layer is left out. Emails and
- * phone numbers are taken out of both, and each is held to a length, so a long file never crowds out the rest.
+ * phone numbers are taken out of both, and each is held to a share of the prompt, so one long file never crowds out
+ * the rest.
  */
 @Component
 @RequiredArgsConstructor
@@ -36,6 +38,7 @@ class CandidateMaterialReader {
     static final int MAX_DOCUMENT = 20_000;
     static final int MAX_DOCUMENTS = 40_000;
     static final String CUT = " … [cut]";
+    static final String OLDER_NOTES_LEFT_OUT = "- older notes left out";
 
     private static final Set<String> READABLE = Stream.of(DocumentFormat.PDF, DocumentFormat.DOCX, DocumentFormat.DOC,
             DocumentFormat.TXT).map(DocumentFormat::contentType).collect(Collectors.toSet());
@@ -47,12 +50,13 @@ class CandidateMaterialReader {
 
     MaterialText read(UUID projectId, UUID candidateId) {
         CandidateMaterial filed = material.materialOf(projectId, candidateId);
+        List<String> notes = notesOf(filed.notes());
         List<String> documents = documentsOf(filed.documents());
-        return new MaterialText(notesOf(filed.notes()), joined(documents, "\n\n"), filed.notes().size(),
-                documents.size());
+        int notesSent = notes.size() - (notes.contains(OLDER_NOTES_LEFT_OUT) ? 1 : 0);
+        return new MaterialText(joined(notes, "\n"), joined(documents, "\n\n"), notesSent, documents.size());
     }
 
-    private static String notesOf(List<NoteOnFile> notes) {
+    private static List<String> notesOf(List<NoteOnFile> notes) {
         List<String> lines = new ArrayList<>();
         int total = 0;
         for (NoteOnFile note : notes) {
@@ -60,41 +64,43 @@ class CandidateMaterialReader {
                     note.aboutPosition() == null ? "" : " · about " + note.aboutPosition(),
                     cut(ContactRedaction.redact(note.body().strip()), MAX_NOTE));
             if (total + line.length() > MAX_NOTES) {
-                lines.add("- older notes left out");
+                lines.add(OLDER_NOTES_LEFT_OUT);
                 break;
             }
             lines.add(line);
             total += line.length();
         }
-        return joined(lines, "\n");
+        return lines;
     }
 
+    /** A file that still fits is cut to what is left of the budget, so a long one never shuts out the next. */
     private List<String> documentsOf(List<DocumentOnFile> documents) {
         List<String> read = new ArrayList<>();
-        int total = 0;
+        int left = MAX_DOCUMENTS;
         for (DocumentOnFile document : documents) {
+            String heading = "=== %s: %s ===\n".formatted(labelOf(document.category().name()), document.title());
+            int room = Math.min(MAX_DOCUMENT, left - heading.length() - CUT.length());
+            if (room <= 0) {
+                break;
+            }
             if (!READABLE.contains(document.file().contentType())) {
                 continue;
             }
-            String text = textOf(document);
+            String text = textOf(document, room);
             if (text == null) {
                 continue;
             }
-            String block = "=== %s: %s ===\n%s".formatted(labelOf(document.category().name()), document.title(),
-                    cut(ContactRedaction.redact(text), MAX_DOCUMENT));
-            if (total + block.length() > MAX_DOCUMENTS) {
-                break;
-            }
+            String block = heading + cut(ContactRedaction.redact(text), room);
             read.add(block);
-            total += block.length();
+            left -= block.length();
         }
         return read;
     }
 
     /** A file that will not open or read is left out, never the run: the rest of what is on file still counts. */
-    private String textOf(DocumentOnFile document) {
+    private String textOf(DocumentOnFile document, int maxCharacters) {
         try (InputStream in = material.open(document.file())) {
-            return textReader.read(in.readAllBytes());
+            return textReader.readUpTo(in.readAllBytes(), maxCharacters + 1);
         } catch (IOException | RuntimeException unreadable) {
             log.info("A person document was left out of an AI run: {}", unreadable.toString());
             return null;

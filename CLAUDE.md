@@ -226,15 +226,18 @@ status but no pipeline outcome, and a package in another currency is counted rat
 chapter divides by the executives who have one on file, not by the headcount, so a mandate nobody has
 recorded reads as unmeasured rather than as a pool of one gender. **The AI on an executive** is ungrounded
 Gemini calls at temperature 0 (no web search — grounding was too slow): the background (`CandidateAiEnricher` and
-the nationality classifier) and the assessment draft (above). `CandidateAiEnrichWorker` runs the background alone,
-unprompted, once a capture's research lands or Find executives files someone — asking nothing when nothing is
-missing — and the drawer runs each on its own, synchronously:
+the nationality classifier, asked side by side by `BackgroundProposer`) and the assessment draft (above).
+`CandidateAiEnrichWorker` runs the background alone, unprompted and audited like a press, once a capture's research
+lands or Find executives files someone — asking nothing when nothing is missing — and the drawer runs each on its
+own, synchronously:
 **Suggest with AI** in the Background section's header (`POST …/candidates/{id}/background/ai`, offered while
 gender, years or seniority is empty, or nationality is with no reading yet) and **Assess with AI**. Each press is
 its own `LlmBudget` meter and one `AI_ENRICH` fair-use unit, recorded only once its answer is on file; a model that
-answers nothing usable is `AI_UNAVAILABLE`, charging nothing. The old panel-level assessment and its header button
-are gone (V79's `ai_assessment` and V80's `ai_enrich_failed_at` frozen, unmapped). The background call
-(`CandidateAiEnricher`) reads the profile alone and always proposes its
+answers nothing usable — an empty draft included — is `AI_UNAVAILABLE`, charging nothing, Assess with AI with every
+score and section already a consultant's is `CANDIDATE_ASSESSMENT_NOTHING_OPEN` before anything is spent, and a
+prompt the injection guard stops is `VALIDATION_FAILED` naming the words on file (`AiRefusals`), never "try again".
+The old panel-level assessment and its header button are gone (V79's `ai_assessment` and V80's
+`ai_enrich_failed_at` frozen, unmapped). The background call (`CandidateAiEnricher`) always proposes its
 most probable value — never "unknown" — for whichever of gender, years of experience and seniority
 level are still empty — a value already on the row always stands, and each filled one is flagged in
 `ai_inferred_fields` (V78, an "AI" badge) until a researcher changes it. **Nationality is the deliberate exception: it may be "Unknown"**,
@@ -252,8 +255,9 @@ AI run on an executive reads the person's notes and documents too** (`CandidateM
 `CandidateMaterialReader`): every note, newest first, and the text of the latest file of each document (a PDF, DOCX,
 DOC or TXT; an image or a scan without a text layer is left out), each held to a length, and the audit line counts
 how many of each went. **The model never sees a candidate's contacts, compensation fields or custom fields**: the
-profile is the `CandidateDossier` allowlist, and `ContactRedaction` takes every email address and phone number out of
-the notes and documents first — a figure a note or a CV states is sent as written. The assessment ranks a person and the nationality reading reasons about their origin, so both are
+profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` — the one copy of the email and phone
+patterns, which `PositionDocumentRedactor` uses too — takes every address and number out of the About, the notes and
+the documents first, sparing dates, ranges and money; a figure a note or a CV states is sent as written. The assessment ranks a person and the nationality reading reasons about their origin, so both are
 staff-only — `GET …/candidates/{id}/assessment` and `…/nationality-reading`, `WORK_EXECUTE` — and never on `CandidateResponse`, which a
 client seat reads; a filled seniority, like gender, is a mapping fact and is. **Nationality is counted
 in eleven groups** — the Gulf six by name, and everyone else as Western expat (all of Europe, the east

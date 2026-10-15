@@ -14,6 +14,8 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
 
     List<PersonNote> findByWorkspaceIdAndPersonIdOrderByPinnedDescCreatedAtDesc(UUID workspaceId, UUID personId);
 
+    List<PersonNote> findByWorkspaceIdAndPersonIdOrderByCreatedAtDesc(UUID workspaceId, UUID personId);
+
     Optional<PersonNote> findByIdAndWorkspaceIdAndPersonId(UUID id, UUID workspaceId, UUID personId);
 
     List<PersonNote> findByWorkspaceIdAndIdIn(UUID workspaceId, Collection<UUID> ids);

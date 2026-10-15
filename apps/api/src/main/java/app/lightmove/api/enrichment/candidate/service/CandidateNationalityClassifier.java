@@ -3,10 +3,10 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.constant.NationalityConfidence;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
-import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.common.constant.NationalityGroup;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
+import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +36,6 @@ public class CandidateNationalityClassifier {
     private static final String BLOCKED = "{\"category\":\"" + BlockedAnswer.MARKER + "\"}";
 
     private static final int MAX_EVIDENCE_PER_SIDE = 5;
-    private static final String NOT_STATED = "not stated";
     private static final String NO_RULE = "none";
     private static final Set<String> RULES = Set.of("A", "B", "C", "D", "E", NO_RULE);
 
@@ -51,17 +49,19 @@ public class CandidateNationalityClassifier {
         return classify(dossier, MaterialText.NONE);
     }
 
+    /** Empty when the model could not be reached or answered nothing usable; a blocked prompt is refused instead. */
     Optional<NationalityReading> classify(CandidateDossier dossier, MaterialText material) {
+        ModelAnswer answered;
         try {
-            ModelAnswer answered = ask(dossier, material);
-            if (answered == null || BlockedAnswer.matches(answered.category())) {
-                return Optional.empty();
-            }
-            return Optional.of(readingOf(answered));
+            answered = ask(dossier, material);
         } catch (RuntimeException e) {
             log.warn("Candidate nationality classification skipped: {}", e.toString());
             return Optional.empty();
         }
+        if (answered != null && BlockedAnswer.matches(answered.category())) {
+            throw AiRefusals.blockedText();
+        }
+        return Optional.ofNullable(answered).map(CandidateNationalityClassifier::readingOf);
     }
 
     private ModelAnswer ask(CandidateDossier dossier, MaterialText material) {
@@ -84,12 +84,12 @@ public class CandidateNationalityClassifier {
                 Documents on file:
                 {documents}
                 """)
-                .param("name", orNotStated(dossier.fullName()))
+                .param("name", DossierText.orNotStated(dossier.fullName()))
                 .param("headline", headlineOf(dossier))
-                .param("about", orNotStated(dossier.summary()))
-                .param("languages", dossier.languages().isEmpty() ? NOT_STATED : String.join(", ", dossier.languages()))
-                .param("location", locationOf(dossier))
-                .param("education", educationOf(dossier.education()))
+                .param("about", DossierText.orNotStated(ContactRedaction.redact(dossier.summary())))
+                .param("languages", DossierText.listOf(dossier.languages()))
+                .param("location", DossierText.placeOf(dossier.locationCity(), dossier.locationCountry()))
+                .param("education", DossierText.educationOf(dossier.education()))
                 .param("experience", experienceOf(dossier.career()))
                 .param("notes", material.notes())
                 .param("documents", material.documents()));
@@ -121,25 +121,9 @@ public class CandidateNationalityClassifier {
 
     private static String headlineOf(CandidateDossier dossier) {
         if (dossier.title() == null) {
-            return orNotStated(dossier.companyName());
+            return DossierText.orNotStated(dossier.companyName());
         }
         return dossier.companyName() == null ? dossier.title() : dossier.title() + " at " + dossier.companyName();
-    }
-
-    private static String locationOf(CandidateDossier dossier) {
-        String location = Stream.of(dossier.locationCity(), dossier.locationCountry())
-                .filter(Objects::nonNull)
-                .collect(Collectors.joining(", "));
-        return location.isEmpty() ? NOT_STATED : location;
-    }
-
-    private static String educationOf(List<CandidateEducationEntry> education) {
-        return education.isEmpty() ? NOT_STATED : education.stream()
-                .map(school -> "- %s, %s (%s)".formatted(
-                        school.school() == null ? "unknown institution" : school.school(),
-                        school.degree() == null ? "degree unknown" : school.degree(),
-                        school.period() == null ? "years unknown" : school.period()))
-                .collect(Collectors.joining("\n"));
     }
 
     /**
@@ -148,7 +132,7 @@ public class CandidateNationalityClassifier {
      */
     static String experienceOf(List<CandidateCareerEntry> career) {
         if (career.isEmpty()) {
-            return NOT_STATED;
+            return DossierText.NOT_STATED;
         }
         List<CandidateCareerEntry> oldestFirst = new ArrayList<>(career);
         Collections.reverse(oldestFirst);
@@ -159,10 +143,6 @@ public class CandidateNationalityClassifier {
                         post.location() == null ? "" : ", " + post.location(),
                         post.period() == null ? "years unknown" : post.period()))
                 .collect(Collectors.joining("\n"));
-    }
-
-    private static String orNotStated(String value) {
-        return value == null ? NOT_STATED : value;
     }
 
     private record ModelAnswer(String category, String confidence,

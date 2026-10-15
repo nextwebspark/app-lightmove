@@ -1,6 +1,6 @@
 import { cn } from "../../../lib/cn";
 import type { NationalityReading } from "../api/types";
-import { AiInferredBadge } from "./CandidateFieldGroups";
+import { AiInferredBadge } from "./AiInferredBadge";
 
 /**
  * What the nationality classifier read while the field is still empty: a group to accept with one
@@ -12,10 +12,13 @@ export function NationalitySuggestion({
   reading,
   onAccept,
   isAccepting,
+  isLocked = false,
 }: {
   reading: NationalityReading;
   onAccept: (group: string) => void;
   isAccepting: boolean;
+  /** While the AI is writing the background, an accept would race its answer. */
+  isLocked?: boolean;
 }) {
   const isUnknown = reading.category === "Unknown";
   return (
@@ -33,7 +36,7 @@ export function NationalitySuggestion({
             <button
               type="button"
               onClick={() => onAccept(reading.category)}
-              disabled={isAccepting}
+              disabled={isAccepting || isLocked}
               className="ms-auto rounded-md border border-u-inferred/40 bg-u-surface px-2 py-0.5 font-mono text-meta font-semibold text-u-inferred transition hover:border-u-inferred disabled:opacity-60"
             >
               {isAccepting ? "Saving…" : "Accept"}

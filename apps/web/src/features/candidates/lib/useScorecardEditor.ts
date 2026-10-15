@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { isBillingRefusal } from "../../billing/lib/billingView";
+import { PERSON_TIMELINE_KEY } from "../api/personCrmApi";
 import * as scorecardApi from "../api/scorecardApi";
 import type { CandidateScorecard, ScorecardCriterion, ScorecardReport } from "../api/scorecardTypes";
 import { criterionKey, tallyOf, type LiveTally } from "./scorecardScoring";
@@ -32,7 +34,7 @@ interface ScorecardValues {
  */
 interface ScorecardDraft extends ScorecardValues {
   baseVersion: number | null;
-  base?: ScorecardValues;
+  base: ScorecardValues;
 }
 
 const DRAFT_KEY = (candidateId: string) => `lm.scorecard-draft.${candidateId}`;
@@ -52,20 +54,17 @@ export function useScorecardEditor(projectId: string, candidateId: string, enabl
     enabled,
   });
   const [draft, setDraftState] = useState<ScorecardDraft | null>(() => readStoredDraft(candidateId));
+  const latestDraft = useRef(draft);
   const [restored, setRestored] = useState(() => draft !== null);
   const [stale, setStale] = useState(false);
 
   const setDraft = (next: ScorecardDraft | null) => {
+    latestDraft.current = next;
     setDraftState(next);
     storeDraft(candidateId, next);
   };
 
   const current = (): ScorecardDraft | null => draft ?? (saved.data ? draftOf(saved.data) : null);
-
-  const change = (update: (from: ScorecardDraft) => ScorecardDraft) => {
-    const from = current();
-    if (from) setDraft(update(from));
-  };
 
   const saving = useMutation({
     mutationFn: (markReviewed: boolean) => {
@@ -108,13 +107,22 @@ export function useScorecardEditor(projectId: string, candidateId: string, enabl
     mutationFn: () => scorecardApi.assessWithAi(projectId, candidateId),
     onSuccess: (answer) => {
       queryClient.setQueryData(scorecardApi.SCORECARD_KEY(projectId, candidateId), answer);
+      void queryClient.invalidateQueries({ queryKey: PERSON_TIMELINE_KEY(projectId, candidateId) });
       setDraft(null);
       setRestored(false);
       setStale(false);
       toast("The AI drafted what was still open — check each score before you mark it reviewed");
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      if (!isBillingRefusal(error)) toast.error(messageFor(error));
+    },
   });
+
+  /** The tab holds still while the AI drafts: an edit made now would be overwritten by its answer. */
+  const change = (update: (from: ScorecardDraft) => ScorecardDraft) => {
+    const from = current();
+    if (from && !assessing.isPending) setDraft(update(from));
+  };
 
   const view = current();
   const scoreOf = (key: string) => view?.scores[key]?.score ?? null;
@@ -127,6 +135,7 @@ export function useScorecardEditor(projectId: string, candidateId: string, enabl
   return {
     saved,
     tally,
+    hasOpen: saved.data ? hasOpenFor(saved.data) : false,
     isDirty: draft !== null,
     restored,
     stale,
@@ -170,11 +179,16 @@ export function useScorecardEditor(projectId: string, candidateId: string, enabl
     },
     /** After a refused stale save: take the newer version, with what was changed here laid back over it. */
     reload: async () => {
-      const mine = draft;
       setStale(false);
       setRestored(false);
-      const { data: fresh } = await saved.refetch();
-      if (fresh) setDraft(mine ? rebased(mine, fresh) : null);
+      const { data: fresh, isError } = await saved.refetch();
+      if (isError || !fresh) {
+        setStale(true);
+        toast.error("The assessment could not be reloaded. Try again.");
+        return;
+      }
+      const mine = latestDraft.current;
+      setDraft(mine ? rebased(mine, fresh) : null);
     },
   };
 }
@@ -200,32 +214,42 @@ function draftOf(scorecard: CandidateScorecard): ScorecardDraft {
 }
 
 /**
- * The newer version with this tab's own changes on top. A change is what differs from the read the tab started
- * from; a draft stored before `base` was kept counts everything in it as a change. Nothing changed is no draft.
+ * Whether Assess with AI has anything left to draft: a criterion or section nobody holds, or one still the AI's —
+ * the server's own reading (`CandidateScorecard.hasOpenAmong`), so the button is never a paid no-op.
  */
+function hasOpenFor(scorecard: CandidateScorecard): boolean {
+  const criteria = scorecard.panels.flatMap((panel) => panel.criteria);
+  return (
+    criteria.some((criterion) => criterion.aiDrafted || (criterion.score === null && !criterion.evidence)) ||
+    REPORT_SECTIONS.some((section) => !scorecard.report[section] || scorecard.reportAiDrafted.includes(section))
+  );
+}
+
+/** The newer version with this tab's own changes on top: a change is what differs from the read it started from. */
 function rebased(mine: ScorecardDraft, fresh: CandidateScorecard): ScorecardDraft | null {
   const next = draftOf(fresh);
   let changed = false;
   for (const [key, entry] of Object.entries(mine.scores)) {
-    const was = mine.base?.scores[key];
-    if (was && was.score === entry.score && was.evidence === entry.evidence) continue;
-    if (!(key in next.scores)) continue;
+    const was = mine.base.scores[key];
+    if ((was && was.score === entry.score && was.evidence === entry.evidence) || !(key in next.scores)) continue;
     next.scores = { ...next.scores, [key]: entry };
     changed = true;
   }
   for (const section of REPORT_SECTIONS) {
     const text = mine.report[section];
-    if (mine.base && (mine.base.report[section] ?? "") === (text ?? "")) continue;
+    if ((mine.base.report[section] ?? "") === (text ?? "")) continue;
     next.report = { ...next.report, [section]: text };
     changed = true;
   }
   return changed ? next : null;
 }
 
+/** A draft kept before `base` was recorded cannot tell its changes from what it was handed, so it is let go. */
 function readStoredDraft(candidateId: string): ScorecardDraft | null {
   try {
     const stored = sessionStorage.getItem(DRAFT_KEY(candidateId));
-    return stored ? (JSON.parse(stored) as ScorecardDraft) : null;
+    const parsed = stored ? (JSON.parse(stored) as Partial<ScorecardDraft>) : null;
+    return parsed?.base ? (parsed as ScorecardDraft) : null;
   } catch {
     return null;
   }

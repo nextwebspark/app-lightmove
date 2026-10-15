@@ -3,8 +3,6 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
 import app.lightmove.api.candidate.model.AiScorecardDraft;
-import app.lightmove.api.candidate.model.InferredBackground;
-import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.service.CandidateScorecardService;
 import app.lightmove.api.candidate.service.CandidateService;
 import java.util.UUID;
@@ -26,9 +24,9 @@ class AiDraftWriter {
     private final CandidateScorecardService scorecards;
 
     CandidateResponse writeBackground(UUID projectId, UUID candidateId, UUID requestedBy,
-                                      InferredBackground background, NationalityReading reading) {
-        return onceMoreIfRaced(() -> candidates.applyAiBackground(projectId, candidateId, requestedBy, background,
-                reading));
+                                      BackgroundProposals proposals) {
+        return onceMoreIfRaced(() -> candidates.applyAiBackground(projectId, candidateId, requestedBy,
+                proposals.background(), proposals.reading()));
     }
 
     CandidateScorecardResponse writeScorecard(UUID workspaceId, UUID projectId, UUID candidateId, UUID requestedBy,

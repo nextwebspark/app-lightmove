@@ -18,14 +18,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One model call drafting a consultant's assessment from the profile, the team's notes and the documents on file: for
- * each of the brief's competencies a score out of 10 and the evidence for it, and the five report sections. The total out of 100 is never the model's — {@code ScorecardScoring}
- * weighs the scores exactly as it weighs a consultant's. Every failure answers empty.
+ * One model call drafting a consultant's assessment from the profile, the team's notes and the documents on file: a
+ * score out of 10 and its evidence per competency, and the five report sections. The total out of 100 is never the
+ * model's — {@code ScorecardScoring} weighs the scores exactly as it weighs a consultant's.
  */
 @Service
 @Slf4j
@@ -33,7 +32,8 @@ public class CandidateScorecardDrafter {
 
     private static final String PROMPT_ID = "candidate-scorecard-draft";
 
-    private static final String BLOCKED = "{\"report\":{\"careerSummary\":\"" + BlockedAnswer.MARKER + "\"}}";
+    private static final String BLOCKED =
+            "{\"scores\":[],\"report\":{\"careerSummary\":\"" + BlockedAnswer.MARKER + "\"}}";
 
     private final StructuredPrompt prompt;
 
@@ -41,28 +41,32 @@ public class CandidateScorecardDrafter {
         this.prompt = prompts.create(PROMPT_ID, BLOCKED);
     }
 
-    public Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief) {
-        return draft(dossier, brief, MaterialText.NONE);
-    }
-
+    /**
+     * Empty when there is nothing to score, the model could not be reached, or it answered nothing usable — a draft
+     * with no score and no section is never written or charged. A blocked prompt is refused instead.
+     */
     Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief, MaterialText material) {
         Map<String, BriefCompetency> competencyById = idsOf(brief.competencies().competencies());
         if (competencyById.isEmpty()) {
             return Optional.empty();
         }
+        ModelAnswer answered;
         try {
-            ModelAnswer answered = ask(dossier, brief, material, competencyById);
-            if (answered == null || (answered.report() != null
-                    && BlockedAnswer.matches(answered.report().careerSummary()))) {
-                return Optional.empty();
-            }
-            return Optional.of(new AiScorecardDraft(scoresOf(answered.scores(), competencyById),
-                    reportOf(answered.report())));
+            answered = ask(dossier, brief, material, competencyById);
         } catch (RuntimeException e) {
-            // No credentials, Vertex unreachable or an unbindable answer: store nothing this time.
             log.warn("Candidate scorecard draft skipped: {}", e.toString());
             return Optional.empty();
         }
+        if (answered == null) {
+            return Optional.empty();
+        }
+        if (answered.report() != null && BlockedAnswer.matches(answered.report().careerSummary())) {
+            throw AiRefusals.blockedText();
+        }
+        AiScorecardDraft draft = new AiScorecardDraft(scoresOf(answered.scores(), competencyById),
+                reportOf(answered.report()));
+        return draft.scores().isEmpty() && draft.report().equals(ScorecardReport.empty())
+                ? Optional.empty() : Optional.of(draft);
     }
 
     private ModelAnswer ask(CandidateDossier dossier, AssessmentBrief brief, MaterialText material,
@@ -101,7 +105,7 @@ public class CandidateScorecardDrafter {
                 .param("roleTitle", DossierText.orNotStated(brief.roleTitle()))
                 .param("seniority", brief.seniority() == null ? DossierText.NOT_STATED : brief.seniority().value())
                 .param("department", DossierText.orNotStated(brief.department()))
-                .param("location", locationOf(brief))
+                .param("location", DossierText.placeOf(brief.locationCity(), brief.locationCountry()))
                 .param("narrative", DossierText.orNotStated(brief.narrative()))
                 .param("businessDriver", DossierText.orNotStated(brief.businessDriver()))
                 .param("priorities", DossierText.listOf(brief.strategicPriorities()))
@@ -169,13 +173,6 @@ public class CandidateScorecardDrafter {
         }
         String stripped = text.strip();
         return stripped.length() <= max ? stripped : stripped.substring(0, max).strip();
-    }
-
-    private static String locationOf(AssessmentBrief brief) {
-        String location = Stream.of(brief.locationCity(), brief.locationCountry())
-                .filter(part -> part != null && !part.isBlank())
-                .collect(Collectors.joining(", "));
-        return location.isEmpty() ? DossierText.NOT_STATED : location;
     }
 
     private static String linesOf(List<String> lines) {

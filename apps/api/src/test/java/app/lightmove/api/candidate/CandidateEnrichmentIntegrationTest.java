@@ -348,6 +348,10 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(researched.get("aiInferredFields")).extracting(JsonNode::asText)
                 .containsExactlyInAnyOrder("nationality", "gender", "yearsExperience", "seniority");
         assertThat(model.lastPrompt().getUserMessage().getText()).contains("Group CFO at Al Rawabi Dairy");
+        assertThat(db.queryForMap("select metadata ->> 'scope' as scope, metadata ->> 'trigger' as trigger "
+                        + "from app_lm_audit_event where event_type = 'CANDIDATE_AI_ENRICH_REQUESTED' and target_id = ?",
+                projectId)).as("an automatic run sends notes and documents too, so it is audited as a press is")
+                .containsEntry("scope", "BACKGROUND").containsEntry("trigger", "CAPTURE");
     }
 
     @Test
@@ -591,6 +595,41 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isConflict())
                 .andReturn());
         assertThat(noCriteria).isEqualTo("CANDIDATE_ASSESSMENT_NO_CRITERIA");
+        assertThat(usedUnits(projectId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("an empty draft is never written or charged, and with nothing left open the model is never asked")
+    void anEmptyOrPointlessDraftCostsNothing() throws Exception {
+        String projectId = mandate("Nothing Open Firm");
+        competencies(projectId, COMPETENCIES);
+        model.answerWhenSystemContains(DRAFTING_PROMPT, "{\"scores\":[],\"report\":{}}");
+        String candidateId = handAdded(projectId);
+
+        mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/assessment/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadGateway());
+        assertThat(scorecardOf(projectId, candidateId).get("aiDraftedAt").isNull()).isTrue();
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId + "/assessment")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"version":null,"markReviewed":false,
+                                 "scores":[{"panel":"technical","name":"Treasury","score":7},
+                                           {"panel":"technical","name":"Reporting","score":5},
+                                           {"panel":"behavioural","name":"Leadership","score":6}],
+                                 "report":{"careerSummary":"a","coreValue":"b","concerns":"c","workingStyle":"d",
+                                           "motivation":"e"}}"""))
+                .andExpect(status().isOk());
+        model.reset();
+
+        String refused = codeOf(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/assessment/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andReturn());
+        assertThat(refused).isEqualTo("CANDIDATE_ASSESSMENT_NOTHING_OPEN");
+        assertThat(model.prompts()).isEmpty();
         assertThat(usedUnits(projectId)).isEmpty();
     }
 

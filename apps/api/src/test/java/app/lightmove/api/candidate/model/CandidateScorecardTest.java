@@ -82,6 +82,34 @@ class CandidateScorecardTest {
         assertThat(scorecard.getAiDraftedAt()).isNotNull();
     }
 
+    @Test
+    @DisplayName("editing an AI-drafted report section makes it the consultant's")
+    void editingASectionTakesItFromTheAi() {
+        CandidateScorecard scorecard = scorecard();
+        scorecard.applyAiDraft(List.of(), report("AI summary.", "AI concerns."), Instant.now());
+
+        scorecard.record(List.of(), report("AI summary.", "My concerns."), false, CONSULTANT, Instant.now());
+
+        assertThat(scorecard.getAiDrafted())
+                .containsExactly(CandidateScorecard.draftKeyOf(ScorecardReportSection.CAREER_SUMMARY));
+    }
+
+    @Test
+    @DisplayName("nothing is left to draft once every score and section is a consultant's")
+    void nothingOpenOnceEverythingIsTheConsultants() {
+        CandidateScorecard scorecard = scorecard();
+        List<String> brief = List.of(capitalMarkets(0, null).matchKey(), treasury(0, null).matchKey());
+        assertThat(scorecard.hasOpenAmong(brief)).isTrue();
+
+        scorecard.record(List.of(capitalMarkets(7, null), treasury(6, null)),
+                new ScorecardReport("a", "b", "c", "d", "e"), false, CONSULTANT, Instant.now());
+        assertThat(scorecard.hasOpenAmong(brief)).isFalse();
+
+        scorecard.applyAiDraft(List.of(), new ScorecardReport(null, null, null, null, null), Instant.now());
+        assertThat(scorecard.hasOpenAmong(List.of(capitalMarkets(0, null).matchKey(), "BEHAVIOURAL:new one")))
+                .isTrue();
+    }
+
     private static CandidateScorecard scorecard() {
         Person person = Person.founded(UUID.randomUUID(), UUID.randomUUID(), CandidateSource.MANUAL, details());
         Candidate candidate = Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), null, person,

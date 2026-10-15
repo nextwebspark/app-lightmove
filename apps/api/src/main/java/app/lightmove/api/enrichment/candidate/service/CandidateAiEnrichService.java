@@ -9,8 +9,7 @@ import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
 import app.lightmove.api.candidate.model.AiScorecardDraft;
 import app.lightmove.api.candidate.model.CandidateDossier;
-import app.lightmove.api.candidate.model.InferredBackground;
-import app.lightmove.api.candidate.model.NationalityReading;
+import app.lightmove.api.candidate.service.CandidateScorecardService;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -35,9 +34,9 @@ import org.springframework.stereotype.Service;
 public class CandidateAiEnrichService {
 
     private final CandidateService candidates;
+    private final CandidateScorecardService scorecards;
     private final PositionService positions;
-    private final CandidateAiEnricher enricher;
-    private final CandidateNationalityClassifier nationalityClassifier;
+    private final BackgroundProposer backgroundProposer;
     private final CandidateScorecardDrafter drafter;
     private final CandidateMaterialReader materialReader;
     private final AiDraftWriter writer;
@@ -59,13 +58,11 @@ public class CandidateAiEnrichService {
         MaterialText material = materialReader.read(projectId, candidateId);
         requested(AiRunScope.BACKGROUND, material, userId, workspaceId, projectId, candidateId, httpRequest);
 
-        InferredBackground background = needs.inferring() ? enricher.infer(dossier, material).orElse(null) : null;
-        NationalityReading reading = needs.classifying()
-                ? nationalityClassifier.classify(dossier, material).orElse(null) : null;
-        if (background == null && reading == null) {
+        BackgroundProposals proposals = backgroundProposer.propose(dossier, material, needs);
+        if (proposals.holdsNothing()) {
             throw ApiException.of(ErrorCode.AI_UNAVAILABLE);
         }
-        CandidateResponse answer = writer.writeBackground(projectId, candidateId, userId, background, reading);
+        CandidateResponse answer = writer.writeBackground(projectId, candidateId, userId, proposals);
         usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1));
         return answer;
     }
@@ -76,6 +73,9 @@ public class CandidateAiEnrichService {
         AssessmentBrief brief = positions.assessmentBriefOf(workspaceId, projectId);
         if (brief.competencies().competencies().isEmpty()) {
             throw ApiException.of(ErrorCode.CANDIDATE_ASSESSMENT_NO_CRITERIA);
+        }
+        if (!scorecards.hasOpenFor(workspaceId, projectId, candidateId)) {
+            throw ApiException.of(ErrorCode.CANDIDATE_ASSESSMENT_NOTHING_OPEN);
         }
         llmBudget.require(LlmBudget.CANDIDATE_AI_ASSESSMENT, userId);
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);

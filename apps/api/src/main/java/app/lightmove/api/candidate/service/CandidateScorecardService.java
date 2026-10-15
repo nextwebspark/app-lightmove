@@ -124,6 +124,19 @@ public class CandidateScorecardService {
         return respond(saved, brief);
     }
 
+    /** Whether Assess with AI has anything left to draft — false once every score and section is a consultant's. */
+    @Transactional(readOnly = true)
+    public boolean hasOpenFor(UUID workspaceId, UUID projectId, UUID candidateId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        List<String> criterionKeys = briefOf(workspaceId, projectId).criteria().stream()
+                .map(ScorecardCriterion::matchKey)
+                .toList();
+        return scorecards.findByCandidateIdAndWorkspaceId(candidate.getId(), workspaceId)
+                .map(scorecard -> scorecard.hasOpenAmong(criterionKeys))
+                .orElse(true);
+    }
+
     static List<CriterionScore> alignedToBrief(List<CriterionScore> drafted, List<ScorecardCriterion> brief) {
         Map<String, ScorecardCriterion> briefByKey = new LinkedHashMap<>();
         brief.forEach(criterion -> briefByKey.putIfAbsent(criterion.matchKey(), criterion));

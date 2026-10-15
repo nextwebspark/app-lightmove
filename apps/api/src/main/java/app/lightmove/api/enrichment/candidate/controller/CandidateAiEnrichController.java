@@ -2,11 +2,11 @@ package app.lightmove.api.enrichment.candidate.controller;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidateScorecardResponse;
-import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
+import app.lightmove.api.enrichment.candidate.dto.NationalityReadingResponse;
 import app.lightmove.api.enrichment.candidate.service.CandidateAiEnrichService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
@@ -54,10 +54,12 @@ public class CandidateAiEnrichController {
 
     @GetMapping("/nationality-reading")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
-    public ResponseEntity<NationalityReading> nationalityReading(@AuthenticationPrincipal AuthPrincipal principal,
-                                                                 @PathVariable UUID projectId,
-                                                                 @PathVariable UUID candidateId) {
+    public ResponseEntity<NationalityReadingResponse> nationalityReading(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID projectId,
+            @PathVariable UUID candidateId) {
         return candidates.nationalityReadingOf(principal.requireWorkspaceId(), projectId, candidateId)
+                .map(NationalityReadingResponse::of)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }

@@ -54,7 +54,6 @@ import { AssessmentTab } from "./assessment/AssessmentTab";
 import { DocumentsPanel } from "./documents/DocumentsPanel";
 import { StatusPicker } from "./StatusPicker";
 import {
-  AiInferredBadge,
   BackgroundFields,
   CareerFields,
   CompensationFields,
@@ -77,6 +76,7 @@ import { PositionsSection } from "./PersonPositions";
 import { PersonTagsSection } from "./PersonTagsSection";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import { AiActionButton } from "./AiActionButton";
+import { AiInferredBadge } from "./AiInferredBadge";
 import { NationalitySuggestion } from "./NationalitySuggestion";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
@@ -257,25 +257,24 @@ export function CandidateProfile({
     if (body.current) body.current.scrollTop = 0;
   };
 
-  const pencil = (section: EditableSection, label: string) =>
+  const pencil = (section: EditableSection, label: string, isBusy = false) =>
     canWrite && editing !== section ? (
       <SectionEditButton
         label={label}
-        disabled={editing !== null}
+        disabled={editing !== null || isBusy}
         onClick={() => startEditing(section)}
       />
     ) : undefined;
 
-  const backgroundPencil = pencil("background", "background");
+  // The Background form seeds its values once, so one opened while the AI writes would save over the answer.
+  const backgroundPencil = pencil("background", "background", background.isSuggesting);
   const backgroundActions =
     background.isOffered && editing !== "background" ? (
       <span className="flex items-center gap-2">
         <AiActionButton
           label="Suggest with AI"
-          busyLabel="Suggesting…"
           isBusy={background.isSuggesting}
           disabled={editing !== null}
-          title="Read the profile, notes and documents, and propose the gender, experience, level and nationality still missing"
           onClick={background.suggest}
         />
         {backgroundPencil}
@@ -575,6 +574,7 @@ export function CandidateProfile({
                     reading={nationalityReading}
                     onAccept={(group) => acceptNationality.mutate(group)}
                     isAccepting={acceptNationality.isPending}
+                    isLocked={background.isSuggesting}
                   />
                 )}
                 <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
@@ -754,7 +754,7 @@ export function CandidateProfile({
               type="button"
               variant="secondary"
               className={cn("whitespace-nowrap", !scorecard.isDirty && "ms-auto")}
-              disabled={!scorecard.isDirty || scorecard.isSaving || !scorecard.saved.data}
+              disabled={!scorecard.isDirty || scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
               loading={scorecard.isSaving && !scorecard.savingReviewed}
               onClick={() => scorecard.save(false)}
             >
@@ -763,7 +763,7 @@ export function CandidateProfile({
             <Button
               type="button"
               className="whitespace-nowrap"
-              disabled={scorecard.isSaving || !scorecard.saved.data}
+              disabled={scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
               loading={scorecard.savingReviewed}
               onClick={() => scorecard.save(true)}
             >

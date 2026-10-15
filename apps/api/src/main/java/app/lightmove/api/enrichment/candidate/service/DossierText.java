@@ -3,12 +3,15 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
+import app.lightmove.api.core.llm.service.ContactRedaction;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/** A {@link CandidateDossier} written out as the profile block of a prompt, career most recent first. */
+/**
+ * A {@link CandidateDossier} written out as the profile block of a prompt, career most recent first, and the small
+ * pieces every candidate prompt writes the same way. The About is the person's own words, so contacts come out of it.
+ */
 final class DossierText {
 
     static final String NOT_STATED = "not stated";
@@ -35,9 +38,9 @@ final class DossierText {
                 orNotStated(dossier.fullName()),
                 orNotStated(dossier.title()),
                 orNotStated(dossier.companyName()),
-                locationOf(dossier),
+                placeOf(dossier.locationCity(), dossier.locationCountry()),
                 orNotStated(dossier.linkedinUrl()),
-                orNotStated(dossier.summary()),
+                orNotStated(ContactRedaction.redact(dossier.summary())),
                 careerOf(dossier.career()),
                 educationOf(dossier.education()),
                 listOf(dossier.skills()),
@@ -52,11 +55,11 @@ final class DossierText {
         return values.isEmpty() ? NOT_STATED : String.join(", ", values);
     }
 
-    private static String locationOf(CandidateDossier dossier) {
-        String location = Stream.of(dossier.locationCity(), dossier.locationCountry())
-                .filter(Objects::nonNull)
+    static String placeOf(String city, String country) {
+        String place = Stream.of(city, country)
+                .filter(part -> part != null && !part.isBlank())
                 .collect(Collectors.joining(", "));
-        return location.isEmpty() ? NOT_STATED : location;
+        return place.isEmpty() ? NOT_STATED : place;
     }
 
     private static String careerOf(List<CandidateCareerEntry> career) {
@@ -68,7 +71,7 @@ final class DossierText {
                 .collect(Collectors.joining("\n"));
     }
 
-    private static String educationOf(List<CandidateEducationEntry> education) {
+    static String educationOf(List<CandidateEducationEntry> education) {
         return education.isEmpty() ? NOT_STATED : education.stream()
                 .map(school -> "- %s, %s (%s)".formatted(
                         school.school() == null ? "unknown school" : school.school(),

@@ -7,22 +7,68 @@
       "items": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "evidence": { "type": ["string", "null"] },
-          "score": { "type": ["integer", "null"] }
+          "id": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "score": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
         },
-        "required": ["id"]
+        "required": [
+          "id"
+        ]
       }
     },
     "report": {
-      "type": ["object", "null"],
+      "type": [
+        "object",
+        "null"
+      ],
       "properties": {
-        "careerSummary": { "type": ["string", "null"] },
-        "coreValue": { "type": ["string", "null"] },
-        "concerns": { "type": ["string", "null"] },
-        "workingStyle": { "type": ["string", "null"] },
-        "motivation": { "type": ["string", "null"] }
+        "careerSummary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "coreValue": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "concerns": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "workingStyle": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "motivation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     }
-  }
+  },
+  "required": [
+    "scores",
+    "report"
+  ]
 }

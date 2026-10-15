@@ -5,9 +5,7 @@ import app.lightmove.api.candidate.model.CandidateMaterial;
 import app.lightmove.api.candidate.model.DocumentOnFile;
 import app.lightmove.api.candidate.model.NoteOnFile;
 import app.lightmove.api.candidate.model.Person;
-import app.lightmove.api.candidate.model.PersonDocument;
 import app.lightmove.api.candidate.model.PersonDocumentVersion;
-import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.StoredDocumentFile;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonDocumentRepository;
@@ -31,6 +29,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CandidateMaterialService {
 
+    /** The primary CV first, then a CV, then the rest by kind, each kind newest first. */
+    private static final Comparator<DocumentOnFile> READING_ORDER = Comparator
+            .comparing(DocumentOnFile::primaryCv).reversed()
+            .thenComparing(DocumentOnFile::category)
+            .thenComparing(DocumentOnFile::uploadedAt, Comparator.reverseOrder());
+
     private final CandidateRepository candidates;
     private final PersonNoteRepository notes;
     private final PersonDocumentRepository documents;
@@ -52,10 +56,10 @@ public class CandidateMaterialService {
 
     private CandidateMaterial materialOf(Person person) {
         List<NoteOnFile> written = notes
-                .findByWorkspaceIdAndPersonIdOrderByPinnedDescCreatedAtDesc(person.getWorkspaceId(), person.getId())
+                .findByWorkspaceIdAndPersonIdOrderByCreatedAtDesc(person.getWorkspaceId(), person.getId())
                 .stream()
-                .sorted(Comparator.comparing(PersonNote::getCreatedAt, Comparator.reverseOrder()))
-                .map(note -> new NoteOnFile(note.getKind(), note.getCreatedAt(), note.getProjectTitle(), note.getBody()))
+                .map(note -> new NoteOnFile(note.getKind(), note.getCreatedAt(), note.getProjectTitle(),
+                        note.getBody()))
                 .toList();
         Map<UUID, PersonDocumentVersion> latest = new LinkedHashMap<>();
         versions.findByPersonIdOrderByVersionNoDesc(person.getId())
@@ -63,15 +67,13 @@ public class CandidateMaterialService {
         List<DocumentOnFile> filed = documents.findByWorkspaceIdAndPersonId(person.getWorkspaceId(), person.getId())
                 .stream()
                 .filter(document -> latest.containsKey(document.getId()))
-                .sorted(Comparator.comparing(PersonDocument::isPrimaryCv).reversed())
-                .map(document -> new DocumentOnFile(document.getTitle(), document.getCategory(),
-                        fileOf(latest.get(document.getId()))))
+                .map(document -> {
+                    PersonDocumentVersion version = latest.get(document.getId());
+                    return new DocumentOnFile(document.getTitle(), document.getCategory(), document.isPrimaryCv(),
+                            version.getUploadedAt(), version.toStoredFile(false));
+                })
+                .sorted(READING_ORDER)
                 .toList();
         return new CandidateMaterial(written, filed);
-    }
-
-    private static StoredDocumentFile fileOf(PersonDocumentVersion version) {
-        return new StoredDocumentFile(version.getFileName(), version.getContentType(), version.getSizeBytes(),
-                version.getStorageKey(), false);
     }
 }

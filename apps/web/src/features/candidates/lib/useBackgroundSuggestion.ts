@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
+import { isBillingRefusal } from "../../billing/lib/billingView";
 import * as candidatesApi from "../api/candidatesApi";
+import { PERSON_TIMELINE_KEY } from "../api/personCrmApi";
 import type { Candidate } from "../api/types";
 
 /**
@@ -28,19 +30,21 @@ export function useBackgroundSuggestion(
     onSuccess: (saved) => {
       onSaved(saved);
       void queryClient.invalidateQueries({ queryKey: readingKey });
-      toast("AI suggestions added — saving the Background section confirms them");
+      void queryClient.invalidateQueries({ queryKey: PERSON_TIMELINE_KEY(projectId, candidate.id) });
+      toast("The AI has read the background — what it suggests is marked AI");
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      if (!isBillingRefusal(error)) toast.error(messageFor(error));
+    },
   });
 
   const nationalityReading = reading.data ?? null;
   const isOffered =
     canWrite &&
-    reading.isSuccess &&
     (candidate.gender === null ||
       candidate.yearsExperience === null ||
       candidate.seniority === null ||
-      (candidate.nationality === null && nationalityReading === null));
+      (candidate.nationality === null && reading.isSuccess && nationalityReading === null));
 
   return {
     nationalityReading,

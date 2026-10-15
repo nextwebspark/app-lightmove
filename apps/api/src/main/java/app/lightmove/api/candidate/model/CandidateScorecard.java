@@ -10,6 +10,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -150,6 +152,15 @@ public class CandidateScorecard extends BaseEntity {
             reopen();
         }
         return changed;
+    }
+
+    /** Whether a draft could still write anything: a criterion or section nobody holds, or one still the AI's. */
+    public boolean hasOpenAmong(Collection<String> criterionKeys) {
+        Set<String> held = byKey(scores).keySet();
+        boolean criterionOpen = criterionKeys.stream().anyMatch(key -> !held.contains(key) || aiDrafted.contains(key));
+        boolean sectionOpen = Arrays.stream(ScorecardReportSection.values())
+                .anyMatch(section -> report.textOf(section) == null || aiDrafted.contains(draftKeyOf(section)));
+        return criterionOpen || sectionOpen;
     }
 
     private void reopen() {

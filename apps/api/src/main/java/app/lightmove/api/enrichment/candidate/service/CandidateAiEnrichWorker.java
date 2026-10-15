@@ -1,11 +1,12 @@
 package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
+import app.lightmove.api.candidate.constant.AiRunScope;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.model.CandidateDossier;
-import app.lightmove.api.candidate.model.InferredBackground;
-import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.core.audit.constant.ProjectEventType;
+import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
@@ -32,24 +33,24 @@ class CandidateAiEnrichWorker {
     /** A Find executives run files a batch at once; this many run their model calls together, the rest wait. */
     private static final int CONCURRENT_RUNS = 4;
 
-    private final CandidateAiEnricher enricher;
-    private final CandidateNationalityClassifier nationalityClassifier;
+    private final BackgroundProposer backgroundProposer;
     private final CandidateService candidates;
     private final CandidateMaterialReader materialReader;
     private final AiDraftWriter writer;
     private final LlmBudgetGuard llmBudget;
+    private final AuditService audit;
     private final EnrichmentSettings settings;
     private final Semaphore runs = new Semaphore(CONCURRENT_RUNS);
 
-    CandidateAiEnrichWorker(CandidateAiEnricher enricher, CandidateNationalityClassifier nationalityClassifier,
-                            CandidateService candidates, CandidateMaterialReader materialReader, AiDraftWriter writer,
-                            LlmBudgetGuard llmBudget, LightMoveProperties properties) {
-        this.enricher = enricher;
-        this.nationalityClassifier = nationalityClassifier;
+    CandidateAiEnrichWorker(BackgroundProposer backgroundProposer, CandidateService candidates,
+                            CandidateMaterialReader materialReader, AiDraftWriter writer, LlmBudgetGuard llmBudget,
+                            AuditService audit, LightMoveProperties properties) {
+        this.backgroundProposer = backgroundProposer;
         this.candidates = candidates;
         this.materialReader = materialReader;
         this.writer = writer;
         this.llmBudget = llmBudget;
+        this.audit = audit;
         this.settings = properties.enrichment();
     }
 
@@ -83,11 +84,23 @@ class CandidateAiEnrichWorker {
             llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, request.requestedBy());
         }
         MaterialText material = materialReader.read(projectId, candidateId);
-        InferredBackground background = needs.inferring() ? enricher.infer(dossier, material).orElse(null) : null;
-        NationalityReading reading = needs.classifying()
-                ? nationalityClassifier.classify(dossier, material).orElse(null) : null;
-        if (background != null || reading != null) {
-            writer.writeBackground(projectId, candidateId, request.requestedBy(), background, reading);
+        audited(request, material);
+        BackgroundProposals proposals = backgroundProposer.propose(dossier, material, needs);
+        if (!proposals.holdsNothing()) {
+            writer.writeBackground(projectId, candidateId, request.requestedBy(), proposals);
         }
+    }
+
+    /** Notes and documents leave for the model here as they do on a press, so the run is audited as a press is. */
+    private void audited(CandidateAiEnrichRequested request, MaterialText material) {
+        audit.event(ProjectEventType.CANDIDATE_AI_ENRICH_REQUESTED)
+                .actor(request.requestedBy()).workspace(request.workspaceId())
+                .target(AuditService.PROJECT_TARGET, request.projectId())
+                .detail("candidateId", request.candidateId().toString())
+                .detail("scope", AiRunScope.BACKGROUND.name())
+                .detail("trigger", request.trigger().name())
+                .detail("notesSent", String.valueOf(material.noteCount()))
+                .detail("documentsSent", String.valueOf(material.documentCount()))
+                .record();
     }
 }

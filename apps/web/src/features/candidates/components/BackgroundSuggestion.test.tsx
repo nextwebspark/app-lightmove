@@ -104,9 +104,17 @@ const reading = (overrides: Partial<NationalityReading>): NationalityReading => 
   ...overrides,
 });
 
+let client: QueryClient;
+
+/** The reading's query settled, so an absence asserted next is the answer and not the first render. */
+const readingSettled = () =>
+  waitFor(() =>
+    expect(client.getQueryState(candidatesApi.NATIONALITY_READING_KEY("p1", "c1"))?.status).toMatch(/success|error/),
+  );
+
 const renderDrawer = (canWrite = true, candidate: Candidate = yasmin, onSaved = () => {}) =>
   render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <QueryClientProvider client={client}>
       <ToastProvider>
         <CandidateDrawer
           open
@@ -129,6 +137,7 @@ const renderDrawer = (canWrite = true, candidate: Candidate = yasmin, onSaved = 
 describe("Background AI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.mocked(candidatesApi.getCandidate).mockResolvedValue(yasmin);
     vi.mocked(candidatesApi.getNationalityReading).mockResolvedValue(null);
     vi.mocked(contactLookupApi.getContactLookupConfig).mockResolvedValue({ enabled: false });
@@ -152,9 +161,29 @@ describe("Background AI", () => {
   it("offers nothing once the background is complete", async () => {
     renderDrawer();
 
-    await waitFor(() => expect(candidatesApi.getNationalityReading).toHaveBeenCalled());
-    expect(await screen.findByRole("button", { name: /^Background/ })).toBeInTheDocument();
+    await readingSettled();
     expect(screen.queryByRole("button", { name: "Suggest with AI" })).not.toBeInTheDocument();
+  });
+
+  it("still offers Suggest with AI for a missing gender when the nationality reading cannot be read", async () => {
+    const missing: Candidate = { ...yasmin, gender: null };
+    vi.mocked(candidatesApi.getNationalityReading).mockRejectedValue(new Error("offline"));
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(missing);
+    renderDrawer(true, missing);
+
+    await readingSettled();
+    expect(screen.getByRole("button", { name: "Suggest with AI" })).toBeEnabled();
+  });
+
+  it("holds the Background pencil while the AI writes, so its form cannot save over the answer", async () => {
+    const missing: Candidate = { ...yasmin, gender: null };
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(missing);
+    vi.mocked(candidatesApi.suggestBackground).mockReturnValue(new Promise(() => {}));
+    renderDrawer(true, missing);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Suggest with AI" }));
+
+    expect(await screen.findByRole("button", { name: "Edit background" })).toBeDisabled();
   });
 
   it("offers a medium nationality reading as a suggestion, and Accept records it", async () => {
@@ -197,7 +226,7 @@ describe("Background AI", () => {
     vi.mocked(candidatesApi.getNationalityReading).mockResolvedValue(reading({ category: "Western expat" }));
     renderDrawer();
 
-    await waitFor(() => expect(candidatesApi.getNationalityReading).toHaveBeenCalled());
+    await readingSettled();
     await userEvent.click(await screen.findByRole("button", { name: /^Background/ }));
     expect(screen.queryByText(/AI suggests nationality/)).not.toBeInTheDocument();
   });

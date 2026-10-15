@@ -626,15 +626,15 @@ public class CandidateService {
                                                InferredBackground background, NationalityReading reading) {
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         Person person = candidate.getPerson();
-        if (background != null) {
-            person.proposeBackground(background);
-        }
+        boolean filled = background != null && person.proposeBackground(background);
         if (reading != null) {
             person.recordNationalityReading(reading);
         }
-        activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED,
-                PersonActivityDetails.of("scope", AiRunScope.BACKGROUND));
-        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        if (filled || reading != null) {
+            activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED,
+                    PersonActivityDetails.of("scope", AiRunScope.BACKGROUND));
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        }
         return responses.toDto(candidate);
     }
 

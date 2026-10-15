@@ -18,9 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One model call over a candidate's {@link CandidateDossier}, and the notes and documents the team filed on them: the
- * most probable gender, years of experience and seniority still missing. Nationality is {@link CandidateNationalityClassifier}'s, never this call's. Every failure
- * answers empty — nothing is ever stored in place of a real answer.
+ * One model call over a candidate's {@link CandidateDossier} and the notes and documents filed on them: the most
+ * probable gender, years of experience and seniority still missing. Nationality is the classifier's, never this call's.
  */
 @Service
 @Slf4j
@@ -34,7 +33,7 @@ public class CandidateAiEnricher {
     private static final String BLOCKED = "{\"gender\":\"" + BlockedAnswer.MARKER + "\"}";
 
     /** The fields this call proposes; with none of them missing there is nothing to ask. */
-    public static final Set<BackgroundField> INFERRED = Set.of(
+    static final Set<BackgroundField> INFERRED = Set.of(
             BackgroundField.GENDER, BackgroundField.YEARS_EXPERIENCE, BackgroundField.SENIORITY);
 
     private final StructuredPrompt prompt;
@@ -47,18 +46,19 @@ public class CandidateAiEnricher {
         return infer(dossier, MaterialText.NONE);
     }
 
+    /** Empty when the model could not be reached or answered nothing usable; a blocked prompt is refused instead. */
     Optional<InferredBackground> infer(CandidateDossier dossier, MaterialText material) {
+        ModelAnswer answered;
         try {
-            ModelAnswer answered = ask(dossier, material);
-            if (answered == null || BlockedAnswer.matches(answered.gender())) {
-                return Optional.empty();
-            }
-            return Optional.of(backgroundOf(answered, dossier.missingBackground()));
+            answered = ask(dossier, material);
         } catch (RuntimeException e) {
-            // No credentials, Vertex unreachable or an unbindable answer: store nothing this time.
             log.warn("Candidate AI background skipped: {}", e.toString());
             return Optional.empty();
         }
+        if (answered != null && BlockedAnswer.matches(answered.gender())) {
+            throw AiRefusals.blockedText();
+        }
+        return Optional.ofNullable(answered).map(found -> backgroundOf(found, dossier.missingBackground()));
     }
 
     private ModelAnswer ask(CandidateDossier dossier, MaterialText material) {
