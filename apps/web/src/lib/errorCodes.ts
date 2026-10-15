@@ -48,6 +48,9 @@ export type ApiErrorCode =
   | "CANDIDATE_TAG_EXISTS"
   | "CANDIDATE_TAG_RETIRED"
   | "CANDIDATE_ASSESSMENT_STALE"
+  | "CANDIDATE_ASSESSMENT_NO_CRITERIA"
+  | "CANDIDATE_ASSESSMENT_NOTHING_OPEN"
+  | "AI_UNAVAILABLE"
   | "PIPELINE_STATUS_SYSTEM"
   | "PIPELINE_STAGE_NOT_EMPTY"
   | "PIPELINE_STAGE_REQUIRED"
@@ -181,7 +184,12 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
   CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
-  CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to see their changes.",
+  CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",
+  CANDIDATE_ASSESSMENT_NO_CRITERIA:
+    "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
+  CANDIDATE_ASSESSMENT_NOTHING_OPEN:
+    "Every score and section is already your team's. There is nothing left for the AI to draft.",
+  AI_UNAVAILABLE: "The AI could not answer just now. Try again in a moment.",
   PIPELINE_STATUS_SYSTEM: "Built-in statuses can be renamed and recoloured, but not retired or moved.",
   PIPELINE_STAGE_NOT_EMPTY: "Move or retire this stage's statuses first — a stage with live statuses can't be retired.",
   PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one active stage and its closed stage.",

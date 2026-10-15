@@ -211,9 +211,20 @@ public enum ErrorCode {
     /** A retired tag stays on the people who hold it, but can no longer be put on anyone. */
     CANDIDATE_TAG_RETIRED(HttpStatus.CONFLICT, "That tag is retired. Restore it in Settings to use it again"),
 
-    /** A teammate saved this assessment after it was opened here: the save would overwrite their scores. */
+    /** A teammate, or an AI draft, saved this assessment after it was opened here. */
     CANDIDATE_ASSESSMENT_STALE(HttpStatus.CONFLICT,
             "Someone saved this assessment after you opened it. Reload to see their changes"),
+
+    /** The AI has nothing to score an executive against until the brief names its competencies. */
+    CANDIDATE_ASSESSMENT_NO_CRITERIA(HttpStatus.CONFLICT,
+            "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step"),
+
+    /** Every score and section is a consultant's: a draft could write nothing, so it is never paid for. */
+    CANDIDATE_ASSESSMENT_NOTHING_OPEN(HttpStatus.CONFLICT,
+            "Every score and section is already your team's. There is nothing left for the AI to draft"),
+
+    /** The model answered nothing usable, or could not be reached. Nothing was written or charged. */
+    AI_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The AI could not answer just now. Try again in a moment"),
 
     /** The seven built-in statuses can be renamed and recoloured, never retired or moved to another stage. */
     PIPELINE_STATUS_SYSTEM(HttpStatus.CONFLICT, "Built-in statuses can be renamed, not retired or moved"),

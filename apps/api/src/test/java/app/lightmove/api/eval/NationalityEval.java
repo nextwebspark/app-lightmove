@@ -2,7 +2,6 @@ package app.lightmove.api.eval;
 
 import app.lightmove.api.TestLlmCallPolicy;
 import app.lightmove.api.candidate.constant.BackgroundField;
-import app.lightmove.api.candidate.model.CandidateAiEnrichment;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.candidate.model.NationalityReading;
@@ -12,7 +11,6 @@ import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.enrichment.candidate.service.CandidateAiEnricher;
 import app.lightmove.api.enrichment.candidate.service.CandidateNationalityClassifier;
-import app.lightmove.api.position.dto.PositionResponse;
 import com.google.genai.Client;
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,7 +56,6 @@ class NationalityEval {
     static final String SYNTHETIC = "classpath:eval/nationality-synthetic.jsonl";
     private static final Path REPORT = Path.of("..", "..", "docs", "eval", "nationality-eval.md");
     private static final String BASELINE_PROMPT_ID = "candidate-ai-enrich-baseline";
-    private static final PositionResponse NO_BRIEF = new PositionResponse(null, null, null, null, null, null, null);
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Test
@@ -90,8 +87,7 @@ class NationalityEval {
             NationalityReading reading = classifier
                     .classify(row.dossierMissing(EnumSet.of(BackgroundField.NATIONALITY)))
                     .orElse(null);
-            Seniority seniority = enricher.enrich(row.dossierMissing(EnumSet.of(BackgroundField.SENIORITY)), NO_BRIEF)
-                    .map(CandidateAiEnrichment::background)
+            Seniority seniority = enricher.infer(row.dossierMissing(EnumSet.of(BackgroundField.SENIORITY)))
                     .map(InferredBackground::seniority)
                     .orElse(null);
             predictions.add(new EvalPrediction(row.id(),

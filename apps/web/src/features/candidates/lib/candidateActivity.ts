@@ -146,7 +146,12 @@ function phraseOf(
         detail: vendorOf(details.vendor) ? `Through ${vendorOf(details.vendor)}` : null,
       };
     case "AI_ASSESSED":
-      return { text: `ran AI deep enrich${onThem}`, detail: here ? "Scored against this brief" : null };
+      // A line written before the scope was recorded is the old deep enrich, which did both.
+      if (details.scope === "BACKGROUND") return { text: `had the AI suggest the background${forThem}`, detail: null };
+      return {
+        text: `had the AI assess${them || " them"}${details.scope ? ` on ${where}` : ""}`,
+        detail: here ? "Scored against this brief" : null,
+      };
     case "ASSESSMENT_REVIEWED":
       return { text: `reviewed the assessment${forThem} on ${where}`, detail: null };
     case "NOTE_ADDED":

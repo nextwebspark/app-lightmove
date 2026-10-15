@@ -34,6 +34,7 @@ import {
 } from "../lib/compensation";
 import { EMPTY_CONTACT_LINE, type CandidateForm, type ContactEntryForm } from "../lib/candidateForm";
 import { CANDIDATE_GENDERS, CANDIDATE_NATIONALITIES, CANDIDATE_SENIORITIES } from "../lib/candidateVocabulary";
+import { AiInferredBadge } from "./AiInferredBadge";
 import { StatusPicker } from "./StatusPicker";
 
 /**
@@ -662,23 +663,6 @@ function AmountField({
         />
       </div>
     </CompensationField>
-  );
-}
-
-/**
- * Marks a value an AI inference proposed that nobody has reviewed yet — `Candidate.aiInferredFields`.
- * The same sparkle, size and ink the brief's {@link ProvenanceMarker} wears, so AI-filled reads alike on both screens.
- */
-export function AiInferredBadge() {
-  return (
-    <span
-      role="img"
-      aria-label="AI-suggested"
-      title="AI-suggested — saving the Background section confirms it"
-      className="grid size-4 flex-none place-items-center text-u-inferred"
-    >
-      <Icon d={ICONS.sparkle} size={13} />
-    </span>
   );
 }
 

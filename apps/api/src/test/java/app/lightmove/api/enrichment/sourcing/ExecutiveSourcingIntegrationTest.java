@@ -29,7 +29,7 @@ import tools.jackson.databind.JsonNode;
  * hits land as AI-sourced executives at their companies.
  *
  * <p>The stub answers every prompt of a run with one document, so it carries every shape the run
- * asks for: the spec's words, and the deep enrichment's assessment and nationality. Each call binds
+ * asks for: the spec's words, and the automatic AI run's background and nationality. Each call binds
  * the half it asked for. Asked to reword, it answers the spec's words again — a repeat, so a company
  * finding nobody stops after one search unless a test scripts the rewording.
  */
@@ -41,10 +41,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
              "excludedWords":["Assistant","Office"],
              "roleSummary":"The group's finance chief.",
              "category":"Emirati","confidence":"high","evidence_for":[],"evidence_against":[],"rule_applied":"none",
-             "gender":"male","yearsExperience":20,"seniority":"C-Suite",
-             "summary":"A proven finance leader.",
-             "technical":{"score":8,"positives":[],"negatives":[]},
-             "behavioural":{"score":7,"positives":[],"negatives":[]}}""";
+             "gender":"male","yearsExperience":20,"seniority":"C-Suite"}""";
 
     private static final String REFINE_PROMPT = "rewrite the search words";
 

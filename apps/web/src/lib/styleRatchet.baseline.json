@@ -90,10 +90,6 @@
   "features/candidates/components/AddCandidateForm.tsx": {
     "arbitraryText": 4
   },
-  "features/candidates/components/AiAssessmentSection.tsx": {
-    "arbitraryText": 15,
-    "arbitraryRadius": 2
-  },
   "features/candidates/components/CandidateFieldGroups.tsx": {
     "arbitraryText": 26,
     "arbitraryRadius": 8

@@ -106,7 +106,8 @@ is held back rather than sent (the step does not save until it is named) and the
 | Assessment score | stepper 0–10 or unscored | `@Min(0) @Max(10)`, null allowed | toast |
 | Assessment evidence | `maxLength` 2000 | `@Size(2000)` | toast |
 | Assessment report section | `maxLength` 4000 | `@Size(4000)` each | toast |
-| Assessment save | sends the version it opened | `CANDIDATE_ASSESSMENT_STALE` (409) on any other | banner, Reload theirs |
+| Assessment save | sends the version it opened | `CANDIDATE_ASSESSMENT_STALE` (409) on any other | banner, Reload, keeping mine |
+| Assess with AI | disabled while changes are unsaved or nothing is left open | `CANDIDATE_ASSESSMENT_NO_CRITERIA`, `CANDIDATE_ASSESSMENT_NOTHING_OPEN` (409); `AI_UNAVAILABLE` (502); a blocked prompt `VALIDATION_FAILED` | toast |
 
 ### Import, export, outreach, assistant
 | Field | Client | Server | Shown as |

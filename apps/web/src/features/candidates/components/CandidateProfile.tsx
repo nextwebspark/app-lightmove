@@ -36,7 +36,7 @@ import { candidateGenderLabel, CANDIDATE_SOURCE_STYLES } from "../lib/candidateV
 import { statusStyle } from "../lib/pipelineStatus";
 import { careerSummary } from "../lib/careerTimeline";
 import { packageOf } from "../lib/compensation";
-import { useAiEnrichment } from "../lib/useAiEnrichment";
+import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
 import { useScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
 import { usePersonDocuments } from "../lib/usePersonDocuments";
@@ -54,7 +54,6 @@ import { AssessmentTab } from "./assessment/AssessmentTab";
 import { DocumentsPanel } from "./documents/DocumentsPanel";
 import { StatusPicker } from "./StatusPicker";
 import {
-  AiInferredBadge,
   BackgroundFields,
   CareerFields,
   CompensationFields,
@@ -76,19 +75,15 @@ import {
 import { PositionsSection } from "./PersonPositions";
 import { PersonTagsSection } from "./PersonTagsSection";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
-import {
-  AiAssessmentBody,
-  AiEnrichButton,
-  aiAssessmentSummary,
-  NationalitySuggestion,
-} from "./AiAssessmentSection";
+import { AiActionButton } from "./AiActionButton";
+import { AiInferredBadge } from "./AiInferredBadge";
+import { NationalitySuggestion } from "./NationalitySuggestion";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
 
 const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
   "summary",
-  "ai",
   "experience",
   "education",
   "compensation",
@@ -115,8 +110,8 @@ const TAB_ID_PREFIX = "executive-drawer";
  * <p><b>Status stays live in the header</b>, with a write of its own — it is the field that changes
  * most often and the one a researcher came to flick while reading.
  *
- * <p>Tabs follow `Position.dc.html` — Career, Notes, Contact, Documents, Activity and Positions; a client
- * seat gets Career and Contact alone. Every panel stays mounted while hidden, so a half-typed note
+ * <p>Tabs follow `Position.dc.html` — Career, Notes, Assessment, Contact, Documents, Activity and Positions; a
+ * client seat gets Career and Contact alone. Every panel stays mounted while hidden, so a half-typed note
  * survives a look at another tab. The next action is not a tab's: it is the header's bar, on view
  * whichever tab is open, since the moment to set one is while writing the note or the email.
  *
@@ -242,7 +237,7 @@ export function CandidateProfile({
   const openPreview = (document: PersonDocument, version: PersonDocumentVersion) =>
     setPreview({ documentId: document.id, versionId: version.id });
   const closePreview = useCallback(() => setPreview(null), []);
-  const aiEnrichment = useAiEnrichment(projectId, candidate.id, canWrite);
+  const background = useBackgroundSuggestion(projectId, candidate, canWrite, onSaved);
   const toast = useToast();
   // Accepting is the researcher recording the value, so it lands unflagged and confirms nothing else.
   const acceptNationality = useMutation({
@@ -253,7 +248,7 @@ export function CandidateProfile({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const nationalityReading = canWrite && !candidate.nationality ? aiEnrichment.nationalityReading : null;
+  const nationalityReading = canWrite && !candidate.nationality ? background.nationalityReading : null;
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
@@ -262,14 +257,31 @@ export function CandidateProfile({
     if (body.current) body.current.scrollTop = 0;
   };
 
-  const pencil = (section: EditableSection, label: string) =>
+  const pencil = (section: EditableSection, label: string, isBusy = false) =>
     canWrite && editing !== section ? (
       <SectionEditButton
         label={label}
-        disabled={editing !== null}
+        disabled={editing !== null || isBusy}
         onClick={() => startEditing(section)}
       />
     ) : undefined;
+
+  // The Background form seeds its values once, so one opened while the AI writes would save over the answer.
+  const backgroundPencil = pencil("background", "background", background.isSuggesting);
+  const backgroundActions =
+    background.isOffered && editing !== "background" ? (
+      <span className="flex items-center gap-2">
+        <AiActionButton
+          label="Suggest with AI"
+          isBusy={background.isSuggesting}
+          disabled={editing !== null}
+          onClick={background.suggest}
+        />
+        {backgroundPencil}
+      </span>
+    ) : (
+      backgroundPencil
+    );
 
   const foldProps = (id: ProfileSection & EditableSection) => ({
     id,
@@ -333,11 +345,6 @@ export function CandidateProfile({
               />
             )}
             {canWrite && <PrimaryCvChip documents={documents} onPreview={openPreview} />}
-            {canWrite && (
-              <span className="ms-auto">
-                <AiEnrichButton enrichment={aiEnrichment} />
-              </span>
-            )}
           </div>
           {personRecord.data && <PersonTagsSection person={personRecord.data} className="mt-2.5" />}
           {canWrite && <DoNotContactStrip personId={candidate.personId} />}
@@ -516,7 +523,7 @@ export function CandidateProfile({
               candidate.yearsExperience ? `${candidate.yearsExperience} yrs` : null,
               candidate.languages.length > 0 ? countOf(candidate.languages.length, "language") : null,
             ])}
-            action={pencil("background", "background")}
+            action={backgroundActions}
           >
             {editing === "background" ? (
               <SectionEditor
@@ -562,6 +569,7 @@ export function CandidateProfile({
                     reading={nationalityReading}
                     onAccept={(group) => acceptNationality.mutate(group)}
                     isAccepting={acceptNationality.isPending}
+                    isLocked={background.isSuggesting}
                   />
                 )}
                 <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
@@ -569,18 +577,6 @@ export function CandidateProfile({
               </>
             )}
           </CollapsibleSection>
-
-          {canWrite && (
-            <CollapsibleSection
-              id="ai"
-              open={sections.isOpen("ai")}
-              onToggle={() => sections.toggle("ai")}
-              title="AI assessment"
-              summary={aiAssessmentSummary(aiEnrichment)}
-            >
-              <AiAssessmentBody enrichment={aiEnrichment} />
-            </CollapsibleSection>
-          )}
 
           {visibleColumns.length > 0 && (
             <CollapsibleSection
@@ -753,7 +749,7 @@ export function CandidateProfile({
               type="button"
               variant="secondary"
               className={cn("whitespace-nowrap", !scorecard.isDirty && "ms-auto")}
-              disabled={!scorecard.isDirty || scorecard.isSaving || !scorecard.saved.data}
+              disabled={!scorecard.isDirty || scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
               loading={scorecard.isSaving && !scorecard.savingReviewed}
               onClick={() => scorecard.save(false)}
             >
@@ -762,7 +758,7 @@ export function CandidateProfile({
             <Button
               type="button"
               className="whitespace-nowrap"
-              disabled={scorecard.isSaving || !scorecard.saved.data}
+              disabled={scorecard.isSaving || scorecard.isAssessing || !scorecard.saved.data}
               loading={scorecard.savingReviewed}
               onClick={() => scorecard.save(true)}
             >
