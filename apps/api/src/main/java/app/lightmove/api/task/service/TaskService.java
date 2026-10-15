@@ -109,7 +109,7 @@ public class TaskService {
         TaskSubject subject = people.requireSubject(projectId, candidateId);
         requireOnTeam(request.assigneeUserId(), workspaceId, projectId);
         if (request.noteId() != null) {
-            people.requireNoteAbout(workspaceId, subject.personId(), request.noteId());
+            people.requireNoteAbout(workspaceId, subject.personId(), projectId, request.noteId());
         }
         UUID presetId = request.presetId() == null ? null
                 : presets.requireInWorkspace(request.presetId(), workspaceId).getId();

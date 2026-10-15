@@ -248,7 +248,10 @@ export interface NationalityReading {
 /** What a note records, as the composer offers it. */
 export type PersonNoteKind = "general" | "call" | "meeting" | "email";
 
-/** A note on a workspace person, shared by every position that maps them. Staff-only. */
+/**
+ * A note on a workspace person. Staff-only: one about a position is read there alone, one about no position
+ * on every position, and the workspace's Candidates page reads them all.
+ */
 export interface PersonNote {
   id: string;
   kind: PersonNoteKind;
@@ -272,6 +275,8 @@ export interface WritePersonNotePayload {
   body: string;
   /** Read on the workspace's routes only: the position the note is about, or none. */
   projectId?: string | null;
+  /** Read on a position's routes only: the note is about the person, read on every position. */
+  allPositions?: boolean;
 }
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */

@@ -104,6 +104,11 @@ the HubSpot/Salesforce timeline conventions. The pattern is uniform:
 
 - **D1 Note visibility.** Every note on a person is readable by all staff who can open the pool, whatever
   mandate it was written in; a chip names the position it was written for. Client seats never see notes.
+  **Revised 2026-10-15:** read from a position, a note about another position is not shown. A position's
+  drawer lists the notes about it and the notes about no position ("All positions"); its composer offers
+  This position (the default) or All positions, never another position. The Candidates page still reads
+  every note, with its chip. The same rule holds for the position's timeline excerpts, its AI runs and the
+  notes a task may link to.
 - **D2 Who opens the pool.** A new workspace action `CANDIDATE_POOL_MANAGE`, seeded to ADMIN and MEMBER,
   never CLIENT. A researcher seated on no mandate still sees the firm's people.
 - **D3 Compensation** moves to the shared person: recorded once, seen from every mandate, edits on the
@@ -800,8 +805,9 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
      lost.
   3. Import a sheet with her email under a different spelling of the name → matched, no duplicate.
   4. Add a namesake at the same company by hand → the possible-duplicate dialog; choose "Add as new".
-  5. Write a call note in mandate A; open her from mandate B → the note shows with mandate A as context
-     (per D1). Log in as the client representative on A → no notes, no timeline, no other mandate.
+  5. Write a call note in mandate A; open her from mandate B → not shown there (D1, revised); write one for
+     All positions → shown on both. The Candidates page shows both, each with its chip. Log in as the client
+     representative on A → no notes, no timeline, no other mandate.
   6. Change status on B, find an email, run AI enrich → timeline lines with actor and time; the
      workspace Activity tab lists the same lines filtered by that researcher.
   7. Reports, Export and Map on A unchanged.

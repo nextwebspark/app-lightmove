@@ -65,7 +65,7 @@ export function PersonNotesTab({
           note: taskNoteOf(note),
         });
       } else {
-        toast("Note saved — your team sees it on every position");
+        toast(note.projectId ? "Note saved" : "Note saved — your team sees it on every position");
       }
     },
     onError: (error) => toast.error(messageFor(error)),

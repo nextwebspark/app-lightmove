@@ -43,7 +43,7 @@ export function getPersonNotes(
   return request<PersonNote[]>(`${personUrl(projectId, candidateId)}/notes`, { signal });
 }
 
-/** A note written from a position's drawer is about that position. */
+/** A note written from a position's drawer is about that position, unless it is for all positions. */
 export function writePersonNote(
   projectId: string,
   candidateId: string,

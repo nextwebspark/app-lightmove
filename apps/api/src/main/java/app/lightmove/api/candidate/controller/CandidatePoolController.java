@@ -193,7 +193,7 @@ public class CandidatePoolController {
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public List<PersonNoteResponse> notes(@AuthenticationPrincipal AuthPrincipal principal,
                                           @PathVariable UUID personId) {
-        return notes.list(principal.userId(), principal.requireWorkspaceId(), personId);
+        return notes.list(principal.userId(), principal.requireWorkspaceId(), personId, null);
     }
 
     @PostMapping("/{personId}/notes")
@@ -211,7 +211,7 @@ public class CandidatePoolController {
     public PersonNoteResponse revise(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
                                      @PathVariable UUID noteId, @Valid @RequestBody WritePersonNoteRequest request,
                                      HttpServletRequest httpRequest) {
-        return notes.revise(principal.userId(), principal.requireWorkspaceId(), personId, noteId, request,
+        return notes.revise(principal.userId(), principal.requireWorkspaceId(), personId, null, noteId, request,
                 httpRequest);
     }
 
@@ -220,7 +220,7 @@ public class CandidatePoolController {
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public void remove(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
                        @PathVariable UUID noteId, HttpServletRequest httpRequest) {
-        notes.remove(principal.userId(), principal.requireWorkspaceId(), personId, noteId, httpRequest);
+        notes.remove(principal.userId(), principal.requireWorkspaceId(), personId, null, noteId, httpRequest);
     }
 
     @PatchMapping("/{personId}/notes/{noteId}/pin")
@@ -228,7 +228,7 @@ public class CandidatePoolController {
     public PersonNoteResponse pin(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
                                   @PathVariable UUID noteId, @Valid @RequestBody PinPersonNoteRequest request,
                                   HttpServletRequest httpRequest) {
-        return notes.pin(principal.userId(), principal.requireWorkspaceId(), personId, noteId, request.pinned(),
+        return notes.pin(principal.userId(), principal.requireWorkspaceId(), personId, null, noteId, request.pinned(),
                 httpRequest);
     }
 
@@ -239,6 +239,6 @@ public class CandidatePoolController {
                                            @RequestParam(required = false) String group,
                                            @RequestParam(required = false) Long before,
                                            @RequestParam(required = false) Integer limit) {
-        return timeline.timelineOf(principal.requireWorkspaceId(), personId, group, before, limit);
+        return timeline.timelineOf(principal.requireWorkspaceId(), personId, null, group, before, limit);
     }
 }

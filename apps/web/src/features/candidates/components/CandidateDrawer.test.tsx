@@ -636,7 +636,7 @@ describe("CandidateDrawer", () => {
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].nationality).toBe("Egyptian");
   });
 
-  it("writes a note about this position, shared on the person, and lists it with its author", async () => {
+  it("writes a note about this position by default, and lists it with its author", async () => {
     const written: PersonNote = {
       id: "n1",
       kind: "call",
@@ -657,7 +657,10 @@ describe("CandidateDrawer", () => {
 
     await openTab("Notes");
     expect(await screen.findByText(/No notes yet/i)).toBeInTheDocument();
-    expect(await screen.findByText("About Chief Financial Officer")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "This position" })).toHaveAttribute("title", "Chief Financial Officer"),
+    );
+    expect(screen.getByRole("radio", { name: "This position" })).toBeChecked();
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([written]);
     await userEvent.click(screen.getByRole("radio", { name: "Call" }));
     await userEvent.type(screen.getByLabelText(/New note/i), "Call in May");
@@ -673,6 +676,7 @@ describe("CandidateDrawer", () => {
     expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
     expect(await screen.findByText("Call in May")).toBeInTheDocument();
     expect(screen.getByText("Alok Kumar", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("About Chief Financial Officer")).toBeInTheDocument();
   });
 
   it("reads the timeline a page at a time, the next from the last one's cursor", async () => {

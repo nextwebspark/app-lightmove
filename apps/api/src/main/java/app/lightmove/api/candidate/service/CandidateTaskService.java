@@ -46,10 +46,10 @@ public class CandidateTaskService {
                 : candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateTaskService::subjectOf);
     }
 
-    /** A linked follow-up's note must be one of the person's own; anything else is a 404. */
+    /** A linked follow-up's note must be one of the person's own that the position reads; anything else is a 404. */
     @Transactional(readOnly = true)
-    public void requireNoteAbout(UUID workspaceId, UUID personId, UUID noteId) {
-        notes.requireOnPerson(noteId, workspaceId, personId);
+    public void requireNoteAbout(UUID workspaceId, UUID personId, UUID projectId, UUID noteId) {
+        notes.requireReadable(noteId, workspaceId, personId, projectId);
     }
 
     /** The notes tasks or bell rows point back at, by kind and date; a deleted one is simply absent. */

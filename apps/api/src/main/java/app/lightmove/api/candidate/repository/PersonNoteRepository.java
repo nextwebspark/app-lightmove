@@ -24,8 +24,10 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
     boolean existsByWorkspaceIdAndPersonIdAndProjectIdAndBody(UUID workspaceId, UUID personId, UUID projectId,
                                                               String body);
 
-    default PersonNote requireOnPerson(UUID id, UUID workspaceId, UUID personId) {
+    /** A note another position holds is not found from this one, as if it were not there. */
+    default PersonNote requireReadable(UUID id, UUID workspaceId, UUID personId, UUID viewedFromProjectId) {
         return findByIdAndWorkspaceIdAndPersonId(id, workspaceId, personId)
+                .filter(note -> note.isReadableFrom(viewedFromProjectId))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 }

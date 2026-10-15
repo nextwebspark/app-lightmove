@@ -14,8 +14,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A note on a workspace person (V96), readable from every mandate that maps them and by staff only.
- * The mandate it was written about is context, kept by title too so the note outlives the mandate.
+ * A note on a workspace person (V96), read by staff only. A note about a position reads on that position
+ * alone, one about no position on every position; the position is kept by title too so the note outlives it.
  */
 @Entity
 @Table(name = "app_lm_person_note")
@@ -82,5 +82,10 @@ public class PersonNote extends BaseEntity {
 
     public boolean isWrittenBy(UUID userId) {
         return authorUserId.equals(userId);
+    }
+
+    /** {@code viewedFromProjectId} is null on the workspace's Candidates page, which reads every note. */
+    public boolean isReadableFrom(UUID viewedFromProjectId) {
+        return viewedFromProjectId == null || projectId == null || projectId.equals(viewedFromProjectId);
     }
 }
