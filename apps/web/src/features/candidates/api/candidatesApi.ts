@@ -1,9 +1,9 @@
 import { request } from "../../../lib/apiClient";
 import type {
   Candidate,
-  CandidateAiAssessment,
   CandidatesPage,
   CandidateStatus,
+  NationalityReading,
   SaveCandidatePayload,
   SaveContactsPayload,
 } from "./types";
@@ -131,23 +131,23 @@ export function deleteCandidate(projectId: string, candidateId: string): Promise
 }
 
 /** Under the list's prefix, so the stream's refresh after an enrichment re-reads it too. */
-export const AI_ASSESSMENT_KEY = (projectId: string, candidateId: string) =>
-  [...CANDIDATES_KEY_PREFIX(projectId), "ai-assessment", candidateId] as const;
+export const NATIONALITY_READING_KEY = (projectId: string, candidateId: string) =>
+  [...CANDIDATES_KEY_PREFIX(projectId), "nationality-reading", candidateId] as const;
 
-/** Null until a first AI enrichment has run (the server answers 204). */
-export async function getAiAssessment(
+/** Null until the classifier has answered (the server answers 204). Staff-only. */
+export async function getNationalityReading(
   projectId: string,
   candidateId: string,
   signal?: AbortSignal,
-): Promise<CandidateAiAssessment | null> {
-  const assessment = await request<CandidateAiAssessment | undefined>(
-    `/projects/${projectId}/candidates/${candidateId}/ai-assessment`,
+): Promise<NationalityReading | null> {
+  const reading = await request<NationalityReading | undefined>(
+    `/projects/${projectId}/candidates/${candidateId}/nationality-reading`,
     { signal },
   );
-  return assessment ?? null;
+  return reading ?? null;
 }
 
-/** Queues an AI deep enrichment; the result lands later, through the stream and the read above. */
-export function requestAiEnrich(projectId: string, candidateId: string): Promise<void> {
-  return request<void>(`/projects/${projectId}/candidates/${candidateId}/ai-enrich`, { method: "POST" });
+/** Suggest with AI: proposes whatever background is still missing, and answers the executive as it now stands. */
+export function suggestBackground(projectId: string, candidateId: string): Promise<Candidate> {
+  return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}/background/ai`, { method: "POST" });
 }

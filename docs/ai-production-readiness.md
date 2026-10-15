@@ -27,7 +27,7 @@ Without these four, the first bad day is an incident rather than a bug report. E
 
 **Done when:**
 - a shared budget (Postgres, not instance memory) caps each workspace per day, counting every billed call, retries, repair asks and grounding included;
-- each AI surface has a runtime on/off flag. Today only `position.extraction.enabled` and `ai-enrich-on-capture` exist; the assistant and the enrich button have none;
+- each AI surface has a runtime on/off flag. Today only `position.extraction.enabled` and `ai-enrich-on-capture` exist; the assistant and the drawer's two AI buttons have none;
 - a GCP billing budget alert sits on the Vertex `app` label.
 
 ### 2. Legal sign-off on candidate AI enrichment — protected attributes and data residency
@@ -98,7 +98,7 @@ Metrics are unreachable today; see `production-observability.md`, gap 4.
 | 19 | **Feedback loop** | Corrections and ratings captured as eval data | ⚠️ Undo not recorded | ⚠️ Researcher edits not recorded | ❌ Only `proposal_accepted` | P1 |
 | 20 | **Model & prompt lifecycle** | Pinned model version; versioned prompts; canary and rollback; plan for model retirement | ⚠️ Alias `gemini-2.5-flash`; no prompt version in logs or audit | ⚠️ Same | ⚠️ `ASSISTANT_MODEL` env; same | P1 |
 | 21 | **Feature flag / kill switch** | Each surface can be turned off at runtime | ✅ `position.extraction.enabled` | ⚠️ Capture only; the button has none | ❌ None | **P0** |
-| 22 | **Retention & deletion** | A retention policy; delete on request | ✅ Only `source` outlives the tab | ⚠️ `ai_assessment` kept indefinitely | ❌ Threads undeletable; no retention; no length limits | P1 |
+| 22 | **Retention & deletion** | A retention policy; delete on request | ✅ Only `source` outlives the tab | ⚠️ AI-drafted scorecards kept indefinitely; V79's frozen `ai_assessment` not yet dropped | ❌ Threads undeletable; no retention; no length limits | P1 |
 | 23 | **Context management** | Token-aware history; input caps | ✅ 40k chars / 60 pages / 10MB | ⚠️ Input text uncapped | ⚠️ 12 turns by count, no token budget | P2 |
 | 24 | **Security testing** | Injection red-team set; abuse cases; load test | ❌ | ❌ | ❌ | P1 |
 | 25 | **Operations** | SLOs; a runbook for a Vertex outage, a quota 429, a cost spike | ❌ | ❌ | ❌ | P1 |
@@ -112,7 +112,7 @@ Metrics are unreachable today; see `production-observability.md`, gap 4.
 |---|---|
 | Shared | `core/llm/**`, `core/ratelimit/service/LlmBudgetGuard`, `application.yml` (`spring.ai.*`, `lightmove.llm.*`, `lightmove.assistant.*`) |
 | Position extraction | `position/service/Position*Proposer`, `PositionExtractionService`, `PositionDocumentRedactor`, `ExtractedFieldReader`, `prompts/position-extract-*` |
-| Candidate AI enrich | `enrichment/candidate/service/CandidateAiEnricher`, `CandidateAiEnrichWorker`, `candidate/model/CandidateDossier`, `prompts/candidate-ai-enrich-*` |
+| Candidate AI enrich | `enrichment/candidate/service/CandidateAiEnricher`, `CandidateScorecardDrafter`, `CandidateAiEnrichService`, `CandidateAiEnrichWorker`, `candidate/model/CandidateDossier`, `prompts/candidate-ai-enrich-*`, `prompts/candidate-scorecard-draft-*` |
 | Assistant | `assistant/service/AssistantService`, `AssistantAskStream`, `assistant/tool/*`, `prompts/assistant-core.st`, `assistant/skills/*/SKILL.md` |
 
 Related: `llm-guardrails.md`, `llm-google-genai-integration.md`, `assistant-tools.md`, `production-observability.md`.

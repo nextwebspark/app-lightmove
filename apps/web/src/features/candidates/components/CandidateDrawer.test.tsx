@@ -35,6 +35,7 @@ vi.mock("../api/scorecardApi", async (importOriginal) => ({
   ...(await importOriginal<typeof scorecardApi>()),
   getScorecard: vi.fn(),
   saveScorecard: vi.fn(),
+  assessWithAi: vi.fn(),
 }));
 vi.mock("../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof poolApi>()),
@@ -1010,13 +1011,14 @@ describe("CandidateDrawer", () => {
     expect(screen.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("puts the AI assessment after Background on the profile", async () => {
+  it("keeps the AI assessment off the profile: it is the Assessment tab's", async () => {
     renderDrawer({ candidate: yasmin, company: null });
 
     const folds = screen
       .getAllByRole("button", { name: /^(Summary|Experience|Compensation|Background|AI assessment)/ })
       .map((fold) => fold.textContent?.match(/^(Summary|Experience|Compensation|Background|AI assessment)/)?.[0]);
-    expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background", "AI assessment"]);
+    expect(folds).toEqual(["Summary", "Experience", "Compensation", "Background"]);
+    expect(screen.queryByRole("button", { name: "AI deep enrich" })).not.toBeInTheDocument();
   });
 
   it("brings a linked note forward though the drawer is already open on someone else's career tab", async () => {
@@ -1246,6 +1248,7 @@ describe("CandidateDrawer", () => {
       score: null,
       points: 0,
       evidence: null,
+      aiDrafted: false,
     });
     const blank: CandidateScorecard = {
       status: "draft",
@@ -1273,6 +1276,8 @@ describe("CandidateDrawer", () => {
       ],
       retired: [],
       report: { careerSummary: null, coreValue: null, concerns: null, workingStyle: null, motivation: null },
+      reportAiDrafted: [],
+      aiDraftedAt: null,
       updatedAt: null,
       updatedByName: null,
       reviewedAt: null,
@@ -1335,6 +1340,135 @@ describe("CandidateDrawer", () => {
 
       expect(await screen.findByRole("alert")).toHaveTextContent(/saved this assessment after you opened it/);
       expect(screen.getByLabelText("Leadership score")).toHaveTextContent("5");
+    });
+
+    it("drafts the open scores with AI, marks them until edited, and holds off while changes are unsaved", async () => {
+      const drafted: CandidateScorecard = {
+        ...blank,
+        version: 1,
+        aiDraftedAt: "2026-10-14T10:00:00Z",
+        panels: [
+          {
+            ...blank.panels[0],
+            criteria: [
+              {
+                ...criterion("technical", "Treasury", 100, 60),
+                score: 8,
+                evidence: "Ran group treasury",
+                aiDrafted: true,
+              },
+            ],
+          },
+          blank.panels[1],
+        ],
+        report: { ...blank.report, concerns: "Reporting unproven" },
+        reportAiDrafted: ["concerns"],
+      };
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      vi.mocked(scorecardApi.assessWithAi).mockResolvedValue(drafted);
+      renderDrawer({ candidate: yasmin, company: null });
+      await openTab("Assessment");
+
+      await userEvent.click(await screen.findByRole("button", { name: "Raise Leadership" }));
+      expect(screen.getByRole("button", { name: "Assess with AI" })).toBeDisabled();
+      await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Assess with AI" }));
+
+      await waitFor(() => expect(scorecardApi.assessWithAi).toHaveBeenCalledWith("p1", "c1"));
+      expect(await screen.findByLabelText("Treasury score")).toHaveTextContent("8");
+      expect(screen.getByText(/^AI drafted/)).toBeInTheDocument();
+      const treasury = () => screen.getByRole("button", { name: /^Treasury/ });
+      expect(within(treasury()).getByRole("img", { name: "AI-drafted" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "Lower Treasury" }));
+      expect(within(treasury()).queryByRole("img", { name: "AI-drafted" })).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("radio", { name: "Assessment report" }));
+      const concerns = screen.getByRole("button", { name: /^Concerns/ });
+      expect(within(concerns).getByRole("img", { name: "AI-drafted" })).toBeInTheDocument();
+    });
+
+    it("holds the tab still while the AI drafts, so nothing typed meanwhile is lost to its answer", async () => {
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      vi.mocked(scorecardApi.assessWithAi).mockReturnValue(new Promise(() => {}));
+      renderDrawer({ candidate: yasmin, company: null });
+      await openTab("Assessment");
+
+      await userEvent.click(await screen.findByRole("button", { name: "Assess with AI" }));
+
+      expect(await screen.findByText("The AI is reading the profile, notes and documents…")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Raise Treasury" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Mark reviewed & submit" })).toBeDisabled();
+    });
+
+    it("offers nothing to draft once every score and section is the team's", async () => {
+      const allTheirs: CandidateScorecard = {
+        ...blank,
+        version: 2,
+        panels: blank.panels.map((panel) => ({
+          ...panel,
+          criteria: panel.criteria.map((one) => ({ ...one, score: 7 })),
+        })),
+        report: { careerSummary: "a", coreValue: "b", concerns: "c", workingStyle: "d", motivation: "e" },
+      };
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(allTheirs);
+      renderDrawer({ candidate: yasmin, company: null });
+      await openTab("Assessment");
+
+      expect(await screen.findByRole("button", { name: "Assess with AI" })).toBeDisabled();
+      expect(screen.getByText(/nothing is left for the AI to draft/)).toBeInTheDocument();
+    });
+
+    it("lays this tab's own changes over a teammate's newer save when reloaded", async () => {
+      const theirs: CandidateScorecard = {
+        ...blank,
+        version: 1,
+        panels: [
+          { ...blank.panels[0], criteria: [{ ...criterion("technical", "Treasury", 100, 60), score: 6 }] },
+          blank.panels[1],
+        ],
+      };
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      vi.mocked(scorecardApi.saveScorecard)
+        .mockRejectedValueOnce(
+          new ApiRequestError({ code: "CANDIDATE_ASSESSMENT_STALE", detail: "stale", status: 409, correlationId: "x" }),
+        )
+        .mockResolvedValue({ ...theirs, version: 2 });
+      renderDrawer({ candidate: yasmin, company: null });
+      await openTab("Assessment");
+      await userEvent.click(await screen.findByRole("button", { name: "Raise Leadership" }));
+      await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
+      await screen.findByRole("alert");
+
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(theirs);
+      await userEvent.click(screen.getByRole("button", { name: "Reload, keeping mine" }));
+
+      await waitFor(() => expect(screen.getByLabelText("Treasury score")).toHaveTextContent("6"));
+      expect(screen.getByLabelText("Leadership score")).toHaveTextContent("5");
+      await userEvent.click(screen.getByRole("button", { name: "Save draft" }));
+      await waitFor(() => expect(scorecardApi.saveScorecard).toHaveBeenCalledTimes(2));
+      expect(vi.mocked(scorecardApi.saveScorecard).mock.calls[1][2]).toMatchObject({
+        version: 1,
+        scores: [
+          { panel: "technical", name: "Treasury", score: 6 },
+          { panel: "behavioural", name: "Leadership", score: 5 },
+        ],
+      });
+    });
+
+    it("lets go of an unsaved draft kept before it recorded what it started from", async () => {
+      sessionStorage.setItem(
+        "lm.scorecard-draft.c1",
+        JSON.stringify({ baseVersion: null, scores: {}, report: blank.report }),
+      );
+      vi.mocked(scorecardApi.getScorecard).mockResolvedValue(blank);
+      renderDrawer({ candidate: yasmin, company: null });
+      await openTab("Assessment");
+
+      expect(await screen.findByRole("button", { name: "Assess with AI" })).toBeEnabled();
+      expect(screen.queryByText("Your unsaved changes from earlier are back.")).not.toBeInTheDocument();
+      sessionStorage.clear();
     });
 
     it("points to the brief when it has nothing to score against", async () => {

@@ -4,19 +4,6 @@
   "properties": {
     "gender": { "type": ["string", "null"] },
     "yearsExperience": { "type": ["integer", "null"] },
-    "seniority": { "type": ["string", "null"] },
-    "summary": { "type": ["string", "null"] },
-    "technical": { "$ref": "#/$defs/panel" },
-    "behavioural": { "$ref": "#/$defs/panel" }
-  },
-  "$defs": {
-    "panel": {
-      "type": ["object", "null"],
-      "properties": {
-        "score": { "type": ["integer", "null"] },
-        "positives": { "type": "array", "items": { "type": "string" } },
-        "negatives": { "type": "array", "items": { "type": "string" } }
-      }
-    }
+    "seniority": { "type": ["string", "null"] }
   }
 }

@@ -2,6 +2,7 @@ package app.lightmove.api.position.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.PositionExtractionSettings;
+import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.llm.service.TextPseudonymiser;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.project.model.Client;
@@ -36,21 +37,7 @@ public class PositionDocumentRedactor {
             "L.L.C.", "LLC", "PJSC", "Holdings", "Holding", "Corporation", "Corp.", "Corp",
             "Company", "Ltd.", "Ltd", "Inc.", "Inc", "Co.", "Co", "Group");
 
-    private static final Pattern EMAIL_PATTERN =
-            Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
-
     private static final Pattern URL_PATTERN = Pattern.compile("(?i)\\b(?:https?://|www\\.)\\S+");
-
-    /**
-     * At least eight digits separated by dashes, spaces or parentheses (never a dot, too easily a
-     * decimal), not preceded by a currency code or symbol.
-     *
-     * <p>The currency exclusion is load-bearing — without it "AED 1,200,000" becomes a phone
-     * placeholder — and lives in the one pattern both {@link #isContactLine} and the redaction use, so
-     * the two cannot drift apart as they once did.
-     */
-    private static final Pattern PHONE_CANDIDATE = Pattern.compile(
-            "(?<!(?i:AED|USD|SAR|QAR|KWD|GBP|EUR)\\s{0,4})(?<![$€£]\\s{0,4})\\+?\\d[\\d\\-\\s()]{6,}\\d");
 
     private static final int CONTACT_MARGIN_LINES = 2;
 
@@ -81,9 +68,9 @@ public class PositionDocumentRedactor {
         // URL before PHONE: PHONE must not consume digits out of a URL not yet redacted.
         LinkedHashMap<String, Pattern> patterns = new LinkedHashMap<>();
         if (settings.redactContactDetails()) {
-            patterns.put(EMAIL_LABEL, EMAIL_PATTERN);
+            patterns.put(EMAIL_LABEL, ContactRedaction.EMAIL);
             patterns.put(URL_LABEL, URL_PATTERN);
-            patterns.put(PHONE_LABEL, PHONE_CANDIDATE);
+            patterns.put(PHONE_LABEL, ContactRedaction.PHONE_CANDIDATE);
         }
 
         return pseudonymiser.redact(stripped, terms, patterns);
@@ -175,6 +162,6 @@ public class PositionDocumentRedactor {
     }
 
     private static boolean isContactLine(String line) {
-        return EMAIL_PATTERN.matcher(line).find() || PHONE_CANDIDATE.matcher(line).find();
+        return ContactRedaction.EMAIL.matcher(line).find() || ContactRedaction.PHONE_CANDIDATE.matcher(line).find();
     }
 }

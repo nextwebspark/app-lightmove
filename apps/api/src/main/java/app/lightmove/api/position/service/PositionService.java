@@ -17,10 +17,12 @@ import app.lightmove.api.position.dto.PutPositionDetailsRequest;
 import app.lightmove.api.position.dto.PutReportingStructureRequest;
 import app.lightmove.api.position.dto.ResponsibilityDto;
 import app.lightmove.api.position.dto.StrategicPriorityDto;
-import app.lightmove.api.position.model.CompensationPackage;
-import app.lightmove.api.position.model.MandateContext;
+import app.lightmove.api.position.model.AssessmentBrief;
 import app.lightmove.api.position.model.BriefCompetencies;
 import app.lightmove.api.position.model.BriefCompetency;
+import app.lightmove.api.position.model.BriefCriterion;
+import app.lightmove.api.position.model.CompensationPackage;
+import app.lightmove.api.position.model.MandateContext;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionBenefit;
 import app.lightmove.api.position.model.PositionCompetency;
@@ -84,8 +86,35 @@ public class PositionService {
      */
     @Transactional(readOnly = true)
     public BriefCompetencies competenciesOf(UUID workspaceId, UUID projectId) {
-        Position position = briefs.find(workspaceId, projectId)
-                .orElseGet(() -> Position.forProject(projectId, null));
+        return competenciesOf(briefs.find(workspaceId, projectId)
+                .orElseGet(() -> Position.forProject(projectId, null)));
+    }
+
+    /** The brief as the AI assessment reads it, through the same narrow seam; it never drafts a brief either. */
+    @Transactional(readOnly = true)
+    public AssessmentBrief assessmentBriefOf(UUID workspaceId, UUID projectId) {
+        PositionBrief brief = briefs.read(workspaceId, projectId);
+        Position position = brief.position();
+        return new AssessmentBrief(
+                brief.project().getPositionTitle(),
+                position.getSeniority(),
+                position.getDepartment(),
+                position.getLocationCity(),
+                position.getLocationCountry(),
+                position.getNarrative(),
+                position.getResponsibilities().stream().map(PositionResponsibility::getText).toList(),
+                position.getBusinessDriver(),
+                position.getStrategicPriorities().stream()
+                        .filter(PositionPriority::isSelected)
+                        .map(PositionPriority::getName)
+                        .toList(),
+                position.getCriteria().stream()
+                        .map(criterion -> new BriefCriterion(criterion.getText(), criterion.getMode()))
+                        .toList(),
+                competenciesOf(position));
+    }
+
+    private static BriefCompetencies competenciesOf(Position position) {
         return new BriefCompetencies(
                 position.getCompetencies().stream()
                         .map(competency -> new BriefCompetency(competency.getPanel(), competency.getName(),

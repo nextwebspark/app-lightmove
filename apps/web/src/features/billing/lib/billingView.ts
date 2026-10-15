@@ -331,7 +331,7 @@ export function mailtoBilling(billing: Billing, subject: string): string {
 export const FAIR_USE_FEATURES: Record<FairUseKind, string> = {
   PEOPLE_SEARCH_PAGE: "People Search",
   SOURCING_RUN: "Find executives",
-  AI_ENRICH: "AI deep enrich",
+  AI_ENRICH: "AI assistance",
   OUTREACH_OPENER: "Writing outreach openers",
   ASSISTANT_ASK: "The assistant",
 };

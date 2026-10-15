@@ -37,8 +37,11 @@ public enum LlmBudget {
     /** A question to the assistant — several model rounds, and vendor lookups behind them. */
     ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute),
 
-    /** A candidate's AI enrichment — background and competency assessment. */
+    /** A candidate's AI background proposals, from the drawer or a capture. */
     CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A candidate's AI-drafted assessment against the brief's competencies, from the Assessment tab. */
+    CANDIDATE_AI_ASSESSMENT("candidate-ai-assessment", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** One Find executives run — spent when it is requested, whatever it goes on to call. */
     EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute),

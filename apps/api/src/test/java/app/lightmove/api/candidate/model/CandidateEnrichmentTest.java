@@ -160,18 +160,6 @@ class CandidateEnrichmentTest {
     }
 
     @Test
-    @DisplayName("a successful assessment supersedes an earlier failed run")
-    void anAssessmentClearsAnEarlierFailure() {
-        Candidate candidate = onMandate(null, details("Sample Person", null, null, null, null, null));
-        candidate.recordAiEnrichFailure();
-        assertThat(candidate.getAiEnrichFailedAt()).isNotNull();
-
-        candidate.recordAiAssessment(new CandidateAiAssessment("Read.", null, null, "2026-09-25T10:00:00Z"));
-
-        assertThat(candidate.getAiEnrichFailedAt()).isNull();
-    }
-
-    @Test
     @DisplayName("only the fields still empty are named as missing")
     void missingBackgroundNamesOnlyTheEmptyFields() {
         Person person = captured(detailsWithBackground(null, null, 20, null));

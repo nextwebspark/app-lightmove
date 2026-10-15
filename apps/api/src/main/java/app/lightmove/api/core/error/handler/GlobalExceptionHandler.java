@@ -2,6 +2,7 @@ package app.lightmove.api.core.error.handler;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.service.ClientDisconnects;
+import app.lightmove.api.core.error.service.ConstraintViolations;
 import app.lightmove.api.core.error.service.Problems;
 import app.lightmove.api.core.request.service.RequestBodyTooLargeException;
 
@@ -249,10 +250,10 @@ public class GlobalExceptionHandler {
         // The caller's input, not a conflict — but no field is named: the driver reports the column, not the request path.
         if (REFUSED_VALUE_STATES.contains(sqlStateOf(ex))) {
             log.warn("[VALIDATION_FAILED] the database refused a value at {} {}: {}",
-                    request.getMethod(), request.getRequestURI(), constraintNameOf(ex));
+                    request.getMethod(), request.getRequestURI(), ConstraintViolations.nameOf(ex));
             return problem(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.defaultMessage());
         }
-        ErrorCode code = switch (constraintNameOf(ex)) {
+        ErrorCode code = switch (ConstraintViolations.nameOf(ex)) {
             case "app_lm_client_workspace_name_uk" -> ErrorCode.CLIENT_ALREADY_EXISTS;
             case "app_lm_project_triage_company_manual_name_uk" -> ErrorCode.TRIAGE_COMPANY_ALREADY_HELD;
             case "app_lm_person_profile_slug_uk" -> ErrorCode.PERSON_PROFILE_HELD;
@@ -290,16 +291,6 @@ public class GlobalExceptionHandler {
         for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
             if (cause instanceof SQLException sql && sql.getSQLState() != null) {
                 return sql.getSQLState();
-            }
-        }
-        return "";
-    }
-
-    private String constraintNameOf(DataIntegrityViolationException ex) {
-        for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
-            if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
-                    && violation.getConstraintName() != null) {
-                return violation.getConstraintName();
             }
         }
         return "";

@@ -69,4 +69,8 @@ public class PersonDocumentVersion {
     public boolean isUploadedBy(UUID userId) {
         return uploadedBy.equals(userId);
     }
+
+    public StoredDocumentFile toStoredFile(boolean previewable) {
+        return new StoredDocumentFile(fileName, contentType, sizeBytes, storageKey, previewable);
+    }
 }

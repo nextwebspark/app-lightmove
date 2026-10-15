@@ -368,8 +368,8 @@ lightmove:
       api-key: ${HARVESTAPI_API_KEY:}
       read-timeout: ${HARVESTAPI_READ_TIMEOUT:60s}
 
-    # After a capture's research lands, run the AI enrichment: missing nationality,
-    # gender and years of experience, and a technical/behavioural assessment against the brief.
+    # Once a capture's research lands, or Find executives files someone, propose the background still
+    # missing (gender, years, seniority, nationality). The assessment is never drafted unprompted.
     ai-enrich-on-capture: ${CANDIDATE_AI_ENRICH_ON_CAPTURE:true}
 
     # How long app_lm_vendor_company answers for a LinkedIn slug before the provider is asked again (V64).
