@@ -1,6 +1,7 @@
 package app.lightmove.api.project.dto;
 
 import app.lightmove.api.common.persona.model.HiringPersona;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,5 +24,7 @@ public record ClientDetailResponse(
         long activeMandates,
         long deliveredMandates,
         List<RepresentativeResponse> representatives,
-        List<ClientMandateResponse> mandates
+        List<ClientMandateResponse> mandates,
+        Instant archivedAt,
+        String archivedByName
 ) {}

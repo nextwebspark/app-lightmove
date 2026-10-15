@@ -14,6 +14,7 @@ import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
+import { liveClients } from "../../clients/lib/filtering";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
@@ -215,7 +216,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           }
         />
         {modalOpen && (
-          <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />
+          <NewProjectModal open onClose={() => setModalOpen(false)} clients={liveClients(clients)} />
         )}
       </>
     );
@@ -307,7 +308,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       <ProjectDrawer project={openProject} onClose={() => setOpenProjectId(null)} />
 
       {modalOpen && (
-        <NewProjectModal open onClose={() => setModalOpen(false)} clients={clients} />
+        <NewProjectModal open onClose={() => setModalOpen(false)} clients={liveClients(clients)} />
       )}
     </>
   );

@@ -40,4 +40,6 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
     }
 
     List<Project> findByWorkspaceIdAndClientIdOrderByCreatedAtDesc(UUID workspaceId, UUID clientId);
+
+    List<Project> findByWorkspaceIdAndClientIdAndArchivedAtIsNull(UUID workspaceId, UUID clientId);
 }

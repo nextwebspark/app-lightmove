@@ -628,6 +628,12 @@ as `POSITION_ARCHIVED` in the same transaction (`ProjectArchived` → `PositionA
 opener draft there is `PROJECT_ARCHIVED`. Nothing is frozen and nothing deleted; the screens stay editable under an
 Archived banner, and Restore (one click, the same gate) brings it back without restarting a run. The ⋯ beside the
 side panel's Close and in the position's topbar is where it lives; the list draws an Archived chip after the stages.
+**A business unit or client is archived the same way** (V138), but by a workspace admin (`WORKSPACE_MANAGE`), from
+the ⋯ in its drawer's foot, and only once none of its positions is live — `CLIENT_HAS_LIVE_POSITIONS` names them,
+since archiving those is their leads' call. It leaves the registry's list (`GET /clients?include=archived` as above)
+and the New position picker; nothing is opened or restored under it (`CLIENT_ARCHIVED`, the record row locked
+against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
+`CLIENT_ALREADY_EXISTS`, whose caller reuses the record it names).
 
 `publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
 script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
@@ -1089,7 +1095,7 @@ score, evidence}` snapshots and the report a jsonb object — and widens the act
 V136 gives it `ai_drafted` (jsonb array: the criterion match keys and `report:<section>` still holding the AI's
 untouched draft) and `ai_drafted_at`, and freezes V79's `ai_assessment` and V80's `ai_enrich_failed_at`.
 V137 adds `app_lm_project.archived_at` / `archived_by` (both or neither, by CHECK), seeds `PROJECT_ARCHIVE` to LEAD
-alone, and adds `POSITION_ARCHIVED` to the enrollment's `stop_reason` CHECK.
+alone, and adds `POSITION_ARCHIVED` to the enrollment's `stop_reason` CHECK. V138 gives `app_lm_client` the same pair.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

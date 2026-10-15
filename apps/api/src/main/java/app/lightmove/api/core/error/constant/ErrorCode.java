@@ -73,6 +73,14 @@ public enum ErrorCode {
 
     CLIENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "A client with this name already exists"),
 
+    /** Carries {@code positionIds}: the live positions to archive first, never archived out from under. */
+    CLIENT_HAS_LIVE_POSITIONS(HttpStatus.CONFLICT, "Archive this client's open positions first"),
+
+    CLIENT_ARCHIVED(HttpStatus.CONFLICT, "This client is archived. Restore it first"),
+
+    /** Kept apart from {@link #CLIENT_ALREADY_EXISTS}, whose caller reuses the record it names from the live list. */
+    CLIENT_NAME_ARCHIVED(HttpStatus.CONFLICT, "An archived client has this name. Restore it instead"),
+
     PROJECT_LAST_LEAD(HttpStatus.CONFLICT, "A project must keep at least one lead"),
 
     /** Nothing is written: the caller narrows the filter and tries again. */

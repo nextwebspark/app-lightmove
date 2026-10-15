@@ -24,9 +24,9 @@ export function ClientPositions({
       <SectionLabel className="mt-[18px]">Open positions</SectionLabel>
       {live.length === 0 ? (
         <p className="py-2 font-mono text-[12px] text-u-text3">
-          {archived.length === 0
-            ? `No positions yet — open one for this ${vocabulary.unitLower}.`
-            : "No open positions."}
+          {archived.length > 0 || client.archivedAt
+            ? "No open positions."
+            : `No positions yet — open one for this ${vocabulary.unitLower}.`}
         </p>
       ) : (
         live.map((mandate) => <MandateRow key={mandate.id} mandate={mandate} onOpen={onOpenMandate} />)
@@ -57,19 +57,6 @@ function MandateRow({ mandate, onOpen }: { mandate: ClientMandate; onOpen: (mand
       {mandate.archivedAt ? <ArchivedPill /> : <StagePill stage={mandate.stage} />}
       <span className="text-u-text3">›</span>
     </button>
-  );
-}
-
-export function ClientDrawerFoot({ onClose, onNewMandate }: { onClose: () => void; onNewMandate: () => void }) {
-  return (
-    <div className="flex items-center justify-between border-t border-u-border px-5 py-3">
-      <Button variant="ghost" onClick={onClose}>
-        Close
-      </Button>
-      <Button variant="secondary" onClick={onNewMandate}>
-        ＋ New position
-      </Button>
-    </div>
   );
 }
 

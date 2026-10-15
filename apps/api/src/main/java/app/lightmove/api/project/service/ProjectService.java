@@ -151,7 +151,7 @@ public class ProjectService {
     public ProjectResponse create(UUID userId, UUID workspaceId, CreateProjectRequest request,
                                   HttpServletRequest httpRequest) {
         WorkspaceMember creator = access.requireActiveMember(userId, workspaceId);
-        Client client = requireClient(request.clientId(), workspaceId);
+        Client client = requireLiveClient(request.clientId(), workspaceId);
 
         ProjectTimeline timeline = ProjectTimeline.resolve(request.projectType(), request.startDate(),
                 request.deliveryDate(), request.mappingTargetDate());
@@ -218,10 +218,13 @@ public class ProjectService {
         return responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
-    /** Back in every list; runs the archive stopped stay stopped. */
+    /** Back in every list; runs the archive stopped stay stopped. Never under an archived business unit. */
     @Transactional
     public ProjectResponse restore(UUID userId, UUID workspaceId, UUID projectId, HttpServletRequest httpRequest) {
         Project project = projects.requireInWorkspace(projectId, workspaceId);
+        if (project.isArchived()) {
+            requireLiveClient(project.getClientId(), workspaceId);
+        }
         if (project.restore()) {
             log.info("User {} restored project {} in workspace {}", userId, projectId, workspaceId);
             audit.projectEvent(ProjectEventType.PROJECT_RESTORED, userId, workspaceId, projectId, httpRequest)
@@ -231,9 +234,14 @@ public class ProjectService {
         return responseFor(workspaceId, project, ProjectAudience.STAFF);
     }
 
-    private Client requireClient(UUID clientId, UUID workspaceId) {
-        return clients.findByIdAndWorkspaceId(clientId, workspaceId)
+    /** Shares the archive's lock on the record, so an archive deciding on it now sees this position, or refuses it. */
+    private Client requireLiveClient(UUID clientId, UUID workspaceId) {
+        Client client = clients.lockToOpenPositionUnder(clientId, workspaceId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (client.isArchived()) {
+            throw ApiException.of(ErrorCode.CLIENT_ARCHIVED);
+        }
+        return client;
     }
 
     /**
