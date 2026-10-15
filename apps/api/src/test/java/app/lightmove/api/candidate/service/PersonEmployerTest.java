@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
@@ -13,12 +14,17 @@ import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PipelineTestStatuses;
 import app.lightmove.api.candidate.model.PersonEmployer;
+import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
+import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** Research's employer logo is drawn only beside the employer research named. */
+/**
+ * Research's employer logo is drawn only beside the employer research named, and a further position files
+ * someone under an employer a position or research named, never one guessed from their career.
+ */
 class PersonEmployerTest {
 
     private static final String RESEARCHED_LOGO = "https://media.example.com/alrawabi.png";
@@ -27,6 +33,8 @@ class PersonEmployerTest {
             "Group CFO", null, "Al Rawabi Dairy", "https://www.linkedin.com/company/alrawabi/", RESEARCHED_LOGO,
             null, null, List.of(new CandidateCareerEntry("Al Rawabi Dairy", "Group CFO", "2021 – Present", null)),
             List.of(), List.of(), List.of(), null, EnrichmentVendor.BRIGHTDATA);
+
+    private final PersonEmployerResolver resolver = new PersonEmployerResolver(mock(TriageCompanyReadService.class));
 
     @Test
     @DisplayName("a position recording the researched employer carries its company row and research's logo")
@@ -70,6 +78,33 @@ class PersonEmployerTest {
         assertThat(PersonEmployerResolver.employerOf(person, List.of()).researchedLogoUrl()).isEqualTo(RESEARCHED_LOGO);
     }
 
+    @Test
+    @DisplayName("a further position files someone under the employer their last position named, research's aside")
+    void aFurtherPositionFilesUnderTheNamedEmployer() {
+        Person person = researched();
+        List<Candidate> positions = List.of(mappedAt(person, null, "Emirates NBD"));
+
+        assertThat(resolver.knownEmployerOf(UUID.randomUUID(), person, positions))
+                .contains(CapturedCompanyDetails.employerNamed("Emirates NBD", null, null));
+    }
+
+    @Test
+    @DisplayName("on no position, a further position files someone under research's employer")
+    void aFurtherPositionFallsBackToResearch() {
+        assertThat(resolver.knownEmployerOf(UUID.randomUUID(), researched(), List.of()))
+                .contains(CapturedCompanyDetails.employerNamed("Al Rawabi Dairy", null, RESEARCHED_LOGO));
+    }
+
+    @Test
+    @DisplayName("a further position never files someone under their career's first post, which may be one they left")
+    void aFurtherPositionNeverFilesUnderTheCareer() {
+        Person person = Person.founded(UUID.randomUUID(), UUID.randomUUID(), CandidateSource.MANUAL,
+                details(null, List.of(new CandidateCareerEntry("Somewhere", "Advisor", "2020 –", null))));
+
+        assertThat(PersonEmployerResolver.employerOf(person, List.of()).name()).isEqualTo("Somewhere");
+        assertThat(resolver.knownEmployerOf(UUID.randomUUID(), person, List.of())).isEmpty();
+    }
+
     private static Person researched() {
         Person person = Person.founded(UUID.randomUUID(), UUID.randomUUID(), CandidateSource.EXTENSION,
                 details(null));
@@ -83,9 +118,13 @@ class PersonEmployerTest {
     }
 
     private static CandidateDetails details(String employerName) {
+        return details(employerName, null);
+    }
+
+    private static CandidateDetails details(String employerName, List<CandidateCareerEntry> career) {
         return new CandidateDetails("Sample Person", null, null, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, null, null, CandidateCompensation.unknown(),
-                new CandidateProfile(null, null, null, null, null, null), null);
+                new CandidateProfile(career, null, null, null, null, null), null);
     }
 }

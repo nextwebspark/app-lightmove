@@ -5,16 +5,18 @@ import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonEmployer;
 import app.lightmove.api.candidate.model.ResearchedEmployerMark;
+import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-/** The employer the Candidates page names beside a person, and the logo drawn with it. */
+/** A person's employer: named, with its logo, on the Candidates page, and filed by a further mandate. */
 @Service
 @RequiredArgsConstructor
 public class PersonEmployerResolver {
@@ -38,6 +40,36 @@ public class PersonEmployerResolver {
                 .map(CandidateCareerEntry::company).filter(Objects::nonNull).findFirst()
                 .map(company -> new PersonEmployer(company, null, researchedLogoOf(researched, company)))
                 .orElse(PersonEmployer.NONE);
+    }
+
+    /**
+     * Where a further mandate files someone it does not research again: the employer their most recent
+     * position recorded — through a company row naming it where one exists, whose LinkedIn page lets the
+     * market match the same company again — else the employer research named. Never the career's first
+     * post, which {@link #employerOf} may fall back to and which may be one they have left.
+     */
+    Optional<CapturedCompanyDetails> knownEmployerOf(UUID workspaceId, Person person,
+                                                     List<Candidate> mappedOldestFirst) {
+        ResearchedEmployerMark researched = person.getProfile().employer();
+        List<Candidate> newestFirst = mappedOldestFirst.reversed();
+        Optional<String> recorded = newestFirst.stream()
+                .map(Candidate::getCompanyName)
+                .filter(name -> name != null && !name.isBlank())
+                .findFirst();
+        if (recorded.isEmpty()) {
+            return Optional.ofNullable(researched)
+                    .filter(mark -> mark.name() != null)
+                    .map(mark -> CapturedCompanyDetails.employerNamed(mark.name(), null, mark.logoUrl()));
+        }
+        String name = recorded.get();
+        return newestFirst.stream()
+                .filter(row -> row.getTriageCompanyId() != null && name.equalsIgnoreCase(row.getCompanyName()))
+                .findFirst()
+                .map(row -> triageCompanies.get(workspaceId, row.getProjectId(), row.getTriageCompanyId()))
+                .map(company -> CapturedCompanyDetails.employerNamed(company.companyName(),
+                        company.companyLinkedinUrl(), company.logoUrl()))
+                .or(() -> Optional.of(CapturedCompanyDetails.employerNamed(name, null,
+                        researchedLogoOf(researched, name))));
     }
 
     /** Keyed by person id: the position's company row's logo, else research's; a person with neither is absent. */
