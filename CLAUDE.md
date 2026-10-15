@@ -53,7 +53,8 @@ timed, about a position or about the person, shared by every mandate that maps t
 Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
 may change or remove one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
 never quotes it, so a removed note leaves no copy. Both person drawers — a position's executive drawer and the
-Candidates page's — share one header (tags beside owner and do not contact) and one tab order,
+Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of name, pills, the tags held
+to one line with a +N chip, and do not contact) and one tab order,
 `Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
 retired `?tab=records|timeline` links still land), a client seat reading Career and Contact alone; the
 workspace drawer leaves out only what a position holds (Assessment among them). **Assessment** (V135) is the
