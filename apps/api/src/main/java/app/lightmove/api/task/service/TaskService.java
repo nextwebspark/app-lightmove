@@ -362,7 +362,7 @@ public class TaskService {
         return shown.stream().map(task -> new TaskResponse(task.getId(), task.getProjectId(),
                 projectTitles.get(task.getProjectId()), task.getCandidateId(), task.getPersonId(),
                 personNames.get(task.getPersonId()), task.getTitle(), task.getKind().value(), task.getDetail(),
-                task.getPresetId(), TaskNoteDto.of(task.getNoteId(), notes),
+                task.getPresetId(), TaskNoteDto.of(task.getNoteId(), task.getProjectId(), notes),
                 TaskPeople.personOf(task.getAssigneeUserId(), named),
                 TaskPeople.personOf(task.getCreatedBy(), named), task.getDueAt(), task.getStatus().value(),
                 task.getSource().value(), task.getRule() == null ? null : task.getRule().value(),

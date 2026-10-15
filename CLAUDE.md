@@ -50,7 +50,7 @@ as the change (`PersonActivityRecorder`); the security audit trail is written as
 timed and **staff-only** — `CandidateResponse`, the talent map and the report carry none, because a client
 seat reads all three (decision D1). A note is about one position or about the person: read from a position,
 only that position's and the person's ("All positions") show, and another position's is not found
-(`PersonNote.isReadableFrom`) — not listed, not quoted on the timeline, not changed, pinned or linked to a task
+(`NoteViewpoint`) — not listed, not quoted on the timeline, not changed, pinned or linked to a task
 there, never sent to that position's AI — while the Candidates page reads them all (D1, revised 2026-10-15).
 The position drawer's composer offers This position or All positions, never another position. A note a door
 sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's

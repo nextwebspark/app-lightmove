@@ -14,6 +14,7 @@ import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.dto.PinPersonNoteRequest;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidatePoolService;
@@ -193,7 +194,7 @@ public class CandidatePoolController {
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public List<PersonNoteResponse> notes(@AuthenticationPrincipal AuthPrincipal principal,
                                           @PathVariable UUID personId) {
-        return notes.list(principal.userId(), principal.requireWorkspaceId(), personId, null);
+        return notes.list(principal.userId(), principal.requireWorkspaceId(), personId, NoteViewpoint.workspace());
     }
 
     @PostMapping("/{personId}/notes")
@@ -211,8 +212,8 @@ public class CandidatePoolController {
     public PersonNoteResponse revise(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
                                      @PathVariable UUID noteId, @Valid @RequestBody WritePersonNoteRequest request,
                                      HttpServletRequest httpRequest) {
-        return notes.revise(principal.userId(), principal.requireWorkspaceId(), personId, null, noteId, request,
-                httpRequest);
+        return notes.revise(principal.userId(), principal.requireWorkspaceId(), personId, NoteViewpoint.workspace(),
+                noteId, request, httpRequest);
     }
 
     @DeleteMapping("/{personId}/notes/{noteId}")
@@ -220,7 +221,8 @@ public class CandidatePoolController {
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public void remove(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
                        @PathVariable UUID noteId, HttpServletRequest httpRequest) {
-        notes.remove(principal.userId(), principal.requireWorkspaceId(), personId, null, noteId, httpRequest);
+        notes.remove(principal.userId(), principal.requireWorkspaceId(), personId, NoteViewpoint.workspace(), noteId,
+                httpRequest);
     }
 
     @PatchMapping("/{personId}/notes/{noteId}/pin")
@@ -228,8 +230,8 @@ public class CandidatePoolController {
     public PersonNoteResponse pin(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
                                   @PathVariable UUID noteId, @Valid @RequestBody PinPersonNoteRequest request,
                                   HttpServletRequest httpRequest) {
-        return notes.pin(principal.userId(), principal.requireWorkspaceId(), personId, null, noteId, request.pinned(),
-                httpRequest);
+        return notes.pin(principal.userId(), principal.requireWorkspaceId(), personId, NoteViewpoint.workspace(),
+                noteId, request.pinned(), httpRequest);
     }
 
     @GetMapping("/{personId}/timeline")
@@ -239,6 +241,7 @@ public class CandidatePoolController {
                                            @RequestParam(required = false) String group,
                                            @RequestParam(required = false) Long before,
                                            @RequestParam(required = false) Integer limit) {
-        return timeline.timelineOf(principal.requireWorkspaceId(), personId, null, group, before, limit);
+        return timeline.timelineOf(principal.requireWorkspaceId(), personId, NoteViewpoint.workspace(), group,
+                before, limit);
     }
 }

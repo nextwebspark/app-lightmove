@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateMaterial;
 import app.lightmove.api.candidate.model.DocumentOnFile;
 import app.lightmove.api.candidate.model.NoteOnFile;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonDocumentVersion;
 import app.lightmove.api.candidate.model.StoredDocumentFile;
@@ -57,9 +58,8 @@ public class CandidateMaterialService {
 
     private CandidateMaterial materialOf(Person person, UUID projectId) {
         List<NoteOnFile> written = notes
-                .findByWorkspaceIdAndPersonIdOrderByCreatedAtDesc(person.getWorkspaceId(), person.getId())
+                .findReadableNewestFirst(person.getWorkspaceId(), person.getId(), NoteViewpoint.position(projectId))
                 .stream()
-                .filter(note -> note.isReadableFrom(projectId))
                 .map(note -> new NoteOnFile(note.getKind(), note.getCreatedAt(), note.getProjectTitle(),
                         note.getBody()))
                 .toList();

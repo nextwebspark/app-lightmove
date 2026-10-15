@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.dto.PinPersonNoteRequest;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonRecordService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
@@ -59,7 +60,7 @@ public class PersonCrmController {
                                           @PathVariable UUID projectId, @PathVariable UUID candidateId) {
         UUID workspaceId = principal.requireWorkspaceId();
         return notes.list(principal.userId(), workspaceId, records.personOf(workspaceId, projectId, candidateId),
-                projectId);
+                NoteViewpoint.position(projectId));
     }
 
     /**
@@ -86,7 +87,8 @@ public class PersonCrmController {
                                      HttpServletRequest httpRequest) {
         UUID workspaceId = principal.requireWorkspaceId();
         return notes.revise(principal.userId(), workspaceId,
-                records.personOf(workspaceId, projectId, candidateId), projectId, noteId, request, httpRequest);
+                records.personOf(workspaceId, projectId, candidateId), NoteViewpoint.position(projectId), noteId,
+                request, httpRequest);
     }
 
     @DeleteMapping("/notes/{noteId}")
@@ -96,8 +98,8 @@ public class PersonCrmController {
                        @PathVariable UUID projectId, @PathVariable UUID candidateId, @PathVariable UUID noteId,
                        HttpServletRequest httpRequest) {
         UUID workspaceId = principal.requireWorkspaceId();
-        notes.remove(principal.userId(), workspaceId, records.personOf(workspaceId, projectId, candidateId), projectId,
-                noteId, httpRequest);
+        notes.remove(principal.userId(), workspaceId, records.personOf(workspaceId, projectId, candidateId),
+                NoteViewpoint.position(projectId), noteId, httpRequest);
     }
 
     @PatchMapping("/notes/{noteId}/pin")
@@ -108,7 +110,7 @@ public class PersonCrmController {
                                   HttpServletRequest httpRequest) {
         UUID workspaceId = principal.requireWorkspaceId();
         return notes.pin(principal.userId(), workspaceId, records.personOf(workspaceId, projectId, candidateId),
-                projectId, noteId, request.pinned(), httpRequest);
+                NoteViewpoint.position(projectId), noteId, request.pinned(), httpRequest);
     }
 
     @GetMapping("/timeline")
@@ -119,7 +121,7 @@ public class PersonCrmController {
                                            @RequestParam(required = false) Long before,
                                            @RequestParam(required = false) Integer limit) {
         UUID workspaceId = principal.requireWorkspaceId();
-        return timeline.timelineOf(workspaceId, records.personOf(workspaceId, projectId, candidateId), projectId,
-                group, before, limit);
+        return timeline.timelineOf(workspaceId, records.personOf(workspaceId, projectId, candidateId),
+                NoteViewpoint.position(projectId), group, before, limit);
     }
 }

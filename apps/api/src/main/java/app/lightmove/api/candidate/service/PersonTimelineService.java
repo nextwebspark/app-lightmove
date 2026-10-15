@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.model.CandidateTag;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonActivity;
 import app.lightmove.api.candidate.model.NoteMentionTokens;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.PersonDocument;
 import app.lightmove.api.candidate.repository.CandidateTagRepository;
@@ -65,13 +66,13 @@ public class PersonTimelineService {
 
     /** Read from a position, a line about a note another position holds names it without quoting it. */
     @Transactional(readOnly = true)
-    public PersonTimelineResponse timelineOf(UUID workspaceId, UUID personId, UUID viewedFromProjectId,
+    public PersonTimelineResponse timelineOf(UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
                                              String group, Long before, Integer limit) {
         Person person = people.requireInWorkspace(personId, workspaceId);
         int size = sizeOf(limit);
         List<PersonActivity> page = activity.findPersonTimeline(workspaceId, personId, cursorOf(before),
                 TimelineGroup.kindsOf(group), Limit.of(size + 1));
-        return pageOf(workspaceId, page, size, Map.of(person.getId(), person), viewedFromProjectId);
+        return pageOf(workspaceId, page, size, Map.of(person.getId(), person), viewpoint);
     }
 
     /** The workspace's feed; each filter left null matches everything. */
@@ -88,7 +89,7 @@ public class PersonTimelineService {
         List<UUID> personIds = page.stream().map(PersonActivity::getPersonId).distinct().toList();
         Map<UUID, Person> persons = people.findByWorkspaceIdAndIdIn(workspaceId, personIds).stream()
                 .collect(Collectors.toMap(Person::getId, Function.identity()));
-        return pageOf(workspaceId, page, size, persons, null);
+        return pageOf(workspaceId, page, size, persons, NoteViewpoint.workspace());
     }
 
     /** Each person's latest line, for the Candidates page's Last activity column. */
@@ -98,28 +99,28 @@ public class PersonTimelineService {
             return Map.of();
         }
         Map<UUID, Person> byId = persons.stream().collect(Collectors.toMap(Person::getId, Function.identity()));
-        return entriesOf(workspaceId, activity.findLatestOfPeople(workspaceId, byId.keySet()), byId, null).stream()
+        return entriesOf(workspaceId, activity.findLatestOfPeople(workspaceId, byId.keySet()), byId,
+                NoteViewpoint.workspace()).stream()
                 .collect(Collectors.toMap(PersonTimelineEntryResponse::personId, Function.identity()));
     }
 
     private PersonTimelineResponse pageOf(UUID workspaceId, List<PersonActivity> page, int size,
-                                          Map<UUID, Person> persons, UUID viewedFromProjectId) {
+                                          Map<UUID, Person> persons, NoteViewpoint viewpoint) {
         boolean hasMore = page.size() > size;
         List<PersonActivity> shown = hasMore ? page.subList(0, size) : page;
-        return new PersonTimelineResponse(entriesOf(workspaceId, shown, persons, viewedFromProjectId),
+        return new PersonTimelineResponse(entriesOf(workspaceId, shown, persons, viewpoint),
                 hasMore ? shown.getLast().getId() : null);
     }
 
     private List<PersonTimelineEntryResponse> entriesOf(UUID workspaceId, List<PersonActivity> shown,
-                                                        Map<UUID, Person> persons, UUID viewedFromProjectId) {
+                                                        Map<UUID, Person> persons, NoteViewpoint viewpoint) {
         Map<UUID, User> named = users.findAllById(shown.stream()
                         .flatMap(line -> Stream.of(line.getActorUserId(), idIn(line, "ownerUserId")))
                         .filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
-        Map<UUID, PersonNote> liveNotes = notes.findByWorkspaceIdAndIdIn(workspaceId, shown.stream()
-                        .map(PersonTimelineService::noteIdOf).filter(Objects::nonNull).distinct().toList())
-                .stream().filter(note -> note.isReadableFrom(viewedFromProjectId))
-                .collect(Collectors.toMap(PersonNote::getId, Function.identity()));
+        Map<UUID, PersonNote> liveNotes = notes.findReadableIn(workspaceId, shown.stream()
+                        .map(PersonTimelineService::noteIdOf).filter(Objects::nonNull).distinct().toList(), viewpoint)
+                .stream().collect(Collectors.toMap(PersonNote::getId, Function.identity()));
         Map<UUID, CandidateTag> liveTags = tags.findByWorkspaceIdAndIdIn(workspaceId, shown.stream()
                         .map(line -> idIn(line, "tagId")).filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(CandidateTag::getId, Function.identity()));

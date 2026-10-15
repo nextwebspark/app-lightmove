@@ -145,6 +145,24 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a task already pointing at another position's note names none, while its own position's is named")
+    void aTaskNamesOnlyANoteItsPositionReads() throws Exception {
+        firm("Linked Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        String onCfo = add(cfo, FATIMA).get("id").asText();
+        String onCredit = add(credit, FATIMA).get("id").asText();
+        String noteId = write(admin, cfo, onCfo, "call", "Asked about the bank's board.").get("id").asText();
+
+        String onCfoTask = task(cfo, onCfo, noteId);
+        String onCreditTask = task(credit, onCredit, null);
+        db.update("update app_lm_task set note_id = ?::uuid where id = ?::uuid", noteId, onCreditTask);
+
+        assertThat(openTask(cfo, onCfo, onCfoTask).at("/note/id").asText()).isEqualTo(noteId);
+        assertThat(openTask(credit, onCredit, onCreditTask).get("note").isNull()).isTrue();
+    }
+
+    @Test
     @DisplayName("an AI run on one position reads its own notes and those for all positions, never another's")
     void anAiRunReadsWhatItsPositionReads() throws Exception {
         firm("AI Notes Firm");
@@ -319,6 +337,15 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"kind":"general","body":"About no position at all."}"""))
                 .andExpect(status().isCreated());
+        String bothRefused = codeOf(mvc.perform(post("/api/v1/candidates/" + personId + "/notes")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"About one position and all.","projectId":"%s",
+                                 "allPositions":true}""".formatted(credit)))
+                .andExpect(status().isBadRequest())
+                .andReturn());
+        assertThat(bothRefused).isEqualTo("VALIDATION_FAILED");
     }
 
     @Test
@@ -587,6 +614,33 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                                 "allPositions", true))))
                 .andExpect(status().isCreated())
                 .andReturn());
+    }
+
+    private String task(String projectId, String candidateId, String noteId) throws Exception {
+        String adminId = db.queryForObject("select id::text from app_lm_user where email = ?", String.class,
+                "alok@" + domain);
+        String linked = noteId == null ? "" : ",\"noteId\":\"" + noteId + "\"";
+        return body(mvc.perform(post("/api/v1/projects/" + projectId + "/candidates/" + candidateId + "/tasks")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Call back","kind":"call","assigneeUserId":"%s","dueAt":"%s"%s}"""
+                                .formatted(adminId, Instant.now().plus(2, ChronoUnit.DAYS), linked)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private JsonNode openTask(String projectId, String candidateId, String taskId) throws Exception {
+        JsonNode open = body(mvc.perform(get("/api/v1/projects/" + projectId + "/candidates/" + candidateId + "/tasks")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("open");
+        for (JsonNode task : open) {
+            if (task.get("id").asText().equals(taskId)) {
+                return task;
+            }
+        }
+        throw new AssertionError("no open task " + taskId);
     }
 
     private JsonNode poolNotes(String personId) throws Exception {
