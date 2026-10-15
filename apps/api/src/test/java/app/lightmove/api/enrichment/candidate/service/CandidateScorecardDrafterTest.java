@@ -91,6 +91,19 @@ class CandidateScorecardDrafterTest {
     }
 
     @Test
+    @DisplayName("the team's notes and the documents on file reach the model beside the profile")
+    void notesAndDocumentsReachThePrompt() {
+        RecordingChatModel model = new RecordingChatModel("{\"scores\":[],\"report\":null}");
+        MaterialText material = new MaterialText("- [Call · 3 Oct 2026] Calm under board pressure.",
+                "=== CV: Layla Mansour CV ===\nLed the 2019 IPO.", 1, 1);
+
+        drafterOver(model).draft(NOTHING_MISSING, BRIEF, material);
+
+        assertThat(model.prompts.getLast()).contains("NOTES ON FILE", "Calm under board pressure.",
+                "DOCUMENTS ON FILE", "=== CV: Layla Mansour CV ===", "Led the 2019 IPO.");
+    }
+
+    @Test
     @DisplayName("no competencies asks the model nothing, and a model that cannot be reached drafts nothing")
     void nothingIsDraftedWithoutCompetenciesOrAModel() {
         RecordingChatModel model = new RecordingChatModel("{\"scores\":[]}");

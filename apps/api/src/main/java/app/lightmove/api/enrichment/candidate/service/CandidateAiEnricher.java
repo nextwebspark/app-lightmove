@@ -18,8 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One model call over a candidate's {@link CandidateDossier}: the most probable gender, years of experience and
- * seniority still missing. Nationality is {@link CandidateNationalityClassifier}'s, never this call's. Every failure
+ * One model call over a candidate's {@link CandidateDossier}, and the notes and documents the team filed on them: the
+ * most probable gender, years of experience and seniority still missing. Nationality is {@link CandidateNationalityClassifier}'s, never this call's. Every failure
  * answers empty — nothing is ever stored in place of a real answer.
  */
 @Service
@@ -44,8 +44,12 @@ public class CandidateAiEnricher {
     }
 
     public Optional<InferredBackground> infer(CandidateDossier dossier) {
+        return infer(dossier, MaterialText.NONE);
+    }
+
+    Optional<InferredBackground> infer(CandidateDossier dossier, MaterialText material) {
         try {
-            ModelAnswer answered = ask(dossier);
+            ModelAnswer answered = ask(dossier, material);
             if (answered == null || BlockedAnswer.matches(answered.gender())) {
                 return Optional.empty();
             }
@@ -57,15 +61,23 @@ public class CandidateAiEnricher {
         }
     }
 
-    private ModelAnswer ask(CandidateDossier dossier) {
+    private ModelAnswer ask(CandidateDossier dossier, MaterialText material) {
         return prompt.ask(ModelAnswer.class, user -> user.text("""
                 THE CANDIDATE (their LinkedIn profile)
                 {profile}
+
+                NOTES ON FILE (the team's own, newest first)
+                {notes}
+
+                DOCUMENTS ON FILE
+                {documents}
 
                 Background fields still to propose: {missing}
                 Today's date: {today}
                 """)
                 .param("profile", DossierText.of(dossier))
+                .param("notes", material.notes())
+                .param("documents", material.documents())
                 .param("missing", missingOf(dossier.missingBackground()))
                 .param("today", LocalDate.now(ZoneOffset.UTC).toString()));
     }

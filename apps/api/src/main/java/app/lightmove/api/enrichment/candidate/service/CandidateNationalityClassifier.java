@@ -48,8 +48,12 @@ public class CandidateNationalityClassifier {
     }
 
     public Optional<NationalityReading> classify(CandidateDossier dossier) {
+        return classify(dossier, MaterialText.NONE);
+    }
+
+    Optional<NationalityReading> classify(CandidateDossier dossier, MaterialText material) {
         try {
-            ModelAnswer answered = ask(dossier);
+            ModelAnswer answered = ask(dossier, material);
             if (answered == null || BlockedAnswer.matches(answered.category())) {
                 return Optional.empty();
             }
@@ -60,7 +64,7 @@ public class CandidateNationalityClassifier {
         }
     }
 
-    private ModelAnswer ask(CandidateDossier dossier) {
+    private ModelAnswer ask(CandidateDossier dossier, MaterialText material) {
         return prompt.ask(ModelAnswer.class, user -> user.text("""
                 Name: {name}
                 Headline: {headline}
@@ -73,6 +77,12 @@ public class CandidateNationalityClassifier {
 
                 Experience, OLDEST FIRST:
                 {experience}
+
+                Notes on file (the team's own, newest first):
+                {notes}
+
+                Documents on file:
+                {documents}
                 """)
                 .param("name", orNotStated(dossier.fullName()))
                 .param("headline", headlineOf(dossier))
@@ -80,7 +90,9 @@ public class CandidateNationalityClassifier {
                 .param("languages", dossier.languages().isEmpty() ? NOT_STATED : String.join(", ", dossier.languages()))
                 .param("location", locationOf(dossier))
                 .param("education", educationOf(dossier.education()))
-                .param("experience", experienceOf(dossier.career())));
+                .param("experience", experienceOf(dossier.career()))
+                .param("notes", material.notes())
+                .param("documents", material.documents()));
     }
 
     /** The model's spelling never reaches the row: a label no group carries is Unknown. */

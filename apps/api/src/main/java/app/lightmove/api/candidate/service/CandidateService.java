@@ -39,7 +39,6 @@ import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
-import app.lightmove.api.candidate.repository.CandidateScorecardRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -105,7 +104,6 @@ public class CandidateService {
             Sort.by(Sort.Direction.ASC, "createdAt").and(Sort.by(Sort.Direction.ASC, "person.fullName"));
 
     private final CandidateRepository candidates;
-    private final CandidateScorecardRepository scorecards;
     private final PersonRepository people;
     private final PersonMatcher matcher;
     private final PersonActivityRecorder activity;
@@ -122,8 +120,7 @@ public class CandidateService {
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
 
-    public CandidateService(CandidateRepository candidates, CandidateScorecardRepository scorecards,
-                            PersonRepository people, PersonMatcher matcher,
+    public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
                             PersonPhotoRepository photos,
                             ProjectRepository projects, TriageCompanyService triage,
@@ -133,7 +130,6 @@ public class CandidateService {
                             CandidatePipelineCatalog pipeline,
                             LightMoveProperties properties) {
         this.candidates = candidates;
-        this.scorecards = scorecards;
         this.people = people;
         this.matcher = matcher;
         this.activity = activity;
@@ -466,10 +462,7 @@ public class CandidateService {
             boolean fresh = !person.isResearched();
             // Two mandates capturing one new person before either's research lands each queue a call;
             // the second finds the person researched, but its own mandate still wants the employer
-            // filed and the person scored. Only a row with both done has nothing left to do.
-            if (!fresh && scorecards.existsByCandidateIdAndAiDraftedAtIsNotNull(candidateId)) {
-                return;
-            }
+            // filed; the background run that follows asks nothing once the first has filled it.
             if (fresh) {
                 person.enrich(enriched);
                 keepPhoto(person.getId(), enriched);

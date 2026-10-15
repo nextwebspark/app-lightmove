@@ -10,7 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingContactOutPeopleIndex;
-import app.lightmove.api.StubChatModel;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
@@ -45,14 +44,12 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
 
     @Autowired private RecordingContactOutPeopleIndex contactOut;
     @Autowired private JdbcTemplate db;
-    @Autowired private StubChatModel model;
 
     private String adminToken;
 
     @BeforeEach
     void resetTheVendor() throws Exception {
         contactOut.clear();
-        model.reset();
         db.update("DELETE FROM app_lm_vendor_people_search");
         db.update("DELETE FROM app_lm_vendor_person");
         try (InputStream in = getClass().getResourceAsStream("/contactout/people-search.json")) {
@@ -186,10 +183,8 @@ class StrategyPeopleSearchIntegrationTest extends FlowTestSupport {
                 + "app_lm_project_triage_company where id = ?", UUID.fromString(candidate.get("triageCompanyId").asText()));
         assertThat(employer).containsEntry("source", "PEOPLE_SEARCH").containsEntry("website", "https://harbour.example");
         assertThat(employer.get("industry")).isNotNull();
-        assertThat(model.prompts()).as("the person filed is assessed against the brief, unprompted").anySatisfy(
-                prompt -> assertThat(prompt.getSystemMessage().getText()).contains("drafting an assessment"));
-        assertThat(db.queryForObject("select count(*) from app_lm_usage_event where project_id = ?::uuid "
-                + "and kind = 'AI_ENRICH'", Integer.class, projectId)).as("no one pressed for it").isZero();
+        assertThat(db.queryForObject("select count(*) from app_lm_audit_event where target_id = ? "
+                + "and event_type = 'CANDIDATE_AI_ENRICH_REQUESTED'", Integer.class, projectId)).isZero();
 
         mvc.perform(post(peopleUrl(projectId) + "/add").header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)

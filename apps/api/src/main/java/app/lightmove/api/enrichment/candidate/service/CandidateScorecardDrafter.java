@@ -23,8 +23,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One model call drafting a consultant's assessment: for each of the brief's competencies a score out of 10 and the
- * evidence for it, and the five report sections. The total out of 100 is never the model's — {@code ScorecardScoring}
+ * One model call drafting a consultant's assessment from the profile, the team's notes and the documents on file: for
+ * each of the brief's competencies a score out of 10 and the evidence for it, and the five report sections. The total out of 100 is never the model's — {@code ScorecardScoring}
  * weighs the scores exactly as it weighs a consultant's. Every failure answers empty.
  */
 @Service
@@ -42,12 +42,16 @@ public class CandidateScorecardDrafter {
     }
 
     public Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief) {
+        return draft(dossier, brief, MaterialText.NONE);
+    }
+
+    Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief, MaterialText material) {
         Map<String, BriefCompetency> competencyById = idsOf(brief.competencies().competencies());
         if (competencyById.isEmpty()) {
             return Optional.empty();
         }
         try {
-            ModelAnswer answered = ask(dossier, brief, competencyById);
+            ModelAnswer answered = ask(dossier, brief, material, competencyById);
             if (answered == null || (answered.report() != null
                     && BlockedAnswer.matches(answered.report().careerSummary()))) {
                 return Optional.empty();
@@ -61,11 +65,17 @@ public class CandidateScorecardDrafter {
         }
     }
 
-    private ModelAnswer ask(CandidateDossier dossier, AssessmentBrief brief,
+    private ModelAnswer ask(CandidateDossier dossier, AssessmentBrief brief, MaterialText material,
                             Map<String, BriefCompetency> competencyById) {
         return prompt.ask(ModelAnswer.class, user -> user.text("""
                 THE CANDIDATE (their LinkedIn profile)
                 {profile}
+
+                NOTES ON FILE (the team's own, newest first)
+                {notes}
+
+                DOCUMENTS ON FILE
+                {documents}
 
                 THE ROLE
                 Title: {roleTitle}
@@ -86,6 +96,8 @@ public class CandidateScorecardDrafter {
                 {competencies}
                 """)
                 .param("profile", DossierText.of(dossier))
+                .param("notes", material.notes())
+                .param("documents", material.documents())
                 .param("roleTitle", DossierText.orNotStated(brief.roleTitle()))
                 .param("seniority", brief.seniority() == null ? DossierText.NOT_STATED : brief.seniority().value())
                 .param("department", DossierText.orNotStated(brief.department()))

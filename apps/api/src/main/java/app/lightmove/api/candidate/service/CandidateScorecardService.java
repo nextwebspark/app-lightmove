@@ -105,8 +105,8 @@ public class CandidateScorecardService {
     /**
      * The AI's draft written over everything no consultant holds a judgement on, against the brief as it stands now:
      * a criterion the brief dropped while the model read is let go, and each score takes today's weight.
-     * {@code REQUIRES_NEW} because the enrichment worker calls this from an {@code AFTER_COMMIT} callback, where a
-     * joined transaction writes nothing; a racing save fails it, and the caller asks again over the fresh row.
+     * {@code REQUIRES_NEW} so the write commits on its own, after the model call and outside any transaction held
+     * across it; a racing save fails it, and the caller asks again over the fresh row.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CandidateScorecardResponse applyAiDraft(UUID workspaceId, UUID projectId, UUID candidateId,
@@ -122,11 +122,6 @@ public class CandidateScorecardService {
                 PersonActivityDetails.of("scope", AiRunScope.ASSESSMENT));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         return respond(saved, brief);
-    }
-
-    @Transactional(readOnly = true)
-    public boolean isAiDrafted(UUID candidateId) {
-        return scorecards.existsByCandidateIdAndAiDraftedAtIsNotNull(candidateId);
     }
 
     static List<CriterionScore> alignedToBrief(List<CriterionScore> drafted, List<ScorecardCriterion> brief) {

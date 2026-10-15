@@ -16,7 +16,8 @@ public record ResearchedFiling(CandidateSource source, AiEnrichTrigger enrichTri
         return new ResearchedFiling(CandidateSource.AI_SOURCED, AiEnrichTrigger.SOURCING, runId, null);
     }
 
+    /** No automatic AI run: a researcher asks for it from the drawer, one person at a time. */
     public static ResearchedFiling ofPeopleSearch(ResearchedEmployer employer) {
-        return new ResearchedFiling(CandidateSource.PEOPLE_SEARCH, AiEnrichTrigger.PEOPLE_SEARCH, null, employer);
+        return new ResearchedFiling(CandidateSource.PEOPLE_SEARCH, null, null, employer);
     }
 }

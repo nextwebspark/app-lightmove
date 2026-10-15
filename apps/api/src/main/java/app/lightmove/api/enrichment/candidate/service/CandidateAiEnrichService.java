@@ -39,6 +39,7 @@ public class CandidateAiEnrichService {
     private final CandidateAiEnricher enricher;
     private final CandidateNationalityClassifier nationalityClassifier;
     private final CandidateScorecardDrafter drafter;
+    private final CandidateMaterialReader materialReader;
     private final AiDraftWriter writer;
     private final LlmBudgetGuard llmBudget;
     private final FairUseGuard fairUse;
@@ -55,10 +56,12 @@ public class CandidateAiEnrichService {
         }
         llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, userId);
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
-        requested(AiRunScope.BACKGROUND, userId, workspaceId, projectId, candidateId, httpRequest);
+        MaterialText material = materialReader.read(projectId, candidateId);
+        requested(AiRunScope.BACKGROUND, material, userId, workspaceId, projectId, candidateId, httpRequest);
 
-        InferredBackground background = needs.inferring() ? enricher.infer(dossier).orElse(null) : null;
-        NationalityReading reading = needs.classifying() ? nationalityClassifier.classify(dossier).orElse(null) : null;
+        InferredBackground background = needs.inferring() ? enricher.infer(dossier, material).orElse(null) : null;
+        NationalityReading reading = needs.classifying()
+                ? nationalityClassifier.classify(dossier, material).orElse(null) : null;
         if (background == null && reading == null) {
             throw ApiException.of(ErrorCode.AI_UNAVAILABLE);
         }
@@ -76,9 +79,10 @@ public class CandidateAiEnrichService {
         }
         llmBudget.require(LlmBudget.CANDIDATE_AI_ASSESSMENT, userId);
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
-        requested(AiRunScope.ASSESSMENT, userId, workspaceId, projectId, candidateId, httpRequest);
+        MaterialText material = materialReader.read(projectId, candidateId);
+        requested(AiRunScope.ASSESSMENT, material, userId, workspaceId, projectId, candidateId, httpRequest);
 
-        AiScorecardDraft draft = drafter.draft(dossier, brief)
+        AiScorecardDraft draft = drafter.draft(dossier, brief, material)
                 .orElseThrow(() -> ApiException.of(ErrorCode.AI_UNAVAILABLE));
         CandidateScorecardResponse answer = writer.writeScorecard(workspaceId, projectId, candidateId, userId, draft);
         usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1));
@@ -90,11 +94,14 @@ public class CandidateAiEnrichService {
         return candidates.dossierOf(projectId, candidateId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private void requested(AiRunScope scope, UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
-                           HttpServletRequest httpRequest) {
+    /** Says how many notes and documents left for the model with the profile: a CV sent out is a CV out of the app. */
+    private void requested(AiRunScope scope, MaterialText material, UUID userId, UUID workspaceId, UUID projectId,
+                           UUID candidateId, HttpServletRequest httpRequest) {
         audit.projectEvent(ProjectEventType.CANDIDATE_AI_ENRICH_REQUESTED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("scope", scope.name())
+                .detail("notesSent", String.valueOf(material.noteCount()))
+                .detail("documentsSent", String.valueOf(material.documentCount()))
                 .record();
     }
 }

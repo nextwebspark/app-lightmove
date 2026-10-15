@@ -8,6 +8,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface CandidateScorecardRepository extends JpaRepository<CandidateScorecard, UUID> {
 
     Optional<CandidateScorecard> findByCandidateIdAndWorkspaceId(UUID candidateId, UUID workspaceId);
-
-    boolean existsByCandidateIdAndAiDraftedAtIsNotNull(UUID candidateId);
 }

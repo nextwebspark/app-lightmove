@@ -93,7 +93,7 @@ export function AssessmentTab({ projectId, editor }: { projectId: string; editor
         <span className="text-meta text-u-text3">
           {scorecard.aiDraftedAt
             ? `AI drafted ${formatInstantDate(scorecard.aiDraftedAt)} · it never changes a score or section you wrote`
-            : "The AI scores each competency from the profile and drafts the report; you review every word"}
+            : "The AI scores each competency from the profile, your notes and the documents on file, and drafts the report"}
         </span>
         <AiActionButton
           label="Assess with AI"
@@ -103,7 +103,7 @@ export function AssessmentTab({ projectId, editor }: { projectId: string; editor
           title={
             editor.isDirty
               ? "Save or discard your changes first"
-              : "Score every open competency from the profile, with the evidence, and draft the report"
+              : "Score every open competency from the profile, notes and documents, with the evidence, and draft the report"
           }
           onClick={editor.assessWithAi}
         />

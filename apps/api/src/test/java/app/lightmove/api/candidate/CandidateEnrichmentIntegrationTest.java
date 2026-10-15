@@ -3,6 +3,7 @@ package app.lightmove.api.candidate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -19,6 +20,7 @@ import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedPhoto;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -364,10 +367,10 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a capture with nothing missing and a brief with no competencies asks the model nothing")
+    @DisplayName("a capture with nothing missing asks the model nothing, competencies or not: the assessment waits")
     void nothingToDoAsksTheModelNothing() throws Exception {
         String projectId = mandate("Full Background Firm");
-        competencies(projectId, NO_COMPETENCIES);
+        competencies(projectId, COMPETENCIES);
         enricher.answerWith(RESEARCH);
         model.answerWith(AI_ENRICHMENT);
 
@@ -381,8 +384,8 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a capture drafts the assessment against the brief, weighed exactly as a consultant's scores are")
-    void aCaptureDraftsTheAssessment() throws Exception {
+    @DisplayName("a capture leaves the assessment to Assess with AI, which weighs it exactly as a consultant's scores")
+    void aCaptureLeavesTheAssessmentToTheButton() throws Exception {
         String projectId = mandate("Assessed Capture Firm");
         competencies(projectId, COMPETENCIES);
         enricher.answerWith(RESEARCH);
@@ -391,7 +394,14 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
 
         String candidateId = capture(projectId, "Sample Person", "sample-profile");
 
-        JsonNode scorecard = scorecardOf(projectId, candidateId);
+        assertThat(scorecardOf(projectId, candidateId).get("aiDraftedAt").isNull()).isTrue();
+        assertThat(model.prompts()).noneSatisfy(prompt ->
+                assertThat(prompt.getSystemMessage().getText()).contains(DRAFTING_PROMPT));
+
+        JsonNode scorecard = body(mvc.perform(post(candidatesUrl(projectId) + "/" + candidateId + "/assessment/ai")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn());
         assertThat(scorecard.get("status").asText()).isEqualTo("draft");
         assertThat(scorecard.get("overall").asDouble()).isEqualTo(52.8);
         JsonNode treasury = scorecard.get("panels").get(0).get("criteria").get(0);
@@ -412,7 +422,7 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("Suggest with AI fills a hand-added executive's background, never sending their contacts, pay or note")
+    @DisplayName("Suggest with AI fills the background from the profile and the notes, never sending contacts or pay")
     void suggestWithAiFillsTheBackground() throws Exception {
         String projectId = mandate("Background Button Firm");
         model.answerWith(AI_ENRICHMENT);
@@ -431,8 +441,9 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(filled.get("gender").asText()).isEqualTo("female");
         assertThat(filled.get("aiInferredFields")).hasSize(4);
         assertThat(model.prompts()).hasSize(2).allSatisfy(sent ->
-                assertThat(sent.getUserMessage().getText()).contains("Hand Typed", "Group CFO")
-                        .doesNotContain("hand.typed@example.com", "555", "987654", "private-note-text"));
+                assertThat(sent.getUserMessage().getText()).contains("Hand Typed", "Group CFO",
+                                "Met in Riyadh, open to a move", "[email removed]", "[phone removed]")
+                        .doesNotContain("hand.typed@example.com", "555", "987654"));
         assertThat(usedUnits(projectId)).as("one press is one use towards fair use").containsExactly(1);
 
         model.reset();
@@ -444,12 +455,18 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("Assess with AI drafts every competency a consultant left open, and never overwrites one they scored")
+    @DisplayName("Assess with AI reads the notes and the CV, drafts what a consultant left open and keeps what they scored")
     void assessWithAiNeverOverwritesAConsultant() throws Exception {
         String projectId = mandate("Assessment Button Firm");
         competencies(projectId, COMPETENCIES);
         model.answerWhenSystemContains(DRAFTING_PROMPT, SCORECARD_DRAFT);
         String candidateId = handAdded(projectId);
+        mvc.perform(multipart(candidatesUrl(projectId) + "/" + candidateId + "/documents")
+                        .file(new MockMultipartFile("file", "Hand Typed CV.txt", "text/plain",
+                                "Led the 2019 IPO of Gulf Dairy. Referee: calm under board pressure. Mobile 050 555 0199."
+                                        .getBytes(StandardCharsets.UTF_8)))
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isCreated());
         mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId + "/assessment")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -473,8 +490,10 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
         assertThat(leadership.get("aiDrafted").asBoolean()).isTrue();
         assertThat(drafted.get("report").get("careerSummary").asText()).isEqualTo("My own words.");
         assertThat(drafted.get("reportAiDrafted")).extracting(JsonNode::asText).doesNotContain("careerSummary");
-        assertThat(model.lastPrompt().getUserMessage().getText()).contains("T1 [technical, weight 60] Treasury")
-                .doesNotContain("hand.typed@example.com", "987654", "private-note-text");
+        assertThat(model.lastPrompt().getUserMessage().getText()).contains("T1 [technical, weight 60] Treasury",
+                        "Met in Riyadh, open to a move", "=== CV: Hand Typed CV ===",
+                        "Referee: calm under board pressure", "Mobile [phone removed]")
+                .doesNotContain("hand.typed@example.com", "987654", "050 555 0199");
         assertThat(usedUnits(projectId)).containsExactly(1);
     }
 
@@ -609,7 +628,8 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"fullName":"Hand Typed","title":"Group CFO","note":"private-note-text",
+                                {"fullName":"Hand Typed","title":"Group CFO",
+                                 "note":"Met in Riyadh, open to a move. Reach her on hand.typed@example.com or +971 50 555 0101.",
                                  "emails":[{"value":"hand.typed@example.com"}],
                                  "phones":[{"value":"+971 50 555 0101"}],
                                  "compensation":{"currency":"AED","baseSalary":987654}}"""))

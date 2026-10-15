@@ -275,7 +275,7 @@ export function CandidateProfile({
           busyLabel="Suggesting…"
           isBusy={background.isSuggesting}
           disabled={editing !== null}
-          title="Read the profile and propose the gender, experience, level and nationality still missing"
+          title="Read the profile, notes and documents, and propose the gender, experience, level and nationality still missing"
           onClick={background.suggest}
         />
         {backgroundPencil}
