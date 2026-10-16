@@ -138,7 +138,7 @@ public class NotificationEmails {
                         .getOrDefault(row.getPersonId(), "an executive");
         String position = row.getProjectId() == null ? "a" : projects.findById(row.getProjectId())
                 .map(Project::getPositionTitle).orElse("a");
-        String link = linkOf(row.getProjectId(), row.getCandidateId());
+        String link = linkOf(row.getProjectId(), row.getCandidateId(), row.getNoteId());
         User to = recipient.get();
         if (row.getKind() == NotificationKind.MENTIONED && row.getNoteId() != null) {
             return Optional.of(templates.buildMentionedEmail(to.getEmail(), to.getFullName(), actorName, executive,
@@ -222,12 +222,16 @@ public class NotificationEmails {
         return task.dueAt() == null ? "with no date" : DATE_TIME.format(task.dueAt().atZone(zone));
     }
 
-    private String linkOf(UUID projectId, UUID candidateId) {
+    /** The bell's own destination (`notificationHref`): the executive's drawer, on the note when the row names one. */
+    private String linkOf(UUID projectId, UUID candidateId, UUID noteId) {
         String base = properties.web().baseUrl();
         if (projectId == null) {
             return base + "/";
         }
-        return candidateId == null ? "%s/projects/%s/pipeline".formatted(base, projectId)
-                : "%s/projects/%s/pipeline?candidate=%s".formatted(base, projectId, candidateId);
+        if (candidateId == null) {
+            return "%s/projects/%s/pipeline".formatted(base, projectId);
+        }
+        String candidate = "%s/projects/%s/pipeline?candidate=%s".formatted(base, projectId, candidateId);
+        return noteId == null ? candidate : candidate + "&note=" + noteId;
     }
 }

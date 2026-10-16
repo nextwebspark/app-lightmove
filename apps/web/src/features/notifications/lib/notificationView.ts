@@ -38,12 +38,16 @@ export function timeLabelOf(isoInstant: string, now: Date = new Date()): string 
 
 /**
  * Where a row leads: the position's pipeline, on the executive's drawer when it is about one and on the note when
- * it names one; else My positions.
+ * it names one; an executive since unmapped from the position opens on the Candidates page; else My positions.
  */
 export function notificationHref(notification: NotificationResponse): string {
   if (!notification.projectId) return "/";
   const pipeline = `/projects/${notification.projectId}/pipeline`;
-  if (!notification.candidateId) return pipeline;
+  if (!notification.candidateId) {
+    if (!notification.personId) return pipeline;
+    const person = `/candidates?person=${encodeURIComponent(notification.personId)}`;
+    return notification.note ? `${person}&tab=notes` : person;
+  }
   const candidate = `${pipeline}?candidate=${encodeURIComponent(notification.candidateId)}`;
   return notification.note ? `${candidate}&note=${encodeURIComponent(notification.note.id)}` : candidate;
 }
