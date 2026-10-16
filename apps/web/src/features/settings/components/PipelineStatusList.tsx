@@ -4,15 +4,16 @@ import { CSS } from "@dnd-kit/utilities";
 import { useState, type FormEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Input, useToast } from "../../../components/ui";
+import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { moveItem } from "../../../lib/moveItem";
 import { useSortableSensors, VERTICAL_LIST_MODIFIERS } from "../../../lib/sortableSensors";
-import { defaultStatusOf, liveStatuses } from "../../candidates/lib/pipelineStatus";
+import { defaultStatusOf, liveStages, liveStatuses } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
 import type { PipelineStage, PipelineStatus, PipelineStatusChange } from "../../workspace/api/types";
-import { usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
-import { inOrderOf, PIPELINE_NAME_LIMIT } from "../lib/pipelineStageRows";
+import { usePipelineCatalog, usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
+import { inOrderOf, moveTargetsOf, PIPELINE_NAME_LIMIT } from "../lib/pipelineStageRows";
 import { usePipelineReorder } from "../lib/usePipelineReorder";
 import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
 import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
@@ -23,6 +24,8 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
   const sensors = useSortableSensors();
   const [newStatus, setNewStatus] = useState("");
   const addStatus = usePipelineWrite((label: string) => pipelineApi.createStatus(stage.id, label));
+  const { catalog } = usePipelineCatalog();
+  const stages = liveStages(catalog);
   const statuses = liveStatuses(stage);
   const defaultStatus = defaultStatusOf(stage);
   const statusIds = statuses.map((status) => status.id);
@@ -79,6 +82,7 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
                 status={status}
                 isDefault={defaultStatus?.id === status.id}
                 isAdmin={isAdmin}
+                moveTargets={moveTargetsOf(status, stage, stages)}
                 onStep={(step) => moveStatus(index, index + step)}
               />
             ))}
@@ -113,11 +117,13 @@ function StatusRow({
   status,
   isDefault,
   isAdmin,
+  moveTargets,
   onStep,
 }: {
   status: PipelineStatus;
   isDefault: boolean;
   isAdmin: boolean;
+  moveTargets: PipelineStage[];
   onStep: (step: number) => void;
 }) {
   const sortable = useSortable({ id: status.id, disabled: !isAdmin });
@@ -163,7 +169,7 @@ function StatusRow({
       )}
       {status.system && (
         <span
-          title="Built-in status — can be renamed, not retired"
+          title="Built-in status — can be renamed and moved, not retired"
           className="inline-flex items-center gap-1 rounded-sm bg-u-raised px-1.5 py-px font-mono text-eyebrow font-medium text-u-text3"
         >
           <Icon d={ICONS.lock} size={10} />
@@ -183,8 +189,16 @@ function StatusRow({
             </Button>
           )}
           <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
+          {moveTargets.length > 0 && (
+            <MoveStatusMenu
+              status={status}
+              targets={moveTargets}
+              disabled={isPending}
+              onMove={(target) => change({ stageId: target.id }, `Moved to ${target.label}`)}
+            />
+          )}
           {status.system ? (
-            <span title="Built-in status — can be renamed, not retired" className="grid w-7 place-items-center text-u-text3">
+            <span title="Built-in status — can be renamed and moved, not retired" className="grid w-7 place-items-center text-u-text3">
               <Icon d={ICONS.lock} size={12} />
             </span>
           ) : (
@@ -202,5 +216,51 @@ function StatusRow({
         </span>
       )}
     </li>
+  );
+}
+
+const MENU_ITEM = "flex w-full items-center rounded-md px-2 py-1.5 text-start text-note text-u-text hover:bg-u-raised";
+
+function MoveStatusMenu({
+  status,
+  targets,
+  disabled,
+  onMove,
+}: {
+  status: PipelineStatus;
+  targets: PipelineStage[];
+  disabled: boolean;
+  onMove: (target: PipelineStage) => void;
+}) {
+  return (
+    <Popover
+      label={`Move ${status.label} to another stage`}
+      align="right"
+      width={220}
+      placement="auto"
+      hasPopup="menu"
+      disabled={disabled}
+      triggerClassName="rounded-md px-2 py-1 text-meta font-medium text-u-text2 transition hover:bg-u-raised hover:text-u-text"
+      trigger={() => "Move to…"}
+    >
+      {(close) => (
+        <div role="menu" aria-label={`Move ${status.label} to`}>
+          {targets.map((target) => (
+            <button
+              key={target.id}
+              type="button"
+              role="menuitem"
+              className={MENU_ITEM}
+              onClick={() => {
+                close();
+                onMove(target);
+              }}
+            >
+              {target.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </Popover>
   );
 }

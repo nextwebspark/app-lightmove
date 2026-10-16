@@ -19,6 +19,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Outreach reads the pipeline by stage: anyone at a status of the closed stage — a workspace's own included —
@@ -97,6 +98,27 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
         assertThat(statusOf(followedUp)).isEqualTo("engaged");
         assertThat(statusOf(callBooked)).isEqualTo("callBooked");
         assertThat(statusOf(offLimits)).isEqualTo("offLimits");
+    }
+
+    @Test
+    @DisplayName("once the contact statuses move into Identified's stage, an email and a booking still move people forward")
+    void theMovesFollowBuiltInsToTheirNewStage() throws Exception {
+        JsonNode catalog = catalog();
+        String identifiedStage = stageIn(catalog, "identified").get("id").asText();
+        for (JsonNode status : stageIn(catalog, "contacted").get("statuses")) {
+            write(admin, "PATCH", PIPELINE + "/statuses/" + status.get("id").asText(), """
+                    {"stageId":"%s"}""".formatted(identifiedStage));
+        }
+        UUID emailed = candidate("researching");
+        UUID booked = candidate("identified");
+
+        transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
+                emailed, UUID.randomUUID(), "Opening", 1));
+        transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
+                UUID.fromString(projectId), booked, Instant.now(), false));
+
+        assertThat(statusOf(emailed)).isEqualTo("contacted");
+        assertThat(statusOf(booked)).isEqualTo("engaged");
     }
 
     private UUID candidate(String statusKey) throws Exception {

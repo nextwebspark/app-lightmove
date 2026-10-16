@@ -342,6 +342,7 @@ describe("PipelineStagesPage", () => {
     await userEvent.click(within(card("Qualified")).getByRole("button", { name: "Retire Qualified stage" }));
     const dialog = await screen.findByRole("dialog", { name: "Retire Qualified" });
     expect(within(dialog).getByText(/Move or retire this stage's statuses first/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Screened")).toBeInTheDocument();
     await userEvent.click(within(dialog).getByRole("button", { name: "OK" }));
     expect(pipelineApi.updateStage).not.toHaveBeenCalled();
 
@@ -349,6 +350,36 @@ describe("PipelineStagesPage", () => {
     await waitFor(() => expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-assessed", { retired: true }));
     expect(await screen.findByText("Assessed retired")).toBeInTheDocument();
     expect(within(card("Declined")).queryByRole("button", { name: "Retire Declined stage" })).not.toBeInTheDocument();
+  });
+
+  it("moves a status to another stage, and keeps a built-in one on its side of the closed stage", async () => {
+    vi.mocked(pipelineApi.updateStatus).mockResolvedValue(aSeededCatalog());
+    renderPage();
+    await screen.findByRole("region", { name: "Contacted" });
+    await open("Contacted");
+
+    const engaged = within(card("Contacted")).getByRole("listitem", { name: "Engaged" });
+    await userEvent.click(within(engaged).getByRole("button", { name: "Move Engaged to another stage" }));
+    const menu = await screen.findByRole("menu", { name: "Move Engaged to" });
+    expect(within(menu).queryByRole("menuitem", { name: "Declined" })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Contacted" })).not.toBeInTheDocument();
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "Identified" }));
+    await waitFor(() =>
+      expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-engaged", { stageId: "stage-identified" }),
+    );
+    expect(await screen.findByText("Moved to Identified")).toBeInTheDocument();
+
+    const followUp = within(card("Contacted")).getByRole("listitem", { name: "Follow-up sent" });
+    await userEvent.click(within(followUp).getByRole("button", { name: "Move Follow-up sent to another stage" }));
+    expect(
+      within(await screen.findByRole("menu", { name: "Move Follow-up sent to" })).getByRole("menuitem", {
+        name: "Declined",
+      }),
+    ).toBeInTheDocument();
+
+    await open("Declined");
+    const offLimits = within(card("Declined")).getByRole("listitem", { name: "Off-limits" });
+    expect(within(offLimits).queryByRole("button", { name: /^Move Off-limits/ })).not.toBeInTheDocument();
   });
 
   it("says why the server refused a change", async () => {
@@ -370,7 +401,7 @@ describe("PipelineStagesPage", () => {
     const engaged = within(card("Contacted")).getByRole("listitem", { name: "Engaged" });
     await userEvent.click(within(engaged).getByRole("button", { name: "Make default" }));
     expect(
-      await screen.findByText("Built-in statuses can be renamed and recoloured, but not retired or moved."),
+      await screen.findByText("Built-in statuses can be renamed, recoloured and moved between active stages, but not retired or closed."),
     ).toBeInTheDocument();
   });
 

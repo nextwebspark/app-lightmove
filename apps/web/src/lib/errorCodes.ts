@@ -200,7 +200,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:
     "Every score and section is already your team's. There is nothing left for the AI to draft.",
   AI_UNAVAILABLE: "The AI could not answer just now. Try again in a moment.",
-  PIPELINE_STATUS_SYSTEM: "Built-in statuses can be renamed and recoloured, but not retired or moved.",
+  PIPELINE_STATUS_SYSTEM: "Built-in statuses can be renamed, recoloured and moved between active stages, but not retired or closed.",
   PIPELINE_STAGE_NOT_EMPTY: "Move or retire this stage's statuses first — a stage with live statuses can't be retired.",
   PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one active stage and its closed stage.",
   PIPELINE_LABEL_TAKEN: "That name is already in use.",

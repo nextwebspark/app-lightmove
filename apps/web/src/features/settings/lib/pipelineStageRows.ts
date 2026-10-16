@@ -1,3 +1,5 @@
+import type { PipelineStage, PipelineStatus } from "../../workspace/api/types";
+
 export const PIPELINE_NAME_LIMIT = 40;
 const PREVIEWED_STATUSES = 3;
 
@@ -19,4 +21,11 @@ export function inOrderOf<T extends { id: string }>(rows: readonly T[], ids: rea
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
   };
   return [...rows].sort((a, b) => rank(a) - rank(b));
+}
+
+/** The stages a status may move to: any other live one, but a built-in status never crosses into or out of the closed stage. */
+export function moveTargetsOf(status: PipelineStatus, from: PipelineStage, stages: readonly PipelineStage[]): PipelineStage[] {
+  return stages.filter(
+    (stage) => !stage.retired && stage.id !== from.id && (!status.system || stage.kind === from.kind),
+  );
 }

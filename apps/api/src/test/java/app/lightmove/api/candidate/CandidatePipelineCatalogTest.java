@@ -12,7 +12,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * A workspace's pipeline (V131) and the rules that keep its hierarchy whole: every status under a stage,
- * the built-in statuses never retired or moved, one default per stage, a stage retired only once empty, and
+ * the built-in statuses never retired nor moved across the closed line, one default per stage, a stage retired only once empty, and
  * one closed stage, last.
  */
 @IntegrationTest
@@ -61,11 +61,14 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a built-in status is renamed and recoloured, never retired or moved to another stage")
-    void aSystemStatusStaysPut() throws Exception {
+    @DisplayName("a built-in status is renamed, recoloured and moved between active stages, never retired or across the closed line")
+    void aSystemStatusStaysOnItsSideOfTheLine() throws Exception {
         JsonNode catalog = catalog();
         String offLimits = statusIn(catalog, "offLimits").get("id").asText();
-        String contacted = stageIn(catalog, "contacted").get("id").asText();
+        String contacted = statusIn(catalog, "contacted").get("id").asText();
+        String identifiedStage = stageIn(catalog, "identified").get("id").asText();
+        String contactedStage = stageIn(catalog, "contacted").get("id").asText();
+        String declinedStage = stageIn(catalog, "declined").get("id").asText();
 
         JsonNode renamed = body(write(admin, "PATCH", PIPELINE + "/statuses/" + offLimits, """
                 {"label":"Do not approach","colour":"signal"}"""));
@@ -74,7 +77,35 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
         assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + offLimits, """
                 {"retired":true}"""))).isEqualTo("PIPELINE_STATUS_SYSTEM");
         assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + offLimits, """
-                {"stageId":"%s"}""".formatted(contacted)))).isEqualTo("PIPELINE_STATUS_SYSTEM");
+                {"stageId":"%s"}""".formatted(contactedStage)))).isEqualTo("PIPELINE_STATUS_SYSTEM");
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + contacted, """
+                {"stageId":"%s"}""".formatted(declinedStage)))).isEqualTo("PIPELINE_STATUS_SYSTEM");
+
+        JsonNode moved = body(write(admin, "PATCH", PIPELINE + "/statuses/" + contacted, """
+                {"stageId":"%s"}""".formatted(identifiedStage)));
+        assertThat(keysOf(stageIn(moved, "identified").get("statuses")).getLast()).isEqualTo("contacted");
+        assertThat(defaultsOf(stageIn(moved, "identified"))).containsExactly("identified");
+        assertThat(defaultsOf(stageIn(moved, "contacted"))).containsExactly("followUpSent");
+    }
+
+    @Test
+    @DisplayName("a stage holding built-in statuses is retired once they are moved to another active stage")
+    void aStageOfBuiltInsRetiresOnceMoved() throws Exception {
+        JsonNode catalog = catalog();
+        JsonNode contacted = stageIn(catalog, "contacted");
+        String identified = stageIn(catalog, "identified").get("id").asText();
+
+        for (JsonNode status : contacted.get("statuses")) {
+            write(admin, "PATCH", PIPELINE + "/statuses/" + status.get("id").asText(), """
+                    {"stageId":"%s"}""".formatted(identified));
+        }
+        catalog = body(write(admin, "PATCH", PIPELINE + "/stages/" + contacted.get("id").asText(), """
+                {"retired":true}"""));
+
+        assertThat(stageIn(catalog, "contacted").get("retired").asBoolean()).isTrue();
+        assertThat(keysOf(stageIn(catalog, "identified").get("statuses")))
+                .containsSubsequence("identified", "contacted", "followUpSent", "engaged", "callBooked");
+        assertThat(defaultsOf(stageIn(catalog, "identified"))).containsExactly("identified");
     }
 
     @Test

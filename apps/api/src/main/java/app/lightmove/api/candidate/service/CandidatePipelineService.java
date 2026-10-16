@@ -211,7 +211,8 @@ public class CandidatePipelineService {
     }
 
     private void moveStatus(PipelineCatalog catalog, CandidateStatusDefinition status, CandidateStage target) {
-        if (status.isSystem()) {
+        // Who has left the running is read off the stage's kind, so a built-in status never crosses it.
+        if (status.isSystem() && status.getStage().getKind() != target.getKind()) {
             throw ApiException.of(ErrorCode.PIPELINE_STATUS_SYSTEM);
         }
         refuseRetiredStage(target);

@@ -8,7 +8,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { moveItem } from "../../../lib/moveItem";
 import { useSortableSensors, VERTICAL_LIST_MODIFIERS } from "../../../lib/sortableSensors";
 import { useAuth } from "../../auth/AuthProvider";
-import { liveStages } from "../../candidates/lib/pipelineStatus";
+import { liveStages, liveStatuses } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
 import type { PipelineStage } from "../../workspace/api/types";
 import { usePipelineCatalog, usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
@@ -176,7 +176,18 @@ export function PipelineStagesPage() {
       >
         <p className="text-body text-u-text2">
           Move or retire this stage&apos;s statuses first — a stage with live statuses can&apos;t be retired.
+          Built-in statuses can&apos;t be retired, but Move to… takes them to another active stage.
         </p>
+        {blockedStage && (
+          <ul className="mt-3 flex flex-col gap-1 text-note text-u-text">
+            {liveStatuses(blockedStage).map((status) => (
+              <li key={status.id}>
+                {status.label}
+                {status.system && <span className="ms-2 font-mono text-eyebrow text-u-text3">Built-in</span>}
+              </li>
+            ))}
+          </ul>
+        )}
       </Modal>
     </>
   );

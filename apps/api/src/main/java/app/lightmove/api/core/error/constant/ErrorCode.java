@@ -240,7 +240,7 @@ public enum ErrorCode {
     AI_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The AI could not answer just now. Try again in a moment"),
 
     /** The seven built-in statuses can be renamed and recoloured, never retired or moved to another stage. */
-    PIPELINE_STATUS_SYSTEM(HttpStatus.CONFLICT, "Built-in statuses can be renamed, not retired or moved"),
+    PIPELINE_STATUS_SYSTEM(HttpStatus.CONFLICT, "Built-in statuses can be renamed and moved between active stages, never retired or closed"),
 
     /** A stage is retired only once none of its statuses is live; the closed stage and the last active one never are. */
     PIPELINE_STAGE_NOT_EMPTY(HttpStatus.CONFLICT, "Move or retire this stage's statuses first"),
