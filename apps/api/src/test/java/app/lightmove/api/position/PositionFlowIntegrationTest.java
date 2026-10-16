@@ -347,6 +347,35 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a seat removed from the middle of the chart, or seats reordered, save rather than conflict")
+    void seatsRemovedOrReorderedMidChartSave() throws Exception {
+        String admin = adminOf("Reshaped Chart Firm");
+        String projectId = createProject(admin, createClient(admin, "Mubadala", "UAE"), "CFO");
+        String seatId = "11111111-1111-4111-8111-111111111111";
+        String managerId = "22222222-2222-4222-8222-222222222222";
+        String controllerId = "33333333-3333-4333-8333-333333333333";
+        String treasurerId = "44444444-4444-4444-8444-444444444444";
+
+        putChart(admin, projectId,
+                chartSeat(seatId, managerId, null, true),
+                chartSeat(managerId, null, "Group CEO", false),
+                chartSeat(controllerId, seatId, "Financial Controller", false),
+                chartSeat(treasurerId, seatId, "Group Treasurer", false));
+
+        putChart(admin, projectId,
+                chartSeat(seatId, null, null, true),
+                chartSeat(controllerId, seatId, "Financial Controller", false),
+                chartSeat(treasurerId, seatId, "Group Treasurer", false));
+        assertThat(chartNodeIds(admin, projectId)).containsExactly(seatId, controllerId, treasurerId);
+
+        putChart(admin, projectId,
+                chartSeat(seatId, null, null, true),
+                chartSeat(treasurerId, seatId, "Group Treasurer", false),
+                chartSeat(controllerId, seatId, "Financial Controller", false));
+        assertThat(chartNodeIds(admin, projectId)).containsExactly(seatId, treasurerId, controllerId);
+    }
+
+    @Test
     @DisplayName("criteria and competencies replace as ordered lists")
     void listsReplaceAndKeepOrder() throws Exception {
         String admin = adminOf("Lists Firm");
@@ -641,6 +670,27 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
         rejectStep(token, projectId, "reporting", """
                 {"orgChart":%s,"teamSize":null,
                  "noticeValue":null,"noticeUnit":null}""".formatted(chartJson));
+    }
+
+    private void putChart(String token, String projectId, String... seats) throws Exception {
+        putStep(token, projectId, "reporting", """
+                {"orgChart":[%s],"teamSize":null,"noticeValue":null,"noticeUnit":null}"""
+                .formatted(String.join(",", seats)));
+    }
+
+    private static String chartSeat(String nodeId, String parentNodeId, String title, boolean mandateSeat) {
+        return """
+                {"nodeId":"%s","parentNodeId":%s,"title":%s,"name":null,
+                 "mandateSeat":%s,"canvasX":null,"canvasY":null}"""
+                .formatted(nodeId, quoted(parentNodeId), quoted(title), mandateSeat);
+    }
+
+    private List<String> chartNodeIds(String token, String projectId) throws Exception {
+        List<String> nodeIds = new ArrayList<>();
+        for (JsonNode node : readBrief(token, projectId).get("reporting").get("orgChart")) {
+            nodeIds.add(node.get("nodeId").asString());
+        }
+        return nodeIds;
     }
 
     private JsonNode readBrief(String token, String projectId) throws Exception {

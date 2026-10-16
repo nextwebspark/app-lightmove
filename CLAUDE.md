@@ -1103,6 +1103,9 @@ V136 gives it `ai_drafted` (jsonb array: the criterion match keys and `report:<s
 untouched draft) and `ai_drafted_at`, and freezes V79's `ai_assessment` and V80's `ai_enrich_failed_at`.
 V137 adds `app_lm_project.archived_at` / `archived_by` (both or neither, by CHECK), seeds `PROJECT_ARCHIVE` to LEAD
 alone, and adds `POSITION_ARCHIVED` to the enrollment's `stop_reason` CHECK. V138 gives `app_lm_client` the same pair.
+V139 makes the org chart's `(position_id, node_id)` uniqueness a constraint checked at commit (`DEFERRABLE INITIALLY
+DEFERRED`): Hibernate rewrites the chart in place slot by slot, so removing or reordering a seat held one node id on
+two rows mid-write, and V39's index refused every later save of that chart.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

@@ -238,7 +238,8 @@ public class Position extends BaseEntity {
     /**
      * Not cosmetic: Hibernate rewrites an {@code @OrderColumn} list in place row by row, so moving the
      * flagged seat between slots would briefly flag two rows and trip the one-seat partial unique index
-     * (a 409). Keeping it at slot 0 on every write means the flag never moves.
+     * (a 409). Keeping it at slot 0 on every write means the flag never moves. A node id shifting slots
+     * trips the same rewrite, which is why V139 checks that uniqueness at commit instead.
      */
     private static List<PositionOrgNode> mandateSeatFirst(List<PositionOrgNode> chart) {
         return Stream.concat(
