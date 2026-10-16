@@ -43,6 +43,15 @@ export function drawerTabOf(value: string | null | undefined, offered: readonly 
   return tab && offered.includes(tab) ? tab : offered[0];
 }
 
+/** A part of the Contact tab a link may open on: a bell row's bounce, reply or booked call. */
+export type DrawerSection = "contact" | "outreach" | "meetings";
+
+const DRAWER_SECTIONS: readonly DrawerSection[] = ["contact", "outreach", "meetings"];
+
+export function drawerSectionOf(value: string | null | undefined): DrawerSection | null {
+  return (DRAWER_SECTIONS as readonly string[]).includes(value ?? "") ? (value as DrawerSection) : null;
+}
+
 export type DrawerKind = "position" | "workspace";
 
 const REMEMBERED_TAB_KEY = (kind: DrawerKind) => `lm.person-drawer.tab.${kind}`;
