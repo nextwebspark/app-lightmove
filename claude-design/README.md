@@ -61,5 +61,5 @@ app, and dark is the default until someone picks light. A token change belongs i
 The product is Uncava. The mark is the rhombus over an isometric cube, drawn inline in `currentColor`
 (geometry from `apps/web/public/brand/uncava-app-icon-*.svg`). The wordmark is "Uncava", uppercase,
 letter-spaced. The amber tile with an initial is the workspace's own mark, not the product's.
-A few template-library strings in `Settings.dc.html` still say "LightMove" because the app's code
+A few template-library strings in `Settings.dc.html` still say "Uncava" because the app's code
 still does. They change when the code does.

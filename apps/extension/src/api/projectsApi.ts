@@ -1,4 +1,4 @@
-import type { LightMoveApiClient } from "./lightMoveApiClient";
+import type { UncavaApiClient } from "./uncavaApiClient";
 import type { ProjectSummary } from "./types";
 
 /**
@@ -7,6 +7,6 @@ import type { ProjectSummary } from "./types";
  * The web app's own endpoint, unchanged: `GET /projects` already scopes the list to the caller's
  * workspace and their seats. The extension adds nothing to it and must not.
  */
-export function listProjects(api: LightMoveApiClient): Promise<ProjectSummary[]> {
+export function listProjects(api: UncavaApiClient): Promise<ProjectSummary[]> {
   return api.request<ProjectSummary[]>("/projects");
 }

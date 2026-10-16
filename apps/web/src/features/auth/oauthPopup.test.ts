@@ -51,7 +51,7 @@ describe("oauthPopup", () => {
     assign = vi.fn();
     vi.spyOn(window, "location", "get").mockReturnValue({
       ...window.location,
-      origin: "https://app.lightmove.test",
+      origin: "https://app.uncava.test",
       assign,
     } as unknown as Location);
   });
@@ -277,7 +277,7 @@ describe("oauthPopup", () => {
       expect(postMessage).toHaveBeenCalledWith(
         outcomeMessage("handshake-1", { status: "error", code: "OAUTH_CANCELLED" }),
         // A wildcard here would hand the outcome to whatever page happens to be the opener.
-        "https://app.lightmove.test",
+        "https://app.uncava.test",
       );
       vi.unstubAllGlobals();
     });

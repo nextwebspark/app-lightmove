@@ -1,0 +1,95 @@
+package app.uncava.api.assistant.service;
+
+import app.uncava.api.assistant.dto.AcceptProposalRequest;
+import app.uncava.api.assistant.model.AssistantProposal;
+import app.uncava.api.assistant.model.AssistantThread;
+import app.uncava.api.assistant.model.AssistantTurn;
+import app.uncava.api.assistant.model.ProposalOutcome;
+import app.uncava.api.assistant.model.ProposedCompany;
+import app.uncava.api.assistant.repository.AssistantThreadRepository;
+import app.uncava.api.assistant.repository.AssistantTurnRepository;
+import app.uncava.api.core.error.constant.ErrorCode;
+import app.uncava.api.core.error.model.ApiException;
+import app.uncava.api.core.security.rbac.ProjectAccess;
+import app.uncava.api.core.security.rbac.ProjectAction;
+import app.uncava.api.triagecompany.constant.TriageCompanySource;
+import app.uncava.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;
+import app.uncava.api.triagecompany.dto.TriageBulkAddResponse;
+import app.uncava.api.triagecompany.service.TriageCompanyService;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Files the ticked companies of a card: universe companies through the door Strategy's bulk add uses,
+ * researched ones through the capture door with what their page said. The project and the companies
+ * come from the stored turn, so the request can only choose among what was offered. One transaction
+ * over a locked turn: a card is filed whole or not at all, and a second accept waits for the first
+ * and is then refused as already filed.
+ */
+@Service
+@RequiredArgsConstructor
+public class AssistantProposalService {
+
+    private final AssistantTurnRepository turns;
+    private final AssistantThreadRepository threads;
+    private final ProjectAccess projectAccess;
+    private final TriageCompanyService triage;
+
+    @Transactional
+    public TriageBulkAddResponse accept(UUID turnId, UUID userId, UUID workspaceId,
+                                        AcceptProposalRequest request, HttpServletRequest httpRequest) {
+        AssistantTurn turn = turns.findForUpdateByIdAndWorkspaceIdAndActorUserId(turnId, workspaceId, userId)
+                .filter(found -> found.getProposal() != null)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (turn.getProposalAccepted() != null) {
+            throw ApiException.of(ErrorCode.ASSISTANT_PROPOSAL_ALREADY_ACCEPTED);
+        }
+        UUID projectId = threads.findById(turn.getThreadId())
+                .map(AssistantThread::getProjectId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        projectAccess.requireAction(userId, workspaceId, projectId, ProjectAction.WORK_EXECUTE);
+
+        List<String> chosen = request.companyIds().stream().distinct().toList();
+        AssistantProposal card = turn.getProposal();
+        Set<String> offered = card.companies().stream()
+                .map(ProposedCompany::key)
+                .collect(Collectors.toSet());
+        if (!offered.containsAll(chosen)) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED,
+                    "Every company must be one this proposal offered");
+        }
+
+        // A company the card showed as already filed keeps its stage: filing it again would only ever be
+        // skipped, and a stale tab must not be the way a declined company comes back.
+        Set<String> held = card.companies().stream()
+                .filter(ProposedCompany::alreadyInMandate)
+                .map(ProposedCompany::key)
+                .collect(Collectors.toSet());
+        List<String> fileable = chosen.stream().filter(key -> !held.contains(key)).toList();
+
+        List<String> accountIds = fileable.stream().filter(key -> !card.researched().containsKey(key)).toList();
+        TriageBulkAddResponse fromUniverse = accountIds.isEmpty() ? new TriageBulkAddResponse(0, 0)
+                : triage.addSelected(userId, workspaceId, projectId,
+                        new AddSelectedTriageCompaniesRequest(accountIds, request.status()),
+                        TriageCompanySource.ASSISTANT, httpRequest);
+        long researchedAdded = fileable.stream()
+                .filter(card.researched()::containsKey)
+                .filter(slug -> triage.captureResearched(userId, workspaceId, projectId,
+                        card.researched().get(slug), TriageCompanySource.ASSISTANT, request.status(), httpRequest))
+                .count();
+        int researchedChosen = fileable.size() - accountIds.size();
+        TriageBulkAddResponse filed = new TriageBulkAddResponse(
+                fromUniverse.added() + (int) researchedAdded,
+                fromUniverse.skipped() + researchedChosen - (int) researchedAdded
+                        + chosen.size() - fileable.size());
+        turn.recordAccepted(new ProposalOutcome(request.status(), filed.added(), filed.skipped()));
+        turns.save(turn);
+        return filed;
+    }
+}

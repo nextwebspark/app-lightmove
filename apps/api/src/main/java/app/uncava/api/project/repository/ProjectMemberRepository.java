@@ -1,0 +1,87 @@
+package app.uncava.api.project.repository;
+
+import app.uncava.api.project.constant.ProjectStage;
+import app.uncava.api.project.model.ProjectMember;
+import app.uncava.api.workspace.constant.MemberStatus;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+/** Seats on projects. Tenancy rides on member_id → workspace_member; callers scope the project first. */
+public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UUID> {
+
+    @EntityGraph(attributePaths = "roles")
+    List<ProjectMember> findByProjectIdIn(Collection<UUID> projectIds);
+
+    @EntityGraph(attributePaths = "roles")
+    Optional<ProjectMember> findByProjectIdAndMemberId(UUID projectId, UUID memberId);
+
+    /** The mandates a client representative may see. */
+    List<ProjectMember> findByMemberId(UUID memberId);
+
+    /**
+     * The union of the seat's roles' actions. A projection, not a lazy walk — authorisation runs in
+     * {@code @PreAuthorize}, outside any transaction.
+     */
+    @Query("""
+            select a.name from ProjectMember pm join pm.roles r join r.actions a
+            where pm.id = :seatId
+            """)
+    Set<String> findActionNames(@Param("seatId") UUID seatId);
+
+    /** Of {@code projectIds}, the ones where this member's seat holds the action — one query for many. */
+    @Query("""
+            select distinct pm.projectId from ProjectMember pm join pm.roles r join r.actions a
+            where pm.memberId = :memberId and pm.projectId in :projectIds and a.name = :actionName
+            """)
+    Set<UUID> findProjectIdsWithAction(@Param("memberId") UUID memberId,
+                                       @Param("projectIds") Collection<UUID> projectIds,
+                                       @Param("actionName") String actionName);
+
+    /** Backs the last-lead guard. */
+    @Query("""
+            select count(distinct pm.id) from ProjectMember pm join pm.roles r
+            where pm.projectId = :projectId and r.name = :roleName
+            """)
+    long countByRoleName(@Param("projectId") UUID projectId, @Param("roleName") String roleName);
+
+    /** Live mandates where this member is the sole LEAD; delivered, closed and archived ones don't count. */
+    @Query("""
+            select count(distinct pm.id) from ProjectMember pm join pm.roles r, Project p
+            where p.id = pm.projectId and pm.memberId = :memberId
+              and r.name = 'LEAD' and p.stage not in :doneStages and p.archivedAt is null
+              and not exists (
+                  select 1 from ProjectMember other join other.roles r2
+                  where other.projectId = pm.projectId and other.id <> pm.id and r2.name = 'LEAD')
+            """)
+    long countSoleLeadSeatsExcludingStages(@Param("memberId") UUID memberId,
+                                           @Param("doneStages") Collection<ProjectStage> doneStages);
+
+    /** The users seated on the project whose seat holds the action, active members only. */
+    @Query("""
+            select distinct wm.userId from ProjectMember pm join pm.roles r join r.actions a, WorkspaceMember wm
+            where pm.projectId = :projectId and wm.id = pm.memberId and wm.status = :status
+              and a.name = :actionName
+            """)
+    List<UUID> findSeatedUserIdsWithAction(@Param("projectId") UUID projectId,
+                                           @Param("actionName") String actionName,
+                                           @Param("status") MemberStatus status);
+
+    /** The project's leads, first seated first, active members only. */
+    @Query("""
+            select wm.userId from ProjectMember pm join pm.roles r, WorkspaceMember wm
+            where pm.projectId = :projectId and wm.id = pm.memberId and wm.status = :status and r.name = 'LEAD'
+            order by pm.createdAt, pm.id
+            """)
+    List<UUID> findLeadUserIds(@Param("projectId") UUID projectId, @Param("status") MemberStatus status);
+
+    @Modifying
+    long deleteByMemberId(UUID memberId);
+}

@@ -1,0 +1,70 @@
+package app.uncava.api.report.service;
+
+import app.uncava.api.candidate.service.CandidateService;
+import app.uncava.api.core.security.model.User;
+import app.uncava.api.core.security.rbac.ProjectRole;
+import app.uncava.api.core.security.rbac.WorkspaceAccess;
+import app.uncava.api.core.security.repository.UserRepository;
+import app.uncava.api.project.dto.TeamMemberResponse;
+import app.uncava.api.project.service.ProjectService;
+import app.uncava.api.report.constant.ResearcherRole;
+import app.uncava.api.report.model.ResearcherIdentity;
+import app.uncava.api.report.model.TeamSources;
+import app.uncava.api.workspace.model.WorkspaceMember;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+/**
+ * Names everyone the researcher breakdown counts: staff seats plus anyone who filed without one. An
+ * active admin (a lead everywhere, seated or not) reads {@code LEAD}; only a departed one {@code FORMER}.
+ */
+@Component
+@RequiredArgsConstructor
+class TeamSourceLoader {
+
+    private final CandidateService candidates;
+    private final ProjectService projects;
+    private final UserRepository users;
+    private final WorkspaceAccess workspaces;
+
+    TeamSources load(UUID workspaceId, UUID projectId) {
+        Map<UUID, UUID> addedBy = candidates.addedByOf(workspaceId, projectId);
+        Map<UUID, ResearcherIdentity> researchers = new LinkedHashMap<>();
+        for (TeamMemberResponse seat : projects.teamOf(workspaceId, projectId)) {
+            ResearcherRole role = staffRoleOf(seat);
+            if (role != null) {
+                researchers.put(seat.userId(), new ResearcherIdentity(seat.userId(), seat.fullName(), seat.avatarUrl(), role));
+            }
+        }
+
+        Set<UUID> unseated = new HashSet<>(addedBy.values());
+        unseated.removeAll(researchers.keySet());
+        if (unseated.isEmpty()) {
+            return new TeamSources(addedBy, researchers);
+        }
+        Set<UUID> activeAdmins = workspaces.activeMembers(workspaceId).stream()
+                .filter(member -> unseated.contains(member.getUserId()))
+                .filter(workspaces::isAdmin)
+                .map(WorkspaceMember::getUserId)
+                .collect(Collectors.toSet());
+        users.findAllById(unseated).stream()
+                .sorted(Comparator.comparing(User::getFullName, String.CASE_INSENSITIVE_ORDER))
+                .forEach(user -> researchers.put(user.getId(), new ResearcherIdentity(user.getId(), user.getFullName(),
+                        user.getAvatarUrl(), activeAdmins.contains(user.getId()) ? ResearcherRole.LEAD : ResearcherRole.FORMER)));
+        return new TeamSources(addedBy, researchers);
+    }
+
+    private static ResearcherRole staffRoleOf(TeamMemberResponse seat) {
+        if (seat.projectRoles().contains(ProjectRole.LEAD)) {
+            return ResearcherRole.LEAD;
+        }
+        return seat.projectRoles().contains(ProjectRole.RESEARCHER) ? ResearcherRole.RESEARCHER : null;
+    }
+}

@@ -1,4 +1,4 @@
-# LightMove
+# Uncava
 
 Multi-tenant SaaS for executive search and talent mapping.
 
@@ -87,7 +87,7 @@ next version unless the upload says `asNewDocument`, the same bytes are refused
 same two doors (`…/candidates/{id}/documents`, `/candidates/{personId}/documents`); removing is the
 uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every download is audited,
 and each change is a timeline line that names the document only while it exists. The bytes live in a
-private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
+private GCS bucket behind `core/storage`'s `DocumentStore` (`uncava.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
 `components/documents`: both drawers' Documents tab, a
 header chip for the primary CV and a preview sheet (a PDF or image fetched as a blob, never a link); the
@@ -126,7 +126,7 @@ the same rows editable in place — add, remove, retag work/personal, mark verif
 held to the same ten per channel.
 No primary flag anywhere: the grid's Email and Phone columns list them all. A person the plugin
 captured keeps their LinkedIn URL locked (`CANDIDATE_PROFILE_URL_LOCKED`): it is the page they were
-read off and everything keys on it. `lightmove.enrichment.contactout` sits **beside**
+read off and everything keys on it. `uncava.enrichment.contactout` sits **beside**
 `…enrichment.provider` and is never selected by it: contact lookup is its own account with its own bill,
 so `provider: off` leaves the buttons working, and an unconfigured deployment simply does not offer them.
 The **spreadsheet import** is that fourth door and carries both halves at once: a CSV or Excel file
@@ -150,7 +150,7 @@ column the grid draws and every custom column the mandate added, with the two Li
 out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the grid, so a client
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
-`lightmove.export.*` it refuses rather than truncating.
+`uncava.export.*` it refuses rather than truncating.
 The In-universe page also reads as a **map**: a Table | Map toggle on its toolbar (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
@@ -305,7 +305,7 @@ Role Brief's **Role title is a combobox**: free text — a mandate is titled "Gr
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
 `POST .../position/template`). Templates are edited in Settings (V57/V58; **Settings → Templates** for a
-firm's admin, **Settings → Template library** for a super admin): a LightMove **super admin** — a *platform* role granted only by
+firm's admin, **Settings → Template library** for a super admin): an Uncava **super admin** — a *platform* role granted only by
 `ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
 workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
@@ -377,7 +377,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 |---|---|
 | `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
-| `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
+| `apps/extension` | Uncava Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
 
@@ -421,7 +421,7 @@ through the seams `talentmap` already uses; it depends on the same three and on 
 in `java-spring-development`.
 
 `outreach` is **email from a consultant's own mailbox** (epic #620). So far it connects one: Nylas's
-hosted sign-in behind `MailboxGateway` (`lightmove.outreach.nylas.*`; blank leaves it unoffered), a
+hosted sign-in behind `MailboxGateway` (`uncava.outreach.nylas.*`; blank leaves it unoffered), a
 grant id per person per workspace (V99). The callback is the one public
 `/api/v1` GET a navigation reaches: its single-use state counts only beside the `lm_mailbox_connect`
 cookie the starting browser holds, so a consent link handed to someone else connects nothing. The
@@ -432,22 +432,22 @@ a failure.
 `feature/inhouse-mail-gateways`; Nylas stays the active gateway until rollout (#650). Each provider (Google,
 Microsoft, Zoom) is connected through an OAuth app chosen per workspace in **Settings → Integrations**
 (`WORKSPACE_MANAGE`, audited as an `integrations` section): Uncava's **shared** app
-(`lightmove.outreach.providers.*`; blank leaves it unoffered) or the workspace's **own**, its keys pasted by
+(`uncava.outreach.providers.*`; blank leaves it unoffered) or the workspace's **own**, its keys pasted by
 its admin. `ProviderCredentialsResolver` is the one read: no row is shared. An own app's client secret is
 **write-only** — stored only as `core/crypto` ciphertext, never returned by any read, and discarded when the
 workspace returns to the shared app. This is the epic's deliberate reversal of "never the provider's tokens":
 what the app now holds is held **encrypted** — Tink envelope encryption (a data key per value, wrapped by a
-key-encryption keyset from Secret Manager, `lightmove.crypto.keyset`, not Cloud KMS: a KMS round trip would sit
+key-encryption keyset from Secret Manager, `uncava.crypto.keyset`, not Cloud KMS: a KMS round trip would sit
 in front of every send), bound to its workspace and purpose as associated data so a value copied elsewhere does
 not decrypt. A deployment without a keyset boots and refuses own keys (`INTEGRATION_ENCRYPTION_UNAVAILABLE`);
 `npm run dev` and the tests share one dev-only keyset. The workspace also chooses how calendar events are read,
 `calendar_sync` (`RECALL | DIRECT`, `PUT /workspace/calendar-sync`, audited like `mode`): on Recall the app's
 keys and each consultant's calendar refresh token are handed to Recall.ai (one platform account,
-`lightmove.recall.*`), and the page says so before an admin enters their own app's keys.
+`uncava.recall.*`), and the page says so before an admin enters their own app's keys.
 **Routing (V107, #644)**: everything injects `RoutingMailboxGateway`, which answers each connection through
 the gateway that made it — read off the grant id, since ours are minted `direct:<provider>:<uuid>`
 (`MailboxGrants`), so a revoke after the row is gone still lands — and connects a new one through
-`lightmove.outreach.gateway` (`nylas`, the default, or `direct`, our own `DirectMailboxGateway` wherever one
+`uncava.outreach.gateway` (`nylas`, the default, or `direct`, our own `DirectMailboxGateway` wherever one
 covers the provider, Nylas the rest); a direct grant whose gateway the deployment lacks is refused, never
 handed to Nylas. A direct connection keeps the provider's **refresh token, encrypted** (bound to workspace
 and consultant), never logged or returned; `MailboxTokens` turns it into an access token through the
@@ -462,7 +462,7 @@ reconnect to the same mailbox — a reconnect at another host or address gets a 
 keeps the platform it was made for — deleted on a disconnect, a refused refresh or a switch to `DIRECT`
 (made again on a switch back); a failed create never fails the connect — the reply poll makes it, on
 V103's backoff, giving up after five until the mailbox reconnects. Recall's webhook
-(`/api/v1/outreach/webhooks/recall`, public, its Svix signature under `lightmove.recall.webhook-secret` the
+(`/api/v1/outreach/webhooks/recall`, public, its Svix signature under `uncava.recall.webhook-secret` the
 credential; blank refuses every delivery) reporting a calendar `disconnected` marks the mailbox `ERROR`, and its
 `calendar.sync_events` is a read of the events changed since (`GET /api/v2/calendar-events/`, only the `cursor` of
 its `next` link taken) fed to `MeetingSync` as a direct read would be — a deleted, cancelled or recurring one removed.
@@ -534,7 +534,7 @@ once more, invites whoever picked the time with the calendar's own video link, a
 IP and link (`booking-page-bookings-per-hour`, 5, for the write). A Nylas mailbox's link still opens Nylas's
 scheduler; `BOOKING_LINK_UNAVAILABLE` is no longer written.
 **An own app's secret expiry (#650, V111)**: `IntegrationSecretExpiryWarnings` runs daily
-(`lightmove.outreach.secret-expiry-check`, a UTC cron) and emails whoever holds `WORKSPACE_MANAGE` 30 and 7 days
+(`uncava.outreach.secret-expiry-check`, a UTC cron) and emails whoever holds `WORKSPACE_MANAGE` 30 and 7 days
 before an own app's `secret_expires_on` and on the day it lapses — each threshold once per expiry date
 (`secret_expiry_warned_days`, claimed by a conditional update committed before any email goes, so of two instances
 only one sends, and cleared when the date changes or the workspace returns to the shared app) — and the
@@ -571,7 +571,7 @@ is audited (`MAILBOX_TIME_ZONE_CHANGED`) and takes a region's zone or UTC only. 
 frozen email; a follow-up is rendered from the sequence as it stands and replies to the last message, which
 threads it. The first send moves Identified to Contacted, forward only. A reply or bounce arrives on the
 public `/api/v1/outreach/webhooks/mailbox`, whose HMAC signature is its credential
-(`lightmove.outreach.nylas.webhook-secret`; blank refuses every delivery), with a 15-minute poll of each
+(`uncava.outreach.nylas.webhook-secret`; blank refuses every delivery), with a 15-minute poll of each
 listening thread as the fallback; only who wrote into a thread is read, never what. A mail daemon's message
 is a bounce. Every email is an `app_lm_outreach_message` row (staff-only); every end is an
 `EMAIL_REPLIED` / `OUTREACH_STOPPED` line and an audit event (`OutreachOutcomes`). The Outreach page reads
@@ -588,7 +588,7 @@ consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slo
 re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
 `MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
 All `WORK_EXECUTE`. **The booking link (V104)** is `{{bookingLink}}`, offered only where the Nylas plan
-carries Scheduler (`lightmove.outreach.nylas.scheduler-enabled`; a sequence using it is refused otherwise,
+carries Scheduler (`uncava.outreach.nylas.scheduler-enabled`; a sequence using it is refused otherwise,
 `OUTREACH_BOOKING_LINK_UNAVAILABLE`): `<web.base-url>/book/<slug>`, the slug the consultant's name **plus
 eight random characters** — the page books without a session, so the link itself is the secret — unique,
 kept across a reconnect, and the one anchor `OutreachEmailBody` writes. A send never calls the mail service
@@ -621,7 +621,7 @@ reply, a bounce, a booked call — once per event (`rule_key`, unique), each swi
 due) into `app_lm_notification` rows after commit, each recipient re-checked first; rows of one `group_key` fold
 while unread; a row names a note and never quotes it; `core/stream`'s per-user channel (`lm_user_stream`,
 `/me/notifications/stream`) nudges the open tabs. Email goes only for an assignment or a mention still unread
-after `lightmove.notifications.email-delay`, and a weekday digest at 08:00 in the person's mailbox zone, each
+after `uncava.notifications.email-delay`, and a weekday digest at 08:00 in the person's mailbox zone, each
 claimed once. All of it is staff-only and rides no `CandidateResponse`, report, public API or MCP read.
 
 **A position is archived, never deleted** (V137): its lead alone — `PROJECT_ARCHIVE`, the one project action a
@@ -654,7 +654,7 @@ with their staff access; a workspace key reads its whole workspace. Each route r
 screens use and narrows to public DTOs: `contacts` and `compensation` only with their own scopes, a model's
 unconfirmed guess sent as null, and no note, AI assessment, `added_by` or custom field ever. Every read is
 audited (`PUBLIC_API_READ`), budgets are per key and per IP, spent before the database
-(`lightmove.public-api.*`, per instance), and `PUBLIC_API_ENABLED=false` answers 404 for all of it. The
+(`uncava.public-api.*`, per instance), and `PUBLIC_API_ENABLED=false` answers 404 for all of it. The
 contract is held by `docs/public-api/openapi.json`, which `PublicApiContractTest` regenerates and diffs, so a
 change to what integrations see is reviewed in its PR. `pairing` is the one place a stage's companies are
 paired with their executives — the talent map, the export and the public universe read all go through
@@ -683,7 +683,7 @@ public address only, checked on the addresses the connection dials, no redirect,
 `Cache-Control` lifetime (`ClientMetadataDocumentClients`: one fetch at a time per document, a failed one not retried
 for 5 minutes, a stale copy serving meanwhile). A redirect URI matches exactly, except a listener on this machine
 (`127.0.0.1`, `[::1]`, `localhost`) whose port may change; a private-use scheme is refused. The consent screen calls only
-a document under a listed URL prefix (`lightmove.mcp.verified-client-id-prefixes`) verified — a registration never is.
+a document under a listed URL prefix (`uncava.mcp.verified-client-id-prefixes`) verified — a registration never is.
 A client revokes its own grant at `/api/v1/oauth/revoke` (RFC 7009) with its id alone, budgeted per address, and that
 path never fetches a document.
 The **MCP server** itself (#703, `mcp`) is Spring AI's stateless Streamable HTTP transport at `/api/v1/mcp` behind its
@@ -694,12 +694,12 @@ neither and opens nothing; tools call services in-process, never passing a calle
 `McpCaller` in the MCP transport context, which every tool reads and runs through `McpToolCalls` — one `MCP_TOOL_CALL`
 audit line per call, never its arguments. RFC 9728 metadata is Spring Security's own at
 `/.well-known/oauth-protected-resource[/api/v1/mcp]`, and a 401 points at it. A browser `Origin` not on
-`lightmove.mcp.allowed-origins` (the deployment's own is always on it) is refused, by the endpoint's own CORS policy and
+`uncava.mcp.allowed-origins` (the deployment's own is always on it) is refused, by the endpoint's own CORS policy and
 by the transport; bodies are capped (read and replayed, so a body with no declared length is held too), calls are
 budgeted per grant or key, and an address only on its refused credentials — hosted clients call from shared egress, so
 an address budget on calls would let one tenant refuse the rest. Only `@McpTool` beans are served: Spring AI's
 `StatelessToolCallbackConverterAutoConfiguration`, which would publish every `ToolCallback` bean, is excluded on
-`LightMoveApplication`, and so is Spring AI's own tool list: `McpServerConfig` builds it from the same `@McpTool` beans
+`UncavaApplication`, and so is Spring AI's own tool list: `McpServerConfig` builds it from the same `@McpTool` beans
 with every tool behind `McpToolGuard`. The parity tools (#704) are `uncava_whoami`, `uncava_search_positions`,
 `uncava_get_position`, `uncava_list_companies`, `uncava_list_candidates` and `uncava_get_universe`; the task-shaped
 ones (#705) — `uncava_get_position_summary`, `uncava_get_candidate`, `uncava_get_company` and
@@ -716,7 +716,7 @@ and a key, which cannot step up, with an `isError` result naming them. Every fai
 Each tool declares an output schema and answers `structuredContent`, which the SDK validates and copies as text (a
 nullable enum is given null by `McpToolRegistry`, since the generator leaves it out). Rows are concise, or carry the
 whole public record as `detail` under `response_format=detailed`; lists page by an opaque offset `cursor`, and a page
-past `lightmove.mcp.max-result-chars` (about 25k tokens) is cut with a `notice` and reads on from its first left-out
+past `uncava.mcp.max-result-chars` (about 25k tokens) is cut with a `notice` and reads on from its first left-out
 row. What clients are told is `docs/mcp/tools.json`, which `McpToolContractTest` regenerates and diffs.
 **Shipping it (#708)**: `docs/mcp.md` is the user's guide — connecting Claude, ChatGPT, Cursor and the APIs, the tools,
 scopes, limits and errors — and the SPA draws it, public, at `/docs/mcp` (`features/docs`, its maintainers' section cut
@@ -765,7 +765,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 
 | Skill | Load before |
 |---|---|
-| `lightmove-domain` | **any** auth / signup / OAuth / workspace / membership / invitation / RBAC / client-representative / verification work |
+| `uncava-domain` | **any** auth / signup / OAuth / workspace / membership / invitation / RBAC / client-representative / verification work |
 | `java-spring-development` | any backend code — architecture, conventions, Boot 4 notes, and the backend traps live there |
 | `react` | any frontend code — real stack, conventions, and the frontend traps live there |
 | `chrome-extension` | any work in `apps/extension`, on `/api/v1/auth/extension`, or on the SPA's `/extension/connect` |
@@ -773,7 +773,7 @@ its area — the invariants below are the summary; the skills hold the rationale
 | `pr-cleanup` | addressing PR review feedback |
 | `verify` | running the app end-to-end |
 
-## Security invariants (one line each — full rationale in `lightmove-domain`)
+## Security invariants (one line each — full rationale in `uncava-domain`)
 
 - Identity is a **work email**; the domain signals the firm but is **not** unique — a domain does not own a workspace.
 - **Membership is invitation-only**; the one second door is a staff member naming a client representative.
@@ -859,7 +859,7 @@ its own mark rather than an initials tile.
 pair ever asked for, with the point Mapbox gave it or null for a stored miss. **Deliberately not
 tenant-scoped** — a centroid is not client data and carries no PII — and never written by Hibernate:
 `GeocodedPlaceStore` upserts on `place_key` so two reads racing on one city land on one row. A row is
-re-asked after `lightmove.mapbox.cache-ttl` unless the account holds Mapbox's permanent-geocoding
+re-asked after `uncava.mapbox.cache-ttl` unless the account holds Mapbox's permanent-geocoding
 entitlement (`permanent-geocoding: true`), because their terms forbid storing a temporary result
 indefinitely.
 `app_lm_person_contact` (V91, V54's `app_lm_candidate_contact` keyed on the person) is every email and
@@ -899,7 +899,7 @@ row is one firm's own research and stays in `app_lm_project_triage_company`; thi
 `workspace_id`, `project_id` or `added_by`, and who captured a company is in the audit trail.
 `CompanyResearch` reads it before calling the vendor and writes it after, so
 `TriageCompanyService.applyEnrichment` is unchanged: a cache hit fills the same `CapturedCompanyDetails`
-a fresh call would. A row is re-asked after `lightmove.enrichment.company-cache-ttl`, and a LinkedIn
+a fresh call would. A row is re-asked after `uncava.enrichment.company-cache-ttl`, and a LinkedIn
 *search* URL never reaches the table — `LinkedInUrls.companySlugOrNull` answers null and there is
 nothing to key it on.
 V56 adds `app_lm_project_candidate.gender` (`FEMALE | MALE | OTHER`), nullable with no default:
@@ -922,7 +922,7 @@ them with no vendor call, and otherwise reads back the fitting people on file at
 asks the vendor only for the rest with every person on file excluded (`linkedin_id not_in`, nested in
 an `and` to stay under four rules a group) — a returned record is billed whether or not it was new.
 `BrightDataProfileEnricher` reads the same table first, so a capture of someone a run bought is free.
-Both age out after `lightmove.enrichment.people-cache-ttl` (30d), and every billed call purges what
+Both age out after `uncava.enrichment.people-cache-ttl` (30d), and every billed call purges what
 has aged past it (V89 indexes `fetched_at` for that), so a third party's record is never held longer
 than it may be read. The exclusion is the employer's
 people on file, never a mandate's own roster: the answer is shared by every workspace.
@@ -990,7 +990,7 @@ and, on a metadata document's client alone (CHECK), `metadata_fetched_at` and `m
 V117 adds `mcp:use` to `app_lm_api_key`'s scopes CHECK: the opt-in that lets a key reach the MCP server.
 V120 adds `app_lm_assistant_turn.questions` jsonb — the clarifying questions an assistant answer asked through
 `spring-ai-agent-utils`' `AskUserQuestionTool` in place of answering. The questions are recorded and the model told
-to stop (`AskUserQuestionCallback`), never waited on, since an ask is one request with a deadline (`lightmove.assistant.answer-deadline`); the consultant's choices
+to stop (`AskUserQuestionCallback`), never waited on, since an ask is one request with a deadline (`uncava.assistant.answer-deadline`); the consultant's choices
 are the chat's next question (`docs/assistant-tools.md`).
 V121 is billing's first (epic #734): the plan catalogue (`app_lm_billing_plan`, Core / Pro / Enterprise priced per
 staff seat), one `app_lm_workspace_subscription` per workspace (every existing one backfilled Core, `INVOICED`, a seat per
@@ -998,9 +998,9 @@ active staff member), and the contact-credit ledger — `app_lm_credit_grant` bu
 then bought; soonest expiry first), `app_lm_credit_hold` (one per paid action, unique on its idempotency key per
 workspace), `app_lm_credit_entry` (append-only by trigger, and by `harden.sql` like the audit trail) and
 `app_lm_credit_balance`, the per-workspace sum of the entries whose row every ledger write locks first.
-`CreditLedger` is the only door; `lightmove.billing.enforce` (on since #741; the test profile turns it off) refuses a
+`CreditLedger` is the only door; `uncava.billing.enforce` (on since #741; the test profile turns it off) refuses a
 spend the credits cannot cover with 402 `INSUFFICIENT_CREDITS`, and off records it as an overdraft. Every ledger write expires the workspace's lapsed grants first (an `EXPIRE` line,
-never a delete), and `CreditLedgerSweeper` (`lightmove.billing.sweep-interval`) does the same for idle workspaces and
+never a delete), and `CreditLedgerSweeper` (`uncava.billing.sweep-interval`) does the same for idle workspaces and
 releases holds nobody settled within `hold-ttl`. Billing's foreign keys to the workspace do not cascade: a financial record outlives it.
 A Find email or Find phone press (#737) holds its price before ContactOut is asked — keyed on the person, the channel
 and how many of their holds were released before (V122 indexes that count), so presses in flight together share one
@@ -1010,11 +1010,11 @@ Search and AI carry no price (#738): V123's `app_lm_usage_event` records each us
 the work succeeds (`UsageRecorder`) — a People Search page the first time *this workspace* reads it, bought or cached;
 a Find executives run's filed executives; a Suggest with AI or Assess with AI press; the people an opener was written for; an assistant
 ask, whose turn also keeps its model and tokens (V123 re-adds the columns V70 dropped). `FairUseGuard` refuses a use that would pass the
-month's ceiling — staff seats × `lightmove.billing.fair-use.<kind>-per-seat`, `0` for none — with 429
+month's ceiling — staff seats × `uncava.billing.fair-use.<kind>-per-seat`, `0` for none — with 429
 `FAIR_USE_REACHED` (`kind`, `resetsAt`), after `LlmBudgetGuard` and before any vendor or model is asked.
 **The billing month** (`BillingMonth`) is what both run over: monthly steps from the subscription's period start, so a
 yearly plan still resets monthly, or the UTC calendar month without one. `MonthlyCreditReset` (#740,
-`lightmove.billing.jobs.monthly-reset`, hourly) grants each live plan its month's credits expiring with the month —
+`uncava.billing.jobs.monthly-reset`, hourly) grants each live plan its month's credits expiring with the month —
 no rollover, the ledger expiring the old grant first — keyed `plan:<workspace>:<month start>`, the key Stripe's
 `invoice.paid` will use, so neither grants a month twice. Every spend claims the 80%, 90% and used-up thresholds of
 the month's plan credits it reached (V124 `app_lm_credit_threshold_crossing`, under the balance lock) and publishes
@@ -1024,7 +1024,7 @@ that must run once across instances claims an `app_lm_billing_job_run` row first
 `GET /api/v1/billing` and `…/billing/usage` (#741) are Settings → Billing's reads, any staff member's and a 404 to a
 pure client: the plan, seats and seat price, the credits (`monthly`, `left`, `bought`, `given`, `usedPercent`,
 `level`, `resetsAt`), the prices, and this billing month's finds and credits per member. `GrandfatherCredits` gives
-every workspace that exists the first time a release boots with enforcement on `lightmove.billing.grandfather.credits`
+every workspace that exists the first time a release boots with enforcement on `uncava.billing.grandfather.credits`
 promotional credits, keyed `grandfather:<workspace>`, under a job claim nothing prunes, so none founded later gets them.
 The SPA's `features/billing` (#742) draws them as Settings → Billing (`Billing.dc.html`, every staff member's; seats and
 more credits an admin's) and as the topbar chip, absent below 80%. Every refused request passes `apiClient`'s
@@ -1032,7 +1032,7 @@ more credits an admin's) and as the topbar chip, absent below 80%. Every refused
 (`BillingRefusalSheets`, mounted once in `main.tsx`) and its caller stays quiet (`isBillingRefusal`). Prices on the
 Find buttons are the read's `prices`, never literals; search carries none.
 **Stripe (#743, V125)** is `billing/payment`'s `PaymentGateway` (`StripePaymentGateway` over `stripe-java`, whose
-release pins the API version the webhook endpoint must be made on; a blank `lightmove.billing.stripe.secret-key` leaves
+release pins the API version the webhook endpoint must be made on; a blank `uncava.billing.stripe.secret-key` leaves
 `UnconfiguredPaymentGateway`, every workspace invoiced and `stripeOffered` false). An admin (`BILLING_MANAGE`, audited)
 is sent to Checkout for a per-seat plan — quantity the workspace's staff, the price id a deployment's
 (`…stripe.prices.*`, test and live differ) — or a pack (`…billing.packs`), or to the Customer Portal, which is where a
@@ -1056,12 +1056,12 @@ transaction and, once that commits, `StripeSeatSync` sets the subscription's qua
 removed one billing no more from the next invoice), grants each added seat its share of the month's credits for the time
 left (`seat:<workspace>:<month>:<seat number>`, so a seat removed and refilled in one month is granted once), audits
 `SEAT_ADDED`/`SEAT_REMOVED` and clears the mark — unless the staff moved again meanwhile. A sync Stripe refuses leaves
-the membership as it is and the mark for `lightmove.billing.jobs.seat-sync`.
+the membership as it is and the mark for `uncava.billing.jobs.seat-sync`.
 **Billing emails (#745, V127)** go to a workspace's `BILLING_MANAGE` holders alone — members see the chip and the
 banner — from `billing/notice`'s `BillingNotices`, after the commit that caused them: a threshold crossing (80%, 90%,
 used up; V124's row is the claim, so concurrent spends send one email per admin) offers Buy more credits to a
-Stripe-billed workspace and Contact Uncava (`lightmove.billing.contact-email`, which `GET /billing` also carries as `contactEmail` for every Contact Uncava link in the SPA) to an invoiced one; a failed invoice (`SubscriptionPaymentFailed`) and bought
-credits lapsing within a week (`lightmove.billing.jobs.purchased-credit-expiry`, daily) are each claimed in
+Stripe-billed workspace and Contact Uncava (`uncava.billing.contact-email`, which `GET /billing` also carries as `contactEmail` for every Contact Uncava link in the SPA) to an invoiced one; a failed invoice (`SubscriptionPaymentFailed`) and bought
+credits lapsing within a week (`uncava.billing.jobs.purchased-credit-expiry`, daily) are each claimed in
 `app_lm_billing_notice` (per invoice, per grant) in a transaction of their own before anything is sent, so a replayed
 or retried event, or a second instance, sends nothing more.
 **Buying (#747)**: `GET /billing` also carries the catalogue an admin may buy — `plans` (per-seat prices, credits per
@@ -1078,7 +1078,7 @@ or a deployment without Stripe, gets Contact Uncava in place of every buying con
 staff seat adds to a Stripe bill (`SeatCostNotice`) and, on a card, asks before sending: the seat's price, about what
 Stripe charges at once for the rest of the period, and the bill after (`SeatChargeConfirm`, `seatChargeOf`).
 **Trial (#771, V128)**: founding a workspace (`OnboardingService` → `billing/trial`'s `WorkspaceTrials`, in the same
-transaction) puts it on Pro, `TRIALING`, until `trial_ends_at` (`lightmove.billing.trial.length`, 14d) with a `PLAN` grant
+transaction) puts it on Pro, `TRIALING`, until `trial_ends_at` (`uncava.billing.trial.length`, 14d) with a `PLAN` grant
 of `trial.credits` (50) keyed `trial:<workspace>` and expiring with it — no card, no Stripe, no seats of its own (fair use
 counts the staff) and no monthly reset. One trial per founder (`trial_started_by`): their next workspace starts ended.
 Once an app trial ends unpaid, `TrialGate` — asked first by `CreditLedger.hold`/`charge` and `FairUseGuard.check`, so

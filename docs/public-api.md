@@ -181,7 +181,7 @@ npx @openapitools/openapi-generator-cli generate \
   pipeline can never rewrite the file it checks.
 - **Kill switch:** the repository variable `PUBLIC_API_ENABLED=false` (`deploy.yml`) makes every public route
   answer 404, its docs included. Existing keys are kept and work again once it is turned back on.
-- **Limits:** set by `lightmove.public-api.*`: the default and maximum key lifetime, the per-user key ceiling,
+- **Limits:** set by `uncava.public-api.*`: the default and maximum key lifetime, the per-user key ceiling,
   and the two per-minute budgets.
 - **Secret scanning:** register a GitHub secret-scanning custom pattern for the key format, so a committed key
   is flagged. Use the pattern `uncava_(pat|svc)_[0-9A-Za-z]{49}`, under *Settings → Code security → Secret

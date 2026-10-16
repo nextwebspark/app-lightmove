@@ -1,0 +1,51 @@
+package app.uncava.api.workspace.service;
+
+import java.text.Normalizer;
+import java.util.Locale;
+import java.util.function.Predicate;
+
+/** Turns a workspace name into its URL-safe slug. */
+final class SlugGenerator {
+
+    private static final int MAX_LENGTH = 40;
+    private static final int MAX_ATTEMPTS = 100;
+
+    private SlugGenerator() {
+    }
+
+    /** @param isTaken asked per candidate; the generator suffixes -2, -3 … until one is free */
+    static String from(String name, Predicate<String> isTaken) {
+        String base = slugify(name);
+        if (base.isEmpty()) {
+            base = "workspace";
+        }
+
+        if (!isTaken.test(base)) {
+            return base;
+        }
+
+        for (int suffix = 2; suffix < MAX_ATTEMPTS; suffix++) {
+            String candidate = "%s-%d".formatted(base, suffix);
+            if (!isTaken.test(candidate)) {
+                return candidate;
+            }
+        }
+
+        // Silently reusing a taken slug would hand one workspace's URL to another. Fail instead.
+        throw new IllegalStateException("Could not find a free slug for: " + name);
+    }
+
+    /** Strips accents first, so "Zürich" becomes "zurich" rather than a few surviving letters. */
+    private static String slugify(String name) {
+        String normalised = Normalizer.normalize(name == null ? "" : name, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "");
+
+        String slug = normalised.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+
+        return slug.length() > MAX_LENGTH
+                ? slug.substring(0, MAX_LENGTH).replaceAll("-+$", "")
+                : slug;
+    }
+}

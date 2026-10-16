@@ -82,7 +82,7 @@ ARG GIT_SHA
 ENV APP_VERSION=$APP_VERSION
 LABEL org.opencontainers.image.version="$APP_VERSION"
 LABEL org.opencontainers.image.revision="$GIT_SHA"
-LABEL org.opencontainers.image.source="https://github.com/nextwebspark/app-lightmove"
+LABEL org.opencontainers.image.source="https://github.com/nextwebspark/app-uncava"
 
 # MaxRAMPercentage, not -Xmx: the JVM should size itself from the memory Cloud Run actually gave the
 # container, which changes with --memory and is not knowable here.

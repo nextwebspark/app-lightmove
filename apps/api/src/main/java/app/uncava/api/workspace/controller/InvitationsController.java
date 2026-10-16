@@ -1,0 +1,98 @@
+package app.uncava.api.workspace.controller;
+
+import app.uncava.api.core.security.model.AuthPrincipal;
+import app.uncava.api.core.security.model.User;
+import app.uncava.api.core.security.rbac.RequireWorkspacePermission;
+import app.uncava.api.core.security.rbac.WorkspaceAction;
+import app.uncava.api.core.security.rbac.WorkspaceRole;
+import app.uncava.api.core.security.repository.UserRepository;
+import app.uncava.api.workspace.dto.InvitationResponse;
+import app.uncava.api.workspace.dto.InviteRequest;
+import app.uncava.api.workspace.model.Invitation;
+import app.uncava.api.workspace.model.InviteCommand;
+import app.uncava.api.workspace.service.InvitationService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * Outstanding invitations, gated on MEMBER_INVITE but for their count. The service keeps imperative checks too, being
+ * reachable from the anonymous accept-invitation-signup path.
+ */
+@RestController
+@RequestMapping("/api/v1/invitations")
+@RequiredArgsConstructor
+public class InvitationsController {
+
+    private final InvitationService invitations;
+    private final UserRepository users;
+
+    @GetMapping
+    @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)
+    public List<InvitationResponse> pending(@AuthenticationPrincipal AuthPrincipal principal) {
+        List<Invitation> pending = invitations.pending(principal.userId(), principal.requireWorkspaceId());
+
+        Map<UUID, String> inviterNames = users
+                .findAllById(pending.stream().map(Invitation::getInvitedBy).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+
+        return pending.stream()
+                .map(inv -> new InvitationResponse(inv.getId(), inv.getEmail(),
+                        WorkspaceRole.valueOf(inv.getRole().getName()),
+                        inviterNames.get(inv.getInvitedBy()), inv.getCreatedAt(), inv.getExpiresAt()))
+                .toList();
+    }
+
+    /**
+     * How many colleagues have been asked in and not yet answered — for the Team page every staff member reads.
+     * A count and nothing more: who was invited stays with whoever may invite.
+     */
+    @GetMapping("/pending-count")
+    @PreAuthorize("@workspaceAuthorizer.staff(principal)")
+    public Map<String, Long> pendingCount(@AuthenticationPrincipal AuthPrincipal principal) {
+        return Map.of("count", invitations.countPendingStaff(principal.requireWorkspaceId()));
+    }
+
+    @PostMapping
+    @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)
+    public Map<String, Integer> invite(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @RequestBody List<@Valid InviteRequest> requests,
+                                       HttpServletRequest httpRequest) {
+        List<Invitation> sent = invitations.invite(principal,
+                requests.stream().map(r -> new InviteCommand(r.email(), r.role())).toList(),
+                httpRequest);
+        return Map.of("sent", sent.size());
+    }
+
+    @PostMapping("/{invitationId}/resend")
+    @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resend(@AuthenticationPrincipal AuthPrincipal principal,
+                       @PathVariable UUID invitationId, HttpServletRequest httpRequest) {
+        invitations.resend(principal.userId(), principal.requireWorkspaceId(), invitationId, httpRequest);
+    }
+
+    @DeleteMapping("/{invitationId}")
+    @RequireWorkspacePermission(WorkspaceAction.MEMBER_INVITE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revoke(@AuthenticationPrincipal AuthPrincipal principal,
+                       @PathVariable UUID invitationId, HttpServletRequest httpRequest) {
+        invitations.revoke(principal.userId(), principal.requireWorkspaceId(), invitationId, httpRequest);
+    }
+}

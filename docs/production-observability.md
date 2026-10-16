@@ -165,7 +165,7 @@ already on the classpath and `StructuredArguments.kv` is what it is for — over
 `log.info("Moved company {} to {}", id, stage)`. The second reads better in a terminal; the first is
 the one you can group by at 2am.
 
-**What must never be logged.** This is a legal requirement here, not hygiene. LightMove stores personal
+**What must never be logged.** This is a legal requirement here, not hygiene. Uncava stores personal
 data about executives who never consented to anything — names, employers, career history, salary bands.
 Never log:
 
@@ -248,9 +248,9 @@ slow request in Tempo, jump to its logs in Loki, jump to the flame graph in Pyro
 Loki's per-user drill-down is a LogQL query, and it is genuinely this small:
 
 ```logql
-{service_name="lightmove-api"} | json | userId="…" | line_format "{{.message}}"
-{service_name="lightmove-api"} | json | severity="ERROR" | workspaceId="…"
-{service_name="lightmove-api"} | json | correlationId="a3f9…"
+{service_name="uncava-api"} | json | userId="…" | line_format "{{.message}}"
+{service_name="uncava-api"} | json | severity="ERROR" | workspaceId="…"
+{service_name="uncava-api"} | json | correlationId="a3f9…"
 ```
 
 **How to run it — start hosted, self-host if the bill or the policy demands it.** Two honest options:

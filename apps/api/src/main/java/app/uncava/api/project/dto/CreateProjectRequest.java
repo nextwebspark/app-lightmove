@@ -1,0 +1,34 @@
+package app.uncava.api.project.dto;
+
+import app.uncava.api.core.validation.PlausibleDate;
+import app.uncava.api.project.constant.ProjectType;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.time.LocalDate;
+import java.util.UUID;
+
+/** The creator becomes the project's lead. {@code targetDate} is the brief's hire date, not the timeline. */
+public record CreateProjectRequest(
+        @NotNull(message = "Choose who the position is for")
+        UUID clientId,
+
+        @NotBlank(message = "Enter the position title")
+        @Size(max = 160, message = "That title is too long")
+        String positionTitle,
+
+        @PlausibleDate LocalDate targetDate,
+
+        ProjectType projectType,
+
+        @PlausibleDate LocalDate startDate,
+
+        @PlausibleDate LocalDate deliveryDate,
+
+        @PlausibleDate LocalDate mappingTargetDate
+) {
+    /** A caller that names no type gets the column's default, so every pre-V73 client keeps working. */
+    public CreateProjectRequest {
+        projectType = projectType == null ? ProjectType.SEARCH : projectType;
+    }
+}

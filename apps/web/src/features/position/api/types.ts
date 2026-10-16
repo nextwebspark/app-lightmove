@@ -115,7 +115,7 @@ export type PositionDiscipline =
 
 /**
  * One option in the role-title type-ahead: a template the brief can be drafted from. `shared` is the
- * LightMove library; the rest are the workspace's own and lead the list.
+ * Uncava library; the rest are the workspace's own and lead the list.
  */
 export interface PositionTemplate {
   id: string;

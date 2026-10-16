@@ -39,7 +39,7 @@ spring:
     placeholders:
       iam_user: ""
 
-lightmove:
+uncava:
   # Scheduled jobs are driven by the tests that cover them, never by a timer.
   scheduling:
     enabled: false
@@ -156,5 +156,5 @@ management:
 
 logging:
   level:
-    app.lightmove.api: INFO
+    app.uncava.api: INFO
     org.hibernate.SQL: WARN

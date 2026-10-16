@@ -27,11 +27,11 @@ chatClient.prompt().advisors(guardedAdvisors).system(prompt).call().content();
 ```
 
 - **`SafeGuardAdvisor`** refuses text that reads like an instruction before the call is made. The
-  phrases are configuration (`lightmove.llm.injection-phrases`), not constants in whichever service
+  phrases are configuration (`uncava.llm.injection-phrases`), not constants in whichever service
   needed them first, and a prompt with dangerous vocabulary of its own **adds** to the baseline through
   `spec.alsoRefusing(...)` rather than replacing it.
 - **`StructuredOutputValidationAdvisor`**, only when the spec carries a schema. It validates the reply
-  and re-prompts with the validation error attached, `lightmove.llm.answer-repair-attempts` times
+  and re-prompts with the validation error attached, `uncava.llm.answer-repair-attempts` times
   (default 1 — its own default of 3 means four paid calls). A prompt that answers in prose supplies no
   schema and gets no validator.
 - **The prompt id** in the advisor context, so the log line says which feature made the call.
@@ -110,7 +110,7 @@ more, but no trust decision may rest on it.
 
 ### Bounding the call
 
-- **Timeout** through the provider's own `HttpOptions.timeout` (`lightmove.llm.request-timeout-ms`,
+- **Timeout** through the provider's own `HttpOptions.timeout` (`uncava.llm.request-timeout-ms`,
   default 40s). **Chat only.** Embeddings never touch this `Client`:
   `GoogleGenAiEmbeddingConnectionAutoConfiguration` builds its own connection details from
   `spring.ai.google.genai.embedding.*`, with no timeout and no seam this bean reaches. So

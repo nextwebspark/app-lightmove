@@ -1,4 +1,4 @@
-import type { LightMoveApiClient } from "./lightMoveApiClient";
+import type { UncavaApiClient } from "./uncavaApiClient";
 import type { CapturedCandidate, SaveCandidateRequest } from "./types";
 
 /**
@@ -7,7 +7,7 @@ import type { CapturedCandidate, SaveCandidateRequest } from "./types";
  * than merged.
  */
 export function captureCandidate(
-  api: LightMoveApiClient,
+  api: UncavaApiClient,
   projectId: string,
   candidate: SaveCandidateRequest,
 ): Promise<CapturedCandidate> {
@@ -19,7 +19,7 @@ export function captureCandidate(
 
 /** Undoes a capture: removes the person from the mandate. */
 export function removeCandidate(
-  api: LightMoveApiClient,
+  api: UncavaApiClient,
   projectId: string,
   candidateId: string,
 ): Promise<void> {

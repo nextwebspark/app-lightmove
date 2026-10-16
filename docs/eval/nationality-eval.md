@@ -1,6 +1,6 @@
 # Nationality and seniority eval
 
-Written by `NationalityEval` (`apps/api/src/test/java/app/lightmove/api/eval`). Every run appends one
+Written by `NationalityEval` (`apps/api/src/test/java/app/uncava/api/eval`). Every run appends one
 section. It holds counts only: no name, and no line of anybody's profile.
 
 - **baseline**: the single AI enrichment call as it shipped before #563. It always answers, states no

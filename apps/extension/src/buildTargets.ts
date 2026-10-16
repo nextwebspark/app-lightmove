@@ -23,7 +23,7 @@ export const DEVELOPMENT_WORKSPACE_ORIGIN = "http://localhost:5173";
  * there is no deployed domain yet. A build carrying it is not shippable; CI warns rather than failing,
  * and `build:release` refuses outright.
  */
-export const PLACEHOLDER_WORKSPACE_ORIGIN = "https://app.lightmove.io.example";
+export const PLACEHOLDER_WORKSPACE_ORIGIN = "https://app.uncava.io.example";
 
 /**
  * Resolves the origin this build points at. Called from `vite.config.ts`, which then both writes it

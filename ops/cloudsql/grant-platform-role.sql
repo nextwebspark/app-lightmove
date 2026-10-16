@@ -1,4 +1,4 @@
--- Grants or revokes a LightMove platform role (V57) for one existing account. Driven by
+-- Grants or revokes an Uncava platform role (V57) for one existing account. Driven by
 -- grant-platform-role.sh, which passes :email, :role (SUPER_ADMIN), :mode ('grant' or 'revoke') and
 -- :operator, the person running it.
 --
@@ -30,7 +30,7 @@ DECLARE
 BEGIN
     SELECT id INTO target_user FROM app_lm_user WHERE email = target_email;
     IF target_user IS NULL THEN
-        RAISE EXCEPTION 'No LightMove account for %. They must sign up (or accept an invitation) first.', target_email;
+        RAISE EXCEPTION 'No Uncava account for %. They must sign up (or accept an invitation) first.', target_email;
     END IF;
 
     SELECT id INTO target_role FROM app_lm_role WHERE scope = 'PLATFORM' AND name = role_name;

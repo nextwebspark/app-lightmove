@@ -28,14 +28,14 @@ spring:
     exclude:
       - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
 
-lightmove:
+uncava:
   llm:
     enabled: false
 
   auth:
     # The matrix creates dozens of accounts in a row and would otherwise be locked out by its own
     # fourth case. Note 07-rate-limits.sh reboots with tightened budgets to test the limiter for real —
-    # env vars named for the property itself (LIGHTMOVE_AUTH_RATE_LIMIT_...) outrank these.
+    # env vars named for the property itself (UNCAVA_AUTH_RATE_LIMIT_...) outrank these.
     rate-limit:
       signup-attempts-per-hour: 100
       login-attempts-per-minute: 100
@@ -64,7 +64,7 @@ lightmove:
     ai-enrich-on-capture: false
 
   email:
-    # up.sh forces LIGHTMOVE_EMAIL_PROVIDER=log on top of this and refuses to continue unless the
+    # up.sh forces UNCAVA_EMAIL_PROVIDER=log on top of this and refuses to continue unless the
     # startup banner confirms it. Stated here too so the profile is correct on its own: a run that
     # mails real people is the one failure mode this suite must never have.
     provider: log
@@ -72,7 +72,7 @@ lightmove:
 logging:
   level:
     # 08-email-outage.sh asserts against the API log, and several cases grep it for the mail body.
-    app.lightmove.api: DEBUG
+    app.uncava.api: DEBUG
 
 management:
   server:

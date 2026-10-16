@@ -1,0 +1,18 @@
+package app.uncava.api.project.dto;
+
+import app.uncava.api.project.constant.ProjectHealth;
+import app.uncava.api.project.constant.ProjectStage;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
+
+/** A mandate as the client drawer lists it — enough to render the row and open the project, archived ones too. */
+public record ClientMandateResponse(
+        UUID id,
+        String positionTitle,
+        ProjectStage stage,
+        ProjectHealth health,
+        String leadName,
+        LocalDate targetDate,
+        Instant archivedAt
+) {}

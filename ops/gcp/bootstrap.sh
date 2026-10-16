@@ -15,7 +15,7 @@ set -euo pipefail
 
 PROJECT="${GCP_PROJECT:-hak-talent-mapping}"
 REGION="${GCP_REGION:-us-central1}"
-REPO="${GITHUB_REPO:-nextwebspark/app-lightmove}"
+REPO="${GITHUB_REPO:-nextwebspark/app-uncava}"
 
 SERVICE="lightmove"
 AR_REPO="lightmove"
@@ -59,7 +59,7 @@ if gcloud artifacts repositories describe "$AR_REPO" --location="$REGION" --proj
 else
     gcloud artifacts repositories create "$AR_REPO" \
         --repository-format=docker --location="$REGION" --project="$PROJECT" \
-        --description="LightMove application images"
+        --description="Uncava application images"
 fi
 
 # Images are tagged by git SHA and never reused, so without this the repository grows without bound and
@@ -87,7 +87,7 @@ rm -f /tmp/lm-cleanup.json
 # container inherits; it must not be able to deploy, and it must not be the project's default compute
 # account, which carries Editor.
 say "Service accounts"
-for pair in "$RUNTIME_SA:LightMove Cloud Run runtime" "$DEPLOY_SA:LightMove GitHub Actions deployer"; do
+for pair in "$RUNTIME_SA:Uncava Cloud Run runtime" "$DEPLOY_SA:Uncava GitHub Actions deployer"; do
     sa="${pair%%:*}"; desc="${pair#*:}"
     if gcloud iam service-accounts describe "${sa}@${PROJECT}.iam.gserviceaccount.com" --project="$PROJECT" &>/dev/null; then
         echo "  ✓ $sa exists"
@@ -205,7 +205,7 @@ if gcloud iam workload-identity-pools providers describe "$PROVIDER" \
 else
     gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" \
         --workload-identity-pool="$POOL" --location=global --project="$PROJECT" \
-        --display-name="LightMove (app-lightmove)" \
+        --display-name="Uncava (app-uncava)" \
         --issuer-uri="https://token.actions.githubusercontent.com" \
         --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
         --attribute-condition="assertion.repository == '${REPO}'"

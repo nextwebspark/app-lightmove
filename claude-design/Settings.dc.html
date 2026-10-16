@@ -1797,7 +1797,7 @@ class Component extends DCLogic {
 
     this.importPlans = {
       workspace: [
-        { file: 'lightmove-position-templates.json', rows: [
+        { file: 'uncava-position-templates.json', rows: [
           { code: null, title: 'Head of Treasury', action: 'CREATE', problems: [] },
           { code: 'head-of-energy-transition', title: 'Head of Energy Transition', action: 'UPDATE', problems: [] },
           { code: 'chief-operating-officer', title: 'Chief Operating Officer', action: 'CUSTOMISE', problems: [] },
@@ -1807,7 +1807,7 @@ class Component extends DCLogic {
             { field: 'body.currency', message: 'Use a three-letter currency code' },
           ] },
         ] },
-        { file: 'lightmove-position-templates.json', rows: [
+        { file: 'uncava-position-templates.json', rows: [
           { code: null, title: 'Head of Treasury', action: 'CREATE', problems: [] },
           { code: 'head-of-energy-transition', title: 'Head of Energy Transition', action: 'UPDATE', problems: [] },
           { code: 'chief-operating-officer', title: 'Chief Operating Officer', action: 'CUSTOMISE', problems: [] },
@@ -1815,7 +1815,7 @@ class Component extends DCLogic {
         ] },
       ],
       library: [
-        { file: 'lightmove-template-library.json', rows: [
+        { file: 'uncava-template-library.json', rows: [
           { code: null, title: 'Chief Sustainability Officer', action: 'CREATE', problems: [] },
           { code: 'chief-financial-officer', title: 'Chief Financial Officer', action: 'UPDATE', problems: [] },
           { code: 'chief-executive-officer', title: 'Chief Executive Officer', action: 'UNCHANGED', problems: [] },
@@ -1823,7 +1823,7 @@ class Component extends DCLogic {
             { field: 'seniority', message: 'Must be one of BOARD, C_SUITE, N_MINUS_1, N_MINUS_2, N_MINUS_3' },
           ] },
         ] },
-        { file: 'lightmove-template-library.json', rows: [
+        { file: 'uncava-template-library.json', rows: [
           { code: null, title: 'Chief Sustainability Officer', action: 'CREATE', problems: [] },
           { code: 'chief-financial-officer', title: 'Chief Financial Officer', action: 'UPDATE', problems: [] },
           { code: 'chief-executive-officer', title: 'Chief Executive Officer', action: 'UNCHANGED', problems: [] },
@@ -1971,7 +1971,7 @@ class Component extends DCLogic {
 
   reviserOf(scope, r) {
     if (r.revisedBy) return r.revisedBy;
-    return scope === 'workspace' && (r.origin === 'LIBRARY' || r.origin === 'HIDDEN') ? 'LightMove' : null;
+    return scope === 'workspace' && (r.origin === 'LIBRARY' || r.origin === 'HIDDEN') ? 'Uncava' : null;
   }
 
   badgeOf(scope, r) {
@@ -2170,7 +2170,7 @@ class Component extends DCLogic {
     });
     const scopeNote = scope === 'library'
       ? "Changes here reach every workspace that hasn't customised the template. Workspaces with their own copy keep it and are told the library moved on. Mandates already drafted never change."
-      : 'Your firm starts from the LightMove library. Edit any template to make it your own — library updates stop reaching your copy until you reset it. Mandates already drafted never change.';
+      : 'Your firm starts from the Uncava library. Edit any template to make it your own — library updates stop reaching your copy until you reset it. Mandates already drafted never change.';
 
     // Editor
     const ev = {};
@@ -2191,19 +2191,19 @@ class Component extends DCLogic {
       let banner;
       if (!detail) banner = scope === 'library' ? ['sky', 'A new library template. Once saved, every workspace sees it in the picker.'] : ['plain', 'A new template for your firm only.'];
       else if (scope === 'library') {
-        if (detail.fallback) banner = ['sky', "LightMove library — and the fallback: a role title no keyword matches is drafted from this template, so it can't be archived."];
+        if (detail.fallback) banner = ['sky', "Uncava library — and the fallback: a role title no keyword matches is drafted from this template, so it can't be archived."];
         else if (!detail.active) banner = ['plain', 'Archived. No workspace sees it in the picker or matches a title against it until it is restored. Workspace copies are unaffected.'];
         else {
           const k = detail.copies || 0;
           const keeping = k === 0 ? '' : ' — ' + k + ' workspace' + (k === 1 ? ' has its' : 's have their') + ' own copy and keep' + (k === 1 ? 's' : '') + ' it';
-          banner = ['sky', "LightMove library. Saving updates every workspace that hasn't customised this template" + keeping + '. Mandates already drafted never change.'];
+          banner = ['sky', "Uncava library. Saving updates every workspace that hasn't customised this template" + keeping + '. Mandates already drafted never change.'];
         }
       } else {
         banner = {
-          CUSTOMISED: detail.libUpdated ? ['amber', "Your firm's copy. LightMove has updated the library version since you customised it. Reset to take the new version, or keep yours."] : ['plain', "Your firm's copy of a library template. Library updates don't reach it until you reset."],
-          OWN: ['plain', "Your firm's own template — it isn't in the LightMove library."],
+          CUSTOMISED: detail.libUpdated ? ['amber', "Your firm's copy. Uncava has updated the library version since you customised it. Reset to take the new version, or keep yours."] : ['plain', "Your firm's copy of a library template. Library updates don't reach it until you reset."],
+          OWN: ['plain', "Your firm's own template — it isn't in the Uncava library."],
           HIDDEN: ['plain', "Hidden from your firm's picker and title matching. Saving an edit makes it your firm's own copy."],
-        }[detail.origin] || ['sky', "You're viewing the LightMove library version. Saving creates your firm's own copy; library updates stop reaching it until you reset."];
+        }[detail.origin] || ['sky', "You're viewing the Uncava library version. Saving creates your firm's own copy; library updates stop reaching it until you reset."];
       }
       const tones = { sky: 'border-color:var(--line-soft);background:var(--sky-dim)', amber: 'border-color:var(--amber-btn);background:var(--amber-dim)', plain: 'border-color:var(--line);background:var(--panel2)' };
       const total = (rs) => rs.reduce((s, r) => s + (Number(r.weight) || 0), 0);
@@ -2243,7 +2243,7 @@ class Component extends DCLogic {
       Object.assign(ev, {
         ed, edTitle: ed.title.trim() || 'Untitled template', edHasDetail: !!detail,
         edBadge: detail ? this.badgeOf(scope, detail).label : '', edBadgeStyle: detail ? this.badgeOf(scope, detail).style : '',
-        edMeta: !detail ? 'Not saved yet' : libVersion ? detail.code + ' · LightMove library · updated ' + detail.revisedAt : detail.code + ' · last saved' + (detail.revisedBy ? ' by ' + detail.revisedBy : '') + ', ' + detail.revisedAt,
+        edMeta: !detail ? 'Not saved yet' : libVersion ? detail.code + ' · Uncava library · updated ' + detail.revisedAt : detail.code + ' · last saved' + (detail.revisedBy ? ' by ' + detail.revisedBy : '') + ', ' + detail.revisedAt,
         edBannerText: banner[1],
         edBannerStyle: 'margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;border-radius:10px;border:1px solid;padding:12px 14px;font:400 12px/1.6 var(--mono);color:var(--text2);' + tones[banner[0]],
         edShowReset: !!detail && scope === 'workspace' && detail.origin === 'CUSTOMISED',
@@ -2266,7 +2266,7 @@ class Component extends DCLogic {
       });
     }
     const CONFIRM = {
-      reset: ['Reset to library', "Your firm's copy is deleted and the LightMove library version takes its place. Mandates already drafted keep what they have."],
+      reset: ['Reset to library', "Your firm's copy is deleted and the Uncava library version takes its place. Mandates already drafted keep what they have."],
       delete: ['Delete template', 'The template is deleted for your firm. Mandates already drafted from it keep what they have.'],
     };
 
@@ -2506,7 +2506,7 @@ class Component extends DCLogic {
       confirmOpen: !!st.confirming, confirmLabel: st.confirming ? CONFIRM[st.confirming][0] : '', confirmText: st.confirming ? CONFIRM[st.confirming][1] : '',
 
       importOpen: st.importOpen, importChoose: st.importStep === 'choose', importPlanShown: st.importStep === 'plan',
-      importScopeLine: scope === 'library' ? 'Into the LightMove library — every workspace without its own copy sees the result' : "Into your firm's templates — library templates in the file become your own copies",
+      importScopeLine: scope === 'library' ? 'Into the Uncava library — every workspace without its own copy sees the result' : "Into your firm's templates — library templates in the file become your own copies",
       importFileName: plan.file, importCountLabel: plan.rows.length + ' template' + (plan.rows.length === 1 ? '' : 's'),
       importRows: plan.rows.map((r, i) => ({ title: r.title, code: r.code, badge: ACT[r.action][0],
         badgeStyle: 'flex:none;border-radius:999px;padding:2px 10px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;' + ACT[r.action][1],

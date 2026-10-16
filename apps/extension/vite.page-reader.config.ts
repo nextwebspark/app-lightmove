@@ -10,6 +10,6 @@ import { iifeBundle } from "./vite.iife";
 export default iifeBundle({
   entry: "src/content/pageReader/readPageSubject.ts",
   fileName: "page-reader.js",
-  globalName: "lightMovePageReader",
-  footer: "lightMovePageReader.readPageSubject(document);",
+  globalName: "uncavaPageReader",
+  footer: "uncavaPageReader.readPageSubject(document);",
 });

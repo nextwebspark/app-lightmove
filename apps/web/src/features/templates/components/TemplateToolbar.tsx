@@ -9,7 +9,7 @@ const SCOPE_NOTES: Record<TemplateScope, string> = {
   library:
     "Changes here reach every workspace that hasn't customised the template. Workspaces with their own copy keep it and are told the library moved on. Mandates already drafted never change.",
   workspace:
-    "Your firm starts from the LightMove library. Edit any template to make it your own — library updates stop reaching your copy until you reset it. Mandates already drafted never change.",
+    "Your firm starts from the Uncava library. Edit any template to make it your own — library updates stop reaching your copy until you reset it. Mandates already drafted never change.",
 };
 
 const TOOLBAR_BUTTON =

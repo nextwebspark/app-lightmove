@@ -466,7 +466,7 @@ section "19.8  Settings → Templates — export, schema, import"
 
 get "$TEMPLATES/export" -H "$LEAD"
 check_status 19.160 "the admin exports the firm's templates" 200
-check_contains 19.161 "…as a JSON attachment" "lightmove-position-templates.json" "$(header 'content-disposition')"
+check_contains 19.161 "…as a JSON attachment" "uncava-position-templates.json" "$(header 'content-disposition')"
 check 19.162 "…carrying the format marker the importer checks" "lightmove.position-templates/1" \
   "$(json '"\(.format)/\(.formatVersion)"')"
 check 19.163 "…and the firm's own template" "1" "$(json '[.templates[] | select(.code == "'"$OWN_CODE"'")] | length')"

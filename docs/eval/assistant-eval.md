@@ -1,6 +1,6 @@
 # Assistant eval
 
-Written by `AssistantEval` (`apps/api/src/test/java/app/lightmove/api/eval`), which asks the real
+Written by `AssistantEval` (`apps/api/src/test/java/app/uncava/api/eval`), which asks the real
 assistant the questions in `src/test/resources/eval/assistant-cases.json`: a researcher's questions,
 from a vague "map 50 companies in the GCC region for this role" to "Seddiqi's competitors" and the
 follow-up "what are these companies?". Every run appends one section.

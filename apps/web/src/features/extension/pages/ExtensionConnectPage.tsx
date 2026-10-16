@@ -9,7 +9,7 @@ import * as extensionApi from "../api/extensionApi";
  * Resolved at build time from the EXTENSION_ID build arg, falling back to the development id — see
  * `vite.config.ts`, which owns that fallback along with the other build parameters.
  *
- * It must stay in step with the API's `lightmove.web.cors-allowed-origins`, which allow-lists the
+ * It must stay in step with the API's `uncava.web.cors-allowed-origins`, which allow-lists the
  * matching `chrome-extension://` origin. Two places, one value; the extension README says how.
  */
 const EXTENSION_ID = __EXTENSION_ID__;

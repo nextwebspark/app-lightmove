@@ -2,7 +2,7 @@
 
 ## Context
 
-LightMove had no LLM integration before this change: no Spring AI dependencies, no `core/llm`
+Uncava had no LLM integration before this change: no Spring AI dependencies, no `core/llm`
 package, no `.st` prompt files, and neither "company search" (plain `ILIKE`/array-overlap SQL over
 `app_lm_apollo_companies`) nor "brief document upload" (raw byte storage, never read) called an
 LLM. This was greenfield work, not an extension of something already wired up.
@@ -52,7 +52,7 @@ than `new SimpleLoggerAdvisor()`.
   `dependencyManagement` of its own before this).
 - `spring-ai-starter-model-google-genai` (chat) and `spring-ai-starter-model-google-genai-embedding`.
 
-**`app.lightmove.api.core.llm`** — new `core` module, holding only the reusable `ChatClient` bean:
+**`app.uncava.api.core.llm`** — new `core` module, holding only the reusable `ChatClient` bean:
 - `config/ChatClientConfig.java` — model and temperature bound from
   `spring.ai.google.genai.chat.*` (not repeated as literals), and
   `SimpleLoggerAdvisor.builder()` given metadata-only `requestToString`/`responseToString`
@@ -78,7 +78,7 @@ this domain:
   so each is additionally capped per user via the existing `RateLimiter` (`core/ratelimit`),
   keyed by `principal.userId()` rather than the IP+email pattern `RateLimitGuard` uses for the
   pre-auth flows, since these endpoints already require authentication. Budgets are
-  `lightmove.llm.rate-limit.*` (`LlmSettings`/`LlmRateLimitSettings` in `core/config`).
+  `uncava.llm.rate-limit.*` (`LlmSettings`/`LlmRateLimitSettings` in `core/config`).
 - `candidate/dto/ShortlistRequest.java`, `dto/ShortlistResponse.java`, `dto/EmbedRequest.java`,
   `dto/EmbedResponse.java` — plain records, `@NotBlank`/`@Size` on the text fields.
 
@@ -141,7 +141,7 @@ Verified by rerunning the full suite with ADC hidden locally (pointing `APPDATA`
 directory) to genuinely reproduce the CI failure before and after this fix, rather than trusting a
 local run that had working credentials the whole time.
 
-**`apps/api/src/test/java/app/lightmove/api/StubChatModel.java` and `StubEmbeddingModel.java`** —
+**`apps/api/src/test/java/app/uncava/api/StubChatModel.java` and `StubEmbeddingModel.java`** —
 required in addition to disabling the real auto-configuration, not originally anticipated: turning
 off `spring.ai.model.chat`/`spring.ai.model.embedding.text` removes the `ChatModel`/`EmbeddingModel`
 beans, but `ChatClientConfig` and the new `llm` services still declare a hard dependency on them —
@@ -149,16 +149,16 @@ so every `@SpringBootTest` in the suite failed to load its context (352 test err
 full run) until these two fixed-response test doubles were wired into the shared `IntegrationTest`
 annotation, the same pattern `RecordingEmailSender`/`SynchronousAuditWrites` already use.
 
-**Tests** (`apps/api/src/test/java/app/lightmove/api/candidate/service/`) — no network calls, no
+**Tests** (`apps/api/src/test/java/app/uncava/api/candidate/service/`) — no network calls, no
 real credentials required:
 - `CandidateShortlistServiceTest` — builds `ChatClient.builder(stubChatModel).build()` directly
   with a hand-rolled `ChatModel` test double, asserts the service renders both prompt fields and
   returns the model's content.
 - `CandidateEmbeddingServiceTest` — constructs the service with the shared `StubEmbeddingModel`
-  (`app.lightmove.api`, added for the whole-context wiring below) directly, rather than a second
+  (`app.uncava.api`, added for the whole-context wiring below) directly, rather than a second
   near-identical fixed-vector double.
 
-**`apps/api/src/main/resources/postman/lightmove-llm.postman_collection.json`** — a Postman
+**`apps/api/src/main/resources/postman/uncava-llm.postman_collection.json`** — a Postman
 collection with both requests pre-filled (a CFO job brief + candidate profile for `/shortlist`, a
 short profile summary for `/embed`), a `baseUrl` variable, and a Bearer `accessToken` variable at
 the collection level.
@@ -183,7 +183,7 @@ The review on PR #148 requested six changes, all applied:
 - **Rate limiting added.** Both endpoints call billed Vertex AI with only authentication as a
   gate before this — an authenticated user could loop either uncapped. `CandidateLlmController`
   now calls the existing `RateLimiter` (`core/ratelimit`) per user before delegating to the
-  service, budgets configurable under `lightmove.llm.rate-limit.*`.
+  service, budgets configurable under `uncava.llm.rate-limit.*`.
 - **Candidate-matching logic moved out of `core`.** `CandidateShortlistService`,
   `CandidateEmbeddingService`, the controller (renamed `CandidateLlmController`) and the four DTOs
   moved from `core/llm/*` into the `candidate` feature, which already owns this domain — `core`

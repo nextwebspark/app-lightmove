@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://lightmove.app/schemas/position-templates.v1.json",
-  "title": "LightMove role templates",
-  "description": "A file of role templates for LightMove's Templates import. A template drafts the position brief of every new executive-search mandate whose role title matches one of its keywords. It never states a mandate's role title, location, target date or salary band: those belong to each mandate.",
+  "title": "Uncava role templates",
+  "description": "A file of role templates for Uncava's Templates import. A template drafts the position brief of every new executive-search mandate whose role title matches one of its keywords. It never states a mandate's role title, location, target date or salary band: those belong to each mandate.",
   "type": "object",
   "required": ["format", "formatVersion", "templates"],
   "properties": {

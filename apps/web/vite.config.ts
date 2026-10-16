@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 /**
  * The id the pinned manifest key produces when the extension is loaded **unpacked**. Right for
  * development and wrong for anything published — the Chrome Web Store assigns its own id — so a real
- * build passes EXTENSION_ID. It must stay in step with the API's `lightmove.web.cors-allowed-origins`.
+ * build passes EXTENSION_ID. It must stay in step with the API's `uncava.web.cors-allowed-origins`.
  */
 const DEVELOPMENT_EXTENSION_ID = "kllpamcdcnecpdblgdkehgbhdjdlbofh";
 
@@ -23,7 +23,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     {
-      name: "lightmove-public-base-url",
+      name: "uncava-public-base-url",
       transformIndexHtml: (html: string) => html.replaceAll("__PUBLIC_BASE_URL__", PUBLIC_BASE_URL),
     },
   ],

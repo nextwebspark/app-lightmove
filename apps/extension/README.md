@@ -106,7 +106,7 @@ reset dropping `app_lm_refresh_token`; re-pair once and it sticks.
 LM_WORKSPACE_ORIGIN=https://your-workspace-origin npm run build:release
 ```
 
-That produces `release/lightmove-capture-<version>.zip`, ready to upload. It refuses to run without an
+That produces `release/uncava-capture-<version>.zip`, ready to upload. It refuses to run without an
 origin, strips `key` from the packaged manifest, drops the source maps, and zips the *contents* of
 `dist/` rather than the folder — three things that are easy to get wrong by hand and each of which
 fails quietly.
@@ -268,7 +268,7 @@ tab. Every other site gets the LinkedIn-only message — no `activeTab`, no opti
 
 `manifest.config.ts` pins a public key so the extension's id — and therefore its
 `chrome-extension://…` origin — is the same on every build. The API allow-lists that origin for CORS
-(`lightmove.web.cors-allowed-origins`), and without the pin Chrome would mint a new id on every
+(`uncava.web.cors-allowed-origins`), and without the pin Chrome would mint a new id on every
 unpacked load and every request would be refused.
 
 The matching **private** key is not in this repo and is not needed: it signs a self-hosted `.crx`, and

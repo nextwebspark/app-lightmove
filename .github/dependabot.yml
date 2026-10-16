@@ -4,8 +4,8 @@ version: 2
 # repo settings (Insights → Dependency graph → Dependabot), and are NOT suppressed by the limits
 # below — which is the whole design here: routine bumps off, CVE-driven bumps on.
 #
-#   gh api -X PUT repos/nextwebspark/app-lightmove/vulnerability-alerts
-#   gh api -X PUT repos/nextwebspark/app-lightmove/automated-security-fixes
+#   gh api -X PUT repos/nextwebspark/app-uncava/vulnerability-alerts
+#   gh api -X PUT repos/nextwebspark/app-uncava/automated-security-fixes
 updates:
   # One npm entry covers apps/web AND apps/extension: they are npm workspaces sharing the single
   # root package-lock.json, which is also why ci.yml runs a bare `npm ci` for both jobs.

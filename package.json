@@ -1,8 +1,8 @@
 {
-  "name": "app-lightmove",
+  "name": "app-uncava",
   "private": true,
   "version": "0.1.0",
-  "description": "LightMove — multi-tenant executive search & talent mapping platform",
+  "description": "Uncava — multi-tenant executive search & talent mapping platform",
   "workspaces": [
     "apps/web",
     "apps/extension"

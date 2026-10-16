@@ -1,0 +1,24 @@
+package app.uncava.api.project.repository;
+
+import app.uncava.api.project.constant.ClientRepStatus;
+import app.uncava.api.project.model.ClientRepresentative;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+/** Every finder carries the workspace or client id — an unscoped lookup on tenant data must not exist. */
+public interface ClientRepresentativeRepository extends JpaRepository<ClientRepresentative, UUID> {
+
+    List<ClientRepresentative> findByClientIdOrderByCreatedAtAsc(UUID clientId);
+
+    List<ClientRepresentative> findByWorkspaceIdAndClientIdIn(UUID workspaceId, List<UUID> clientIds);
+
+    Optional<ClientRepresentative> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    /** Dedupe on invite: an outstanding or revoked row for this address is reused, not duplicated. */
+    Optional<ClientRepresentative> findByClientIdAndEmailIgnoreCase(UUID clientId, String email);
+
+    Optional<ClientRepresentative> findByClientIdAndEmailIgnoreCaseAndStatus(
+            UUID clientId, String email, ClientRepStatus status);
+}

@@ -1,0 +1,34 @@
+package app.uncava.api.project.dto;
+
+import app.uncava.api.project.constant.ClientType;
+import app.uncava.api.project.model.Client;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+/** One row of the Clients table. {@code type} and every count are derived, never stored. */
+public record ClientListResponse(
+        UUID id,
+        String name,
+        ClientType type,
+        String sector,
+        String hqCountry,
+        String hqCity,
+        String logoUrl,
+        long activeMandates,
+        long deliveredMandates,
+        List<RepAvatar> contacts,
+        ViewerSummary viewers,
+        Instant archivedAt,
+        String archivedByName
+) {
+
+    /** The one place a row is assembled: four adjacent {@code String}s are a transposition nothing catches. */
+    public static ClientListResponse of(Client client, ClientType type, long activeMandates,
+                                        long deliveredMandates, List<RepAvatar> contacts,
+                                        ViewerSummary viewers, String archivedByName) {
+        return new ClientListResponse(client.getId(), client.getName(), type, client.getSector(),
+                client.getHqCountry(), client.getHqCity(), client.getLogoUrl(), activeMandates,
+                deliveredMandates, contacts, viewers, client.getArchivedAt(), archivedByName);
+    }
+}

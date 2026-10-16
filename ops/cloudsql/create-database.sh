@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Creates (or recreates) the LightMove database on Cloud SQL, and makes sure the humans who need to
+# Creates (or recreates) the Uncava database on Cloud SQL, and makes sure the humans who need to
 # read it can.
 #
 #   ./ops/cloudsql/create-database.sh              # create if absent

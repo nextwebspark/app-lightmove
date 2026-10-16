@@ -110,7 +110,7 @@ Metrics are unreachable today; see `production-observability.md`, gap 4.
 
 | Surface | Code |
 |---|---|
-| Shared | `core/llm/**`, `core/ratelimit/service/LlmBudgetGuard`, `application.yml` (`spring.ai.*`, `lightmove.llm.*`, `lightmove.assistant.*`) |
+| Shared | `core/llm/**`, `core/ratelimit/service/LlmBudgetGuard`, `application.yml` (`spring.ai.*`, `uncava.llm.*`, `uncava.assistant.*`) |
 | Position extraction | `position/service/Position*Proposer`, `PositionExtractionService`, `PositionDocumentRedactor`, `ExtractedFieldReader`, `prompts/position-extract-*` |
 | Candidate AI enrich | `enrichment/candidate/service/CandidateAiEnricher`, `CandidateScorecardDrafter`, `CandidateAiEnrichService`, `CandidateAiEnrichWorker`, `candidate/model/CandidateDossier`, `prompts/candidate-ai-enrich-*`, `prompts/candidate-scorecard-draft-*` |
 | Assistant | `assistant/service/AssistantService`, `AssistantAskStream`, `assistant/tool/*`, `prompts/assistant-core.st`, `assistant/skills/*/SKILL.md` |

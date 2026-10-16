@@ -1,6 +1,6 @@
 spring:
   application:
-    name: lightmove-api
+    name: uncava-api
   # SpaResourceConfig serves the SPA itself. Boot's own mappings would also serve every webjar at /webjars/**,
   # Swagger UI's among them: unauthenticated, on the SPA's origin, outside the public chain's CSP.
   web:
@@ -23,9 +23,9 @@ spring:
 
   servlet:
     multipart:
-      # The container's own ceiling, ahead of lightmove.position.document.max-file-size-bytes: this one
+      # The container's own ceiling, ahead of uncava.position.document.max-file-size-bytes: this one
       # refuses the body before it is buffered, that one is the rule the API states back to the caller.
-      # Raised for a person's documents (lightmove.person-documents.max-file-size-bytes, 20MB); every other
+      # Raised for a person's documents (uncava.person-documents.max-file-size-bytes, 20MB); every other
       # upload states its own lower ceiling.
       max-file-size: 20MB
       max-request-size: 25MB
@@ -103,7 +103,7 @@ spring:
   # `spring.security.oauth2.client.registration.linkedin.client-authentication-method` becomes
   # SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_LINKEDIN_CLIENT_AUTHENTICATION_METHOD. The deploy
   # workflow (.github/workflows/deploy.yml) is the authority on which are actually set, including the
-  # lightmove.auth.oauth.* lists a provider like LinkedIn cannot work without.
+  # uncava.auth.oauth.* lists a provider like LinkedIn cannot work without.
 
   threads:
     virtual:
@@ -129,7 +129,7 @@ spring:
     # On exactly where the authorization server is, so one switch turns the whole of it on or off.
     mcp:
       server:
-        enabled: ${lightmove.mcp.enabled:false}
+        enabled: ${uncava.mcp.enabled:false}
         name: uncava
         version: 1.0.0
         protocol: STATELESS
@@ -173,7 +173,7 @@ spring:
             app: ${spring.application.name}
         embedding:
           # The embedding client resolves its own project/location independently of the chat
-          # block above (Spring AI's own namespacing, not a LightMove choice).
+          # block above (Spring AI's own namespacing, not an Uncava choice).
           project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
           location: ${GOOGLE_CLOUD_LOCATION:global}
           text:
@@ -204,7 +204,7 @@ server:
     # paths would also cost more than it reads: Spring Boot filters compression by mime type only,
     # so a path exclusion means a hand-written filter standing in front of the auth chain forever.
 
-lightmove:
+uncava:
   auth:
     access-token-ttl: 15m
     refresh-token-ttl: 30d
@@ -426,7 +426,7 @@ lightmove:
 
   web:
     base-url: ${WEB_BASE_URL:http://localhost:5173}
-    # The SPA's origin, plus LightMove Capture's. The extension's id is stable because its manifest
+    # The SPA's origin, plus Uncava Capture's. The extension's id is stable because its manifest
     # pins a public key (apps/extension/manifest.config.ts) — without that Chrome re-mints the id on
     # every unpacked load and no origin could be allow-listed at all. A wildcard is not an option here:
     # allow-credentials is on, and the spec forbids the pair.
@@ -834,11 +834,11 @@ management:
         enabled: true
   metrics:
     tags:
-      application: lightmove-api
+      application: uncava-api
 
 # The public API's spec and Swagger UI only: no internal route is scanned, and both sit under /api/v1/public.
 springdoc:
-  packages-to-scan: app.lightmove.api.publicapi
+  packages-to-scan: app.uncava.api.publicapi
   paths-to-match: /api/v1/public/**
   writer-with-order-by-keys: true
   api-docs:
@@ -854,7 +854,7 @@ springdoc:
 
 logging:
   level:
-    app.lightmove.api: INFO
+    app.uncava.api: INFO
     org.springframework.security: INFO
 
 ---

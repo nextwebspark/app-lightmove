@@ -14,7 +14,7 @@ type State = "verifying" | "success" | "failed";
  * Where the emailed verification link lands.
  *
  * The link points at the SPA rather than straight at the API on purpose: the user ends up inside the
- * app, looking at a LightMove screen, rather than at a page of raw JSON.
+ * app, looking at an Uncava screen, rather than at a page of raw JSON.
  *
  * Redeeming returns a session, so this browser is signed in even though it is usually not the one that
  * filled in signup. Continue therefore always leads somewhere — the organisation step, for the creator

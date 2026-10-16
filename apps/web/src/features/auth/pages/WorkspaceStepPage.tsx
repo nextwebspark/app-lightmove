@@ -9,7 +9,7 @@ import * as authApi from "../api/authApi";
  * Signup step 3 — creating your workspace.
  *
  * Signing up *is* creating a workspace; membership of an existing one is invitation-only, so there is
- * no domain lookup and no join fork here. A colleague whose firm is already on LightMove asks their
+ * no domain lookup and no join fork here. A colleague whose firm is already on Uncava asks their
  * admin for an invitation — the admin reaching out is the decision that admits them.
  */
 export function WorkspaceStepPage() {

@@ -1,6 +1,6 @@
 # Position description extraction eval
 
-Written by `PositionExtractionEval` (`apps/api/src/test/java/app/lightmove/api/position/service`): every field
+Written by `PositionExtractionEval` (`apps/api/src/test/java/app/uncava/api/position/service`): every field
 the four readings (details, context, assessment, reporting) propose, through the shipped proposers. Every run
 appends one section: counts and weights only, never a document's name or text. "Golden" scores a field
 against `<file>.expected.json` kept beside a private document; "Balanced" is what the SPA's

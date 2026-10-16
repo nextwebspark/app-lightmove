@@ -14,7 +14,7 @@
 # this script's own and it can run at any point in the matrix. Needs no Apollo universe: an imported
 # row is never resolved against the market.
 #
-# Not exercised: the lightmove.export.* ceilings (5,000 companies / 10,000 executives by default).
+# Not exercised: the uncava.export.* ceilings (5,000 companies / 10,000 executives by default).
 # Past them an export is refused whole rather than truncated, but reaching one means seeding five
 # thousand rows, which this matrix has no business doing.
 set -uo pipefail
@@ -131,7 +131,7 @@ TEMPLATE_HEADER='Company,Sector,Country,City,Employees,Website,Name,Title,Level,
 get "/projects/$PROJECT/import/template" -H "$LEAD"
 check_status 18.1 "the lead downloads the import template" 200
 check_contains 18.2 "…served as text/csv" "text/csv" "$(header 'content-type')"
-check_contains 18.3 "…as an attachment named for the template" "lightmove-import-template.csv" \
+check_contains 18.3 "…as an attachment named for the template" "uncava-import-template.csv" \
   "$(header 'content-disposition')"
 DOWNLOADED_HEADER=$(printf '%s' "$LAST_BODY" | tr -d '\r' | head -1)
 check 18.4 "…whose header row is the dozen common fields, in row order" "$TEMPLATE_HEADER" "$DOWNLOADED_HEADER"
@@ -406,6 +406,6 @@ check_code 18.114 "another tenant's admin gets not-found, never the file" 404 NO
 check 18.115 "…and no export was recorded for them" "0" \
   "$(sql "SELECT count(*) FROM app_lm_audit_event WHERE event_type = 'COMPANIES_EXPORTED'
           AND target_id = '$PROJECT' AND actor_user_id = '$(user_id_of "$OUTSIDER_EMAIL")'")"
-note 18.116 "not exercised: lightmove.export.max-companies/max-candidates — refused whole past the cap, never truncated"
+note 18.116 "not exercised: uncava.export.max-companies/max-candidates — refused whole past the cap, never truncated"
 
 summary

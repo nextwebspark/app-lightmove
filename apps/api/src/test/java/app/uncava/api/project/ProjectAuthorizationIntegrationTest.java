@@ -1,0 +1,249 @@
+package app.uncava.api.project;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import app.uncava.api.FlowTestSupport;
+import app.uncava.api.IntegrationTest;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
+
+/**
+ * The action matrix, exercised over HTTP through {@code @PreAuthorize}: who may edit a mandate, who
+ * may reshape its team, and what a denial looks like on the wire. LEAD is the mandate owner — the
+ * project tier has no ADMIN role — so the interesting line is between LEAD and RESEARCHER.
+ *
+ * <p>The last test is the regression net for the guard-bean design itself: an {@code ApiException}
+ * thrown inside a SpEL-invoked bean must surface as its own RFC 9457 problem (with the 404 masking
+ * for non-members intact), not be swallowed into a generic 403.
+ */
+@IntegrationTest
+class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
+
+    @Test
+    @DisplayName("a researcher works the mandate but cannot edit it or reshape the team")
+    void researcherIsExecutionOnly() throws Exception {
+        Fixture f = fixture("Researcher Matrix Firm");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        String sara = login(f.saraEmail);
+
+        mvc.perform(patch("/api/v1/projects/" + f.projectId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"2027-06-01"}"""))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(put("/api/v1/projects/" + f.projectId + "/members/" + f.omarId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(delete("/api/v1/projects/" + f.projectId + "/members/" + f.saraId)
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("a lead does everything on their mandate — editing it and reshaping its team")
+    void leadDoesEverything() throws Exception {
+        Fixture f = fixture("Lead Matrix Firm");
+        seat(f.admin, f.projectId, f.saraId, "LEAD");
+        String sara = login(f.saraEmail);
+
+        mvc.perform(patch("/api/v1/projects/" + f.projectId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"2027-06-01"}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(put("/api/v1/projects/" + f.projectId + "/members/" + f.omarId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/v1/projects/" + f.projectId + "/members/" + f.omarId)
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("an unseated member reads the list but touches nothing")
+    void unseatedMemberIsReadOnly() throws Exception {
+        Fixture f = fixture("Unseated Matrix Firm");
+        String sara = login(f.saraEmail);
+
+        mvc.perform(patch("/api/v1/projects/" + f.projectId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"2027-06-01"}"""))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(put("/api/v1/projects/" + f.projectId + "/members/" + f.saraId)
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("the two tiers of client access: a researcher mints representatives but seats none")
+    void clientAccessOnAMandateIsTheLeadsAlone() throws Exception {
+        Fixture f = fixture("Client Access Matrix Firm");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        String sara = login(f.saraEmail);
+
+        // Workspace tier: the registry is any staff member's, and minting a contact there shows them
+        // nothing — no mandate is named, and none is granted.
+        String representativeId = body(mvc.perform(post("/api/v1/clients/" + f.clientId + "/representatives")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Ext Rep","position":"Chair","email":"chair@matrix-client.example"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        // Project tier: giving that contact sight of this search is not the researcher's to decide.
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}""".formatted(representativeId)))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + sara)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Other Rep","position":"CFO","email":"cfo@matrix-client.example"}"""))
+                .andExpect(status().isForbidden());
+
+        // The lead's, though — and only then can the researcher's own contact see the mandate.
+        mvc.perform(post("/api/v1/projects/" + f.projectId + "/representatives")
+                        .header("Authorization", "Bearer " + f.admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"representativeId":"%s"}""".formatted(representativeId)))
+                .andExpect(status().isOk());
+
+        mvc.perform(delete("/api/v1/projects/" + f.projectId + "/representatives/" + representativeId)
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("a workspace admin needs no seat — implicitly a lead everywhere")
+    void workspaceAdminBypass() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Bypass Firm");
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String saraToken = login(sara);
+
+        // Sara creates the mandate; the workspace admin never gets a seat on it.
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + saraToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Bypass Client"}"""))
+                .andReturn()).get("id").asText();
+        String projectId = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + saraToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"CIO"}
+                                """.formatted(clientId)))
+                .andReturn()).get("id").asText();
+
+        mvc.perform(patch("/api/v1/projects/" + projectId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"2027-06-01"}"""))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a denial through @PreAuthorize is still an RFC 9457 problem with its own code")
+    void denialKeepsItsProblemShape() throws Exception {
+        Fixture f = fixture("Problem Shape Firm");
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+
+        MvcResult denied = mvc.perform(patch("/api/v1/projects/" + f.projectId)
+                        .header("Authorization", "Bearer " + login(f.saraEmail))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"2027-06-01"}"""))
+                .andReturn();
+        assertThat(denied.getResponse().getStatus()).isEqualTo(403);
+        assertThat(codeOf(denied)).isEqualTo("FORBIDDEN");
+
+        // And the 404 masking survives the annotation path: no workspace → "not found", not "no".
+        String outsider = verifiedUser("Out Sider", "out@other-" + domain);
+        MvcResult masked = mvc.perform(patch("/api/v1/projects/" + f.projectId)
+                        .header("Authorization", "Bearer " + outsider)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"2027-06-01"}"""))
+                .andReturn();
+        assertThat(masked.getResponse().getStatus()).isEqualTo(404);
+        assertThat(codeOf(masked)).isEqualTo("NOT_A_MEMBER");
+    }
+
+    // fixture
+
+    private record Fixture(String admin, String clientId, String projectId, String saraEmail,
+                           String saraId, String omarId) {}
+
+    /** A workspace admin, a project the admin created, and two plain members (Sara, Omar). */
+    private Fixture fixture(String firmName) throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String omar = "omar@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
+        String admin = login(alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        inviteAndAccept(admin, "Omar Khalil", omar, "MEMBER");
+
+        String clientId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Matrix Client"}"""))
+                .andReturn()).get("id").asText();
+        String projectId = body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"CFO"}
+                                """.formatted(clientId)))
+                .andReturn()).get("id").asText();
+
+        return new Fixture(admin, clientId, projectId, sara, memberIdOf(admin, sara),
+                memberIdOf(admin, omar));
+    }
+
+    private void seat(String leadToken, String projectId, String memberId, String role)
+            throws Exception {
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
+                        .header("Authorization", "Bearer " + leadToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"%s"}""".formatted(role)))
+                .andExpect(status().isOk());
+    }
+}

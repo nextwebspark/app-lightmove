@@ -24,8 +24,8 @@ const ROOTS: Record<TemplateScope, string> = {
 };
 
 const EXPORT_FILE_NAMES: Record<TemplateScope, string> = {
-  library: "lightmove-template-library.json",
-  workspace: "lightmove-position-templates.json",
+  library: "uncava-template-library.json",
+  workspace: "uncava-position-templates.json",
 };
 
 const templateUrl = (scope: TemplateScope, code: string) => `${ROOTS[scope]}/${encodeURIComponent(code)}`;

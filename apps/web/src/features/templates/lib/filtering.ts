@@ -23,11 +23,11 @@ export function toggleLabelOf(scope: TemplateScope, template: TemplateOverview):
   return null;
 }
 
-/** A library template seen from a firm carries no reviser's name: the author is LightMove, not a colleague. */
+/** A library template seen from a firm carries no reviser's name: the author is Uncava, not a colleague. */
 export function reviserOf(scope: TemplateScope, template: TemplateOverview): string | null {
   if (template.revisedByName) return template.revisedByName;
   const isLibraryRow = template.origin === "LIBRARY" || template.origin === "HIDDEN";
-  return scope === "workspace" && isLibraryRow ? "LightMove" : null;
+  return scope === "workspace" && isLibraryRow ? "Uncava" : null;
 }
 
 function searchTextOf(template: TemplateOverview): string {

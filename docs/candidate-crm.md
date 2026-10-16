@@ -30,7 +30,7 @@ Decided and approved 2026-09-30; phases carry a `> **Built**` callout as they la
    revision taking traffic, the old revision still writes edits, contacts, lookups and enrichment to the old
    columns and ledger, and none of that reaches the person. V95 only adds, so it can ride any deploy
    after #602.
-4. Load `java-spring-development` and `db-ops` for any migration; add `lightmove-domain` for Phase 3's
+4. Load `java-spring-development` and `db-ops` for any migration; add `uncava-domain` for Phase 3's
    action and `react` for any SPA work. Read the Phase 0 mockups before any screen.
 5. Migration numbers below are the next free ones at the time of writing (V96 notes, V97 action, V98
    owner/tags; the final cleanup takes whatever is free when it comes). Check `apps/api/src/main/resources/db/migration/` for the next free number before writing
@@ -129,7 +129,7 @@ the mapping. Nothing a client seat reads ever carries another mandate, a note or
 
 ## Codebase constraints that shape the design
 
-(paths: `api/` = `apps/api/src/main/java/app/lightmove/api/`, `web/` = `apps/web/src/`)
+(paths: `api/` = `apps/api/src/main/java/app/uncava/api/`, `web/` = `apps/web/src/`)
 
 - **Single reader seam.** talentmap, dataexport, report, dataimport, sourcing, enrichment, contact lookup,
   and two inverted adapters all go through `CandidateService` and consume `CandidateResponse`
@@ -160,7 +160,7 @@ the mapping. Nothing a client seat reads ever carries another mandate, a note or
   Candidates item belongs. Phase 0 draws the screens first.
 - **Docs to update with the code**: CLAUDE.md (the people-half paragraph, the Database section, layout
   table), `java-spring-development` (the "three tiers" paragraph, l.290-309, currently says the note,
-  status and compensation are mandate-specific), `lightmove-domain` (the new action), `docs/spreadsheet-import.md`
+  status and compensation are mandate-specific), `uncava-domain` (the new action), `docs/spreadsheet-import.md`
   (matching now workspace-wide), `claude-design/README.md` (remove the stale `Project.dc.html` row, add
   `Candidates.dc.html`).
 
@@ -570,7 +570,7 @@ expand and the contract in separate deploys.
 > - **Do not contact** refuses a contact lookup with `PERSON_DO_NOT_CONTACT` before anything is spent. It
 >   never blocks a mapping.
 > - **Export**: `GET /candidates/export` (the list's filters) or `POST` naming the people ticked,
->   audited `CANDIDATES_EXPORTED`, refused past `lightmove.export.max-candidates`.
+>   audited `CANDIDATES_EXPORTED`, refused past `uncava.export.max-candidates`.
 > - **SPA**: `/candidates` (staff nav item with the pool's size) with People and Activity views, the
 >   filter panel and chips, the selection bar's Add to position / Tag / Set owner / Export, and a drawer
 >   keyed by person id (`?person=&tab=`) — header with owner, do not contact and tags (the "+ Tag"
@@ -744,7 +744,7 @@ categories (today's seven `CandidateStatus` values stay).
 
 ## Engineering standards (every phase)
 
-Load `java-spring-development`, `react`, `lightmove-domain`, `db-ops` before touching their areas; copy the
+Load `java-spring-development`, `react`, `uncava-domain`, `db-ops` before touching their areas; copy the
 neighbouring idiom. Backend by type (`constant/model/dto/repository/service/controller`); enums in
 `constant`; one DTO record per file; `@RequiredArgsConstructor`; entities `@Getter` +
 `@NoArgsConstructor(PROTECTED)` + intention-named methods, never setters/`@Data`/`@Builder`. Every tenant

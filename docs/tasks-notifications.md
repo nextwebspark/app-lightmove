@@ -29,7 +29,7 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   quote a note. Recipients are re-checked when the row is written and again before any email.
 - **Delivery**: the bell reads `/me/notifications` and listens on `/me/notifications/stream` (a per-user
   `pg_notify` channel on `core/stream`'s one LISTEN connection). Email goes only for *assigned to you* and
-  *mentioned*, and only if still unread after `lightmove.notifications.email-delay` (10 minutes); a daily
+  *mentioned*, and only if still unread after `uncava.notifications.email-delay` (10 minutes); a daily
   digest goes at 08:00 in the user's mailbox time zone (else `default-time-zone`), claimed once per user per
   day. Each email is claimed before it is sent, so one the mail service refuses is logged at error with its ids and
   never resent: a second copy is worse than a missed one. When it goes it is asked again whether the person still

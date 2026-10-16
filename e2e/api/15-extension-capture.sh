@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LightMove Capture: pairing the browser extension, and capturing through the session it yields.
+# Uncava Capture: pairing the browser extension, and capturing through the session it yields.
 #
 # Deliberately narrow. The capture endpoint itself is main's and is covered thoroughly by
 # TriageFlowIntegrationTest — re-asserting its validation here would be duplication. What no other
@@ -11,7 +11,7 @@
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-section "15 — LightMove Capture: pairing the extension, and capturing through it"
+section "15 — Uncava Capture: pairing the extension, and capturing through it"
 
 # --- the cast: one admin, one client, one mandate ----------------------------
 

@@ -82,7 +82,7 @@ export interface User {
   pendingInvitations: PendingInvitation[];
 
   /**
-   * Empty for everyone but LightMove staff. Shows the Platform settings group and nothing more — the
+   * Empty for everyone but Uncava staff. Shows the Platform settings group and nothing more — the
    * server re-reads the grant on every platform call.
    */
   platformActions: PlatformAction[];
