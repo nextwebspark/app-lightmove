@@ -16,6 +16,7 @@ set -euo pipefail
 PROJECT="${GCP_PROJECT:-hak-talent-mapping}"
 REGION="${GCP_REGION:-us-central1}"
 REPO="${GITHUB_REPO:-nextwebspark/app-uncava}"
+REPO_ID="${GITHUB_REPO_ID:-1298673080}" # GitHub's id for the repo: unlike its name, a rename keeps it
 
 SERVICE="lightmove"
 AR_REPO="lightmove"
@@ -199,23 +200,29 @@ fi
 # A NEW provider rather than relaxing the existing one. The pool's current provider is pinned to
 # another repository's deploys; widening its condition to fit this repo would put that service one typo
 # away from breaking. Providers are free.
+PROVIDER_MAPPING="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_id=assertion.repository_id"
+PROVIDER_CONDITION="assertion.repository_id == '${REPO_ID}'"
 if gcloud iam workload-identity-pools providers describe "$PROVIDER" \
         --workload-identity-pool="$POOL" --location=global --project="$PROJECT" &>/dev/null; then
-    echo "  ✓ provider '$PROVIDER' exists"
+    gcloud iam workload-identity-pools providers update-oidc "$PROVIDER" \
+        --workload-identity-pool="$POOL" --location=global --project="$PROJECT" \
+        --attribute-mapping="$PROVIDER_MAPPING" \
+        --attribute-condition="$PROVIDER_CONDITION" >/dev/null
+    echo "  ✓ provider '$PROVIDER' exists, pinned to repository id ${REPO_ID}"
 else
     gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" \
         --workload-identity-pool="$POOL" --location=global --project="$PROJECT" \
         --display-name="Uncava (app-uncava)" \
         --issuer-uri="https://token.actions.githubusercontent.com" \
-        --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-        --attribute-condition="assertion.repository == '${REPO}'"
+        --attribute-mapping="$PROVIDER_MAPPING" \
+        --attribute-condition="$PROVIDER_CONDITION"
 fi
 
 # Only this repository may impersonate the deployer. Without the condition above AND this binding, any
 # GitHub repository in the world could mint a token for this pool.
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA_EMAIL" \
     --role=roles/iam.workloadIdentityUser --project="$PROJECT" --quiet \
-    --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${REPO}" >/dev/null
+    --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository_id/${REPO_ID}" >/dev/null
 echo "  ✓ only ${REPO} may impersonate ${DEPLOY_SA}"
 
 # ── What is left for a human ──────────────────────────────────────────────────
