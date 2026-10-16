@@ -6,6 +6,8 @@ import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
+import { statusById, useStatusAutomations, wouldMoveForward } from "../../workspace/lib/statusAutomation";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as meetingApi from "../api/meetingApi";
 import type { MeetingVideo } from "../api/meetingApi";
 import { slotDayLabelOf, slotTimeOf } from "../lib/meetingTimes";
@@ -85,6 +87,11 @@ export function BookCallDialog({
         : "GOOGLE_MEET";
   const isSlotOffered = slot !== null && (slots.data?.days.some((day) => day.starts.includes(slot)) ?? false);
 
+  const { catalog } = usePipelineCatalog();
+  const bookedRule = useStatusAutomations().data?.find((automation) => automation.trigger === "callBooked");
+  const bookedTarget =
+    bookedRule?.enabled && !bookedRule.broken ? statusById(catalog, bookedRule.statusId) : null;
+
   const book = useMutation({
     mutationFn: () =>
       meetingApi.bookMeeting(projectId, candidateId, {
@@ -96,10 +103,10 @@ export function BookCallDialog({
       }),
     onSuccess: () => {
       const day = slots.data?.days.find((candidate) => candidate.starts.includes(slot as string));
-      const movesForward = candidateStatus === "identified" || candidateStatus === "contacted";
+      const movesForward = bookedTarget !== null && wouldMoveForward(catalog, candidateStatus, bookedTarget.id);
       toast(
         `Invite sent to ${firstName} for ${day ? slotDayLabelOf(day.date) : "the call"}, ${slotTimeOf(slot as string, timeZone ?? "UTC")}.` +
-          (movesForward ? " They moved to Engaged." : ""),
+          (movesForward ? ` They moved to ${bookedTarget.label}.` : ""),
       );
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });

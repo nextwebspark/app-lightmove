@@ -80,6 +80,27 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
         assertThat(project.get("engagedCandidates").asLong()).isEqualTo(1);
     }
 
+    @Test
+    @DisplayName("retiring the seeded Interested and Identified statuses leaves the counts and the report readable")
+    void retiredSeededStatusesStillAnchorTheCounts() throws Exception {
+        firm("Retired Anchors Firm");
+        String projectId = mandate("Chief Financial Officer");
+        add(projectId, """
+                {"fullName":"Interested Person","status":"interested"}""");
+        add(projectId, """
+                {"fullName":"Contacted Person","status":"contacted"}""");
+        JsonNode catalog = catalog();
+        for (String key : List.of("interested", "identified")) {
+            write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, key).get("id").asText(), """
+                    {"retired":true}""");
+        }
+
+        JsonNode project = projectRow(projectId);
+        assertThat(project.get("candidates").asLong()).isEqualTo(2);
+        assertThat(project.get("engagedCandidates").asLong()).isEqualTo(1);
+        read("/api/v1/projects/" + projectId + "/report");
+    }
+
     private void ownStatus(JsonNode catalog, String stageKey, String label) throws Exception {
         write(admin, "POST", PIPELINE + "/statuses", """
                 {"stageId":"%s","label":"%s"}""".formatted(stageIn(catalog, stageKey).get("id").asText(), label));

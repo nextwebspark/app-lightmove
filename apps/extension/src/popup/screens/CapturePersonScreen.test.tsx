@@ -160,13 +160,13 @@ describe("the person the panel offers to capture", () => {
     expect(screen.queryByRole("option", { name: "Engaged" })).toBeNull();
   });
 
-  it("states identified on the wire rather than leaving the API to assume it", async () => {
+  it("leaves the starting choice to the workspace, which may have retired the seeded Identified", async () => {
     const view = renderScreen(pageRead());
 
     view.save();
 
     await waitFor(() => expect(captured).toHaveLength(1));
-    expect(captured[0].candidate.status).toBe("identified");
+    expect(captured[0].candidate.status).toBeUndefined();
   });
 
   it("sends the status the consultant chose, in the spelling the API accepts", async () => {

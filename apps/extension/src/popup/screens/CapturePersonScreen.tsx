@@ -200,7 +200,7 @@ function toCandidate({ fullName, note, status, person, sourceUrl }: PersonCaptur
     linkedinUrl: cappedAt(person?.linkedinUrl, FIELD_LIMITS.linkedinUrl),
     note: cappedAt(note, FIELD_LIMITS.note),
     source: "extension",
-    status,
+    status: status === DEFAULT_CANDIDATE_STATUS ? undefined : status,
     sourceUrl: cappedAt(sourceUrl, FIELD_LIMITS.sourceUrl),
   };
 }

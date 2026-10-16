@@ -6,10 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
- * The seven statuses every workspace's pipeline is seeded with and can never lose (V131's
- * {@code system_key}): the anchors automation moves people between, and the wire keys the plugin, the
- * public API and every timeline line written before the catalog still speak. Everything else a candidate
- * may hold is a workspace's own status, read through {@code CandidatePipelineCatalog}.
+ * The seven statuses every workspace's pipeline is seeded with (V131's {@code system_key}): the wire keys the
+ * plugin, the public API and every timeline line written before the catalog still speak, and where an
+ * automation nobody configured moves people (V140). An admin may retire any of them like a status of their own;
+ * everything a candidate may hold is read through {@code CandidatePipelineCatalog}.
  *
  * <p>{@link #OFF_LIMITS} is about the person and is not the same thing as a mandate's off-limits
  * <i>companies</i>, which live on the strategy and bar a company from the search entirely.

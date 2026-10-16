@@ -8,6 +8,8 @@ import type { CandidateEmail, PersonRecord } from "../../candidates/api/types";
 import * as mailboxApi from "../api/mailboxApi";
 import * as meetingApi from "../api/meetingApi";
 import * as zoomApi from "../api/zoomApi";
+import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
+import * as pipelineApi from "../../workspace/api/pipelineApi";
 import type { PersonMeetings } from "../api/meetingApi";
 import { MeetingsSection } from "./MeetingsSection";
 
@@ -24,6 +26,11 @@ vi.mock("../api/zoomApi", async (importOriginal) => ({
 vi.mock("../api/mailboxApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/mailboxApi")>()),
   getMailbox: vi.fn(),
+}));
+vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../workspace/api/pipelineApi")>()),
+  pipelineCatalog: vi.fn(),
+  statusAutomations: vi.fn(),
 }));
 vi.mock("../../candidates/api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../candidates/api/poolApi")>()),
@@ -169,9 +176,14 @@ describe("MeetingsSection", () => {
       ],
     });
     vi.mocked(meetingApi.bookMeeting).mockResolvedValue(undefined);
+    vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(aSeededCatalog());
+    vi.mocked(pipelineApi.statusAutomations).mockResolvedValue([
+      { trigger: "callBooked", enabled: true, statusId: "status-engaged", broken: false },
+    ]);
     renderSection();
 
     await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await waitFor(() => expect(pipelineApi.statusAutomations).toHaveBeenCalled());
     expect(await screen.findByRole("button", { name: "Tue 6 Oct, fully booked" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mon 5 Oct, 2 free" })).toHaveAttribute("aria-pressed", "true");
     const send = screen.getByRole("button", { name: "Send invite" });

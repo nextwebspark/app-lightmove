@@ -3,16 +3,17 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { useState, type FormEvent } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { PageHeader } from "../../../components/layout/PageHeader";
-import { Button, CardsSkeleton, Input, Modal, useToast } from "../../../components/ui";
+import { Button, CardsSkeleton, Input, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { moveItem } from "../../../lib/moveItem";
 import { useSortableSensors, VERTICAL_LIST_MODIFIERS } from "../../../lib/sortableSensors";
 import { useAuth } from "../../auth/AuthProvider";
 import { liveStages } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
-import type { PipelineStage } from "../../workspace/api/types";
+import { useStatusAutomations } from "../../workspace/lib/statusAutomation";
 import { usePipelineCatalog, usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
 import { PipelineStageCard } from "../components/PipelineStageCard";
+import { AUTOMATION_CARD_ID, StatusAutomationCard } from "../components/StatusAutomationCard";
 import { inOrderOf, PIPELINE_NAME_LIMIT } from "../lib/pipelineStageRows";
 import { usePipelineReorder } from "../lib/usePipelineReorder";
 
@@ -30,7 +31,6 @@ export function PipelineStagesPage() {
   const { query } = usePipelineCatalog();
   const toast = useToast();
   const [newStage, setNewStage] = useState("");
-  const [blockedStage, setBlockedStage] = useState<PipelineStage | null>(null);
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(new Set());
   const sensors = useSortableSensors();
 
@@ -40,6 +40,7 @@ export function PipelineStagesPage() {
     (catalog, ids) => ({ stages: inOrderOf(catalog.stages, ids) }),
   );
 
+  const pausedAutomations = (useStatusAutomations().data ?? []).filter((automation) => automation.broken).length;
   const stages = query.data ? liveStages(query.data) : [];
   const activeStages = stages.filter((stage) => stage.kind === "active");
   const closedStages = stages.filter((stage) => stage.kind === "closed");
@@ -90,6 +91,21 @@ export function PipelineStagesPage() {
         </p>
       )}
 
+      {pausedAutomations > 0 && (
+        <p
+          role="alert"
+          className="mb-4 flex flex-wrap items-center gap-2 rounded-u-control border border-u-signal/40 bg-u-signal-tint px-3 py-2 text-note text-u-text"
+        >
+          <Icon d={ICONS.warning} size={13} className="text-u-signal" />
+          {pausedAutomations === 1
+            ? "An automation is paused: the status it moves people to was retired."
+            : `${pausedAutomations} automations are paused: the statuses they move people to were retired.`}
+          <a href={`#${AUTOMATION_CARD_ID}`} className="font-medium text-u-accent hover:underline">
+            Choose another status
+          </a>
+        </p>
+      )}
+
       {query.isError ? (
         <p className="text-note text-u-text3">{messageFor(query.error)}</p>
       ) : query.isPending ? (
@@ -124,7 +140,6 @@ export function PipelineStagesPage() {
                     open={openIds.has(stage.id)}
                     onToggle={() => handleToggle(stage.id)}
                     onStep={isAdmin ? (step) => moveStage(index, index + step) : undefined}
-                    onRetireBlocked={() => setBlockedStage(stage)}
                   />
                 ))}
               </SortableContext>
@@ -137,7 +152,6 @@ export function PipelineStagesPage() {
                   isAdmin={isAdmin}
                   open={openIds.has(stage.id)}
                   onToggle={() => handleToggle(stage.id)}
-                  onRetireBlocked={() => setBlockedStage(stage)}
                 />
               ))}
             </div>
@@ -168,16 +182,7 @@ export function PipelineStagesPage() {
         </>
       )}
 
-      <Modal
-        open={blockedStage !== null}
-        onClose={() => setBlockedStage(null)}
-        title={`Retire ${blockedStage?.label ?? "stage"}`}
-        footer={<Button onClick={() => setBlockedStage(null)}>OK</Button>}
-      >
-        <p className="text-body text-u-text2">
-          Move or retire this stage&apos;s statuses first — a stage with live statuses can&apos;t be retired.
-        </p>
-      </Modal>
+      {query.isSuccess && <StatusAutomationCard catalog={query.data} isAdmin={isAdmin} />}
     </>
   );
 }
