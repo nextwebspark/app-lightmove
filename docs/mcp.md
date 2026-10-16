@@ -230,6 +230,6 @@ A tool never answers with an internal error message. A failure is always one pla
   `apps/api` and commit the file with the change. The variable fails the test under `CI`.
 - **Evals:** `ops/eval/mcp/` asks Claude Code realistic questions against a local stack, and checks which tools it
   picks and how many calls it makes. Run it after changing a tool's description. It is not part of `./mvnw test`.
-- **Settings:** `lightmove.mcp.*` holds the token lifetimes, the budgets, the size caps, the verified client
+- **Settings:** `uncava.mcp.*` holds the token lifetimes, the budgets, the size caps, the verified client
   prefixes (`MCP_VERIFIED_CLIENT_ID_PREFIXES`) and the extra browser origins (`MCP_ALLOWED_ORIGINS`; the
   deployment's own origin is always allowed).

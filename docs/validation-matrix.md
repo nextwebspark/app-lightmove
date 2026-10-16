@@ -12,13 +12,13 @@ rule that counts. *Shown as* is where a server refusal lands: **field** (under t
 | Case | API answer | SPA |
 |---|---|---|
 | Bean Validation on a body (`@Size`, `@NotBlank`, `@Email`, …) | 400 `VALIDATION_FAILED`, `fieldErrors: {path: message}` | `fieldErrorsFrom` puts it under its input; anywhere else `messageFor` reads "Field label: message" |
-| A field the request does not take | 400 `VALIDATION_FAILED`, `fieldErrors: {path: "This request does not take that field"}` | as above. `lightmove.web.refuse-unknown-request-fields: false` is the kill switch |
+| A field the request does not take | 400 `VALIDATION_FAILED`, `fieldErrors: {path: "This request does not take that field"}` | as above. `uncava.web.refuse-unknown-request-fields: false` is the kill switch |
 | A value of the wrong shape (unknown enum token, bad date, text for a number) | 400, `fieldErrors: {path: "Not a valid value"}` | as above |
 | Malformed JSON | 400 "Request body could not be read", no field | banner or toast |
 | An enum token a service parses (`ApiValueEnum`) | 400 "That is not a valid *label*" | the sentence itself |
 | A value too long for its column, or a number out of range | 400 `VALIDATION_FAILED`, no field named (the driver reports a column, not a request path); logged at warn, since validation missed it | generic sentence |
 | A CHECK the database refuses | unchanged: 409 `CONFLICT` — the server writes values no caller chose, so a broken CHECK is ours | generic sentence |
-| JSON body over `lightmove.web.max-json-body-size` (2 MB) | 413 `REQUEST_TOO_LARGE` | "That request is too large" |
+| JSON body over `uncava.web.max-json-body-size` (2 MB) | 413 `REQUEST_TOO_LARGE` | "That request is too large" |
 | A multipart part missing | 400 `VALIDATION_FAILED` | generic sentence |
 | Autosave refused | a 4xx is **not** resent; a 5xx, 408, 429 or network failure is resent after 2 s, 5 s, 15 s | toast once, rail reads error with Retry |
 

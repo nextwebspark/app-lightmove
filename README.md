@@ -1,4 +1,4 @@
-# LightMove
+# Uncava
 
 Multi-tenant SaaS for executive search and talent mapping.
 
@@ -163,9 +163,9 @@ can also be set as an environment variable.
 
 | | |
 |---|---|
-| `LIGHTMOVE_EMAIL_PROVIDER` | `log` (default) or `resend` |
-| `LIGHTMOVE_EMAIL_RESEND_API_KEY` | Resend key |
-| `LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT` | **0** by default: `X-Forwarded-For` is ignored and the socket peer is used. Set it to the number of reverse proxies actually in front of the app, or the rate limiter's per-IP budget becomes free to bypass |
+| `UNCAVA_EMAIL_PROVIDER` | `log` (default) or `resend` |
+| `UNCAVA_EMAIL_RESEND_API_KEY` | Resend key |
+| `UNCAVA_WEB_TRUSTED_PROXY_COUNT` | **0** by default: `X-Forwarded-For` is ignored and the socket peer is used. Set it to the number of reverse proxies actually in front of the app, or the rate limiter's per-IP budget becomes free to bypass |
 | `JWT_PRIVATE_KEY_LOCATION` / `JWT_PUBLIC_KEY_LOCATION` | Required in production. See above |
 | `MANAGEMENT_PORT` | Actuator's port. `9090` locally; **`8080`** on Cloud Run, which routes only one port into a container |
 | `FLYWAY_ENABLED` | `true` locally and in tests. **`false`** in the deployed service — migrations are a deploy step, not a boot step |
@@ -176,14 +176,14 @@ can also be set as an environment variable.
 
 **Precedence.** An env var like `EMAIL_PROVIDER` only feeds a `${...}` placeholder in `application.yml`.
 If `application-local.yml` sets the property *literally*, the placeholder is never consulted and the env
-var silently does nothing. Use the full property path — `LIGHTMOVE_EMAIL_PROVIDER` — which outranks both
+var silently does nothing. Use the full property path — `UNCAVA_EMAIL_PROVIDER` — which outranks both
 files.
 
 This is not specific to email: **any** `${FOO:default}` in `application.yml` is dead on the `local`
 profile if a profile file hardcodes that property, and nothing warns you. The rate-limit budgets are the
 other one that bites — `application-local.yml` pins them to 100, so `AUTH_LOGIN_ATTEMPTS_PER_MINUTE` and
 its siblings do nothing and the server looks unthrottled. Override with the property's own name
-(`LIGHTMOVE_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE`) or the whole test run measures an unlimited API.
+(`UNCAVA_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE`) or the whole test run measures an unlimited API.
 
 **Real email** needs Resend *and a verified domain*. Until a domain is verified, Resend delivers only to
 the address your Resend account is registered under and 403s everything else — whatever `from` you set
@@ -194,7 +194,7 @@ unrecoverable — use `/auth/verify/resend`.
 
 Every email is one layout — `EmailRenderer` — and each template states only what it says, so the HTML
 and plain-text halves are rendered from the same sentence rather than written twice. The header's mark
-is `apps/web/public/brand/uncava-mark-email-v1.png`, fetched over `lightmove.web.base-url`: mail clients
+is `apps/web/public/brand/uncava-mark-email-v1.png`, fetched over `uncava.web.base-url`: mail clients
 do not render SVG, so it is a Chromium screenshot of the same paths the app draws, produced the way the
 OG card is ("Link previews" below) and for the same reason. Its filename carries a version because Gmail
 proxies and caches every image it fetches, so a mark redrawn in place would leave the old one in

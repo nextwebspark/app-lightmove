@@ -18,6 +18,6 @@ export const BRIEF_LIMITS = {
   competencyDescription: 300,
   criterion: 300,
   criteria: 30,
-  /** `lightmove.position.document.max-file-size-bytes`'s default. */
+  /** `uncava.position.document.max-file-size-bytes`'s default. */
   documentBytes: 10 * 1024 * 1024,
 } as const;

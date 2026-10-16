@@ -1,0 +1,119 @@
+package app.uncava.api.outreach.service;
+
+import app.uncava.api.billing.usage.constant.UsageKind;
+import app.uncava.api.billing.usage.model.MeteredUse;
+import app.uncava.api.billing.usage.service.FairUseGuard;
+import app.uncava.api.billing.usage.service.UsageRecorder;
+import app.uncava.api.candidate.model.CandidateDossier;
+import app.uncava.api.candidate.model.OutreachRecipient;
+import app.uncava.api.candidate.service.CandidateOutreachService;
+import app.uncava.api.core.audit.constant.ProjectEventType;
+import app.uncava.api.core.audit.service.AuditService;
+import app.uncava.api.core.error.constant.ErrorCode;
+import app.uncava.api.core.error.model.ApiException;
+import app.uncava.api.core.ratelimit.service.LlmBudget;
+import app.uncava.api.core.ratelimit.service.LlmBudgetGuard;
+import app.uncava.api.outreach.model.DraftedOpener;
+import app.uncava.api.outreach.model.OpenerBrief;
+import app.uncava.api.position.dto.PositionDetailsDto;
+import app.uncava.api.position.service.PositionService;
+import app.uncava.api.project.repository.ProjectRepository;
+import app.uncava.api.project.service.ClientService;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+/**
+ * The review's openers. One press — a batch on entering Review, or one Redraft — is one unit of
+ * {@link LlmBudget#OUTREACH_DRAFT}, whatever it holds, so reviewing ten people costs what one does; fair use
+ * counts the people an opener was written for.
+ * The model is called outside any transaction, each person on its own thread.
+ */
+@Service
+@RequiredArgsConstructor
+public class OutreachOpenerService {
+
+    private final CandidateOutreachService people;
+    private final PositionService positions;
+    private final ClientService clients;
+    private final ProjectRepository projects;
+    private final OutreachOpenerDrafter drafter;
+    private final OutreachEligibility eligibility;
+    private final LlmBudgetGuard llmBudget;
+    private final FairUseGuard fairUse;
+    private final UsageRecorder usage;
+    private final AuditService audit;
+
+    public List<DraftedOpener> draft(UUID userId, UUID workspaceId, UUID projectId, List<UUID> candidateIds,
+                                     HttpServletRequest httpRequest) {
+        projects.requireNotArchived(projectId);
+        List<UUID> distinct = candidateIds.stream().distinct().toList();
+        requireAllMayBeApproached(workspaceId, projectId, distinct);
+        Map<UUID, CandidateDossier> dossiers = new LinkedHashMap<>();
+        for (UUID candidateId : distinct) {
+            dossiers.put(candidateId, people.dossierOf(workspaceId, projectId, candidateId));
+        }
+        llmBudget.require(LlmBudget.OUTREACH_DRAFT, userId);
+        fairUse.check(workspaceId, userId, UsageKind.OUTREACH_OPENER, dossiers.size());
+        OpenerBrief brief = briefOf(workspaceId, projectId);
+        audit.projectEvent(ProjectEventType.OUTREACH_OPENERS_DRAFTED, userId, workspaceId, projectId, httpRequest)
+                .detail("count", dossiers.size())
+                .record();
+        List<DraftedOpener> drafted = draftAll(dossiers, brief);
+        int written = Math.toIntExact(drafted.stream().filter(opener -> opener.opener() != null).count());
+        if (written > 0) {
+            usage.record(MeteredUse.of(workspaceId, userId, projectId, UsageKind.OUTREACH_OPENER, written));
+        }
+        return drafted;
+    }
+
+    /**
+     * Decided before anything is spent or anyone's profile reaches the model: an opener is drafted only to
+     * approach someone, so a person who may not be approached gets none.
+     */
+    private void requireAllMayBeApproached(UUID workspaceId, UUID projectId, List<UUID> candidateIds) {
+        List<OutreachRecipient> recipients = people.recipientsOf(workspaceId, projectId, candidateIds, List.of());
+        if (recipients.size() != candidateIds.size()) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        if (eligibility.of(projectId, recipients).anySkipped(recipients)) {
+            throw ApiException.of(ErrorCode.OUTREACH_PERSON_SKIPPED);
+        }
+    }
+
+    private OpenerBrief briefOf(UUID workspaceId, UUID projectId) {
+        PositionDetailsDto details = positions.briefOf(workspaceId, projectId).details();
+        String sector = clients.industryOfProjectClient(workspaceId, projectId);
+        return new OpenerBrief(details.roleTitle(), details.seniority() == null ? null : details.seniority().value(),
+                sector, details.locationCity(), details.locationCountry());
+    }
+
+    private List<DraftedOpener> draftAll(Map<UUID, CandidateDossier> dossiers, OpenerBrief brief) {
+        try (ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor()) {
+            Map<UUID, Future<String>> pending = new LinkedHashMap<>();
+            dossiers.forEach((candidateId, dossier) ->
+                    pending.put(candidateId, threads.submit(() -> drafter.draft(dossier, brief).orElse(null))));
+            return pending.entrySet().stream()
+                    .map(entry -> new DraftedOpener(entry.getKey(), resultOf(entry.getValue())))
+                    .toList();
+        }
+    }
+
+    private static String resultOf(Future<String> drafted) {
+        try {
+            return drafted.get();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception failed) {
+            return null;
+        }
+    }
+}

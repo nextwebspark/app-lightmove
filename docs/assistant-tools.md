@@ -127,7 +127,7 @@ Card button ──POST /api/v1/assistant/turns/{turnId}/accept {companyIds, stat
 
 The request itself streams its progress: no queue, no event table, no reconnect. It waits for
 Gemini (Flash, 1–7s a healthy round, 40s at most) and the stream closes at
-`lightmove.assistant.answer-deadline` (150s), inside Cloud Run's 300s request timeout. Vertex is asked at `global`
+`uncava.assistant.answer-deadline` (150s), inside Cloud Run's 300s request timeout. Vertex is asked at `global`
 (`GOOGLE_CLOUD_LOCATION`): `us-central1` throttled most calls. Each model round runs behind `AssistantRounds`: timed and logged at INFO, asked again —
 up to three attempts — when its connection timed out or dropped, the provider throttled it (after a short pause), or it went
 unanswered past `round-patience` (12s; the last attempt is waited for in full), and not started at all past

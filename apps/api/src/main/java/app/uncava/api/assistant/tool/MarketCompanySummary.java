@@ -1,0 +1,28 @@
+package app.uncava.api.assistant.tool;
+
+import app.uncava.api.strategy.model.CompanyRow;
+
+/**
+ * One company of the market, as much of it as the model is worth showing.
+ *
+ * <p>Narrower than {@code CompanyRow} on purpose. Every field handed back is spent twice — once in
+ * the model's context window and again in the bill — and the twenty-seven a universe row carries
+ * are a grid's worth, not an answer's. The account id is here because it is the key a later
+ * proposal has to name in order to be filed through the door that already exists. {@code mandateStage}
+ * is the stage this mandate already filed it at, null when it has not.
+ */
+public record MarketCompanySummary(String apolloAccountId, String companyName, String industry,
+                                   String country, String city, Integer employees,
+                                   Integer foundedYear, String website, String mandateStage) {
+
+    public static MarketCompanySummary of(CompanyRow row) {
+        return new MarketCompanySummary(row.apolloAccountId(), row.companyName(), row.industry(),
+                row.companyCountry(), row.companyCity(), row.numEmployees(), row.foundedYear(),
+                row.website(), null);
+    }
+
+    MarketCompanySummary inMandateAs(String stageToken) {
+        return new MarketCompanySummary(apolloAccountId, companyName, industry, country, city, employees,
+                foundedYear, website, stageToken);
+    }
+}

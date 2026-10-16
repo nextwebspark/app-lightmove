@@ -1,0 +1,344 @@
+package app.uncava.api.triagecompany.service;
+
+import app.uncava.api.common.constant.ApiValueEnum;
+import app.uncava.api.core.config.CompanyListSettings;
+import app.uncava.api.core.config.UncavaProperties;
+import app.uncava.api.core.error.constant.ErrorCode;
+import app.uncava.api.core.error.model.ApiException;
+import app.uncava.api.core.security.rbac.ProjectAudience;
+import app.uncava.api.core.text.service.SuppliedText;
+import app.uncava.api.project.repository.ProjectRepository;
+import app.uncava.api.strategy.constant.SortDirection;
+import app.uncava.api.triagecompany.constant.TriageCompanySortField;
+import app.uncava.api.triagecompany.constant.TriageCompanyStatus;
+import app.uncava.api.triagecompany.dto.TriageCompaniesResponse;
+import app.uncava.api.triagecompany.dto.TriageCompanyResponse;
+import app.uncava.api.triagecompany.dto.TriageCompanyListCriteria;
+import app.uncava.api.triagecompany.dto.TriageCountsDto;
+import app.uncava.api.triagecompany.model.MandateStages;
+import app.uncava.api.triagecompany.model.TriageCompany;
+import app.uncava.api.triagecompany.model.TriageCompanyFilters;
+import app.uncava.api.triagecompany.model.TriageCompanyLogo;
+import app.uncava.api.triagecompany.model.TriageCompanyMatches;
+import app.uncava.api.triagecompany.repository.TriageCompanyRepository;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/** Reads a mandate's triaged companies a stage at a time: the grid's filtered page, or the whole stage. */
+@Service
+@RequiredArgsConstructor
+public class TriageCompanyReadService {
+
+    private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
+
+    /** Deliberately outside {@link TriageCompanySortField}: that ranking lives in {@code candidate}. */
+    private static final String EXECUTIVE_STATUS_SORT_TOKEN = "executiveStatus";
+
+    /** A status key's shape, checked before {@code candidate} is asked whether the workspace holds it. */
+    private static final Pattern EXECUTIVE_STATUS_KEY = Pattern.compile("^[a-z][A-Za-z0-9]{0,39}$");
+
+    private final TriageCompanyRepository triaged;
+    private final ProjectRepository projects;
+    private final UncavaProperties properties;
+    private final MappedExecutiveLookup executives;
+
+    /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
+    @Transactional(readOnly = true)
+    public TriageCompaniesResponse list(UUID workspaceId, UUID projectId,
+                                        TriageCompanyListCriteria criteria, ProjectAudience audience) {
+        CompanyListSettings listConfig = properties.company().list();
+        int page = criteria.page() == null ? 0 : criteria.page();
+        int size = criteria.size() == null ? listConfig.defaultPageSize() : criteria.size();
+        listConfig.requireValidPage(page, size);
+        TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(criteria.status());
+        projects.requireInWorkspace(projectId, workspaceId);
+
+        String companyName = SuppliedText.blankToNull(criteria.nameQuery());
+        String executiveName = SuppliedText.blankToNull(criteria.executiveQuery());
+        List<String> executiveStatuses = resolveExecutiveStatuses(workspaceId, projectId,
+                criteria.executiveStatuses());
+        Page<TriageCompany> found = EXECUTIVE_STATUS_SORT_TOKEN.equals(criteria.sort())
+                ? findOrderedByExecutiveStatus(projectId, status, companyName, executiveName,
+                        executiveStatuses, resolveDirection(criteria.direction()), PageRequest.of(page, size), audience)
+                : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
+                        PageRequest.of(page, size, resolveSort(criteria)), audience);
+
+        return new TriageCompaniesResponse(
+                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
+                found.getTotalElements(), page, size, countsFor(projectId));
+    }
+
+    private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
+                                                String companyName, String executiveName,
+                                                List<String> executiveStatuses,
+                                                PageRequest pageRequest, ProjectAudience audience) {
+        if (executiveName == null && executiveStatuses.isEmpty()) {
+            return companyName == null
+                    ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
+                    : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
+                            projectId, status, companyName, pageRequest);
+        }
+        Set<UUID> matchingIds = matchingExecutiveIds(projectId, executiveName, executiveStatuses, audience);
+        if (matchingIds.isEmpty()) {
+            return Page.empty(pageRequest);
+        }
+        return triaged.findByProjectIdAndStatusAndIdInAndCompanyNameFilter(
+                projectId, status, matchingIds, companyName, pageRequest);
+    }
+
+    /** Both filters are independent: each resolves to a company set and the two are intersected. */
+    private Set<UUID> matchingExecutiveIds(UUID projectId, String executiveName, List<String> executiveStatuses,
+                                           ProjectAudience audience) {
+        Set<UUID> byName = executiveName == null
+                ? null : executives.triageCompanyIdsMatchingExecutiveName(projectId, executiveName, audience);
+        Set<UUID> byStatus = executiveStatuses.isEmpty()
+                ? null : executives.triageCompanyIdsWithExecutiveStatusIn(projectId, executiveStatuses, audience);
+        if (byName == null) {
+            return byStatus;
+        }
+        if (byStatus == null) {
+            return byName;
+        }
+        Set<UUID> intersection = new HashSet<>(byName);
+        intersection.retainAll(byStatus);
+        return intersection;
+    }
+
+    /** Ranked ids come from {@code candidate}'s side of the boundary; the rows are re-fetched here. */
+    private Page<TriageCompany> findOrderedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
+                                                              String companyName, String executiveName,
+                                                              List<String> executiveStatuses,
+                                                              SortDirection direction, PageRequest pageRequest,
+                                                              ProjectAudience audience) {
+        Page<UUID> ranked = executives.triageCompanyIdsRankedByExecutiveStatus(projectId, status,
+                companyName, executiveName, executiveStatuses, direction == SortDirection.ASC, pageRequest, audience);
+        if (ranked.isEmpty()) {
+            return new PageImpl<>(List.of(), pageRequest, ranked.getTotalElements());
+        }
+        Map<UUID, TriageCompany> byId = triaged.findAllById(ranked.getContent()).stream()
+                .collect(Collectors.toMap(TriageCompany::getId, company -> company));
+        // A ranked id can vanish between the two reads; dropped, not a null `toDto` would 500 on.
+        List<TriageCompany> ordered = ranked.getContent().stream()
+                .map(byId::get)
+                .filter(Objects::nonNull)
+                .toList();
+        return new PageImpl<>(ordered, pageRequest, ranked.getTotalElements());
+    }
+
+    /**
+     * Status keys of the workspace's pipeline, which {@code candidate} holds: a token that is not one is a
+     * 400, never a filter quietly dropped. An empty result means "no filter", not "match nothing".
+     */
+    private List<String> resolveExecutiveStatuses(UUID workspaceId, UUID projectId, List<String> tokens) {
+        if (tokens == null || tokens.isEmpty()) {
+            return List.of();
+        }
+        List<String> keys = tokens.stream().map(token -> {
+            if (token == null || !EXECUTIVE_STATUS_KEY.matcher(token).matches()) {
+                throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown executive status: " + token);
+            }
+            return token;
+        }).collect(Collectors.toList());
+        List<String> unknown = executives.unknownExecutiveStatuses(workspaceId, projectId, keys);
+        if (!unknown.isEmpty()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown executive status: " + unknown.getFirst());
+        }
+        return keys;
+    }
+
+    /**
+     * One whole stage, unpaged, for {@code talentmap} and {@code dataexport}. Answers the total so a
+     * caller past {@code cap} can tell; name order keeps the cut deterministic.
+     */
+    @Transactional(readOnly = true)
+    public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
+                                                  TriageCompanyStatus status,
+                                                  TriageCompanyFilters filters, int cap,
+                                                  ProjectAudience audience) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
+                .and(NEWEST_FIRST));
+        Page<TriageCompany> found = findWithFilters(projectId, status,
+                SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
+                resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()), wholeStage, audience);
+        return new TriageCompaniesResponse(
+                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
+                found.getTotalElements(), 0, cap, countsFor(projectId));
+    }
+
+    /** Every stage's companies whose name contains {@code companyName}, in name order, one query. */
+    @Transactional(readOnly = true)
+    public TriageCompanyMatches named(UUID workspaceId, UUID projectId, String companyName, int cap) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return matchesOf(triaged.findByProjectIdAndCompanyNameContainingIgnoreCase(projectId, companyName,
+                PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName").and(NEWEST_FIRST))));
+    }
+
+    /** The stage's companies outside {@code excludedIds}, in name order, with how many there are in all. */
+    @Transactional(readOnly = true)
+    public TriageCompanyMatches ofStageExcluding(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
+                                                 Set<UUID> excludedIds, int cap) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        PageRequest first = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName").and(NEWEST_FIRST));
+        return matchesOf(excludedIds.isEmpty()
+                ? triaged.findByProjectIdAndStatus(projectId, status, first)
+                : triaged.findByProjectIdAndStatusAndIdNotIn(projectId, status, excludedIds, first));
+    }
+
+    @Transactional(readOnly = true)
+    public long countOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.countByProjectIdAndStatus(projectId, status);
+    }
+
+    private static TriageCompanyMatches matchesOf(Page<TriageCompany> found) {
+        return new TriageCompanyMatches(
+                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
+                found.getTotalElements());
+    }
+
+    /** The stage's companies among {@code ids}; an id elsewhere, or in another mandate, is simply absent. */
+    @Transactional(readOnly = true)
+    public List<TriageCompanyResponse> findOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
+                                                   Set<UUID> ids) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.findByProjectIdAndStatusAndIdIn(projectId, status, ids).stream()
+                .map(TriageCompanyResponseMapper::toDto)
+                .toList();
+    }
+
+    /**
+     * The first {@code limit} of the stage in the grid's name order, leaving out {@code excludedIds} and
+     * any company marked as having no executive to find.
+     */
+    @Transactional(readOnly = true)
+    public List<TriageCompanyResponse> firstOfStageExcluding(UUID workspaceId, UUID projectId,
+                                                             TriageCompanyStatus status, Set<UUID> excludedIds,
+                                                             int limit) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.findByProjectIdAndStatusAndNoExecutiveFoundFalseAndIdNotIn(projectId, status, excludedIds,
+                        Sort.by(Sort.Direction.ASC, "companyName").and(NEWEST_FIRST), Limit.of(limit)).stream()
+                .map(TriageCompanyResponseMapper::toDto)
+                .toList();
+    }
+
+    /**
+     * The stage each named company already holds in the mandate, for the assistant's card. A name
+     * matching several rows answers the row a capture would resolve to ({@code preferred}).
+     */
+    @Transactional(readOnly = true)
+    public MandateStages stagesOf(UUID workspaceId, UUID projectId, Collection<String> apolloAccountIds,
+                                  Collection<String> companyNames) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Set<String> accountIds = apolloAccountIds.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<String> lowerCaseNames = companyNames.stream()
+                .filter(Objects::nonNull)
+                .map(name -> name.toLowerCase(Locale.ROOT))
+                .collect(Collectors.toSet());
+        Map<String, TriageCompanyStatus> byAccountId = accountIds.isEmpty() ? Map.of()
+                : triaged.findByProjectIdAndApolloAccountIdIn(projectId, accountIds).stream()
+                        .collect(Collectors.toMap(TriageCompany::getApolloAccountId, TriageCompany::getStatus,
+                                (first, second) -> first));
+        Map<String, TriageCompanyStatus> byName = lowerCaseNames.isEmpty() ? Map.of()
+                : triaged.findByProjectIdAndLowerCaseCompanyNameIn(projectId, lowerCaseNames).stream()
+                        .collect(Collectors.groupingBy(row -> row.getCompanyName().toLowerCase(Locale.ROOT)))
+                        .entrySet().stream()
+                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                entry -> TriageCompanyService.preferred(entry.getValue()).getStatus()));
+        return new MandateStages(byAccountId, byName);
+    }
+
+    /** The logo each named row carries, for the Candidates page; a row without one is absent from the map. */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> logoUrlsOf(UUID workspaceId, Collection<UUID> triageCompanyIds) {
+        if (triageCompanyIds.isEmpty()) {
+            return Map.of();
+        }
+        List<TriageCompanyLogo> logos = triaged.findLogosByIdIn(Set.copyOf(triageCompanyIds));
+        if (logos.isEmpty()) {
+            return Map.of();
+        }
+        Set<UUID> workspaceProjects = projects.findIdsInWorkspace(workspaceId,
+                logos.stream().map(TriageCompanyLogo::projectId).collect(Collectors.toSet()));
+        return logos.stream()
+                .filter(logo -> workspaceProjects.contains(logo.projectId()))
+                .collect(Collectors.toMap(TriageCompanyLogo::id, TriageCompanyLogo::logoUrl));
+    }
+
+    /** How many companies sit at each stage, in three counts. */
+    @Transactional(readOnly = true)
+    public TriageCountsDto stageCountsOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return countsFor(projectId);
+    }
+
+    /** One company of the mandate; another mandate's id is not found, as a foreign mandate is. */
+    @Transactional(readOnly = true)
+    public TriageCompanyResponse get(UUID workspaceId, UUID projectId, UUID triageCompanyId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return TriageCompanyResponseMapper.toDto(triaged.requireInProject(triageCompanyId, projectId));
+    }
+
+    /** Every company id at one stage, unpaged: what holds a search to a stage. */
+    @Transactional(readOnly = true)
+    public Set<UUID> idsOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return triaged.findIdsByProjectIdAndStatus(projectId, status);
+    }
+
+    private TriageCountsDto countsFor(UUID projectId) {
+        return new TriageCountsDto(
+                triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.IN_UNIVERSE),
+                triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.SHORTLISTED),
+                triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.DECLINED));
+    }
+
+    /**
+     * {@code NULLS LAST} either way: Apollo leaves revenue blank on ~9 rows in 10, which an ascending
+     * sort would open on. The {@code createdAt} tie-break keeps paging stable.
+     */
+    private static Sort resolveSort(TriageCompanyListCriteria criteria) {
+        // Both resolved up front: returning the default early let ?direction=sideways through with a 200.
+        SortDirection direction = resolveDirection(criteria.direction());
+        TriageCompanySortField field = resolveSortField(criteria.sort());
+        if (field == null) {
+            return newestFirstIn(direction == SortDirection.ASC ? Sort.Direction.ASC : Sort.Direction.DESC);
+        }
+        Sort.Order order = Sort.Order
+                .by(field.property())
+                .with(direction == SortDirection.ASC ? Sort.Direction.ASC : Sort.Direction.DESC)
+                .nullsLast();
+        // "Added" is createdAt itself, so tie-breaking on it again would be the same term twice.
+        return field == TriageCompanySortField.ADDED ? Sort.by(order) : Sort.by(order).and(NEWEST_FIRST);
+    }
+
+    /** Null when the caller named no field, which is not the same as naming an unknown one. */
+    private static TriageCompanySortField resolveSortField(String token) {
+        return ApiValueEnum.parse(TriageCompanySortField.class, token, null, "sort field");
+    }
+
+    private static Sort newestFirstIn(Sort.Direction direction) {
+        return direction == Sort.Direction.DESC ? NEWEST_FIRST : Sort.by(Sort.Direction.ASC, "createdAt");
+    }
+
+    /** Omitted means DESC: the grid opens newest-first, and an absent direction must not reverse it. */
+    private static SortDirection resolveDirection(String token) {
+        return ApiValueEnum.parse(SortDirection.class, token, SortDirection.DESC, "sort direction");
+    }
+}

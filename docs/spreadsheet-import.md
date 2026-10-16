@@ -46,7 +46,7 @@ and merges over what the row already held.
 column deleted by mistake comes back with its data when it is defined again under the same name. A
 sweep that erased them would make one misclick unrecoverable for no benefit beyond a smaller document.
 
-A per-project ceiling (`lightmove.custom-column.max-per-project`, default 40) exists because the
+A per-project ceiling (`uncava.custom-column.max-per-project`, default 40) exists because the
 columns come from whatever a spreadsheet's header row happens to say — one mis-mapped import of a very
 wide file would otherwise leave a mandate with a grid nobody can read across.
 
@@ -63,7 +63,7 @@ PR #148's review stripped out of `SimpleLoggerAdvisor`'s logging. The request ca
 header and a **locally computed value shape** — `looks like an email`, `looks numeric`, `looks like a
 date` — worked out by `ValueShapes` from the parsed rows and never leaving the process. That carries
 nearly all the signal a mapping needs: a column headed "Contact" is ambiguous, and a column headed
-"Contact" that holds email addresses is not. `lightmove.spreadsheet-import.send-sample-values`
+"Contact" that holds email addresses is not. `uncava.spreadsheet-import.send-sample-values`
 (default `false`) exists so an operator can make the opposite trade knowingly rather than by editing
 code.
 
@@ -106,7 +106,7 @@ column. Behind that:
   one unreachable Vertex became a very long wait on a spinner. Now two attempts, with 400/401/403/404/429
   excluded: those never come good for this request, so retrying only delays the fallback.
 - **The call is bounded**, through the provider's own `HttpOptions.timeout`
-  (`lightmove.llm.request-timeout-ms`, default 20s). Neither Spring AI's connection properties nor
+  (`uncava.llm.request-timeout-ms`, default 20s). Neither Spring AI's connection properties nor
   `GoogleGenAiChatOptions` expose a timeout, so `GoogleGenAiClientConfig` replaces the
   `@ConditionalOnMissingBean` client to set one. It reproduces the **Vertex** path only and refuses an
   api-key configuration loudly rather than quietly building the wrong client — and it is gated on
@@ -313,7 +313,7 @@ A formula is read as its **cached result and never evaluated**: evaluating means
 spreadsheet logic, external links included, out of a file an untrusted caller uploaded, and the value a
 consultant saw when they saved is the value they meant to send.
 
-A row count over `lightmove.spreadsheet-import.max-rows` is refused whole rather than truncated —
+A row count over `uncava.spreadsheet-import.max-rows` is refused whole rather than truncated —
 taking the first N would silently decide which half of a consultant's list got imported.
 
 ### The screen

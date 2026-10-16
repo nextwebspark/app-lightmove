@@ -1,0 +1,102 @@
+package app.uncava.api.project.model;
+
+import app.uncava.api.core.persistence.model.BaseEntity;
+import app.uncava.api.project.constant.ClientRepStatus;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import java.util.UUID;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+/**
+ * A client-side contact on a client record, attached to mandates as a read-only CLIENT seat. Born
+ * INVITED against an invitation and ACTIVE on accept — or ACTIVE at once if already a member.
+ */
+@Entity
+@Table(name = "app_lm_client_representative")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class ClientRepresentative extends BaseEntity {
+
+    @Column(name = "workspace_id", nullable = false)
+    private UUID workspaceId;
+
+    @Column(name = "client_id", nullable = false)
+    private UUID clientId;
+
+    @Column(name = "full_name", nullable = false, length = 160)
+    private String fullName;
+
+    @Column(length = 160)
+    private String position;
+
+    @Column(nullable = false, length = 320)
+    private String email;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private ClientRepStatus status = ClientRepStatus.INVITED;
+
+    @Column(name = "user_id")
+    private UUID userId;
+
+    @Column(name = "invitation_id")
+    private UUID invitationId;
+
+    @Column(name = "created_by", nullable = false)
+    private UUID createdBy;
+
+    public static ClientRepresentative invited(UUID workspaceId, UUID clientId, String fullName,
+                                               String position, String email, UUID invitationId,
+                                               UUID createdBy) {
+        ClientRepresentative representative = new ClientRepresentative();
+        representative.workspaceId = workspaceId;
+        representative.clientId = clientId;
+        representative.fullName = fullName.trim();
+        representative.position = position;
+        representative.email = email;
+        representative.status = ClientRepStatus.INVITED;
+        representative.invitationId = invitationId;
+        representative.createdBy = createdBy;
+        return representative;
+    }
+
+    /** Already a workspace member: no invitation; the CLIENT role is added to the membership separately. */
+    public static ClientRepresentative active(UUID workspaceId, UUID clientId, String fullName,
+                                              String position, String email, UUID userId, UUID createdBy) {
+        ClientRepresentative representative = new ClientRepresentative();
+        representative.workspaceId = workspaceId;
+        representative.clientId = clientId;
+        representative.fullName = fullName.trim();
+        representative.position = position;
+        representative.email = email;
+        representative.status = ClientRepStatus.ACTIVE;
+        representative.userId = userId;
+        representative.createdBy = createdBy;
+        return representative;
+    }
+
+    /** Re-issue an invite to an existing row, rather than leaving a second live representative. */
+    public void reinvite(String fullName, String position, UUID invitationId) {
+        this.fullName = fullName.trim();
+        this.position = position;
+        this.status = ClientRepStatus.INVITED;
+        this.userId = null;
+        this.invitationId = invitationId;
+    }
+
+    /** Refreshed on a re-invite, whichever path it takes. */
+    public void refreshDetails(String fullName, String position) {
+        this.fullName = fullName.trim();
+        this.position = position;
+    }
+
+    public void activate(UUID userId) {
+        this.userId = userId;
+        this.status = ClientRepStatus.ACTIVE;
+    }
+}

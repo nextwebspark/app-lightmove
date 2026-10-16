@@ -22,7 +22,7 @@ for name in api web; do
 done
 
 # spring-boot:run forks a child JVM that outlives the Maven wrapper.
-pkill -f 'app.lightmove.api.LightMoveApplication' 2>/dev/null || true
+pkill -f 'app.uncava.api.UncavaApplication' 2>/dev/null || true
 pkill -f 'vite.*apps/web' 2>/dev/null || true
 
 if [ "${KEEP_DB:-}" = "1" ]; then

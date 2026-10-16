@@ -1,9 +1,9 @@
 ---
 name: db-ops
-description: LightMove database operations — Flyway migration workflow, Cloud SQL roles and hardening, granting humans access, and the ETL-owned Apollo company universe. Load for any work on migrations, db/migration SQL, grants, harden.sql, ops/cloudsql scripts, or app_lm_apollo_companies.
+description: Uncava database operations — Flyway migration workflow, Cloud SQL roles and hardening, granting humans access, and the ETL-owned Apollo company universe. Load for any work on migrations, db/migration SQL, grants, harden.sql, ops/cloudsql scripts, or app_lm_apollo_companies.
 ---
 
-# LightMove database operations
+# Uncava database operations
 
 Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables prefixed `app_lm_`.
 Schema is hand-written SQL in `apps/api/src/main/resources/db/migration/`, applied by Flyway;
@@ -31,7 +31,7 @@ tables, and a non-owner cannot grant. So the grant runs as `postgres`, which mak
 ops script and not a migration. `--write` covers `app_lm_*` but never those: the audit trail
 stays append-only, and the company universe belongs to the pipeline.
 
-A LightMove **super admin** (V57's platform role) is made the same way, by
+An Uncava **super admin** (V57's platform role) is made the same way, by
 `ops/cloudsql/grant-platform-role.sh <email> [--revoke] [--local]`, never by the application. The account
 must already exist; the change lands on the user's next request. It connects as the table's owner —
 `lm_app` until `harden.sql` reassigns `app_lm_user_platform_role` to `postgres`, then set

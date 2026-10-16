@@ -1,4 +1,4 @@
-import type { LightMoveApiClient } from "./lightMoveApiClient";
+import type { UncavaApiClient } from "./uncavaApiClient";
 import type { CaptureCompanyRequest, TriagedCompany } from "./types";
 
 /**
@@ -7,7 +7,7 @@ import type { CaptureCompanyRequest, TriagedCompany } from "./types";
  * the mandate already holds is refused rather than merged.
  */
 export function captureCompany(
-  api: LightMoveApiClient,
+  api: UncavaApiClient,
   projectId: string,
   capture: CaptureCompanyRequest,
 ): Promise<TriagedCompany> {
@@ -19,7 +19,7 @@ export function captureCompany(
 
 /** Undoes a capture: drops the project↔company row, which is all the mandate ever held. */
 export function removeTriageCompany(
-  api: LightMoveApiClient,
+  api: UncavaApiClient,
   projectId: string,
   triageCompanyId: string,
 ): Promise<void> {

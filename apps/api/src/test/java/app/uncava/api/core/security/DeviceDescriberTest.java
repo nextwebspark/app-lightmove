@@ -1,0 +1,93 @@
+package app.uncava.api.core.security;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import app.uncava.api.core.security.constant.DeviceKind;
+import app.uncava.api.core.security.model.DeviceDescription;
+import app.uncava.api.core.security.service.DeviceDescriber;
+import app.uncava.api.core.security.token.SessionClient;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Browsers quote each other's names for compatibility, so the order the markers are tested in <i>is</i>
+ * the algorithm. Every case here is a real User-Agent that a naive "contains" would get wrong.
+ */
+class DeviceDescriberTest {
+
+    private final DeviceDescriber describer = new DeviceDescriber();
+
+    @Test
+    @DisplayName("Edge is not Chrome, and Chrome is not Safari")
+    void theMostSpecificBrowserMarkerWins() {
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"))
+                .isEqualTo(new DeviceDescription(DeviceKind.DESKTOP, "Windows — Edge"));
+
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"))
+                .isEqualTo(new DeviceDescription(DeviceKind.DESKTOP, "macOS — Chrome"));
+    }
+
+    @Test
+    @DisplayName("Safari on a Mac is Safari")
+    void safariIsRecognisedWhenNothingElseClaimsIt() {
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+                + "(KHTML, like Gecko) Version/17.1 Safari/605.1.15"))
+                .isEqualTo(new DeviceDescription(DeviceKind.DESKTOP, "macOS — Safari"));
+    }
+
+    @Test
+    @DisplayName("Chrome on iOS says CriOS and never says Chrome")
+    void iosBrowsersAreReadBeforeSafari() {
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) "
+                + "AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/119.0.0.0 Mobile/15E148 Safari/604.1"))
+                .isEqualTo(new DeviceDescription(DeviceKind.MOBILE, "iPhone — Chrome"));
+    }
+
+    @Test
+    @DisplayName("an Android phone and an Android tablet differ by one token, and both carry Linux")
+    void androidIsSplitByFormFactorAndBeatsLinux() {
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"))
+                .isEqualTo(new DeviceDescription(DeviceKind.MOBILE, "Android — Chrome"));
+
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"))
+                .isEqualTo(new DeviceDescription(DeviceKind.TABLET, "Android — Chrome"));
+    }
+
+    @Test
+    @DisplayName("an iPad is a tablet")
+    void ipadIsATablet() {
+        assertThat(describer.describe(SessionClient.WEB_APP, "Mozilla/5.0 (iPad; CPU OS 17_1 like Mac OS X) AppleWebKit/605.1.15 "
+                + "(KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1").kind())
+                .isEqualTo(DeviceKind.TABLET);
+    }
+
+    @Test
+    @DisplayName("nothing recognisable is reported as unknown rather than guessed at")
+    void unrecognisedInputIsUnknown() {
+        assertThat(describer.describe(SessionClient.WEB_APP, null)).isEqualTo(DeviceDescription.unknown());
+        assertThat(describer.describe(SessionClient.WEB_APP, "  ")).isEqualTo(DeviceDescription.unknown());
+        assertThat(describer.describe(SessionClient.WEB_APP, "curl/8.4.0")).isEqualTo(DeviceDescription.unknown());
+    }
+
+    @Test
+    @DisplayName("the browser extension is its own device, despite sending the host browser's User-Agent")
+    void namesTheBrowserExtension() {
+        DeviceDescription described = describer.describe(SessionClient.BROWSER_EXTENSION,
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+                        + "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+        assertThat(described.kind()).isEqualTo(DeviceKind.EXTENSION);
+        assertThat(described.label()).isEqualTo("Uncava Capture (browser extension)");
+    }
+
+    @Test
+    @DisplayName("a web session claiming the extension's label is still a browser")
+    void theExtensionsLabelCannotBeClaimed() {
+        assertThat(describer.describe(SessionClient.WEB_APP, "Uncava Capture (browser extension)").kind())
+                .isNotEqualTo(DeviceKind.EXTENSION);
+    }
+}

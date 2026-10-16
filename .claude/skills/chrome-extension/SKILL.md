@@ -1,9 +1,9 @@
 ---
 name: chrome-extension
-description: LightMove Capture — the Chrome extension in apps/extension. Manifest V3 architecture, the three execution contexts and what may live in each, how the extension authenticates without touching the SPA's session cookie, how page extractors are written and tested, and the traps this build already fell into. Load before any work under apps/extension, on the extension's endpoints under /api/v1/auth/extension, or on the SPA's /extension/connect route.
+description: Uncava Capture — the Chrome extension in apps/extension. Manifest V3 architecture, the three execution contexts and what may live in each, how the extension authenticates without touching the SPA's session cookie, how page extractors are written and tested, and the traps this build already fell into. Load before any work under apps/extension, on the extension's endpoints under /api/v1/auth/extension, or on the SPA's /extension/connect route.
 ---
 
-# LightMove Capture — the Chrome extension
+# Uncava Capture — the Chrome extension
 
 `apps/extension` is a Manifest V3 browser action: a **side panel** (not a popup — it stays open while
 the consultant moves between profiles, and follows the active tab) that reads whatever the page a
@@ -59,9 +59,9 @@ the worker for data over `chrome.runtime.sendMessage` and never holds the creden
 
 ## Authentication: pairing, never the SPA's cookie
 
-The handoff describes the popup "reusing the `app.lightmove.io` session cookie". **Do not implement that.**
+The handoff describes the popup "reusing the `app.uncava.io` session cookie". **Do not implement that.**
 The refresh cookie is `httpOnly` + `Secure` + `SameSite=Strict`, host-only, and scoped to `/api/v1/auth`;
-`lightmove-domain` explains that the SPA and API are one origin precisely so it can stay that way. An
+`uncava-domain` explains that the SPA and API are one origin precisely so it can stay that way. An
 extension is a different origin, and making the cookie reachable from one means weakening every attribute
 that protects it.
 
@@ -119,7 +119,7 @@ Consequences worth keeping in mind:
 - `host_permissions` covers the app origin and `*://*.linkedin.com/*` — the one site the plugin
   reads, standing so the panel follows profile-to-profile moves with no grant prompt. **Nothing
   else**: no `activeTab`, no `optional_host_permissions`, no content scripts, never `<all_urls>`.
-  A non-LinkedIn page gets the `LINKEDIN_ONLY` message and an "Open LightMove" button, not a read.
+  A non-LinkedIn page gets the `LINKEDIN_ONLY` message and an "Open Uncava" button, not a read.
 - Every entry in the manifest carries a comment naming the feature that needs it. An unexplained
   permission is a review failure — it is also what gets an extension rejected from the store.
 - **No remote code.** Everything is bundled and the CSP stays at the MV3 default. This is store policy,
@@ -176,7 +176,7 @@ How the two fields are read (`background/activePage.ts:readActivePage`, no scrol
 - The extension makes **no request of its own against LinkedIn**, ever — no Voyager calls, no
   interception, no declared `content_scripts`. That restraint is what keeps a real account safe.
 - Off LinkedIn there is no read at all: the worker answers `LINKEDIN_ONLY` and the panel shows the
-  message with an "Open LightMove" button (the selected mandate's Companies page, else the projects
+  message with an "Open Uncava" button (the selected mandate's Companies page, else the projects
   list). A LinkedIn page that names nobody — feed, search, jobs — answers `PAGE_NOT_READABLE`.
 
 ## Page extractors
@@ -230,7 +230,7 @@ build. The design tokens in `styles/theme.css` and the `ApiError` shape are the 
 both; that is deliberate, and a shared package for a few dozen lines would couple the two for less than
 it costs.
 
-**The API refuses a request field its DTO does not declare** (`lightmove.web.refuse-unknown-request-fields`). Installed
+**The API refuses a request field its DTO does not declare** (`uncava.web.refuse-unknown-request-fields`). Installed
 copies of the extension lag the store by weeks, so a field it sends — `CaptureCompanyRequest`'s and
 `SaveCandidateRequest`'s, and `refreshToken` on the refresh — is never removed or renamed on the server; retire one
 only once no supported release sends it. Adding a field to the extension's payload needs the API to take it first.

@@ -1,4 +1,4 @@
-import { ApiRequestError, createLightMoveApiClient } from "../api/lightMoveApiClient";
+import { ApiRequestError, createUncavaApiClient } from "../api/uncavaApiClient";
 import { captureCandidate, removeCandidate } from "../api/captureCandidateApi";
 import { captureCompany, removeTriageCompany } from "../api/captureCompanyApi";
 import { listProjects } from "../api/projectsApi";
@@ -39,7 +39,7 @@ import {
  * registered inside a callback does not exist yet, the message is dropped, and the popup hangs.
  */
 
-const api = createLightMoveApiClient({
+const api = createUncavaApiClient({
   baseOrigin: workspaceOrigin,
   currentAccessToken,
   renewAccessToken,

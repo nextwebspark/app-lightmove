@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Exports chosen executives as golden-set rows (JSONL) for the nationality eval — NationalityEval,
-# apps/api/src/test/java/app/lightmove/api/eval. These are real people's profiles: the file must stay
+# apps/api/src/test/java/app/uncava/api/eval. These are real people's profiles: the file must stay
 # out of the repository, so it is written outside it or under the gitignored eval-data/.
 #
 #   ops/eval/export-golden.sh <output.jsonl> <candidate-id> [<candidate-id> ...]

@@ -1,0 +1,62 @@
+package app.uncava.api.strategy.service;
+
+import app.uncava.api.core.config.UncavaProperties;
+import app.uncava.api.strategy.dto.FacetCount;
+import app.uncava.api.strategy.dto.SectorGroup;
+import app.uncava.api.strategy.model.CompanyScope;
+import app.uncava.api.strategy.model.ScopeBreakdown;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
+import java.time.Duration;
+import java.util.List;
+import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+/**
+ * The whole-universe counts — fifteen full scans that only a pipeline reload changes — held for
+ * {@code uncava.company.facet-cache-ttl}.
+ */
+@Component
+public class UniverseFacets {
+
+    private final ApolloCompanyQueryService companies;
+    private final Cache<String, Object> counts;
+
+    @Autowired
+    public UniverseFacets(ApolloCompanyQueryService companies, UncavaProperties properties) {
+        this(companies, properties.company().facetCacheTtl(), Ticker.systemTicker());
+    }
+
+    UniverseFacets(ApolloCompanyQueryService companies, Duration ttl, Ticker ticker) {
+        this.companies = companies;
+        this.counts = Caffeine.newBuilder().expireAfterWrite(ttl).ticker(ticker).build();
+    }
+
+    public List<SectorGroup> sectorGroups() {
+        return cached("sectors", companies::sectorGroups);
+    }
+
+    public List<FacetCount> marketSegments() {
+        return cached("segments", companies::marketSegmentFacets);
+    }
+
+    public List<FacetCount> employeeBands() {
+        return cached("employees", companies::employeeBandFacets);
+    }
+
+    public List<FacetCount> revenueBands() {
+        return cached("revenue", companies::revenueBandFacets);
+    }
+
+    public List<ScopeBreakdown> countries(int limit) {
+        return cached("countries:" + limit,
+                () -> companies.countByCountry(CompanyScope.unfiltered(), limit));
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T cached(String key, Supplier<T> read) {
+        return (T) counts.get(key, ignored -> read.get());
+    }
+}

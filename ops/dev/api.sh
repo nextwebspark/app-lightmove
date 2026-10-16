@@ -11,7 +11,7 @@
 #   `password: ${DB_PASSWORD}` with NO default, so a clone with no application-local.yml dies on an
 #   unresolved placeholder while assembling the property — before Spring ever looks at the override.
 #
-#   LIGHTMOVE_EMAIL_PROVIDER=log is not optional. application-local.yml pins `provider: resend` with a
+#   UNCAVA_EMAIL_PROVIDER=log is not optional. application-local.yml pins `provider: resend` with a
 #   live API key *literally* rather than through the ${EMAIL_PROVIDER} placeholder, so only the full
 #   property path outranks it. Without this, every signup against your empty local database mails a
 #   real person.
@@ -34,7 +34,7 @@ exec env \
   SPRING_DATASOURCE_USERNAME=lm_app \
   SPRING_DATASOURCE_PASSWORD=lm \
   DB_PASSWORD=lm \
-  LIGHTMOVE_EMAIL_PROVIDER=log \
+  UNCAVA_EMAIL_PROVIDER=log \
   CREDENTIAL_KEYSET="${CREDENTIAL_KEYSET:-$DEV_CREDENTIAL_KEYSET}" \
   MCP_ENABLED="${MCP_ENABLED:-true}" \
   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local

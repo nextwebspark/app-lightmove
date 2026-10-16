@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import errorCodeSource from "../../../api/src/main/java/app/lightmove/api/core/error/constant/ErrorCode.java?raw";
+import errorCodeSource from "../../../api/src/main/java/app/uncava/api/core/error/constant/ErrorCode.java?raw";
 import { ApiRequestError } from "./apiClient";
 import { DETAIL_ALLOWED, messageFor } from "./errorCodes";
 

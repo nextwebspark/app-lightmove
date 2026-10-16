@@ -2,7 +2,7 @@
 
 **Status: superseded for the people search by the synchronous Search API — see the 2026-09-28 note
 below. Probed live 2026-08-31 against the account key in
-`apps/api/src/main/resources/application-local.yml` (`lightmove.enrichment.brightdata.api-key`).**
+`apps/api/src/main/resources/application-local.yml` (`uncava.enrichment.brightdata.api-key`).**
 
 > **2026-09-28 — what Find executives actually ships on.** `POST /datasets/search/{dataset_id}`
 > (the Search API, Elasticsearch, alpha) answers the same filter grammar in ~2s with the full records

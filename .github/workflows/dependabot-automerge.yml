@@ -13,8 +13,8 @@ name: Dependabot auto-merge
 #
 # To arm it, in this order, then replace `workflow_dispatch` below with `pull_request_target`:
 #
-#   gh api -X PATCH repos/nextwebspark/app-lightmove -F allow_auto_merge=true
-#   gh api -X PUT repos/nextwebspark/app-lightmove/branches/main/protection --input - <<'JSON'
+#   gh api -X PATCH repos/nextwebspark/app-uncava -F allow_auto_merge=true
+#   gh api -X PUT repos/nextwebspark/app-uncava/branches/main/protection --input - <<'JSON'
 #   { "required_status_checks": { "strict": true,
 #       "contexts": ["API", "Web", "Extension", "Dependencies", "Container image"] },
 #     "enforce_admins": false, "required_pull_request_reviews": null, "restrictions": null }

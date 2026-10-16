@@ -320,7 +320,7 @@ describe("routes — the settings gates", () => {
 });
 
 /**
- * The template library is LightMove staff's, not any workspace's: being a workspace admin does not
+ * The template library is Uncava staff's, not any workspace's: being a workspace admin does not
  * reach it, and a super admin reaches it whatever their workspace role.
  */
 describe("routes — the platform gate", () => {
@@ -331,7 +331,7 @@ describe("routes — the platform gate", () => {
     vi.mocked(templateAdminApi.listTemplates).mockResolvedValue([]);
   });
 
-  it("bounces a workspace admin who is not LightMove staff from the template library", async () => {
+  it("bounces a workspace admin who is not Uncava staff from the template library", async () => {
     vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
 
     renderAt("/settings/template-library");

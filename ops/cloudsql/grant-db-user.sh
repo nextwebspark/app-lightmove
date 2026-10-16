@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Gives a person access to the LightMove database under their own Google identity — nobody has to share
+# Gives a person access to the Uncava database under their own Google identity — nobody has to share
 # a password, and taking the access away later is one IAM change rather than a rotation.
 #
 #   ./ops/cloudsql/grant-db-user.sh ada@example.com            # read-only
 #   ./ops/cloudsql/grant-db-user.sh ada@example.com --write    # + INSERT/UPDATE/DELETE on app_lm_*
 #
 # Any Google account works, a consumer one included. That has nothing to do with the application's
-# work-email rule: this is a *database* login, not a LightMove account.
+# work-email rule: this is a *database* login, not an Uncava account.
 #
 # Three layers have to line up, and doing two of them fails in a way that looks like nothing:
 #

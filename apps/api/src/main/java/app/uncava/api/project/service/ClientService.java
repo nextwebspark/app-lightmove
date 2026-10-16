@@ -1,0 +1,321 @@
+package app.uncava.api.project.service;
+
+import app.uncava.api.common.persona.model.HiringCompanyProfile;
+import app.uncava.api.common.persona.model.HiringPersona;
+import app.uncava.api.core.audit.constant.ProjectEventType;
+import app.uncava.api.core.audit.service.AuditService;
+import app.uncava.api.core.error.constant.ErrorCode;
+import app.uncava.api.core.error.model.ApiException;
+import app.uncava.api.core.security.model.User;
+import app.uncava.api.core.security.repository.UserRepository;
+import app.uncava.api.core.text.service.ConfirmationName;
+import app.uncava.api.core.text.service.WebsiteDomain;
+import app.uncava.api.core.security.rbac.ProjectRole;
+import app.uncava.api.project.constant.ClientListScope;
+import app.uncava.api.project.constant.ClientRepStatus;
+import app.uncava.api.project.constant.ClientType;
+import app.uncava.api.project.dto.ClientDetailResponse;
+import app.uncava.api.project.dto.ClientListResponse;
+import app.uncava.api.project.dto.ClientMandateResponse;
+import app.uncava.api.project.dto.CreateClientRequest;
+import app.uncava.api.project.dto.ProjectResponse;
+import app.uncava.api.project.dto.RepAvatar;
+import app.uncava.api.project.dto.RepresentativeResponse;
+import app.uncava.api.project.dto.TeamMemberResponse;
+import app.uncava.api.project.dto.UpdateClientRequest;
+import app.uncava.api.project.dto.ViewerSummary;
+import app.uncava.api.project.model.Client;
+import app.uncava.api.project.model.ClientRepresentative;
+import app.uncava.api.project.model.Project;
+import app.uncava.api.project.repository.ClientRepository;
+import app.uncava.api.project.repository.ClientRepresentativeRepository;
+import app.uncava.api.project.repository.ProjectRepository;
+import app.uncava.api.strategy.model.CompanyRow;
+import app.uncava.api.strategy.service.ApolloCompanyQueryService;
+import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * The client registry. A DB-picked client's name and domain are resolved from the universe, never
+ * trusted from the request; the case-insensitive unique index backs the create-time 409.
+ */
+@Service
+@RequiredArgsConstructor
+public class ClientService {
+
+    private final ClientRepository clients;
+    private final ProjectRepository projects;
+    private final ClientRepresentativeRepository representatives;
+    private final ApolloCompanyQueryService companies;
+    private final ClientRepresentativeService representativeService;
+    private final ProjectService projectService;
+    private final UserRepository users;
+    private final AuditService audit;
+    private final Clock clock;
+
+    @Transactional(readOnly = true)
+    public List<ClientListResponse> list(UUID workspaceId, ClientListScope scope) {
+        List<Client> allClients = scope == ClientListScope.WITH_ARCHIVED
+                ? clients.findByWorkspaceIdOrderByNameAsc(workspaceId)
+                : clients.findByWorkspaceIdAndArchivedAtIsNullOrderByNameAsc(workspaceId);
+        if (allClients.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> archiverNames = namesOf(allClients.stream().map(Client::getArchivedBy).toList());
+
+        Map<UUID, List<Project>> mandatesByClient = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId)
+                .stream()
+                .collect(Collectors.groupingBy(Project::getClientId));
+
+        List<UUID> clientIds = allClients.stream().map(Client::getId).toList();
+        Map<UUID, List<ClientRepresentative>> repsByClient = representatives
+                .findByWorkspaceIdAndClientIdIn(workspaceId, clientIds).stream()
+                .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
+                .collect(Collectors.groupingBy(ClientRepresentative::getClientId));
+
+        return allClients.stream()
+                .map(client -> toListResponse(client,
+                        mandatesByClient.getOrDefault(client.getId(), List.of()),
+                        repsByClient.getOrDefault(client.getId(), List.of()),
+                        archiverNameOf(client, archiverNames)))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ClientDetailResponse get(UUID workspaceId, UUID clientId) {
+        Client client = requireClient(workspaceId, clientId);
+        List<ClientMandateResponse> mandates = mandatesFor(workspaceId, clientId);
+        long active = mandates.stream()
+                .filter(mandate -> mandate.archivedAt() == null && !mandate.stage().isDone()).count();
+        long delivered = mandates.stream()
+                .filter(mandate -> mandate.archivedAt() == null && mandate.stage().isDone()).count();
+
+        List<RepresentativeResponse> reps = representatives.findByClientIdOrderByCreatedAtAsc(clientId).stream()
+                .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
+                .map(rep -> new RepresentativeResponse(
+                        rep.getId(), rep.getFullName(), rep.getPosition(), rep.getEmail(), rep.getStatus()))
+                .toList();
+
+        return new ClientDetailResponse(client.getId(), client.getName(), client.universeAccountId(),
+                client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),
+                client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getPersona(),
+                active, delivered, reps, mandates, client.getArchivedAt(),
+                archiverNameOf(client, namesOf(Collections.singletonList(client.getArchivedBy()))));
+    }
+
+    @Transactional
+    public ClientListResponse create(UUID userId, UUID workspaceId, CreateClientRequest request,
+                                     HttpServletRequest httpRequest) {
+        Client client = request.company() != null
+                ? fromUniverse(userId, workspaceId, request)
+                : fromCustom(userId, workspaceId, request);
+
+        refuseNameHeld(workspaceId, client.getName());
+        Client saved = clients.save(client);
+
+        audit.event(ProjectEventType.CLIENT_CREATED)
+                .actor(userId).workspace(workspaceId).target("client", saved.getId()).from(httpRequest)
+                .detail("name", saved.getName())
+                .detail("source", saved.getCompanySource() == null ? "custom" : "universe")
+                .record();
+
+        RepresentativeResponse primaryContact = request.primaryContact() == null ? null
+                : representativeService.invite(userId, workspaceId, saved.getId(),
+                        request.primaryContact().fullName(), request.primaryContact().position(),
+                        request.primaryContact().email(), httpRequest);
+
+        // A newborn client has no mandates; the row reflects only the invite just sent.
+        return ClientListResponse.of(saved, ClientType.PROSPECT, 0, 0,
+                primaryContact == null ? List.of()
+                        : List.of(new RepAvatar(primaryContact.fullName(), primaryContact.status())),
+                new ViewerSummary(
+                        primaryContact != null && primaryContact.status() == ClientRepStatus.ACTIVE ? 1 : 0,
+                        primaryContact != null && primaryContact.status() == ClientRepStatus.INVITED ? 1 : 0),
+                null);
+    }
+
+    @Transactional
+    public ClientDetailResponse update(UUID userId, UUID workspaceId, UUID clientId,
+                                       UpdateClientRequest request, HttpServletRequest httpRequest) {
+        Client client = requireClient(workspaceId, clientId);
+
+        String name = request.name().trim();
+        if (!name.equalsIgnoreCase(client.getName())) {
+            refuseNameHeld(workspaceId, name);
+        }
+
+        client.applyDetails(name, request.sector(), request.hqCountry(), request.domain(),
+                request.offLimitsNote(), request.notes());
+
+        audit.event(ProjectEventType.CLIENT_UPDATED)
+                .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                .record();
+
+        return get(workspaceId, clientId);
+    }
+
+    /**
+     * Puts the record away, typed name and all — only once none of its positions is live, since archiving a
+     * position is its lead's call and never this one's. The row is locked first, so a position opened under it
+     * meanwhile is either seen here or refused there.
+     */
+    @Transactional
+    public ClientDetailResponse archive(UUID userId, UUID workspaceId, UUID clientId, String confirmName,
+                                        HttpServletRequest httpRequest) {
+        Client client = clients.lockToArchive(clientId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (!ConfirmationName.matches(client.getName(), confirmName)) {
+            throw ApiException.of(ErrorCode.ARCHIVE_NAME_MISMATCH);
+        }
+        List<UUID> livePositions = projects.findByWorkspaceIdAndClientIdAndArchivedAtIsNull(workspaceId, clientId)
+                .stream().map(Project::getId).toList();
+        if (!livePositions.isEmpty()) {
+            throw ApiException.withProperty(ErrorCode.CLIENT_HAS_LIVE_POSITIONS, "positionIds", livePositions);
+        }
+        if (client.archive(userId, clock.instant())) {
+            audit.event(ProjectEventType.CLIENT_ARCHIVED)
+                    .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                    .detail("name", client.getName())
+                    .record();
+        }
+        return get(workspaceId, clientId);
+    }
+
+    @Transactional
+    public ClientDetailResponse restore(UUID userId, UUID workspaceId, UUID clientId, HttpServletRequest httpRequest) {
+        Client client = requireClient(workspaceId, clientId);
+        if (client.restore()) {
+            audit.event(ProjectEventType.CLIENT_RESTORED)
+                    .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                    .detail("name", client.getName())
+                    .record();
+        }
+        return get(workspaceId, clientId);
+    }
+
+    @Transactional
+    public ClientDetailResponse updatePersona(UUID userId, UUID workspaceId, UUID clientId, HiringPersona persona,
+                                              HttpServletRequest httpRequest) {
+        requireClient(workspaceId, clientId).describePersona(persona);
+
+        audit.event(ProjectEventType.CLIENT_UPDATED)
+                .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
+                .detail("section", "persona")
+                .record();
+
+        return get(workspaceId, clientId);
+    }
+
+    /** The industry of the client a mandate hires for, and nothing else about it: outreach names no client. */
+    @Transactional(readOnly = true)
+    public String industryOfProjectClient(UUID workspaceId, UUID projectId) {
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        return requireClient(workspaceId, project.getClientId()).getSector();
+    }
+
+    /**
+     * The client a mandate hires for, as the assistant is told about it. Its headcount is the universe's
+     * live figure where the record was picked from it, never a stored copy.
+     */
+    @Transactional(readOnly = true)
+    public HiringCompanyProfile hiringProfileOfProject(UUID workspaceId, UUID projectId) {
+        Project project = projects.requireInWorkspace(projectId, workspaceId);
+        Client client = requireClient(workspaceId, project.getClientId());
+        String accountId = client.universeAccountId();
+        Integer employees = accountId == null ? null : companies.byAccountIds(List.of(accountId)).stream()
+                .findFirst()
+                .map(CompanyRow::numEmployees)
+                .orElse(null);
+        return new HiringCompanyProfile(client.getName(), client.getSector(), client.getHqCity(),
+                client.getHqCountry(), client.getDomain(), employees, client.getPersona());
+    }
+
+    /** The drawer's mandates, lead and health resolved. */
+    private List<ClientMandateResponse> mandatesFor(UUID workspaceId, UUID clientId) {
+        return projectService.listForClient(workspaceId, clientId).stream()
+                .map(ClientService::toMandate)
+                .toList();
+    }
+
+    private Client fromUniverse(UUID userId, UUID workspaceId, CreateClientRequest request) {
+        String accountId = request.company().apolloAccountId();
+        CompanyRow row = companies.byAccountIds(List.of(accountId)).stream().findFirst()
+                .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "That company is no longer in the database"));
+        // Name, domain, city and logo are the universe's, not the request's; the domain is derived from
+        // the website the universe publishes.
+        String hqCountry = request.hqCountry() != null ? request.hqCountry() : row.companyCountry();
+        return Client.fromUniverse(workspaceId, accountId, row.companyName(), request.sector(),
+                hqCountry, row.companyCity(), WebsiteDomain.of(row.website()), row.logoUrl(), userId);
+    }
+
+    private Client fromCustom(UUID userId, UUID workspaceId, CreateClientRequest request) {
+        if (request.customName() == null || request.customName().isBlank()) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Enter the company name");
+        }
+        return Client.custom(workspaceId, request.customName(), request.sector(), request.hqCountry(),
+                request.customDomain(), userId);
+    }
+
+    /** An archived holder is named apart: the caller offers to restore it rather than reuse it. */
+    private void refuseNameHeld(UUID workspaceId, String name) {
+        clients.findByWorkspaceIdAndNameIgnoreCase(workspaceId, name).ifPresent(holder -> {
+            throw ApiException.of(
+                    holder.isArchived() ? ErrorCode.CLIENT_NAME_ARCHIVED : ErrorCode.CLIENT_ALREADY_EXISTS);
+        });
+    }
+
+    /** Null-safe both ways: an immutable map answers a null key with an exception, not null. */
+    private Map<UUID, String> namesOf(List<UUID> userIds) {
+        List<UUID> named = userIds.stream().filter(Objects::nonNull).distinct().toList();
+        return named.isEmpty() ? Map.of() : users.findAllById(named).stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+    }
+
+    private static String archiverNameOf(Client client, Map<UUID, String> names) {
+        return client.getArchivedBy() == null ? null : names.get(client.getArchivedBy());
+    }
+
+    private Client requireClient(UUID workspaceId, UUID clientId) {
+        return clients.findByIdAndWorkspaceId(clientId, workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    private ClientListResponse toListResponse(Client client, List<Project> mandates,
+                                              List<ClientRepresentative> reps, String archivedByName) {
+        long active = mandates.stream()
+                .filter(project -> !project.isArchived() && !project.getStage().isDone()).count();
+        long delivered = mandates.stream()
+                .filter(project -> !project.isArchived() && project.getStage().isDone()).count();
+        ClientType type = mandates.isEmpty() ? ClientType.PROSPECT : ClientType.RETAINED;
+
+        List<RepAvatar> contacts = reps.stream()
+                .filter(rep -> rep.getStatus() != ClientRepStatus.REVOKED)
+                .map(rep -> new RepAvatar(rep.getFullName(), rep.getStatus()))
+                .toList();
+        long viewersActive = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.ACTIVE).count();
+        long viewersInvited = reps.stream().filter(rep -> rep.getStatus() == ClientRepStatus.INVITED).count();
+
+        return ClientListResponse.of(client, type, active, delivered, contacts,
+                new ViewerSummary(viewersActive, viewersInvited), archivedByName);
+    }
+
+    private static ClientMandateResponse toMandate(ProjectResponse project) {
+        String leadName = project.team().stream()
+                .filter(member -> member.projectRoles().contains(ProjectRole.LEAD))
+                .map(TeamMemberResponse::fullName)
+                .findFirst()
+                .orElse(null);
+        return new ClientMandateResponse(project.id(), project.positionTitle(), project.stage(),
+                project.health(), leadName, project.targetDate(), project.archivedAt());
+    }
+}

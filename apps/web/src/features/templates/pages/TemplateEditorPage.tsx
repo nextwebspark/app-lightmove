@@ -53,7 +53,7 @@ const LIFECYCLE: Record<Lifecycle, { label: string; destructive: boolean; confir
   reset: {
     label: "Reset to library",
     destructive: true,
-    confirm: "Your firm's copy is deleted and the LightMove library version takes its place. Mandates already drafted keep what they have.",
+    confirm: "Your firm's copy is deleted and the Uncava library version takes its place. Mandates already drafted keep what they have.",
   },
   delete: {
     label: "Delete template",
@@ -619,7 +619,7 @@ function lifecycleOf(scope: TemplateScope, detail: TemplateDetail): Lifecycle | 
   }
 }
 
-/** A firm looking at LightMove's own version of a template, which its first save turns into a copy. */
+/** A firm looking at Uncava's own version of a template, which its first save turns into a copy. */
 function isLibraryVersion(scope: TemplateScope, detail: TemplateDetail): boolean {
   return scope === "workspace" && (detail.origin === "LIBRARY" || detail.origin === "HIDDEN");
 }
@@ -656,7 +656,7 @@ function metaLineOf(scope: TemplateScope, detail: TemplateDetail | null): string
   if (!detail) return "Not saved yet";
   const date = formatInstantDate(detail.revisedAt) ?? "—";
   if (isLibraryVersion(scope, detail)) {
-    return `${detail.code} · LightMove library · updated ${date}`;
+    return `${detail.code} · Uncava library · updated ${date}`;
   }
   return `${detail.code} · last saved${detail.revisedByName ? ` by ${detail.revisedByName}` : ""}, ${date}`;
 }
@@ -674,7 +674,7 @@ function bannerOf(
     if (detail.fallback) {
       return {
         tone: "accent",
-        text: "LightMove library — and the fallback: a role title no keyword matches is drafted from this template, so it can't be archived.",
+        text: "Uncava library — and the fallback: a role title no keyword matches is drafted from this template, so it can't be archived.",
       };
     }
     if (!detail.active) {
@@ -688,7 +688,7 @@ function bannerOf(
       copies === 0 ? "" : ` — ${copies} workspace${copies === 1 ? " has its" : "s have their"} own copy and keep${copies === 1 ? "s" : ""} it`;
     return {
       tone: "accent",
-      text: `LightMove library. Saving updates every workspace that hasn't customised this template${keeping}. Mandates already drafted never change.`,
+      text: `Uncava library. Saving updates every workspace that hasn't customised this template${keeping}. Mandates already drafted never change.`,
     };
   }
   switch (detail.origin) {
@@ -696,11 +696,11 @@ function bannerOf(
       return detail.libraryChangedSinceCustomised
         ? {
             tone: "signal",
-            text: "Your firm's copy. LightMove has updated the library version since you customised it. Reset to take the new version, or keep yours.",
+            text: "Your firm's copy. Uncava has updated the library version since you customised it. Reset to take the new version, or keep yours.",
           }
         : { tone: "plain", text: "Your firm's copy of a library template. Library updates don't reach it until you reset." };
     case "OWN":
-      return { tone: "plain", text: "Your firm's own template — it isn't in the LightMove library." };
+      return { tone: "plain", text: "Your firm's own template — it isn't in the Uncava library." };
     case "HIDDEN":
       return {
         tone: "plain",
@@ -709,7 +709,7 @@ function bannerOf(
     default:
       return {
         tone: "accent",
-        text: "You're viewing the LightMove library version. Saving creates your firm's own copy; library updates stop reaching it until you reset.",
+        text: "You're viewing the Uncava library version. Saving creates your firm's own copy; library updates stop reaching it until you reset.",
       };
   }
 }

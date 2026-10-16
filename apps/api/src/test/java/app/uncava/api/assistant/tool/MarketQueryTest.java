@@ -1,0 +1,68 @@
+package app.uncava.api.assistant.tool;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import app.uncava.api.strategy.model.CompanyScope;
+import app.uncava.api.strategy.model.NumericRange;
+import java.util.List;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+/** That what the model asked for becomes the scope the market reads, and nothing more. */
+class MarketQueryTest {
+
+    @Test
+    @DisplayName("a named country and industry land on their own axes")
+    void placesTheAxesItWasGiven() {
+        CompanyScope scope = MarketQuery.scopeOf(List.of("Saudi Arabia"), List.of("oil & energy"), null, null, null, null);
+
+        assertThat(scope.countries()).containsExactly("Saudi Arabia");
+        assertThat(scope.industries()).containsExactly("oil & energy");
+    }
+
+    @Test
+    @DisplayName("headcount becomes a numeric range, and no band slug is invented for it")
+    void readsHeadcountAsANumericRange() {
+        CompanyScope scope = MarketQuery.scopeOf(null, null, null, null, 1_000L, 5_000L);
+
+        assertThat(scope.employeeRange()).isEqualTo(new NumericRange(1_000L, 5_000L));
+        assertThat(scope.employeeBands())
+                .as("the bands are a vocabulary the model was never taught; the range is what it said")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("an omitted axis constrains nothing")
+    void leavesAnOmittedAxisOpen() {
+        CompanyScope scope = MarketQuery.scopeOf(List.of("Saudi Arabia"), null, null, null, null, null);
+
+        // Empty is CompanyScope's "no constraint on this axis". A blank string reaching a list would
+        // read as a constraint nothing satisfies, so the question would come back with zero rows and
+        // no sign of why.
+        assertThat(scope.industries()).isEmpty();
+        assertThat(scope.keywords()).isEmpty();
+        assertThat(scope.employeeRange()).isNull();
+        assertThat(scope.revenueRange()).isNull();
+        assertThat(scope.nameQuery()).isNull();
+    }
+
+    @Test
+    @DisplayName("a blank argument is an omitted one")
+    void treatsABlankArgumentAsOmitted() {
+        CompanyScope scope = MarketQuery.scopeOf(List.of("  "), List.of(""), null, null, null, null);
+
+        assertThat(scope.countries()).isEmpty();
+        assertThat(scope.industries()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("several values on one axis are stripped, de-duplicated and capped")
+    void cleansSeveralValues() {
+        CompanyScope scope = MarketQuery.scopeOf(
+                List.of(" Qatar", "Qatar", "Oman", "Kuwait", "Bahrain", "Saudi Arabia", "Egypt"),
+                List.of("retail", "retail "), null, null, null, null);
+
+        assertThat(scope.countries()).containsExactly("Qatar", "Oman", "Kuwait", "Bahrain", "Saudi Arabia");
+        assertThat(scope.industries()).containsExactly("retail");
+    }
+}

@@ -51,7 +51,7 @@ spring:
             scope: openid, profile, email
             client-name: LinkedIn
 
-lightmove:
+uncava:
   auth:
     oauth:
       # Providers that do not implement parts of OIDC, named by registration id. Both of these are
@@ -126,4 +126,4 @@ lightmove:
 
 logging:
   level:
-    app.lightmove.api: DEBUG
+    app.uncava.api: DEBUG

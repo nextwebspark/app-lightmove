@@ -1,0 +1,168 @@
+package app.uncava.api.core.security.controller;
+
+import app.uncava.api.core.error.constant.ErrorCode;
+import app.uncava.api.core.error.model.ApiException;
+import app.uncava.api.core.security.dto.AuthResponse;
+import app.uncava.api.core.security.dto.PendingInvitationSummary;
+import app.uncava.api.core.security.dto.UserResponse;
+import app.uncava.api.core.security.model.User;
+import app.uncava.api.core.security.rbac.PlatformAccess;
+import app.uncava.api.core.security.rbac.Role;
+import app.uncava.api.core.security.rbac.WorkspaceRole;
+import app.uncava.api.core.security.repository.UserRepository;
+import app.uncava.api.core.security.service.WorkspaceSelection;
+import app.uncava.api.core.security.token.TokenPair;
+import app.uncava.api.workspace.constant.InvitationStatus;
+import app.uncava.api.workspace.dto.WorkspaceCompanyResponse;
+import app.uncava.api.workspace.dto.WorkspaceSummary;
+import app.uncava.api.workspace.model.Invitation;
+import app.uncava.api.workspace.model.Workspace;
+import app.uncava.api.workspace.model.WorkspaceMember;
+import app.uncava.api.workspace.repository.InvitationRepository;
+import app.uncava.api.workspace.repository.WorkspaceRepository;
+import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+/**
+ * Builds the response body that login, signup, refresh and {@code /me} all return.
+ *
+ * <p>Extracted so those four cannot drift apart. They are the same shape by design — the SPA has one
+ * function that consumes an authenticated session, and it should not care which endpoint produced it.
+ */
+@Component
+@RequiredArgsConstructor
+public class AuthResponseAssembler {
+
+    private final WorkspaceRepository workspaces;
+    private final InvitationRepository invitations;
+    private final UserRepository users;
+    private final WorkspaceSelection selection;
+    private final PlatformAccess platform;
+
+    public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
+        return new AuthResponse(
+                tokens.accessToken(),
+                tokens.accessTokenTtl().toSeconds(),
+                user(user, membership));
+    }
+
+    /** @param membership the workspace this <i>session</i> is in, or null — never "the user's", of several */
+    public UserResponse user(User user, WorkspaceMember membership) {
+        List<WorkspaceMember> memberships = selection.all(user.getId());
+        Map<UUID, Workspace> byId = workspacesOf(memberships);
+        return new UserResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getTitle(),
+                user.getAvatarUrl(),
+                user.isEmailVerified(),
+                user.hasPassword(),
+                user.getTimezone(),
+                user.getLocale(),
+                currentSummary(membership, byId),
+                memberships.stream()
+                        .filter(member -> byId.containsKey(member.getWorkspaceId()))
+                        .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))
+                        .toList(),
+                pendingInvitations(user, memberships),
+                platform.actionsOf(user.getId()));
+    }
+
+    /** As a member of exactly this workspace, or none — the session's, or one just created or joined. */
+    public UserResponse userIn(UUID userId, UUID workspaceId) {
+        User user = users.findById(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
+        return user(user, selection.membershipIn(userId, workspaceId).orElse(null));
+    }
+
+    private Map<UUID, Workspace> workspacesOf(List<WorkspaceMember> memberships) {
+        return workspaces
+                .findAllById(memberships.stream().map(WorkspaceMember::getWorkspaceId).toList())
+                .stream()
+                .collect(Collectors.toMap(Workspace::getId, Function.identity()));
+    }
+
+    /**
+     * The caller's own outstanding invitations, so routing can be derived from the server instead of a
+     * tab's sessionStorage — an invitee who verifies in a fresh tab must land on "join {workspace}",
+     * not on create-your-own — or to a second workspace. One to a workspace they are already in is hidden.
+     *
+     * <p>Carries <b>no token</b>. The emailed token only ever proved control of the invited mailbox,
+     * and an authenticated user whose verified address matches the invitation has proven exactly that
+     * — the accept-by-id endpoint applies the same guards. (The anonymous preview endpoint already
+     * exposes the same fields to any token holder; this is strictly less.)
+     */
+    private List<PendingInvitationSummary> pendingInvitations(User user, List<WorkspaceMember> memberships) {
+        Instant now = Instant.now();
+        Set<UUID> alreadyIn = memberships.stream().map(WorkspaceMember::getWorkspaceId).collect(Collectors.toSet());
+        List<Invitation> outstanding = invitations
+                .findByEmailAndStatusOrderByCreatedAtDesc(user.getEmail(), InvitationStatus.PENDING)
+                .stream()
+                .filter(invitation -> invitation.isRedeemable(now))
+                .filter(invitation -> !alreadyIn.contains(invitation.getWorkspaceId()))
+                .toList();
+        if (outstanding.isEmpty()) {
+            return List.of();
+        }
+
+        Map<UUID, String> workspaceNames = workspaces
+                .findAllById(outstanding.stream().map(Invitation::getWorkspaceId).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(Workspace::getId, Workspace::getName));
+        Map<UUID, String> inviterNames = users
+                .findAllById(outstanding.stream().map(Invitation::getInvitedBy).distinct().toList())
+                .stream()
+                .collect(Collectors.toMap(User::getId, User::getFullName));
+
+        return outstanding.stream()
+                .filter(invitation -> workspaceNames.containsKey(invitation.getWorkspaceId()))
+                .map(invitation -> new PendingInvitationSummary(
+                        invitation.getId(),
+                        workspaceNames.get(invitation.getWorkspaceId()),
+                        invitation.getRole().getName(),
+                        inviterNames.get(invitation.getInvitedBy())))
+                .toList();
+    }
+
+    private static WorkspaceSummary currentSummary(WorkspaceMember membership, Map<UUID, Workspace> byId) {
+        if (membership == null || !membership.isActive() || !byId.containsKey(membership.getWorkspaceId())) {
+            return null;
+        }
+        return toSummary(byId.get(membership.getWorkspaceId()), membership);
+    }
+
+    /**
+     * The workspace as its caller may see it.
+     *
+     * <p>A pure client is an outside contact at the hiring company, not a colleague: they get the
+     * brand — name, slug, mark — and not {@code emailDomain}, which describes the firm's own people.
+     * The roles are already in hand here, so this asks {@link WorkspaceRole#isStaff} rather than
+     * re-reading the membership through {@code WorkspaceAccess}.
+     */
+    private static WorkspaceSummary toSummary(Workspace workspace, WorkspaceMember membership) {
+        List<WorkspaceRole> roles = membership.getRoles().stream()
+                .map(Role::getName)
+                .sorted(Comparator.naturalOrder())
+                .map(WorkspaceRole::valueOf)
+                .toList();
+
+        return new WorkspaceSummary(
+                workspace.getId(),
+                workspace.getName(),
+                workspace.getSlug(),
+                workspace.getLogoMark(),
+                workspace.getMode(),
+                WorkspaceRole.isStaff(roles) ? workspace.getEmailDomain() : null,
+                roles,
+                membership.getJoinedAt(),
+                WorkspaceCompanyResponse.of(workspace.getCompany()));
+    }
+}

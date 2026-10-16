@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Opens a psql session on the LightMove database as *you*, with no password.
+# Opens a psql session on the Uncava database as *you*, with no password.
 #
 #   ./ops/cloudsql/psql.sh                          # interactive shell
 #   ./ops/cloudsql/psql.sh -c "SELECT * FROM app_lm_user"   # one-shot query

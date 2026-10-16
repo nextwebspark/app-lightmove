@@ -35,7 +35,7 @@ export default defineConfig(({ mode }) => {
     react(),
     tailwindcss(),
     {
-      name: "lightmove-emit-manifest",
+      name: "uncava-emit-manifest",
       // `writeBundle`, not `generateBundle`: the manifest is not part of the bundle graph and has no
       // business being hashed, watched, or transformed alongside the code.
       writeBundle() {

@@ -39,7 +39,7 @@ GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
 #
 # It exists because EMAIL_PROVIDER=log puts the verification link in Cloud Logging rather than an inbox,
 # which makes testing a signup tedious. The cost is the entire trust model: the email domain is the only
-# evidence LightMove has that someone works at a firm, so with this on, anyone can sign up as
+# evidence Uncava has that someone works at a firm, so with this on, anyone can sign up as
 # ceo@goldmansachs.com — never touching that mailbox — and immediately own the workspace bound to
 # goldmansachs.com, with the right to invite people into it and approve others.
 #
@@ -235,7 +235,7 @@ gcloud run deploy "$SERVICE" \
     --cpu 1 --memory 1Gi --cpu-boost \
     --concurrency 80 \
     --timeout 300s \
-    --set-env-vars "^|^GOOGLE_CLOUD_PROJECT=${PROJECT}|FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${OAUTH_ENV}" \
+    --set-env-vars "^|^GOOGLE_CLOUD_PROJECT=${PROJECT}|FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|UNCAVA_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|UNCAVA_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${OAUTH_ENV}" \
     --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}"
 
 URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT" --format='value(status.url)')"

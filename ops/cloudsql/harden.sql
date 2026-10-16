@@ -1,4 +1,4 @@
--- Least-privilege hardening for the LightMove application role.
+-- Least-privilege hardening for the Uncava application role.
 --
 -- Run ONCE, as a superuser, AFTER Flyway has applied the migrations (the tables must exist before
 -- their ownership can be reassigned):
@@ -102,7 +102,7 @@ BEGIN
     END IF;
 END $$;
 
---    app_lm_user_platform_role (V57) says who is a LightMove super admin. grant-platform-role.sh writes
+--    app_lm_user_platform_role (V57) says who is an Uncava super admin. grant-platform-role.sh writes
 --    it; the application only reads it. Same reasoning and the same ownership rule as the universe
 --    above: while lm_app owns the table, read-only is a claim and not a control, so reassign it where
 --    this role can and say so where it cannot. Run grant-platform-role.sh as its owner afterwards.

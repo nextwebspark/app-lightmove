@@ -130,10 +130,10 @@ step api/12-tenant-isolation.sh
 # --- leg 2: tightened rate budgets ------------------------------------------
 say "leg 2/3 — restarting with tightened rate budgets for 07"
 KEEP_DB=1 "$E2E_DIR/stack/down.sh"
-if EXTRA_ENV="LIGHTMOVE_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE=3 \
-              LIGHTMOVE_AUTH_RATE_LIMIT_SIGNUP_ATTEMPTS_PER_HOUR=5 \
-              LIGHTMOVE_AUTH_RATE_LIMIT_VERIFICATION_RESENDS_PER_HOUR=2 \
-              LIGHTMOVE_AUTH_RATE_LIMIT_PASSWORD_RESET_REQUESTS_PER_HOUR=2" \
+if EXTRA_ENV="UNCAVA_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE=3 \
+              UNCAVA_AUTH_RATE_LIMIT_SIGNUP_ATTEMPTS_PER_HOUR=5 \
+              UNCAVA_AUTH_RATE_LIMIT_VERIFICATION_RESENDS_PER_HOUR=2 \
+              UNCAVA_AUTH_RATE_LIMIT_PASSWORD_RESET_REQUESTS_PER_HOUR=2" \
      SKIP_WEB=1 "$E2E_DIR/stack/up.sh"; then
   step api/07-rate-limits.sh
 else
@@ -150,8 +150,8 @@ fi
 say "leg 3/3 — restarting with a black-holed mail provider for 08"
 KEEP_DB=1 "$E2E_DIR/stack/down.sh"
 if EXPECT_PROVIDER=blackhole \
-   EXTRA_ENV="LIGHTMOVE_EMAIL_RESEND_API_KEY=re_e2e_bogus_key_not_a_real_credential \
-              LIGHTMOVE_EMAIL_RESEND_BASE_URL=http://127.0.0.1:9" \
+   EXTRA_ENV="UNCAVA_EMAIL_RESEND_API_KEY=re_e2e_bogus_key_not_a_real_credential \
+              UNCAVA_EMAIL_RESEND_BASE_URL=http://127.0.0.1:9" \
    SKIP_WEB=1 "$E2E_DIR/stack/up.sh"; then
   step api/08-email-outage.sh
 else

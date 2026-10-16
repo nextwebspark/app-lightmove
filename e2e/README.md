@@ -105,7 +105,7 @@ cookie no browser keeps over plain http, and signup capped at five an hour.
 **AI is off here, on purpose.** A runner holds no GCP credentials, and building the Vertex client
 without them killed the API's boot on every nightly run from #25 to #49 — four weeks in which no case
 ran at all. `application-e2e.yml` therefore sets `spring.ai.model.chat` and `.embedding.text` to
-`none` and `lightmove.llm.enabled: false`, which registers a model that fails every call
+`none` and `uncava.llm.enabled: false`, which registers a model that fails every call
 (`DisabledLlmConfig`): each AI feature then takes the path it takes when Vertex is unreachable — the
 import's header matcher, the brief's heuristic reader, an empty reading, `ASSISTANT_UNAVAILABLE`.
 **No script here calls an AI route** (`/background/ai`, `/assessment/ai`, `/assistant`,
@@ -123,14 +123,14 @@ legs — a fresh pair per leg would invalidate the previous leg's access tokens.
 nightly run reported 466 failures: the API never started, and every case answered `000`.
 
 **Email.** `application-local.yml` pins `provider: resend` with a live API key, so an unguarded local
-signup mails a real person. `up.sh` forces `LIGHTMOVE_EMAIL_PROVIDER=log` and aborts if the startup
+signup mails a real person. `up.sh` forces `UNCAVA_EMAIL_PROVIDER=log` and aborts if the startup
 banner does not confirm it. `EMAIL_PROVIDER` does **not** work — the local file hardcodes the value,
 so only the property's own name outranks it.
 
 **Environment overrides.** Same trap, wider. Any `${FOO:default}` placeholder in `application.yml` is
 dead if a profile file sets that property literally. The rate-limit suite silently measured nothing
 until the variables were switched from `AUTH_LOGIN_ATTEMPTS_PER_MINUTE` to
-`LIGHTMOVE_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE`.
+`UNCAVA_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE`.
 
 **Test addresses need real MX records.** The validator resolves the domain, so `@example.invalid`
 style addresses behave differently from real ones. `lib.sh` mints
@@ -144,10 +144,10 @@ upper-case character would make every later SQL lookup and log grep miss.
 `07-rate-limits.sh` expects tightened budgets, and the buckets are in-memory so a restart resets them:
 
 ```bash
-EXTRA_ENV="LIGHTMOVE_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE=3 \
-           LIGHTMOVE_AUTH_RATE_LIMIT_SIGNUP_ATTEMPTS_PER_HOUR=5 \
-           LIGHTMOVE_AUTH_RATE_LIMIT_VERIFICATION_RESENDS_PER_HOUR=2 \
-           LIGHTMOVE_AUTH_RATE_LIMIT_PASSWORD_RESET_REQUESTS_PER_HOUR=2" \
+EXTRA_ENV="UNCAVA_AUTH_RATE_LIMIT_LOGIN_ATTEMPTS_PER_MINUTE=3 \
+           UNCAVA_AUTH_RATE_LIMIT_SIGNUP_ATTEMPTS_PER_HOUR=5 \
+           UNCAVA_AUTH_RATE_LIMIT_VERIFICATION_RESENDS_PER_HOUR=2 \
+           UNCAVA_AUTH_RATE_LIMIT_PASSWORD_RESET_REQUESTS_PER_HOUR=2" \
   KEEP_DB=1 ./stack/up.sh
 ```
 
@@ -157,14 +157,14 @@ bogus API key alone still puts the request on the wire to Resend.
 
 ```bash
 EXPECT_PROVIDER=blackhole \
-  EXTRA_ENV="LIGHTMOVE_EMAIL_RESEND_API_KEY=re_e2e_bogus_key_not_a_real_credential \
-             LIGHTMOVE_EMAIL_RESEND_BASE_URL=http://127.0.0.1:9" \
+  EXTRA_ENV="UNCAVA_EMAIL_RESEND_API_KEY=re_e2e_bogus_key_not_a_real_credential \
+             UNCAVA_EMAIL_RESEND_BASE_URL=http://127.0.0.1:9" \
   KEEP_DB=1 ./stack/up.sh
 ```
 
 Password reset is limited to 3/hour by default and `application-local.yml` does **not** raise it, so on
 the `local` profile `04-tokens-verification.sh` needs
-`LIGHTMOVE_AUTH_RATE_LIMIT_PASSWORD_RESET_REQUESTS_PER_HOUR=100`. `application-e2e.yml` raises it, so
+`UNCAVA_AUTH_RATE_LIMIT_PASSWORD_RESET_REQUESTS_PER_HOUR=100`. `application-e2e.yml` raises it, so
 `PROFILE=e2e` does not.
 
 To check the domain blocklist, boot with `EMAIL_BLOCK_PUBLIC_DOMAINS=true` (that one is a live

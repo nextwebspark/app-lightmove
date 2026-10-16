@@ -36,7 +36,7 @@ RBAC. That is why switching is safe: nothing is migrated on a switch.
 
 ## Engineering standards (every phase; this will be reviewed)
 
-Load the `java-spring-development`, `react`, `lightmove-domain` and `db-ops` skills before touching their areas, and copy the neighbouring code's idiom rather than inventing a new one.
+Load the `java-spring-development`, `react`, `uncava-domain` and `db-ops` skills before touching their areas, and copy the neighbouring code's idiom rather than inventing a new one.
 
 **Backend layout.** Each module is laid out by type:
 - `constant/` holds **every enum**. `WorkspaceMode` goes in `workspace/constant/`.
@@ -293,7 +293,7 @@ The client persona is admin- and staff-entered data rendered as "context, never 
 - The Reports tab and its exports mention the client or business unit wherever they already do. Route them through the vocabulary.
 - The extension shows client names only. It needs no change.
 - Update CLAUDE.md with one paragraph on the mode and its rule ("labels, fields shown, create path and AI context — never storage or RBAC"), and add the V84-V86 entries to its Database section.
-- Update the `lightmove-domain` skill, which should note that a mode switch is admin-only and audited.
+- Update the `uncava-domain` skill, which should note that a mode switch is admin-only and audited.
 - Update `docs/assistant-tools.md` for the hiring context.
 
 ---
@@ -310,7 +310,7 @@ Each PR can ship on its own, and company mode never regresses.
 
 ## Critical files
 
-**Backend** (paths under `apps/api/src/main/java/app/lightmove/api/`):
+**Backend** (paths under `apps/api/src/main/java/app/uncava/api/`):
 - `workspace/model/Workspace.java`, `WorkspacePersona.java` and `FirmFacts.java`
 - `workspace/dto/{CreateWorkspaceRequest,WorkspaceSummary,WorkspaceResponse,UpdateWorkspaceModeRequest}.java`
 - `workspace/service/{OnboardingService,WorkspaceSettingsService,FirmService}.java`

@@ -1,0 +1,11 @@
+package app.uncava.api.candidate.dto;
+
+import app.uncava.api.candidate.model.CandidateStage;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+/** A new active stage, placed just before the closed one. {@code colour} defaults to neutral. */
+public record CreatePipelineStageRequest(
+        @NotBlank @Size(max = CandidateStage.MAX_LABEL) String label,
+        String colour
+) {}

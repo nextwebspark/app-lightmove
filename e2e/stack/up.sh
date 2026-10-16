@@ -10,7 +10,7 @@
 #   SPRING_DATASOURCE_URL bypasses the Cloud SQL socket-factory URL in application.yml, so no ADC
 #   login and no shared database. Environment variables outrank application-local.yml.
 #
-#   LIGHTMOVE_EMAIL_PROVIDER=log is not optional. The checked-out application-local.yml pins
+#   UNCAVA_EMAIL_PROVIDER=log is not optional. The checked-out application-local.yml pins
 #   `provider: resend` with a live API key, so without this every signup mails a real person.
 #   EMAIL_PROVIDER does NOT work here — the local file hardcodes the value rather than the
 #   placeholder, and only a direct environment variable outranks it.
@@ -57,11 +57,11 @@ case "$EXPECT_PROVIDER" in
     # `resend` with no reachable endpoint. Refuse unless the caller has actually pointed it at a dead
     # loopback port — a bogus API key alone still puts the request on the wire to Resend's servers.
     case " $EXTRA_ENV " in
-      *" LIGHTMOVE_EMAIL_RESEND_BASE_URL=http://127.0.0.1:"*|*" LIGHTMOVE_EMAIL_RESEND_BASE_URL=http://localhost:"*)
+      *" UNCAVA_EMAIL_RESEND_BASE_URL=http://127.0.0.1:"*|*" UNCAVA_EMAIL_RESEND_BASE_URL=http://localhost:"*)
         MAIL_PROVIDER=resend ;;
       *)
         say "REFUSING TO BOOT: EXPECT_PROVIDER=blackhole needs EXTRA_ENV to set"
-        say "LIGHTMOVE_EMAIL_RESEND_BASE_URL to a loopback address. Real mail would be sent."
+        say "UNCAVA_EMAIL_RESEND_BASE_URL to a loopback address. Real mail would be sent."
         exit 1 ;;
     esac
     ;;
@@ -137,7 +137,7 @@ else
       SPRING_DATASOURCE_USERNAME=lm_app \
       SPRING_DATASOURCE_PASSWORD=lm \
       DB_PASSWORD=lm \
-      LIGHTMOVE_EMAIL_PROVIDER="$MAIL_PROVIDER" \
+      UNCAVA_EMAIL_PROVIDER="$MAIL_PROVIDER" \
       JWT_PRIVATE_KEY_LOCATION="file:$PRIVATE_KEY" \
       JWT_PUBLIC_KEY_LOCATION="file:$PUBLIC_KEY" \
       ./mvnw -q spring-boot:run -Dspring-boot.run.profiles="$PROFILE" \

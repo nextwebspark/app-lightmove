@@ -53,7 +53,7 @@ for (const map of readdirSync(packageDir, { recursive: true }).filter((file) => 
   rmSync(resolve(packageDir, map), { force: true });
 }
 
-const zipPath = resolve(extensionDir, `release/lightmove-capture-${manifest.version}.zip`);
+const zipPath = resolve(extensionDir, `release/uncava-capture-${manifest.version}.zip`);
 run("zip", ["-qr", zipPath, ".", "-x", ".*"], packageDir);
 
 console.log(

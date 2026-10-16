@@ -74,7 +74,7 @@ if gcloud iam service-accounts describe "$SCHEDULER_SA_EMAIL" --project="$PROJEC
     echo "  ✓ ${SCHEDULER_SA} exists"
 else
     gcloud iam service-accounts create "$SCHEDULER_SA" \
-        --display-name="LightMove warm-hours scheduler" --project="$PROJECT"
+        --display-name="Uncava warm-hours scheduler" --project="$PROJECT"
 fi
 
 # run.developer on the one service, not the project: it can update this service's settings and nothing

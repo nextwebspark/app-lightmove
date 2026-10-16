@@ -9,9 +9,9 @@
 # is honoured later. This script pins that, and the one route out.
 #
 # REQUIRES the API booted against a black hole rather than Resend:
-#   LIGHTMOVE_EMAIL_PROVIDER=resend \
-#   LIGHTMOVE_EMAIL_RESEND_API_KEY=re_e2e_bogus_key_not_a_real_credential \
-#   LIGHTMOVE_EMAIL_RESEND_BASE_URL=http://127.0.0.1:9
+#   UNCAVA_EMAIL_PROVIDER=resend \
+#   UNCAVA_EMAIL_RESEND_API_KEY=re_e2e_bogus_key_not_a_real_credential \
+#   UNCAVA_EMAIL_RESEND_BASE_URL=http://127.0.0.1:9
 #
 # Port 9 is discard and nothing listens, so the connection is refused locally. That is deliberate: a
 # bogus key alone would still send the request to Resend's servers. This cannot leave the machine.

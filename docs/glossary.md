@@ -1,6 +1,7 @@
 # Glossary — the words on screen
 
-The code, routes, API and tables keep their own names (`project`, `client`, `triage`, `lightmove`).
+The code, routes, API and tables keep their own names (`project`, `client`, `triage`; the database and
+stored keys keep `lightmove`).
 This page is about what a user reads.
 
 **The rule: a mockup's wording wins.** `claude-design/*.dc.html` is the source of truth for every

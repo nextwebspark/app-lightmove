@@ -312,7 +312,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** The Platform settings, for LightMove staff. UX only — every platform endpoint re-reads the grant. */
+/** The Platform settings, for Uncava staff. UX only — every platform endpoint re-reads the grant. */
 function RequirePlatformAction({ action, children }: { action: PlatformAction; children: ReactNode }) {
   const { user, loading } = useAuth();
 

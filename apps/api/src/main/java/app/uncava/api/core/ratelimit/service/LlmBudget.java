@@ -1,0 +1,62 @@
+package app.uncava.api.core.ratelimit.service;
+
+import app.uncava.api.core.config.LlmRateLimitSettings;
+import java.util.function.ToIntFunction;
+import lombok.RequiredArgsConstructor;
+
+/**
+ * One per-user, per-minute meter {@link LlmBudgetGuard} counts a billed model call against. The meter
+ * name and which setting sizes it are data, not a method each — a sixth extraction step wanting its own
+ * budget is a new constant here, not a new method on the guard.
+ */
+@RequiredArgsConstructor
+public enum LlmBudget {
+
+    /** The demo shortlist endpoint's own meter. */
+    SHORTLIST("shortlist", LlmRateLimitSettings::shortlistRequestsPerMinute),
+
+    /** The demo embedding endpoint's own meter. */
+    EMBED("embed", LlmRateLimitSettings::embedRequestsPerMinute),
+
+    /** The import's column-mapping call — its own meter, so a large import cannot eat the shortlist a
+     *  consultant is about to run. */
+    IMPORT_COLUMN_MAPPING("import-column-mapping", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** Step one's "Read from document" — position details extraction. */
+    POSITION_EXTRACT("position-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** Step two's "Read from document" — mandate context extraction. */
+    CONTEXT_EXTRACT("context-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** Step five's "Read from document" — assessment criteria and competency extraction. */
+    ASSESSMENT_EXTRACT("assessment-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** Step three's "Read from document" — reporting-structure extraction. */
+    REPORTING_EXTRACT("reporting-extract", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A question to the assistant — several model rounds, and vendor lookups behind them. */
+    ASSISTANT("assistant", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A candidate's AI background proposals, from the drawer or a capture. */
+    CANDIDATE_AI_ENRICH("candidate-ai-enrich", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A candidate's AI-drafted assessment against the brief's competencies, from the Assessment tab. */
+    CANDIDATE_AI_ASSESSMENT("candidate-ai-assessment", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One Find executives run — spent when it is requested, whatever it goes on to call. */
+    EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One press drafting outreach openers — a batch of people or a single redraft. */
+    OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute);
+
+    private final String meter;
+    private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;
+
+    String meter() {
+        return meter;
+    }
+
+    int callsPerMinute(LlmRateLimitSettings settings) {
+        return callsPerMinute.applyAsInt(settings);
+    }
+}

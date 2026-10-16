@@ -1,0 +1,33 @@
+package app.uncava.api.geocoding.service;
+
+import app.uncava.api.geocoding.model.GeoPoint;
+import app.uncava.api.geocoding.model.PlaceSuggestion;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * The vendor seam, one method per precision so each is one call and one retry policy, and the caller
+ * decides the city-to-country fallback. Empty means the vendor had nothing; a vendor that could not
+ * answer throws {@code VendorException}.
+ */
+public interface Geocoder {
+
+    /** Within the named country when one is known. */
+    Optional<GeoPoint> city(String city, String country);
+
+    /** A centroid — the fallback when the city could not be placed. */
+    Optional<GeoPoint> country(String country);
+
+    /** Places whose name starts with {@code prefix}, for a location box; nothing where the vendor offers none. */
+    default List<PlaceSuggestion> suggest(String prefix, int limit) {
+        return List.of();
+    }
+
+    /**
+     * False for the no-vendor stand-in, whose silence is not an answer — storing it as a miss would keep
+     * every place unlocated for the cache's lifetime after a token is set.
+     */
+    default boolean isEnabled() {
+        return true;
+    }
+}

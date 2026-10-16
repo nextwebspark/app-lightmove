@@ -140,7 +140,7 @@ com.example/
 
 ---
 
-# LightMove specifics
+# Uncava specifics
 
 Everything below is this repository's own law — it overrides the generic guidance above where they
 disagree. Boot version here is **4.1** (not 3.x), Java 21, Maven, Jackson 3.
@@ -205,7 +205,7 @@ core/
                                                           (every secret the app stores — encrypted, never logged)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
-  config/      LightMoveProperties (root record) + one *Settings record per branch,
+  config/      UncavaProperties (root record) + one *Settings record per branch,
                SpaResourceConfig                          (cross-cutting; no type split)
 
 workspace/                 # feature template — project / position / strategy / triagecompany / candidate copy this
@@ -290,7 +290,7 @@ commit, so the event can never beat the data, and a rollback swallows it; never 
 publishing after commit), and the emitter timeout stays **under Cloud Run's request
 timeout** (55s against `--timeout 300s` — the server closes cleanly and the SPA reconnects; an emitter
 that outlives the request turns every cycle into a network error. The assistant's ask stream is the
-exception, with its own `lightmove.assistant.answer-deadline`). This applies only to those four. Role enums live in `core/security/rbac`, not in
+exception, with its own `uncava.assistant.answer-deadline`). This applies only to those four. Role enums live in `core/security/rbac`, not in
 the features — they are catalog mirrors, and both tiers' access services need them. Invitations are
 part of `workspace` (membership), not their own feature.
 
@@ -467,10 +467,10 @@ more than one instance).
   (`Something.Inner`), or collides with an unrelated type elsewhere, rename it so the simple name
   alone carries the meaning. Prefer one top-level type per file over nesting; nest only when the
   inner type is meaningless outside its owner *and* its name still reads unambiguously.
-  *Example that shipped:* config records named `Jwt`/`Web`/`Oauth` inside `LightMoveProperties` —
+  *Example that shipped:* config records named `Jwt`/`Web`/`Oauth` inside `UncavaProperties` —
   `Auth.Jwt` collided with the unrelated `JwtConfig` (issue #53); they became one `*Settings` record
   per file in `core/config`.
-- **Config records specifically:** `LightMoveProperties` is the root record only; a new config branch
+- **Config records specifically:** `UncavaProperties` is the root record only; a new config branch
   is a new `*Settings` file in `core/config`, never a nested record. Renaming a record never breaks
   binding — yml keys come from component names, not Java type names.
 - **Lombok.** `@RequiredArgsConstructor` for constructor injection, `@Slf4j` for the logger. Entities
@@ -505,7 +505,7 @@ and a direct mailbox's provider refresh token (V107). Three rules hold for every
   into the request body and nowhere else; an access token lives in memory only, never in a column or a log.
   A record that carries either (`GrantedMailbox`, `RefreshedAccessToken`, `RecallCalendarSpec`) redacts it in
   `toString`.
-- **No key is a refusal, not a crash.** Without `lightmove.crypto.keyset` the bean is
+- **No key is a refusal, not a crash.** Without `uncava.crypto.keyset` the bean is
   `UnconfiguredSecretCipher` and a write is `INTEGRATION_ENCRYPTION_UNAVAILABLE`; a keyset that does not parse
   fails the boot. Tests build one with `TestSecretCiphers.dev()`, the keyset `application-test.yml` and
   `ops/dev/api.sh` carry.
@@ -544,7 +544,7 @@ reintroduce them.
   exists to let nothing escape, so the retried transfer is a separate bean beneath it — annotate the
   method that throws, not the one that reports.
 - **`@DefaultValue` on a settings record does not answer a `${...}` placeholder.** `@Retryable` reads
-  `${lightmove.resilience.*}` against the environment, which never sees a binding default, so those
+  `${uncava.resilience.*}` against the environment, which never sees a binding default, so those
   keys are spelled out in `application.yml` or the context fails to start.
 - **Spring rolls back on any unchecked exception, including `ApiException`.** `login()` and `rotate()`
   are `@Transactional(noRollbackFor = ApiException.class)`, because otherwise the failed-login counter

@@ -46,7 +46,7 @@ a later phase.
   - **Removing** a document is for whoever filed it, and a version for whoever uploaded it; a holder of
     `WORKSPACE_MANAGE` can remove either (`PERSON_DOCUMENT_NOT_YOURS`).
   - **Editing:** any staff member may rename a document, change its category or move the CV mark.
-- **Storage.** The bytes live in a private GCS bucket (`DocumentStore`, `lightmove.storage.*`), never in
+- **Storage.** The bytes live in a private GCS bucket (`DocumentStore`, `uncava.storage.*`), never in
   Cloud SQL.
   - **Upload:** the file is checked, hashed and written before any row exists. If the rows then fail, the
     object is deleted.
@@ -61,7 +61,7 @@ a later phase.
   - A line carries only the document id, version and category.
   - The read adds the document's current title as `details.document` while the document exists, so a
     removed one leaves no name behind (the note excerpt's rule).
-- **Limits** (`lightmove.person-documents.*`): 20 MB a file, 50 documents a person, 20 versions a
+- **Limits** (`uncava.person-documents.*`): 20 MB a file, 50 documents a person, 20 versions a
   document (`PERSON_DOCUMENT_LIMIT`).
 
 ## API

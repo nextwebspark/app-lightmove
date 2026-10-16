@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Makes an existing LightMove account a platform super admin — or takes it away. A super admin edits
+# Makes an existing Uncava account a platform super admin — or takes it away. A super admin edits
 # the role-template library every workspace shares (Settings → Template library) and nothing else: the
 # role reads no tenant's data.
 #

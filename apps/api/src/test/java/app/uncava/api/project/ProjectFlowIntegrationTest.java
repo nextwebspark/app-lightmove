@@ -1,0 +1,602 @@
+package app.uncava.api.project;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import app.uncava.api.FlowTestSupport;
+import app.uncava.api.IntegrationTest;
+import app.uncava.api.core.email.model.EmailMessage;
+import java.time.LocalDate;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
+
+/** Mandates end to end: inline clients, creation, seating, the last-lead rule, isolation. */
+@IntegrationTest
+class ProjectFlowIntegrationTest extends FlowTestSupport {
+
+    @Test
+    @DisplayName("a client is created inline once — the same name again is a 409, whatever its case")
+    void clientNamesAreUniquePerWorkspace() throws Exception {
+        String admin = adminOf("Client Firm");
+
+        mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Meridian Energy","hqCountry":"UAE"}"""))
+                .andExpect(status().isCreated());
+
+        MvcResult duplicate = mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"MERIDIAN ENERGY"}"""))
+                .andReturn();
+        assertThat(duplicate.getResponse().getStatus()).isEqualTo(409);
+        assertThat(codeOf(duplicate)).isEqualTo("CLIENT_ALREADY_EXISTS");
+    }
+
+    @Test
+    @DisplayName("a new project lands at BRIEF with its creator seated as its lead, and nothing else")
+    void createLandsAtBriefWithCreatorAsLead() throws Exception {
+        String admin = adminOf("Brief Firm");
+        String clientId = createClient(admin, "Meridian Energy");
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Chief Financial Officer",
+                                 "targetDate":"%s"}
+                                """.formatted(clientId, LocalDate.now().plusMonths(6))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.stage").value("BRIEF"))
+                .andExpect(jsonPath("$.health").value("OK"))
+                .andExpect(jsonPath("$.clientName").value("Meridian Energy"))
+                .andExpect(jsonPath("$.clientLogoUrl").doesNotExist())
+                .andExpect(jsonPath("$.team.length()").value(1))
+                .andExpect(jsonPath("$.team[0].projectRoles.length()").value(1))
+                .andExpect(jsonPath("$.team[0].projectRoles[0]").value("LEAD"))
+                .andExpect(jsonPath("$.companies").value(0))
+                .andExpect(jsonPath("$.candidates").value(0));
+
+        // The client now reports its mandate.
+        mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$[0].activeMandates").value(1));
+    }
+
+    @Test
+    @DisplayName("a workspace MEMBER can hold a LEAD seat — the two tiers are independent")
+    void memberCanLead() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String admin = adminOf("Role Levels Firm", alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "CEO");
+
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, sara))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"LEAD"}"""))
+                .andExpect(status().isOk());
+
+        JsonNode team = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn()).get(0).get("team");
+        JsonNode saraSeat = seatOf(team, memberIdOf(admin, sara));
+        assertThat(saraSeat.get("workspaceRoles").get(0).asText()).isEqualTo("MEMBER");
+        assertThat(saraSeat.get("projectRoles").get(0).asText()).isEqualTo("LEAD");
+    }
+
+    @Test
+    @DisplayName("a seat holds one staff role at a time, though several seats may hold LEAD at once")
+    void oneRolePerSeatAndPluralLeads() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String omar = "omar@" + domain;
+        String admin = adminOf("Plural Firm", alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        inviteAndAccept(admin, "Omar Khalil", omar, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Bindawood"), "CDO");
+
+        // Sara starts a researcher and is moved to lead: the PUT replaces, it does not accumulate.
+        seat(admin, projectId, memberIdOf(admin, sara), "RESEARCHER");
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
+        // Omar becomes a second lead — plural leads are legal; the single-role rule is per seat.
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, omar))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"LEAD"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.team.length()").value(3));
+
+        JsonNode team = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn()).get(0).get("team");
+        assertThat(seatOf(team, memberIdOf(admin, sara)).get("projectRoles"))
+                .extracting(JsonNode::asText).containsExactly("LEAD");
+        assertThat(seatOf(team, memberIdOf(admin, omar)).get("projectRoles"))
+                .extracting(JsonNode::asText).containsExactly("LEAD");
+
+        // The same PUT again changes nothing.
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, omar))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"LEAD"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.team.length()").value(3));
+    }
+
+    @Test
+    @DisplayName("CLIENT is not a role the team table can hand out")
+    void clientIsNotSeatableThroughTheTeam() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String admin = adminOf("No Client Seat Firm", alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Almarai"), "COO");
+
+        MvcResult refused = mvc.perform(
+                        put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, sara))
+                                .header("Authorization", "Bearer " + admin)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"role":"CLIENT"}"""))
+                .andReturn();
+        assertThat(refused.getResponse().getStatus()).isEqualTo(400);
+        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("a project never loses its last lead — demotion and removal are both refused, until a handover")
+    void lastProjectLeadGuardAndHandover() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String admin = adminOf("Last Lead Firm", alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Tanmiah"), "CFO");
+        String alokSeat = memberIdOf(admin, alok);
+
+        // Demoting the only lead is refused...
+        MvcResult demote = mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + alokSeat)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andReturn();
+        assertThat(demote.getResponse().getStatus()).isEqualTo(409);
+        assertThat(codeOf(demote)).isEqualTo("PROJECT_LAST_LEAD");
+
+        // ...and so is pulling the seat off the team.
+        MvcResult pull = mvc.perform(delete("/api/v1/projects/" + projectId + "/members/" + alokSeat)
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn();
+        assertThat(codeOf(pull)).isEqualTo("PROJECT_LAST_LEAD");
+
+        // Handover: promote a second lead, and the creator is free to step down.
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + alokSeat)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("nothing of one workspace's projects is visible or reachable from another")
+    void tenantIsolation() throws Exception {
+        String alok = "alok@" + domain;
+        String admin = adminOf("Isolation Firm", alok);
+        String clientId = createClient(admin, "Meridian Energy");
+        String projectId = createProject(admin, clientId, "CFO");
+
+        String rivalEmail = "boss@rival-" + domain;
+        createWorkspace(verifiedUser("Rival Boss", rivalEmail), "Rival Isolation Firm");
+        String rival = login(rivalEmail);
+        String rivalMemberId = memberIdOf(rival, rivalEmail);
+
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + rival))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        // 404, not 403 — through the @PreAuthorize guard, a foreign id must confirm nothing.
+        mvc.perform(patch("/api/v1/projects/" + projectId)
+                        .header("Authorization", "Bearer " + rival)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"targetDate":"2027-01-01"}"""))
+                .andExpect(status().isNotFound());
+
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + rivalMemberId)
+                        .header("Authorization", "Bearer " + rival)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"RESEARCHER"}"""))
+                .andExpect(status().isNotFound());
+
+        // Another firm's client id is not a client as far as this caller is concerned.
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + rival)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"CTO"}
+                                """.formatted(clientId)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("a mandate past its target reads off-track; a delivered one reads done")
+    void healthShowsInTheList() throws Exception {
+        String admin = adminOf("Health Firm");
+        String clientId = createClient(admin, "Al Rabie");
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"CHRO","targetDate":"%s"}
+                                """.formatted(clientId, LocalDate.now().minusDays(1))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.health").value("OFF"));
+    }
+
+    @Test
+    @DisplayName("a search stores its timeline and defaults its mapping target to 60% of the window")
+    void searchCarriesTimelineAndDefaultMappingTarget() throws Exception {
+        String admin = adminOf("Timeline Firm");
+        String clientId = createClient(admin, "Engineering");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Engineering Director","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(50))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("SEARCH"))
+                .andExpect(jsonPath("$.startDate").value(start.toString()))
+                .andExpect(jsonPath("$.deliveryDate").value(start.plusDays(50).toString()))
+                .andExpect(jsonPath("$.mappingTargetDate").value(start.plusDays(30).toString()))
+                .andExpect(jsonPath("$.targetDate").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("a mapping project keeps no mapping target, and a caller naming no type gets a search")
+    void mappingHasNoMappingTargetAndTypeDefaultsToSearch() throws Exception {
+        String admin = adminOf("Mapping Firm");
+        String clientId = createClient(admin, "Retail");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Buying Director","projectType":"MAPPING",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(40))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("MAPPING"))
+                .andExpect(jsonPath("$.mappingTargetDate").doesNotExist());
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Store Manager"}
+                                """.formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.projectType").value("SEARCH"))
+                .andExpect(jsonPath("$.startDate").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("a delivery on or before the start, or a mapping target outside the window, is refused per field")
+    void timelineOrderIsEnforced() throws Exception {
+        String admin = adminOf("Order Firm");
+        String clientId = createClient(admin, "Finance");
+        LocalDate start = LocalDate.now();
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Credit Risk","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s"}
+                                """.formatted(clientId, start, start)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors.deliveryDate").exists());
+
+        mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"Head of Credit Risk","projectType":"SEARCH",
+                                 "startDate":"%s","deliveryDate":"%s","mappingTargetDate":"%s"}
+                                """.formatted(clientId, start, start.plusDays(30), start.plusDays(31))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.mappingTargetDate").exists());
+
+        // Nothing was written by either refusal.
+        mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("the list reports each mandate's own universe and its mapped executives")
+    void pipelineCountsAreLive() throws Exception {
+        String admin = adminOf("Pipeline Firm");
+        String mapped = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        String untouched = createProject(admin, createClient(admin, "Al Rabie"), "CHRO");
+
+        String kept = captureCompany(admin, mapped, "ACWA Power");
+        captureCompany(admin, mapped, "Emaar Properties");
+        String rejected = captureCompany(admin, mapped, "Gulf Trader");
+        decline(admin, mapped, rejected);
+        mapExecutive(admin, mapped, kept, "Yasmin El-Sayed", null);
+        mapExecutive(admin, mapped, null, "Omar Farouk", null);
+        // Left the running, so counted no more than the declined company is.
+        mapExecutive(admin, mapped, kept, "Hana Aziz", "offLimits");
+
+        JsonNode projects = body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        // Two of three companies and two of three executives: what a mandate ruled out has left the
+        // pipeline both numbers state.
+        assertThat(countsOf(projects, mapped)).containsExactly(2L, 2L);
+        assertThat(countsOf(projects, untouched)).containsExactly(0L, 0L);
+    }
+
+    @Test
+    @DisplayName("coverage counts universe companies with someone mapped, everyone mapped, and engaged executives")
+    void coverageAndEngagedCounts() throws Exception {
+        String admin = adminOf("Coverage Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+
+        String covered = captureCompany(admin, projectId, "ACWA Power");
+        captureCompany(admin, projectId, "Emaar Properties");
+        String declined = captureCompany(admin, projectId, "Gulf Trader");
+        mapExecutive(admin, projectId, covered, "Yasmin El-Sayed", "engaged");
+        mapExecutive(admin, projectId, covered, "Hana Aziz", null);
+        mapExecutive(admin, projectId, covered, "Karim Nassar", "notInterested");
+        // Someone at a declined company covers nothing: coverage is read against the universe.
+        mapExecutive(admin, projectId, declined, "Omar Farouk", "interested");
+        decline(admin, projectId, declined);
+
+        JsonNode project = projectIn(body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()), projectId);
+
+        assertThat(project.get("companies").asLong()).isEqualTo(2L);
+        assertThat(project.get("mappedCompanies").asLong()).isEqualTo(1L);
+        // Ruled out still counts as mapped; only the in-play number drops.
+        assertThat(project.get("mappedCandidates").asLong()).isEqualTo(4L);
+        assertThat(project.get("candidates").asLong()).isEqualTo(3L);
+        assertThat(project.get("engagedCandidates").asLong()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("the stage gate follows the work: universe, then mapping, then outreach")
+    void stageFollowsTheWork() throws Exception {
+        String admin = adminOf("Stage Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        assertThat(stageOf(admin, projectId)).isEqualTo("BRIEF");
+
+        // An executive at no universe company maps nothing: the gate reads coverage.
+        mapExecutive(admin, projectId, null, "Omar Farouk", null);
+        String company = captureCompany(admin, projectId, "ACWA Power");
+        assertThat(stageOf(admin, projectId)).isEqualTo("UNIVERSE");
+
+        mapExecutive(admin, projectId, company, "Yasmin El-Sayed", null);
+        assertThat(stageOf(admin, projectId)).isEqualTo("MAPPING");
+
+        mapExecutive(admin, projectId, company, "Hana Aziz", "contacted");
+        assertThat(stageOf(admin, projectId)).isEqualTo("OUTREACH");
+    }
+
+    private String stageOf(String token, String projectId) throws Exception {
+        return projectIn(body(mvc.perform(get("/api/v1/projects")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn()), projectId).get("stage").asText();
+    }
+
+    @Test
+    @DisplayName("activity lists the mandate's work newest first, pages by cursor, and stays in its tenant")
+    void activityFeed() throws Exception {
+        String admin = adminOf("Activity Firm");
+        String projectId = createProject(admin, createClient(admin, "Agthia Group"), "Group CFO");
+        String company = captureCompany(admin, projectId, "ACWA Power");
+        mapExecutive(admin, projectId, company, "Yasmin El-Sayed", null);
+        decline(admin, projectId, company);
+
+        JsonNode page = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        JsonNode entries = page.get("entries");
+        assertThat(entries).extracting(entry -> entry.get("type").asText()).containsExactly(
+                "TRIAGE_COMPANY_MOVED", "CANDIDATE_ADDED", "TRIAGE_COMPANY_CAPTURED", "PROJECT_CREATED");
+        assertThat(entries.get(0).get("details").get("status").asText()).isEqualTo("declined");
+        assertThat(entries.get(0).get("actorName").asText()).isEqualTo("Alok Kumar");
+        assertThat(entries.get(0).has("ipAddress")).isFalse();
+        assertThat(page.get("nextCursor").isNull()).isTrue();
+
+        JsonNode first = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity?limit=3")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(first.get("entries").size()).isEqualTo(3);
+        JsonNode rest = body(mvc.perform(get("/api/v1/projects/" + projectId + "/activity?limit=3&before="
+                                + first.get("nextCursor").asLong())
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(rest.get("entries")).extracting(entry -> entry.get("type").asText())
+                .containsExactly("PROJECT_CREATED");
+
+        String rivalEmail = "boss@rival-" + domain;
+        createWorkspace(verifiedUser("Rival Boss", rivalEmail), "Rival Activity Firm");
+        mvc.perform(get("/api/v1/projects/" + projectId + "/activity")
+                        .header("Authorization", "Bearer " + login(rivalEmail)))
+                .andExpect(status().isNotFound());
+    }
+
+    private static JsonNode projectIn(JsonNode projects, String projectId) {
+        for (JsonNode project : projects) {
+            if (project.get("id").asText().equals(projectId)) {
+                return project;
+            }
+        }
+        throw new AssertionError(projectId + " is not in the list: " + projects);
+    }
+
+    /** The {@code companies} and {@code candidates} one mandate reports, in that order. */
+    private static long[] countsOf(JsonNode projects, String projectId) {
+        for (JsonNode project : projects) {
+            if (project.get("id").asText().equals(projectId)) {
+                return new long[] {project.get("companies").asLong(), project.get("candidates").asLong()};
+            }
+        }
+        throw new AssertionError(projectId + " is not in the list: " + projects);
+    }
+
+    /** A company in the mandate's universe without going near Apollo — the capture door does. */
+    private String captureCompany(String token, String projectId, String companyName) throws Exception {
+        return body(mvc.perform(post("/api/v1/projects/" + projectId + "/triage/capture")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"%s"}""".formatted(companyName)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private void decline(String token, String projectId, String triageCompanyId) throws Exception {
+        mvc.perform(patch("/api/v1/projects/" + projectId + "/triage/" + triageCompanyId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"status":"declined"}"""))
+                .andExpect(status().isOk());
+    }
+
+    /**
+     * An executive at one of the mandate's companies, or — with a null company — at none of them.
+     * A null status leaves the default alone.
+     */
+    private void mapExecutive(String token, String projectId, String triageCompanyId, String fullName,
+                              String status) throws Exception {
+        String companyClause = triageCompanyId == null ? ""
+                : "\"triageCompanyId\":\"%s\",".formatted(triageCompanyId);
+        String statusClause = status == null ? "" : ",\"status\":\"%s\"".formatted(status);
+        mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{%s\"fullName\":\"%s\"%s}"
+                                .formatted(companyClause, fullName, statusClause)))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("being seated is mailed, so is a role change, and a PUT that changes nothing is not")
+    void seatingIsAnnounced() throws Exception {
+        String alok = "alok@" + domain;
+        String sara = "sara@" + domain;
+        String admin = adminOf("Announcing Firm", alok);
+        inviteAndAccept(admin, "Sara Al-Mansour", sara, "MEMBER");
+        String projectId = createProject(admin, createClient(admin, "Meridian Energy"), "Group CFO");
+
+        // Creating the mandate seats its creator as lead, and tells nobody: it was their own doing.
+        assertThat(email.subjectsFor(alok)).noneMatch(subject -> subject.contains("search"));
+
+        seat(admin, projectId, memberIdOf(admin, sara), "RESEARCHER");
+        assertThat(latestTo(sara).subject()).isEqualTo("You were added to the Group CFO search on Uncava");
+        assertThat(latestTo(sara).textBody())
+                .contains("Meridian Energy")
+                .contains("as a researcher")
+                .doesNotContain("token=");
+
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
+        assertThat(latestTo(sara).subject()).isEqualTo("Your role on the Group CFO search changed");
+
+        // A PUT of the role they already hold changes nothing, in mail as in the response.
+        int before = email.subjectsFor(sara).size();
+        seat(admin, projectId, memberIdOf(admin, sara), "LEAD");
+        assertThat(email.subjectsFor(sara)).hasSize(before);
+    }
+
+    private EmailMessage latestTo(String recipient) {
+        return email.sent().reversed().stream()
+                .filter(message -> recipient.equalsIgnoreCase(message.to()))
+                .findFirst().orElseThrow();
+    }
+
+    private void seat(String leadToken, String projectId, String memberId, String role)
+            throws Exception {
+        mvc.perform(put("/api/v1/projects/" + projectId + "/members/" + memberId)
+                        .header("Authorization", "Bearer " + leadToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"role":"%s"}""".formatted(role)))
+                .andExpect(status().isOk());
+    }
+
+    private static JsonNode seatOf(JsonNode team, String memberId) {
+        for (JsonNode seat : team) {
+            if (seat.get("memberId").asText().equals(memberId)) {
+                return seat;
+            }
+        }
+        throw new AssertionError(memberId + " not on the team: " + team);
+    }
+
+    private String adminOf(String workspaceName) throws Exception {
+        return adminOf(workspaceName, "alok@" + domain);
+    }
+
+    private String adminOf(String workspaceName, String adminEmail) throws Exception {
+        createWorkspace(verifiedUser("Alok Kumar", adminEmail), workspaceName);
+        return login(adminEmail);
+    }
+
+    private String createClient(String token, String name) throws Exception {
+        return body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"%s"}
+                                """.formatted(name)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private String createProject(String token, String clientId, String position) throws Exception {
+        return body(mvc.perform(post("/api/v1/projects")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"clientId":"%s","positionTitle":"%s"}
+                                """.formatted(clientId, position)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+}

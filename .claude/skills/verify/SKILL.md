@@ -1,9 +1,9 @@
 ---
 name: verify
-description: Build, run and drive LightMove locally to verify a change end-to-end (API + SPA).
+description: Build, run and drive Uncava locally to verify a change end-to-end (API + SPA).
 ---
 
-# Verifying LightMove locally
+# Verifying Uncava locally
 
 ## Launch
 
@@ -13,7 +13,7 @@ description: Build, run and drive LightMove locally to verify a change end-to-en
 - `npm run dev:db:reset` first when you want a virgin schema (re-runs V1 onwards).
 - Halves separately: `npm run dev:db && npm run dev:api`, and `npm run dev:web`.
 - **`npm run dev:cloud` is the shared Cloud SQL database.** Only use it when the shared data is the
-  point, and then `LIGHTMOVE_EMAIL_PROVIDER=log` is on you — `application-local.yml` pins the REAL
+  point, and then `UNCAVA_EMAIL_PROVIDER=log` is on you — `application-local.yml` pins the REAL
   Resend key, so a signup sends real email. `ops/dev/api.sh` sets it for you; `dev:cloud` does not.
 - Email always prints to the API console under `npm run dev`; that is where the verification and
   invitation links come from.
