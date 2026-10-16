@@ -357,8 +357,12 @@ to do. Nothing in that row is filled: the brief's two acts are the rail's, on ev
 mockup's third copy of the pair at the review's top right is deliberately not drawn. **The product is Uncava**: the mark is the rhombus over an isometric cube
 in `apps/web/public/brand` (`favicon.svg`, the SPA's `AppIcon`, the extension's `BrandMark` and icons,
 and the email's `uncava-mark-email-v1.png` are drawn from that one geometry) and every user-facing
-string says Uncava — the mockups included — while the code, packages, persisted keys and JWT issuer
-keep the `lightmove` name — a deliberate split, not drift. The same split holds for the domain
+string says Uncava — the mockups included — and so do the code's own names: the `app.uncava.api` package, the
+`uncava.*` configuration and its `UNCAVA_*` variables. What is stored, signed or published keeps `lightmove`, a
+deliberate split, not drift: the database, its `app_lm_` tables and roles, applied migrations, the JWT issuer,
+the credential encryption's associated data (`EncryptionContext`), the browser's and the extension's storage
+keys, cookies and channels, the error `type` URIs, the template file's `format`, and the GCP resources;
+`ops/dev/rename-uncava.sh` holds that line, and a branch cut before it re-runs it. The same split holds for the domain
 vocabulary: where a mockup says **Position** and **Business unit** (and **Hiring manager** for a
 client representative), the screen says so, while the code, routes, API and tables keep
 `project` and `client`; a screen whose mockup still says project or client keeps saying it. Business
