@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
@@ -46,6 +46,7 @@ import {
   POSITION_STAFF_TABS,
   rememberDrawerTab,
   rememberedDrawerTab,
+  type DrawerSection,
   type DrawerTab,
 } from "../lib/drawerTabs";
 import { CandidateAvatar } from "./CandidateAvatar";
@@ -128,6 +129,7 @@ export function CandidateProfile({
   onSaved,
   onRemove,
   focusNoteId = null,
+  focusSection = null,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -143,6 +145,8 @@ export function CandidateProfile({
   onRemove?: (candidate: Candidate) => void;
   /** A note to open on — a bell row's: the Records tab, scrolled to it. */
   focusNoteId?: string | null;
+  /** A part of the Contact tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
+  focusSection?: DrawerSection | null;
 }) {
   const sections = useProfileSections();
   /**
@@ -158,7 +162,11 @@ export function CandidateProfile({
   const [editing, setEditing] = useState<EditableSection | null>(null);
   const offeredTabs = canWrite ? POSITION_STAFF_TABS : POSITION_CLIENT_TABS;
   const [tab, setTab] = useState<DrawerTab>(() =>
-    canWrite && focusNoteId ? "notes" : rememberedDrawerTab("position", offeredTabs),
+    canWrite && focusNoteId
+      ? "notes"
+      : canWrite && focusSection
+        ? "contact"
+        : rememberedDrawerTab("position", offeredTabs),
   );
   const [noteFocus, setNoteFocus] = useState<NoteFocus | null>(() =>
     canWrite && focusNoteId ? { noteId: focusNoteId, at: Date.now() } : null,
@@ -172,6 +180,23 @@ export function CandidateProfile({
       setNoteFocus({ noteId: focusNoteId, at: (noteFocus?.at ?? 0) + 1 });
     }
   }
+  const [sectionFocus, setSectionFocus] = useState<SectionFocus | null>(() =>
+    canWrite && focusSection ? { section: focusSection, at: Date.now() } : null,
+  );
+  const [linkedSection, setLinkedSection] = useState(focusSection);
+  if (focusSection !== linkedSection) {
+    setLinkedSection(focusSection);
+    if (canWrite && focusSection) {
+      setTab("contact");
+      setSectionFocus({ section: focusSection, at: (sectionFocus?.at ?? 0) + 1 });
+    }
+  }
+  const { setAll: unfoldSections } = sections;
+  useEffect(() => {
+    if (!sectionFocus) return;
+    if (sectionFocus.section !== "meetings") unfoldSections(true, [sectionFocus.section]);
+    return scrollToContactSection(sectionFocus.section);
+  }, [sectionFocus, unfoldSections]);
   const showNote = (noteId: string) => {
     setTab("notes");
     setNoteFocus({ noteId, at: Date.now() });
@@ -181,6 +206,7 @@ export function CandidateProfile({
     setTab(next);
     rememberDrawerTab("position", next);
     if (next !== "notes") setNoteFocus(null);
+    if (next !== "contact") setSectionFocus(null);
     if (body.current) body.current.scrollTop = 0;
   };
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
@@ -878,4 +904,35 @@ function joinFacts(facts: readonly (string | null | undefined)[]): string | null
 
 function countOf(count: number, noun: string): string {
   return `${count} ${count === 1 ? noun : `${noun}s`}`;
+}
+
+interface SectionFocus {
+  section: DrawerSection;
+  /** Bumped by every new link, so the same section asked for twice scrolls twice. */
+  at: number;
+}
+
+const SECTION_FIND_ATTEMPTS = 20;
+const SECTION_FIND_INTERVAL_MS = 100;
+
+/**
+ * Scrolls the Contact tab to a section once it is drawn. Outreach and Meetings draw only after their own reads land,
+ * so it looks again for a couple of seconds; an Outreach with no run draws nothing, and the Contact fold stands in.
+ */
+function scrollToContactSection(section: DrawerSection): () => void {
+  let attempts = 0;
+  let timer: number | undefined;
+  const find = () => {
+    const panel = document.getElementById(`${TAB_ID_PREFIX}-panel-contact`);
+    const target =
+      section === "meetings"
+        ? panel?.querySelector('section[aria-label="Meetings"]')
+        : panel?.querySelector(`#${section}-section-body`)?.closest("section");
+    const lastTry = ++attempts >= SECTION_FIND_ATTEMPTS;
+    const shown = target ?? (lastTry ? panel?.querySelector("#contact-section-body")?.closest("section") : null);
+    if (shown) shown.scrollIntoView({ block: "start", behavior: "smooth" });
+    else if (!lastTry) timer = window.setTimeout(find, SECTION_FIND_INTERVAL_MS);
+  };
+  timer = window.setTimeout(find, 0);
+  return () => window.clearTimeout(timer);
 }

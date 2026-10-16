@@ -1,5 +1,6 @@
 import { formatInstantDate, formatInstantDateTime, formatInstantTime } from "../../../lib/format";
-import type { NotificationResponse } from "../api/types";
+import type { DrawerSection } from "../../candidates/lib/drawerTabs";
+import type { NotificationKind, NotificationResponse } from "../api/types";
 
 /** The bell's count: hidden at none, and never wider than "9+". */
 export function unreadBadgeOf(unreadCount: number): string | null {
@@ -36,16 +37,31 @@ export function timeLabelOf(isoInstant: string, now: Date = new Date()): string 
   return (daysBefore(isoInstant, now) === 0 ? formatInstantTime(isoInstant) : formatInstantDate(isoInstant)) ?? "";
 }
 
+/** Where in the drawer's Contact tab a row's work is: the thread a reply came on, the address that bounced, the call. */
+const CONTACT_SECTION_OF: Partial<Record<NotificationKind, DrawerSection>> = {
+  outreach_replied: "outreach",
+  outreach_bounced: "contact",
+  call_booked: "meetings",
+};
+
 /**
- * Where a row leads: the position's pipeline, on the executive's drawer when it is about one and on the note when
- * it names one; else My positions.
+ * Where a row leads: the position's pipeline, on the executive's drawer when it is about one — on the note when it
+ * names one, or on the Contact section its work is in; an executive since unmapped from the position opens on the
+ * Candidates page; else My positions.
  */
 export function notificationHref(notification: NotificationResponse): string {
   if (!notification.projectId) return "/";
   const pipeline = `/projects/${notification.projectId}/pipeline`;
-  if (!notification.candidateId) return pipeline;
+  if (!notification.candidateId) {
+    if (!notification.personId) return pipeline;
+    const person = `/candidates?person=${encodeURIComponent(notification.personId)}`;
+    if (notification.note) return `${person}&tab=notes`;
+    return CONTACT_SECTION_OF[notification.kind] ? `${person}&tab=contact` : person;
+  }
   const candidate = `${pipeline}?candidate=${encodeURIComponent(notification.candidateId)}`;
-  return notification.note ? `${candidate}&note=${encodeURIComponent(notification.note.id)}` : candidate;
+  if (notification.note) return `${candidate}&note=${encodeURIComponent(notification.note.id)}`;
+  const section = CONTACT_SECTION_OF[notification.kind];
+  return section ? `${candidate}&section=${section}` : candidate;
 }
 
 export type SnoozeChoice = "hour" | "tomorrow" | "week";

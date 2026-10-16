@@ -146,6 +146,10 @@ describe("MyTasksCard", () => {
     const reply = within(await screen.findByRole("listitem", { name: "Reply to Rania Khoury" }));
     expect(reply.getByTitle("Call")).toBeInTheDocument();
     expect(reply.getByText("Auto")).toBeInTheDocument();
+    expect(reply.getByRole("link", { name: "Reply to Rania Khoury" })).toHaveAttribute(
+      "href",
+      "/projects/p1/pipeline?candidate=c1",
+    );
     expect(reply.getByTitle("Fatima Al Mazrouei")).toBeInTheDocument();
     expect(reply.getByRole("link", { name: "Fatima Al Mazrouei" })).toHaveAttribute(
       "href",
@@ -153,6 +157,21 @@ describe("MyTasksCard", () => {
     );
     expect(reply.getByRole("link", { name: "Chief Financial Officer" })).toHaveAttribute("href", "/projects/p1/pipeline");
     expect(reply.getByText("Today · 16:00")).toHaveAttribute("data-tone", "today");
+  });
+
+  it("opens the executive from the task's title, and an unmapped executive's workspace record", async () => {
+    vi.mocked(tasksApi.getMyTasks).mockImplementation(
+      async (view): Promise<MyTasksResponse> => ({
+        tasks: view === "today" ? [aTask({ id: "gone", title: "Chase references", candidateId: null })] : [],
+        counts: { ...COUNTS, today: 1 },
+        hasMore: false,
+      }),
+    );
+    renderCard();
+
+    const row = within(await screen.findByRole("listitem", { name: "Chase references" }));
+    expect(row.getByRole("link", { name: "Chase references" })).toHaveAttribute("href", "/candidates?person=person-1");
+    expect(row.getByRole("link", { name: "Fatima Al Mazrouei" })).toHaveAttribute("href", "/candidates?person=person-1");
   });
 
   it("reads each tab's own tasks, the overdue in red", async () => {
