@@ -1,10 +1,14 @@
 package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,7 +16,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * A workspace's pipeline (V131) and the rules that keep its hierarchy whole: every status under a stage,
- * the built-in statuses never retired nor moved across the closed line, one default per stage, a stage retired only once empty, and
+ * the seeded statuses retired like any other, one default per stage, a stage retired only once empty, and
  * one closed stage, last.
  */
 @IntegrationTest
@@ -61,51 +65,67 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a built-in status is renamed, recoloured and moved between active stages, never retired or across the closed line")
-    void aSystemStatusStaysOnItsSideOfTheLine() throws Exception {
-        JsonNode catalog = catalog();
-        String offLimits = statusIn(catalog, "offLimits").get("id").asText();
-        String contacted = statusIn(catalog, "contacted").get("id").asText();
-        String identifiedStage = stageIn(catalog, "identified").get("id").asText();
-        String contactedStage = stageIn(catalog, "contacted").get("id").asText();
-        String declinedStage = stageIn(catalog, "declined").get("id").asText();
+    @DisplayName("a seeded status is renamed, recoloured and retired like any other")
+    void aSeededStatusIsLikeAnyOther() throws Exception {
+        String offLimits = statusIn(catalog(), "offLimits").get("id").asText();
 
         JsonNode renamed = body(write(admin, "PATCH", PIPELINE + "/statuses/" + offLimits, """
                 {"label":"Do not approach","colour":"signal"}"""));
         assertThat(statusIn(renamed, "offLimits").get("label").asText()).isEqualTo("Do not approach");
 
-        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + offLimits, """
-                {"retired":true}"""))).isEqualTo("PIPELINE_STATUS_SYSTEM");
-        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + offLimits, """
-                {"stageId":"%s"}""".formatted(contactedStage)))).isEqualTo("PIPELINE_STATUS_SYSTEM");
-        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + contacted, """
-                {"stageId":"%s"}""".formatted(declinedStage)))).isEqualTo("PIPELINE_STATUS_SYSTEM");
-
-        JsonNode moved = body(write(admin, "PATCH", PIPELINE + "/statuses/" + contacted, """
-                {"stageId":"%s"}""".formatted(identifiedStage)));
-        assertThat(keysOf(stageIn(moved, "identified").get("statuses")).getLast()).isEqualTo("contacted");
-        assertThat(defaultsOf(stageIn(moved, "identified"))).containsExactly("identified");
-        assertThat(defaultsOf(stageIn(moved, "contacted"))).containsExactly("followUpSent");
+        JsonNode retired = body(write(admin, "PATCH", PIPELINE + "/statuses/" + offLimits, """
+                {"retired":true}"""));
+        assertThat(statusIn(retired, "offLimits").get("retired").asBoolean()).isTrue();
     }
 
     @Test
-    @DisplayName("a stage holding built-in statuses is retired once they are moved to another active stage")
-    void aStageOfBuiltInsRetiresOnceMoved() throws Exception {
+    @DisplayName("a stage with live statuses retires with them when asked, its seeded ones included")
+    void aStageRetiresWithItsStatuses() throws Exception {
+        String contacted = stageIn(catalog(), "contacted").get("id").asText();
+
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/stages/" + contacted, """
+                {"retired":true}"""))).isEqualTo("PIPELINE_STAGE_NOT_EMPTY");
+        JsonNode catalog = body(write(admin, "PATCH", PIPELINE + "/stages/" + contacted, """
+                {"retired":true,"retireStatuses":true}"""));
+
+        JsonNode stage = stageIn(catalog, "contacted");
+        assertThat(stage.get("retired").asBoolean()).isTrue();
+        stage.get("statuses").forEach(status -> {
+            assertThat(status.get("retired").asBoolean()).isTrue();
+            assertThat(status.get("isDefault").asBoolean()).isFalse();
+        });
+    }
+
+    @Test
+    @DisplayName("a retire preview counts who holds each status and names the automations it would stop")
+    void aRetirePreviewSaysWhatItTouches() throws Exception {
+        String projectId = mandate("Chief Financial Officer");
+        add(projectId, """
+                {"fullName":"Rania Haddad","status":"contacted"}""");
+        add(projectId, """
+                {"fullName":"Omar Saleh","status":"contacted"}""");
         JsonNode catalog = catalog();
-        JsonNode contacted = stageIn(catalog, "contacted");
-        String identified = stageIn(catalog, "identified").get("id").asText();
+        String contactedStage = stageIn(catalog, "contacted").get("id").asText();
+        String contacted = statusIn(catalog, "contacted").get("id").asText();
 
-        for (JsonNode status : contacted.get("statuses")) {
-            write(admin, "PATCH", PIPELINE + "/statuses/" + status.get("id").asText(), """
-                    {"stageId":"%s"}""".formatted(identified));
-        }
-        catalog = body(write(admin, "PATCH", PIPELINE + "/stages/" + contacted.get("id").asText(), """
-                {"retired":true}"""));
+        JsonNode preview = body(mvc.perform(get(PIPELINE + "/stages/" + contactedStage + "/retire-preview")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
 
-        assertThat(stageIn(catalog, "contacted").get("retired").asBoolean()).isTrue();
-        assertThat(keysOf(stageIn(catalog, "identified").get("statuses")))
-                .containsSubsequence("identified", "contacted", "followUpSent", "engaged", "callBooked");
-        assertThat(defaultsOf(stageIn(catalog, "identified"))).containsExactly("identified");
+        Map<String, Long> holders = new HashMap<>();
+        preview.get("statuses").forEach(row -> holders.put(row.get("label").asText(), row.get("holders").asLong()));
+        assertThat(holders).containsEntry("Contacted", 2L).containsEntry("Follow-up sent", 0L).hasSize(4);
+        List<String> triggers = new ArrayList<>();
+        preview.get("automations").forEach(row -> triggers.add(row.get("trigger").asText()));
+        assertThat(triggers).containsExactlyInAnyOrder("emailSent", "callBooked");
+
+        JsonNode statusPreview = body(mvc.perform(get(PIPELINE + "/statuses/" + contacted + "/retire-preview")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(statusPreview.get("statuses")).hasSize(1);
+        assertThat(statusPreview.get("automations").get(0).get("trigger").asText()).isEqualTo("emailSent");
     }
 
     @Test

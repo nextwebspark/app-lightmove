@@ -26,7 +26,7 @@ public record PipelineCatalog(List<CandidateStage> stages, List<CandidateStatusD
         return stages.stream().filter(stage -> stage.getStageKey().equals(stageKey)).findFirst();
     }
 
-    /** A system status is seeded into every workspace and can never be retired, so it is always here. */
+    /** A seeded status is in every workspace's catalog, retired or not, so it is always here. */
     public CandidateStatusDefinition bySystemKey(CandidateSystemStatus system) {
         return statuses.stream().filter(status -> status.is(system)).findFirst()
                 .orElseThrow(() -> new IllegalStateException("Pipeline catalog lacks system status " + system));

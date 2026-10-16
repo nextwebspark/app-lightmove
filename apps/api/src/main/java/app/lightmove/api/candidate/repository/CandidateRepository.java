@@ -66,6 +66,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
 
+    Optional<Candidate> findByProjectIdAndPersonId(UUID projectId, UUID personId);
+
     default Candidate requireInProject(UUID id, UUID projectId) {
         return findByIdAndProjectId(id, projectId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
@@ -118,6 +120,11 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             + "and (:clientVisibleOnly = false or c.clientVisible = true) "
             + "group by c.status.id")
     List<CandidateStatusCount> countByStatusOfProject(UUID projectId, boolean clientVisibleOnly);
+
+    /** How many candidates, across the workspace's positions, hold each of these statuses. */
+    @Query("select c.status.id as statusId, count(c) as total from Candidate c where c.status.id in :statusIds "
+            + "group by c.status.id")
+    List<CandidateStatusCount> countByStatusIdIn(Collection<UUID> statusIds);
 
     /** Everyone a mandate has mapped, ruled out or not — the side panel's "Executives mapped". */
     @Query("select c.projectId as projectId, count(c) as total "

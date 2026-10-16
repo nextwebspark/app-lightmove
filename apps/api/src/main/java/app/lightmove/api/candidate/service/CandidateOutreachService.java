@@ -1,8 +1,8 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
+import app.lightmove.api.candidate.constant.StatusAutomationTrigger;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDossier;
@@ -42,7 +42,7 @@ public class CandidateOutreachService {
     private final ProjectRepository projects;
     private final CandidateService candidateService;
     private final PersonActivityRecorder activity;
-    private final CandidatePipelineCatalog pipeline;
+    private final StatusAutomationService automations;
 
     /** The named executives plus everyone mapped at the named companies, each once, in that order. */
     @Transactional(readOnly = true)
@@ -93,7 +93,7 @@ public class CandidateOutreachService {
     }
 
     /**
-     * One email went. The first one moves someone not yet at Contacted there — forward only, by the
+     * One email went. It moves someone to the email-sent automation's status — forward only, by the
      * pipeline's own order, so a person a consultant already moved on (or out of the running) is left where
      * they were put. Nothing is written for someone removed from the position while the email was in
      * flight: the email itself is still recorded.
@@ -109,28 +109,40 @@ public class CandidateOutreachService {
                                  int stepNumber) {
         activity.record(candidate, sender, PersonActivityKind.EMAIL_SENT, PersonActivityDetails
                 .of("sequenceId", sequenceId).and("sequence", sequenceName).and("step", stepNumber));
-        moveForwardTo(candidate, sender, CandidateSystemStatus.CONTACTED);
+        moveForwardTo(candidate, sender, StatusAutomationTrigger.EMAIL_SENT);
     }
 
-    /** Only ever forward, and never out of the closed stage: automation does not undo a consultant's call. */
-    private void moveForwardTo(Candidate candidate, UUID actor, CandidateSystemStatus target) {
+    /**
+     * Only ever forward, and never out of the closed stage: automation does not undo a consultant's call. An
+     * automation that is off, or whose status was retired, moves nobody and never fails the event behind it.
+     */
+    private void moveForwardTo(Candidate candidate, UUID actor, StatusAutomationTrigger trigger) {
         CandidateStatusDefinition was = candidate.getStatus();
         if (was.hasLeftTheRunning()) {
             return;
         }
         UUID workspaceId = projects.findById(candidate.getProjectId()).map(Project::getWorkspaceId).orElseThrow();
-        CandidateStatusDefinition to = pipeline.system(workspaceId, target);
+        Optional<CandidateStatusDefinition> target = automations.targetOf(workspaceId, trigger);
+        if (target.isEmpty()) {
+            return;
+        }
+        CandidateStatusDefinition to = target.get();
         if (was.isBefore(to) && candidate.moveTo(to)) {
             activity.record(candidate, actor, PersonActivityKind.STATUS_CHANGED,
                     PersonActivityDetails.statusChange(was, to));
         }
     }
 
-    /** Nobody here acted, so the line has no actor; the reply's content is never seen, let alone written. */
+    /**
+     * Nobody here acted, so the lines have no actor; the reply's content is never seen, let alone written. A
+     * reply moves the person forward only where the reply automation is on and they are still mapped.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordReplied(UUID workspaceId, UUID projectId, UUID personId, UUID sequenceId, String sequenceName) {
         recordAboutPerson(workspaceId, projectId, personId, null, PersonActivityKind.EMAIL_REPLIED,
                 PersonActivityDetails.of("sequenceId", sequenceId).and("sequence", sequenceName));
+        candidates.findByProjectIdAndPersonId(projectId, personId)
+                .ifPresent(candidate -> moveForwardTo(candidate, null, StatusAutomationTrigger.REPLIED));
     }
 
     /** {@code actor} is null when the send-time re-check or a bounce ended the run rather than a person. */
@@ -165,7 +177,7 @@ public class CandidateOutreachService {
     }
 
     /**
-     * A call was booked. It moves someone not yet at Engaged there — forward only, by the pipeline's own
+     * A call was booked. It moves someone to the call-booked automation's status — forward only, by the pipeline's own
      * order, so a person a consultant already moved on, or out of the running, is left where they were put.
      * {@code viaLink} says the executive booked it themselves.
      */
@@ -174,7 +186,7 @@ public class CandidateOutreachService {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
             activity.record(candidate, actor, PersonActivityKind.MEETING_BOOKED, PersonActivityDetails
                     .of("startsAt", startsAt.toString()).and("viaLink", viaLink));
-            moveForwardTo(candidate, actor, CandidateSystemStatus.ENGAGED);
+            moveForwardTo(candidate, actor, StatusAutomationTrigger.CALL_BOOKED);
         });
     }
 

@@ -93,6 +93,16 @@ export function defaultStatusOf(stage: PipelineStage): PipelineStatus | null {
   return stage.statuses.find((status) => status.isDefault && !status.retired) ?? null;
 }
 
+/** Where someone added with no status stands, as the server decides it: the first live active stage's default. */
+export function startingStatusKey(catalog: PipelineCatalog): string | null {
+  for (const stage of liveStages(catalog)) {
+    if (stage.kind !== "active") continue;
+    const status = defaultStatusOf(stage);
+    if (status) return status.key;
+  }
+  return null;
+}
+
 export function closedStage(catalog: PipelineCatalog): PipelineStage | null {
   return liveStages(catalog).find((stage) => stage.kind === "closed") ?? null;
 }

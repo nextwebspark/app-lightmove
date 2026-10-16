@@ -68,7 +68,7 @@ export interface PipelineStatus {
   colour: string;
   position: number;
   isDefault: boolean;
-  /** One of the seven built-in statuses: renamed and recoloured, never retired or moved. */
+  /** One of the seven seeded statuses: a wire key the extension and the public API still speak, nothing more. */
   system: boolean;
   retired: boolean;
 }
@@ -94,6 +94,30 @@ export interface PipelineStageChange {
   label?: string;
   colour?: string;
   retired?: boolean;
+  /** With `retired`, retires the stage's live statuses along with it. */
+  retireStatuses?: boolean;
+}
+
+/** The events that move a candidate forward to a status of the workspace's choosing. */
+export type StatusAutomationTrigger = "emailSent" | "replied" | "callBooked";
+
+export interface StatusAutomation {
+  trigger: StatusAutomationTrigger;
+  enabled: boolean;
+  statusId: string | null;
+  /** Its status was retired since, so it moves nobody until another is chosen. */
+  broken: boolean;
+}
+
+export interface StatusAutomationChange {
+  enabled: boolean;
+  statusId: string | null;
+}
+
+/** What retiring a stage or a status would touch: who holds each status, and the automations it stops. */
+export interface PipelineRetirePreview {
+  statuses: { statusId: string; label: string; holders: number }[];
+  automations: StatusAutomation[];
 }
 
 export interface PipelineStatusChange {

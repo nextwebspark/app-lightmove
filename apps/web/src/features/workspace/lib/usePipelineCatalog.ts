@@ -28,6 +28,10 @@ export function usePipelineWrite<TArgs>(write: (args: TArgs) => Promise<Pipeline
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: write,
-    onSuccess: (catalog) => queryClient.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, catalog),
+    onSuccess: (catalog) => {
+      queryClient.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, catalog);
+      // A retired status can break an automation; the card reads that from the server.
+      void queryClient.invalidateQueries({ queryKey: pipelineApi.STATUS_AUTOMATIONS_KEY });
+    },
   });
 }
