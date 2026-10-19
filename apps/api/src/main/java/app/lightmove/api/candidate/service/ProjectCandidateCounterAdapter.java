@@ -1,6 +1,5 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.project.model.CandidateCountScope;
@@ -50,7 +49,7 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (scope.projectIds().isEmpty()) {
             return Map.of();
         }
-        int interestedFrom = stagePositionOf(scope, CandidateSystemStatus.INTERESTED);
+        int interestedFrom = pipeline.progressAnchors(scope.workspaceId()).interestedFrom();
         return counted(scope, (projectIds, clientVisibleOnly) ->
                 candidates.countEngagedByProjectIdIn(projectIds, interestedFrom, clientVisibleOnly));
     }
@@ -60,7 +59,7 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
         if (scope.projectIds().isEmpty()) {
             return Map.of();
         }
-        int identifiedAt = stagePositionOf(scope, CandidateSystemStatus.IDENTIFIED);
+        int identifiedAt = pipeline.progressAnchors(scope.workspaceId()).startingAt();
         return counted(scope, (projectIds, clientVisibleOnly) ->
                 candidates.countReachedOutByProjectIdIn(projectIds, identifiedAt, clientVisibleOnly));
     }
@@ -69,11 +68,6 @@ class ProjectCandidateCounterAdapter implements ProjectCandidateCounter {
     public Map<UUID, Long> countMappedCompaniesByProject(CandidateCountScope scope) {
         return counted(scope, (projectIds, clientVisibleOnly) -> candidates.countMappedCompaniesByProjectIdIn(
                 projectIds, TriageCompanyStatus.DECLINED.name(), clientVisibleOnly));
-    }
-
-    /** Read once per call rather than by a subselect per row: every mandate of a scope is one workspace's. */
-    private int stagePositionOf(CandidateCountScope scope, CandidateSystemStatus anchor) {
-        return pipeline.system(scope.workspaceId(), anchor).getStage().getPosition();
     }
 
     private static Map<UUID, Long> counted(CandidateCountScope scope,

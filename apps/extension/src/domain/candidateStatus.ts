@@ -22,5 +22,5 @@ export const CANDIDATE_CAPTURE_STATUS_LABELS: Record<CandidateCaptureStatus, str
   outOfScope: "Out of scope",
 };
 
-/** Where every profile starts, and what the API assumes of a capture that says nothing. */
+/** The panel's starting choice; a capture left on it sends no status, and the workspace's starting one applies. */
 export const DEFAULT_CANDIDATE_STATUS: CandidateCaptureStatus = "identified";

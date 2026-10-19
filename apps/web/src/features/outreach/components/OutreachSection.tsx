@@ -7,7 +7,8 @@ import * as runApi from "../api/runApi";
 import type { OutreachStep } from "../api/runApi";
 import { isLive, RUN_STATES, sendTimeOf, STOP_NOTES } from "../lib/runVocabulary";
 import { useStopRun } from "../lib/useStopRun";
-import { useStatusStyle } from "../../workspace/lib/usePipelineCatalog";
+import { findStatus } from "../../candidates/lib/pipelineStatus";
+import { usePipelineCatalog, useStatusStyle } from "../../workspace/lib/usePipelineCatalog";
 import { StopRunDialog } from "./StopRunDialog";
 
 /** What a reply asks the consultant to record — three built-in statuses. Uncava never infers it from what they wrote. */
@@ -44,6 +45,12 @@ export function OutreachSection({
   });
   const stop = useStopRun(projectId);
   const styleOf = useStatusStyle();
+  const { catalog } = usePipelineCatalog();
+  // A workspace may have retired any of the three; one it retired is not offered.
+  const replyChoices = REPLY_CHOICES.filter((choice) => {
+    const held = findStatus(catalog, choice);
+    return held !== null && !held.status.retired && !held.stage.retired;
+  });
   const [isConfirmingStop, setIsConfirmingStop] = useState(false);
   const run = outreach.data?.run ?? null;
   if (!run) {
@@ -68,7 +75,7 @@ export function OutreachSection({
             Read it in your inbox{candidateStatus === "contacted" ? ", then record where they stand." : "."}
             {candidateStatus === "contacted" && (
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {REPLY_CHOICES.map((choice) => (
+                {replyChoices.map((choice) => (
                   <button
                     key={choice}
                     type="button"

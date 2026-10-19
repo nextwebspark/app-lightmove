@@ -51,9 +51,9 @@ export type ApiErrorCode =
   | "CANDIDATE_ASSESSMENT_NO_CRITERIA"
   | "CANDIDATE_ASSESSMENT_NOTHING_OPEN"
   | "AI_UNAVAILABLE"
-  | "PIPELINE_STATUS_SYSTEM"
   | "PIPELINE_STAGE_NOT_EMPTY"
   | "PIPELINE_STAGE_REQUIRED"
+  | "PIPELINE_STATUS_REQUIRED"
   | "PIPELINE_LABEL_TAKEN"
   | "PIPELINE_STATUS_RETIRED"
   | "PIPELINE_ORDER_INVALID"
@@ -200,9 +200,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:
     "Every score and section is already your team's. There is nothing left for the AI to draft.",
   AI_UNAVAILABLE: "The AI could not answer just now. Try again in a moment.",
-  PIPELINE_STATUS_SYSTEM: "Built-in statuses can be renamed and recoloured, but not retired or moved.",
-  PIPELINE_STAGE_NOT_EMPTY: "Move or retire this stage's statuses first — a stage with live statuses can't be retired.",
+  PIPELINE_STAGE_NOT_EMPTY: "This stage still has statuses. Retire them with the stage, or retire them first.",
   PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one active stage and its closed stage.",
+  PIPELINE_STATUS_REQUIRED: "The pipeline keeps at least one active status for new candidates to start at.",
   PIPELINE_LABEL_TAKEN: "That name is already in use.",
   PIPELINE_STATUS_RETIRED: "That status is retired. Ask an admin to restore it in Settings.",
   PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",

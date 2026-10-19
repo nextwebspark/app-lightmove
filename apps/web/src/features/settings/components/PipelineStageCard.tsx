@@ -1,14 +1,18 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button } from "../../../components/ui";
+import { Button, useToast } from "../../../components/ui";
 import { FoldBody } from "../../../components/ui/FoldBody";
 import { cn } from "../../../lib/cn";
+import { messageFor } from "../../../lib/errorCodes";
 import { liveStatuses } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
-import type { PipelineStage, PipelineStageChange } from "../../workspace/api/types";
+import type { PipelineRetirePreview, PipelineStage, PipelineStageChange } from "../../workspace/api/types";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import { statusCountLabel, statusPreview } from "../lib/pipelineStageRows";
 import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
+import { PipelineRetireDialog } from "./PipelineRetireDialog";
 import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 import { PipelineStatusList } from "./PipelineStatusList";
 
@@ -22,14 +26,12 @@ export function PipelineStageCard({
   open,
   onToggle,
   onStep,
-  onRetireBlocked,
 }: {
   stage: PipelineStage;
   isAdmin: boolean;
   open: boolean;
   onToggle: () => void;
   onStep?: (step: number) => void;
-  onRetireBlocked: () => void;
 }) {
   const sortable = useSortable({ id: stage.id, disabled: !onStep });
   // Folded while it is carried, so it moves as one line; `open` is still what the toggle reports.
@@ -55,7 +57,6 @@ export function PipelineStageCard({
         sortable={sortable}
         onToggle={onToggle}
         onStep={onStep}
-        onRetireBlocked={onRetireBlocked}
       />
       <FoldBody id={bodyId} open={shown} animated={!sortable.isDragging}>
         <PipelineStatusList stage={stage} isAdmin={isAdmin} />
@@ -73,7 +74,6 @@ function StageHeader({
   sortable,
   onToggle,
   onStep,
-  onRetireBlocked,
 }: {
   stage: PipelineStage;
   isAdmin: boolean;
@@ -83,7 +83,6 @@ function StageHeader({
   sortable: ReturnType<typeof useSortable>;
   onToggle: () => void;
   onStep?: (step: number) => void;
-  onRetireBlocked: () => void;
 }) {
   const rename = useRenameDraft(stage.label);
   const { change, isPending } = usePipelineRowChange(
@@ -94,12 +93,24 @@ function StageHeader({
   const isClosed = stage.kind === "closed";
   const renameFormId = `rename-stage-${stage.id}`;
 
-  const handleRetire = () => {
-    if (statuses.length > 0) {
-      onRetireBlocked();
+  const toast = useToast();
+  const { catalog } = usePipelineCatalog();
+  const [preview, setPreview] = useState<PipelineRetirePreview | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const handleRetire = async () => {
+    if (statuses.length === 0) {
+      change({ retired: true }, `${stage.label} retired`);
       return;
     }
-    change({ retired: true }, `${stage.label} retired`);
+    setChecking(true);
+    try {
+      setPreview(await pipelineApi.stageRetirePreview(stage.id));
+    } catch (error) {
+      toast.error(messageFor(error));
+    } finally {
+      setChecking(false);
+    }
   };
 
   return (
@@ -176,14 +187,27 @@ function StageHeader({
               size="xs"
               title="Retire this stage"
               aria-label={`Retire ${stage.label} stage`}
-              disabled={isPending}
-              onClick={handleRetire}
+              disabled={isPending || checking}
+              onClick={() => void handleRetire()}
             >
               <Icon d={ICONS.archive} size={14} />
             </Button>
           )}
         </span>
       )}
+      <PipelineRetireDialog
+        open={preview !== null}
+        title={`Retire ${stage.label} and its ${statusCountLabel(statuses.length)}?`}
+        confirmLabel="Retire stage and statuses"
+        catalog={catalog}
+        preview={preview}
+        pending={isPending}
+        onConfirm={() => {
+          setPreview(null);
+          change({ retired: true, retireStatuses: true }, `${stage.label} and its statuses retired`);
+        }}
+        onClose={() => setPreview(null)}
+      />
     </div>
   );
 }

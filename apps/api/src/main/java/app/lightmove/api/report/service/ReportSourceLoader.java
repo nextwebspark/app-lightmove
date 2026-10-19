@@ -1,6 +1,5 @@
 package app.lightmove.api.report.service;
 
-import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
@@ -67,7 +66,7 @@ class ReportSourceLoader {
 
         CandidatesResponse people = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates(),
                 audience);
-        int interestedFrom = pipeline.system(workspaceId, CandidateSystemStatus.INTERESTED).getStage().getPosition();
+        int interestedFrom = pipeline.progressAnchors(workspaceId).interestedFrom();
         List<ExecutiveRow> executives = pair(people, universe, interestedFrom);
 
         return new ReportSources(project, universe, inUniverse.totalCount() + shortlisted.totalCount(),

@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.constant.CandidateSystemStatus;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.PipelineCatalog;
+import app.lightmove.api.candidate.model.PipelineProgressAnchors;
 import app.lightmove.api.candidate.repository.CandidateStageRepository;
 import app.lightmove.api.candidate.repository.CandidateStatusDefinitionRepository;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -52,6 +53,11 @@ public class CandidatePipelineCatalog {
             throw ApiException.of(ErrorCode.PIPELINE_STATUS_RETIRED);
         }
         return status;
+    }
+
+    @Transactional(readOnly = true)
+    public PipelineProgressAnchors progressAnchors(UUID workspaceId) {
+        return catalogOf(workspaceId).progressAnchors();
     }
 
     @Transactional(readOnly = true)

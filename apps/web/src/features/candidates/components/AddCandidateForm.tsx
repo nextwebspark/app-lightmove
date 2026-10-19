@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { DEFAULT_CURRENCY } from "../../../lib/currencies";
 import { useMutation } from "@tanstack/react-query";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, useToast } from "../../../components/ui";
@@ -11,6 +11,7 @@ import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, SaveCandidatePayload } from "../api/types";
 import {
@@ -21,6 +22,7 @@ import {
   type CandidateForm,
   type ParsedCandidateForm,
 } from "../lib/candidateForm";
+import { startingStatusKey } from "../lib/pipelineStatus";
 import {
   BackgroundFields,
   CareerFields,
@@ -94,6 +96,17 @@ export function AddCandidateForm({
     },
   });
   const { register, formState } = form;
+
+  // The seeded starting status may be retired; start where the server would file someone given none.
+  const { catalog, isLoaded } = usePipelineCatalog();
+  const startingKey = isLoaded ? startingStatusKey(catalog) : null;
+  // Only a value nobody picked is replaced: the form's own default, or the starting status set here before.
+  const autoStatus = useRef(EMPTY_FORM.status);
+  useEffect(() => {
+    if (!startingKey || form.getValues("status") !== autoStatus.current) return;
+    autoStatus.current = startingKey;
+    form.setValue("status", startingKey);
+  }, [form, startingKey]);
 
   const formEl = useRef<HTMLFormElement>(null);
   const handleSubmitShortcut = useSubmitShortcut(() => formEl.current?.requestSubmit());

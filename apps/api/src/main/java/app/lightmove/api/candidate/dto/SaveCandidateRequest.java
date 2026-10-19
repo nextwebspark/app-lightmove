@@ -38,7 +38,7 @@ public record SaveCandidateRequest(
         @Size(max = 16)
         String seniority,
 
-        /** A status key of the workspace's pipeline. Omitted files them at its starting status, Identified. */
+        /** A status key of the workspace's pipeline. Omitted files them at its starting status. */
         @Size(max = 40)
         String status,
 
