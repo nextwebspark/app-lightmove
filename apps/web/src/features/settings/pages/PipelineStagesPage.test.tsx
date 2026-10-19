@@ -404,31 +404,45 @@ describe("PipelineStagesPage", () => {
     await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-engaged", { retired: true }));
   });
 
-  it("chooses where an outreach event moves people, and flags a rule whose status was retired", async () => {
-    vi.mocked(pipelineApi.statusAutomations).mockResolvedValue(
-      seededAutomations({ callBooked: { broken: true } }),
-    );
+  it("chooses where an outreach event moves people, leaving on and off to the switch", async () => {
     vi.mocked(pipelineApi.updateStatusAutomation).mockResolvedValue(
-      seededAutomations({ replied: { enabled: true, statusId: "status-interested" }, callBooked: { broken: true } }),
+      seededAutomations({ replied: { enabled: false, statusId: "status-interested" } }),
+    );
+    renderPage();
+    const automations = await screen.findByRole("region", { name: AUTOMATION_CARD });
+    const replySwitch = await within(automations).findByRole("switch", { name: "They reply to outreach: move automatically" });
+    expect(replySwitch).toBeDisabled();
+    const picker = within(automations).getByRole("combobox", { name: "They reply to outreach: move to" });
+    expect(within(picker).queryByRole("option", { name: "Withdrew" })).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(picker, "status-interested");
+    await waitFor(() =>
+      expect(pipelineApi.updateStatusAutomation).toHaveBeenCalledWith("replied", {
+        enabled: false,
+        statusId: "status-interested",
+      }),
+    );
+    expect(await screen.findByText("Saved for the whole workspace")).toBeInTheDocument();
+    await waitFor(() => expect(replySwitch).toBeEnabled());
+  });
+
+  it("flags a rule whose status was retired, and lets it be switched off", async () => {
+    vi.mocked(pipelineApi.statusAutomations).mockResolvedValue(seededAutomations({ callBooked: { broken: true } }));
+    vi.mocked(pipelineApi.updateStatusAutomation).mockResolvedValue(
+      seededAutomations({ callBooked: { enabled: false } }),
     );
     renderPage();
     const automations = await screen.findByRole("region", { name: AUTOMATION_CARD });
 
     expect(await screen.findByText(/An automation is paused/)).toBeInTheDocument();
     expect(within(automations).getByText(/Engaged was retired/)).toBeInTheDocument();
-    expect(within(automations).getByRole("switch", { name: "They reply to outreach: move automatically" })).toBeDisabled();
-
-    await userEvent.selectOptions(
-      within(automations).getByRole("combobox", { name: "They reply to outreach: move to" }),
-      "status-interested",
-    );
+    await userEvent.click(within(automations).getByRole("switch", { name: "A call is booked: move automatically" }));
     await waitFor(() =>
-      expect(pipelineApi.updateStatusAutomation).toHaveBeenCalledWith("replied", {
-        enabled: true,
-        statusId: "status-interested",
+      expect(pipelineApi.updateStatusAutomation).toHaveBeenCalledWith("callBooked", {
+        enabled: false,
+        statusId: "status-engaged",
       }),
     );
-    expect(await screen.findByText("Saved for the whole workspace")).toBeInTheDocument();
   });
 
   it("says why the server refused a change", async () => {

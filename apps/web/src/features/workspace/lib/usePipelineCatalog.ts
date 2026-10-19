@@ -6,7 +6,7 @@ import type { PipelineCatalog } from "../api/types";
 
 /**
  * The workspace's stages and statuses. `catalog` is never empty: until the read lands, or if it is refused,
- * it is the seven built-in statuses, which every workspace holds and none can retire.
+ * it is the seven seeded statuses, whose keys every workspace holds, retired or not.
  */
 export function usePipelineCatalog() {
   const query = useQuery({

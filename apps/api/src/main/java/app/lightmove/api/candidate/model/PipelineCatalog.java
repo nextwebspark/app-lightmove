@@ -61,6 +61,13 @@ public record PipelineCatalog(List<CandidateStage> stages, List<CandidateStatusD
                 .orElseGet(() -> bySystemKey(CandidateSystemStatus.IDENTIFIED));
     }
 
+    /** Retired stages are renumbered behind the live ones, so an anchor is read only while its stage is live. */
+    public PipelineProgressAnchors progressAnchors() {
+        CandidateStage interested = bySystemKey(CandidateSystemStatus.INTERESTED).getStage();
+        return new PipelineProgressAnchors(defaultStatus().getStage().getPosition(),
+                interested.isRetired() ? Integer.MAX_VALUE : interested.getPosition());
+    }
+
     public List<UUID> statusIdsOfStage(String stageKey) {
         return stageByKey(stageKey)
                 .map(stage -> statusesOf(stage).stream().map(CandidateStatusDefinition::getId).toList())

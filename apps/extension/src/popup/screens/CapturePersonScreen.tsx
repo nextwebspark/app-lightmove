@@ -52,9 +52,10 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
 
   // A status is a judgement about the person on screen, so it goes when they do: nobody files the next
   // profile as off-limits because the last one was. "Capture another" re-reads the same page, which is
-  // not a new `pageKey`, so it resets the status itself.
-  const [status, setStatus] = useState<CandidateCaptureStatus>(DEFAULT_CANDIDATE_STATUS);
-  useEffect(() => setStatus(DEFAULT_CANDIDATE_STATUS), [page.pageKey]);
+  // not a new `pageKey`, so it resets the status itself. Null is the untouched choice: it sends no status, so the
+  // workspace's own starting status applies, which may no longer be the seeded Identified the select shows.
+  const [status, setStatus] = useState<CandidateCaptureStatus | null>(null);
+  useEffect(() => setStatus(null), [page.pageKey]);
 
   // A name and a mandate. That is what the API requires, and the popup should not invent more.
   const canSave = useMemo(
@@ -76,7 +77,7 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
     capture.reset();
     undo.reset();
     editNote("");
-    setStatus(DEFAULT_CANDIDATE_STATUS);
+    setStatus(null);
     void page.rescan();
   };
 
@@ -129,7 +130,7 @@ export function CapturePersonScreen({ page, projects }: CaptureScreenProps) {
 
         <SectionLabel className="mb-2 mt-[18px]">Status</SectionLabel>
         <select
-          value={status}
+          value={status ?? DEFAULT_CANDIDATE_STATUS}
           aria-label="Status"
           onChange={(event) => setStatus(event.target.value as CandidateCaptureStatus)}
           className="w-full rounded-[7px] border border-u-border-strong bg-u-raised px-2.5 py-[7px] font-mono text-[12px] text-u-text outline-none focus:border-u-accent"
@@ -171,7 +172,9 @@ function RefusalNote({ refusal }: { refusal: CaptureRefusal }) {
       ? "This mandate already maps someone with that name. Open them on the Companies screen instead."
       : refusal.code === "FORBIDDEN"
         ? "You are not seated on that mandate, so you cannot add to it."
-        : refusal.message;
+        : refusal.code === "PIPELINE_STATUS_RETIRED"
+          ? "Your workspace retired that status. Choose another one."
+          : refusal.message;
 
   return (
     <p role="alert" className="rounded-lg border border-u-border bg-u-offlimits-tint px-2.5 py-2 text-[11.5px] leading-[1.5] text-u-offlimits">
@@ -183,7 +186,7 @@ function RefusalNote({ refusal }: { refusal: CaptureRefusal }) {
 interface PersonCapture {
   fullName: string;
   note: string;
-  status: CandidateCaptureStatus;
+  status: CandidateCaptureStatus | null;
   person: ExtractedPerson | null;
   sourceUrl: string | null;
 }
@@ -200,7 +203,7 @@ function toCandidate({ fullName, note, status, person, sourceUrl }: PersonCaptur
     linkedinUrl: cappedAt(person?.linkedinUrl, FIELD_LIMITS.linkedinUrl),
     note: cappedAt(note, FIELD_LIMITS.note),
     source: "extension",
-    status: status === DEFAULT_CANDIDATE_STATUS ? undefined : status,
+    status: status ?? undefined,
     sourceUrl: cappedAt(sourceUrl, FIELD_LIMITS.sourceUrl),
   };
 }

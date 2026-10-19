@@ -5,10 +5,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.project.model.CandidateCountScope;
+import app.lightmove.api.project.service.ProjectCandidateCounter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -17,6 +23,8 @@ import tools.jackson.databind.JsonNode;
  */
 @IntegrationTest
 class CandidatePipelineCountsTest extends PipelineFlowSupport {
+
+    @Autowired private ProjectCandidateCounter counter;
 
     @Test
     @DisplayName("a workspace's own status in each stage counts with that stage, everywhere a number is read")
@@ -99,6 +107,34 @@ class CandidatePipelineCountsTest extends PipelineFlowSupport {
         assertThat(project.get("candidates").asLong()).isEqualTo(2);
         assertThat(project.get("engagedCandidates").asLong()).isEqualTo(1);
         read("/api/v1/projects/" + projectId + "/report");
+    }
+
+    @Test
+    @DisplayName("with the Identified stage retired and the stages reordered, reached out still counts from where people start")
+    void reachedOutCountsFromTheStartingStage() throws Exception {
+        firm("Retired Start Firm");
+        String projectId = mandate("Chief Financial Officer");
+        JsonNode catalog = catalog();
+        write(admin, "PATCH", PIPELINE + "/stages/" + stageIn(catalog, "identified").get("id").asText(), """
+                {"retired":true,"retireStatuses":true}""");
+        catalog = catalog();
+        List<String> live = new ArrayList<>();
+        catalog.get("stages").forEach(stage -> {
+            if (!stage.get("retired").asBoolean()) {
+                live.add(stage.get("id").asText());
+            }
+        });
+        write(admin, "PUT", PIPELINE + "/stages/order", """
+                {"ids":["%s"]}""".formatted(String.join("\",\"", live)));
+        add(projectId, """
+                {"fullName":"Starting Person"}""");
+        add(projectId, """
+                {"fullName":"Interested Person","status":"interested"}""");
+
+        Map<UUID, Long> reached = counter.countReachedOutByProject(new CandidateCountScope(
+                UUID.fromString(workspaceId), List.of(UUID.fromString(projectId)), Set.of()));
+
+        assertThat(reached.get(UUID.fromString(projectId))).isEqualTo(1L);
     }
 
     private void ownStatus(JsonNode catalog, String stageKey, String label) throws Exception {

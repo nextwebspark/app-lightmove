@@ -10,7 +10,7 @@ CREATE TABLE app_lm_workspace_status_automation (
     trigger       varchar(16) NOT NULL
         CONSTRAINT app_lm_workspace_status_automation_trigger_chk
             CHECK (trigger IN ('EMAIL_SENT', 'REPLIED', 'CALL_BOOKED')),
-    status_id     uuid        REFERENCES app_lm_workspace_candidate_status (id) ON DELETE SET NULL,
+    status_id     uuid        REFERENCES app_lm_workspace_candidate_status (id) ON DELETE CASCADE,
     enabled       boolean     NOT NULL,
     updated_by    uuid        REFERENCES app_lm_user (id) ON DELETE SET NULL,
     updated_at    timestamptz NOT NULL DEFAULT now(),

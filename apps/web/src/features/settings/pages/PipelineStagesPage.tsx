@@ -93,7 +93,7 @@ export function PipelineStagesPage() {
 
       {pausedAutomations > 0 && (
         <p
-          role="alert"
+          role="status"
           className="mb-4 flex flex-wrap items-center gap-2 rounded-u-control border border-u-signal/40 bg-u-signal-tint px-3 py-2 text-note text-u-text"
         >
           <Icon d={ICONS.warning} size={13} className="text-u-signal" />

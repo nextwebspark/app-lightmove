@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -99,6 +100,48 @@ class StatusAutomationTest extends PipelineFlowSupport {
         assertThat(write(member, "PUT", AUTOMATIONS + "/replied", """
                 {"enabled":true,"statusId":"%s"}""".formatted(interested)).getResponse().getStatus()).isEqualTo(403);
         assertThat(rule(automations(member), "replied").get("enabled").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a paused rule can be switched off, which clears its pause")
+    void aPausedRuleSwitchesOff() throws Exception {
+        String contacted = statusIn(catalog(), "contacted").get("id").asText();
+        write(admin, "PATCH", PIPELINE + "/statuses/" + contacted, """
+                {"retired":true}""");
+
+        JsonNode rules = body(write(admin, "PUT", AUTOMATIONS + "/emailSent", """
+                {"enabled":false,"statusId":"%s"}""".formatted(contacted)));
+
+        assertThat(rule(rules, "emailSent").get("enabled").asBoolean()).isFalse();
+        assertThat(rule(rules, "emailSent").get("broken").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a rule never points into the closed stage, nor at another workspace's status")
+    void aRuleTargetsAnActiveStatusOfItsOwnWorkspace() throws Exception {
+        String withdrew = statusIn(catalog(), "withdrew").get("id").asText();
+        String foreign = db.queryForObject("""
+                select id::text from app_lm_workspace_candidate_status
+                where workspace_id <> ?::uuid limit 1""", String.class, workspaceId);
+
+        assertThat(codeOf(write(admin, "PUT", AUTOMATIONS + "/replied", """
+                {"enabled":true,"statusId":"%s"}""".formatted(withdrew)))).isEqualTo("VALIDATION_FAILED");
+        assertThat(write(admin, "PUT", AUTOMATIONS + "/replied", """
+                {"enabled":true,"statusId":"%s"}""".formatted(foreign == null ? UUID.randomUUID() : foreign))
+                .getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("a client seat is told neither the automations nor what a retire would touch")
+    void aClientSeatReadsNoneOfIt() throws Exception {
+        String client = clientOn(projectId);
+        JsonNode catalog = catalog();
+
+        for (String url : List.of(AUTOMATIONS,
+                PIPELINE + "/stages/" + stageIn(catalog, "contacted").get("id").asText() + "/retire-preview",
+                PIPELINE + "/statuses/" + statusIn(catalog, "contacted").get("id").asText() + "/retire-preview")) {
+            mvc.perform(get(url).header("Authorization", "Bearer " + client)).andExpect(status().isNotFound());
+        }
     }
 
     private JsonNode automations(String token) throws Exception {

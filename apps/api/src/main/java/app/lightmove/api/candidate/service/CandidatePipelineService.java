@@ -112,6 +112,7 @@ public class CandidatePipelineService {
         }
         if (Boolean.TRUE.equals(request.retired()) && !stage.isRetired()) {
             refuseRetiring(catalog, stage, Boolean.TRUE.equals(request.retireStatuses()));
+            refuseLeavingNoStart(catalog, catalog.liveStatusesOf(stage));
             catalog.liveStatusesOf(stage).forEach(status -> retireStatus(catalog, status));
             stage.retire();
         } else if (Boolean.FALSE.equals(request.retired())) {
@@ -191,6 +192,7 @@ public class CandidatePipelineService {
             status.makeDefault();
         }
         if (Boolean.TRUE.equals(request.retired()) && !status.isRetired()) {
+            refuseLeavingNoStart(catalog, List.of(status));
             retireStatus(catalog, status);
         } else if (Boolean.FALSE.equals(request.retired()) && status.isRetired()) {
             refuseRetiredStage(status.getStage());
@@ -228,6 +230,9 @@ public class CandidatePipelineService {
 
     private void moveStatus(PipelineCatalog catalog, CandidateStatusDefinition status, CandidateStage target) {
         refuseRetiredStage(target);
+        if (target.isClosed()) {
+            refuseLeavingNoStart(catalog, List.of(status));
+        }
         CandidateStage from = status.getStage();
         boolean wasDefault = status.isDefaultOfStage();
         boolean targetHasDefault = catalog.defaultOf(target).isPresent();
@@ -251,6 +256,20 @@ public class CandidatePipelineService {
                                 holders.getOrDefault(status.getId(), 0L)))
                         .toList(),
                 ids.isEmpty() ? List.of() : automations.pointingAt(workspaceId, ids));
+    }
+
+    /**
+     * Someone filed with no status starts at a live status of a live active stage, so the last of those never
+     * leaves: without one, every door would file new people onto a retired status.
+     */
+    private static void refuseLeavingNoStart(PipelineCatalog catalog, List<CandidateStatusDefinition> leaving) {
+        boolean anotherRemains = catalog.liveStages().stream()
+                .filter(stage -> stage.getKind() == PipelineStageKind.ACTIVE)
+                .flatMap(stage -> catalog.liveStatusesOf(stage).stream())
+                .anyMatch(status -> leaving.stream().noneMatch(gone -> gone.getId().equals(status.getId())));
+        if (!anotherRemains) {
+            throw ApiException.of(ErrorCode.PIPELINE_STATUS_REQUIRED);
+        }
     }
 
     private void retireStatus(PipelineCatalog catalog, CandidateStatusDefinition status) {

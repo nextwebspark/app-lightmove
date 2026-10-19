@@ -169,6 +169,17 @@ describe("the person the panel offers to capture", () => {
     expect(captured[0].candidate.status).toBeUndefined();
   });
 
+  it("sends identified when the consultant chose it, though it is also the panel's starting choice", async () => {
+    const view = renderScreen(pageRead());
+    fireEvent.change(view.status(), { target: { value: "contacted" } });
+    fireEvent.change(view.status(), { target: { value: "identified" } });
+
+    view.save();
+
+    await waitFor(() => expect(captured).toHaveLength(1));
+    expect(captured[0].candidate.status).toBe("identified");
+  });
+
   it("sends the status the consultant chose, in the spelling the API accepts", async () => {
     const view = renderScreen(pageRead());
     fireEvent.change(view.status(), { target: { value: "offLimits" } });

@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Select, Toggle, useToast } from "../../../components/ui";
-import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { liveStages, liveStatuses } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
@@ -101,8 +100,10 @@ function AutomationRow({
   onSave: (trigger: StatusAutomationTrigger, change: StatusAutomationChange) => void;
 }) {
   const target = statusById(catalog, automation?.statusId ?? null);
+  const enabled = automation?.enabled ?? false;
   const broken = automation?.broken ?? false;
-  const liveTargetId = broken ? "" : (automation?.statusId ?? "");
+  const liveTargetId = target && !target.retired ? target.id : "";
+  const activeStages = liveStages(catalog).filter((stage) => stage.kind === "active");
 
   return (
     <li className="flex flex-col gap-1.5 py-3">
@@ -117,11 +118,11 @@ function AutomationRow({
           invalid={broken}
           className="w-full md:w-64"
           onChange={(event) =>
-            onSave(trigger, { enabled: event.target.value !== "", statusId: event.target.value || null })
+            onSave(trigger, event.target.value ? { enabled, statusId: event.target.value } : { enabled: false, statusId: null })
           }
         >
           <option value="">{broken ? "Choose another status" : "Choose a status"}</option>
-          {liveStages(catalog).map((stage) => (
+          {activeStages.map((stage) => (
             <optgroup key={stage.id} label={stage.label}>
               {liveStatuses(stage).map((status) => (
                 <option key={status.id} value={status.id}>
@@ -131,20 +132,19 @@ function AutomationRow({
             </optgroup>
           ))}
         </Select>
+        {/* A paused rule stays switchable off; switching one on needs a live status. */}
         <Toggle
-          checked={(automation?.enabled ?? false) && !broken}
-          disabled={!editable || !liveTargetId}
+          checked={enabled}
+          disabled={!editable || (!enabled && !liveTargetId)}
           label={`${when}: move automatically`}
           onChange={(on) => onSave(trigger, { enabled: on, statusId: automation?.statusId ?? null })}
         />
       </div>
       {broken && (
-        <p
-          role="alert"
-          className={cn("flex items-center gap-1.5 text-note text-u-signal", "md:ps-[calc(14rem+1.75rem)]")}
-        >
+        <p role="status" className="flex items-center gap-1.5 text-note text-u-signal">
           <Icon d={ICONS.warning} size={12} />
-          {target?.label ?? "Its status"} was retired. This automation is paused until you choose another status.
+          {target?.label ?? "Its status"} was retired. This automation is paused until you choose another status or
+          switch it off.
         </p>
       )}
     </li>

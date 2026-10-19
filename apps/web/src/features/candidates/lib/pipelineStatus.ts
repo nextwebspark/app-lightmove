@@ -22,8 +22,8 @@ export function pipelineSwatchClass(colour: string | null | undefined): string {
 
 /**
  * The seven statuses every workspace has, under the stages they were seeded in. Drawn while the catalog
- * is still loading or could not be read, and for a line written before the catalog existed: the seven keys
- * are system statuses, so they can never be retired and are always a valid choice.
+ * is still loading or could not be read, and for a line written before the catalog existed: every workspace
+ * holds the seven keys, though it may since have retired any of them.
  */
 export const LEGACY_CATALOG: PipelineCatalog = {
   stages: [

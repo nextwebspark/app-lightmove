@@ -239,10 +239,12 @@ public enum ErrorCode {
     /** The model answered nothing usable, or could not be reached. Nothing was written or charged. */
     AI_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The AI could not answer just now. Try again in a moment"),
 
-    /** The seven built-in statuses can be renamed and recoloured, never retired or moved to another stage. */
-
-    /** A stage is retired only once none of its statuses is live; the closed stage and the last active one never are. */
+    /** A stage with live statuses is retired only with them; the closed stage and the last active one never are. */
     PIPELINE_STAGE_NOT_EMPTY(HttpStatus.CONFLICT, "This stage still has live statuses; retire them with it"),
+
+    /** New people start at a live status of a live active stage, so the last of those stays. */
+    PIPELINE_STATUS_REQUIRED(HttpStatus.CONFLICT,
+            "The pipeline keeps at least one active status for new candidates to start at"),
 
     PIPELINE_STAGE_REQUIRED(HttpStatus.CONFLICT, "A pipeline keeps at least one active stage and its closed stage"),
 

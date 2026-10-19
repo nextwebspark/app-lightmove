@@ -100,8 +100,12 @@ export function AddCandidateForm({
   // The seeded starting status may be retired; start where the server would file someone given none.
   const { catalog, isLoaded } = usePipelineCatalog();
   const startingKey = isLoaded ? startingStatusKey(catalog) : null;
+  // Only a value nobody picked is replaced: the form's own default, or the starting status set here before.
+  const autoStatus = useRef(EMPTY_FORM.status);
   useEffect(() => {
-    if (startingKey && !form.getFieldState("status").isDirty) form.setValue("status", startingKey);
+    if (!startingKey || form.getValues("status") !== autoStatus.current) return;
+    autoStatus.current = startingKey;
+    form.setValue("status", startingKey);
   }, [form, startingKey]);
 
   const formEl = useRef<HTMLFormElement>(null);

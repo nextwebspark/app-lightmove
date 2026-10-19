@@ -97,6 +97,32 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("the last live status new people could start at is never retired, nor its stage with it")
+    void theLastStartingStatusStays() throws Exception {
+        JsonNode catalog = catalog();
+        for (String stageKey : List.of("contacted", "interested", "qualified")) {
+            write(admin, "PATCH", PIPELINE + "/stages/" + stageIn(catalog, stageKey).get("id").asText(), """
+                    {"retired":true,"retireStatuses":true}""");
+        }
+        for (JsonNode status : stageIn(catalog, "shortlisted").get("statuses")) {
+            write(admin, "PATCH", PIPELINE + "/statuses/" + status.get("id").asText(), """
+                    {"retired":true}""");
+        }
+        String identifiedStage = stageIn(catalog, "identified").get("id").asText();
+        for (String key : List.of("researching", "readyToApproach")) {
+            write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, key).get("id").asText(), """
+                    {"retired":true}""");
+        }
+
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + statusIn(catalog, "identified")
+                .get("id").asText(), """
+                {"retired":true}"""))).isEqualTo("PIPELINE_STATUS_REQUIRED");
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/stages/" + identifiedStage, """
+                {"retired":true,"retireStatuses":true}"""))).isEqualTo("PIPELINE_STATUS_REQUIRED");
+        assertThat(statusIn(catalog(), "identified").get("retired").asBoolean()).isFalse();
+    }
+
+    @Test
     @DisplayName("a retire preview counts who holds each status and names the automations it would stop")
     void aRetirePreviewSaysWhatItTouches() throws Exception {
         String projectId = mandate("Chief Financial Officer");
