@@ -22,8 +22,8 @@ export function pipelineSwatchClass(colour: string | null | undefined): string {
 
 /**
  * The seven statuses every workspace has, under the stages they were seeded in. Drawn while the catalog
- * is still loading or could not be read, and for a line written before the catalog existed: the seven keys
- * are system statuses, so they can never be retired and are always a valid choice.
+ * is still loading or could not be read, and for a line written before the catalog existed: every workspace
+ * holds the seven keys, though it may since have retired any of them.
  */
 export const LEGACY_CATALOG: PipelineCatalog = {
   stages: [
@@ -91,6 +91,16 @@ export function liveStatuses(stage: PipelineStage): PipelineStatus[] {
 /** The status a candidate dropped on a stage is given; null when the stage has no live default to give. */
 export function defaultStatusOf(stage: PipelineStage): PipelineStatus | null {
   return stage.statuses.find((status) => status.isDefault && !status.retired) ?? null;
+}
+
+/** Where someone added with no status stands, as the server decides it: the first live active stage's default. */
+export function startingStatusKey(catalog: PipelineCatalog): string | null {
+  for (const stage of liveStages(catalog)) {
+    if (stage.kind !== "active") continue;
+    const status = defaultStatusOf(stage);
+    if (status) return status.key;
+  }
+  return null;
 }
 
 export function closedStage(catalog: PipelineCatalog): PipelineStage | null {

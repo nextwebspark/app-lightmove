@@ -3,15 +3,20 @@ package app.lightmove.api.candidate.controller;
 import app.lightmove.api.candidate.dto.CreatePipelineStageRequest;
 import app.lightmove.api.candidate.dto.CreatePipelineStatusRequest;
 import app.lightmove.api.candidate.dto.PipelineCatalogResponse;
+import app.lightmove.api.candidate.dto.PipelineRetirePreviewResponse;
 import app.lightmove.api.candidate.dto.ReorderPipelineRequest;
+import app.lightmove.api.candidate.dto.StatusAutomationResponse;
 import app.lightmove.api.candidate.dto.UpdatePipelineStageRequest;
 import app.lightmove.api.candidate.dto.UpdatePipelineStatusRequest;
+import app.lightmove.api.candidate.dto.UpdateStatusAutomationRequest;
 import app.lightmove.api.candidate.service.CandidatePipelineService;
+import app.lightmove.api.candidate.service.StatusAutomationService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -30,7 +35,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * The workspace's pipeline stages and statuses. Reading is any member's, a client seat included: the
  * labels are what every candidate read already carries. Every change is an admin's, under
- * {@code WORKSPACE_MANAGE}, and answers the whole catalog.
+ * {@code WORKSPACE_MANAGE}, and answers the whole catalog. The automations and the retire previews are
+ * staff reads: they say how the firm works its candidates, which a client seat has no part in.
  */
 @RestController
 @RequestMapping("/api/v1/workspace/pipeline")
@@ -38,6 +44,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CandidatePipelineController {
 
     private final CandidatePipelineService pipeline;
+    private final StatusAutomationService automations;
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
@@ -100,5 +107,34 @@ public class CandidatePipelineController {
                                                 HttpServletRequest httpRequest) {
         return pipeline.updateStatus(principal.userId(), principal.requireWorkspaceId(), statusId, request,
                 httpRequest);
+    }
+
+    @GetMapping("/stages/{stageId}/retire-preview")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
+    public PipelineRetirePreviewResponse stageRetirePreview(@AuthenticationPrincipal AuthPrincipal principal,
+                                                            @PathVariable UUID stageId) {
+        return pipeline.stageRetirePreview(principal.requireWorkspaceId(), stageId);
+    }
+
+    @GetMapping("/statuses/{statusId}/retire-preview")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
+    public PipelineRetirePreviewResponse statusRetirePreview(@AuthenticationPrincipal AuthPrincipal principal,
+                                                             @PathVariable UUID statusId) {
+        return pipeline.statusRetirePreview(principal.requireWorkspaceId(), statusId);
+    }
+
+    @GetMapping("/automations")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
+    public List<StatusAutomationResponse> automations(@AuthenticationPrincipal AuthPrincipal principal) {
+        return automations.automationsOf(principal.requireWorkspaceId());
+    }
+
+    @PutMapping("/automations/{trigger}")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public List<StatusAutomationResponse> changeAutomation(@AuthenticationPrincipal AuthPrincipal principal,
+                                                           @PathVariable String trigger,
+                                                           @Valid @RequestBody UpdateStatusAutomationRequest request,
+                                                           HttpServletRequest httpRequest) {
+        return automations.change(principal.userId(), principal.requireWorkspaceId(), trigger, request, httpRequest);
     }
 }

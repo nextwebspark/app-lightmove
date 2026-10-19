@@ -5,13 +5,17 @@ import app.lightmove.api.candidate.constant.PipelineStageKind;
 import app.lightmove.api.candidate.dto.CreatePipelineStageRequest;
 import app.lightmove.api.candidate.dto.CreatePipelineStatusRequest;
 import app.lightmove.api.candidate.dto.PipelineCatalogResponse;
+import app.lightmove.api.candidate.dto.PipelineRetirePreviewResponse;
 import app.lightmove.api.candidate.dto.PipelineStageResponse;
 import app.lightmove.api.candidate.dto.PipelineStatusResponse;
+import app.lightmove.api.candidate.dto.RetiredStatusPreview;
 import app.lightmove.api.candidate.dto.UpdatePipelineStageRequest;
 import app.lightmove.api.candidate.dto.UpdatePipelineStatusRequest;
 import app.lightmove.api.candidate.model.CandidateStage;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
+import app.lightmove.api.candidate.model.CandidateStatusCount;
 import app.lightmove.api.candidate.model.PipelineCatalog;
+import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.CandidateStageRepository;
 import app.lightmove.api.candidate.repository.CandidateStatusDefinitionRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
@@ -24,8 +28,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,10 +40,10 @@ import org.springframework.transaction.annotation.Transactional;
  * An admin's edits to the workspace's pipeline, from Settings → Pipeline stages. Every write answers the
  * whole catalog and is one audit event (a {@code pipeline} section of the workspace).
  *
- * <p>The rules that keep the hierarchy whole: a status always has a stage; the seven built-in statuses are
- * never retired or moved; a stage with any live status has exactly one default among them; a stage retires
- * only once none of its statuses is live; and there is exactly one closed stage, always last and never
- * retired, beside at least one live active stage.
+ * <p>The rules that keep the hierarchy whole: a status always has a stage; a stage with any live status has
+ * exactly one default among them; a stage retires only once none of its statuses is live, or with them; and
+ * there is exactly one closed stage, always last and never retired, beside at least one live active stage.
+ * The seeded statuses are a starting point, retired and moved like any other.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,11 +54,27 @@ public class CandidatePipelineService {
     private final CandidatePipelineCatalog catalogs;
     private final CandidateStageRepository stages;
     private final CandidateStatusDefinitionRepository statuses;
+    private final CandidateRepository candidates;
+    private final StatusAutomationService automations;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
     public PipelineCatalogResponse catalog(UUID workspaceId) {
         return toResponse(catalogs.catalogOf(workspaceId));
+    }
+
+    /** What retiring this stage with its statuses would touch, for the confirmation an admin reads first. */
+    @Transactional(readOnly = true)
+    public PipelineRetirePreviewResponse stageRetirePreview(UUID workspaceId, UUID stageId) {
+        PipelineCatalog catalog = catalogs.catalogOf(workspaceId);
+        CandidateStage stage = stages.requireInWorkspace(stageId, workspaceId);
+        return previewOf(workspaceId, catalog.liveStatusesOf(stage));
+    }
+
+    @Transactional(readOnly = true)
+    public PipelineRetirePreviewResponse statusRetirePreview(UUID workspaceId, UUID statusId) {
+        CandidateStatusDefinition status = statuses.requireInWorkspace(statusId, workspaceId);
+        return previewOf(workspaceId, status.isRetired() ? List.of() : List.of(status));
     }
 
     @Transactional
@@ -89,7 +111,9 @@ public class CandidatePipelineService {
             stage.recolour(ApiValueEnum.require(PipelineColour.class, request.colour(), "pipeline colour"));
         }
         if (Boolean.TRUE.equals(request.retired()) && !stage.isRetired()) {
-            refuseRetiring(catalog, stage);
+            refuseRetiring(catalog, stage, Boolean.TRUE.equals(request.retireStatuses()));
+            refuseLeavingNoStart(catalog, catalog.liveStatusesOf(stage));
+            catalog.liveStatusesOf(stage).forEach(status -> retireStatus(catalog, status));
             stage.retire();
         } else if (Boolean.FALSE.equals(request.retired())) {
             stage.restore();
@@ -168,14 +192,8 @@ public class CandidatePipelineService {
             status.makeDefault();
         }
         if (Boolean.TRUE.equals(request.retired()) && !status.isRetired()) {
-            if (status.isSystem()) {
-                throw ApiException.of(ErrorCode.PIPELINE_STATUS_SYSTEM);
-            }
-            if (status.isDefaultOfStage()) {
-                demote(status);
-                promoteNextLive(catalog, status.getStage(), status);
-            }
-            status.retire();
+            refuseLeavingNoStart(catalog, List.of(status));
+            retireStatus(catalog, status);
         } else if (Boolean.FALSE.equals(request.retired()) && status.isRetired()) {
             refuseRetiredStage(status.getStage());
             status.restore();
@@ -211,10 +229,10 @@ public class CandidatePipelineService {
     }
 
     private void moveStatus(PipelineCatalog catalog, CandidateStatusDefinition status, CandidateStage target) {
-        if (status.isSystem()) {
-            throw ApiException.of(ErrorCode.PIPELINE_STATUS_SYSTEM);
-        }
         refuseRetiredStage(target);
+        if (target.isClosed()) {
+            refuseLeavingNoStart(catalog, List.of(status));
+        }
         CandidateStage from = status.getStage();
         boolean wasDefault = status.isDefaultOfStage();
         boolean targetHasDefault = catalog.defaultOf(target).isPresent();
@@ -228,11 +246,45 @@ public class CandidatePipelineService {
         }
     }
 
-    private void refuseRetiring(PipelineCatalog catalog, CandidateStage stage) {
+    private PipelineRetirePreviewResponse previewOf(UUID workspaceId, List<CandidateStatusDefinition> retiring) {
+        List<UUID> ids = retiring.stream().map(CandidateStatusDefinition::getId).toList();
+        Map<UUID, Long> holders = ids.isEmpty() ? Map.of() : candidates.countByStatusIdIn(ids).stream()
+                .collect(Collectors.toMap(CandidateStatusCount::getStatusId, CandidateStatusCount::getTotal));
+        return new PipelineRetirePreviewResponse(
+                retiring.stream()
+                        .map(status -> new RetiredStatusPreview(status.getId(), status.getLabel(),
+                                holders.getOrDefault(status.getId(), 0L)))
+                        .toList(),
+                ids.isEmpty() ? List.of() : automations.pointingAt(workspaceId, ids));
+    }
+
+    /**
+     * Someone filed with no status starts at a live status of a live active stage, so the last of those never
+     * leaves: without one, every door would file new people onto a retired status.
+     */
+    private static void refuseLeavingNoStart(PipelineCatalog catalog, List<CandidateStatusDefinition> leaving) {
+        boolean anotherRemains = catalog.liveStages().stream()
+                .filter(stage -> stage.getKind() == PipelineStageKind.ACTIVE)
+                .flatMap(stage -> catalog.liveStatusesOf(stage).stream())
+                .anyMatch(status -> leaving.stream().noneMatch(gone -> gone.getId().equals(status.getId())));
+        if (!anotherRemains) {
+            throw ApiException.of(ErrorCode.PIPELINE_STATUS_REQUIRED);
+        }
+    }
+
+    private void retireStatus(PipelineCatalog catalog, CandidateStatusDefinition status) {
+        if (status.isDefaultOfStage()) {
+            demote(status);
+            promoteNextLive(catalog, status.getStage(), status);
+        }
+        status.retire();
+    }
+
+    private void refuseRetiring(PipelineCatalog catalog, CandidateStage stage, boolean withStatuses) {
         if (stage.isClosed()) {
             throw ApiException.of(ErrorCode.PIPELINE_STAGE_REQUIRED);
         }
-        if (!catalog.liveStatusesOf(stage).isEmpty()) {
+        if (!withStatuses && !catalog.liveStatusesOf(stage).isEmpty()) {
             throw ApiException.of(ErrorCode.PIPELINE_STAGE_NOT_EMPTY);
         }
         long liveActive = catalog.liveStages().stream()

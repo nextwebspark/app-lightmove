@@ -48,6 +48,8 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |
+| Pipeline automation status | live statuses of active stages only; the switch turns on only with one chosen | `@NotNull enabled`; on needs a `statusId` (`VALIDATION_FAILED` on `statusId`); the status the workspace's (404), of an active stage (`VALIDATION_FAILED`), live when switched on (`PIPELINE_STATUS_RETIRED`) | toast |
+| Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the closed or the last active stage (`PIPELINE_STAGE_REQUIRED`), nor the last live active status (`PIPELINE_STATUS_REQUIRED`) | toast |
 | ☐ Own app secret / expiry | ≤ 2048, any date | `@Size(2048)`, any date | field |
 | ☐ Invitation role | always sent | not required (500 when absent) | — |
 

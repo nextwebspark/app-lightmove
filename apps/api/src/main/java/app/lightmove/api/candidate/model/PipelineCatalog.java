@@ -26,7 +26,7 @@ public record PipelineCatalog(List<CandidateStage> stages, List<CandidateStatusD
         return stages.stream().filter(stage -> stage.getStageKey().equals(stageKey)).findFirst();
     }
 
-    /** A system status is seeded into every workspace and can never be retired, so it is always here. */
+    /** A seeded status is in every workspace's catalog, retired or not, so it is always here. */
     public CandidateStatusDefinition bySystemKey(CandidateSystemStatus system) {
         return statuses.stream().filter(status -> status.is(system)).findFirst()
                 .orElseThrow(() -> new IllegalStateException("Pipeline catalog lacks system status " + system));
@@ -59,6 +59,13 @@ public record PipelineCatalog(List<CandidateStage> stages, List<CandidateStatusD
                 .flatMap(Optional::stream)
                 .findFirst()
                 .orElseGet(() -> bySystemKey(CandidateSystemStatus.IDENTIFIED));
+    }
+
+    /** Retired stages are renumbered behind the live ones, so an anchor is read only while its stage is live. */
+    public PipelineProgressAnchors progressAnchors() {
+        CandidateStage interested = bySystemKey(CandidateSystemStatus.INTERESTED).getStage();
+        return new PipelineProgressAnchors(defaultStatus().getStage().getPosition(),
+                interested.isRetired() ? Integer.MAX_VALUE : interested.getPosition());
     }
 
     public List<UUID> statusIdsOfStage(String stageKey) {

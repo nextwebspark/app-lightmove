@@ -1106,6 +1106,14 @@ alone, and adds `POSITION_ARCHIVED` to the enrollment's `stop_reason` CHECK. V13
 V139 makes the org chart's `(position_id, node_id)` uniqueness a constraint checked at commit (`DEFERRABLE INITIALLY
 DEFERRED`): Hibernate rewrites the chart in place slot by slot, so removing or reordering a seat held one node id on
 two rows mid-write, and V39's index refused every later save of that chart.
+V140 makes every pipeline status the workspace's: it drops V131's CHECK that kept a seeded status live (its
+`system_key` stays, as a wire key only), so an admin retires any status, or a stage with its statuses
+(`retireStatuses`, after a confirmation read off `…/retire-preview`: who holds each, and the automations it stops).
+It adds `app_lm_workspace_status_automation` — per workspace, the status each outreach event (`EMAIL_SENT`,
+`REPLIED`, `CALL_BOOKED`) moves a candidate forward to, set on Settings → Pipeline stages' Move candidates
+automatically (`StatusAutomationService`). No row is the seeded behaviour (an email to Contacted, a booking to
+Engaged, a reply nowhere); a rule whose status was retired is reported `broken`, flagged on the page, and moves
+nobody — it never fails the send or booking behind it.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

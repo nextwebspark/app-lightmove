@@ -9,7 +9,7 @@ import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import type { User } from "../../auth/api/types";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
-import type { PipelineCatalog } from "../../workspace/api/types";
+import type { PipelineCatalog, StatusAutomation, StatusAutomationTrigger } from "../../workspace/api/types";
 import { PipelineStagesPage } from "./PipelineStagesPage";
 
 vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
@@ -21,6 +21,10 @@ vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   createStatus: vi.fn(),
   updateStatus: vi.fn(),
   reorderStatuses: vi.fn(),
+  stageRetirePreview: vi.fn(),
+  statusRetirePreview: vi.fn(),
+  statusAutomations: vi.fn(),
+  updateStatusAutomation: vi.fn(),
 }));
 
 let currentUser: User = aUser();
@@ -38,7 +42,20 @@ function renderPage() {
   );
 }
 
+const AUTOMATION_CARD = "Move candidates automatically";
 const card = (label: string) => screen.getByRole("region", { name: label });
+const stageRegions = () =>
+  screen.getAllByRole("region").filter((region) => region.getAttribute("aria-label") !== AUTOMATION_CARD);
+const stageListItems = () => stageRegions().flatMap((region) => within(region).queryAllByRole("listitem"));
+
+function seededAutomations(overrides: Partial<Record<StatusAutomationTrigger, Partial<StatusAutomation>>> = {}) {
+  const rows: StatusAutomation[] = [
+    { trigger: "emailSent", enabled: true, statusId: "status-contacted", broken: false },
+    { trigger: "replied", enabled: false, statusId: null, broken: false },
+    { trigger: "callBooked", enabled: true, statusId: "status-engaged", broken: false },
+  ];
+  return rows.map((row) => ({ ...row, ...overrides[row.trigger] }));
+}
 const toggle = (label: string) =>
   within(card(label)).getByRole("button", { name: new RegExp(`^${label} (Active|Closed) \\d+ status`) });
 const open = (label: string) => userEvent.click(toggle(label));
@@ -63,6 +80,11 @@ describe("PipelineStagesPage", () => {
     vi.resetAllMocks();
     currentUser = aUser();
     vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(aSeededCatalog());
+    vi.mocked(pipelineApi.statusAutomations).mockResolvedValue(seededAutomations());
+    vi.mocked(pipelineApi.statusRetirePreview).mockImplementation(async (statusId) => ({
+      statuses: [{ statusId, label: statusId, holders: 0 }],
+      automations: [],
+    }));
   });
 
   it("opens with every stage folded, and unfolds the ones that are clicked", async () => {
@@ -72,7 +94,7 @@ describe("PipelineStagesPage", () => {
     expect(toggle("Contacted")).toHaveAttribute("aria-expanded", "false");
     expect(within(card("Contacted")).getByText("4 statuses")).toBeInTheDocument();
     expect(within(card("Contacted")).getByText(/^Contacted, .+ \+1$/)).toBeInTheDocument();
-    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(stageListItems()).toHaveLength(0);
 
     await open("Contacted");
     await open("Interested");
@@ -87,15 +109,15 @@ describe("PipelineStagesPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
     expect(toggle("Declined")).toHaveAttribute("aria-expanded", "true");
     await userEvent.click(screen.getByRole("button", { name: "Collapse all" }));
-    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+    expect(stageListItems()).toHaveLength(0);
   });
 
-  it("lists every stage in order with its kind, its statuses, the default and the built-in ones", async () => {
+  it("lists every stage in order with its kind, its statuses, the default and where automations land", async () => {
     renderPage();
     await screen.findByRole("region", { name: "Identified" });
     await open("Contacted");
 
-    expect(screen.getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual([
+    expect(stageRegions().map((region) => region.getAttribute("aria-label"))).toEqual([
       "Identified",
       "Contacted",
       "Interested",
@@ -109,10 +131,10 @@ describe("PipelineStagesPage", () => {
 
     const contacted = within(card("Contacted")).getByRole("listitem", { name: "Contacted" });
     expect(within(contacted).getByText("Default")).toBeInTheDocument();
-    expect(within(contacted).getByText("System")).toBeInTheDocument();
-    expect(within(contacted).queryByRole("button", { name: "Retire Contacted" })).not.toBeInTheDocument();
+    expect(within(contacted).getByRole("button", { name: "Retire Contacted" })).toBeInTheDocument();
+    expect(await within(contacted).findByText("Auto · Email sent")).toBeInTheDocument();
     const followUp = within(card("Contacted")).getByRole("listitem", { name: "Follow-up sent" });
-    expect(within(followUp).queryByText("System")).not.toBeInTheDocument();
+    expect(within(followUp).queryByText(/^Auto/)).not.toBeInTheDocument();
     expect(within(followUp).getByRole("button", { name: "Make default" })).toBeInTheDocument();
   });
 
@@ -252,7 +274,7 @@ describe("PipelineStagesPage", () => {
       ]),
     );
     await waitFor(() =>
-      expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Contacted"),
+      expect(stageRegions()[0]).toHaveAttribute("aria-label", "Contacted"),
     );
 
     fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shortlisted stage" }), { key: "ArrowUp" });
@@ -297,7 +319,7 @@ describe("PipelineStagesPage", () => {
     fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Identified stage" }), { key: "ArrowDown" });
 
     expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Identified"));
+    await waitFor(() => expect(stageRegions()[0]).toHaveAttribute("aria-label", "Identified"));
     expect(pipelineApi.pipelineCatalog).toHaveBeenCalledTimes(2);
   });
 
@@ -312,7 +334,7 @@ describe("PipelineStagesPage", () => {
     await screen.findByRole("region", { name: "Identified" });
 
     fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Identified stage" }), { key: "ArrowDown" });
-    await waitFor(() => expect(screen.getAllByRole("region")[0]).toHaveAttribute("aria-label", "Contacted"));
+    await waitFor(() => expect(stageRegions()[0]).toHaveAttribute("aria-label", "Contacted"));
     fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shortlisted stage" }), { key: "ArrowUp" });
     await waitFor(() => expect(pipelineApi.reorderStages).toHaveBeenCalledTimes(2));
     const second = vi.mocked(pipelineApi.reorderStages).mock.calls[1][0];
@@ -322,7 +344,7 @@ describe("PipelineStagesPage", () => {
 
     expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
     await waitFor(() => expect(pipelineApi.pipelineCatalog).toHaveBeenCalledTimes(2));
-    expect(screen.getAllByRole("region").map((region) => region.getAttribute("aria-label"))).toEqual([
+    expect(stageRegions().map((region) => region.getAttribute("aria-label"))).toEqual([
       "Contacted",
       "Identified",
       "Interested",
@@ -332,23 +354,95 @@ describe("PipelineStagesPage", () => {
     ]);
   });
 
-  it("refuses to retire a stage that still has live statuses, and retires an empty one", async () => {
+  it("asks before retiring a stage with statuses, naming who holds them and the automations it stops", async () => {
     const catalog = withStage(aSeededCatalog(), "Assessed");
     vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(catalog);
     vi.mocked(pipelineApi.updateStage).mockResolvedValue(aSeededCatalog());
+    vi.mocked(pipelineApi.stageRetirePreview).mockResolvedValue({
+      statuses: [
+        { statusId: "status-contacted", label: "Contacted", holders: 12 },
+        { statusId: "status-followUpSent", label: "Follow-up sent", holders: 0 },
+      ],
+      automations: [{ trigger: "emailSent", enabled: true, statusId: "status-contacted", broken: false }],
+    });
     renderPage();
     await screen.findByRole("region", { name: "Assessed" });
 
-    await userEvent.click(within(card("Qualified")).getByRole("button", { name: "Retire Qualified stage" }));
-    const dialog = await screen.findByRole("dialog", { name: "Retire Qualified" });
-    expect(within(dialog).getByText(/Move or retire this stage's statuses first/)).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "OK" }));
-    expect(pipelineApi.updateStage).not.toHaveBeenCalled();
-
     await userEvent.click(within(card("Assessed")).getByRole("button", { name: "Retire Assessed stage" }));
     await waitFor(() => expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-assessed", { retired: true }));
-    expect(await screen.findByText("Assessed retired")).toBeInTheDocument();
+    expect(pipelineApi.stageRetirePreview).not.toHaveBeenCalled();
+
+    await userEvent.click(within(card("Contacted")).getByRole("button", { name: "Retire Contacted stage" }));
+    const dialog = await screen.findByRole("dialog", { name: "Retire Contacted and its 4 statuses?" });
+    expect(within(dialog).getByText("12 candidates")).toBeInTheDocument();
+    expect(within(dialog).getByText("No candidates")).toBeInTheDocument();
+    expect(within(dialog).getByText("An outreach email is sent → Contacted")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Retire stage and statuses" }));
+    await waitFor(() =>
+      expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-contacted", { retired: true, retireStatuses: true }),
+    );
+
     expect(within(card("Declined")).queryByRole("button", { name: "Retire Declined stage" })).not.toBeInTheDocument();
+  });
+
+  it("asks before retiring a status an automation moves people to", async () => {
+    vi.mocked(pipelineApi.updateStatus).mockResolvedValue(aSeededCatalog());
+    vi.mocked(pipelineApi.statusRetirePreview).mockResolvedValue({
+      statuses: [{ statusId: "status-engaged", label: "Engaged", holders: 0 }],
+      automations: [{ trigger: "callBooked", enabled: true, statusId: "status-engaged", broken: false }],
+    });
+    renderPage();
+    await screen.findByRole("region", { name: "Contacted" });
+    await open("Contacted");
+
+    const engaged = within(card("Contacted")).getByRole("listitem", { name: "Engaged" });
+    await userEvent.click(within(engaged).getByRole("button", { name: "Retire Engaged" }));
+    const dialog = await screen.findByRole("dialog", { name: "Retire Engaged?" });
+    expect(within(dialog).getByText("A call is booked → Engaged")).toBeInTheDocument();
+    expect(pipelineApi.updateStatus).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Retire status" }));
+    await waitFor(() => expect(pipelineApi.updateStatus).toHaveBeenCalledWith("status-engaged", { retired: true }));
+  });
+
+  it("chooses where an outreach event moves people, leaving on and off to the switch", async () => {
+    vi.mocked(pipelineApi.updateStatusAutomation).mockResolvedValue(
+      seededAutomations({ replied: { enabled: false, statusId: "status-interested" } }),
+    );
+    renderPage();
+    const automations = await screen.findByRole("region", { name: AUTOMATION_CARD });
+    const replySwitch = await within(automations).findByRole("switch", { name: "They reply to outreach: move automatically" });
+    expect(replySwitch).toBeDisabled();
+    const picker = within(automations).getByRole("combobox", { name: "They reply to outreach: move to" });
+    expect(within(picker).queryByRole("option", { name: "Withdrew" })).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(picker, "status-interested");
+    await waitFor(() =>
+      expect(pipelineApi.updateStatusAutomation).toHaveBeenCalledWith("replied", {
+        enabled: false,
+        statusId: "status-interested",
+      }),
+    );
+    expect(await screen.findByText("Saved for the whole workspace")).toBeInTheDocument();
+    await waitFor(() => expect(replySwitch).toBeEnabled());
+  });
+
+  it("flags a rule whose status was retired, and lets it be switched off", async () => {
+    vi.mocked(pipelineApi.statusAutomations).mockResolvedValue(seededAutomations({ callBooked: { broken: true } }));
+    vi.mocked(pipelineApi.updateStatusAutomation).mockResolvedValue(
+      seededAutomations({ callBooked: { enabled: false } }),
+    );
+    renderPage();
+    const automations = await screen.findByRole("region", { name: AUTOMATION_CARD });
+
+    expect(await screen.findByText(/An automation is paused/)).toBeInTheDocument();
+    expect(within(automations).getByText(/Engaged was retired/)).toBeInTheDocument();
+    await userEvent.click(within(automations).getByRole("switch", { name: "A call is booked: move automatically" }));
+    await waitFor(() =>
+      expect(pipelineApi.updateStatusAutomation).toHaveBeenCalledWith("callBooked", {
+        enabled: false,
+        statusId: "status-engaged",
+      }),
+    );
   });
 
   it("says why the server refused a change", async () => {
@@ -356,7 +450,7 @@ describe("PipelineStagesPage", () => {
       new ApiRequestError({ code: "PIPELINE_LABEL_TAKEN", detail: "taken", status: 409, correlationId: "c1" }),
     );
     vi.mocked(pipelineApi.updateStatus).mockRejectedValue(
-      new ApiRequestError({ code: "PIPELINE_STATUS_SYSTEM", detail: "system", status: 409, correlationId: "c2" }),
+      new ApiRequestError({ code: "PIPELINE_STATUS_RETIRED", detail: "retired", status: 409, correlationId: "c2" }),
     );
     renderPage();
     await screen.findByRole("region", { name: "Interested" });
@@ -370,7 +464,7 @@ describe("PipelineStagesPage", () => {
     const engaged = within(card("Contacted")).getByRole("listitem", { name: "Engaged" });
     await userEvent.click(within(engaged).getByRole("button", { name: "Make default" }));
     expect(
-      await screen.findByText("Built-in statuses can be renamed and recoloured, but not retired or moved."),
+      await screen.findByText("That status is retired. Ask an admin to restore it in Settings."),
     ).toBeInTheDocument();
   });
 

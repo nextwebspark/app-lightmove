@@ -78,8 +78,11 @@ export interface SaveCandidateRequest {
   linkedinUrl?: string | null;
   note?: string | null;
   source: "extension";
-  /** Required here, though the server defaults it: the panel always shows a status, so it states it. */
-  status: CandidateCaptureStatus;
+  /**
+   * Left out for the panel's starting choice, so the server files them at the workspace's own starting status:
+   * a workspace may have retired the seeded Identified.
+   */
+  status?: CandidateCaptureStatus;
   sourceUrl?: string | null;
 }
 

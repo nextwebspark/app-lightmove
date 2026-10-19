@@ -10,11 +10,19 @@ import { moveItem } from "../../../lib/moveItem";
 import { useSortableSensors, VERTICAL_LIST_MODIFIERS } from "../../../lib/sortableSensors";
 import { defaultStatusOf, liveStatuses } from "../../candidates/lib/pipelineStatus";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
-import type { PipelineStage, PipelineStatus, PipelineStatusChange } from "../../workspace/api/types";
-import { usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
-import { inOrderOf, PIPELINE_NAME_LIMIT } from "../lib/pipelineStageRows";
+import type {
+  PipelineRetirePreview,
+  PipelineStage,
+  PipelineStatus,
+  PipelineStatusChange,
+  StatusAutomation,
+} from "../../workspace/api/types";
+import { automationsInto, triggerCopyOf, useStatusAutomations } from "../../workspace/lib/statusAutomation";
+import { usePipelineCatalog, usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
+import { inOrderOf, PIPELINE_NAME_LIMIT, retireTouchesAnyone } from "../lib/pipelineStageRows";
 import { usePipelineReorder } from "../lib/usePipelineReorder";
 import { usePipelineRowChange, useRenameDraft } from "../lib/usePipelineRowEdits";
+import { PipelineRetireDialog } from "./PipelineRetireDialog";
 import { ColourDot, DragHandle, RenameActions, RenameForm } from "./PipelineRowControls";
 
 /** One stage's statuses, reordered within the stage alone, and the form that adds one. */
@@ -23,6 +31,7 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
   const sensors = useSortableSensors();
   const [newStatus, setNewStatus] = useState("");
   const addStatus = usePipelineWrite((label: string) => pipelineApi.createStatus(stage.id, label));
+  const automations = useStatusAutomations().data ?? [];
   const statuses = liveStatuses(stage);
   const defaultStatus = defaultStatusOf(stage);
   const statusIds = statuses.map((status) => status.id);
@@ -79,6 +88,7 @@ export function PipelineStatusList({ stage, isAdmin }: { stage: PipelineStage; i
                 status={status}
                 isDefault={defaultStatus?.id === status.id}
                 isAdmin={isAdmin}
+                automations={automationsInto(automations, status.id)}
                 onStep={(step) => moveStatus(index, index + step)}
               />
             ))}
@@ -113,13 +123,20 @@ function StatusRow({
   status,
   isDefault,
   isAdmin,
+  automations,
   onStep,
 }: {
   status: PipelineStatus;
   isDefault: boolean;
   isAdmin: boolean;
+  /** The switched-on automations that move people to this status. */
+  automations: StatusAutomation[];
   onStep: (step: number) => void;
 }) {
+  const toast = useToast();
+  const { catalog } = usePipelineCatalog();
+  const [preview, setPreview] = useState<PipelineRetirePreview | null>(null);
+  const [checking, setChecking] = useState(false);
   const sortable = useSortable({ id: status.id, disabled: !isAdmin });
   const rename = useRenameDraft(status.label);
   const { change, isPending } = usePipelineRowChange(
@@ -127,6 +144,20 @@ function StatusRow({
     rename,
   );
   const renameFormId = `rename-status-${status.id}`;
+  const retire = () => change({ retired: true }, "Status retired; candidates who hold it keep it");
+
+  const handleRetire = async () => {
+    setChecking(true);
+    try {
+      const read = await pipelineApi.statusRetirePreview(status.id);
+      if (retireTouchesAnyone(read)) setPreview(read);
+      else retire();
+    } catch (error) {
+      toast.error(messageFor(error));
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <li
@@ -161,15 +192,16 @@ function StatusRow({
           Default
         </span>
       )}
-      {status.system && (
+      {automations.map((automation) => (
         <span
-          title="Built-in status — can be renamed, not retired"
-          className="inline-flex items-center gap-1 rounded-sm bg-u-raised px-1.5 py-px font-mono text-eyebrow font-medium text-u-text3"
+          key={automation.trigger}
+          title={`${triggerCopyOf(automation.trigger).when}, candidates move here automatically`}
+          className="inline-flex items-center gap-1 rounded-sm bg-u-raised px-1.5 py-px font-mono text-eyebrow font-medium text-u-text2"
         >
-          <Icon d={ICONS.lock} size={10} />
-          System
+          <Icon d={ICONS.activity} size={10} />
+          Auto · {triggerCopyOf(automation.trigger).short}
         </span>
-      )}
+      ))}
       {isAdmin && (
         <span className="ms-auto flex items-center gap-1">
           {!isDefault && (
@@ -183,24 +215,31 @@ function StatusRow({
             </Button>
           )}
           <RenameActions formId={renameFormId} rename={rename} saving={isPending} />
-          {status.system ? (
-            <span title="Built-in status — can be renamed, not retired" className="grid w-7 place-items-center text-u-text3">
-              <Icon d={ICONS.lock} size={12} />
-            </span>
-          ) : (
-            <Button
-              variant="ghost"
-              size="xs"
-              title="Stop offering this status; candidates keep it"
-              aria-label={`Retire ${status.label}`}
-              disabled={isPending}
-              onClick={() => change({ retired: true }, "Status retired; candidates who hold it keep it")}
-            >
-              <Icon d={ICONS.archive} size={13} />
-            </Button>
-          )}
+          <Button
+            variant="ghost"
+            size="xs"
+            title="Stop offering this status; candidates keep it"
+            aria-label={`Retire ${status.label}`}
+            disabled={isPending || checking}
+            onClick={() => void handleRetire()}
+          >
+            <Icon d={ICONS.archive} size={13} />
+          </Button>
         </span>
       )}
+      <PipelineRetireDialog
+        open={preview !== null}
+        title={`Retire ${status.label}?`}
+        confirmLabel="Retire status"
+        catalog={catalog}
+        preview={preview}
+        pending={isPending}
+        onConfirm={() => {
+          setPreview(null);
+          retire();
+        }}
+        onClose={() => setPreview(null)}
+      />
     </li>
   );
 }

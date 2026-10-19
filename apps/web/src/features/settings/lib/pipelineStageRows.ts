@@ -1,3 +1,5 @@
+import type { PipelineRetirePreview } from "../../workspace/api/types";
+
 export const PIPELINE_NAME_LIMIT = 40;
 const PREVIEWED_STATUSES = 3;
 
@@ -19,4 +21,9 @@ export function inOrderOf<T extends { id: string }>(rows: readonly T[], ids: rea
     return index === -1 ? Number.MAX_SAFE_INTEGER : index;
   };
   return [...rows].sort((a, b) => rank(a) - rank(b));
+}
+
+/** Whether a retire needs asking about at all: someone holds a status, or an automation would stop. */
+export function retireTouchesAnyone(preview: PipelineRetirePreview): boolean {
+  return preview.automations.length > 0 || preview.statuses.some((status) => status.holders > 0);
 }

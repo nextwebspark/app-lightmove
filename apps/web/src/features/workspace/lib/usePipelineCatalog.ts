@@ -6,7 +6,7 @@ import type { PipelineCatalog } from "../api/types";
 
 /**
  * The workspace's stages and statuses. `catalog` is never empty: until the read lands, or if it is refused,
- * it is the seven built-in statuses, which every workspace holds and none can retire.
+ * it is the seven seeded statuses, whose keys every workspace holds, retired or not.
  */
 export function usePipelineCatalog() {
   const query = useQuery({
@@ -28,6 +28,10 @@ export function usePipelineWrite<TArgs>(write: (args: TArgs) => Promise<Pipeline
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: write,
-    onSuccess: (catalog) => queryClient.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, catalog),
+    onSuccess: (catalog) => {
+      queryClient.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, catalog);
+      // A retired status can break an automation; the card reads that from the server.
+      void queryClient.invalidateQueries({ queryKey: pipelineApi.STATUS_AUTOMATIONS_KEY });
+    },
   });
 }
