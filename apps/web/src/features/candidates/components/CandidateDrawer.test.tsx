@@ -1054,6 +1054,16 @@ describe("CandidateDrawer", () => {
     await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
+  it("opens on the Contact tab, scrolled to the part a bell row's work is in", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    renderDrawer({ candidate: yasmin, company: null, focusSection: "contact" });
+
+    expect(await screen.findByRole("tab", { name: "Contact", selected: true })).toBeInTheDocument();
+    const contactFold = document.getElementById("contact-section-body")?.closest("section");
+    await waitFor(() => expect(scrollIntoView.mock.contexts).toContain(contactFold));
+  });
+
   it("keeps tags in the header, notes and documents on their own tabs, and lists other positions", async () => {
     const { unmount } = renderDrawer({ candidate: yasmin, company: null });
 

@@ -309,6 +309,10 @@ function TaskRow({
   const personName = task.personName ?? "Someone";
   const assigneeName = task.assignee.fullName ?? "Someone";
   const pipeline = `/projects/${task.projectId}/pipeline`;
+  // An executive since unmapped from the position is still the workspace's person: open their record there.
+  const executiveHref = task.candidateId
+    ? `${pipeline}?candidate=${task.candidateId}`
+    : `/candidates?person=${encodeURIComponent(task.personId)}`;
 
   return (
     <div
@@ -341,21 +345,19 @@ function TaskRow({
         <Icon d={kind.icon} size={14} />
       </span>
       <span className={cn("flex min-w-0 items-center gap-2", done && "opacity-45")}>
-        <span className={cn("truncate text-body font-medium text-u-text", done && "line-through")}>{task.title}</span>
+        <Link
+          to={executiveHref}
+          className={cn("truncate text-body font-medium text-u-text hover:underline", done && "line-through")}
+        >
+          {task.title}
+        </Link>
         {task.source === "rule" && <AutoPill />}
       </span>
       <span className={cn("flex min-w-0 items-center gap-2", done && "opacity-45")}>
         <Avatar id={task.personId} name={personName} size="sm" />
-        {task.candidateId ? (
-          <Link
-            to={`${pipeline}?candidate=${task.candidateId}`}
-            className="truncate text-body text-u-text2 hover:text-u-text hover:underline"
-          >
-            {personName}
-          </Link>
-        ) : (
-          <span className="truncate text-body text-u-text2">{personName}</span>
-        )}
+        <Link to={executiveHref} className="truncate text-body text-u-text2 hover:text-u-text hover:underline">
+          {personName}
+        </Link>
       </span>
       <Link
         to={pipeline}
