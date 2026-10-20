@@ -16,6 +16,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -465,7 +468,46 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
 
         JsonNode found = notes(admin, cfo, candidateId);
         assertThat(found).hasSize(1);
-        assertThat(found.get(0).get("id").asText()).isNotEqualTo(noteId);
+        String refiled = found.get(0).get("id").asText();
+        assertThat(refiled).isNotEqualTo(noteId);
+
+        JsonNode undone = body(mvc.perform(post(notesUrl(cfo, candidateId) + "/" + noteId + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(undone.get("id").asText()).isEqualTo(refiled);
+        assertThat(notes(admin, cfo, candidateId)).hasSize(1);
+        assertThat(kindsOf(timeline(cfo, candidateId, "notes").get("entries"))).doesNotContain("NOTE_RESTORED");
+    }
+
+    @Test
+    @DisplayName("two Undos of one delete at once restore it once")
+    void twoUndosAtOnceRestoreOnce() throws Exception {
+        firm("Double Undo Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, """
+                {"fullName":"Mariam Al Hashimi"}""").get("id").asText();
+        String noteId = write(admin, cfo, candidateId, "general", "Open to a move in Q2.").get("id").asText();
+        mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Integer>> undos = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                undos.add(pool.submit(() -> mvc.perform(post(notesUrl(cfo, candidateId) + "/" + noteId + "/restore")
+                                .header("Authorization", "Bearer " + admin))
+                        .andReturn().getResponse().getStatus()));
+            }
+            for (Future<Integer> undo : undos) {
+                assertThat(undo.get()).isEqualTo(200);
+            }
+        } finally {
+            pool.shutdown();
+        }
+
+        assertThat(kindsOf(timeline(cfo, candidateId, "notes").get("entries")))
+                .containsExactly("NOTE_RESTORED", "NOTE_REMOVED", "NOTE_ADDED");
     }
 
     @Test

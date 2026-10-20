@@ -39,6 +39,7 @@ export function useNoteCardActions(note: PersonNote, routes: NoteRoutes, refresh
   // Undo runs after this card has left the list, so it is a plain call rather than this card's own mutation.
   const restore = () =>
     routes.restore(note.id).then(() => {
+      removing.reset();
       toast("Note restored");
       refreshAll();
     }, fail);
@@ -55,6 +56,7 @@ export function useNoteCardActions(note: PersonNote, routes: NoteRoutes, refresh
     onPin: () => pinning.mutate(),
     onRevise: (body) => revising.mutate(body),
     onRemove: () => removing.mutate(),
-    busy: pinning.isPending || revising.isPending || removing.isPending,
+    // A deleted card stays on screen until the list refetches; it must not be pressed again meanwhile.
+    busy: pinning.isPending || revising.isPending || removing.isPending || removing.isSuccess,
   };
 }

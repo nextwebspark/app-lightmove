@@ -238,6 +238,8 @@ function PositionNoteCard({
       void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId) });
       void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "notes"] });
       void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline"] });
+      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
+      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
     },
   );
   return <NoteCard note={note} actions={actions} flashAt={flashAt} />;

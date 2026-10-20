@@ -26,6 +26,7 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,6 +62,7 @@ public class PersonNoteService {
     private final PersonActivityRecorder activity;
     private final NoteMentions mentions;
     private final AuditService audit;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public List<PersonNoteResponse> list(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint) {
@@ -121,7 +123,7 @@ public class PersonNoteService {
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_REMOVED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
-        note.discard(userId);
+        note.discard(userId, clock.instant());
         audit.event(ProjectEventType.PERSON_NOTE_REMOVED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("noteId", noteId.toString())
@@ -129,8 +131,9 @@ public class PersonNoteService {
     }
 
     /**
-     * Takes a delete back while the note is still held. Its mentions were never dropped, so nobody is told twice;
-     * a note that is already live answers as it is, so a second press of Undo is harmless.
+     * Takes a delete back while the note is still held. Its mentions were never dropped, so nobody is told twice.
+     * A note already live answers as it is, so a second press of Undo, or two at once, records one restore; and
+     * where a door has filed the same words again since, that copy answers and the deleted one is left to the purge.
      */
     @Transactional
     public PersonNoteResponse restore(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
@@ -138,8 +141,7 @@ public class PersonNoteService {
         Person person = people.requireInWorkspace(personId, workspaceId);
         DeletedPersonNoteRow deleted = notes.findDeleted(noteId, workspaceId, personId).orElse(null);
         if (deleted == null) {
-            PersonNote live = notes.requireReadable(noteId, workspaceId, personId, viewpoint);
-            return toDto(live, usersOf(List.of(live)), mayEdit(userId, workspaceId, live));
+            return asItStands(userId, workspaceId, notes.requireReadable(noteId, workspaceId, personId, viewpoint));
         }
         if (!viewpoint.reads(deleted.getProjectId())) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
@@ -147,7 +149,14 @@ public class PersonNoteService {
         if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
-        notes.restore(noteId, workspaceId);
+        PersonNote twin = notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBody(workspaceId, personId,
+                deleted.getProjectId(), deleted.getBody()).orElse(null);
+        if (twin != null) {
+            return asItStands(userId, workspaceId, twin);
+        }
+        if (notes.restore(noteId, workspaceId, personId) == 0) {
+            return asItStands(userId, workspaceId, notes.requireReadable(noteId, workspaceId, personId, viewpoint));
+        }
         PersonNote note = notes.requireReadable(noteId, workspaceId, personId, viewpoint);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_RESTORED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
@@ -156,6 +165,10 @@ public class PersonNoteService {
                 .detail("noteId", noteId.toString())
                 .record();
         return toDto(note, usersOf(List.of(note)), true);
+    }
+
+    private PersonNoteResponse asItStands(UUID userId, UUID workspaceId, PersonNote note) {
+        return toDto(note, usersOf(List.of(note)), mayEdit(userId, workspaceId, note));
     }
 
     /** Pinning orders the list; it is nobody's edit, so it leaves no timeline line, only an audit event. */
