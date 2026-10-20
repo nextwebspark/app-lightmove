@@ -102,6 +102,16 @@ public class PersonCrmController {
                 NoteViewpoint.position(projectId), noteId, httpRequest);
     }
 
+    @PostMapping("/notes/{noteId}/restore")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public PersonNoteResponse restore(@AuthenticationPrincipal AuthPrincipal principal,
+                                      @PathVariable UUID projectId, @PathVariable UUID candidateId,
+                                      @PathVariable UUID noteId, HttpServletRequest httpRequest) {
+        UUID workspaceId = principal.requireWorkspaceId();
+        return notes.restore(principal.userId(), workspaceId, records.personOf(workspaceId, projectId, candidateId),
+                NoteViewpoint.position(projectId), noteId, httpRequest);
+    }
+
     @PatchMapping("/notes/{noteId}/pin")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public PersonNoteResponse pin(@AuthenticationPrincipal AuthPrincipal principal,

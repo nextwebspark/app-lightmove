@@ -158,6 +158,11 @@ export function removePoolNote(personId: string, noteId: string): Promise<void> 
   return request<void>(`/candidates/${personId}/notes/${noteId}`, { method: "DELETE" });
 }
 
+/** Takes a delete back while the note is still held; a live note answers as it is. */
+export function restorePoolNote(personId: string, noteId: string): Promise<PersonNote> {
+  return request<PersonNote>(`/candidates/${personId}/notes/${noteId}/restore`, { method: "POST" });
+}
+
 export function pinPoolNote(personId: string, noteId: string, pinned: boolean): Promise<PersonNote> {
   return request<PersonNote>(`/candidates/${personId}/notes/${noteId}/pin`, {
     method: "PATCH",

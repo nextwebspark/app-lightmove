@@ -718,6 +718,11 @@ lightmove:
     due-soon-window: ${NOTIFICATION_DUE_SOON_WINDOW:1h}
     default-time-zone: ${NOTIFICATION_DEFAULT_TIME_ZONE:Asia/Dubai}
 
+  # A deleted note can be restored until purge-after has passed; then it is deleted for good.
+  notes:
+    purge-after: ${NOTES_PURGE_AFTER:30d}
+    purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
+
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:
     enforce: ${BILLING_ENFORCE:true}

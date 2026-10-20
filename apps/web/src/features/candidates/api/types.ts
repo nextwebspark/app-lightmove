@@ -315,6 +315,7 @@ export type PersonActivityKind =
   | "NOTE_ADDED"
   | "NOTE_EDITED"
   | "NOTE_REMOVED"
+  | "NOTE_RESTORED"
   | "TAGGED"
   | "UNTAGGED"
   | "OWNER_CHANGED"

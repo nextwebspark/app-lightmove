@@ -225,6 +225,14 @@ public class CandidatePoolController {
                 httpRequest);
     }
 
+    @PostMapping("/{personId}/notes/{noteId}/restore")
+    @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
+    public PersonNoteResponse restore(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,
+                                      @PathVariable UUID noteId, HttpServletRequest httpRequest) {
+        return notes.restore(principal.userId(), principal.requireWorkspaceId(), personId, NoteViewpoint.workspace(),
+                noteId, httpRequest);
+    }
+
     @PatchMapping("/{personId}/notes/{noteId}/pin")
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public PersonNoteResponse pin(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID personId,

@@ -18,6 +18,7 @@ import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
+import { useNoteCardActions } from "../lib/useNoteCardActions";
 import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
 
 /**
@@ -201,13 +202,47 @@ export function NotesSection({
         ) : (
           <ul className="flex flex-col gap-2">
             {list.map((note) => (
-              <NoteCard key={note.id} note={note} flashAt={focus?.noteId === note.id ? focus.at : null} />
+              <PositionNoteCard
+                key={note.id}
+                projectId={projectId}
+                candidateId={candidateId}
+                note={note}
+                flashAt={focus?.noteId === note.id ? focus.at : null}
+              />
             ))}
           </ul>
         )}
       </div>
     </section>
   );
+}
+
+function PositionNoteCard({
+  projectId,
+  candidateId,
+  note,
+  flashAt,
+}: PersonSectionProps & { note: PersonNote; flashAt: number | null }) {
+  const queryClient = useQueryClient();
+  const actions = useNoteCardActions(
+    note,
+    {
+      pin: (noteId, pinned) => personCrmApi.pinPersonNote(projectId, candidateId, noteId, pinned),
+      revise: (current, body) =>
+        personCrmApi.revisePersonNote(projectId, candidateId, current.id, { kind: current.kind, body }),
+      remove: (noteId) => personCrmApi.removePersonNote(projectId, candidateId, noteId),
+      restore: (noteId) => personCrmApi.restorePersonNote(projectId, candidateId, noteId),
+    },
+    () => {
+      void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId) });
+      void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId) });
+      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "notes"] });
+      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline"] });
+      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
+      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
+    },
+  );
+  return <NoteCard note={note} actions={actions} flashAt={flashAt} />;
 }
 
 /** The note a task is set from, as the task will name it: by kind and date. */

@@ -55,8 +55,10 @@ there, never sent to that position's AI — while the Candidates page reads them
 The position drawer's composer offers This position or All positions, never another position. A note a door
 sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
 Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
-may change or remove one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
-never quotes it, so a removed note leaves no copy. Both person drawers — a position's executive drawer and the
+may change, remove or restore one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
+never quotes it. A removed note is out of every read at once (V141) and offered back by the toast's Undo
+(`…/notes/{noteId}/restore`); `PersonNotePurge` deletes it for good after `lightmove.notes.purge-after` (30 days),
+so from then it leaves no copy. Both person drawers — a position's executive drawer and the
 Candidates page's — share one header (`PersonHeaderLayout`: the photo beside one column of name, pills, the tags held
 to one line with a +N chip, and do not contact) and one tab order,
 `Position.dc.html`'s: **Career · Notes · Assessment · Contact · Documents · Activity · Positions** (`lib/drawerTabs.ts`,
@@ -1114,6 +1116,10 @@ It adds `app_lm_workspace_status_automation` — per workspace, the status each 
 automatically (`StatusAutomationService`). No row is the seeded behaviour (an email to Contacted, a booking to
 Engaged, a reply nowhere); a rule whose status was retired is reported `broken`, flagged on the page, and moves
 nobody — it never fails the send or booking behind it.
+V141 soft-deletes a person's note: `deleted_at` / `deleted_by` on `app_lm_person_note`, which `PersonNote`'s
+`@SQLRestriction` hides from every JPA read (two native queries in `PersonNoteRepository` find and restore one), and
+`NOTE_RESTORED` among the activity kinds. A deleted note keeps its task, notification and mention rows, so a restore
+re-announces nobody; `NotificationEmails` asks whether a mention's note is still live rather than reading `note_id`.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

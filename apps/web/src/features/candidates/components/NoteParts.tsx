@@ -113,8 +113,8 @@ export interface NoteCardActions {
 
 /**
  * One note as both drawers draw it: author, kind, pinned, when, the words, and what it is about. With
- * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete asks first,
- * because a removed note leaves no copy of its words anywhere.
+ * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete is taken back with
+ * the toast's Undo, not asked about first.
  */
 export function NoteCard({
   note,
@@ -130,7 +130,6 @@ export function NoteCard({
   flashAt?: number | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [confirming, setConfirming] = useState(false);
   const [draft, setDraft] = useState(() => displayTextOf(note.body));
   const revised = serializeMentions(draft.trim(), mentionsIn(note.body));
   const revisedTooLong = revised.length > NOTE_MAX_STORED;
@@ -221,48 +220,36 @@ export function NoteCard({
         {note.editedAt && (
           <span title={new Date(note.editedAt).toLocaleString()}>Edited by {note.editedByName ?? "someone"}</span>
         )}
-        {actions &&
-          (confirming ? (
-            <span className="ms-auto flex items-center gap-2" role="group" aria-label="Delete this note?">
-              <span className="text-u-text2">Delete this note?</span>
+        {actions && (
+          <span className="ms-auto flex gap-3">
+            <button type="button" onClick={actions.onPin} disabled={actions.busy} className="hover:text-u-text">
+              {note.pinned ? "Unpin" : "Pin"}
+            </button>
+            {note.editable && !editing && (
               <button
                 type="button"
                 onClick={() => {
-                  setConfirming(false);
-                  actions.onRemove();
+                  setDraft(displayTextOf(note.body));
+                  setEditing(true);
                 }}
-                className="font-semibold text-u-offlimits hover:underline"
+                disabled={actions.busy}
+                className="hover:text-u-text"
               >
-                Yes, delete
+                Edit
               </button>
-              <button type="button" onClick={() => setConfirming(false)} className="hover:text-u-text">
-                No
+            )}
+            {note.editable && (
+              <button
+                type="button"
+                onClick={actions.onRemove}
+                disabled={actions.busy}
+                className="hover:text-u-offlimits"
+              >
+                Delete
               </button>
-            </span>
-          ) : (
-            <span className="ms-auto flex gap-3">
-              <button type="button" onClick={actions.onPin} disabled={actions.busy} className="hover:text-u-text">
-                {note.pinned ? "Unpin" : "Pin"}
-              </button>
-              {note.editable && !editing && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraft(displayTextOf(note.body));
-                    setEditing(true);
-                  }}
-                  className="hover:text-u-text"
-                >
-                  Edit
-                </button>
-              )}
-              {note.editable && (
-                <button type="button" onClick={() => setConfirming(true)} className="hover:text-u-offlimits">
-                  Delete
-                </button>
-              )}
-            </span>
-          ))}
+            )}
+          </span>
+        )}
       </div>
     </li>
   );

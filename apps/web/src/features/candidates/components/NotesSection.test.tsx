@@ -21,6 +21,10 @@ vi.mock("../api/personCrmApi", async (importOriginal) => ({
   getPersonNotes: vi.fn(),
   getPersonPositions: vi.fn(),
   writePersonNote: vi.fn(),
+  revisePersonNote: vi.fn(),
+  removePersonNote: vi.fn(),
+  restorePersonNote: vi.fn(),
+  pinPersonNote: vi.fn(),
 }));
 vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
@@ -250,5 +254,71 @@ describe("the note composer", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Too long once its mentions are saved");
     expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
+  });
+});
+
+describe("a note in the position's drawer", () => {
+  beforeEach(() => {
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([aNote("Prefers a call after 6pm")]);
+    vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([]);
+    vi.mocked(projectsApi.projects).mockResolvedValue([position]);
+  });
+
+  it("is edited in place by its author", async () => {
+    vi.mocked(personCrmApi.revisePersonNote).mockImplementation(async (_p, _c, _n, note) => aNote(note.body));
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const editor = screen.getByRole("textbox", { name: "Edit note" });
+    await userEvent.clear(editor);
+    await userEvent.type(editor, "Prefers a call after 7pm");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(personCrmApi.revisePersonNote).toHaveBeenCalledWith("p1", "c1", "n1", {
+        kind: "general",
+        body: "Prefers a call after 7pm",
+      }),
+    );
+  });
+
+  it("is pinned by anyone on the position", async () => {
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([{ ...aNote("Board seat in 2027"), editable: false }]);
+    vi.mocked(personCrmApi.pinPersonNote).mockResolvedValue(aNote("Board seat in 2027"));
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Pin" }));
+
+    await waitFor(() => expect(personCrmApi.pinPersonNote).toHaveBeenCalledWith("p1", "c1", "n1", true));
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it("is deleted at once, and Undo brings it back", async () => {
+    vi.mocked(personCrmApi.removePersonNote).mockResolvedValue(undefined);
+    vi.mocked(personCrmApi.restorePersonNote).mockResolvedValue(aNote("Prefers a call after 6pm"));
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(personCrmApi.removePersonNote).toHaveBeenCalledWith("p1", "c1", "n1"));
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await waitFor(() => expect(personCrmApi.restorePersonNote).toHaveBeenCalledWith("p1", "c1", "n1"));
+  });
+
+  it("cannot be deleted twice while the list catches up", async () => {
+    vi.mocked(personCrmApi.removePersonNote).mockClear().mockResolvedValue(undefined);
+    vi.mocked(personCrmApi.restorePersonNote).mockResolvedValue(aNote("Prefers a call after 6pm"));
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await screen.findByRole("button", { name: "Undo" });
+
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
+    expect(personCrmApi.removePersonNote).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
   });
 });

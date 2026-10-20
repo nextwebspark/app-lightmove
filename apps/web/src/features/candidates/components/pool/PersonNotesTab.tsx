@@ -6,6 +6,7 @@ import { useSubmitShortcut } from "../../../../lib/useSubmitShortcut";
 import * as poolApi from "../../api/poolApi";
 import type { PersonNote, PersonNoteKind, PersonRecord } from "../../api/types";
 import { NOTE_KINDS } from "../../lib/noteKinds";
+import { useNoteCardActions } from "../../lib/useNoteCardActions";
 import { NoteCard, NoteKindPicker } from "../NoteParts";
 import { taskNoteOf } from "../PersonSections";
 import { MentionTextArea } from "../../../tasks/components/MentionTextArea";
@@ -156,39 +157,18 @@ export function PersonNotesTab({
 }
 
 function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }) {
-  const toast = useToast();
-  const refresh = useNoteRefresh(personId);
-  const pinning = useMutation({
-    mutationFn: () => poolApi.pinPoolNote(personId, note.id, !note.pinned),
-    onSuccess: refresh,
-    onError: (error) => toast.error(messageFor(error)),
-  });
-  const revising = useMutation({
-    mutationFn: (body: string) =>
-      poolApi.revisePoolNote(personId, note.id, { kind: note.kind, body, projectId: note.projectId }),
-    onSuccess: refresh,
-    onError: (error) => toast.error(messageFor(error)),
-  });
-  const removing = useMutation({
-    mutationFn: () => poolApi.removePoolNote(personId, note.id),
-    onSuccess: () => {
-      toast("Note deleted — the timeline keeps a line saying so");
-      refresh();
+  const actions = useNoteCardActions(
+    note,
+    {
+      pin: (noteId, pinned) => poolApi.pinPoolNote(personId, noteId, pinned),
+      revise: (current, body) =>
+        poolApi.revisePoolNote(personId, current.id, { kind: current.kind, body, projectId: current.projectId }),
+      remove: (noteId) => poolApi.removePoolNote(personId, noteId),
+      restore: (noteId) => poolApi.restorePoolNote(personId, noteId),
     },
-    onError: (error) => toast.error(messageFor(error)),
-  });
-
-  return (
-    <NoteCard
-      note={note}
-      actions={{
-        onPin: () => pinning.mutate(),
-        onRevise: (body) => revising.mutate(body),
-        onRemove: () => removing.mutate(),
-        busy: pinning.isPending || revising.isPending || removing.isPending,
-      }}
-    />
+    useNoteRefresh(personId),
   );
+  return <NoteCard note={note} actions={actions} />;
 }
 
 /** A note changes the notes, the timeline and the feed; nothing else about the person. */

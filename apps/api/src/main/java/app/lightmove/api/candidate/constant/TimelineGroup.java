@@ -19,7 +19,7 @@ public enum TimelineGroup implements ApiValueEnum {
             PersonActivityKind.TASK_COMPLETED, PersonActivityKind.TASK_REOPENED, PersonActivityKind.TASK_REASSIGNED,
             PersonActivityKind.TASK_CANCELLED)),
     NOTES("notes", EnumSet.of(PersonActivityKind.NOTE_ADDED, PersonActivityKind.NOTE_EDITED,
-            PersonActivityKind.NOTE_REMOVED)),
+            PersonActivityKind.NOTE_REMOVED, PersonActivityKind.NOTE_RESTORED)),
     CONTACTS("contacts", EnumSet.of(PersonActivityKind.CONTACTS_EDITED, PersonActivityKind.CONTACT_FOUND,
             PersonActivityKind.DO_NOT_CONTACT_SET, PersonActivityKind.DO_NOT_CONTACT_CLEARED,
             PersonActivityKind.OUTREACH_ENROLLED, PersonActivityKind.EMAIL_SENT, PersonActivityKind.EMAIL_REPLIED,

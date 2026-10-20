@@ -55,6 +55,36 @@ export function writePersonNote(
   });
 }
 
+export function revisePersonNote(
+  projectId: string,
+  candidateId: string,
+  noteId: string,
+  note: WritePersonNotePayload,
+): Promise<PersonNote> {
+  return request<PersonNote>(`${personUrl(projectId, candidateId)}/notes/${noteId}`, { method: "PUT", body: note });
+}
+
+export function removePersonNote(projectId: string, candidateId: string, noteId: string): Promise<void> {
+  return request<void>(`${personUrl(projectId, candidateId)}/notes/${noteId}`, { method: "DELETE" });
+}
+
+/** Takes a delete back while the note is still held; a live note answers as it is. */
+export function restorePersonNote(projectId: string, candidateId: string, noteId: string): Promise<PersonNote> {
+  return request<PersonNote>(`${personUrl(projectId, candidateId)}/notes/${noteId}/restore`, { method: "POST" });
+}
+
+export function pinPersonNote(
+  projectId: string,
+  candidateId: string,
+  noteId: string,
+  pinned: boolean,
+): Promise<PersonNote> {
+  return request<PersonNote>(`${personUrl(projectId, candidateId)}/notes/${noteId}/pin`, {
+    method: "PATCH",
+    body: { pinned },
+  });
+}
+
 /** The person's history, newest first; `before` is the previous page's `nextCursor`. */
 export function getPersonTimeline(
   projectId: string,
