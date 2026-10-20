@@ -43,8 +43,6 @@ public class TriageCompany extends BaseEntity {
     @Column(name = "status", nullable = false, length = 16)
     private TriageCompanyStatus status;
 
-    @Column(name = "note")
-    private String note;
 
     /** "Nobody here fits" — orthogonal to {@code status}; cleared once an executive is mapped here. */
     @Column(name = "no_executive_found", nullable = false)
@@ -125,7 +123,6 @@ public class TriageCompany extends BaseEntity {
         company.shortDescription = details.shortDescription();
         company.logoUrl = details.logoUrl();
         company.sourceUrl = details.sourceUrl();
-        company.annotate(details.note());
         return company;
     }
 
@@ -201,11 +198,6 @@ public class TriageCompany extends BaseEntity {
     /** Replaces the whole bag, already merged by {@code CustomColumnService.applyTo}. */
     public void describeCustomFields(CustomFieldValues values) {
         this.customFields = values == null ? CustomFieldValues.empty() : values;
-    }
-
-    /** Blank clears the note rather than storing an empty string, so "has a note" stays a null check. */
-    public void annotate(String newNote) {
-        this.note = newNote == null || newNote.isBlank() ? null : newNote.trim();
     }
 
     public void flagNoExecutiveFound() {

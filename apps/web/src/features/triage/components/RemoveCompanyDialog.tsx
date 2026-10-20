@@ -31,8 +31,8 @@ export function RemoveCompanyDialog({
   return (
     <Modal open onClose={onCancel} title={`Remove ${company.companyName}?`}>
       <p className="text-[13px]/[1.6] text-u-text2">
-        This removes {company.companyName} from this mandate — the stage it reached and any note on it
-        go with it.
+        This removes {company.companyName} from this mandate — the stage it reached and your team's notes on
+        it go with it.
       </p>
       <p className="mt-2.5 text-[13px]/[1.6] text-u-text2">
         The company itself is not deleted. It stays in the market, findable on Strategy, and untouched

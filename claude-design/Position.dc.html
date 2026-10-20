@@ -256,7 +256,7 @@
                               <span style="{{ c.pillStyle }}">{{ c.text }}</span>
                             </sc-if>
                             <sc-if value="{{ c.kNote }}" hint-placeholder-val="{{ false }}">
-                              <button title="Click to edit" style="display:flex;width:100%;min-width:0;border-radius:4px;text-align:start;background:none;border:none;padding:0;cursor:pointer" style-hover="background:var(--panel2)">
+                              <button title="Open this company's notes" style="display:flex;width:100%;min-width:0;border-radius:4px;text-align:start;background:none;border:none;padding:0;cursor:pointer" style-hover="background:var(--panel2)">
                                 <span style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text3)">{{ c.text }}</span></button>
                             </sc-if>
                           </div>
@@ -1126,16 +1126,32 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:12px;row-gap:10px">
             <sc-for list="{{ co.mandate }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
           </div>
-          <sc-if value="{{ co.market }}"><p style="margin:12px 0 0;font:400 11px/1.6 var(--mono);color:var(--text3)">These fields come from the market export and are refreshed by it, so they are not editable here. Your note below is yours.</p></sc-if>
+          <sc-if value="{{ co.market }}"><p style="margin:12px 0 0;font:400 11px/1.6 var(--mono);color:var(--text3)">These fields come from the market export and are refreshed by it, so they are not editable here. Your team's notes are yours.</p></sc-if>
         </section>
         <section style="border-bottom:1px solid var(--line-soft);padding:16px 0">
           <div style="margin-bottom:10px;display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Your columns</h3></div>
           <label style="display:block;margin-bottom:16px"><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Ownership</span>
             <input defaultValue="{{ co.ownership }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></label>
         </section>
+        <!-- Notes is its own tab (Overview · Notes N), drawn for staff only, as the executive drawer's: the composer
+             with its formatting row and Expand, then the team's notes pinned first, each with Pin, Edit and Delete
+             (Undo on the toast). Shown here as the tab's body. -->
         <section style="padding:16px 0">
-          <div style="margin-bottom:10px;display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Note</h3></div>
-          <textarea defaultValue="{{ co.note }}" rows="3" aria-label="Note on this company" placeholder="Your own remark on this company, for this mandate…" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+          <div role="tablist" aria-label="Company sections" style="margin-bottom:12px;display:flex;gap:14px;border-bottom:1px solid var(--line-soft)">
+            <span role="tab" aria-selected="false" style="padding:6px 0;font:500 13px var(--sans);color:var(--text3)">Overview</span>
+            <span role="tab" aria-selected="true" style="padding:6px 0;border-bottom:2px solid var(--u-accent);font:600 13px var(--sans);color:var(--text)">Notes <span style="margin-left:4px;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono)">2</span></span>
+          </div>
+          <div style="border-radius:8px;border:1px solid var(--line);padding:10px">
+            <div style="display:flex;gap:6px;margin-bottom:8px;font:500 12px var(--sans);color:var(--text3)"><span>Note</span><span>Call</span><span>Meeting</span><span>Email</span></div>
+            <div style="display:flex;align-items:center;gap:2px;color:var(--text3);font:600 11px var(--sans)"><b style="padding:3px 6px">B</b><i style="padding:3px 6px">I</i><u style="padding:3px 6px">U</u><s style="padding:3px 6px">S</s><span style="padding:3px 6px">H2</span><span style="padding:3px 6px">H3</span><span style="padding:3px 6px">•</span><span style="padding:3px 6px">1.</span><span style="padding:3px 6px">☐</span><span style="padding:3px 6px">“</span><span style="padding:3px 6px">🔗</span><span style="flex:1"></span><span title="Expand — write in a larger view" style="padding:3px 6px">⤢</span></div>
+            <p style="margin:8px 0 0;font:400 13px var(--sans);color:var(--text3)">What your team should know about this company…</p>
+            <div style="margin-top:8px;display:flex;justify-content:flex-end"><button style="border-radius:6px;border:none;background:var(--u-accent);padding:5px 10px;font:600 12px var(--sans);color:#fff">Save note</button></div>
+          </div>
+          <div style="margin-top:10px;border-radius:8px;border:1px solid var(--line);padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:8px;font:600 12.5px var(--sans);color:var(--text)">Yara Haddad <span style="font:600 9.5px var(--mono);text-transform:uppercase;color:var(--text3)">Call</span><span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">Today 09:12</span></div>
+            <p style="margin:6px 0 0;font:400 13px/1.55 var(--sans);color:var(--text2)"><b>Board reshuffle</b> in Q1 — their CFO is moving to Riyadh.</p>
+            <div style="margin-top:6px;display:flex;justify-content:flex-end;gap:12px;font:400 11px var(--mono);color:var(--text3)"><span>Pin</span><span>Edit</span><span>Delete</span></div>
+          </div>
         </section>
       </div>
       <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
@@ -3220,8 +3236,8 @@ class Component extends DCLogic {
       case "revenue": return text(co ? money(co.revenue) : "—");
       case "employees": return text(co && co.employees != null ? co.employees.toLocaleString("en-US") : null);
       case "note":
-        if (co && cw) return { cellStyle, kNote: true, text: co.note || "—" };
-        return text(co ? co.note : null, true);
+        if (co && cw) return { cellStyle, kNote: true, text: co.note ? "2 notes" : "Add note" };
+        return text(null, true);
       case "founded": return text(co && co.founded ? String(co.founded) : null);
       case "added": return text(dateGB(co ? co.added : cand.added));
       case "description": return text(co ? co.desc : null, true);

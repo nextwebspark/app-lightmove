@@ -57,8 +57,6 @@ public enum ExportColumn {
 
     EMPLOYEES("Employees", row -> company(row, response -> asString(response.numEmployees()))),
 
-    NOTE("Note", row -> company(row, TriageCompanyResponse::note)),
-
     FOUNDED("Founded", row -> company(row, response -> asString(response.foundedYear()))),
 
     ADDED("Added", row -> asDate(row.company() != null && row.company().addedAt() != null

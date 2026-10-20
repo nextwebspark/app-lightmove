@@ -24,6 +24,8 @@ import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
 import { pickStatus } from "../../../test/pickStatus";
 import { TriageStagePage } from "./TriageStagePage";
+import * as companyNotesApi from "../api/companyNotesApi";
+import { typeInto } from "../../../test/noteEditor";
 
 vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
@@ -72,6 +74,11 @@ vi.mock("../api/triageApi", async (importOriginal) => ({
   captureCompany: vi.fn(),
   addMarketCompany: vi.fn(),
   editTriageCompany: vi.fn(),
+}));
+vi.mock("../api/companyNotesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof companyNotesApi>()),
+  getCompanyNotes: vi.fn(),
+  writeCompanyNote: vi.fn(),
 }));
 vi.mock("../../talentmap/api/talentMapApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
@@ -173,7 +180,7 @@ const acwa: TriageCompany = {
   apolloAccountId: "a1",
   source: "strategy",
   status: "inUniverse",
-  note: null,
+  noteCount: 0,
   noExecutiveFound: false,
   companyName: "ACWA Power",
   industry: "oil & energy",
@@ -288,6 +295,21 @@ const peopleOf = (candidates: Candidate[]): CandidatesPage => ({
   totalCount: candidates.length,
   page: 0,
   size: 25,
+});
+
+const companyNote = (body: string): companyNotesApi.CompanyNote => ({
+  id: "cn1",
+  kind: "general",
+  body,
+  format: "plain",
+  pinned: false,
+  authorUserId: "u-lead",
+  authorName: "Yara Haddad",
+  authorAvatarUrl: null,
+  createdAt: "2026-10-03T08:00:00Z",
+  editedAt: null,
+  editedByName: null,
+  editable: true,
 });
 
 const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPage => ({
@@ -727,22 +749,18 @@ describe("TriageStagePage", () => {
     expect(await screen.findByRole("dialog", { name: /Add executive/i })).toBeInTheDocument();
   });
 
-  it("edits a company's note inline from the grid, the same write the panel makes", async () => {
-    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, note: "Called, promising" });
+  it("opens the company's Notes tab from the grid's notes chip", async () => {
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [{ ...acwa, noteCount: 2 }] }));
+    vi.mocked(companyNotesApi.getCompanyNotes).mockResolvedValue([companyNote("Their CFO is moving to Riyadh")]);
     renderStage();
 
     await screen.findByText("ACWA Power");
     const grid = screen.getByRole("table", { name: /In universe companies/i });
-    await userEvent.click(within(grid).getByTitle(/click to edit/i));
-    const input = within(grid).getByRole("textbox", { name: "Note for ACWA Power" });
-    await userEvent.type(input, "Called, promising");
-    await userEvent.tab();
+    await userEvent.click(within(grid).getByRole("button", { name: "2 notes on ACWA Power" }));
 
-    await waitFor(() =>
-      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
-        note: "Called, promising",
-      }),
-    );
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    expect(within(panel).getByRole("tab", { name: /Notes/ })).toHaveAttribute("aria-selected", "true");
+    expect(await within(panel).findByText("Their CFO is moving to Riyadh")).toBeInTheDocument();
   });
 
   it("changes a candidate's status inline from the grid's own Status column", async () => {
@@ -1465,7 +1483,7 @@ describe("TriageStagePage", () => {
   });
 
   it("offers no Edit on a company taken from the market, but still takes a note", async () => {
-    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue(acwa);
+    vi.mocked(companyNotesApi.writeCompanyNote).mockResolvedValue(companyNote("Adjacent"));
     renderStage();
 
     await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
@@ -1476,12 +1494,17 @@ describe("TriageStagePage", () => {
     expect(within(panel).queryByRole("button", { name: /Edit ACWA Power/i })).not.toBeInTheDocument();
     expect(within(panel).getByText(/come from the market export/i)).toBeInTheDocument();
 
-    // The note is the mandate's own remark, so it is editable on every company including this one.
-    await userEvent.type(within(panel).getByLabelText(/Note on this company/i), "Adjacent");
-    await userEvent.click(within(panel).getByRole("button", { name: /^Save$/i }));
+    // Notes are the mandate's own remarks, so they are the team's on every company including this one.
+    await userEvent.click(within(panel).getByRole("tab", { name: /Notes/ }));
+    await typeInto(await within(panel).findByRole("textbox", { name: "New note" }), "Adjacent");
+    await userEvent.click(within(panel).getByRole("button", { name: "Save note" }));
 
     await waitFor(() =>
-      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", { note: "Adjacent" }),
+      expect(companyNotesApi.writeCompanyNote).toHaveBeenCalledWith("p1", "u1", {
+        kind: "general",
+        body: "Adjacent",
+        format: "markdown",
+      }),
     );
   });
 

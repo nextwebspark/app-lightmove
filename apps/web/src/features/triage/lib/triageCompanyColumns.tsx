@@ -17,7 +17,6 @@ import {
   GRID_ICON_BUTTON,
   type DataGridColumnLayout,
 } from "../../../components/ui/DataGrid";
-import { InlineEditCell } from "../../../components/ui/InlineEditCell";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
 import { formatInstantDate, formatMoney } from "../../../lib/format";
@@ -57,8 +56,8 @@ interface TriageTableMeta {
   onDelete: (company: TriageCompany) => void;
   /** Opens the drawer to map someone new at this company. */
   onAddExecutive: (company: TriageCompany) => void;
-  /** Saves the grid's own inline-edited Note cell. */
-  onSaveNote: (company: TriageCompany, note: string) => Promise<unknown>;
+  /** Opens the company's panel on its Notes tab. */
+  onOpenCompanyNotes: (company: TriageCompany) => void;
   /** Changes a mapped executive's status from the grid's own Status column. */
   onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
   /** Opens the drawer on an executive already mapped. */
@@ -403,24 +402,31 @@ const BUILT_IN_COLUMNS = helper.columns([
     cell: (info) => <DataGridCell value={info.getValue()?.toLocaleString() ?? null} />,
   }),
 
-  helper.accessor((row) => row.company?.note ?? null, {
+  // Keeps the old Note column's id, so a grid that hid or widened it still does. Staff-only, as the notes are.
+  helper.accessor((row) => row.company?.noteCount ?? null, {
     id: "note",
-    header: "Note",
-    // Not in the server's sort allowlist: alphabetising a remark answers no question.
+    header: "Notes",
     enableSorting: false,
-    meta: { share: 16, min: 120 },
+    meta: { share: 9, min: 88 },
     cell: (info) => {
       const { company } = info.row.original;
       const meta = info.table.options.meta;
-      if (!company || !meta?.canWrite) return <DataGridCell value={info.getValue()} muted />;
+      if (!company || !meta?.canWrite) return <DataGridCell value={null} />;
+      const count = info.getValue() ?? 0;
       return (
-        <InlineEditCell
-          value={info.getValue()}
-          editable
-          onSave={(next) => meta.onSaveNote(company, next)}
-          placeholder="Your own remark…"
-          aria-label={`Note for ${company.companyName}`}
-        />
+        <button
+          type="button"
+          onClick={() => meta.onOpenCompanyNotes(company)}
+          aria-label={
+            count > 0 ? `${count} ${count === 1 ? "note" : "notes"} on ${company.companyName}` : `Add a note on ${company.companyName}`
+          }
+          className={cn(
+            "rounded-u-chip px-2 py-0.5 text-note font-medium",
+            count > 0 ? "bg-u-accent-tint text-u-accent hover:underline" : "text-u-text3 hover:text-u-text",
+          )}
+        >
+          {count > 0 ? `${count} ${count === 1 ? "note" : "notes"}` : "Add note"}
+        </button>
       );
     },
   }),
@@ -474,7 +480,7 @@ const BUILT_IN_COLUMNS = helper.columns([
  * <p>Ids are prefixed `custom:` so a project's "Note" or "Country" column can never collide with the
  * built-in of that name, whose id is the server's own sort token.
  */
-export function createTriageCompanyColumns(customColumns: readonly CustomColumn[]) {
+export function createTriageCompanyColumns(customColumns: readonly CustomColumn[], { staff = true } = {}) {
   const custom = customColumns
     .filter((column) => !column.hidden)
     .map((column) =>
@@ -490,7 +496,8 @@ export function createTriageCompanyColumns(customColumns: readonly CustomColumn[
     );
   // Back through `helper.columns` rather than a bare spread: it is what re-widens the tuple of
   // per-column value types into the one array shape `useTable` takes, which a spread loses.
-  return helper.columns([...BUILT_IN_COLUMNS, ...custom]);
+  const builtIn = staff ? BUILT_IN_COLUMNS : BUILT_IN_COLUMNS.filter((column) => column.id !== "note");
+  return helper.columns([...builtIn, ...custom]);
 }
 
 /** The grid id for a custom column. Prefixed so it cannot collide with a built-in's id. */
@@ -529,7 +536,7 @@ export function defaultTriageColumnVisibility(
 
 /**
  * Founded and Description start hidden, matching Strategy: a grid that opened with every column would
- * be a spreadsheet. The rest stay visible. Note, because it is the one column here the market cannot
+ * be a spreadsheet. The rest stay visible. Notes, because they are the one thing here the market cannot
  * supply and the reason a consultant opens this screen rather than that one; Added, because the grid
  * opens sorted by it, and a default ordering whose column is hidden shows its sort indicator nowhere;
  * and the three executive columns, because who sits in the seat is what a talent map is for.

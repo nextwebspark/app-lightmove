@@ -123,7 +123,9 @@ check_status 15.20 "a paired extension session can capture into the mandate" 201
 check 15.21 "…and the row records the plugin as its provenance" "extension" "$(json '.source')"
 check 15.22 "…landing at the stage the destination button named" "inUniverse" "$(json '.status')"
 check 15.23 "…with no universe id, because the page is not the market" "" "$(json '.apolloAccountId // empty')"
-check 15.24 "the consultant's note is kept" "Met at Gulfood." "$(json '.note')"
+CAPTURED_ID=$(json '.id')
+get "/projects/$PROJECT/triage/$CAPTURED_ID/notes" -H "$AUTH"
+check 15.24 "the consultant's note is filed as the company's first note" "Met at Gulfood." "$(json '.[0].body')"
 
 post_json "$CAPTURE" "$(capture_body shortlisted "Shortlisted $CAPTURED_NAME")" -H "$EXT_AUTH"
 check 15.25 "the other destination button lands it shortlisted" "shortlisted" "$(json '.status')"

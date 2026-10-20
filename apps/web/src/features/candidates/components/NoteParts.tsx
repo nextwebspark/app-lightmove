@@ -99,6 +99,13 @@ export function noteAnchorOf(noteId: string): string {
   return `note-${noteId}`;
 }
 
+/**
+ * A note as a card draws it: a person's, which may be about a position, or a company's, which never is. The two
+ * share every other field.
+ */
+export type NoteCardNote = Omit<PersonNote, "projectId" | "projectTitle"> &
+  Partial<Pick<PersonNote, "projectId" | "projectTitle">>;
+
 /** What a card may do to its note; a card drawn without them only reads. */
 export interface NoteCardActions {
   onPin: () => void;
@@ -118,7 +125,7 @@ export function NoteCard({
   teammates = null,
   flashAt = null,
 }: {
-  note: PersonNote;
+  note: NoteCardNote;
   actions?: NoteCardActions;
   /** The team an edit may mention: the position the note is about; null for a note about no position. */
   teammates?: readonly TeammateOption[] | null;

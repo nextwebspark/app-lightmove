@@ -2,15 +2,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
-import type { PersonNote } from "../api/types";
-import type { NoteCardActions } from "../components/NoteParts";
+import type { NoteCardActions, NoteCardNote } from "../components/NoteParts";
 
 /** One drawer's routes to a note, so both drawers' cards behave alike whatever they are keyed under. */
-export interface NoteRoutes {
-  pin: (noteId: string, pinned: boolean) => Promise<PersonNote>;
-  revise: (note: PersonNote, body: string) => Promise<PersonNote>;
+export interface NoteRoutes<N extends NoteCardNote> {
+  pin: (noteId: string, pinned: boolean) => Promise<N>;
+  revise: (note: N, body: string) => Promise<N>;
   remove: (noteId: string) => Promise<void>;
-  restore: (noteId: string) => Promise<PersonNote>;
+  restore: (noteId: string) => Promise<N>;
 }
 
 /**
@@ -18,7 +17,11 @@ export interface NoteRoutes {
  * the purge, so taking it back is a restore rather than a rewrite. Tasks are refreshed too, since a task set from
  * the note names it only while it exists.
  */
-export function useNoteCardActions(note: PersonNote, routes: NoteRoutes, refresh: () => void): NoteCardActions {
+export function useNoteCardActions<N extends NoteCardNote>(
+  note: N,
+  routes: NoteRoutes<N>,
+  refresh: () => void,
+): NoteCardActions {
   const toast = useToast();
   const queryClient = useQueryClient();
   const refreshAll = () => {

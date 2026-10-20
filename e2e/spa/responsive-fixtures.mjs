@@ -312,7 +312,7 @@ const TRIAGE_COMPANIES = Array.from({ length: 8 }, (_, i) => ({
   id: `triage-${i + 1}`,
   apolloAccountId: isManual(i) ? null : `apollo-${i + 1}`,
   status: "inUniverse",
-  note: null,
+  noteCount: 0,
   companyName: `Gulf Industrial Holdings Company ${i + 1}`,
   industry: "Industrial Manufacturing & Engineering Services",
   companyCountry: "United Arab Emirates",

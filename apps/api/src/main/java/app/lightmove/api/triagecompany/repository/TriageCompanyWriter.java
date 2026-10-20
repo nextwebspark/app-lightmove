@@ -23,7 +23,7 @@ public class TriageCompanyWriter {
 
     private static final String INSERT_HEAD = """
             INSERT INTO app_lm_project_triage_company (
-                project_id, apollo_account_id, source, status, note, company_name, industry,
+                project_id, apollo_account_id, source, status, company_name, industry,
                 industry_v2_code, industry_v2_label, sector_group,
                 company_country, company_city, num_employees, annual_revenue, website,
                 company_linkedin_url, founded_year, short_description, logo_url, source_url, added_by)
@@ -42,8 +42,7 @@ public class TriageCompanyWriter {
      * back {@code SUCCESS_NO_INFO}. Every value is bound; the template generates placeholder names only.
      */
     public int insertIgnoringHeld(UUID projectId, UUID addedBy, List<CompanyRow> rows,
-                                  TriageCompanySource source, TriageCompanyStatus status, String note,
-                                  String sourceUrl) {
+                                  TriageCompanySource source, TriageCompanyStatus status, String sourceUrl) {
         if (rows.isEmpty()) {
             return 0;
         }
@@ -51,7 +50,6 @@ public class TriageCompanyWriter {
         params.put("projectId", projectId);
         params.put("addedBy", addedBy);
         params.put("status", status.name());
-        params.put("note", note);
         params.put("sourceUrl", sourceUrl);
         params.put("source", source.name());
 
@@ -66,7 +64,7 @@ public class TriageCompanyWriter {
     }
 
     private static final String ROW_PLACEHOLDERS =
-            "(:projectId, :accountId%1$d, :source, :status, :note, :companyName%1$d, :industry%1$d, "
+            "(:projectId, :accountId%1$d, :source, :status, :companyName%1$d, :industry%1$d, "
                     + ":industryV2Code%1$d, :industryV2Label%1$d, :sectorGroup%1$d, "
                     + ":companyCountry%1$d, :companyCity%1$d, :numEmployees%1$d, :annualRevenue%1$d, "
                     + ":website%1$d, :companyLinkedinUrl%1$d, :foundedYear%1$d, "

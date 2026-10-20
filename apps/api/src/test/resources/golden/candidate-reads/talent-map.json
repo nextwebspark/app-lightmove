@@ -140,7 +140,7 @@
     "industry" : "food & beverages",
     "logoUrl" : null,
     "noExecutiveFound" : false,
-    "note" : null,
+    "noteCount" : null,
     "numEmployees" : null,
     "shortDescription" : null,
     "source" : "manual",
