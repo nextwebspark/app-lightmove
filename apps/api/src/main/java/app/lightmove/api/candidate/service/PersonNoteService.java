@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.candidate.repository.DeletedPersonNoteRow;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -39,8 +40,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * A person's notes, read by staff only (decision D1) and only as far as the caller's {@link NoteViewpoint} reads.
- * Anyone who reaches a note may pin it; only its author, or a holder of {@code WORKSPACE_MANAGE}, may change or
- * remove it. Every write is a timeline line naming the note, never quoting it, so a removed note leaves no copy.
+ * Anyone who reaches a note may pin it; only its author, or a holder of {@code WORKSPACE_MANAGE}, may change,
+ * remove or restore it. Every write is a timeline line naming the note, never quoting it. A removed note is kept
+ * out of every read until it is restored or {@link PersonNotePurge} deletes it, after which nothing of it is left.
  * A note about a position may mention its team ({@link NoteMentions}); one about no position mentions nobody.
  */
 @Service
@@ -119,11 +121,41 @@ public class PersonNoteService {
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_REMOVED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
-        notes.delete(note);
+        note.discard(userId);
         audit.event(ProjectEventType.PERSON_NOTE_REMOVED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("noteId", noteId.toString())
                 .record();
+    }
+
+    /**
+     * Takes a delete back while the note is still held. Its mentions were never dropped, so nobody is told twice;
+     * a note that is already live answers as it is, so a second press of Undo is harmless.
+     */
+    @Transactional
+    public PersonNoteResponse restore(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
+                                      UUID noteId, HttpServletRequest httpRequest) {
+        Person person = people.requireInWorkspace(personId, workspaceId);
+        DeletedPersonNoteRow deleted = notes.findDeleted(noteId, workspaceId, personId).orElse(null);
+        if (deleted == null) {
+            PersonNote live = notes.requireReadable(noteId, workspaceId, personId, viewpoint);
+            return toDto(live, usersOf(List.of(live)), mayEdit(userId, workspaceId, live));
+        }
+        if (!viewpoint.reads(deleted.getProjectId())) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
+            throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
+        }
+        notes.restore(noteId, workspaceId);
+        PersonNote note = notes.requireReadable(noteId, workspaceId, personId, viewpoint);
+        activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_RESTORED,
+                PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
+        audit.event(ProjectEventType.PERSON_NOTE_RESTORED).actor(userId).workspace(workspaceId)
+                .target(PERSON_TARGET, personId).from(httpRequest)
+                .detail("noteId", noteId.toString())
+                .record();
+        return toDto(note, usersOf(List.of(note)), true);
     }
 
     /** Pinning orders the list; it is nobody's edit, so it leaves no timeline line, only an audit event. */

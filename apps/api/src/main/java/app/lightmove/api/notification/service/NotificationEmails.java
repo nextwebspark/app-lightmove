@@ -140,7 +140,9 @@ public class NotificationEmails {
                 .map(Project::getPositionTitle).orElse("a");
         String link = linkOf(row.getProjectId(), row.getCandidateId(), row.getPersonId(), row.getNoteId());
         User to = recipient.get();
-        if (row.getKind() == NotificationKind.MENTIONED && row.getNoteId() != null) {
+        // A deleted note keeps its row until the purge, so whether it is still there is asked, not read off note_id.
+        if (row.getKind() == NotificationKind.MENTIONED && row.getNoteId() != null
+                && people.linkedNotesOf(row.getWorkspaceId(), List.of(row.getNoteId())).containsKey(row.getNoteId())) {
             return Optional.of(templates.buildMentionedEmail(to.getEmail(), to.getFullName(), actorName, executive,
                     position, link));
         }

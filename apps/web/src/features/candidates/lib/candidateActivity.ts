@@ -164,6 +164,8 @@ function phraseOf(
       return { text: `edited a note${onThem}${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
     case "NOTE_REMOVED":
       return { text: `deleted a note${onThem}${aboutOf(entry, here)}`, detail: null };
+    case "NOTE_RESTORED":
+      return { text: `restored a note${onThem}${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
     case "TAGGED":
       return { text: `tagged${them} ${details.tag ?? "with a tag"}`, detail: null };
     case "UNTAGGED":

@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.candidate.service.PersonNotePurge;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
 
     @Autowired JdbcTemplate db;
     @Autowired StubChatModel model;
+    @Autowired PersonNotePurge purge;
 
     private String admin;
     private String saraEmail;
@@ -349,7 +351,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a removed note leaves a line saying so and none of its words")
+    @DisplayName("a removed note leaves a line saying so and none of its words, and is gone for good once purged")
     void aRemovedNoteLeavesNoWords() throws Exception {
         firm("Removed Note Firm");
         String cfo = mandate("Chief Financial Officer");
@@ -358,6 +360,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
         String candidateId = filed.get("id").asText();
         String noteId = write(admin, cfo, candidateId, "call", "Asked for 2.4m AED base, discreetly.")
                 .get("id").asText();
+        String taskId = task(cfo, candidateId, noteId);
 
         JsonNode before = timeline(cfo, candidateId, "notes");
         assertThat(before.get("entries").get(0).get("noteExcerpt").asText()).startsWith("Asked for 2.4m");
@@ -368,12 +371,101 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
         JsonNode after = timeline(cfo, candidateId, "notes").get("entries");
         assertThat(kindsOf(after)).containsExactly("NOTE_REMOVED", "NOTE_ADDED");
         assertThat(after).allSatisfy(line -> assertThat(line.get("noteExcerpt").isNull()).isTrue());
-        assertThat(db.queryForObject("select count(*) from app_lm_person_note where id = ?::uuid", Integer.class,
-                noteId)).isZero();
+        assertThat(notes(admin, cfo, candidateId)).isEmpty();
+        assertThat(poolNotes(filed.get("personId").asText())).isEmpty();
+        assertThat(openTask(cfo, candidateId, taskId).get("note").isNull()).isTrue();
         assertThat(db.queryForObject("""
                 select count(*) from app_lm_person_activity
                 where person_id = ?::uuid and details::text like '%2.4m%'""", Integer.class,
                 filed.get("personId").asText())).isZero();
+
+        assertThat(purge.purgeAt(Instant.now())).isZero();
+        db.update("update app_lm_person_note set deleted_at = now() - interval '31 days' where id = ?::uuid", noteId);
+        assertThat(purge.purgeAt(Instant.now())).isEqualTo(1);
+        assertThat(db.queryForObject("select count(*) from app_lm_person_note where id = ?::uuid", Integer.class,
+                noteId)).isZero();
+        assertThat(db.queryForObject("select note_id::text from app_lm_task where id = ?::uuid", String.class,
+                taskId)).isNull();
+    }
+
+    @Test
+    @DisplayName("a removed note is restored by its author or an admin, as it was, with a line saying so")
+    void aRemovedNoteIsRestored() throws Exception {
+        firm("Restored Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        JsonNode filed = add(cfo, """
+                {"fullName":"Hessa Al Suwaidi"}""");
+        String candidateId = filed.get("id").asText();
+        String sara = researcherOn(cfo);
+        String noteId = write(admin, cfo, candidateId, "meeting", "Wants a board seat within two years.")
+                .get("id").asText();
+        String taskId = task(cfo, candidateId, noteId);
+        mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        String refusal = codeOf(mvc.perform(post(notesUrl(cfo, candidateId) + "/" + noteId + "/restore")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isForbidden())
+                .andReturn());
+        assertThat(refusal).isEqualTo("PERSON_NOTE_NOT_YOURS");
+
+        JsonNode restored = body(mvc.perform(post(notesUrl(cfo, candidateId) + "/" + noteId + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(restored.get("body").asText()).isEqualTo("Wants a board seat within two years.");
+        assertThat(restored.get("kind").asText()).isEqualTo("meeting");
+        assertThat(notes(admin, cfo, candidateId)).hasSize(1);
+        assertThat(openTask(cfo, candidateId, taskId).at("/note/id").asText()).isEqualTo(noteId);
+        JsonNode lines = timeline(cfo, candidateId, "notes").get("entries");
+        assertThat(kindsOf(lines)).containsExactly("NOTE_RESTORED", "NOTE_REMOVED", "NOTE_ADDED");
+        assertThat(lines.get(0).get("noteExcerpt").asText()).startsWith("Wants a board seat");
+
+        mvc.perform(post("/api/v1/candidates/" + filed.get("personId").asText() + "/notes/" + noteId + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+        assertThat(kindsOf(timeline(cfo, candidateId, "notes").get("entries")))
+                .containsExactly("NOTE_RESTORED", "NOTE_REMOVED", "NOTE_ADDED");
+    }
+
+    @Test
+    @DisplayName("another position's removed note is not found from this one, to restore")
+    void anotherPositionsRemovedNoteIsNotRestoredHere() throws Exception {
+        firm("Foreign Restore Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String credit = mandate("Head of Credit Risk");
+        String onCfo = add(cfo, FATIMA).get("id").asText();
+        String onCredit = add(credit, FATIMA).get("id").asText();
+        String noteId = write(admin, cfo, onCfo, "general", "Board seat at a bank.").get("id").asText();
+        mvc.perform(delete(notesUrl(cfo, onCfo) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(post(notesUrl(credit, onCredit) + "/" + noteId + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("a door's note that was removed is filed again when the door sends it again")
+    void aRemovedDoorNoteIsFiledAgain() throws Exception {
+        firm("Removed Door Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String update = """
+                {"fullName":"James Whitfield","note":"Captured at the Gulf CFO forum."}""";
+        String candidateId = add(cfo, update).get("id").asText();
+        String noteId = notes(admin, cfo, candidateId).get(0).get("id").asText();
+        mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(put("/api/v1/projects/" + cfo + "/candidates/" + candidateId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(update))
+                .andExpect(status().isOk());
+
+        JsonNode found = notes(admin, cfo, candidateId);
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).get("id").asText()).isNotEqualTo(noteId);
     }
 
     @Test

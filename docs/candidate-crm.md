@@ -200,7 +200,8 @@ them (expand → migrate → contract).
 nullable (the *context*, ON DELETE SET NULL, name snapshotted as `project_title` so a deleted mandate's
 notes still read), `kind` CHECK `('GENERAL','CALL','MEETING','EMAIL','FEEDBACK')`, `body text` (≤ 4000),
 `pinned boolean`, `author_user_id NOT NULL`, `created_at`, `edited_at`, `edited_by`. Notes are user-authored
-and editable by their author or an admin; deletion is real but leaves a `NOTE_REMOVED` activity row.
+and editable by their author or an admin; deletion leaves a `NOTE_REMOVED` activity row and, since V141, keeps the
+note out of every read for 30 days so it can be restored, then purges it.
 
 **`app_lm_candidate_activity`** (V91) — the immutable system timeline: `id bigserial`, `workspace_id`,
 `candidate_id NOT NULL` (ON DELETE CASCADE), `project_id` nullable + `project_title` snapshot,
@@ -481,7 +482,9 @@ expand and the contract in separate deploys.
 >   `WORK_EXECUTE` too: reading the pool is any staff member's (D2), filing work against a mandate is
 >   its team's.
 > - **The timeline never holds a note's words.** A `NOTE_*` line carries the note's id and kind; the read
->   adds the live note's first 140 characters, so a removed note leaves only "deleted a note".
+>   adds the live note's first 140 characters, so a removed note leaves only "deleted a note". A removed
+>   note is kept, out of every read, until `lightmove.notes.purge-after` (V141), so Undo can restore it;
+>   the purge then deletes it for good.
 > - **Routes:** a position's drawer uses `…/candidates/{id}/positions|notes|timeline` (`WORK_EXECUTE`,
 >   `PersonCrmController`); the workspace's `/api/v1/candidates/{personId}`, its notes and timeline, and
 >   `/candidates/activity` (filters `actor, position, group, from, to`) take `CANDIDATE_POOL_MANAGE`

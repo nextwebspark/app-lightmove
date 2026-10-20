@@ -66,7 +66,7 @@ interface TaskResponse {
   id: string; projectId: string; projectTitle: string | null; candidateId: string | null;
   personId: string; personName: string | null;
   title: string; kind: TaskKind; detail: string | null; presetId: string | null;
-  note: TaskNote | null;                                   // the note it came from; null once that is deleted
+  note: TaskNote | null;                                   // the note it came from; null while it is deleted
   assignee: TaskPerson; createdBy: TaskPerson | null;      // createdBy null: filed by a rule
   dueAt: string | null; status: TaskStatus; source: 'manual' | 'note' | 'rule'; rule: TaskRule | null;
   completedAt: string | null; completedBy: TaskPerson | null; createdAt: string;

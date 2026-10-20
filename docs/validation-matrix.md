@@ -111,7 +111,8 @@ is held back rather than sent (the step does not save until it is named) and the
 | Note kind | four chips | `ApiValueEnum`: 400 "That is not a valid note kind" | toast |
 | Note scope, a position's drawer | This position (default) or All positions, sent as `allPositions` | `allPositions: true` files it about no position; `projectId` not read; neither read on an edit; both together 400 | toast |
 | Note position, Candidates page | "About" select of the person's positions | `projectId` needs that position's `WORK_EXECUTE` (403) and a mapping there (404); with `allPositions: true` 400 | toast |
-| Another position's note, from a position | not listed | 404 on edit, pin, delete and a task's `noteId` | toast |
+| Another position's note, from a position | not listed | 404 on edit, pin, delete, restore and a task's `noteId` | toast |
+| Delete / restore a note | Delete at once, Undo on the toast | author or `WORKSPACE_MANAGE`, else `PERSON_NOTE_NOT_YOURS` (403); restore of a purged note 404; a live note answers as it is | toast |
 | Assessment score | stepper 0–10 or unscored | `@Min(0) @Max(10)`, null allowed | toast |
 | Assessment evidence | `maxLength` 2000 | `@Size(2000)` | toast |
 | Assessment report section | `maxLength` 4000 | `@Size(4000)` each | toast |

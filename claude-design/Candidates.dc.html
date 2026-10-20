@@ -1898,7 +1898,7 @@ class Component extends DCLogic {
         this.showToast("Note saved — your team sees it on every position");
       },
       togglePin: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.map((n) => (n.id === id ? Object.assign({}, n, { pinned: !n.pinned }) : n)) }); },
-      deleteNote: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.filter((n) => n.id !== id) }); this.showToast("Note deleted — the timeline keeps a line saying so"); },
+      deleteNote: (e) => { const id = e.currentTarget.dataset.id; this.setState({ notes: s.notes.filter((n) => n.id !== id) }); this.showToast("Note deleted · Undo"); },
       setTlKind: (e) => this.setState({ tlKind: e.currentTarget.dataset.id }),
 
       pickFiles: () => {

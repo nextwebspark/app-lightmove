@@ -1913,6 +1913,7 @@
                         <sc-if value="{{ n.menuOpen }}" hint-placeholder-val="{{ false }}">
                           <div style="position:absolute;right:14px;top:38px;z-index:10;width:120px;border-radius:8px;border:1px solid var(--line);background:var(--panel);padding:4px;box-shadow:var(--shadow)">
                             <button onClick="{{ pinNoteStub }}" style="display:block;width:100%;border-radius:5px;padding:6px 8px;text-align:left;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Unpin</button>
+                            <button onClick="{{ editNoteStub }}" style="display:block;width:100%;border-radius:5px;padding:6px 8px;text-align:left;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Edit</button>
                             <button onClick="{{ deleteNoteStub }}" style="display:block;width:100%;border-radius:5px;padding:6px 8px;text-align:left;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--red)">Delete</button>
                           </div>
                         </sc-if>
@@ -1944,7 +1945,8 @@
                       <sc-if value="{{ n.menuOpen }}" hint-placeholder-val="{{ false }}">
                         <div style="position:absolute;right:14px;top:38px;z-index:10;width:120px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:4px;box-shadow:var(--shadow)">
                           <button onClick="{{ pinNoteStub }}" style="display:block;width:100%;border-radius:5px;padding:6px 8px;text-align:left;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Pin</button>
-                          <button onClick="{{ deleteNoteStub }}" style="display:block;width:100%;border-radius:5px;padding:6px 8px;text-align:left;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--red)">Delete</button>
+                          <button onClick="{{ editNoteStub }}" style="display:block;width:100%;border-radius:5px;padding:6px 8px;text-align:left;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Edit</button>
+                            <button onClick="{{ deleteNoteStub }}" style="display:block;width:100%;border-radius:5px;padding:6px 8px;text-align:left;font:500 12px var(--sans);color:var(--text2);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--red)">Delete</button>
                         </div>
                       </sc-if>
                       <p style="margin:12px 0 0;white-space:pre-wrap;font:400 14px/1.55 var(--sans);color:var(--text)">{{ n.body }}</p>
@@ -4182,7 +4184,8 @@ class Component extends DCLogic {
         setTimeout(() => { const el = document.getElementById(`note-${k}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
         clearTimeout(this._noteFlashT); this._noteFlashT = setTimeout(() => this.setState({ noteFlash: null }), 2000); },
       pinNoteStub: () => this.showToast("Pinned to this record"),
-      deleteNoteStub: () => this.showToast("Note deleted — the timeline keeps a line saying so"),
+      editNoteStub: () => this.showToast("The note opens for editing in place"),
+      deleteNoteStub: () => this.showToast("Note deleted · Undo"),
       setNextAction: () => set({ naModal: { mode: "new", execId: this.state.candId }, naWhat: "", naPresetIdx: null, naKind: "CALL", naWho: "yh", naDate: "2026-10-05", naTime: "09:00", naDetail: "", naPresetsOpen: true, naWhoOpen: false, naJustDone: false }),
       openNextAction: (e) => { e.stopPropagation(); const k = id(e); const n = PIPE_NEXT[k];
         set(n ? { naModal: { mode: "edit", execId: k }, naWhat: n.text, naKind: "TODO", naWho: n.who, naDate: "2026-10-04", naTime: "16:00", naDetail: "", naPresetsOpen: false, naWhoOpen: false }

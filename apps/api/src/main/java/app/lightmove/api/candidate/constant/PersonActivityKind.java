@@ -32,6 +32,7 @@ public enum PersonActivityKind {
     NOTE_ADDED,
     NOTE_EDITED,
     NOTE_REMOVED,
+    NOTE_RESTORED,
 
     /** The line carries the tag's id and its label as it was spelled then; the read prefers today's. */
     TAGGED,

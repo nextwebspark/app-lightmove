@@ -31,6 +31,7 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   getPoolNotes: vi.fn(),
   writePoolNote: vi.fn(),
   removePoolNote: vi.fn(),
+  restorePoolNote: vi.fn(),
   getPoolTimeline: vi.fn(),
   getActivityFeed: vi.fn(),
   tagCatalog: vi.fn(),
@@ -523,7 +524,7 @@ describe("CandidatesPage", () => {
     expect(within(positions).getByRole("button", { name: "Set next action" })).toBeInTheDocument();
   });
 
-  it("asks before deleting a note", async () => {
+  it("deletes a note at once and takes it back with Undo", async () => {
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([
       {
         id: "n1",
@@ -542,15 +543,14 @@ describe("CandidatesPage", () => {
       },
     ]);
     vi.mocked(poolApi.removePoolNote).mockResolvedValue(undefined);
+    vi.mocked(poolApi.restorePoolNote).mockResolvedValue({} as never);
     renderPage("/candidates?person=person-1&tab=notes");
 
     await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
-    expect(poolApi.removePoolNote).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "No" }));
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }));
-    await userEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
-
     await waitFor(() => expect(poolApi.removePoolNote).toHaveBeenCalledWith("person-1", "n1"));
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+
+    await waitFor(() => expect(poolApi.restorePoolNote).toHaveBeenCalledWith("person-1", "n1"));
   });
 
   it("writes a note about the person rather than a position, unless one is picked", async () => {
