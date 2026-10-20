@@ -17,6 +17,7 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
@@ -90,7 +91,7 @@ public class PersonNoteService {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
         }
-        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), userId);
+        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_ADDED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -105,7 +106,7 @@ public class PersonNoteService {
         Person person = people.requireInWorkspace(personId, workspaceId);
         PersonNoteKind kind = kindOf(request);
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
-        note.revise(kind, request.body().strip(), userId);
+        note.revise(kind, request.body().strip(), formatOf(request), userId);
         mentions.keep(note, userId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_EDITED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
@@ -133,7 +134,8 @@ public class PersonNoteService {
     /**
      * Takes a delete back while the note is still held. Its mentions were never dropped, so nobody is told twice.
      * A note already live answers as it is, so a second press of Undo, or two at once, records one restore; and
-     * where a door has filed the same words again since, that copy answers and the deleted one is left to the purge.
+     * where a door has filed the same words again since under the same author, that copy answers and the deleted one is
+     * left to the purge.
      */
     @Transactional
     public PersonNoteResponse restore(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
@@ -149,8 +151,8 @@ public class PersonNoteService {
         if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
-        PersonNote twin = notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBody(workspaceId, personId,
-                deleted.getProjectId(), deleted.getBody()).orElse(null);
+        PersonNote twin = notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserId(workspaceId,
+                personId, deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId()).orElse(null);
         if (twin != null) {
             return asItStands(userId, workspaceId, twin);
         }
@@ -199,13 +201,14 @@ public class PersonNoteService {
                 person.getId(), candidate.getProjectId(), text)) {
             return;
         }
-        save(person, candidate.getProjectId(), PersonNoteKind.GENERAL, text, userId);
+        save(person, candidate.getProjectId(), PersonNoteKind.GENERAL, text, NoteFormat.PLAIN, userId);
     }
 
-    private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, UUID author) {
+    private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
+                            UUID author) {
         String title = projectId == null ? null
                 : projects.findById(projectId).map(Project::getPositionTitle).orElse(null);
-        PersonNote note = notes.save(PersonNote.written(person, projectId, title, kind, body, author));
+        PersonNote note = notes.save(PersonNote.written(person, projectId, title, kind, body, format, author));
         activity.record(person, projectId, author, PersonActivityKind.NOTE_ADDED,
                 PersonActivityDetails.of("noteId", note.getId()).and("kind", kind));
         return note;
@@ -232,6 +235,10 @@ public class PersonNoteService {
         return ApiValueEnum.require(PersonNoteKind.class, request.kind(), "note kind");
     }
 
+    private static NoteFormat formatOf(WritePersonNoteRequest request) {
+        return ApiValueEnum.parse(NoteFormat.class, request.format(), NoteFormat.PLAIN, "note format");
+    }
+
     private Map<UUID, User> usersOf(List<PersonNote> found) {
         List<UUID> ids = found.stream()
                 .flatMap(note -> Stream.of(note.getAuthorUserId(), note.getEditedBy()))
@@ -242,7 +249,8 @@ public class PersonNoteService {
     private static PersonNoteResponse toDto(PersonNote note, Map<UUID, User> users, boolean editable) {
         User author = users.get(note.getAuthorUserId());
         User editor = note.getEditedBy() == null ? null : users.get(note.getEditedBy());
-        return new PersonNoteResponse(note.getId(), note.getKind().value(), note.getBody(), note.isPinned(),
+        return new PersonNoteResponse(note.getId(), note.getKind().value(), note.getBody(),
+                note.getBodyFormat().value(), note.isPinned(),
                 note.getProjectId(), note.getProjectTitle(), note.getAuthorUserId(),
                 author == null ? null : author.getFullName(), author == null ? null : author.getAvatarUrl(),
                 note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable);

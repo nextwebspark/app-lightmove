@@ -20,6 +20,8 @@ public record ClientDetailResponse(
         String domain,
         String offLimitsNote,
         String notes,
+        /** A {@code NoteFormat} wire token: how {@code notes} is to be read. */
+        String notesFormat,
         HiringPersona persona,
         long activeMandates,
         long deliveredMandates,

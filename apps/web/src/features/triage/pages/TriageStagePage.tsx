@@ -41,7 +41,7 @@ import * as triageApi from "../api/triageApi";
 import { executiveStatusOptions as statusFilterOptions, statusKeysOf } from "../lib/executiveStatusFilter";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { CompanyDrawer } from "../components/CompanyDrawer";
+import { CompanyDrawer, type CompanyDrawerTab } from "../components/CompanyDrawer";
 import { ExecutiveSourcingBanner } from "../components/ExecutiveSourcingBanner";
 import { FindExecutivesDialog } from "../components/FindExecutivesDialog";
 import { ImportSpreadsheetDialog } from "../components/ImportSpreadsheetDialog";
@@ -60,7 +60,6 @@ import { companiesOf } from "../lib/sourcingSummary";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
 import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
-import { useSaveCompanyNote } from "../lib/useSaveCompanyNote";
 
 /**
  * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
@@ -630,7 +629,6 @@ function TriageStage() {
     onSettled: (_data, _error, company) => clearBusy(company.id),
   });
 
-  const saveNote = useSaveCompanyNote(project.id, refreshEveryStage);
   const changeCandidateStatus = useChangeCandidateStatus(project.id, refreshPeople);
 
   // A page that outlives its rows — the last company on page 3 was moved away — would otherwise sit
@@ -789,7 +787,7 @@ function TriageStage() {
               company: { triageCompanyId: company.id, companyName: company.companyName },
             })
           }
-          onSaveNote={(company, note) => saveNote.mutateAsync({ company, note })}
+          onOpenCompanyNotes={(company) => setOpenCompany({ company, tab: "notes" })}
           onChangeCandidateStatus={(candidate, status) => {
             markBusy(candidate.id);
             changeCandidateStatus.mutate(
@@ -869,6 +867,7 @@ function TriageStage() {
         open={openCompany !== null}
         projectId={project.id}
         company={openCompany?.company ?? null}
+        initialTab={openCompany?.tab ?? "overview"}
         landingStatus={stage.status}
         customColumns={companyColumns}
         canWrite={canWrite}
@@ -976,4 +975,6 @@ interface OpenProfile {
  */
 interface OpenCompany {
   company: TriageCompany | null;
+  /** The panel's tab to open on; its Overview when not said. */
+  tab?: CompanyDrawerTab;
 }

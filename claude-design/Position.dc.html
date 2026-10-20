@@ -256,7 +256,7 @@
                               <span style="{{ c.pillStyle }}">{{ c.text }}</span>
                             </sc-if>
                             <sc-if value="{{ c.kNote }}" hint-placeholder-val="{{ false }}">
-                              <button title="Click to edit" style="display:flex;width:100%;min-width:0;border-radius:4px;text-align:start;background:none;border:none;padding:0;cursor:pointer" style-hover="background:var(--panel2)">
+                              <button title="Open this company's notes" style="display:flex;width:100%;min-width:0;border-radius:4px;text-align:start;background:none;border:none;padding:0;cursor:pointer" style-hover="background:var(--panel2)">
                                 <span style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 13px var(--sans);color:var(--text3)">{{ c.text }}</span></button>
                             </sc-if>
                           </div>
@@ -1126,16 +1126,32 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:12px;row-gap:10px">
             <sc-for list="{{ co.mandate }}" as="t"><div style="min-width:0"><div style="margin-bottom:4px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ t.label }}</div><div style="{{ t.style }}">{{ t.value }}</div></div></sc-for>
           </div>
-          <sc-if value="{{ co.market }}"><p style="margin:12px 0 0;font:400 11px/1.6 var(--mono);color:var(--text3)">These fields come from the market export and are refreshed by it, so they are not editable here. Your note below is yours.</p></sc-if>
+          <sc-if value="{{ co.market }}"><p style="margin:12px 0 0;font:400 11px/1.6 var(--mono);color:var(--text3)">These fields come from the market export and are refreshed by it, so they are not editable here. Your team's notes are yours.</p></sc-if>
         </section>
         <section style="border-bottom:1px solid var(--line-soft);padding:16px 0">
           <div style="margin-bottom:10px;display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Your columns</h3></div>
           <label style="display:block;margin-bottom:16px"><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Ownership</span>
             <input defaultValue="{{ co.ownership }}" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></label>
         </section>
+        <!-- Notes is its own tab (Overview · Notes N), drawn for staff only, as the executive drawer's: the composer
+             with its formatting row and Expand, then the team's notes pinned first, each with Pin, Edit and Delete
+             (Undo on the toast). Shown here as the tab's body. -->
         <section style="padding:16px 0">
-          <div style="margin-bottom:10px;display:flex;align-items:baseline;justify-content:space-between;gap:12px"><h3 style="margin:0;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--text3)">Note</h3></div>
-          <textarea defaultValue="{{ co.note }}" rows="3" aria-label="Note on this company" placeholder="Your own remark on this company, for this mandate…" style="width:100%;resize:vertical;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
+          <div role="tablist" aria-label="Company sections" style="margin-bottom:12px;display:flex;gap:14px;border-bottom:1px solid var(--line-soft)">
+            <span role="tab" aria-selected="false" style="padding:6px 0;font:500 13px var(--sans);color:var(--text3)">Overview</span>
+            <span role="tab" aria-selected="true" style="padding:6px 0;border-bottom:2px solid var(--u-accent);font:600 13px var(--sans);color:var(--text)">Notes <span style="margin-left:4px;border-radius:4px;background:var(--panel2);padding:1px 6px;font:600 10px var(--mono)">2</span></span>
+          </div>
+          <div style="border-radius:8px;border:1px solid var(--line);padding:10px">
+            <div style="display:flex;gap:6px;margin-bottom:8px;font:500 12px var(--sans);color:var(--text3)"><span>Note</span><span>Call</span><span>Meeting</span><span>Email</span></div>
+            <div style="display:flex;align-items:center;gap:2px;color:var(--text3);font:600 11px var(--sans)"><b style="padding:3px 6px">B</b><i style="padding:3px 6px">I</i><u style="padding:3px 6px">U</u><s style="padding:3px 6px">S</s><span style="padding:3px 6px">H2</span><span style="padding:3px 6px">H3</span><span style="padding:3px 6px">•</span><span style="padding:3px 6px">1.</span><span style="padding:3px 6px">☐</span><span style="padding:3px 6px">“</span><span style="padding:3px 6px">🔗</span><span style="flex:1"></span><span title="Expand — write in a larger view" style="padding:3px 6px">⤢</span></div>
+            <p style="margin:8px 0 0;font:400 13px var(--sans);color:var(--text3)">What your team should know about this company…</p>
+            <div style="margin-top:8px;display:flex;justify-content:flex-end"><button style="border-radius:6px;border:none;background:var(--u-accent);padding:5px 10px;font:600 12px var(--sans);color:#fff">Save note</button></div>
+          </div>
+          <div style="margin-top:10px;border-radius:8px;border:1px solid var(--line);padding:10px 12px">
+            <div style="display:flex;align-items:center;gap:8px;font:600 12.5px var(--sans);color:var(--text)">Yara Haddad <span style="font:600 9.5px var(--mono);text-transform:uppercase;color:var(--text3)">Call</span><span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">Today 09:12</span></div>
+            <p style="margin:6px 0 0;font:400 13px/1.55 var(--sans);color:var(--text2)"><b>Board reshuffle</b> in Q1 — their CFO is moving to Riyadh.</p>
+            <div style="margin-top:6px;display:flex;justify-content:flex-end;gap:12px;font:400 11px var(--mono);color:var(--text3)"><span>Pin</span><span>Edit</span><span>Delete</span></div>
+          </div>
         </section>
       </div>
       <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
@@ -1841,13 +1857,25 @@
                             <p style="margin:4px 0 0;padding:6px 9px 3px;border-top:1px solid var(--line-soft);font:400 11px var(--sans);color:var(--text3)">Only this position's team. They're told who mentioned them, never what the note says.</p>
                           </div>
                         </sc-if>
-                        <textarea value="{{ cd.noteText }}" onChange="{{ onNoteText }}" rows="3" maxLength="4000" aria-label="Note" placeholder="What was said, and what happens next…" style="width:100%;resize:vertical;border:none;background:none;padding:0;font:400 14px/1.55 var(--sans);color:var(--text);outline:none"></textarea>
+                        <textarea value="{{ cd.noteText }}" onChange="{{ onNoteText }}" rows="3" maxLength="10000" aria-label="Note" placeholder="What was said, and what happens next…" style="width:100%;resize:vertical;border:none;background:none;padding:0;font:400 14px/1.55 var(--sans);color:var(--text);outline:none"></textarea>
                         <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
-                          <span style="display:flex;align-items:center;gap:16px;color:var(--text3)">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"></path></svg>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M19 4h-9M14 20H5M14.7 4.5 9.3 19.5"></path></svg>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6"><path d="M9 6h11M9 12h11M9 18h11M5 6h.01M5 12h.01M5 18h.01"></path></svg>
-                            <button onClick="{{ toggleMention }}" title="Mention a teammate (type @)" aria-label="Mention a teammate" style="display:grid;place-items:center;width:22px;height:22px;margin:-4px 0;border-radius:5px;border:none;background:{{ cd.mentionBtnBg }};color:inherit;cursor:pointer;padding:0;font:600 13px var(--sans)" style-hover="color:var(--text)">@</button>
+                          <span style="display:flex;flex:1;flex-wrap:wrap;align-items:center;gap:2px;color:var(--text3)">
+                            <button title="Bold (⌘B)" aria-label="Bold (⌘B)" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"></path></svg></button>
+                            <button title="Italic (⌘I)" aria-label="Italic (⌘I)" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M19 4h-9M14 20H5M14.7 4.5 9.3 19.5"></path></svg></button>
+                            <button title="Underline (⌘U)" aria-label="Underline (⌘U)" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 4v6a6 6 0 0 0 12 0V4M4 20h16"></path></svg></button>
+                            <button title="Strikethrough" aria-label="Strikethrough" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16"></path></svg></button>
+                            <span style="width:1px;height:14px;margin:0 4px;background:var(--line)"></span>
+                            <button title="Heading" aria-label="Heading" style="display:grid;place-items:center;min-width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0 3px;font:600 11px var(--sans)" style-hover="background:var(--panel2);color:var(--text)">H2</button>
+                            <button title="Subheading" aria-label="Subheading" style="display:grid;place-items:center;min-width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0 3px;font:600 11px var(--sans)" style-hover="background:var(--panel2);color:var(--text)">H3</button>
+                            <span style="width:1px;height:14px;margin:0 4px;background:var(--line)"></span>
+                            <button title="Bulleted list" aria-label="Bulleted list" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg></button>
+                            <button title="Numbered list" aria-label="Numbered list" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg></button>
+                            <button title="Checklist" aria-label="Checklist" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8"></path></svg></button>
+                            <button title="Quote" aria-label="Quote" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M3 21c3 0 7-1 7-8V5H3v8h4M14 21c3 0 7-1 7-8V5h-7v8h4"></path></svg></button>
+                            <button title="Link (⌘K)" aria-label="Link (⌘K)" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg></button>
+                            <button onClick="{{ toggleMention }}" title="Mention a teammate (type @)" aria-label="Mention a teammate" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:{{ cd.mentionBtnBg }};color:inherit;cursor:pointer;padding:0;font:600 13px var(--sans)" style-hover="color:var(--text)">@</button>
+                            <span style="flex:1"></span>
+                            <button title="Expand — write in a larger view" aria-label="Expand — write in a larger view" style="display:grid;place-items:center;width:24px;height:24px;border-radius:5px;border:none;background:none;color:inherit;cursor:pointer;padding:0" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"></path></svg></button>
                           </span>
                           <span style="font:400 10px var(--sans);color:var(--text3)">{{ cd.noteCharCount }} characters</span>
                         </div>
@@ -3208,8 +3236,8 @@ class Component extends DCLogic {
       case "revenue": return text(co ? money(co.revenue) : "—");
       case "employees": return text(co && co.employees != null ? co.employees.toLocaleString("en-US") : null);
       case "note":
-        if (co && cw) return { cellStyle, kNote: true, text: co.note || "—" };
-        return text(co ? co.note : null, true);
+        if (co && cw) return { cellStyle, kNote: true, text: co.note ? "2 notes" : "Add note" };
+        return text(null, true);
       case "founded": return text(co && co.founded ? String(co.founded) : null);
       case "added": return text(dateGB(co ? co.added : cand.added));
       case "description": return text(co ? co.desc : null, true);

@@ -2,17 +2,10 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, LinesSkeleton, Spinner, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
-import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { formatActivityTime } from "../../projects/lib/activity";
 import type { TaskNote } from "../../tasks/api/types";
-import { MentionTextArea } from "../../tasks/components/MentionTextArea";
-import {
-  mentionsPresent,
-  NOTE_MAX_STORED,
-  NOTE_TOO_LONG,
-  serializeMentions,
-  type Mention,
-} from "../../tasks/lib/mentions";
+import { NoteEditor } from "../../notes/components/NoteEditor";
+import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../tasks/lib/mentions";
 import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
@@ -91,27 +84,28 @@ export function NotesSection({
   const thisPosition = positions.data?.find((row) => row.projectId === projectId)?.positionTitle;
   const [kind, setKind] = useState<PersonNoteKind>("general");
   const [scope, setScope] = useState<NoteScope>("position");
-  const [text, setText] = useState("");
-  const [mentions, setMentions] = useState<Mention[]>([]);
+  const [draft, setDraft] = useState("");
   const forEveryPosition = scope === "everywhere";
 
+  // A note about every position mentions nobody, so whoever was picked goes back to being a name.
   const changeScope = (next: NoteScope) => {
     setScope(next);
-    setMentions([]);
+    if (next === "everywhere") setDraft(withoutMentionTokens(draft));
   };
 
-  const body = forEveryPosition ? text.trim() : serializeMentions(text.trim(), mentionsPresent(text, mentions));
+  const body = draft.trim();
   const tooLong = body.length > NOTE_MAX_STORED;
   const saving = useMutation({
     mutationFn: (_thenNextAction: boolean) =>
       personCrmApi.writePersonNote(
         projectId,
         candidateId,
-        forEveryPosition ? { kind, body, allPositions: true } : { kind, body },
+        forEveryPosition
+          ? { kind, body, format: "markdown", allPositions: true }
+          : { kind, body, format: "markdown" },
       ),
     onSuccess: (note, thenNextAction) => {
-      setText("");
-      setMentions([]);
+      setDraft("");
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
       });
@@ -127,8 +121,8 @@ export function NotesSection({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = text.trim().length > 0 && !tooLong && !saving.isPending;
-  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate(false));
+  const canSave = body.length > 0 && !tooLong && !saving.isPending;
+  const save = () => canSave && saving.mutate(false);
   const list = notes.data ?? [];
   const loaded = notes.isSuccess;
 
@@ -144,19 +138,20 @@ export function NotesSection({
       <div className="flex flex-col gap-3">
         <div className="rounded-[8px] border border-u-border p-2.5">
           <NoteKindPicker value={kind} onChange={setKind} />
-          <MentionTextArea
-            value={text}
-            onChange={setText}
-            mentions={mentions}
-            onMentionsChange={setMentions}
-            teammates={forEveryPosition ? null : team.teammates}
-            onKeyDown={handleKeyDown}
-            rows={2}
-            maxLength={NOTE_MAX_STORED}
-            ariaLabel="New note"
-            placeholder="What was said, and what happens next…"
-            className="font-sans text-body"
-          />
+          <div className="mt-2">
+            <NoteEditor
+              value={draft}
+              format="markdown"
+              onChange={setDraft}
+              teammates={forEveryPosition ? null : team.teammates}
+              ariaLabel="New note"
+              placeholder="What was said, and what happens next…"
+              onSubmit={save}
+              submitLabel="Save note"
+              canSubmit={canSave}
+              expandTitle="New note"
+            />
+          </div>
           {tooLong && (
             <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
               {NOTE_TOO_LONG}
@@ -229,7 +224,7 @@ function PositionNoteCard({
     {
       pin: (noteId, pinned) => personCrmApi.pinPersonNote(projectId, candidateId, noteId, pinned),
       revise: (current, body) =>
-        personCrmApi.revisePersonNote(projectId, candidateId, current.id, { kind: current.kind, body }),
+        personCrmApi.revisePersonNote(projectId, candidateId, current.id, { kind: current.kind, body, format: "markdown" }),
       remove: (noteId) => personCrmApi.removePersonNote(projectId, candidateId, noteId),
       restore: (noteId) => personCrmApi.restorePersonNote(projectId, candidateId, noteId),
     },
@@ -242,7 +237,10 @@ function PositionNoteCard({
       void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
     },
   );
-  return <NoteCard note={note} actions={actions} flashAt={flashAt} />;
+  const team = usePositionTeam(note.projectId);
+  return (
+    <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} flashAt={flashAt} />
+  );
 }
 
 /** The note a task is set from, as the task will name it: by kind and date. */

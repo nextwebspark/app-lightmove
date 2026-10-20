@@ -10,6 +10,7 @@ import type { CompanyResult } from "../../strategy/api/types";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail } from "../api/types";
 import { ClientDrawer } from "./ClientDrawer";
+import { typeInto } from "../../../test/noteEditor";
 
 vi.mock("../api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/clientsApi")>()),
@@ -41,6 +42,7 @@ const typedClient: ClientDetail = {
   domain: "harbourhealth.example",
   offLimitsNote: null,
   notes: null,
+  notesFormat: "plain",
   persona: { summary: null, sectors: ["Hospitals"], competitors: [], geographies: ["Saudi Arabia"], notes: null },
   activeMandates: 0,
   deliveredMandates: 0,
@@ -107,13 +109,14 @@ describe("AgencyClientView — a client picked from the company database", () =>
     const user = userEvent.setup();
     renderDrawer("c2");
 
-    await user.type(await screen.findByLabelText("Notes"), "Retained for the C-suite");
+    await typeInto(await screen.findByRole("textbox", { name: "Notes" }), "Retained for the C-suite");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() =>
       expect(clientsApi.updateClient).toHaveBeenCalledWith("c2", {
         name: "Ministry of Health",
         notes: "Retained for the C-suite",
+        notesFormat: "markdown",
       }),
     );
   });
@@ -128,7 +131,7 @@ describe("AgencyClientView — the panel", () => {
 });
 
 describe("AgencyClientView — a client typed in by hand", () => {
-  it("offers its sector, country and website to edit, and asks the universe nothing", async () => {
+  it("offers its sector, country and website to edit, asks the universe nothing, and leaves the notes as stored", async () => {
     vi.mocked(clientsApi.updateClient).mockResolvedValue(typedClient);
     const user = userEvent.setup();
     renderDrawer("c1");
@@ -141,7 +144,6 @@ describe("AgencyClientView — a client typed in by hand", () => {
     await waitFor(() =>
       expect(clientsApi.updateClient).toHaveBeenCalledWith("c1", {
         name: "Harbour Health",
-        notes: "",
         sector: "Health Care",
         hqCountry: "Saudi Arabia",
         domain: "harbourhealth.example",

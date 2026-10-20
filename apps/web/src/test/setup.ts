@@ -23,6 +23,16 @@ class NoopResizeObserver {
 }
 window.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver;
 
+/**
+ * jsdom lays nothing out, and ProseMirror (the note editor) asks where the caret is on every selection change; an
+ * empty box at the origin is enough for it to carry on.
+ */
+const NO_RECT = { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, width: 0, height: 0, toJSON: () => ({}) };
+document.elementFromPoint ??= () => null;
+Range.prototype.getClientRects ??= () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
+Range.prototype.getBoundingClientRect ??= () => NO_RECT as DOMRect;
+Element.prototype.getClientRects ??= () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
+
 afterEach(() => {
   cleanup();
   // A drawer remembers its last tab for the session; one test's choice must not open the next on it.

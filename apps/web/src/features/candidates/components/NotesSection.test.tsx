@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import { editorOf, typeInto } from "../../../test/noteEditor";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project, TeamMember } from "../../projects/api/types";
 import * as personCrmApi from "../api/personCrmApi";
@@ -55,6 +56,7 @@ const aNote = (body: string, kind: PersonNote["kind"] = "general"): PersonNote =
   id: "n1",
   kind,
   body,
+  format: "plain",
   pinned: false,
   projectId: "p1",
   projectTitle: "Chief Financial Officer",
@@ -84,9 +86,10 @@ function renderNotes(props: Partial<ComponentProps<typeof NotesSection>> = {}) {
 
 const composer = () => screen.getByRole("textbox", { name: "New note" });
 
+
 describe("the note composer", () => {
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
     vi.setSystemTime(new Date(2026, 9, 3, 10, 0));
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);
     vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([]);
@@ -103,8 +106,8 @@ describe("the note composer", () => {
     await screen.findByText("No notes yet.", { exact: false });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
-    await userEvent.type(composer(), "Call @");
-    const picker = within(screen.getByRole("listbox", { name: "Mention someone on this position's team" }));
+    await typeInto(composer(), "Call @");
+    const picker = within(await screen.findByRole("listbox", { name: "Mention someone on this position's team" }));
     expect(picker.getAllByRole("option").map((option) => option.textContent)).toEqual([
       "OKSA@teamEveryone on this position",
       "OKOmar KhalilLead",
@@ -112,20 +115,24 @@ describe("the note composer", () => {
     ]);
     expect(screen.getByText(/never what the note says/)).toBeInTheDocument();
 
-    await userEvent.type(composer(), "sa");
-    expect(picker.getAllByRole("option").map((option) => option.textContent)).toEqual(["SASara Al-MansourResearcher"]);
+    await typeInto(composer(), "sa");
+    await waitFor(() =>
+      expect(picker.getAllByRole("option").map((option) => option.textContent)).toEqual([
+        "SASara Al-MansourResearcher",
+      ]),
+    );
     await userEvent.click(picker.getByRole("option", { name: /Sara Al-Mansour/ }));
 
-    expect(composer()).toHaveValue("Call @Sara Al-Mansour ");
     expect(screen.getByText("Notifies").parentElement).toHaveTextContent("@Sara Al-Mansour");
 
-    await userEvent.type(composer(), "please");
+    await typeInto(composer(), "please");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
 
     await waitFor(() =>
       expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
         kind: "general",
         body: "Call @[Sara Al-Mansour](user:u3) please",
+        format: "markdown",
       }),
     );
   });
@@ -133,17 +140,21 @@ describe("the note composer", () => {
   it("mentions the whole team from the @ button, and a removed chip notifies nobody", async () => {
     renderNotes();
     await userEvent.click(await screen.findByRole("button", { name: "Mention a teammate" }));
-    await userEvent.click(screen.getByRole("option", { name: /@team/ }));
+    await userEvent.click(await screen.findByRole("option", { name: /@team/ }));
 
-    expect(composer()).toHaveValue("@team ");
+    expect(screen.getByText("Notifies").parentElement).toHaveTextContent("@team");
     await userEvent.click(screen.getByRole("button", { name: "Remove @team" }));
     expect(screen.queryByText("Notifies")).not.toBeInTheDocument();
 
-    await userEvent.type(composer(), "sync");
+    await typeInto(composer(), "sync");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
 
     await waitFor(() =>
-      expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", { kind: "general", body: "@team sync" }),
+      expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
+        kind: "general",
+        body: "sync",
+        format: "markdown",
+      }),
     );
   });
 
@@ -158,19 +169,20 @@ describe("the note composer", () => {
     const scope = within(screen.getByRole("radiogroup", { name: "Who reads this note" }));
     expect(scope.getByRole("radio", { name: "This position" })).toBeChecked();
 
-    await userEvent.type(composer(), "Call @");
-    await userEvent.click(screen.getByRole("option", { name: /Sara Al-Mansour/ }));
+    await typeInto(composer(), "Call @");
+    await userEvent.click(await screen.findByRole("option", { name: /Sara Al-Mansour/ }));
     await userEvent.click(scope.getByRole("radio", { name: "All positions" }));
 
     expect(screen.queryByRole("button", { name: "Mention a teammate" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Notifies")).not.toBeInTheDocument();
-    await userEvent.type(composer(), "back about any role");
+    await waitFor(() => expect(screen.queryByText("Notifies")).not.toBeInTheDocument());
+    await typeInto(composer(), "back about any role");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
 
     await waitFor(() =>
       expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
         kind: "general",
         body: "Call @Sara Al-Mansour back about any role",
+        format: "markdown",
         allPositions: true,
       }),
     );
@@ -200,13 +212,23 @@ describe("the note composer", () => {
     expect(screen.queryByText(/\(user:/)).not.toBeInTheDocument();
   });
 
+  it("draws a formatted note's marks and lists", async () => {
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+      { ...aNote("**Wants** Dubai\n\n- [ ] Ask for the CV"), format: "markdown" },
+    ]);
+    renderNotes();
+
+    expect((await screen.findByText("Wants")).tagName).toBe("STRONG");
+    expect(screen.getByRole("checkbox", { name: "Not done" })).not.toBeChecked();
+  });
+
   it("saves the note, then hands it to the next action by kind and date", async () => {
     const onSetNextAction = vi.fn();
     renderNotes({ onSetNextAction });
     await screen.findByRole("button", { name: "Mention a teammate" });
 
     await userEvent.click(screen.getByRole("radio", { name: "Call" }));
-    await userEvent.type(composer(), "Wants to speak to her family first");
+    await typeInto(composer(), "Wants to speak to her family first");
     await userEvent.click(screen.getByRole("button", { name: "Save & set next action" }));
 
     await waitFor(() =>
@@ -215,13 +237,14 @@ describe("the note composer", () => {
     expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
       kind: "call",
       body: "Wants to speak to her family first",
+      format: "markdown",
     });
-    expect(composer()).toHaveValue("");
+    await waitFor(() => expect(composer()).toHaveTextContent(""));
   });
 
   it("offers Save note alone where nobody takes the next action", async () => {
     renderNotes();
-    await userEvent.type(await screen.findByRole("textbox", { name: "New note" }), "Background only");
+    await typeInto(await screen.findByRole("textbox", { name: "New note" }), "Background only");
 
     expect(screen.getByRole("button", { name: "Save note" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Save & set next action" })).not.toBeInTheDocument();
@@ -244,15 +267,15 @@ describe("the note composer", () => {
     expect(card).toHaveFocus();
   });
 
-  it("holds a note that its mentions would carry past the limit", async () => {
+  it("holds a note past the limit", async () => {
     renderNotes();
-    await screen.findByRole("button", { name: "Mention a teammate" });
+    const box = await screen.findByRole("textbox", { name: "New note" });
 
-    await userEvent.type(composer(), "Call @sa");
-    await userEvent.click(screen.getByRole("option", { name: /Sara Al-Mansour/ }));
-    await userEvent.paste("x".repeat(3970));
+    await act(async () => {
+      editorOf(box).commands.insertContent("x".repeat(10001));
+    });
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Too long once its mentions are saved");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too long to save");
     expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
   });
 });
@@ -269,17 +292,51 @@ describe("a note in the position's drawer", () => {
     renderNotes();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    const editor = screen.getByRole("textbox", { name: "Edit note" });
-    await userEvent.clear(editor);
-    await userEvent.type(editor, "Prefers a call after 7pm");
+    const editor = await screen.findByRole("textbox", { name: "Edit note" });
+    expect(editor).toHaveTextContent("Prefers a call after 6pm");
+    await act(async () => {
+      editorOf(editor).commands.setContent("<p>Prefers a call after <strong>7pm</strong></p>");
+    });
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
       expect(personCrmApi.revisePersonNote).toHaveBeenCalledWith("p1", "c1", "n1", {
         kind: "general",
-        body: "Prefers a call after 7pm",
+        body: "Prefers a call after **7pm**",
+        format: "markdown",
       }),
     );
+  });
+
+  it("saved untouched sends nothing back, so a plain note's own '*' and '1.' never turn into formatting", async () => {
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([aNote("Spoke *twice*\n1. wants Dubai")]);
+    vi.mocked(personCrmApi.revisePersonNote).mockClear();
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await screen.findByRole("textbox", { name: "Edit note" });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.queryByRole("textbox", { name: "Edit note" })).not.toBeInTheDocument();
+    expect(personCrmApi.revisePersonNote).not.toHaveBeenCalled();
+  });
+
+  it("takes a link without saving the note under it", async () => {
+    vi.mocked(personCrmApi.revisePersonNote).mockClear();
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const editor = await screen.findByRole("textbox", { name: "Edit note" });
+    await act(async () => {
+      editorOf(editor).commands.selectAll();
+    });
+    const card = editor.closest("li") as HTMLElement;
+    await userEvent.click(within(card).getByRole("button", { name: "Link" }));
+    await userEvent.type(within(card).getByRole("textbox", { name: "Link address" }), "example.com{Enter}");
+
+    expect(screen.getByRole("textbox", { name: "Edit note" })).toBeInTheDocument();
+    expect(personCrmApi.revisePersonNote).not.toHaveBeenCalled();
+    expect(editorOf(editor).getAttributes("link").href).toBe("https://example.com");
   });
 
   it("is pinned by anyone on the position", async () => {

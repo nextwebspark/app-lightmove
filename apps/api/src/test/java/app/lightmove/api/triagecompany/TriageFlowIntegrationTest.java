@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Taking companies out of the market into a mandate and moving them between triage stages — the write
@@ -115,7 +116,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
 
         // Picking a company while looking at the shortlist means shortlisting it. Landing it in the
         // universe would drop it off the screen it was added from.
-        mvc.perform(post(triageUrl(projectId))
+        String id = body(mvc.perform(post(triageUrl(projectId))
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -123,9 +124,10 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("shortlisted"))
                 .andExpect(jsonPath("$.source").value("strategy"))
-                .andExpect(jsonPath("$.note").value("Met their CFO"))
                 // The snapshot is still the market's, whatever the caller sent alongside the stage.
-                .andExpect(jsonPath("$.companyName").value("ACWA Power"));
+                .andExpect(jsonPath("$.companyName").value("ACWA Power"))
+                .andReturn()).get("id").asText();
+        assertThat(noteBodiesOf(admin, projectId, id)).containsExactly("Met their CFO");
 
         mvc.perform(get(triageUrl(projectId)).param("status", "shortlisted")
                         .header("Authorization", "Bearer " + admin))
@@ -134,14 +136,14 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("re-adding a declined company leaves its stage and its note alone")
+    @DisplayName("re-adding a declined company leaves its stage alone, and files the note it carries")
     void addDoesNotResurrectADeclinedCompany() throws Exception {
         String admin = adminOf("Universe Re-add Firm");
         String projectId = project(admin);
         universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
         String triageId = add(admin, projectId, "a1");
         patchUniverse(admin, projectId, triageId, """
-                {"status":"declined","note":"Ruled out on ownership"}""");
+                {"status":"declined"}""");
 
         // Idempotent means the row that is already there, not the row the second caller asked for:
         // a company the team ruled out must not be walked back by adding it again.
@@ -151,8 +153,8 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"apolloAccountId":"a1","status":"shortlisted","note":"Worth a look"}"""))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.status").value("declined"))
-                .andExpect(jsonPath("$.note").value("Ruled out on ownership"));
+                .andExpect(jsonPath("$.status").value("declined"));
+        assertThat(noteBodiesOf(admin, projectId, triageId)).containsExactly("Worth a look");
     }
 
     @Test
@@ -231,30 +233,6 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.counts.inUniverse").value(1))
                 .andExpect(jsonPath("$.counts.shortlisted").value(1))
                 .andExpect(jsonPath("$.counts.declined").value(0));
-    }
-
-    @Test
-    @DisplayName("a status change leaves the note alone, and an empty note clears it")
-    void noteAndStatusAreIndependent() throws Exception {
-        String admin = adminOf("Universe Note Firm");
-        String projectId = project(admin);
-        universe.company("a1", "ACWA Power").industry("oil & energy").employees(10).insert();
-        String id = add(admin, projectId, "a1");
-
-        patchUniverse(admin, projectId, id, """
-                {"note":"Adjacency only — no upstream exposure"}""")
-                .andExpect(jsonPath("$.note").value("Adjacency only — no upstream exposure"));
-
-        // Moving to Declined must not silently clear the note explaining why.
-        patchUniverse(admin, projectId, id, """
-                {"status":"declined"}""")
-                .andExpect(jsonPath("$.status").value("declined"))
-                .andExpect(jsonPath("$.note").value("Adjacency only — no upstream exposure"));
-
-        // Clearing is an explicit empty string, which is the one distinction the shape has to carry.
-        patchUniverse(admin, projectId, id, """
-                {"note":""}""")
-                .andExpect(jsonPath("$.note").doesNotExist());
     }
 
     @Test
@@ -666,9 +644,9 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.website").value("https://gulfindustrial.com"))
                 // The form holds every field, so a field it omitted is a field it cleared.
                 .andExpect(jsonPath("$.companyCity").doesNotExist())
-                // The note is not this endpoint's to touch — it has its own write, and its own reason.
-                .andExpect(jsonPath("$.note").value("Worth a look"))
                 .andExpect(jsonPath("$.source").value("manual"));
+        // The notes are not this endpoint's to touch — they have their own route.
+        assertThat(noteBodiesOf(admin, projectId, id)).containsExactly("Worth a look");
     }
 
     @Test
@@ -704,9 +682,13 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
 
         // The note is the mandate's remark, not the market's data, so refusing the edit above must not
         // take it with it.
-        patchUniverse(admin, projectId, id, """
-                {"note":"Adjacent — worth watching"}""")
-                .andExpect(jsonPath("$.note").value("Adjacent — worth watching"));
+        mvc.perform(post(triageUrl(projectId) + "/" + id + "/notes")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Adjacent — worth watching"}"""))
+                .andExpect(status().isCreated());
+        assertThat(noteBodiesOf(admin, projectId, id)).containsExactly("Adjacent — worth watching");
     }
 
     @Test
@@ -761,6 +743,17 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andReturn()).get("id").asText();
     }
 
+    private java.util.List<String> noteBodiesOf(String token, String projectId, String triageCompanyId)
+            throws Exception {
+        JsonNode notes = body(mvc.perform(get(triageUrl(projectId) + "/" + triageCompanyId + "/notes")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn());
+        java.util.List<String> bodies = new java.util.ArrayList<>();
+        notes.forEach(note -> bodies.add(note.get("body").asText()));
+        return bodies;
+    }
+
     private String add(String token, String projectId, String accountId) throws Exception {
         return body(mvc.perform(post(triageUrl(projectId))
                         .header("Authorization", "Bearer " + token)
@@ -813,7 +806,7 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.apolloAccountId").doesNotExist())
                 .andExpect(jsonPath("$.numEmployees").value(2400))
                 .andExpect(jsonPath("$.foundedYear").value(1998))
-                .andExpect(jsonPath("$.note").value("Met at ADIPEC"));
+                .andExpect(jsonPath("$.note").doesNotExist());
 
         mvc.perform(get(triageUrl(projectId)).header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.counts.inUniverse").value(1));
@@ -1227,10 +1220,10 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
                 .andReturn()).get("id").asText();
     }
 
-    /** Market rows straight into the mandate's universe, the stage and note a bulk add carries. */
+    /** Market rows straight into the mandate's universe, at the stage a bulk add files them at. */
     private int seedUniverse(UUID projectId, UUID actor, List<CompanyRow> rows) {
         return writer.insertIgnoringHeld(projectId, actor, rows, TriageCompanySource.STRATEGY,
-                TriageCompanyStatus.IN_UNIVERSE, null, null);
+                TriageCompanyStatus.IN_UNIVERSE, null);
     }
 
     /** Only the snapshot fields carry here; the rest are not the subject. */

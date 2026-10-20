@@ -12,6 +12,7 @@ import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonDocumentRepository;
 import app.lightmove.api.candidate.repository.PersonDocumentVersionRepository;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
+import app.lightmove.api.common.note.NoteText;
 import java.io.InputStream;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -61,7 +62,7 @@ public class CandidateMaterialService {
                 .findReadableNewestFirst(person.getWorkspaceId(), person.getId(), NoteViewpoint.position(projectId))
                 .stream()
                 .map(note -> new NoteOnFile(note.getKind(), note.getCreatedAt(), note.getProjectTitle(),
-                        note.getBody()))
+                        NoteText.forPrompt(note.getBody())))
                 .toList();
         Map<UUID, PersonDocumentVersion> latest = new LinkedHashMap<>();
         versions.findByPersonIdOrderByVersionNoDesc(person.getId())

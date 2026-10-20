@@ -209,6 +209,9 @@ public enum ErrorCode {
     /** A note may be changed or removed by its author, or by a workspace admin. */
     PERSON_NOTE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this note, or an admin, can change it"),
 
+    /** A note on a company, likewise: its author's, or a workspace admin's. */
+    COMPANY_NOTE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this note, or an admin, can change it"),
+
     /** The same file is already on this person; the body names the document and version holding it. */
     PERSON_DOCUMENT_DUPLICATE(HttpStatus.CONFLICT, "That file is already on this candidate"),
 

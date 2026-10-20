@@ -42,6 +42,7 @@ export type ApiErrorCode =
   | "CANDIDATE_KEYS_NAME_ANOTHER"
   | "PERSON_PROFILE_HELD"
   | "PERSON_NOTE_NOT_YOURS"
+  | "COMPANY_NOTE_NOT_YOURS"
   | "PERSON_DOCUMENT_DUPLICATE"
   | "PERSON_DOCUMENT_NOT_YOURS"
   | "PERSON_DOCUMENT_LIMIT"
@@ -187,6 +188,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CANDIDATE_KEYS_NAME_ANOTHER: "The LinkedIn profile or email typed belongs to someone else in your candidates.",
   PERSON_PROFILE_HELD: "Another candidate in this workspace already has that LinkedIn profile.",
   PERSON_NOTE_NOT_YOURS: "Only the person who wrote this note, or an admin, can change it.",
+  COMPANY_NOTE_NOT_YOURS: "Only the person who wrote this note, or an admin, can change it.",
   PERSON_DOCUMENT_DUPLICATE: "That file is already on this candidate.",
   PERSON_DOCUMENT_NOT_YOURS: "Only the person who uploaded this, or an admin, can remove it.",
   PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",

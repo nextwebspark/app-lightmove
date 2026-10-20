@@ -74,6 +74,7 @@ public class TriageCompanyService {
     private final AuditService audit;
     private final ApolloCompanyQueryService market;
     private final ApplicationEventPublisher events;
+    private final CompanyNoteService companyNotes;
     private final ProjectStreamPublisher stream;
     private final LightMoveProperties properties;
 
@@ -110,9 +111,11 @@ public class TriageCompanyService {
         // Before the held check, so an unknown stage is a 400 whether or not the company is held.
         TriageCompanyStatus landingStatus = TriageCompanyStatus.parseOrInUniverse(request.status());
 
-        // Already held answers with the row untouched, so re-adding cannot un-decline a company.
+        // Already held answers with the row's stage untouched, so re-adding cannot un-decline a company; a note
+        // sent with it is still filed, rather than lost.
         Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
         if (held.isPresent()) {
+            companyNotes.fileFromDoor(workspaceId, held.get(), userId, request.note(), httpRequest);
             return TriageCompanyResponseMapper.toDto(held.get());
         }
 
@@ -129,9 +132,10 @@ public class TriageCompanyService {
         // The held check is a fast path, not the guard: a racing click passes it too. Only the caller
         // whose insert actually wrote the row records an event.
         int inserted = writer.insertIgnoringHeld(projectId, userId, List.of(row),
-                TriageCompanySource.STRATEGY, landingStatus, request.note(), null);
+                TriageCompanySource.STRATEGY, landingStatus, null);
         TriageCompany taken = triaged.findByProjectIdAndApolloAccountId(projectId, accountId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        companyNotes.fileFromDoor(workspaceId, taken, userId, request.note(), httpRequest);
 
         if (inserted > 0) {
             audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_ADDED, userId, workspaceId, projectId, httpRequest)
@@ -175,6 +179,7 @@ public class TriageCompanyService {
         TriageCompany captured = resolved.company();
         captured.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, captured.getCustomFields(), request.customFields()));
+        companyNotes.fileFromDoor(workspaceId, captured, userId, details.note(), httpRequest);
 
         auditCaptured(captured, source, userId, workspaceId, projectId, httpRequest);
         if (SUPPLIED_ONE_AT_A_TIME.contains(source)) {
@@ -225,6 +230,7 @@ public class TriageCompanyService {
             return false;
         }
         TriageCompany captured = resolved.company();
+        companyNotes.fileFromDoor(workspaceId, captured, userId, details.note(), httpRequest);
         auditCaptured(captured, source, userId, workspaceId, projectId, httpRequest);
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
         return true;
@@ -276,7 +282,7 @@ public class TriageCompanyService {
             // The count, not a hard-coded true: the race loser inserts zero rows. Reporting true to
             // both fired the audit and stream twice and sent a second billed company lookup.
             int inserted = writer.insertIgnoringHeld(projectId, addedBy, List.of(row), source, status,
-                    details.note(), details.sourceUrl());
+                    details.sourceUrl());
             return new ResolvedCapture(
                     triaged.findByProjectIdAndApolloAccountId(projectId, row.apolloAccountId())
                             .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND)), inserted > 0);
@@ -359,7 +365,7 @@ public class TriageCompanyService {
 
         // The insert skips held companies, so the count is the new ones and a declined row stays declined.
         int added = writer.insertIgnoringHeld(projectId, userId, rows,
-                TriageCompanySource.STRATEGY, TriageCompanyStatus.IN_UNIVERSE, null, null);
+                TriageCompanySource.STRATEGY, TriageCompanyStatus.IN_UNIVERSE, null);
 
         audit.projectEvent(ProjectEventType.TRIAGE_BULK_ADDED, userId, workspaceId, projectId, httpRequest)
                 .detail("added", String.valueOf(added))
@@ -401,8 +407,7 @@ public class TriageCompanyService {
                 .filter(row -> !scope.offLimitsAccountIds().contains(row.apolloAccountId()))
                 .toList();
 
-        int added = writer.insertIgnoringHeld(projectId, userId, rows, source, landingStatus,
-                null, null);
+        int added = writer.insertIgnoringHeld(projectId, userId, rows, source, landingStatus, null);
 
         audit.projectEvent(ProjectEventType.TRIAGE_BULK_ADDED, userId, workspaceId, projectId, httpRequest)
                 .detail("added", String.valueOf(added))
@@ -419,16 +424,12 @@ public class TriageCompanyService {
         projects.requireInWorkspace(projectId, workspaceId);
         TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
 
-        // Null leaves a field alone, so declining keeps the note saying why; "" clears it.
         if (request.status() != null) {
             TriageCompanyStatus status = TriageCompanyStatus.fromValue(request.status());
             if (status == null) {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + request.status());
             }
             company.moveTo(status);
-        }
-        if (request.note() != null) {
-            company.annotate(request.note());
         }
         if (request.noExecutiveFound() != null) {
             if (request.noExecutiveFound()) {
@@ -484,6 +485,18 @@ public class TriageCompanyService {
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .record();
         return TriageCompanyResponseMapper.toDto(company);
+    }
+
+    /**
+     * A note a spreadsheet carries for a company the mandate already holds, filed as the add form's would be. Whether
+     * a note was filed: the same words already there add nothing.
+     */
+    @Transactional
+    public boolean fileNoteFromDoor(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId, String note,
+                                    HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
+        return companyNotes.fileFromDoor(workspaceId, company, userId, note, httpRequest);
     }
 
     /** Custom-column values only — the one edit a market company, which {@link #edit} refuses, allows. */

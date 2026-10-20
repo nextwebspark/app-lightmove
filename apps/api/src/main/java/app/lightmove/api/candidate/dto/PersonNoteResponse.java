@@ -9,6 +9,8 @@ public record PersonNoteResponse(
         /** A {@code PersonNoteKind} wire token. */
         String kind,
         String body,
+        /** A {@code NoteFormat} wire token: how {@code body} is to be read. */
+        String format,
         boolean pinned,
         /** The position the note was written about, or null for a note about the person. */
         UUID projectId,

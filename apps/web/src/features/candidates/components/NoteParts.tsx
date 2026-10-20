@@ -1,20 +1,16 @@
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar } from "../../../components/ui/Avatar";
-import { Button, TextArea } from "../../../components/ui";
+import { Button } from "../../../components/ui";
 import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
 import { cn } from "../../../lib/cn";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
 import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
-import { NoteBody } from "../../tasks/components/NoteBody";
-import {
-  displayTextOf,
-  mentionsIn,
-  NOTE_MAX_STORED,
-  NOTE_TOO_LONG,
-  serializeMentions,
-} from "../../tasks/lib/mentions";
+import { NoteEditor } from "../../notes/components/NoteEditor";
+import { NoteText } from "../../notes/components/NoteText";
+import { NOTE_MAX_STORED, NOTE_TOO_LONG } from "../../tasks/lib/mentions";
+import type { TeammateOption } from "../../tasks/lib/team";
 
 /** Who reads a note written inside a position: that position's team, or every position's. */
 export type NoteScope = "position" | "everywhere";
@@ -103,6 +99,13 @@ export function noteAnchorOf(noteId: string): string {
   return `note-${noteId}`;
 }
 
+/**
+ * A note as a card draws it: a person's, which may be about a position, or a company's, which never is. The two
+ * share every other field.
+ */
+export type NoteCardNote = Omit<PersonNote, "projectId" | "projectTitle"> &
+  Partial<Pick<PersonNote, "projectId" | "projectTitle">>;
+
 /** What a card may do to its note; a card drawn without them only reads. */
 export interface NoteCardActions {
   onPin: () => void;
@@ -119,10 +122,13 @@ export interface NoteCardActions {
 export function NoteCard({
   note,
   actions,
+  teammates = null,
   flashAt = null,
 }: {
-  note: PersonNote;
+  note: NoteCardNote;
   actions?: NoteCardActions;
+  /** The team an edit may mention: the position the note is about; null for a note about no position. */
+  teammates?: readonly TeammateOption[] | null;
   /**
    * Brought into view from the task set from it: an accent wash that fades, played again for each new value. The
    * wash is its own element so the card keeps its identity, and with it the keyboard focus it was given.
@@ -130,9 +136,16 @@ export function NoteCard({
   flashAt?: number | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(() => displayTextOf(note.body));
-  const revised = serializeMentions(draft.trim(), mentionsIn(note.body));
+  const [draft, setDraft] = useState(note.body);
+  const revised = draft.trim();
   const revisedTooLong = revised.length > NOTE_MAX_STORED;
+  const canSave = revised.length > 0 && !revisedTooLong;
+  const saveRevision = () => {
+    if (!actions || !canSave) return;
+    // An untouched draft is still the stored body; sent back as Markdown, a plain note's "*" and "1." would format.
+    if (draft !== note.body) actions.onRevise(revised);
+    setEditing(false);
+  };
 
   return (
     <li
@@ -171,23 +184,18 @@ export function NoteCard({
         </time>
       </div>
       {editing && actions ? (
-        <form
-          className="mt-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (draft.trim() && !revisedTooLong) {
-              actions.onRevise(revised);
-              setEditing(false);
-            }
-          }}
-        >
-          <TextArea
+        // Not a form: the editor's link row is one, and a nested form's submit would save the note with it.
+        <div className="mt-2 rounded-u-control border border-u-border p-2">
+          <NoteEditor
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            rows={3}
-            maxLength={NOTE_MAX_STORED}
-            aria-label="Edit note"
-            className="font-sans text-[13px]/[1.55]"
+            format={note.format}
+            onChange={setDraft}
+            teammates={teammates}
+            ariaLabel="Edit note"
+            onSubmit={saveRevision}
+            canSubmit={canSave}
+            expandTitle="Edit note"
+            autoFocus
           />
           {revisedTooLong && (
             <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
@@ -199,17 +207,18 @@ export function NoteCard({
               Cancel
             </Button>
             <Button
-              type="submit"
+              type="button"
               className="px-3 py-1 text-[12px]"
-              disabled={!draft.trim() || revisedTooLong}
+              disabled={!canSave}
               loading={actions.busy}
+              onClick={saveRevision}
             >
               Save
             </Button>
           </div>
-        </form>
+        </div>
       ) : (
-        <NoteBody body={note.body} className="mt-1.5 whitespace-pre-wrap text-[13px]/[1.55] text-u-text2" />
+        <NoteText body={note.body} format={note.format} className="mt-1.5 text-[13px]/[1.55] text-u-text2" />
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
         {note.projectTitle ? (
@@ -229,7 +238,7 @@ export function NoteCard({
               <button
                 type="button"
                 onClick={() => {
-                  setDraft(displayTextOf(note.body));
+                  setDraft(note.body);
                   setEditing(true);
                 }}
                 disabled={actions.busy}

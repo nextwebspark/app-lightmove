@@ -27,6 +27,7 @@
 		<commons-csv.version>1.14.1</commons-csv.version>
 		<poi.version>5.4.1</poi.version>
 		<pdfbox.version>3.0.5</pdfbox.version>
+		<commonmark.version>0.30.0</commonmark.version>
 		<!-- 2.55 resolves the google-auth (1.37.1) and google-http-client (1.47.1) the Cloud SQL socket factory
 		     already brings; later releases move http-client to 2.x underneath the connector. -->
 		<google-cloud-storage.version>2.55.0</google-cloud-storage.version>
@@ -228,6 +229,27 @@
 			<groupId>org.apache.pdfbox</groupId>
 			<artifactId>pdfbox</artifactId>
 			<version>${pdfbox.version}</version>
+		</dependency>
+		<!-- A note's Markdown (common/note): read back to plain words for the timeline and the export. -->
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-gfm-strikethrough</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-task-list-items</artifactId>
+			<version>${commonmark.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark-ext-ins</artifactId>
+			<version>${commonmark.version}</version>
 		</dependency>
 
 		<dependency>

@@ -41,7 +41,7 @@ const company = (overrides: Partial<TriageCompany>): TriageCompany => ({
   apolloAccountId: "a1",
   source: "strategy",
   status: "inUniverse",
-  note: null,
+  noteCount: 0,
   noExecutiveFound: false,
   companyName: "ACWA Power",
   industry: "oil & energy",

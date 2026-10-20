@@ -336,6 +336,11 @@
           </label>
           <label style="display:block;margin-bottom:12px">
             <span style="display:block;margin-bottom:4px;font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.12em;color:var(--text3)">Notes</span>
+            <div role="toolbar" aria-label="Formatting" style="display:flex;align-items:center;gap:2px;margin-bottom:4px;color:var(--text3);font:600 11px var(--sans)">
+              <span title="Bold (⌘B)" style="padding:3px 6px"><b>B</b></span><span title="Italic (⌘I)" style="padding:3px 6px"><i>I</i></span><span title="Underline (⌘U)" style="padding:3px 6px"><u>U</u></span><span title="Strikethrough" style="padding:3px 6px"><s>S</s></span>
+              <span style="padding:3px 6px">H2</span><span style="padding:3px 6px">H3</span><span title="Bulleted list" style="padding:3px 6px">•</span><span title="Numbered list" style="padding:3px 6px">1.</span><span title="Checklist" style="padding:3px 6px">☐</span><span title="Quote" style="padding:3px 6px">“</span><span title="Link (⌘K)" style="padding:3px 6px">🔗</span>
+              <span style="flex:1"></span><span title="Expand — write in a larger view" style="padding:3px 6px">⤢</span>
+            </div>
             <textarea rows="3" value="{{ draft.notes }}" onChange="{{ onDraft }}" data-id="notes" placeholder="e.g. hiring freeze lifted Q1, prioritise senior backfills" style="width:100%;resize:vertical;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none" style-focus="border-color:var(--sky)"></textarea>
           </label>
           <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">

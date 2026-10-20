@@ -31,7 +31,7 @@ class CompaniesCsvWriterTest {
         assertThat(headersOf(writer.write(List.of(), List.of())))
                 .containsExactly("Company", "Website", "Company LinkedIn", "Country", "Executive",
                         "Title", "Email", "Phone", "Status", "Stage", "Sector", "City", "Revenue", "Employees",
-                        "Note", "Founded", "Added", "Description", "Source");
+                        "Founded", "Added", "Description", "Source");
     }
 
     @Test
@@ -75,7 +75,7 @@ class CompaniesCsvWriterTest {
 
         assertThat(cells.get(0)).isEqualTo("Masdar");
         assertThat(cells.get(4)).isEqualTo("Yasmin Farouk");
-        assertThat(cells.get(18)).isEmpty();
+        assertThat(cells.get(17)).isEmpty();
     }
 
     @Test
@@ -121,7 +121,7 @@ class CompaniesCsvWriterTest {
 
         assertThat(cells.get(12)).isEqualTo("2400000000");
         assertThat(cells.get(13)).isEqualTo("3000");
-        assertThat(cells.get(15)).isEqualTo("2004");
+        assertThat(cells.get(14)).isEqualTo("2004");
     }
 
     @Test
@@ -132,7 +132,7 @@ class CompaniesCsvWriterTest {
                 person("Layla Haddad").standing("notInterested")))), 1);
 
         assertThat(cells.get(8)).isEqualTo("Not interested");
-        assertThat(cells.get(18)).isEqualTo("Plugin");
+        assertThat(cells.get(17)).isEqualTo("Plugin");
     }
 
     @Test
@@ -141,7 +141,7 @@ class CompaniesCsvWriterTest {
         List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
                 company("ACWA Power").added(Instant.parse("2026-09-16T22:30:00Z")), null))), 1);
 
-        assertThat(cells.get(16)).isEqualTo("2026-09-16");
+        assertThat(cells.get(15)).isEqualTo("2026-09-16");
     }
 
     @Test
@@ -156,12 +156,12 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("defuses a cell Excel would run as a formula")
     void defusesAFormula() {
-        // A note is free text a user typed. Opened in Excel, a leading `=` is executed — this file
+        // A description can be free text a user typed. Opened in Excel, a leading `=` is executed — this file
         // leaves the product and is opened by clients, so the cell has to reach them as text.
         List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
-                company("ACWA Power").noted("=HYPERLINK(\"http://evil.example\",\"Click\")"), null))), 1);
+                company("ACWA Power").described("=HYPERLINK(\"http://evil.example\",\"Click\")"), null))), 1);
 
-        assertThat(cells.get(14)).startsWith("'=HYPERLINK");
+        assertThat(cells.get(16)).startsWith("'=HYPERLINK");
     }
 
     @Test
@@ -208,44 +208,47 @@ class CompaniesCsvWriterTest {
 
         CompanyBuilder at(String country, String city) {
             return with(country, city, response.numEmployees(), response.annualRevenue(),
-                    response.foundedYear(), response.source(), response.note(), response.addedAt(),
+                    response.foundedYear(), response.source(), response.noteCount(), response.addedAt(),
                     response.customFields());
         }
 
         CompanyBuilder sized(Integer employees, Long revenue, Integer founded) {
             return with(response.companyCountry(), response.companyCity(), employees, revenue, founded,
-                    response.source(), response.note(), response.addedAt(), response.customFields());
+                    response.source(), response.noteCount(), response.addedAt(), response.customFields());
         }
 
         CompanyBuilder from(String source) {
             return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
-                    response.annualRevenue(), response.foundedYear(), source, response.note(),
+                    response.annualRevenue(), response.foundedYear(), source, response.noteCount(),
                     response.addedAt(), response.customFields());
         }
 
-        CompanyBuilder noted(String note) {
-            return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
-                    response.annualRevenue(), response.foundedYear(), response.source(), note,
-                    response.addedAt(), response.customFields());
+        CompanyBuilder described(String description) {
+            return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
+                    response.source(), response.status(), response.noteCount(), response.noExecutiveFound(),
+                    response.companyName(), response.industry(), response.companyCountry(), response.companyCity(),
+                    response.numEmployees(), response.annualRevenue(), response.website(),
+                    response.companyLinkedinUrl(), response.foundedYear(), description, response.sourceUrl(),
+                    response.logoUrl(), response.customFields(), response.addedAt()));
         }
 
         CompanyBuilder added(Instant addedAt) {
             return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
                     response.annualRevenue(), response.foundedYear(), response.source(),
-                    response.note(), addedAt, response.customFields());
+                    response.noteCount(), addedAt, response.customFields());
         }
 
         CompanyBuilder withCustom(Map<String, String> customFields) {
             return with(response.companyCountry(), response.companyCity(), response.numEmployees(),
                     response.annualRevenue(), response.foundedYear(), response.source(),
-                    response.note(), response.addedAt(), customFields);
+                    response.noteCount(), response.addedAt(), customFields);
         }
 
         private CompanyBuilder with(String country, String city, Integer employees, Long revenue,
-                                    Integer founded, String source, String note, Instant addedAt,
+                                    Integer founded, String source, Integer noteCount, Instant addedAt,
                                     Map<String, String> customFields) {
             return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
-                    source, response.status(), note, response.noExecutiveFound(), response.companyName(),
+                    source, response.status(), noteCount, response.noExecutiveFound(), response.companyName(),
                     response.industry(), country, city, employees, revenue, response.website(),
                     response.companyLinkedinUrl(), founded, response.shortDescription(),
                     response.sourceUrl(), response.logoUrl(), customFields, addedAt));

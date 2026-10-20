@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Button, Input, TextArea, useToast } from "../../../components/ui";
+import { Button, Input, useToast } from "../../../components/ui";
 import { CompanyDrawerHeader } from "../../../components/ui/CompanyDrawerHeader";
 import { CountryField } from "../../../components/ui/CountryField";
 import { DrawerSection } from "../../../components/ui/DetailList";
@@ -13,7 +13,9 @@ import { PersonaFields } from "../../workspace/components/PersonaFields";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail, UpdateClientPayload } from "../api/types";
 import { ClientArchivedNotice, ClientDrawerActions } from "./ClientArchive";
-import { ClientPositions, DrawerField, Representatives } from "./ClientRecordParts";
+import { NoteEditor } from "../../notes/components/NoteEditor";
+import { CLIENT_NOTES_MAX, CLIENT_NOTES_TOO_LONG } from "../lib/clientNotes";
+import { ClientPositions, DrawerField, DrawerFieldGroup, Representatives } from "./ClientRecordParts";
 
 /**
  * An agency's client, drawn as the company panel Strategy and Companies open: the company's own facts
@@ -88,7 +90,7 @@ function ClientDetailsSection({ client, editsCompanyFacts }: { client: ClientDet
   const update = (patch: Partial<ClientDetails>) => setDraft((current) => ({ ...current, ...patch }));
 
   const save = useMutation({
-    mutationFn: () => clientsApi.updateClient(client.id, payloadOf(draft, editsCompanyFacts)),
+    mutationFn: () => clientsApi.updateClient(client.id, payloadOf(draft, saved, editsCompanyFacts)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(client.id) });
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
@@ -106,7 +108,11 @@ function ClientDetailsSection({ client, editsCompanyFacts }: { client: ClientDet
             <Button variant="secondary" onClick={() => setDraft(saved)}>
               Discard
             </Button>
-            <Button loading={save.isPending} disabled={!draft.name.trim()} onClick={() => save.mutate()}>
+            <Button
+              loading={save.isPending}
+              disabled={!draft.name.trim() || draft.notes.trim().length > CLIENT_NOTES_MAX}
+              onClick={() => save.mutate()}
+            >
               Save changes
             </Button>
           </span>
@@ -141,15 +147,25 @@ function ClientDetailsSection({ client, editsCompanyFacts }: { client: ClientDet
           </DrawerField>
         </>
       )}
-      <DrawerField label="Notes">
-        <TextArea
-          rows={3}
-          maxLength={2000}
-          value={draft.notes}
-          onChange={(event) => update({ notes: event.target.value })}
-          placeholder="e.g. retained for the C-suite, prefers GCC nationals for board roles"
-        />
-      </DrawerField>
+      <DrawerFieldGroup label="Notes">
+        <div className="rounded-u-control border border-u-border p-2">
+          <NoteEditor
+            value={draft.notes}
+            format={client.notesFormat}
+            onChange={(notes) => update({ notes })}
+            teammates={null}
+            ariaLabel="Notes"
+            placeholder="e.g. retained for the C-suite, prefers GCC nationals for board roles"
+            expandTitle="Client notes"
+            variant="field"
+          />
+        </div>
+        {draft.notes.trim().length > CLIENT_NOTES_MAX && (
+          <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+            {CLIENT_NOTES_TOO_LONG}
+          </p>
+        )}
+      </DrawerFieldGroup>
     </DrawerSection>
   );
 }
@@ -207,9 +223,15 @@ function detailsOf(client: ClientDetail): ClientDetails {
   };
 }
 
-/** The PATCH is partial: a universe pick's company facts are never sent, so they are never overwritten. */
-function payloadOf(draft: ClientDetails, editsCompanyFacts: boolean): UpdateClientPayload {
-  const own = { name: draft.name.trim(), notes: draft.notes.trim() };
+/**
+ * The PATCH is partial: a universe pick's company facts are never sent, so they are never overwritten, and untouched
+ * notes are left out, since sent back as Markdown a plain note's "- " and "1." would turn into lists.
+ */
+function payloadOf(draft: ClientDetails, saved: ClientDetails, editsCompanyFacts: boolean): UpdateClientPayload {
+  const own: UpdateClientPayload = {
+    name: draft.name.trim(),
+    ...(draft.notes !== saved.notes && { notes: draft.notes.trim(), notesFormat: "markdown" as const }),
+  };
   if (!editsCompanyFacts) return own;
   return { ...own, sector: draft.sector.trim(), hqCountry: draft.hqCountry.trim(), domain: draft.domain.trim() };
 }

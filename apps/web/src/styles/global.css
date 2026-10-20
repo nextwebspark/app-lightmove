@@ -178,6 +178,52 @@ body {
   animation: note-flash 2.4s ease-out;
 }
 
+/*
+ * A formatted note's checklist and the editor's placeholder. Both hang on Tiptap's own attributes, which Tailwind's
+ * arbitrary variants cannot reach reliably, so they live here beside `NOTE_PROSE`'s utilities.
+ */
+.note-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.note-prose ul[data-type="taskList"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.note-prose ul[data-type="taskList"] > li > label {
+  flex: none;
+  margin-top: 0.2rem;
+}
+
+.note-prose ul[data-type="taskList"] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-prose ul[data-type="taskList"] > li[data-checked="true"] > div {
+  color: var(--color-u-text3);
+  text-decoration: line-through;
+}
+
+.note-prose span[data-type="mention"] {
+  border-radius: 9999px;
+  padding: 0 0.4rem;
+  background: var(--color-u-accent-tint);
+  color: var(--color-u-accent);
+  font-weight: 500;
+}
+
+.note-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-u-text3);
+}
+
 /* Respect the user's wishes. An animation is decoration; motion sickness is not. Deliberately
    unlayered: an `!important` outside every layer is the one declaration nothing can outrank. */
 @media (prefers-reduced-motion: reduce) {

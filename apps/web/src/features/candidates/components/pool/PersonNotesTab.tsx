@@ -2,22 +2,15 @@ import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/reac
 import { useState } from "react";
 import { Button, LinesSkeleton, Select, useToast } from "../../../../components/ui";
 import { messageFor } from "../../../../lib/errorCodes";
-import { useSubmitShortcut } from "../../../../lib/useSubmitShortcut";
 import * as poolApi from "../../api/poolApi";
 import type { PersonNote, PersonNoteKind, PersonRecord } from "../../api/types";
 import { NOTE_KINDS } from "../../lib/noteKinds";
 import { useNoteCardActions } from "../../lib/useNoteCardActions";
 import { NoteCard, NoteKindPicker } from "../NoteParts";
 import { taskNoteOf } from "../PersonSections";
-import { MentionTextArea } from "../../../tasks/components/MentionTextArea";
+import { NoteEditor } from "../../../notes/components/NoteEditor";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
-import {
-  mentionsPresent,
-  NOTE_MAX_STORED,
-  NOTE_TOO_LONG,
-  serializeMentions,
-  type Mention,
-} from "../../../tasks/lib/mentions";
+import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
 
 /**
@@ -35,26 +28,25 @@ export function PersonNotesTab({
   const refresh = useNoteRefresh(person.personId);
   const [kind, setKind] = useState<PersonNoteKind>("call");
   const [about, setAbout] = useState("");
-  const [text, setText] = useState("");
-  const [mentions, setMentions] = useState<Mention[]>([]);
+  const [draft, setDraft] = useState("");
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
   const team = usePositionTeam(about || null);
   const mapping = person.positions.find((position) => position.projectId === about) ?? null;
 
+  // Mentions reach one position's team: about another position, or none, whoever was picked is a name again.
   const changeAbout = (projectId: string) => {
+    if (projectId !== about) setDraft(withoutMentionTokens(draft));
     setAbout(projectId);
-    setMentions([]);
   };
 
-  const body = about ? serializeMentions(text.trim(), mentionsPresent(text, mentions)) : text.trim();
+  const body = draft.trim();
   const tooLong = body.length > NOTE_MAX_STORED;
   // The position travels with the save: the select may change before the answer comes back.
   const saving = useMutation({
     mutationFn: (_save: { nextActionOn: typeof mapping }) =>
-      poolApi.writePoolNote(person.personId, { kind, body, projectId: about || null }),
+      poolApi.writePoolNote(person.personId, { kind, body, format: "markdown", projectId: about || null }),
     onSuccess: (note, { nextActionOn }) => {
-      setText("");
-      setMentions([]);
+      setDraft("");
       refresh();
       if (nextActionOn) {
         toast("Note saved");
@@ -71,27 +63,28 @@ export function PersonNotesTab({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = text.trim().length > 0 && !tooLong && !saving.isPending;
-  const handleKeyDown = useSubmitShortcut(() => canSave && saving.mutate({ nextActionOn: null }));
+  const canSave = body.length > 0 && !tooLong && !saving.isPending;
+  const save = () => canSave && saving.mutate({ nextActionOn: null });
   const list = notes.data ?? [];
 
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-[8px] border border-u-border p-2.5">
         <NoteKindPicker value={kind} onChange={setKind} />
-        <MentionTextArea
-          value={text}
-          onChange={setText}
-          mentions={mentions}
-          onMentionsChange={setMentions}
-          teammates={about ? team.teammates : null}
-          onKeyDown={handleKeyDown}
-          rows={3}
-          maxLength={NOTE_MAX_STORED}
-          ariaLabel="New note"
-          placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
-          className="font-sans text-[13px]/[1.55]"
-        />
+        <div className="mt-2">
+          <NoteEditor
+            value={draft}
+            format="markdown"
+            onChange={setDraft}
+            teammates={about ? team.teammates : null}
+            ariaLabel="New note"
+            placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
+            onSubmit={save}
+            submitLabel="Save note"
+            canSubmit={canSave}
+            expandTitle="New note"
+          />
+        </div>
         {tooLong && (
           <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
             {NOTE_TOO_LONG}
@@ -162,13 +155,19 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
     {
       pin: (noteId, pinned) => poolApi.pinPoolNote(personId, noteId, pinned),
       revise: (current, body) =>
-        poolApi.revisePoolNote(personId, current.id, { kind: current.kind, body, projectId: current.projectId }),
+        poolApi.revisePoolNote(personId, current.id, {
+          kind: current.kind,
+          body,
+          format: "markdown",
+          projectId: current.projectId,
+        }),
       remove: (noteId) => poolApi.removePoolNote(personId, noteId),
       restore: (noteId) => poolApi.restorePoolNote(personId, noteId),
     },
     useNoteRefresh(personId),
   );
-  return <NoteCard note={note} actions={actions} />;
+  const team = usePositionTeam(note.projectId);
+  return <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} />;
 }
 
 /** A note changes the notes, the timeline and the feed; nothing else about the person. */

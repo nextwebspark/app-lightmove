@@ -13,6 +13,7 @@ import * as poolApi from "../api/poolApi";
 import * as tasksApi from "../../tasks/api/tasksApi";
 import type { CandidateTag, PersonNote, PersonRecord, PoolPage, PoolRow } from "../api/types";
 import { CandidatesPage } from "./CandidatesPage";
+import { typeInto } from "../../../test/noteEditor";
 
 vi.mock("../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/poolApi")>()),
@@ -530,6 +531,7 @@ describe("CandidatesPage", () => {
         id: "n1",
         kind: "call",
         body: "Open to a move.",
+        format: "plain",
         pinned: false,
         projectId: null,
         projectTitle: null,
@@ -558,6 +560,7 @@ describe("CandidatesPage", () => {
       id: "n1",
       kind: "call",
       body: "Open to a move.",
+      format: "plain",
       pinned: false,
       projectId: null,
       projectTitle: null,
@@ -571,18 +574,19 @@ describe("CandidatesPage", () => {
     });
     renderPage("/candidates?person=person-1&tab=records");
 
-    await userEvent.type(await screen.findByLabelText("New note"), "Open to a move.");
+    await typeInto(await screen.findByRole("textbox", { name: "New note" }), "Open to a move.");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() =>
       expect(poolApi.writePoolNote).toHaveBeenCalledWith("person-1", {
         kind: "call",
         body: "Open to a move.",
+        format: "markdown",
         projectId: null,
       }),
     );
 
     await userEvent.selectOptions(screen.getByLabelText("Position this note is about"), "p1");
-    await userEvent.type(screen.getByLabelText("New note"), "Asked about the package.");
+    await typeInto(screen.getByRole("textbox", { name: "New note" }), "Asked about the package.");
     await userEvent.click(screen.getByRole("button", { name: "Save note" }));
     await waitFor(() =>
       expect(poolApi.writePoolNote).toHaveBeenLastCalledWith(
@@ -610,6 +614,7 @@ describe("CandidatesPage", () => {
       id: "n1",
       kind: "call",
       body: "Wants the package first.",
+      format: "plain",
       pinned: false,
       projectId: "p1",
       projectTitle: "Chief Financial Officer",

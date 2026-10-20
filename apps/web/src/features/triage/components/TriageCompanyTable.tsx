@@ -44,7 +44,7 @@ export function TriageCompanyTable({
   onMove,
   onDelete,
   onAddExecutive,
-  onSaveNote,
+  onOpenCompanyNotes,
   onChangeCandidateStatus,
   onEditCandidate,
   onRemoveCandidate,
@@ -73,7 +73,8 @@ export function TriageCompanyTable({
   onDelete: (company: TriageCompany) => void;
   onAddExecutive: (company: TriageCompany) => void;
   /** Saves the grid's own inline-edited Note cell — the same write the Companies panel makes. */
-  onSaveNote: (company: TriageCompany, note: string) => Promise<unknown>;
+  /** Opens the company's panel on its Notes tab. */
+  onOpenCompanyNotes: (company: TriageCompany) => void;
   /** Changes a mapped executive's status inline, from the grid's own Status column. */
   onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
   onEditCandidate: (candidate: Candidate) => void;
@@ -99,7 +100,10 @@ export function TriageCompanyTable({
 }) {
   // Rebuilt only when the project's column set changes: a fresh array every render would rebuild
   // every column def and lose the grid's own per-column state with it.
-  const columns = useMemo(() => createTriageCompanyColumns(customColumns), [customColumns]);
+  const columns = useMemo(
+    () => createTriageCompanyColumns(customColumns, { staff: canWrite }),
+    [customColumns, canWrite],
+  );
 
   const table = useDataGridTable<typeof triageTableFeatures, TriageCompanyRow, TriageSortField>({
     features: triageTableFeatures,
@@ -118,7 +122,7 @@ export function TriageCompanyTable({
       onMove,
       onDelete,
       onAddExecutive,
-      onSaveNote,
+      onOpenCompanyNotes,
       onChangeCandidateStatus,
       onEditCandidate,
       onRemoveCandidate,
