@@ -42,6 +42,33 @@ describe("a note's Markdown", () => {
     ]);
   });
 
+  it("keeps an indented line, a table's pipes and a lone = as the text they were, never dropped or a heading", () => {
+    const lines = ["first", "    four spaces", "\tTabbed", "| a | b |", "|---|---|"];
+    const reread = parseNoteMarkdown(serializeNoteDoc(plainNoteDoc(lines.join("\n"))));
+    expect(reread.content?.map((block) => block.content?.[0])).toEqual(
+      lines.map((text) => ({ type: "text", text })),
+    );
+
+    const broken = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Hello" },
+            { type: "hardBreak" },
+            { type: "text", text: "=" },
+            { type: "hardBreak" },
+            { type: "text", text: "| x | y |" },
+            { type: "hardBreak" },
+            { type: "text", text: "|---|---|" },
+          ],
+        },
+      ],
+    };
+    expect(parseNoteMarkdown(serializeNoteDoc(broken))).toEqual(broken);
+  });
+
   it("lets only http, https and mailto through as links", () => {
     expect(isSafeHref("https://example.com")).toBe(true);
     expect(isSafeHref("mailto:a@b.com")).toBe(true);

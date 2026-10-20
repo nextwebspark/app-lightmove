@@ -57,9 +57,10 @@ export const NoteMentionNode = Mention.extend({
 });
 
 /**
- * Text that would read as a block once stored — "1. ", "- ", "# ", "> ", "---" at a line's start — is escaped where
- * the paragraph is written, since Tiptap escapes inline markers only and a plain note full of them would otherwise
- * come back as lists and headings.
+ * Text that would read as a block once stored — "1. ", "- ", "# ", "> ", "---", a setext "=", a table's "|" — is
+ * escaped where the paragraph is written, since Tiptap escapes inline markers only and a plain note full of them would
+ * otherwise come back as lists and headings. An indent of four spaces or a tab would read as a code block, which the
+ * schema has no node for, and the line would be dropped, so its first character goes as an entity.
  */
 const NoteParagraph = Paragraph.extend({
   renderMarkdown(node, helpers, context) {
@@ -69,17 +70,24 @@ const NoteParagraph = Paragraph.extend({
       .map((line) =>
         line
           .replace(/^(\s{0,3})(\d{1,9})([.)])(?=\s|$)/, "$1$2\\$3")
-          .replace(/^(\s{0,3})([-+*>]|#{1,6}|={2,})(?=\s|$|-)/, "$1\\$2"),
+          .replace(/^(\s{0,3})([-+*>]|#{1,6}|=+)(?=\s|$|-|=)/, "$1\\$2")
+          .replace(/^(?= {4}| {0,3}\t)[ \t]/, (indent) => (indent === "\t" ? "&#9;" : "&#32;")),
       )
       .join("\n");
   },
 });
 
-/** A literal "++" would read as underline; nothing else Tiptap leaves unescaped is a note's markup. */
+/**
+ * A literal "++" would read as underline and a "|" as a table, which the schema has no node for (the whole note would
+ * be dropped); nothing else Tiptap leaves unescaped is a note's markup.
+ */
 function escapePlusRuns(manager: MarkdownManager): MarkdownManager {
   const internals = manager as unknown as { escapeMarkdownSyntax: (text: string) => string };
   const escapeInline = internals.escapeMarkdownSyntax.bind(manager);
-  internals.escapeMarkdownSyntax = (text) => escapeInline(text).replace(/\+{2,}/g, (run) => "\\+".repeat(run.length));
+  internals.escapeMarkdownSyntax = (text) =>
+    escapeInline(text)
+      .replace(/\+{2,}/g, (run) => "\\+".repeat(run.length))
+      .replace(/\|/g, "\\|");
   return manager;
 }
 

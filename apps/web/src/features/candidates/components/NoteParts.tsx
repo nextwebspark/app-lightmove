@@ -142,7 +142,8 @@ export function NoteCard({
   const canSave = revised.length > 0 && !revisedTooLong;
   const saveRevision = () => {
     if (!actions || !canSave) return;
-    actions.onRevise(revised);
+    // An untouched draft is still the stored body; sent back as Markdown, a plain note's "*" and "1." would format.
+    if (draft !== note.body) actions.onRevise(revised);
     setEditing(false);
   };
 
@@ -183,13 +184,8 @@ export function NoteCard({
         </time>
       </div>
       {editing && actions ? (
-        <form
-          className="mt-2 rounded-u-control border border-u-border p-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            saveRevision();
-          }}
-        >
+        // Not a form: the editor's link row is one, and a nested form's submit would save the note with it.
+        <div className="mt-2 rounded-u-control border border-u-border p-2">
           <NoteEditor
             value={draft}
             format={note.format}
@@ -211,15 +207,16 @@ export function NoteCard({
               Cancel
             </Button>
             <Button
-              type="submit"
+              type="button"
               className="px-3 py-1 text-[12px]"
               disabled={!canSave}
               loading={actions.busy}
+              onClick={saveRevision}
             >
               Save
             </Button>
           </div>
-        </form>
+        </div>
       ) : (
         <NoteText body={note.body} format={note.format} className="mt-1.5 text-[13px]/[1.55] text-u-text2" />
       )}

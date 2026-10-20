@@ -106,8 +106,8 @@ function ClientRecordView({
     mutationFn: () =>
       clientsApi.updateClient(client.id, {
         name: name.trim(),
-        notes: notes.trim(),
-        notesFormat: "markdown",
+        // Untouched notes are left out: sent back as Markdown, a plain note's "- " and "1." would turn into lists.
+        ...(notes !== (client.notes ?? "") && { notes: notes.trim(), notesFormat: "markdown" as const }),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(client.id) });

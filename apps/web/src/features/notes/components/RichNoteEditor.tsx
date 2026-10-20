@@ -45,11 +45,13 @@ export default function RichNoteEditor({
   const teammatesRef = useRef(teammates);
   const onChangeRef = useRef(onChange);
   const onSubmitRef = useRef(onSubmit);
+  const canSubmitRef = useRef(canSubmit);
   const lastEmitted = useRef(value);
   useEffect(() => {
     teammatesRef.current = teammates;
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
+    canSubmitRef.current = canSubmit;
   });
 
   const showPicker = (next: Picker | null) => {
@@ -79,7 +81,10 @@ export default function RichNoteEditor({
         name: "noteShortcuts",
         addKeyboardShortcuts: () => ({
           "Mod-Enter": () => {
-            onSubmitRef.current?.();
+            if (onSubmitRef.current && canSubmitRef.current) {
+              setExpanded(false);
+              onSubmitRef.current();
+            }
             return true;
           },
           "Mod-k": () => {
@@ -294,6 +299,8 @@ function LinkRow({ editor, onClose }: { editor: Editor; onClose: () => void }) {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
+    // React bubbles a submit through the tree and through portals: a form around the editor must not save with it.
+    event.stopPropagation();
     if (!valid) return;
     editor.chain().focus().extendMarkRange("link").setLink({ href: withScheme }).run();
     onClose();

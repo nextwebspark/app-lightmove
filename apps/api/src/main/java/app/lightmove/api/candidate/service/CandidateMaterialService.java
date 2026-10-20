@@ -62,7 +62,7 @@ public class CandidateMaterialService {
                 .findReadableNewestFirst(person.getWorkspaceId(), person.getId(), NoteViewpoint.position(projectId))
                 .stream()
                 .map(note -> new NoteOnFile(note.getKind(), note.getCreatedAt(), note.getProjectTitle(),
-                        NoteText.forPrompt(note.getBody(), note.getBodyFormat())))
+                        NoteText.forPrompt(note.getBody())))
                 .toList();
         Map<UUID, PersonDocumentVersion> latest = new LinkedHashMap<>();
         versions.findByPersonIdOrderByVersionNoDesc(person.getId())

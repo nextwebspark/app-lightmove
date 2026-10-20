@@ -64,7 +64,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Client contact position | required | optional | banner |
 | ☐ Client name, sector, country, domain | no `maxLength`, no domain check | 160/96/64/160 | toast |
 | ☐ Off-limits note | — | unbounded | toast |
-| Business unit / client notes | the note editor's Markdown, ≤ 4000 held under the box | `@Size(4000)`; `notesFormat` an `ApiValueEnum`, plain when absent | toast |
+| Business unit / client notes | the note editor's Markdown, ≤ 4000 held under the box (both drawers' Save waits on it); sent only when changed, so stored plain notes stay plain | `@Size(4000)`; `notesFormat` an `ApiValueEnum`, plain when absent | toast |
 
 ### Position brief
 Limits mirrored in `features/position/lib/briefLimits.ts`. A blank role title, benefit, criterion or competency name
