@@ -1508,6 +1508,22 @@ describe("TriageStagePage", () => {
     );
   });
 
+  it("keeps a half-typed company note through a look at the overview", async () => {
+    vi.mocked(companyNotesApi.getCompanyNotes).mockResolvedValue([]);
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open ACWA Power/i }));
+    const panel = await screen.findByRole("dialog", { name: /ACWA Power/i });
+    await userEvent.click(within(panel).getByRole("tab", { name: /Notes/ }));
+    expect(await within(panel).findByText(/Hiring managers never see notes/)).toBeInTheDocument();
+    await typeInto(await within(panel).findByRole("textbox", { name: "New note" }), "Half a thought");
+
+    await userEvent.click(within(panel).getByRole("tab", { name: /Overview/ }));
+    await userEvent.click(within(panel).getByRole("tab", { name: /Notes/ }));
+
+    expect(within(panel).getByRole("textbox", { name: "New note" })).toHaveTextContent("Half a thought");
+  });
+
   it("edits a hand-typed company behind the Edit button", async () => {
     const gulf = { ...acwa, id: "u2", apolloAccountId: null, source: "manual" as const,
       companyName: "Gulf Industrial" };

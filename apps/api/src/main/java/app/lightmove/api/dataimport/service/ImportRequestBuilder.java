@@ -33,8 +33,12 @@ class ImportRequestBuilder {
                 RowValues.text(fields.field(COMPANY_LINKEDIN), 500),
                 RowValues.text(fields.field(COMPANY_DESCRIPTION), 2000),
                 null,
-                RowValues.text(fields.field(COMPANY_NOTE), 2000),
+                companyNoteOf(fields),
                 fields.customValues(CustomColumnTarget.COMPANY));
+    }
+
+    String companyNoteOf(RowFields fields) {
+        return RowValues.text(fields.field(COMPANY_NOTE), 2000);
     }
 
     /** An edit replaces a company whole, so a blank cell restates the stored value rather than clearing it. */

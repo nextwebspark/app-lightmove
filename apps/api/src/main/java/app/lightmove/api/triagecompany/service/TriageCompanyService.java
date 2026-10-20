@@ -115,7 +115,7 @@ public class TriageCompanyService {
         // sent with it is still filed, rather than lost.
         Optional<TriageCompany> held = triaged.findByProjectIdAndApolloAccountId(projectId, accountId);
         if (held.isPresent()) {
-            companyNotes.fileFromDoor(workspaceId, held.get(), userId, request.note());
+            companyNotes.fileFromDoor(workspaceId, held.get(), userId, request.note(), httpRequest);
             return TriageCompanyResponseMapper.toDto(held.get());
         }
 
@@ -135,7 +135,7 @@ public class TriageCompanyService {
                 TriageCompanySource.STRATEGY, landingStatus, null);
         TriageCompany taken = triaged.findByProjectIdAndApolloAccountId(projectId, accountId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        companyNotes.fileFromDoor(workspaceId, taken, userId, request.note());
+        companyNotes.fileFromDoor(workspaceId, taken, userId, request.note(), httpRequest);
 
         if (inserted > 0) {
             audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_ADDED, userId, workspaceId, projectId, httpRequest)
@@ -179,7 +179,7 @@ public class TriageCompanyService {
         TriageCompany captured = resolved.company();
         captured.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, captured.getCustomFields(), request.customFields()));
-        companyNotes.fileFromDoor(workspaceId, captured, userId, details.note());
+        companyNotes.fileFromDoor(workspaceId, captured, userId, details.note(), httpRequest);
 
         auditCaptured(captured, source, userId, workspaceId, projectId, httpRequest);
         if (SUPPLIED_ONE_AT_A_TIME.contains(source)) {
@@ -230,7 +230,7 @@ public class TriageCompanyService {
             return false;
         }
         TriageCompany captured = resolved.company();
-        companyNotes.fileFromDoor(workspaceId, captured, userId, details.note());
+        companyNotes.fileFromDoor(workspaceId, captured, userId, details.note(), httpRequest);
         auditCaptured(captured, source, userId, workspaceId, projectId, httpRequest);
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
         return true;
@@ -485,6 +485,18 @@ public class TriageCompanyService {
                 .detail("triageCompanyId", triageCompanyId.toString())
                 .record();
         return TriageCompanyResponseMapper.toDto(company);
+    }
+
+    /**
+     * A note a spreadsheet carries for a company the mandate already holds, filed as the add form's would be. Whether
+     * a note was filed: the same words already there add nothing.
+     */
+    @Transactional
+    public boolean fileNoteFromDoor(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId, String note,
+                                    HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        TriageCompany company = triaged.requireInProject(triageCompanyId, projectId);
+        return companyNotes.fileFromDoor(workspaceId, company, userId, note, httpRequest);
     }
 
     /** Custom-column values only — the one edit a market company, which {@link #edit} refuses, allows. */

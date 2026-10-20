@@ -92,6 +92,9 @@ export function CompanyDrawer({
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<CompanyDrawerTab>(initialTab);
+  // Notes stay mounted once opened, so a half-typed note survives a look at the overview.
+  const [notesOpened, setNotesOpened] = useState(initialTab === "notes");
+  if (tab === "notes" && !notesOpened) setNotesOpened(true);
   const notes = useQuery({
     queryKey: companyNotesApi.COMPANY_NOTES_KEY(projectId, company?.id ?? ""),
     queryFn: ({ signal }) => companyNotesApi.getCompanyNotes(projectId, company!.id, signal),
@@ -117,6 +120,7 @@ export function CompanyDrawer({
     setCustomFields(company?.customFields ?? {});
     setEditing(false);
     setTab(initialTab);
+    setNotesOpened(initialTab === "notes");
   }, [open, company, initialTab]);
 
   // A company the mandate supplied itself is the mandate's to rewrite; one carrying a market snapshot
@@ -251,7 +255,9 @@ export function CompanyDrawer({
             {...(canWrite ? tabPanelProps(TAB_ID_PREFIX, "notes") : {})}
             hidden={!canWrite || tab !== "notes"}
           >
-            {canWrite && tab === "notes" && <CompanyNotesTab projectId={projectId} company={company} notes={notes} />}
+            {canWrite && notesOpened && (
+              <CompanyNotesTab key={company.id} projectId={projectId} company={company} notes={notes} />
+            )}
           </div>
           <div
             className="min-h-0 flex-1 overflow-y-auto px-5"

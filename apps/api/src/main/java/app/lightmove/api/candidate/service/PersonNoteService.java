@@ -134,7 +134,8 @@ public class PersonNoteService {
     /**
      * Takes a delete back while the note is still held. Its mentions were never dropped, so nobody is told twice.
      * A note already live answers as it is, so a second press of Undo, or two at once, records one restore; and
-     * where a door has filed the same words again since, that copy answers and the deleted one is left to the purge.
+     * where a door has filed the same words again since under the same author, that copy answers and the deleted one is
+     * left to the purge.
      */
     @Transactional
     public PersonNoteResponse restore(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
@@ -150,8 +151,8 @@ public class PersonNoteService {
         if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
-        PersonNote twin = notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBody(workspaceId, personId,
-                deleted.getProjectId(), deleted.getBody()).orElse(null);
+        PersonNote twin = notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserId(workspaceId,
+                personId, deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId()).orElse(null);
         if (twin != null) {
             return asItStands(userId, workspaceId, twin);
         }

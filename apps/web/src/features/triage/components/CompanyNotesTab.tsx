@@ -10,6 +10,7 @@ import * as companyNotesApi from "../api/companyNotesApi";
 import type { CompanyNote, CompanyNoteKind } from "../api/companyNotesApi";
 import { TRIAGE_KEY_PREFIX } from "../api/triageApi";
 import type { TriageCompany } from "../api/types";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
 const PLACEHOLDERS: Record<CompanyNoteKind, string> = {
   general: "What your team should know about this company…",
@@ -32,6 +33,7 @@ export function CompanyNotesTab({
   notes: UseQueryResult<CompanyNote[]>;
 }) {
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
   const refresh = useCompanyNotesRefresh(projectId, company.id);
   const [kind, setKind] = useState<CompanyNoteKind>("general");
   const [draft, setDraft] = useState("");
@@ -87,8 +89,8 @@ export function CompanyNotesTab({
         <LinesSkeleton />
       ) : list.length === 0 ? (
         <p className="text-note text-u-text3">
-          No notes yet. What your team learns about this company for this position sits here. Client contacts never
-          see notes.
+          No notes yet. What your team learns about this company for this position sits here.{" "}
+          {vocabulary.contacts} never see notes.
         </p>
       ) : (
         <ul className="flex flex-col gap-2">

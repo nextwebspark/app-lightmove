@@ -32,9 +32,12 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
     boolean existsByWorkspaceIdAndPersonIdAndProjectIdAndBody(UUID workspaceId, UUID personId, UUID projectId,
                                                               String body);
 
-    /** A live note in the same words about the same position: the copy a door filed after the original was deleted. */
-    Optional<PersonNote> findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBody(UUID workspaceId, UUID personId,
-                                                                              UUID projectId, String body);
+    /**
+     * A live note by the same author in the same words about the same position: the copy a door filed after the
+     * original was deleted. Another author's note in the same words is theirs, never a stand-in for this one.
+     */
+    Optional<PersonNote> findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserId(UUID workspaceId,
+            UUID personId, UUID projectId, String body, UUID authorUserId);
 
     @Query(value = """
             SELECT author_user_id AS authorUserId, project_id AS projectId, body

@@ -481,6 +481,31 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an Undo brings the note back when only a colleague wrote the same words since")
+    void anUndoIsNeverAnsweredByAColleaguesNote() throws Exception {
+        firm("Colleague Undo Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, """
+                {"fullName":"Reem Al Mazrouei"}""").get("id").asText();
+        String sara = researcherOn(cfo);
+        String mine = write(admin, cfo, candidateId, "call", "Left a voicemail").get("id").asText();
+        mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + mine).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        String hers = write(sara, cfo, candidateId, "general", "Left a voicemail").get("id").asText();
+
+        JsonNode undone = body(mvc.perform(post(notesUrl(cfo, candidateId) + "/" + mine + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(undone.get("id").asText()).isEqualTo(mine);
+        List<String> ids = new ArrayList<>();
+        notes(admin, cfo, candidateId).forEach(note -> ids.add(note.get("id").asText()));
+        assertThat(ids).containsExactlyInAnyOrder(mine, hers);
+        assertThat(kindsOf(timeline(cfo, candidateId, "notes").get("entries"))).contains("NOTE_RESTORED");
+    }
+
+    @Test
     @DisplayName("two Undos of one delete at once restore it once")
     void twoUndosAtOnceRestoreOnce() throws Exception {
         firm("Double Undo Firm");

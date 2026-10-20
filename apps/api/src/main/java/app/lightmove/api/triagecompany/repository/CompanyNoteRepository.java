@@ -33,9 +33,12 @@ public interface CompanyNoteRepository extends JpaRepository<CompanyNote, UUID> 
     List<CompanyNoteCount> countByCompany(@Param("projectId") UUID projectId,
                                           @Param("companyIds") Collection<UUID> companyIds);
 
-    /** A live note in the same words on the same company: the copy a door filed after the original was deleted. */
-    Optional<CompanyNote> findFirstByProjectIdAndTriageCompanyIdAndBody(UUID projectId, UUID triageCompanyId,
-                                                                        String body);
+    /**
+     * A live note by the same author in the same words on the same company: the copy a door filed after the original
+     * was deleted. Another author's note in the same words is theirs, never a stand-in for this one.
+     */
+    Optional<CompanyNote> findFirstByProjectIdAndTriageCompanyIdAndBodyAndAuthorUserId(UUID projectId,
+            UUID triageCompanyId, String body, UUID authorUserId);
 
     @Query(value = """
             SELECT author_user_id AS authorUserId, body FROM app_lm_company_note

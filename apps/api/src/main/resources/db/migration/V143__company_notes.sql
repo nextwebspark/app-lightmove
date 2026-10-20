@@ -34,8 +34,12 @@ COMMENT ON TABLE app_lm_company_note IS
 CREATE TRIGGER app_lm_company_note_touch BEFORE UPDATE ON app_lm_company_note
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();
 
+-- Whole, not partial: removing a company, a project or a user deletes or checks these rows by the key, deleted
+-- notes included, and a partial index would leave each of those a scan of the table (V134's reason).
 CREATE INDEX app_lm_company_note_company_idx
-    ON app_lm_company_note (triage_company_id, pinned DESC, created_at DESC) WHERE deleted_at IS NULL;
+    ON app_lm_company_note (triage_company_id, pinned DESC, created_at DESC);
+CREATE INDEX app_lm_company_note_project_idx ON app_lm_company_note (project_id);
+CREATE INDEX app_lm_company_note_author_idx ON app_lm_company_note (author_user_id);
 CREATE INDEX app_lm_company_note_deleted_idx ON app_lm_company_note (deleted_at) WHERE deleted_at IS NOT NULL;
 
 -- Each company's old note becomes its first, filed by whoever added the company and dated when the row last

@@ -233,6 +233,9 @@ public class ProjectImportService {
         }
 
         TriageCompanyResponse held = existing.get();
+        // A held company's note is filed like a new one's; the edit request has no note to carry it.
+        boolean noted = triage.fileNoteFromDoor(userId, workspaceId, projectId, held.id(),
+                requests.companyNoteOf(fields), httpRequest);
         // Keyed on the id, not the badge: a market company takes only its custom columns.
         if (held.apolloAccountId() == null) {
             TriageCompanyResponse updated = triage.edit(userId, workspaceId, projectId, held.id(),
@@ -243,7 +246,11 @@ public class ProjectImportService {
 
         Map<String, String> custom = fields.customValues(CustomColumnTarget.COMPANY);
         if (custom.isEmpty()) {
-            tally.companySkipped();
+            if (noted) {
+                tally.companyUpdated();
+            } else {
+                tally.companySkipped();
+            }
             return held;
         }
         TriageCompanyResponse updated = triage.editCustomFields(

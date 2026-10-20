@@ -180,6 +180,31 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an Undo brings the note back when only a colleague wrote the same words since")
+    void anUndoIsNeverAnsweredByAColleaguesNote() throws Exception {
+        firm("Company Note Colleague Undo Firm");
+        String projectId = mandate("Chief Operating Officer");
+        String companyId = capture(projectId, "Cedar Retail", null);
+        String sara = researcherOn(projectId);
+        String mine = write(admin, projectId, companyId, "call", "Left a voicemail", "plain").get("id").asText();
+        mvc.perform(delete(notesUrl(projectId, companyId) + "/" + mine).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        String hers = write(sara, projectId, companyId, "general", "Left a voicemail", "plain").get("id").asText();
+
+        JsonNode undone = body(mvc.perform(post(notesUrl(projectId, companyId) + "/" + mine + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(undone.get("id").asText()).isEqualTo(mine);
+        assertThat(undone.get("kind").asText()).isEqualTo("call");
+        List<String> ids = new ArrayList<>();
+        notes(admin, projectId, companyId).forEach(note -> ids.add(note.get("id").asText()));
+        assertThat(ids).containsExactlyInAnyOrder(mine, hers);
+        assertThat(restoresOn(projectId)).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a note sent with a company is filed once as a plain note, and a re-sent one adds nothing")
     void aDoorsNoteIsFiledOnce() throws Exception {
         firm("Company Door Note Firm");

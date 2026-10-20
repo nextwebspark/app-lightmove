@@ -10,6 +10,8 @@ import app.lightmove.api.ApolloUniverse;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -202,6 +204,38 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
                 .isEqualTo(3500);
         assertThat(candidates(admin, projectId).get("candidates").get(0).get("title").asText())
                 .isEqualTo("Group CFO");
+    }
+
+    @Test
+    @DisplayName("a company note is filed once whether its row creates the company or finds it already held")
+    void aCompanyNoteReachesAHeldCompanyToo() throws Exception {
+        String admin = adminOf("Import Company Note Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Company,Company Note
+                ACWA Power,Met at ADIPEC
+                """);
+
+        JsonNode second = importFile(admin, projectId, """
+                Company,Company Note,Full Name
+                ACWA Power,Board is split on the move,Layla Haddad
+                ACWA Power,Board is split on the move,Omar Khalil
+                ACWA Power,Met at ADIPEC,Sara Al-Mansour
+                """);
+
+        assertThat(second.get("companiesCreated").asInt()).isZero();
+        String companyId = companies(admin, projectId).get("companies").get(0).get("id").asText();
+        JsonNode notes = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage/" + companyId + "/notes")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        List<String> bodies = new ArrayList<>();
+        notes.forEach(note -> bodies.add(note.get("body").asText()));
+        assertThat(bodies).containsExactlyInAnyOrder("Met at ADIPEC", "Board is split on the move");
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_audit_event
+                where target_id = ? and event_type = 'COMPANY_NOTE_ADDED'""", Integer.class, projectId))
+                .isEqualTo(2);
     }
 
     @Test

@@ -96,8 +96,8 @@ public class CompanyNoteService {
 
     /**
      * Takes a delete back while the note is held. A note already live answers as it is, so two Undos record one
-     * restore; where a door has filed the same words again since, that copy answers and the deleted one is left to
-     * the purge.
+     * restore; where a door has filed the same words again since under the same author, that copy answers and the
+     * deleted one is left to the purge.
      */
     @Transactional
     public CompanyNoteResponse restore(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
@@ -110,8 +110,8 @@ public class CompanyNoteService {
         if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.COMPANY_NOTE_NOT_YOURS);
         }
-        CompanyNote twin = notes.findFirstByProjectIdAndTriageCompanyIdAndBody(projectId, triageCompanyId,
-                deleted.getBody()).orElse(null);
+        CompanyNote twin = notes.findFirstByProjectIdAndTriageCompanyIdAndBodyAndAuthorUserId(projectId,
+                triageCompanyId, deleted.getBody(), deleted.getAuthorUserId()).orElse(null);
         if (twin != null) {
             return asItStands(userId, workspaceId, twin);
         }
@@ -144,16 +144,20 @@ public class CompanyNoteService {
     /**
      * A note a door carried in with the company — the add form, the plugin, a spreadsheet's Note column — filed as
      * typed. The same words already there are not filed twice, which keeps a re-imported sheet from stacking copies.
+     * Whether a note was filed.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void fileFromDoor(UUID workspaceId, TriageCompany company, UUID userId, String body) {
+    public boolean fileFromDoor(UUID workspaceId, TriageCompany company, UUID userId, String body,
+                                HttpServletRequest httpRequest) {
         String text = body == null ? "" : body.strip();
         if (text.isEmpty() || notes.existsByProjectIdAndTriageCompanyIdAndBody(company.getProjectId(),
                 company.getId(), text)) {
-            return;
+            return false;
         }
-        notes.save(CompanyNote.written(workspaceId, company, CompanyNoteKind.GENERAL, text, NoteFormat.PLAIN,
-                userId));
+        CompanyNote note = notes.save(CompanyNote.written(workspaceId, company, CompanyNoteKind.GENERAL, text,
+                NoteFormat.PLAIN, userId));
+        record(ProjectEventType.COMPANY_NOTE_ADDED, userId, workspaceId, note, httpRequest);
+        return true;
     }
 
     /** How many live notes each of these companies carries; a company with none is absent. */

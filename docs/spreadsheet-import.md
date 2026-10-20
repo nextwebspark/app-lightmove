@@ -260,7 +260,8 @@ LinkedIn profile or email — is mapped rather than duplicated, and the file onl
 recorded (V91, `docs/candidate-crm.md`). A **Note** cell is the one value the file never writes onto the row: it is filed
 as a general note on the person about this mandate (V96), staff-only, and the same words already there
 are not filed again — so importing a sheet twice leaves one note, not two. A **Company note** cell is filed
-the same way on the company (V143), as a plain note, once.
+the same way on the company (V143), as a plain note, once — whether the row creates the company or finds it
+already on the mandate.
 
 Three consequences worth naming:
 

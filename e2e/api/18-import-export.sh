@@ -344,7 +344,7 @@ post_json "/projects/$PROJECT/candidates" "$(jq -nc --arg c "$SAHARA_ID" \
   '{triageCompanyId:$c, fullName:"Sami Shortlisted", title:"Chief Executive Officer", source:"manual"}')" -H "$LEAD"
 check_status 18.89 "a shortlisted company with one executive is typed in by hand" 201
 
-EXPORT_HEADER='Company,Website,Company LinkedIn,Country,Executive,Title,Email,Phone,Status,Sector,City,Revenue,Employees,Note,Founded,Added,Description,Source,Mandate Priority'
+EXPORT_HEADER='Company,Website,Company LinkedIn,Country,Executive,Title,Email,Phone,Status,Stage,Sector,City,Revenue,Employees,Founded,Added,Description,Source,Mandate Priority'
 
 export_as "$LEAD" "status=inUniverse"
 check_status 18.90 "the lead exports the In universe stage" 200
