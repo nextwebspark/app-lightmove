@@ -10,7 +10,6 @@ import {
   Input,
   StagePill,
   stageLabel,
-  TextArea,
   useToast,
 } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
@@ -23,7 +22,9 @@ import { openPositionsLabel } from "../lib/openPositions";
 import { AgencyClientView } from "./AgencyClientView";
 import { ClientMark } from "./ClientMark";
 import { ClientArchivedNotice, ClientDrawerActions } from "./ClientArchive";
-import { ClientPositions, DrawerField, Representatives, SectionLabel } from "./ClientRecordParts";
+import { NoteEditor } from "../../notes/components/NoteEditor";
+import { CLIENT_NOTES_MAX, CLIENT_NOTES_TOO_LONG } from "../lib/clientNotes";
+import { ClientPositions, DrawerField, DrawerFieldGroup, Representatives, SectionLabel } from "./ClientRecordParts";
 import { usePositionsOriginState } from "../../projects/lib/positionsOrigin";
 
 /**
@@ -106,6 +107,7 @@ function ClientRecordView({
       clientsApi.updateClient(client.id, {
         name: name.trim(),
         notes: notes.trim(),
+        notesFormat: "markdown",
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(client.id) });
@@ -164,15 +166,25 @@ function ClientRecordView({
         <DrawerField label={`${vocabulary.unit} name`}>
           <Input value={name} onChange={(event) => setName(event.target.value)} />
         </DrawerField>
-        <DrawerField label="Notes">
-          <TextArea
-            rows={3}
-            maxLength={2000}
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="e.g. hiring freeze lifted Q1, prioritise senior backfills"
-          />
-        </DrawerField>
+        <DrawerFieldGroup label="Notes">
+          <div className="rounded-u-control border border-u-border p-2">
+            <NoteEditor
+              value={notes}
+              format={client.notesFormat}
+              onChange={setNotes}
+              teammates={null}
+              ariaLabel="Notes"
+              placeholder="e.g. hiring freeze lifted Q1, prioritise senior backfills"
+              expandTitle={`${vocabulary.unit} notes`}
+              variant="field"
+            />
+          </div>
+          {notes.trim().length > CLIENT_NOTES_MAX && (
+            <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+              {CLIENT_NOTES_TOO_LONG}
+            </p>
+          )}
+        </DrawerFieldGroup>
         {dirty && (
           <div className="mb-2 flex justify-end gap-2">
             <Button variant="secondary" onClick={discard}>
@@ -180,7 +192,7 @@ function ClientRecordView({
             </Button>
             <Button
               loading={save.isPending}
-              disabled={!name.trim()}
+              disabled={!name.trim() || notes.trim().length > CLIENT_NOTES_MAX}
               onClick={() => save.mutate()}
             >
               Save changes

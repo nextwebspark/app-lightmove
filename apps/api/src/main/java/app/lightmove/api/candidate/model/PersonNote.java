@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.PersonNoteKind;
+import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -27,7 +28,7 @@ import org.hibernate.annotations.SQLRestriction;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PersonNote extends BaseEntity {
 
-    public static final int MAX_BODY = 4000;
+    public static final int MAX_BODY = 10000;
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
@@ -48,6 +49,10 @@ public class PersonNote extends BaseEntity {
     @Column(name = "body", nullable = false)
     private String body;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "body_format", nullable = false, length = 16)
+    private NoteFormat bodyFormat = NoteFormat.PLAIN;
+
     @Column(name = "pinned", nullable = false)
     private boolean pinned;
 
@@ -67,7 +72,7 @@ public class PersonNote extends BaseEntity {
     private UUID deletedBy;
 
     public static PersonNote written(Person person, UUID projectId, String projectTitle, PersonNoteKind kind,
-                                     String body, UUID author) {
+                                     String body, NoteFormat format, UUID author) {
         PersonNote note = new PersonNote();
         note.workspaceId = person.getWorkspaceId();
         note.personId = person.getId();
@@ -75,13 +80,15 @@ public class PersonNote extends BaseEntity {
         note.projectTitle = projectTitle;
         note.kind = kind;
         note.body = body;
+        note.bodyFormat = format;
         note.authorUserId = author;
         return note;
     }
 
-    public void revise(PersonNoteKind newKind, String newBody, UUID editor) {
+    public void revise(PersonNoteKind newKind, String newBody, NoteFormat newFormat, UUID editor) {
         this.kind = newKind;
         this.body = newBody;
+        this.bodyFormat = newFormat;
         this.editedAt = Instant.now();
         this.editedBy = editor;
     }

@@ -9,6 +9,7 @@ import type { User } from "../../auth/api/types";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail } from "../api/types";
 import { ClientDrawer } from "./ClientDrawer";
+import { typeInto } from "../../../test/noteEditor";
 
 vi.mock("../api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/clientsApi")>()),
@@ -45,6 +46,7 @@ const detail: ClientDetail = {
   domain: "example.ae",
   offLimitsNote: "Protected until 2027",
   notes: null,
+  notesFormat: "plain",
   activeMandates: 2,
   deliveredMandates: 1,
   apolloAccountId: null,
@@ -70,10 +72,14 @@ describe("ClientDrawer — saving details", () => {
     renderDrawer();
 
     const user = userEvent.setup();
-    await user.type(await screen.findByPlaceholderText(/hiring freeze lifted Q1/), "Freeze lifted");
+    await typeInto(await screen.findByRole("textbox", { name: "Notes" }), "Freeze lifted");
     await user.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(clientsApi.updateClient).toHaveBeenCalledWith("c1", { name: "Automotive", notes: "Freeze lifted" });
+    expect(clientsApi.updateClient).toHaveBeenCalledWith("c1", {
+      name: "Automotive",
+      notes: "Freeze lifted",
+      notesFormat: "markdown",
+    });
   });
 });
 

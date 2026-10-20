@@ -64,6 +64,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Client contact position | required | optional | banner |
 | ☐ Client name, sector, country, domain | no `maxLength`, no domain check | 160/96/64/160 | toast |
 | ☐ Off-limits note | — | unbounded | toast |
+| Business unit / client notes | the note editor's Markdown, ≤ 4000 held under the box | `@Size(4000)`; `notesFormat` an `ApiValueEnum`, plain when absent | toast |
 
 ### Position brief
 Limits mirrored in `features/position/lib/briefLimits.ts`. A blank role title, benefit, criterion or competency name
@@ -107,7 +108,8 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Candidates search `q`, `page` | none | unbounded `q`; `page × size` overflows | — |
 | Next action title | trimmed, ≤ 200, one line, required | `@NotBlank @Size(200)`, no line break (it becomes an email subject) | banner |
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
-| Note body | trimmed, mentions written as tokens, ≤ 4000 stored (held under the box) | `@NotBlank @Size(4000)` | toast |
+| Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@NotBlank @Size(10000)`; V142's CHECK | toast |
+| Note format | `markdown` from the editor | `ApiValueEnum`, plain when absent (a door's note is always plain): 400 "That is not a valid note format" | toast |
 | Note kind | four chips | `ApiValueEnum`: 400 "That is not a valid note kind" | toast |
 | Note scope, a position's drawer | This position (default) or All positions, sent as `allPositions` | `allPositions: true` files it about no position; `projectId` not read; neither read on an edit; both together 400 | toast |
 | Note position, Candidates page | "About" select of the person's positions | `projectId` needs that position's `WORK_EXECUTE` (403) and a mapping there (404); with `allPositions: true` 400 | toast |

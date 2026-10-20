@@ -1,5 +1,6 @@
 import type { ProjectHealth, ProjectStage } from "../../projects/api/types";
 import type { HiringPersona } from "../../workspace/api/types";
+import type { NoteFormat } from "../../notes/lib/noteFormat";
 
 /**
  * The client-registry API contract, hand-mirrored like the projects module's. A client is either
@@ -73,6 +74,8 @@ export interface ClientDetail {
   domain: string | null;
   offLimitsNote: string | null;
   notes: string | null;
+  /** How `notes` is to be read: as typed, or the note editor's Markdown. */
+  notesFormat: NoteFormat;
   /** The hiring context the assistant reads for this client's mandates at an agency. */
   persona: HiringPersona;
   activeMandates: number;
@@ -100,6 +103,7 @@ export interface UpdateClientPayload {
   domain?: string;
   offLimitsNote?: string;
   notes?: string;
+  notesFormat?: NoteFormat;
 }
 
 export interface InviteRepresentativePayload {

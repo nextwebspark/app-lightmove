@@ -79,6 +79,7 @@ import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileS
 import { AiActionButton } from "./AiActionButton";
 import { AiInferredBadge } from "./AiInferredBadge";
 import { NationalitySuggestion } from "./NationalitySuggestion";
+import { focusNoteComposer } from "../../notes/lib/focusNoteComposer";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
@@ -212,9 +213,7 @@ export function CandidateProfile({
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
   const startNote = () => {
     chooseTab("notes");
-    window.requestAnimationFrame(() =>
-      document.getElementById(`${TAB_ID_PREFIX}-panel-notes`)?.querySelector("textarea")?.focus(),
-    );
+    focusNoteComposer(`${TAB_ID_PREFIX}-panel-notes`);
   };
   const queryClient = useQueryClient();
   const positions = usePositions(projectId, candidate.id, canWrite);

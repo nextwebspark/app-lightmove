@@ -1,4 +1,5 @@
 import type { CustomFieldValues } from "../../customcolumns/api/types";
+import type { NoteFormat } from "../../notes/lib/noteFormat";
 
 import type { SeniorityToken } from "../../../lib/seniority";
 /**
@@ -256,6 +257,8 @@ export interface PersonNote {
   id: string;
   kind: PersonNoteKind;
   body: string;
+  /** How `body` is to be read: as typed, or the editor's Markdown. */
+  format: NoteFormat;
   pinned: boolean;
   /** The position the note is about, or null for a note about the person. */
   projectId: string | null;
@@ -273,6 +276,8 @@ export interface PersonNote {
 export interface WritePersonNotePayload {
   kind: PersonNoteKind;
   body: string;
+  /** How `body` is written; plain when left out. */
+  format?: NoteFormat;
   /** Read on the workspace's routes only: the position the note is about, or none. */
   projectId?: string | null;
   /** Read on a position's routes only: the note is about the person, read on every position. */

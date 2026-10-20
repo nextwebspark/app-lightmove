@@ -52,7 +52,10 @@ seat reads all three (decision D1). A note is about one position or about the pe
 only that position's and the person's ("All positions") show, and another position's is not found
 (`NoteViewpoint`) — not listed, not quoted on the timeline, not changed, pinned or linked to a task
 there, never sent to that position's AI — while the Candidates page reads them all (D1, revised 2026-10-15).
-The position drawer's composer offers This position or All positions, never another position. A note a door
+The position drawer's composer offers This position or All positions, never another position. A note is
+formatted (bold, italic, underline, strike, two heading sizes, bulleted, numbered and checklist lists, a quote, a
+link, @mentions) in one shared editor — the composers, an edit in place, a business unit's or client's notes —
+which opens in a larger view on Expand without losing a word. A note a door
 sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
 Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
 may change, remove or restore one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
@@ -1120,6 +1123,12 @@ V141 soft-deletes a person's note: `deleted_at` / `deleted_by` on `app_lm_person
 `@SQLRestriction` hides from every JPA read (two native queries in `PersonNoteRepository` find and restore one), and
 `NOTE_RESTORED` among the activity kinds. A deleted note keeps its task, notification and mention rows, so a restore
 re-announces nobody; `NotificationEmails` asks whether a mention's note is still live rather than reading `note_id`.
+V142 gives a note its format: `app_lm_person_note.body_format` and `app_lm_client.notes_format` (`PLAIN | MARKDOWN`,
+every existing row and every door's note `PLAIN`), and raises a person's note to 10,000 characters. The editor
+(`features/notes`, Tiptap behind a lazy chunk) writes CommonMark + GFM with `++underline++`, a mention kept as the
+server's own token; the card draws it through the same schema as React, never as HTML, and links only http, https
+and mailto. `common/note`'s `NoteText` (commonmark-java) reads it back as plain words for the timeline excerpt, and
+as Markdown with `@Name` for mentions for the AI.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

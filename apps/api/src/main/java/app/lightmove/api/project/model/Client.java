@@ -1,11 +1,14 @@
 package app.lightmove.api.project.model;
 
+import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.common.persona.model.PersonaSeed;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -64,6 +67,10 @@ public class Client extends BaseEntity {
     @Column(name = "notes")
     private String notes;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notes_format", nullable = false, length = 16)
+    private NoteFormat notesFormat = NoteFormat.PLAIN;
+
     /** Null for a custom record. */
     @Column(name = "company_source")
     private String companySource;
@@ -115,15 +122,18 @@ public class Client extends BaseEntity {
         return client;
     }
 
-    /** A null field is left as it is and a blank one cleared; provenance is untouched. */
+    /** A null field is left as it is and a blank one cleared; provenance is untouched. Notes carry their format. */
     public void applyDetails(String name, String sector, String hqCountry, String domain,
-                             String offLimitsNote, String notes) {
+                             String offLimitsNote, String notes, NoteFormat notesFormat) {
         this.name = name.trim();
         this.sector = patched(sector, this.sector);
         this.hqCountry = hqCountry == null ? this.hqCountry : Countries.nameOf(hqCountry);
         this.domain = patched(domain, this.domain);
         this.offLimitsNote = patched(offLimitsNote, this.offLimitsNote);
-        this.notes = patched(notes, this.notes);
+        if (notes != null) {
+            this.notes = patched(notes, this.notes);
+            this.notesFormat = notesFormat;
+        }
     }
 
     public void describePersona(HiringPersona persona) {

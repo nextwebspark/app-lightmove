@@ -1,4 +1,4 @@
-package app.lightmove.api.candidate.model;
+package app.lightmove.api.common.note;
 
 import java.util.LinkedHashSet;
 import java.util.Set;

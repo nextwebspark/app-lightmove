@@ -187,12 +187,22 @@ export function SectionLabel({ children, className = "" }: { children: string; c
   );
 }
 
+const FIELD_LABEL = "mb-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3";
+
+/** A field whose control is not one input — the note editor — so it is named by `aria-label`, not wrapped in a label. */
+export function DrawerFieldGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="mb-3">
+      <span className={FIELD_LABEL}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
 export function DrawerField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="mb-3 block">
-      <span className="mb-1 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
-        {label}
-      </span>
+      <span className={FIELD_LABEL}>{label}</span>
       {children}
     </label>
   );

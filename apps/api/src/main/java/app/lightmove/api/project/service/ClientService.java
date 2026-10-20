@@ -1,5 +1,7 @@
 package app.lightmove.api.project.service;
 
+import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -107,7 +109,8 @@ public class ClientService {
 
         return new ClientDetailResponse(client.getId(), client.getName(), client.universeAccountId(),
                 client.getSector(), client.getHqCountry(), client.getHqCity(), client.getLogoUrl(),
-                client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getPersona(),
+                client.getDomain(), client.getOffLimitsNote(), client.getNotes(), client.getNotesFormat().value(),
+                client.getPersona(),
                 active, delivered, reps, mandates, client.getArchivedAt(),
                 archiverNameOf(client, namesOf(Collections.singletonList(client.getArchivedBy()))));
     }
@@ -154,7 +157,8 @@ public class ClientService {
         }
 
         client.applyDetails(name, request.sector(), request.hqCountry(), request.domain(),
-                request.offLimitsNote(), request.notes());
+                request.offLimitsNote(), request.notes(),
+                ApiValueEnum.parse(NoteFormat.class, request.notesFormat(), NoteFormat.PLAIN, "notes format"));
 
         audit.event(ProjectEventType.CLIENT_UPDATED)
                 .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)

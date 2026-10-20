@@ -163,6 +163,24 @@ class ClientFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.sector").value("Energy"));
     }
 
+    @Test
+    @DisplayName("notes keep the format they were written in; a PATCH without notes leaves both alone")
+    void notesKeepTheirFormat() throws Exception {
+        String admin = adminOf("Formatted Notes Firm");
+        String clientId = createClient(admin, "Meridian Energy");
+
+        mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.notesFormat").value("plain"));
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","notes":"**Hiring freeze** lifted Q1","notesFormat":"markdown"}""");
+        patchClient(admin, clientId, """
+                {"name":"Meridian Energy","sector":"Energy"}""");
+
+        mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.notes").value("**Hiring freeze** lifted Q1"))
+                .andExpect(jsonPath("$.notesFormat").value("markdown"));
+    }
+
     private void patchClient(String token, String clientId, String body) throws Exception {
         mvc.perform(patch("/api/v1/clients/" + clientId)
                         .header("Authorization", "Bearer " + token)

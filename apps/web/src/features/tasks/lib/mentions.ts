@@ -54,7 +54,7 @@ export function mentionsPresent(text: string, mentions: readonly Mention[]): Men
 }
 
 /** What a note may hold as stored, each mention spelled out as its token (`PersonNote.MAX_BODY`). */
-export const NOTE_MAX_STORED = 4000;
+export const NOTE_MAX_STORED = 10000;
 
 export const NOTE_TOO_LONG = "Too long once its mentions are saved. Shorten it a little.";
 
@@ -65,6 +65,11 @@ export function serializeMentions(text: string, mentions: readonly Mention[]): s
     (body, mention) => body.split(mentionLabel(mention)).join(mentionToken(mention)),
     text,
   );
+}
+
+/** A body whose mentions are words again — for a note that is about to mention nobody. */
+export function withoutMentionTokens(body: string): string {
+  return body.replace(TOKEN, (_token, name: string) => `@${cleanName(name)}`);
 }
 
 /** A stored body as the composer shows it, for editing: every token back to its `@Name`. */

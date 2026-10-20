@@ -469,6 +469,53 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a note keeps its format: Markdown as written, read back as plain words on the timeline")
+    void aFormattedNoteKeepsItsFormat() throws Exception {
+        firm("Formatted Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, """
+                {"fullName":"Reem Al Hashimi","note":"**Captured** at the forum."}""").get("id").asText();
+
+        JsonNode written = body(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"## Call\\n\\n**Wants** ++Dubai++\\n\\n- [ ] CV","format":"markdown"}"""))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(written.get("format").asText()).isEqualTo("markdown");
+        assertThat(written.get("body").asText()).isEqualTo("## Call\n\n**Wants** ++Dubai++\n\n- [ ] CV");
+
+        JsonNode found = notes(admin, cfo, candidateId);
+        JsonNode fromDoor = found.get(1);
+        assertThat(fromDoor.get("body").asText()).isEqualTo("**Captured** at the forum.");
+        assertThat(fromDoor.get("format").asText()).isEqualTo("plain");
+        assertThat(timeline(cfo, candidateId, "notes").get("entries").get(0).get("noteExcerpt").asText())
+                .isEqualTo("Call Wants Dubai - [ ] CV");
+
+        String refusal = codeOf(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("kind", "general", "body", "x",
+                                "format", "html"))))
+                .andExpect(status().isBadRequest())
+                .andReturn());
+        assertThat(refusal).isEqualTo("VALIDATION_FAILED");
+        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("kind", "general",
+                                "body", "x".repeat(10000), "format", "markdown"))))
+                .andExpect(status().isCreated());
+        mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of("kind", "general",
+                                "body", "x".repeat(10001), "format", "markdown"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("a note sent with an executive is filed once as a note about that position")
     void aDoorsNoteIsFiledOnce() throws Exception {
         firm("Door Note Firm");

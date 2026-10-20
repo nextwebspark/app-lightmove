@@ -23,6 +23,9 @@ public record UpdateClientRequest(
 
         String offLimitsNote,
 
-        @Size(max = 2000, message = "Those notes are too long")
-        String notes
+        @Size(max = 4000, message = "Those notes are too long")
+        String notes,
+
+        /** A {@code NoteFormat} token for {@code notes}; plain when absent. */
+        String notesFormat
 ) {}

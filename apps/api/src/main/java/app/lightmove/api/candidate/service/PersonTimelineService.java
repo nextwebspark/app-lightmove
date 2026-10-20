@@ -5,17 +5,17 @@ import app.lightmove.api.candidate.constant.TimelineGroup;
 import app.lightmove.api.candidate.dto.PersonTimelineEntryResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.model.CandidateTag;
+import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonActivity;
-import app.lightmove.api.candidate.model.NoteMentionTokens;
-import app.lightmove.api.candidate.model.NoteViewpoint;
-import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.PersonDocument;
+import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.repository.CandidateTagRepository;
-import app.lightmove.api.candidate.repository.PersonDocumentRepository;
 import app.lightmove.api.candidate.repository.PersonActivityRepository;
+import app.lightmove.api.candidate.repository.PersonDocumentRepository;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
+import app.lightmove.api.common.note.NoteText;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import java.time.Instant;
@@ -138,7 +138,7 @@ public class PersonTimelineService {
                     actor == null ? null : actor.getAvatarUrl(),
                     line.getPersonId(), person == null ? null : person.getFullName(),
                     line.getProjectId(), line.getProjectTitle(), detailsOf(line, named, liveTags, liveDocuments),
-                    note == null ? null : excerptOf(note.getBody()));
+                    note == null ? null : excerptOf(note));
         }).toList();
     }
 
@@ -187,8 +187,8 @@ public class PersonTimelineService {
         }
     }
 
-    private static String excerptOf(String body) {
-        String flat = NoteMentionTokens.plainTextOf(body).strip().replaceAll("\\s+", " ");
+    private static String excerptOf(PersonNote note) {
+        String flat = NoteText.plainTextOf(note.getBody(), note.getBodyFormat()).strip().replaceAll("\\s+", " ");
         return flat.length() <= EXCERPT_LENGTH ? flat : flat.substring(0, EXCERPT_LENGTH - 1).strip() + "…";
     }
 

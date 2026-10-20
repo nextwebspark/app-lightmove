@@ -29,6 +29,7 @@ import { PersonProfileTab } from "./PersonProfileTab";
 import { PersonTimelineTab } from "./PersonTimelineTab";
 import { PersonContactTab } from "./PersonContactTab";
 import { AddToPositionDialog } from "./AddToPositionDialog";
+import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
 
 const TAB_ID_PREFIX = "person-drawer";
 
@@ -115,9 +116,7 @@ function PersonDrawerBody({
     });
   const startNote = () => {
     onTabChange("notes");
-    window.requestAnimationFrame(() =>
-      document.getElementById(`${TAB_ID_PREFIX}-panel-notes`)?.querySelector("textarea")?.focus(),
-    );
+    focusNoteComposer(`${TAB_ID_PREFIX}-panel-notes`);
   };
 
   const owning = useMutation({

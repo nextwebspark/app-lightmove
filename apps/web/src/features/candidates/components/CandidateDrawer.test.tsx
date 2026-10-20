@@ -15,6 +15,7 @@ import type { CandidateScorecard } from "../api/scorecardTypes";
 import type { Candidate, CandidateTag, PersonNote, PersonRecord, PersonTimelineEntry } from "../api/types";
 import { MemoryRouter } from "react-router-dom";
 import { CandidateDrawer } from "./CandidateDrawer";
+import { typeInto } from "../../../test/noteEditor";
 
 vi.mock("../api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof candidatesApi>()),
@@ -641,6 +642,7 @@ describe("CandidateDrawer", () => {
       id: "n1",
       kind: "call",
       body: "Call in May",
+      format: "plain",
       pinned: false,
       projectId: "p1",
       projectTitle: "Chief Financial Officer",
@@ -663,13 +665,14 @@ describe("CandidateDrawer", () => {
     expect(screen.getByRole("radio", { name: "This position" })).toBeChecked();
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([written]);
     await userEvent.click(screen.getByRole("radio", { name: "Call" }));
-    await userEvent.type(screen.getByLabelText(/New note/i), "Call in May");
+    await typeInto(await screen.findByRole("textbox", { name: "New note" }), "Call in May");
     await userEvent.click(screen.getByRole("button", { name: /Save note/i }));
 
     await waitFor(() =>
       expect(personCrmApi.writePersonNote).toHaveBeenCalledWith("p1", "c1", {
         kind: "call",
         body: "Call in May",
+        format: "markdown",
       }),
     );
     // A note is never a field of the profile: the row's replace is not touched.
@@ -1033,6 +1036,7 @@ describe("CandidateDrawer", () => {
         id: "n1",
         kind: "call",
         body: "Open to a move in Q1.",
+        format: "plain",
         pinned: false,
         projectId: "p1",
         projectTitle: "Chief Financial Officer",
