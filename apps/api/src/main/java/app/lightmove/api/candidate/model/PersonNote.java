@@ -93,8 +93,8 @@ public class PersonNote extends BaseEntity {
         this.editedBy = editor;
     }
 
-    public void discard(UUID by) {
-        this.deletedAt = Instant.now();
+    public void discard(UUID by, Instant at) {
+        this.deletedAt = at;
         this.deletedBy = by;
     }
 

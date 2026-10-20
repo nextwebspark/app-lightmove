@@ -182,6 +182,49 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("a mention's email waits while its note is deleted, and goes once the delete is taken back")
+    void aMentionEmailWaitsOutADelete() throws Exception {
+        String notes = candidatesUrl(projectId) + "/" + layla + "/notes";
+        String noteId = body(write(admin, "POST", notes, """
+                {"kind":"call","body":"@[sara](user:%s) please call her back"}""".formatted(researcherId)))
+                .get("id").asText();
+        mvc.perform(delete(notes + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        emailEveryUnread();
+        assertThat(email.subjectsFor(researcherAddress)).noneMatch(subject -> subject.contains("mentioned you"));
+
+        assertThat(write(admin, "POST", notes + "/" + noteId + "/restore", "{}").getResponse().getStatus())
+                .isEqualTo(200);
+        emailEveryUnread();
+
+        assertThat(email.subjectsFor(researcherAddress)).filteredOn(subject -> subject.contains("mentioned you"))
+                .hasSize(1);
+        assertThat(email.sent()).filteredOn(sent -> sent.subject().contains("mentioned you"))
+                .allSatisfy(sent -> assertThat(sent.textBody()).contains("note=" + noteId));
+    }
+
+    @Test
+    @DisplayName("a task handed on after its note was deleted does not point at the note")
+    void aReassignedTaskDoesNotPointAtADeletedNote() throws Exception {
+        String notes = candidatesUrl(projectId) + "/" + layla + "/notes";
+        String noteId = body(write(admin, "POST", notes, """
+                {"kind":"call","body":"Wants to speak to her family first"}""")).get("id").asText();
+        String taskId = body(write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/tasks", """
+                {"title":"Call back","kind":"call","assigneeUserId":"%s","dueAt":"%s","noteId":"%s"}"""
+                .formatted(userIdOf(admin), Instant.now().plus(2, ChronoUnit.DAYS), noteId))).get("id").asText();
+        mvc.perform(delete(notes + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        reassign(taskId, researcherId);
+
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_notification
+                where recipient_user_id = ?::uuid and task_id = ?::uuid and note_id is not null""", Integer.class,
+                researcherId, taskId)).isZero();
+    }
+
+    @Test
     @DisplayName("an archived position's rows leave the bell and are never emailed; restoring brings them back")
     void anArchivedPositionGoesQuietInTheBell() throws Exception {
         assign(researcherId, "Request CV", Instant.now().plus(2, ChronoUnit.DAYS));

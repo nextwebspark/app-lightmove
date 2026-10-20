@@ -68,6 +68,8 @@ public class NotificationEmails {
              WHERE id IN (SELECT id FROM app_lm_notification
                            WHERE email_due_at <= ? AND emailed_at IS NULL AND read_at IS NULL AND archived_at IS NULL
                              AND (snoozed_until IS NULL OR snoozed_until <= ?)
+                             AND NOT EXISTS (SELECT 1 FROM app_lm_person_note n
+                                              WHERE n.id = app_lm_notification.note_id AND n.deleted_at IS NOT NULL)
                            ORDER BY email_due_at LIMIT ? FOR UPDATE SKIP LOCKED)
             RETURNING id
             """;
@@ -138,11 +140,13 @@ public class NotificationEmails {
                         .getOrDefault(row.getPersonId(), "an executive");
         String position = row.getProjectId() == null ? "a" : projects.findById(row.getProjectId())
                 .map(Project::getPositionTitle).orElse("a");
-        String link = linkOf(row.getProjectId(), row.getCandidateId(), row.getPersonId(), row.getNoteId());
-        User to = recipient.get();
         // A deleted note keeps its row until the purge, so whether it is still there is asked, not read off note_id.
-        if (row.getKind() == NotificationKind.MENTIONED && row.getNoteId() != null
-                && people.linkedNotesOf(row.getWorkspaceId(), List.of(row.getNoteId())).containsKey(row.getNoteId())) {
+        UUID liveNoteId = row.getNoteId() != null
+                && people.linkedNotesOf(row.getWorkspaceId(), List.of(row.getNoteId())).containsKey(row.getNoteId())
+                ? row.getNoteId() : null;
+        String link = linkOf(row.getProjectId(), row.getCandidateId(), row.getPersonId(), liveNoteId);
+        User to = recipient.get();
+        if (row.getKind() == NotificationKind.MENTIONED && liveNoteId != null) {
             return Optional.of(templates.buildMentionedEmail(to.getEmail(), to.getFullName(), actorName, executive,
                     position, link));
         }

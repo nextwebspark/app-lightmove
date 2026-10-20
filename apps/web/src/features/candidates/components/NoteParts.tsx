@@ -244,6 +244,7 @@ export function NoteCard({
                   setDraft(note.body);
                   setEditing(true);
                 }}
+                disabled={actions.busy}
                 className="hover:text-u-text"
               >
                 Edit

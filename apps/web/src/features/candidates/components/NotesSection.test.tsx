@@ -331,4 +331,20 @@ describe("a note in the position's drawer", () => {
 
     await waitFor(() => expect(personCrmApi.restorePersonNote).toHaveBeenCalledWith("p1", "c1", "n1"));
   });
+
+  it("cannot be deleted twice while the list catches up", async () => {
+    vi.mocked(personCrmApi.removePersonNote).mockClear().mockResolvedValue(undefined);
+    vi.mocked(personCrmApi.restorePersonNote).mockResolvedValue(aNote("Prefers a call after 6pm"));
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await screen.findByRole("button", { name: "Undo" });
+
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeDisabled();
+    expect(personCrmApi.removePersonNote).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Delete" })).toBeEnabled());
+  });
 });
