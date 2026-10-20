@@ -15,6 +15,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -134,6 +137,46 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
         mvc.perform(post(notesUrl(projectId, companyId) + "/" + noteId + "/restore")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("two Undos at once restore once, and an Undo onto the same words written since answers that copy")
+    void anUndoRestoresOnceAndNeverDuplicates() throws Exception {
+        firm("Company Note Double Undo Firm");
+        String projectId = mandate("Chief Operating Officer");
+        String companyId = capture(projectId, "Cedar Retail", null);
+        String noteId = write(admin, projectId, companyId, "general", "Expanding into Oman", "plain")
+                .get("id").asText();
+        mvc.perform(delete(notesUrl(projectId, companyId) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Integer>> undos = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                undos.add(pool.submit(() -> mvc.perform(post(notesUrl(projectId, companyId) + "/" + noteId
+                                + "/restore").header("Authorization", "Bearer " + admin))
+                        .andReturn().getResponse().getStatus()));
+            }
+            for (Future<Integer> undo : undos) {
+                assertThat(undo.get()).isEqualTo(200);
+            }
+        } finally {
+            pool.shutdown();
+        }
+        assertThat(restoresOn(projectId)).isEqualTo(1);
+
+        mvc.perform(delete(notesUrl(projectId, companyId) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        String again = write(admin, projectId, companyId, "general", "Expanding into Oman", "plain")
+                .get("id").asText();
+        JsonNode undone = body(mvc.perform(post(notesUrl(projectId, companyId) + "/" + noteId + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(undone.get("id").asText()).isEqualTo(again);
+        assertThat(notes(admin, projectId, companyId)).hasSize(1);
+        assertThat(restoresOn(projectId)).isEqualTo(1);
     }
 
     @Test
@@ -266,6 +309,12 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
                         .content(json.writeValueAsString(Map.of("kind", kind, "body", text, "format", format))))
                 .andExpect(status().isCreated())
                 .andReturn());
+    }
+
+    private int restoresOn(String projectId) {
+        return db.queryForObject("""
+                select count(*) from app_lm_audit_event
+                where target_id = ? and event_type = 'COMPANY_NOTE_RESTORED'""", Integer.class, projectId);
     }
 
     private JsonNode notes(String token, String projectId, String companyId) throws Exception {

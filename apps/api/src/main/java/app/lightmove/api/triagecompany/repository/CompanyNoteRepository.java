@@ -33,19 +33,23 @@ public interface CompanyNoteRepository extends JpaRepository<CompanyNote, UUID> 
     List<CompanyNoteCount> countByCompany(@Param("projectId") UUID projectId,
                                           @Param("companyIds") Collection<UUID> companyIds);
 
+    /** A live note in the same words on the same company: the copy a door filed after the original was deleted. */
+    Optional<CompanyNote> findFirstByProjectIdAndTriageCompanyIdAndBody(UUID projectId, UUID triageCompanyId,
+                                                                        String body);
+
     @Query(value = """
-            SELECT author_user_id FROM app_lm_company_note
+            SELECT author_user_id AS authorUserId, body FROM app_lm_company_note
             WHERE id = :id AND project_id = :projectId AND triage_company_id = :companyId AND deleted_at IS NOT NULL
             """, nativeQuery = true)
-    Optional<UUID> findDeletedAuthor(@Param("id") UUID id, @Param("projectId") UUID projectId,
-                                     @Param("companyId") UUID triageCompanyId);
+    Optional<DeletedCompanyNoteRow> findDeleted(@Param("id") UUID id, @Param("projectId") UUID projectId,
+                                                @Param("companyId") UUID triageCompanyId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
             UPDATE app_lm_company_note SET deleted_at = NULL, deleted_by = NULL, version = version + 1
-            WHERE id = :id AND project_id = :projectId AND deleted_at IS NOT NULL
+            WHERE id = :id AND project_id = :projectId AND triage_company_id = :companyId AND deleted_at IS NOT NULL
             """, nativeQuery = true)
-    int restore(@Param("id") UUID id, @Param("projectId") UUID projectId);
+    int restore(@Param("id") UUID id, @Param("projectId") UUID projectId, @Param("companyId") UUID triageCompanyId);
 
     default CompanyNote requireOn(UUID id, UUID projectId, UUID triageCompanyId) {
         return findByIdAndProjectIdAndTriageCompanyId(id, projectId, triageCompanyId)

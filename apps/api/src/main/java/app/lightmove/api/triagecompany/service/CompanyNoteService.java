@@ -18,8 +18,10 @@ import app.lightmove.api.triagecompany.model.CompanyNote;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.repository.CompanyNoteCount;
 import app.lightmove.api.triagecompany.repository.CompanyNoteRepository;
+import app.lightmove.api.triagecompany.repository.DeletedCompanyNoteRow;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,7 @@ public class CompanyNoteService {
     private final UserRepository users;
     private final WorkspaceAccess workspaceAccess;
     private final AuditService audit;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public List<CompanyNoteResponse> list(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId) {
@@ -87,27 +90,41 @@ public class CompanyNoteService {
                        HttpServletRequest httpRequest) {
         requireCompany(workspaceId, projectId, triageCompanyId);
         CompanyNote note = requireEditable(userId, workspaceId, projectId, triageCompanyId, noteId);
-        note.discard(userId);
+        note.discard(userId, clock.instant());
         record(ProjectEventType.COMPANY_NOTE_REMOVED, userId, workspaceId, note, httpRequest);
     }
 
-    /** Takes a delete back while the note is held; a note that is already live answers as it is. */
+    /**
+     * Takes a delete back while the note is held. A note already live answers as it is, so two Undos record one
+     * restore; where a door has filed the same words again since, that copy answers and the deleted one is left to
+     * the purge.
+     */
     @Transactional
     public CompanyNoteResponse restore(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
                                        UUID noteId, HttpServletRequest httpRequest) {
         requireCompany(workspaceId, projectId, triageCompanyId);
-        UUID author = notes.findDeletedAuthor(noteId, projectId, triageCompanyId).orElse(null);
-        if (author == null) {
-            CompanyNote live = notes.requireOn(noteId, projectId, triageCompanyId);
-            return toDto(live, usersOf(List.of(live)), mayEdit(userId, workspaceId, live));
+        DeletedCompanyNoteRow deleted = notes.findDeleted(noteId, projectId, triageCompanyId).orElse(null);
+        if (deleted == null) {
+            return asItStands(userId, workspaceId, notes.requireOn(noteId, projectId, triageCompanyId));
         }
-        if (!author.equals(userId) && !mayEditAny(userId, workspaceId)) {
+        if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.COMPANY_NOTE_NOT_YOURS);
         }
-        notes.restore(noteId, projectId);
+        CompanyNote twin = notes.findFirstByProjectIdAndTriageCompanyIdAndBody(projectId, triageCompanyId,
+                deleted.getBody()).orElse(null);
+        if (twin != null) {
+            return asItStands(userId, workspaceId, twin);
+        }
+        if (notes.restore(noteId, projectId, triageCompanyId) == 0) {
+            return asItStands(userId, workspaceId, notes.requireOn(noteId, projectId, triageCompanyId));
+        }
         CompanyNote note = notes.requireOn(noteId, projectId, triageCompanyId);
         record(ProjectEventType.COMPANY_NOTE_RESTORED, userId, workspaceId, note, httpRequest);
         return toDto(note, usersOf(List.of(note)), true);
+    }
+
+    private CompanyNoteResponse asItStands(UUID userId, UUID workspaceId, CompanyNote note) {
+        return toDto(note, usersOf(List.of(note)), mayEdit(userId, workspaceId, note));
     }
 
     @Transactional
