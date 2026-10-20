@@ -32,8 +32,12 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
     boolean existsByWorkspaceIdAndPersonIdAndProjectIdAndBody(UUID workspaceId, UUID personId, UUID projectId,
                                                               String body);
 
+    /** A live note in the same words about the same position: the copy a door filed after the original was deleted. */
+    Optional<PersonNote> findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBody(UUID workspaceId, UUID personId,
+                                                                              UUID projectId, String body);
+
     @Query(value = """
-            SELECT author_user_id AS authorUserId, project_id AS projectId
+            SELECT author_user_id AS authorUserId, project_id AS projectId, body
             FROM app_lm_person_note
             WHERE id = :id AND workspace_id = :workspaceId AND person_id = :personId AND deleted_at IS NOT NULL
             """, nativeQuery = true)
@@ -43,9 +47,9 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
             UPDATE app_lm_person_note SET deleted_at = NULL, deleted_by = NULL, version = version + 1
-            WHERE id = :id AND workspace_id = :workspaceId AND deleted_at IS NOT NULL
+            WHERE id = :id AND workspace_id = :workspaceId AND person_id = :personId AND deleted_at IS NOT NULL
             """, nativeQuery = true)
-    int restore(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId);
+    int restore(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId, @Param("personId") UUID personId);
 
     /** The notes a viewpoint reads, pinned first and then newest first. */
     default List<PersonNote> findReadablePinnedFirst(UUID workspaceId, UUID personId, NoteViewpoint viewpoint) {

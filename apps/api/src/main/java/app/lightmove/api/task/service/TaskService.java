@@ -297,11 +297,14 @@ public class TaskService {
         }
     }
 
-    /** Nobody is told of a task they put on themselves. */
+    /** Nobody is told of a task they put on themselves, and a deleted note it was set from is not pointed at. */
     private void announceAssignment(Task task, UUID actor) {
         if (!task.getAssigneeUserId().equals(actor)) {
+            UUID noteId = task.getNoteId() != null
+                    && people.linkedNotesOf(task.getWorkspaceId(), List.of(task.getNoteId())).containsKey(task.getNoteId())
+                    ? task.getNoteId() : null;
             events.publishEvent(new TaskAssigned(task.getWorkspaceId(), task.getProjectId(), task.getPersonId(),
-                    task.getCandidateId(), task.getId(), task.getNoteId(), task.getAssigneeUserId(), actor));
+                    task.getCandidateId(), task.getId(), noteId, task.getAssigneeUserId(), actor));
         }
     }
 
