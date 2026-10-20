@@ -10,6 +10,7 @@ import org.commonmark.ext.ins.InsExtension;
 import org.commonmark.ext.task.list.items.TaskListItemMarker;
 import org.commonmark.ext.task.list.items.TaskListItemsExtension;
 import org.commonmark.node.BlockQuote;
+import org.commonmark.node.Link;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.NodeRenderer;
@@ -26,7 +27,7 @@ public final class NoteText {
     private static final List<Extension> EXTENSIONS = List.of(StrikethroughExtension.create(),
             InsExtension.create(), TaskListItemsExtension.create());
     private static final Parser PARSER = Parser.builder().extensions(EXTENSIONS).build();
-    /** Registered ahead of the extensions, so it is the one asked for the three nodes it names. */
+    /** Registered ahead of the extensions, so it is the one asked for the nodes it names. */
     private static final TextContentRenderer RENDERER = TextContentRenderer.builder()
             .nodeRendererFactory(PlainWords::new)
             .extensions(EXTENSIONS)
@@ -42,16 +43,19 @@ public final class NoteText {
         return format == NoteFormat.MARKDOWN ? RENDERER.render(PARSER.parse(words)).strip() : words;
     }
 
-    public static String forPrompt(String body, NoteFormat format) {
+    public static String forPrompt(String body) {
         return body == null ? null : NoteMentionTokens.plainTextOf(body);
     }
 
-    /** Struck words as words, a checklist's box as {@code [ ]} or {@code [x]}, a quote as its lines. */
+    /**
+     * Struck words as words, a checklist's box as {@code [ ]} or {@code [x]}, a quote as its lines, a link as its words
+     * (the default quotes them and adds the address, twice over for a pasted URL).
+     */
     private record PlainWords(TextContentNodeRendererContext context) implements NodeRenderer {
 
         @Override
         public Set<Class<? extends Node>> getNodeTypes() {
-            return Set.of(Strikethrough.class, TaskListItemMarker.class, BlockQuote.class);
+            return Set.of(Strikethrough.class, TaskListItemMarker.class, BlockQuote.class, Link.class);
         }
 
         @Override

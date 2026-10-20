@@ -275,7 +275,7 @@ describe("the note composer", () => {
       editorOf(box).commands.insertContent("x".repeat(10001));
     });
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Too long once its mentions are saved");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too long to save");
     expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
   });
 });
@@ -306,6 +306,37 @@ describe("a note in the position's drawer", () => {
         format: "markdown",
       }),
     );
+  });
+
+  it("saved untouched sends nothing back, so a plain note's own '*' and '1.' never turn into formatting", async () => {
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([aNote("Spoke *twice*\n1. wants Dubai")]);
+    vi.mocked(personCrmApi.revisePersonNote).mockClear();
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await screen.findByRole("textbox", { name: "Edit note" });
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.queryByRole("textbox", { name: "Edit note" })).not.toBeInTheDocument();
+    expect(personCrmApi.revisePersonNote).not.toHaveBeenCalled();
+  });
+
+  it("takes a link without saving the note under it", async () => {
+    vi.mocked(personCrmApi.revisePersonNote).mockClear();
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const editor = await screen.findByRole("textbox", { name: "Edit note" });
+    await act(async () => {
+      editorOf(editor).commands.selectAll();
+    });
+    const card = editor.closest("li") as HTMLElement;
+    await userEvent.click(within(card).getByRole("button", { name: "Link" }));
+    await userEvent.type(within(card).getByRole("textbox", { name: "Link address" }), "example.com{Enter}");
+
+    expect(screen.getByRole("textbox", { name: "Edit note" })).toBeInTheDocument();
+    expect(personCrmApi.revisePersonNote).not.toHaveBeenCalled();
+    expect(editorOf(editor).getAttributes("link").href).toBe("https://example.com");
   });
 
   it("is pinned by anyone on the position", async () => {

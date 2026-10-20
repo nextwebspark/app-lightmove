@@ -90,7 +90,7 @@ function ClientDetailsSection({ client, editsCompanyFacts }: { client: ClientDet
   const update = (patch: Partial<ClientDetails>) => setDraft((current) => ({ ...current, ...patch }));
 
   const save = useMutation({
-    mutationFn: () => clientsApi.updateClient(client.id, payloadOf(draft, editsCompanyFacts)),
+    mutationFn: () => clientsApi.updateClient(client.id, payloadOf(draft, saved, editsCompanyFacts)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: clientsApi.clientKey(client.id) });
       void queryClient.invalidateQueries({ queryKey: clientsApi.CLIENTS_KEY });
@@ -108,7 +108,11 @@ function ClientDetailsSection({ client, editsCompanyFacts }: { client: ClientDet
             <Button variant="secondary" onClick={() => setDraft(saved)}>
               Discard
             </Button>
-            <Button loading={save.isPending} disabled={!draft.name.trim()} onClick={() => save.mutate()}>
+            <Button
+              loading={save.isPending}
+              disabled={!draft.name.trim() || draft.notes.trim().length > CLIENT_NOTES_MAX}
+              onClick={() => save.mutate()}
+            >
               Save changes
             </Button>
           </span>
@@ -219,9 +223,15 @@ function detailsOf(client: ClientDetail): ClientDetails {
   };
 }
 
-/** The PATCH is partial: a universe pick's company facts are never sent, so they are never overwritten. */
-function payloadOf(draft: ClientDetails, editsCompanyFacts: boolean): UpdateClientPayload {
-  const own = { name: draft.name.trim(), notes: draft.notes.trim(), notesFormat: "markdown" as const };
+/**
+ * The PATCH is partial: a universe pick's company facts are never sent, so they are never overwritten, and untouched
+ * notes are left out, since sent back as Markdown a plain note's "- " and "1." would turn into lists.
+ */
+function payloadOf(draft: ClientDetails, saved: ClientDetails, editsCompanyFacts: boolean): UpdateClientPayload {
+  const own: UpdateClientPayload = {
+    name: draft.name.trim(),
+    ...(draft.notes !== saved.notes && { notes: draft.notes.trim(), notesFormat: "markdown" as const }),
+  };
   if (!editsCompanyFacts) return own;
   return { ...own, sector: draft.sector.trim(), hqCountry: draft.hqCountry.trim(), domain: draft.domain.trim() };
 }

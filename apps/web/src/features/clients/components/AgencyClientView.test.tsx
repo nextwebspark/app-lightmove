@@ -131,7 +131,7 @@ describe("AgencyClientView — the panel", () => {
 });
 
 describe("AgencyClientView — a client typed in by hand", () => {
-  it("offers its sector, country and website to edit, and asks the universe nothing", async () => {
+  it("offers its sector, country and website to edit, asks the universe nothing, and leaves the notes as stored", async () => {
     vi.mocked(clientsApi.updateClient).mockResolvedValue(typedClient);
     const user = userEvent.setup();
     renderDrawer("c1");
@@ -144,8 +144,6 @@ describe("AgencyClientView — a client typed in by hand", () => {
     await waitFor(() =>
       expect(clientsApi.updateClient).toHaveBeenCalledWith("c1", {
         name: "Harbour Health",
-        notes: "",
-        notesFormat: "markdown",
         sector: "Health Care",
         hqCountry: "Saudi Arabia",
         domain: "harbourhealth.example",
