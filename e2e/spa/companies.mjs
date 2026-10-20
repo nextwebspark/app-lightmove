@@ -477,8 +477,9 @@ try {
     const editable = [];
     if (await drawer.getByRole("button", { name: `Edit ${ATLAS}` }).count()) editable.push("edit pencil");
     if (await drawer.getByRole("button", { name: /^(Shortlist|Decline|Remove)$/ }).count()) editable.push("footer moves");
-    const readOnly = await drawer.getByLabel("Note on this company").getAttribute("readonly");
-    check("C9.3", "the company drawer opens read-only for a client seat", "|readonly", `${editable.join(",")}|${readOnly === null ? "editable" : "readonly"}`);
+    // Company notes are staff-only: a client seat gets no Notes tab, so no tab bar at all.
+    if (await drawer.getByRole("tablist", { name: "Company sections" }).count()) editable.push("notes tab");
+    check("C9.3", "the company drawer opens read-only for a client seat", "", editable.join(","));
     await shot("client-drawer");
     await drawer.getByRole("button", { name: "Close" }).first().click().catch(() => page.keyboard.press("Escape"));
   });

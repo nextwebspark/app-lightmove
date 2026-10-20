@@ -57,6 +57,7 @@ public class TriageCompanyReadService {
     private final ProjectRepository projects;
     private final LightMoveProperties properties;
     private final MappedExecutiveLookup executives;
+    private final CompanyNoteService companyNotes;
 
     /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
     @Transactional(readOnly = true)
@@ -79,8 +80,14 @@ public class TriageCompanyReadService {
                 : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
                         PageRequest.of(page, size, resolveSort(criteria)), audience);
 
+        Map<UUID, Integer> noteCounts = audience == ProjectAudience.STAFF
+                ? companyNotes.countsOf(projectId, found.getContent().stream().map(TriageCompany::getId).toList())
+                : null;
         return new TriageCompaniesResponse(
-                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
+                found.getContent().stream()
+                        .map(company -> TriageCompanyResponseMapper.toDto(company,
+                                noteCounts == null ? null : noteCounts.getOrDefault(company.getId(), 0)))
+                        .toList(),
                 found.getTotalElements(), page, size, countsFor(projectId));
     }
 

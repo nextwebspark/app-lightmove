@@ -136,15 +136,16 @@ fi
 
 section "N17.3  moving between stages"
 
-patch_json "$TRIAGE/$ALPHA_ID" '{"note":"Strong finance bench"}' -H "$LEAD_AUTH"
-check_status N17.3.1 "a note is added" 200
+post_json "$TRIAGE/$ALPHA_ID/notes" '{"kind":"general","body":"Strong finance bench"}' -H "$LEAD_AUTH"
+check_status N17.3.1 "a note is added to the company" 201
 patch_json "$TRIAGE/$ALPHA_ID" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
 check N17.3.2 "the company moves to shortlisted" "shortlisted" "$(json '.status')"
-check N17.3.3 "…and the note stays — a null leaves it be" "Strong finance bench" "$(json '.note')"
+get "$TRIAGE/$ALPHA_ID/notes" -H "$LEAD_AUTH"
+check N17.3.3 "…and its notes stay with it" "Strong finance bench" "$(json '.[0].body')"
 patch_json "$TRIAGE/$ALPHA_ID" '{"noExecutiveFound":true}' -H "$LEAD_AUTH"
 check N17.3.4 "flagging no executive found leaves the stage" "true shortlisted" "$(json '.noExecutiveFound') $(json '.status')"
-patch_json "$TRIAGE/$ALPHA_ID" '{"note":""}' -H "$LEAD_AUTH"
-check N17.3.5 "an empty note is how a note is cleared" "" "$(json '.note // empty')"
+get "$TRIAGE?status=shortlisted" -H "$LEAD_AUTH"
+check N17.3.5 "the staff grid counts the company's notes" "1" "$(json ".companies[] | select(.id == \"$ALPHA_ID\") | .noteCount")"
 patch_json "$TRIAGE/$ALPHA_ID" '{"status":"archived"}' -H "$LEAD_AUTH"
 check_code N17.3.6 "an unknown stage" 400 VALIDATION_FAILED
 patch_json "$TRIAGE/$(new_uuid)" '{"status":"declined"}' -H "$LEAD_AUTH"

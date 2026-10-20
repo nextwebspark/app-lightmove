@@ -1,23 +1,29 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, TextArea, useToast } from "../../../components/ui";
+import { Button, useToast } from "../../../components/ui";
 import { CompanyDrawerHeader } from "../../../components/ui/CompanyDrawerHeader";
 import { DetailGrid, DetailPill, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
 import { Drawer } from "../../../components/ui/Drawer";
+import { TabList } from "../../../components/ui/TabList";
+import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
-import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
+import * as companyNotesApi from "../api/companyNotesApi";
 import * as triageApi from "../api/triageApi";
 import type { TriageCompany, TriageCompanyStatus } from "../api/types";
 import { stageByStatus } from "../lib/triageStages";
 import { MOVES, removeTooltip, SOURCE_STYLES } from "../lib/triageVocabulary";
-import { useSaveCompanyNote } from "../lib/useSaveCompanyNote";
 import { AddCompanyPanel } from "./AddCompanyPanel";
 import { CompanyFactsForm, editPayloadOf } from "./CompanyFactsForm";
 import { CompanyFactsSections } from "./CompanyFactsSections";
+import { CompanyNotesTab } from "./CompanyNotesTab";
+
+export type CompanyDrawerTab = "overview" | "notes";
+
+const TAB_ID_PREFIX = "company-drawer";
 
 /** The corner icons share the close button's footprint so the row reads as one control strip. */
 const CORNER_BUTTON =
@@ -36,9 +42,9 @@ const CORNER_BUTTON =
  * a claim the figures no longer support. The server refuses the write too — the missing button is the
  * courtesy, not the control.
  *
- * <p>The <b>Note</b> is the exception, and stays editable on every company including those. It is the
- * mandate's own remark rather than a fact about the company, which is exactly why the export cannot
- * own it — and it is the reason a consultant opens this panel rather than Strategy's.
+ * <p>The <b>Notes</b> tab is the exception, and stays the team's on every company including those. Notes are the
+ * mandate's own remarks rather than facts about the company, which is exactly why the export cannot own them —
+ * and the reason a consultant opens this panel rather than Strategy's. Staff-only, so a client seat gets no tabs.
  *
  * <p><b>Add executive sits in the header</b> rather than only on the grid row, because by the time
  * this panel is open the company is the thing being read and "map somebody here" is the next move —
@@ -48,6 +54,7 @@ export function CompanyDrawer({
   open,
   projectId,
   company,
+  initialTab = "overview",
   landingStatus,
   customColumns,
   canWrite,
@@ -63,6 +70,8 @@ export function CompanyDrawer({
   projectId: string;
   /** The company being read, or null to add a new one. */
   company: TriageCompany | null;
+  /** The tab the panel opens on: the grid's notes chip opens it on Notes. */
+  initialTab?: CompanyDrawerTab;
   /** Where a newly added company lands — the stage the grid was showing. */
   landingStatus: TriageCompanyStatus;
   /** This mandate's own company columns, edited in the same save as the fields above them. */
@@ -82,7 +91,15 @@ export function CompanyDrawer({
 }) {
   const toast = useToast();
   const [editing, setEditing] = useState(false);
-  const [note, setNote] = useState("");
+  const [tab, setTab] = useState<CompanyDrawerTab>(initialTab);
+  // Notes stay mounted once opened, so a half-typed note survives a look at the overview.
+  const [notesOpened, setNotesOpened] = useState(initialTab === "notes");
+  if (tab === "notes" && !notesOpened) setNotesOpened(true);
+  const notes = useQuery({
+    queryKey: companyNotesApi.COMPANY_NOTES_KEY(projectId, company?.id ?? ""),
+    queryFn: ({ signal }) => companyNotesApi.getCompanyNotes(projectId, company!.id, signal),
+    enabled: open && canWrite && company !== null,
+  });
 
   // A market company's facts are the export's, but the columns this mandate added are its own — so
   // they are editable here even though everything above them is not.
@@ -97,18 +114,14 @@ export function CompanyDrawer({
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  const saveNote = useSaveCompanyNote(projectId, onSaved);
-  const handleNoteShortcut = useSubmitShortcut(() => {
-    if (company && note !== (company.note ?? "")) saveNote.mutate({ company, note });
-  });
-
   // Reopening should show the company being read, never the half-typed edit that was abandoned.
   useEffect(() => {
     if (!open) return;
-    setNote(company?.note ?? "");
     setCustomFields(company?.customFields ?? {});
     setEditing(false);
-  }, [open, company]);
+    setTab(initialTab);
+    setNotesOpened(initialTab === "notes");
+  }, [open, company, initialTab]);
 
   // A company the mandate supplied itself is the mandate's to rewrite; one carrying a market snapshot
   // is the export's. Keyed on `apolloAccountId` and not on `source`, because that is the test the
@@ -222,7 +235,35 @@ export function CompanyDrawer({
         />
       ) : (
         <>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5">
+          {canWrite && (
+            <div className="border-b border-u-border px-5">
+              <TabList
+                label="Company sections"
+                idPrefix={TAB_ID_PREFIX}
+                className="-mb-px mt-1 gap-3.5"
+                value={tab}
+                onChange={setTab}
+                tabs={[
+                  { value: "overview", label: "Overview" },
+                  { value: "notes", label: "Notes", count: notes.data?.length },
+                ]}
+              />
+            </div>
+          )}
+          <div
+            className="min-h-0 flex-1 overflow-y-auto px-5"
+            {...(canWrite ? tabPanelProps(TAB_ID_PREFIX, "notes") : {})}
+            hidden={!canWrite || tab !== "notes"}
+          >
+            {canWrite && notesOpened && (
+              <CompanyNotesTab key={company.id} projectId={projectId} company={company} notes={notes} />
+            )}
+          </div>
+          <div
+            className="min-h-0 flex-1 overflow-y-auto px-5"
+            {...(canWrite ? tabPanelProps(TAB_ID_PREFIX, "overview") : {})}
+            hidden={canWrite && tab !== "overview"}
+          >
             <CompanyFactsSections company={company} />
 
             <DrawerSection title="In this mandate">
@@ -235,7 +276,7 @@ export function CompanyDrawer({
               {!isMandateSupplied && (
                 <p className="mt-3 font-mono text-[11px]/[1.6] text-u-text3">
                   These fields come from the market export and are refreshed by it, so they are not
-                  editable here. Your note below is yours.
+                  editable here. Your team's notes are yours.
                 </p>
               )}
             </DrawerSection>
@@ -250,32 +291,6 @@ export function CompanyDrawer({
               onSave={() => saveCustomFields.mutate(customFields)}
             />
 
-            <DrawerSection
-              title="Note"
-              action={
-                canWrite &&
-                note !== (company.note ?? "") && (
-                  <button
-                    type="button"
-                    onClick={() => saveNote.mutate({ company, note })}
-                    disabled={saveNote.isPending}
-                    className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-u-accent transition hover:underline disabled:opacity-50"
-                  >
-                    Save
-                  </button>
-                )
-              }
-            >
-              <TextArea
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-                onKeyDown={handleNoteShortcut}
-                readOnly={!canWrite}
-                rows={3}
-                aria-label="Note on this company"
-                placeholder="Your own remark on this company, for this mandate…"
-              />
-            </DrawerSection>
           </div>
 
           {canWrite && (

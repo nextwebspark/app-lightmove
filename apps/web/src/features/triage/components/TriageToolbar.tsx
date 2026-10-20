@@ -88,8 +88,8 @@ export function TriageToolbar({
   // Derived from the project's own column set, so a custom column appears in the picker with the
   // built-ins rather than being the one column on the grid nobody can hide.
   const hideableColumns = useMemo(
-    () => hideableColumnsOf(createTriageCompanyColumns(customColumns)),
-    [customColumns],
+    () => hideableColumnsOf(createTriageCompanyColumns(customColumns, { staff: canWrite })),
+    [customColumns, canWrite],
   );
   const defaults = useMemo(() => defaultTriageColumnVisibility(customColumns), [customColumns]);
 

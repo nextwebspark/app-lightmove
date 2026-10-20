@@ -6,14 +6,15 @@ import java.util.UUID;
 
 /**
  * A triaged company from its stored snapshot. {@code id} is the triage row's, not the company's;
- * {@code apolloAccountId} is null for a mandate-supplied company.
+ * {@code apolloAccountId} is null for a mandate-supplied company. {@code noteCount} is the staff grid's alone:
+ * every other read, a client seat's included, answers null.
  */
 public record TriageCompanyResponse(
         UUID id,
         String apolloAccountId,
         String source,
         String status,
-        String note,
+        Integer noteCount,
         boolean noExecutiveFound,
         String companyName,
         String industry,

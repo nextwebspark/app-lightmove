@@ -24,7 +24,8 @@ export interface TriageCompany {
   apolloAccountId: string | null;
   source: TriageCompanySource;
   status: TriageCompanyStatus;
-  note: string | null;
+  /** How many notes the team holds on it; null on every read but the staff grid's. */
+  noteCount: number | null;
   /** Set once the mandate has looked and concluded nobody here fits. Orthogonal to `status`. */
   noExecutiveFound: boolean;
   companyName: string;
