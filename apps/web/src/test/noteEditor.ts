@@ -2,6 +2,9 @@ import type { Editor } from "@tiptap/core";
 import { Selection, TextSelection } from "@tiptap/pm/state";
 import { act } from "@testing-library/react";
 
+// The editor is a lazy chunk; loaded here, before any test runs, a busy suite never outwaits a find on it.
+await import("../features/notes/components/RichNoteEditor");
+
 /**
  * Types into a note editor the way ProseMirror reads a keystroke, so input rules (`- `, `## `, `[] `) and the @
  * picker fire. `userEvent.type` cannot: jsdom keeps no caret ProseMirror can read back, and the letters land out of
