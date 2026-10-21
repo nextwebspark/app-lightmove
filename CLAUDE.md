@@ -626,7 +626,8 @@ takes a thread from the run in it.
 `CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL and the mailbox as a chip in the tab row
 (`MailboxChip`; `lib/mailboxState.ts` is the one reading the banner, chip and composer share); the sequences and
 everyone in them moved to `…/outreach/sequences`. The conversation read gained `contact` and `composer`
-(`replySubject` for the caller's mailbox, `emailSentMovesTo`), the mailbox read `sentToday` and `scheduledEmails`.
+(`replySubject` and `replyStopsRun` for the caller's mailbox, `emailSentMovesTo`), the mailbox read `sentToday` and
+`scheduledEmails`.
 Both reads poll every minute until phase 6 pushes.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's

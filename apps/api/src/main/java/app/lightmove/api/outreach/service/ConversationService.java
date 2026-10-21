@@ -40,6 +40,7 @@ import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.PersonNextSend;
+import app.lightmove.api.outreach.model.ReplyThreadPreview;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.model.PersonSentTally;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
@@ -59,6 +60,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -195,10 +197,16 @@ public class ConversationService {
         return new ConversationResponse(executive, openTasks, currentRun,
                 new ConversationKeyDatesResponse(executive.addedAt(), firstContactedAt, repliedAt, lastActivityAt),
                 contactOf(workspaceId, projectId, candidateId),
-                new ConversationComposerResponse(
-                        ownMessages.replySubjectFor(userId, workspaceId, projectId, personId).orElse(null),
-                        people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null)),
+                composerOf(userId, workspaceId, projectId, candidateId, personId),
                 List.copyOf(shown), truncated);
+    }
+
+    private ConversationComposerResponse composerOf(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                                    UUID personId) {
+        Optional<ReplyThreadPreview> reply = ownMessages.replyPreviewFor(userId, workspaceId, projectId, personId);
+        return new ConversationComposerResponse(reply.map(ReplyThreadPreview::subject).orElse(null),
+                reply.map(ReplyThreadPreview::stopsLiveRun).orElse(false),
+                people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null));
     }
 
     private ConversationContactResponse contactOf(UUID workspaceId, UUID projectId, UUID candidateId) {

@@ -14,12 +14,15 @@ import app.lightmove.api.outreach.dto.ScheduledMessageResponse;
 import app.lightmove.api.outreach.dto.SendMessageRequest;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
+import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.ReplyThreadPreview;
 import app.lightmove.api.outreach.model.OutreachThread;
 import app.lightmove.api.outreach.model.SenderContext;
 import app.lightmove.api.outreach.model.SequenceTokens;
 import app.lightmove.api.outreach.model.ThreadReply;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,6 +47,7 @@ public class OutreachMessageService {
     private static final Duration SCHEDULE_HORIZON = Duration.ofDays(60);
 
     private final OutreachMessageRepository messages;
+    private final OutreachEnrollmentRepository enrollments;
     private final MailboxConnectionRepository mailboxes;
     private final CandidateOutreachService people;
     private final OutreachPersonalisation personalisation;
@@ -97,13 +101,16 @@ public class OutreachMessageService {
     }
 
     /**
-     * The subject a reply from the caller's mailbox would carry, where they could reply in a thread with this person on
-     * this position at all; empty where {@link #schedule} would answer {@code OUTREACH_THREAD_UNAVAILABLE}.
+     * What a reply from the caller's mailbox would do, read off the thread {@link #schedule} would answer — empty where it
+     * would answer {@code OUTREACH_THREAD_UNAVAILABLE} — and the runs a send there stops, as
+     * {@code OutreachMessageSendService} stops them: the caller's own, still live, in that thread.
      */
-    public Optional<String> replySubjectFor(UUID userId, UUID workspaceId, UUID projectId, UUID personId) {
+    public Optional<ReplyThreadPreview> replyPreviewFor(UUID userId, UUID workspaceId, UUID projectId, UUID personId) {
         return mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .flatMap(mailbox -> threadOf(workspaceId, projectId, personId, mailbox))
-                .map(reply -> OutreachSendService.replySubjectOf(reply.subject()));
+                .map(reply -> new ReplyThreadPreview(OutreachSendService.replySubjectOf(reply.subject()),
+                        enrollments.findByWorkspaceIdAndSenderUserIdAndThreadId(workspaceId, userId, reply.threadId())
+                                .stream().anyMatch(OutreachEnrollment::isLive)));
     }
 
     /** Only before the dispatcher has taken it: once claimed it may already be on its way. */

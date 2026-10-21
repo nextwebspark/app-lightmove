@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { typeInto } from "../../../test/noteEditor";
@@ -150,7 +150,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: "United Arab Emirates",
       doNotContact: false,
     },
-    composer: { replySubject: "Re: A confidential conversation", emailSentMovesTo: null },
+    composer: { replySubject: "Re: A confidential conversation", replyStopsRun: false, emailSentMovesTo: null },
     events: [
       {
         type: "MESSAGE",
@@ -220,7 +220,15 @@ function replyTask(): TaskResponse {
 
 function Where() {
   const location = useLocation();
-  return <output aria-label="Location">{location.search}</output>;
+  const navigate = useNavigate();
+  return (
+    <>
+      <output aria-label="Location">{location.search}</output>
+      <button type="button" onClick={() => navigate(-1)}>
+        Browser back
+      </button>
+    </>
+  );
 }
 
 function renderPage(path = "/projects/p1/outreach") {
@@ -301,6 +309,23 @@ describe("OutreachPage", () => {
     expect(screen.getByLabelText("Location")).toHaveTextContent("who=team");
   });
 
+  it("brings the search back with the address on Back, and never writes the old one over it", async () => {
+    renderPage();
+    const search = await screen.findByRole("searchbox", { name: "Search people or messages" });
+    await userEvent.type(search, "Noura");
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("q=Noura"));
+    await userEvent.click(await screen.findByRole("button", { name: /Noura Al Thani/ }));
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c2"));
+    await userEvent.clear(search);
+    await waitFor(() => expect(screen.getByLabelText("Location")).not.toHaveTextContent("q="));
+
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(search).toHaveValue("Noura"));
+    await new Promise((settle) => setTimeout(settle, 400));
+    expect(screen.getByLabelText("Location")).toHaveTextContent("q=Noura");
+  });
+
   it("goes to the Scheduled tab from the queue's footer", async () => {
     renderPage();
 
@@ -340,7 +365,7 @@ describe("OutreachPage", () => {
 
   it("writes a first email, with a subject of its own, where there is no thread to reply in", async () => {
     vi.mocked(conversationApi.getConversation).mockResolvedValue(
-      conversation({ composer: { replySubject: null, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" } } }),
+      conversation({ composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" } } }),
     );
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m9",
@@ -414,7 +439,7 @@ describe("OutreachPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
     const dialog = await screen.findByRole("dialog", { name: "Disconnect yara@firm.example?" });
-    expect(dialog).toHaveTextContent("2 live sequences (5 people) will stop sending, and 1 scheduled email won't go.");
+    expect(dialog).toHaveTextContent("2 live sequences (5 people) will stop sending, and 1 scheduled email won't go unless you reconnect before it is due.");
     await userEvent.click(within(dialog).getByRole("button", { name: "Disconnect" }));
     await waitFor(() => expect(mailboxApi.disconnectMailbox).toHaveBeenCalled());
   });

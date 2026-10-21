@@ -70,7 +70,7 @@ function EventBody({
         <p className="mt-1 text-body text-u-text2">
           {sendTimeOf(event.meeting.startsAt)}
           {event.meeting.ownerName && <> · with {event.meeting.ownerName}</>}
-          {event.meeting.joinUrl && (
+          {event.meeting.joinUrl && isWebLink(event.meeting.joinUrl) && (
             <>
               {" · "}
               <a href={event.meeting.joinUrl} target="_blank" rel="noreferrer" className="text-u-accent hover:underline">
@@ -159,5 +159,15 @@ function iconOf(event: ConversationEvent): string {
       return ICONS.calendar;
     case "ACTIVITY":
       return ICONS.activity;
+  }
+}
+
+/** A calendar event's link is whoever made the event's to write: only a web address becomes a link. */
+function isWebLink(url: string): boolean {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === "https:" || protocol === "http:";
+  } catch {
+    return false;
   }
 }

@@ -666,11 +666,6 @@ const ROUTES = [
   ["/projects", PROJECTS],
 ];
 
-/**
- * @param pathname the request path
- * @param search   the query string, because two reads of the candidates endpoint differ only by it —
- *                 the people at this page's companies, and the ones mapped to no company at all.
- */
 // The Outreach page: a queue of two, one conversation open, and a connected mailbox.
 const OUTREACH_TASK = {
   taskId: "task-1",
@@ -750,7 +745,7 @@ const CONVERSATION = {
     locationCountry: "United Arab Emirates",
     doNotContact: false,
   },
-  composer: { replySubject: "Re: CFO search — a confidential introduction", emailSentMovesTo: null },
+  composer: { replySubject: "Re: CFO search — a confidential introduction", replyStopsRun: false, emailSentMovesTo: null },
   events: [
     {
       type: "MESSAGE",
@@ -793,6 +788,11 @@ const OUTREACH_PEOPLE = {
   people: [],
 };
 
+/**
+ * @param pathname the request path
+ * @param search   the query string, because two reads of the candidates endpoint differ only by it —
+ *                 the people at this page's companies, and the ones mapped to no company at all.
+ */
 export function payloadFor(pathname, search = "") {
   if (pathname.endsWith("/auth/csrf")) return {};
 

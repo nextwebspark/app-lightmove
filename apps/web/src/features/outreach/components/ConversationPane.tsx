@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, LinesSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
 import type { PersonNoteKind } from "../../candidates/api/types";
+import * as tasksApi from "../../tasks/api/tasksApi";
 import type { TaskResponse } from "../../tasks/api/types";
 import { useCandidateTasks, useTaskCompletion } from "../../tasks/components/NextActionBar";
 import * as conversationApi from "../api/conversationApi";
@@ -75,6 +76,7 @@ export function ConversationPane({
     <LoadedConversation
       projectId={projectId}
       conversation={conversation.data}
+      refreshedAt={conversation.dataUpdatedAt}
       isArchived={isArchived}
       mailbox={mailbox}
       connector={connector}
@@ -88,6 +90,7 @@ export function ConversationPane({
 function LoadedConversation({
   projectId,
   conversation,
+  refreshedAt,
   isArchived,
   mailbox,
   connector,
@@ -97,6 +100,8 @@ function LoadedConversation({
 }: {
   projectId: string;
   conversation: Conversation;
+  /** When the conversation was last read: their tasks are read again with it. */
+  refreshedAt: number;
   isArchived: boolean;
   mailbox: MailboxState;
   connector: MailboxConnect;
@@ -111,6 +116,13 @@ function LoadedConversation({
   const firstName = firstNameOf(executive.fullName) ?? executive.fullName;
   const [noteKind, setNoteKind] = useState<PersonNoteKind | null>(null);
   const tasks = useCandidateTasks(projectId, candidateId);
+  // A send closes their reply task on the server, after the dispatch, and nothing pushes that yet: the task read follows
+  // every read of the conversation so the strip and Mark handled never act on a task already closed.
+  const firstRead = useRef(refreshedAt);
+  useEffect(() => {
+    if (refreshedAt === firstRead.current) return;
+    void queryClient.invalidateQueries({ queryKey: tasksApi.CANDIDATE_TASKS_KEY(projectId, candidateId) });
+  }, [refreshedAt, projectId, candidateId, queryClient]);
   const completion = useTaskCompletion(projectId, () => {
     void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
     onHandled();
@@ -192,8 +204,7 @@ function LoadedConversation({
         </div>
 
         <ReplyComposer
-          // A first email that has gone opens a thread to reply in: the composer starts again in reply mode.
-          key={`${candidateId}:${conversation.composer.replySubject !== null}`}
+          key={candidateId}
           projectId={projectId}
           conversation={conversation}
           mailbox={mailbox}

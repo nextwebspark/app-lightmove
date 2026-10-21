@@ -327,8 +327,8 @@ outreach's own repositories.
 **`GET /api/v1/projects/{p}/outreach/conversations/{candidateId}`** → `ConversationResponse(executive` (the Pipeline
 row), `openTasks, currentRun` (the drawer's `CandidateOutreachResponse`), `keyDates{addedAt, firstContactedAt,
 repliedAt, lastActivityAt}, contact, composer, events[], truncated)`. Phase 4 added `contact` (the ledger's emails
-and phones, location, do not contact) and `composer` (`replySubject`, `emailSentMovesTo`) for the screen's details
-pane and composer.
+and phones, location, do not contact) and `composer` (`replySubject`, `replyStopsRun`, `emailSentMovesTo`) for the screen's
+details pane and composer.
 
 `events`, newest first, held to 200 with `truncated` set past that, each a `ConversationEventResponse` whose
 `type` names the one payload it carries:
@@ -494,7 +494,8 @@ person merge is built, message and attachment rows move with the enrollments.
      every minute until phase 6's stream.
    - The backend added what the composer and chip lacked: `ConversationResponse.contact` (the ledger, location, do
      not contact) and `.composer` (`replySubject` for the caller's mailbox — `OutreachMessageService` answers it with
-     the same thread choice it sends with — and `emailSentMovesTo`, the forward-only status move), and
+     the same thread choice it sends with — `replyStopsRun`, whether a run of the caller's is still live in that
+     thread, which is the only run a send stops, and `emailSentMovesTo`, the forward-only status move), and
      `sentToday`/`scheduledEmails` on the mailbox read (`DailySendCount`).
    - The mockup draws no mailbox or empty states: `lib/mailboxState.ts` reads the mailbox once for the banner, the
      chip and the composer, with the old page's copy. The composer has no token bar (tokens still work when typed;

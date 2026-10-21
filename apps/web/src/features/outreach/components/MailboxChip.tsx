@@ -205,7 +205,7 @@ function ConnectedChip({
   );
 }
 
-/** "2 live sequences (5 people) will stop sending, and 1 scheduled email won't go." */
+/** "2 live sequences (5 people) will stop sending, and 1 scheduled email won't go unless you reconnect before it is due." */
 function stoppedLine({ liveSequences, livePeople, scheduledEmails }: ConnectedMailbox): string {
   const parts: string[] = [];
   if (liveSequences > 0) {
@@ -215,7 +215,9 @@ function stoppedLine({ liveSequences, livePeople, scheduledEmails }: ConnectedMa
     );
   }
   if (scheduledEmails > 0) {
-    parts.push(`${scheduledEmails} scheduled ${scheduledEmails === 1 ? "email won't" : "emails won't"} go`);
+    parts.push(
+      `${scheduledEmails} scheduled ${scheduledEmails === 1 ? "email" : "emails"} won't go unless you reconnect before ${scheduledEmails === 1 ? "it is" : "they are"} due`,
+    );
   }
   return `${parts.join(", and ")}.`;
 }

@@ -1,0 +1,198 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "../../../components/ui";
+import { typeInto } from "../../../test/noteEditor";
+import * as conversationApi from "../api/conversationApi";
+import type { Conversation } from "../api/conversationApi";
+import type { MailboxState } from "../lib/mailboxState";
+import type { MailboxConnect } from "../lib/useMailboxConnect";
+import { ReplyComposer } from "./ReplyComposer";
+
+vi.mock("../api/conversationApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/conversationApi")>()),
+  sendMessage: vi.fn(),
+}));
+
+const MAILBOX: MailboxState = {
+  kind: "ready",
+  connection: {
+    address: "yara@firm.example",
+    provider: "google",
+    status: "ACTIVE",
+    dailyCap: 50,
+    timeZone: "Asia/Dubai",
+    connectedAt: "2026-10-01T09:00:00Z",
+    movesOffNylas: false,
+    runsStoppedByMove: 0,
+    liveSequences: 0,
+    livePeople: 0,
+    readsReplies: true,
+    reconnectToReadReplies: false,
+    sentToday: 0,
+    scheduledEmails: 0,
+  },
+};
+const CONNECTOR: MailboxConnect = { connectingProvider: null, connect: vi.fn() };
+
+function conversation(overrides: Partial<Conversation> = {}): Conversation {
+  return {
+    executive: {
+      candidateId: "c1",
+      personId: "person-1",
+      fullName: "Fatima Al Mazrouei",
+      title: "CFO",
+      companyName: "Gulf Ports",
+      triageCompanyId: null,
+      status: "contacted",
+      statusLabel: "Contacted",
+      statusColour: "accent",
+      pipelineStage: { key: "contacted", label: "Contacted", colour: "accent", kind: "active", position: 2 },
+      addedAt: "2026-09-20T05:00:00Z",
+      statusChangedAt: "2026-10-01T05:00:00Z",
+      nextAction: null,
+      clientVisible: false,
+    },
+    openTasks: [],
+    currentRun: { run: null, steps: [] },
+    keyDates: { addedAt: null, firstContactedAt: null, repliedAt: null, lastActivityAt: null },
+    contact: {
+      emails: [{ address: "fatima@gulfports.example", kind: "work", verified: true } as never],
+      phones: [],
+      locationCity: null,
+      locationCountry: null,
+      doNotContact: false,
+    },
+    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null },
+    events: [],
+    truncated: false,
+    ...overrides,
+  };
+}
+
+function wrapper({ children }: { children: ReactNode }) {
+  return (
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <ToastProvider>{children}</ToastProvider>
+    </QueryClientProvider>
+  );
+}
+
+function composerFor(held: Conversation) {
+  return <ReplyComposer projectId="p1" conversation={held} mailbox={MAILBOX} connector={CONNECTOR} isArchived={false} />;
+}
+
+describe("ReplyComposer", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(conversationApi.sendMessage).mockResolvedValue({
+      id: "m1",
+      status: "SCHEDULED",
+      sendAt: "2026-10-22T06:00:00Z",
+      subject: "Hello",
+      inThread: false,
+    });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function writeFirstEmail() {
+    await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "A conversation");
+    await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hello");
+  }
+
+  it("schedules at a day and half hour on the mailbox's own clock, held to 60 days and never a cleared day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-21T06:00:00Z"));
+    render(composerFor(conversation()), { wrapper });
+    await writeFirstEmail();
+
+    await userEvent.click(screen.getByRole("button", { name: "Schedule" }));
+    const day = screen.getByLabelText("Send on");
+    fireEvent.change(day, { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Choose a day and a time" })).toBeDisabled();
+
+    fireEvent.change(day, { target: { value: "2026-12-20" } });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Send at" }), "23:30");
+    expect(screen.getByRole("button", { name: "Pick a time within the next 60 days" })).toBeDisabled();
+
+    fireEvent.change(day, { target: { value: "2026-10-22" } });
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Send at" }), "10:00");
+    await userEvent.click(screen.getByRole("button", { name: /^Schedule for / }));
+
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenCalledWith(
+        "p1",
+        "c1",
+        expect.objectContaining({ sendAt: "2026-10-22T06:00:00.000Z", subject: "A conversation", replyInThread: false }),
+      ),
+    );
+  });
+
+  it("writes to an address still on the ledger when the one it showed is removed", async () => {
+    const { rerender } = render(composerFor(conversation()), { wrapper });
+    await writeFirstEmail();
+
+    rerender(
+      composerFor(
+        conversation({ contact: { ...conversation().contact, emails: [{ address: "fatima@new.example", kind: "work", verified: false } as never] } }),
+      ),
+    );
+    expect(screen.getByText("fatima@new.example")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenCalledWith("p1", "c1", expect.objectContaining({ toAddress: "fatima@new.example" })),
+    );
+  });
+
+  it("keeps a draft in progress when a reply thread appears, and offers the thread to an empty one", async () => {
+    const { rerender } = render(composerFor(conversation()), { wrapper });
+    await writeFirstEmail();
+
+    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } });
+    rerender(composerFor(withThread));
+    expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("A conversation");
+  });
+
+  it("turns an empty composer into a reply once a thread appears, and back once it goes", () => {
+    const { rerender } = render(composerFor(conversation()), { wrapper });
+    expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
+
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } })));
+    const composer = screen.getByRole("region", { name: "Reply" });
+    expect(within(composer).getByText("Reply to Fatima")).toBeInTheDocument();
+
+    rerender(composerFor(conversation()));
+    expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
+  });
+
+  it("says a reply stops the running sequence only where the server says it would", async () => {
+    const { rerender } = render(
+      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } })),
+      { wrapper },
+    );
+    expect(screen.queryByText(/Sending stops the running sequence/)).not.toBeInTheDocument();
+
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null } })));
+    expect(screen.getByText(/Sending stops the running sequence/)).toBeInTheDocument();
+  });
+
+  it("refuses a body past the server's limit before anything is sent", async () => {
+    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } })), {
+      wrapper,
+    });
+    const box = await screen.findByRole("textbox", { name: "Message" });
+    await typeInto(box, "x");
+    const { editorOf } = await import("../../../test/noteEditor");
+    editorOf(box).commands.setContent("y".repeat(10_001));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Too long to send.");
+    expect(screen.getByRole("button", { name: "Send now" })).toBeDisabled();
+  });
+});

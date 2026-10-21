@@ -142,6 +142,7 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
 
         JsonNode after = conversation();
         assertThat(after.at("/composer/replySubject").asText()).isEqualTo("Re: A conversation");
+        assertThat(after.at("/composer/replyStopsRun").asBoolean()).as("no run in that thread").isFalse();
         assertThat(after.at("/composer/emailSentMovesTo").isNull()).as("already Contacted: they stay").isTrue();
         assertThat(after.at("/contact/doNotContact").asBoolean()).isTrue();
         JsonNode connection = mailbox();
@@ -177,6 +178,7 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         start(createSequence(), priyaAddress);
         dispatcher.dispatchAt(nextMondayTen());
         assertThat(enrollment().get("status")).isEqualTo("ACTIVE");
+        assertThat(conversation().at("/composer/replyStopsRun").asBoolean()).isTrue();
 
         send("""
                 {"toAddress":"%s","replyInThread":true,"body":"A word before my colleague writes again."}"""

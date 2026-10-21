@@ -124,6 +124,8 @@ export interface StatusTarget {
 export interface ConversationComposer {
   /** The subject a reply from the caller's mailbox would carry; null where they have no thread to reply in. */
   replySubject: string | null;
+  /** Whether that reply would stop a run of the caller's still going in its thread. */
+  replyStopsRun: boolean;
   /** Where an email now would move the person; null where they would stay. */
   emailSentMovesTo: StatusTarget | null;
 }

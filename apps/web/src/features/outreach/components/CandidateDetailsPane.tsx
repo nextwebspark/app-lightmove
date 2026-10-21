@@ -64,6 +64,11 @@ export function CandidateDetailsPane({
                 clientVisibility.mutate(
                   { candidateId: executive.candidateId, clientVisible: checked },
                   {
+                    // Written into the read at once, so the switch holds its new place until the refetch confirms it.
+                    onSuccess: (saved) =>
+                      queryClient.setQueryData<Conversation>(CONVERSATION_KEY(projectId, executive.candidateId), (held) =>
+                        held ? { ...held, executive: { ...held.executive, clientVisible: saved.clientVisible } } : held,
+                      ),
                     onSettled: () =>
                       void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(projectId, executive.candidateId) }),
                   },

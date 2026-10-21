@@ -71,7 +71,7 @@ export function ActionQueue({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto border-t border-u-border">
-        {list.isError ? (
+        {list.isError && !list.data ? (
           <p role="alert" className="px-4 py-4 text-note text-u-text3">
             {messageFor(list.error)}
           </p>

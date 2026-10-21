@@ -5,6 +5,7 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { EmptyState } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { rememberDrawerTab } from "../../candidates/lib/drawerTabs";
@@ -51,7 +52,15 @@ export function OutreachPage() {
     refetchInterval: CONVERSATION_REFRESH_MS,
   });
   const rows = list.data?.rows ?? [];
-  const selected = rows.find((row) => row.candidateId === candidateId) ?? null;
+  // The conversation pane's own read, shared through the cache: the open person may be in no row of this tab.
+  const openConversation = useQuery({
+    queryKey: conversationApi.CONVERSATION_KEY(project.id, candidateId ?? ""),
+    queryFn: ({ signal }) => conversationApi.getConversation(project.id, candidateId!, signal),
+    enabled: candidateId !== null,
+    refetchInterval: CONVERSATION_REFRESH_MS,
+  });
+  const selectedName =
+    rows.find((row) => row.candidateId === candidateId)?.fullName ?? openConversation.data?.executive.fullName ?? null;
 
   const changeParams = (change: (next: URLSearchParams) => void, replace = false) =>
     setParams(
@@ -62,6 +71,12 @@ export function OutreachPage() {
       },
       { replace },
     );
+
+  // The address can move without the box — Back, Forward, the nav's link — and the box follows it. A timer the old text
+  // had set is cleared by the re-render this causes, before it can write the old text back.
+  useEffect(() => {
+    setSearchText(query);
+  }, [query]);
 
   useEffect(() => {
     if (searchText === query) return;
@@ -98,11 +113,12 @@ export function OutreachPage() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <h1 className="sr-only">Outreach</h1>
       <OutreachTabs
         projectId={project.id}
         view={view}
         counts={list.data?.counts ?? null}
-        selectedName={selected?.fullName ?? null}
+        selectedName={selectedName}
         onViewChange={(next) => changeParams((params) => (next === "needs" ? params.delete("view") : params.set("view", next)))}
         onAddToSequence={() => setIsEnrolling(true)}
       >
@@ -115,7 +131,10 @@ export function OutreachPage() {
       )}
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[clamp(260px,24vw,336px)_minmax(0,1fr)] xl:grid-cols-[clamp(260px,24vw,336px)_minmax(420px,1fr)_clamp(260px,22vw,320px)]">
-        <div className={cn("min-h-0 flex-col border-e border-u-border", candidateId ? "hidden lg:flex" : "flex")}>
+        <div
+          className={cn("min-h-0 flex-col border-e border-u-border", candidateId ? "hidden lg:flex" : "flex")}
+          {...tabPanelProps("outreach-view", view)}
+        >
           <ActionQueue
             view={view}
             who={who}
@@ -155,11 +174,11 @@ export function OutreachPage() {
         )}
       </div>
 
-      {isEnrolling && selected && (
+      {isEnrolling && candidateId && selectedName && (
         <EnrolDialog
           projectId={project.id}
-          scope={{ candidateIds: [selected.candidateId] }}
-          source={selected.fullName}
+          scope={{ candidateIds: [candidateId] }}
+          source={selectedName}
           onClose={() => setIsEnrolling(false)}
         />
       )}

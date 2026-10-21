@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, DateInput, Select, useToast } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
@@ -18,6 +18,8 @@ import type { MailboxConnect } from "../lib/useMailboxConnect";
 
 /** As far ahead as the server takes a scheduled email. */
 const SCHEDULE_HORIZON_DAYS = 60;
+/** The server's own limit on what a consultant writes, before the tokens are filled in. */
+const BODY_MAX_LENGTH = 10_000;
 
 /**
  * The conversation's composer (`Outreach.dc.html`): a reply into the thread the consultant's mailbox last wrote to the
@@ -52,6 +54,7 @@ export function ReplyComposer({
       timeZone={"connection" in mailbox ? mailbox.connection.timeZone : "UTC"}
       emails={contact.emails.map((email) => email.address)}
       replySubject={composer.replySubject}
+      replyStopsRun={composer.replyStopsRun}
       resolvesReplyTask={openTasks.some((task) => task.rule === "reply")}
       statusLabel={executive.statusLabel}
       movesTo={composer.emailSentMovesTo?.label ?? null}
@@ -69,6 +72,7 @@ function OpenComposer({
   timeZone,
   emails,
   replySubject,
+  replyStopsRun,
   resolvesReplyTask,
   statusLabel,
   movesTo,
@@ -82,6 +86,7 @@ function OpenComposer({
   timeZone: string;
   emails: string[];
   replySubject: string | null;
+  replyStopsRun: boolean;
   resolvesReplyTask: boolean;
   statusLabel: string;
   movesTo: string | null;
@@ -90,10 +95,19 @@ function OpenComposer({
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
-  const [isReply, setIsReply] = useState(replySubject !== null);
+  const [wantsReply, setWantsReply] = useState(replySubject !== null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [toAddress, setToAddress] = useState(emails[0]);
+  const [chosenAddress, setChosenAddress] = useState(emails[0]);
+  // The ledger can change under an open composer: an address since removed falls back to the first one left.
+  const toAddress = emails.includes(chosenAddress) ? chosenAddress : emails[0];
+  // A thread that went away (a reconnect elsewhere) leaves a first email; one that appears is offered only to an empty draft.
+  const isReply = wantsReply && replySubject !== null;
+  useEffect(() => {
+    if (replySubject !== null && !body.trim() && !subject.trim()) setWantsReply(true);
+    // Only the thread's coming or going moves the mode; a draft being typed never does.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replySubject]);
 
   const send = useMutation({
     mutationFn: (sendAt: Date | null) =>
@@ -128,13 +142,14 @@ function OpenComposer({
   });
 
   const hasBody = body.trim().length > 0;
-  const canSend = hasBody && (isReply || subject.trim().length > 0) && !send.isPending;
+  const isTooLong = body.length > BODY_MAX_LENGTH;
+  const canSend = hasBody && !isTooLong && (isReply || subject.trim().length > 0) && !send.isPending;
   const footnote = composerFootnoteOf({
     isReply,
     resolvesReplyTask,
     statusLabel,
     movesTo,
-    stopsRunningSequence: runningSequenceId !== null,
+    stopsRunningSequence: replyStopsRun,
   });
 
   return (
@@ -145,7 +160,7 @@ function OpenComposer({
           {isReply ? `Reply to ${firstName}` : `First email to ${firstName}`}
         </span>
         {replySubject !== null && (
-          <button type="button" className="text-note text-u-accent hover:underline" onClick={() => setIsReply(!isReply)}>
+          <button type="button" className="text-note text-u-accent hover:underline" onClick={() => setWantsReply(!isReply)}>
             {isReply ? "New email instead" : "Reply in the thread"}
           </button>
         )}
@@ -160,7 +175,7 @@ function OpenComposer({
             <Select
               aria-label="To"
               value={toAddress}
-              onChange={(event) => setToAddress(event.target.value)}
+              onChange={(event) => setChosenAddress(event.target.value)}
               className="min-w-0 flex-1 py-1 font-mono text-note"
             >
               {emails.map((address) => (
@@ -199,6 +214,11 @@ function OpenComposer({
           />
         </div>
       </div>
+      {isTooLong && (
+        <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+          Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
+        </p>
+      )}
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
         {runningSequenceId && (
           <Button variant="ghost" size="xs" loading={insertFollowUp.isPending} onClick={() => insertFollowUp.mutate()}>
@@ -235,12 +255,20 @@ function SchedulePicker({
   onSchedule: (at: Date) => void;
 }) {
   const now = new Date();
+  const horizon = now.getTime() + SCHEDULE_HORIZON_DAYS * 86_400_000;
   const tomorrow = wallClockOf(new Date(now.getTime() + 86_400_000), timeZone).date;
-  const latest = wallClockOf(new Date(now.getTime() + SCHEDULE_HORIZON_DAYS * 86_400_000), timeZone).date;
+  const latest = wallClockOf(new Date(horizon), timeZone).date;
   const [date, setDate] = useState(tomorrow);
   const [time, setTime] = useState("09:00");
-  const at = instantOf(date, time, timeZone);
-  const isAhead = at.getTime() > Date.now();
+  // A cleared date input reports "": an instant built from it is invalid, and formatting one throws mid-render.
+  const at = date && time ? instantOf(date, time, timeZone) : null;
+  const problem = !at
+    ? "Choose a day and a time"
+    : at.getTime() <= now.getTime()
+      ? "Pick a time still ahead"
+      : at.getTime() > horizon
+        ? "Pick a time within the next 60 days"
+        : null;
 
   return (
     <Popover
@@ -266,13 +294,14 @@ function SchedulePicker({
           </div>
           <Button
             size="xs"
-            disabled={!isAhead}
+            disabled={problem !== null}
             onClick={() => {
+              if (!at || problem) return;
               close();
               onSchedule(at);
             }}
           >
-            {isAhead ? `Schedule for ${whenLabelOf(at, timeZone)}` : "Pick a time still ahead"}
+            {problem ?? `Schedule for ${whenLabelOf(at!, timeZone)}`}
           </Button>
         </div>
       )}
@@ -297,8 +326,8 @@ function lockOf({
   contact: Conversation["contact"];
   firstName: string;
 }): LockReason | null {
-  if (!canSendFrom(mailbox)) return { kind: "mailbox" };
   if (isArchived) return { kind: "archived" };
+  if (!canSendFrom(mailbox)) return { kind: "mailbox" };
   if (contact.doNotContact) return { kind: "doNotContact", firstName };
   if (contact.emails.length === 0) return { kind: "noEmail", firstName };
   return null;
@@ -355,6 +384,8 @@ function lockedSentenceOf(reason: LockReason, mailbox: MailboxState): string {
           return "Your mailbox needs reconnecting before anything more can go from it.";
         case "unavailable":
           return "Outreach email isn't switched on for your workspace.";
+        case "loading":
+          return "Checking your mailbox…";
         default:
           return "Your mailbox couldn't be read just now.";
       }
