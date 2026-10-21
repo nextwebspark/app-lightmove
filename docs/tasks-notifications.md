@@ -26,7 +26,7 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   already has an open reply task on the position files none: three quick replies are one reply to answer.
   A consultant's own email to them that goes (`OutreachEmailSentByHand`, outreach phase 3) completes their open
   reply-rule tasks on that position, by its sender; a task somebody filed by hand stays open.
-- **Live**: every write of a task announces `task` on its position's project stream (`TaskStreamAnnouncer`, an
+- **Live**: every JPA write of a task announces `task` on its position's project stream (`TaskStreamAnnouncer`, an
   entity listener, inside the writing transaction), sent only to streams whose holder may work the position; the
   Outreach page refreshes its queue and the open executive's tasks on it.
 - **Mentions** are tokens in a note's body, `@[Full Name](user:<uuid>)` or `@[team](team)`. The server keeps

@@ -20,6 +20,7 @@ import { MailboxBanner } from "../components/MailboxBanner";
 import { MailboxChip } from "../components/MailboxChip";
 import { OutreachTabs } from "../components/OutreachTabs";
 import { mailboxStateOf } from "../lib/mailboxState";
+import { refreshOutreachActivity } from "../lib/outreachRefresh";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect } from "../lib/useMailboxConnect";
 
@@ -52,7 +53,7 @@ export function OutreachPage() {
   // Live, the server says when an email, a reply, a run or a task moved; the slow read is the safety net for what
   // it does not announce (a note, a meeting, a status), and the minute's read stands in whenever the stream is down.
   const streamIsLive = useProjectStream(project.id, (kinds) => {
-    void queryClient.invalidateQueries({ queryKey: ["outreach", project.id] });
+    if (kinds.includes("outreach") || kinds.includes("task")) refreshOutreachActivity(queryClient, project.id);
     if (kinds.includes("task")) void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
   });
   const refreshMs = streamIsLive ? LIVE_SAFETY_REFRESH_MS : CONVERSATION_REFRESH_MS;

@@ -91,8 +91,13 @@ public class OutreachMonitorService {
             return null;
         }
         String trimmed = text.strip();
-        return trimmed.length() <= REPLY_EXCERPT_LENGTH ? trimmed
-                : trimmed.substring(0, REPLY_EXCERPT_LENGTH).stripTrailing() + "…";
+        if (trimmed.length() <= REPLY_EXCERPT_LENGTH) {
+            return trimmed;
+        }
+        // Never between the two halves of an emoji: a lone surrogate reaches the browser as a replacement character.
+        int end = Character.isHighSurrogate(trimmed.charAt(REPLY_EXCERPT_LENGTH - 1)) ? REPLY_EXCERPT_LENGTH - 1
+                : REPLY_EXCERPT_LENGTH;
+        return trimmed.substring(0, end).stripTrailing() + "…";
     }
 
     private static OutreachCountsResponse countsOf(List<OutreachRunTally> tallies) {

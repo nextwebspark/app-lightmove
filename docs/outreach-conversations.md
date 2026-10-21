@@ -350,13 +350,17 @@ details pane and composer.
 
 `ProjectStreamKind` gains `OUTREACH` and `TASK`, both **staff-only**: the project stream is `WORK_VIEW`, so a client
 seat holds one, and is never told when outreach or a task moved. As built (phase 6) they are published by entity
-listeners on every write of an outreach message, an enrollment and a task (`OutreachStreamAnnouncer`,
-`TaskStreamAnnouncer`), not by each service — no path that sends, records, stops, cancels or hands over can forget —
-during the flush, inside the writing transaction (`ProjectStreamPublisher` is `MANDATORY`; one transaction's repeats
-of a payload are one `NOTIFY`). SPA: `useProjectStream` moved to `lib/`; `OutreachPage` invalidates
-`["outreach", projectId]` (and `TASKS_KEY_PREFIX` on `task`), polling every 60 s while the stream is down and every
-five minutes while it is live — notes, meetings and status changes are not announced, and the slow read is their
-safety net; `useNotificationStream` also invalidates `["outreach"]`. The enum and the TS union ship together (an
+listeners on every JPA write of an outreach message, an enrollment and a task (`OutreachStreamAnnouncer`,
+`TaskStreamAnnouncer`), not by each service, during the flush, inside the writing transaction (`ProjectStreamPublisher`
+is `MANDATORY`, and publishes each mandate and kind once per transaction, so an archive stopping forty runs is one
+round trip). The JDBC writes announce nothing: the claims and the due scan's stamps change nothing on screen, and the
+sent-but-unrecorded fallbacks (`recordDelivered`) are rare enough to wait for the slow read. SPA: `useProjectStream`
+moved to `lib/`; `OutreachPage` refreshes its outreach reads on `outreach` or `task` (and `TASKS_KEY_PREFIX` on
+`task`), and so do the Companies pages (`TriageStagePage`), for an executive drawer opened there — never a call's free
+slots, which ask the mail provider (`refreshOutreachActivity`). It polls every 60 s while the stream is down and every
+five minutes while it is live — notes, meetings and status changes are not announced, nor is a change that lands in the
+moment between the server's 55-second close and the reconnect, and the slow read is their safety net;
+`useNotificationStream` refreshes the same reads. The enum and the TS union ship together (an
 unknown kind refetches everything).
 
 ## E. The SPA
@@ -424,7 +428,8 @@ unknown kind refetches everything).
 
 `OutreachSection.tsx`: an "Open conversation" link to `/projects/{p}/outreach?candidate={c}` in the fold header,
 and the latest reply's text (first 300 chars) inside the existing "replied" notice; `CandidateOutreachResponse`
-gains `latestReply{at, text}|null` from `OutreachMonitorService.ofCandidate`.
+gains `latestReply{at, text}|null` from `OutreachMonitorService.ofCandidate`. As built, the notice is dated by the
+reply and drawn whenever there is one — after a run ended, or to an email sent by hand with no run at all.
 
 ## G. Security and privacy
 

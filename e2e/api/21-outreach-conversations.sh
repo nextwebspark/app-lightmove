@@ -41,8 +41,7 @@ post_json /onboarding/workspace "$(jq -nc --arg n "Conversation UAT $(date +%s)$
 # A token minted before the workspace existed carries no wsId, so every tenant route 404s until reissued.
 LEAD_TOKEN=$(login_as "$LEAD_EMAIL")
 LEAD="$(auth_header "$LEAD_TOKEN")"
-LEAD_ID=$(json '.user.id // empty')
-[ -n "$LEAD_ID" ] || LEAD_ID=$(sql "SELECT id FROM app_lm_user WHERE email = '$LEAD_EMAIL'")
+LEAD_ID=$(sql "SELECT id FROM app_lm_user WHERE email = '$LEAD_EMAIL'")
 
 post_json /clients '{"customName":"Conversation Holding"}' -H "$LEAD" >/dev/null
 CLIENT_ID=$(json '.id')

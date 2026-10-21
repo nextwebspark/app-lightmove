@@ -639,13 +639,13 @@ multipart send (its JSON send caps the whole request at 3 MB). Bytes are read at
 (`EmailAttachment.toString`); a document that went is audited `PERSON_DOCUMENT_SENT` by ids alone (a CV's name is its
 person's), a download from the history `OUTREACH_ATTACHMENT_DOWNLOADED`, and a cancel or a definite failure deletes the
 files once it commits (`OutreachMessage.keepsAttachmentFiles`).
-**Phase 6** is live: every write of an outreach message, an enrollment or a task announces `outreach` / `task` on the
-position's project stream from an entity listener inside the writing transaction (`OutreachStreamAnnouncer`,
-`TaskStreamAnnouncer`), and those two kinds are **staff-only** — `ProjectStreamRegistry` sends them only to a stream
+**Phase 6** is live: every JPA write of an outreach message, an enrollment or a task announces `outreach` / `task` on
+the position's project stream from an entity listener inside the writing transaction (`OutreachStreamAnnouncer`,
+`TaskStreamAnnouncer`; once per mandate and kind per transaction), and those two kinds are **staff-only** — `ProjectStreamRegistry` sends them only to a stream
 whose holder held `WORK_EXECUTE` when it subscribed, since the stream itself is `WORK_VIEW`. The page refreshes on them,
 reading every minute while the stream is down and every five while it is live (a note, a meeting or a status is not
-announced). The drawer's Outreach fold links to the conversation and quotes the latest reply
-(`CandidateOutreachResponse.latestReply`).
+announced), never a call's free slots, which ask the mail provider. The drawer's Outreach fold links to the
+conversation and quotes the latest reply (`CandidateOutreachResponse.latestReply`), a run or none.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today

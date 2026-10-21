@@ -119,8 +119,8 @@ function LoadedConversation({
   const firstName = firstNameOf(executive.fullName) ?? executive.fullName;
   const [noteKind, setNoteKind] = useState<PersonNoteKind | null>(null);
   const tasks = useCandidateTasks(projectId, candidateId);
-  // A send closes their reply task on the server, after the dispatch, and nothing pushes that yet: the task read follows
-  // every read of the conversation so the strip and Mark handled never act on a task already closed.
+  // A send closes their reply task on the server, after the dispatch; while the stream is down nothing says so, so the
+  // task read follows every read of the conversation and the strip and Mark handled never act on a task already closed.
   const firstRead = useRef(refreshedAt);
   useEffect(() => {
     if (refreshedAt === firstRead.current) return;

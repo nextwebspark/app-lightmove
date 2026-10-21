@@ -159,4 +159,23 @@ describe("OutreachSection", () => {
     expect(await screen.findByText(/Read it in your inbox/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open conversation" })).not.toBeInTheDocument();
   });
+
+  it("quotes a reply to an email sent by hand, with no sequence behind it", async () => {
+    renderSection({ run: null, steps: [], latestReply: { at: "2026-10-06T08:00:00Z", text: "Happy to talk." } });
+
+    expect(await screen.findByText("Happy to talk.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open conversation" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop sequence" })).not.toBeInTheDocument();
+  });
+
+  it("quotes a reply that came after the sequence ended", async () => {
+    renderSection({
+      run: { ...RUN, status: "COMPLETED", sentCount: 3, endedAt: "2026-10-02T08:00:00Z" },
+      steps: [],
+      latestReply: { at: "2026-10-09T08:00:00Z", text: "Sorry for the slow answer." },
+    });
+
+    expect(await screen.findByText("Sorry for the slow answer.")).toBeInTheDocument();
+    expect(screen.getByText(/Fatima replied/)).toBeInTheDocument();
+  });
 });
