@@ -134,15 +134,15 @@ listening-scan index (phase 2, replies).
   sender_user_id, provider_message_id) WHERE direction = 'INBOUND'` (outbound rows are left out, so no existing row
   can collide), and the listening scan `(occurred_at) WHERE direction = 'OUTBOUND' AND status = 'SENT'`.
 
-`V146__outreach_attachment.sql`: `app_lm_outreach_attachment` — `message_id` (FK cascade), `workspace_id`,
-`file_name`, `content_type`, `size_bytes`, `sha256`, `document_version_id` (nullable FK SET NULL to
-`app_lm_person_document_version` — a CV sent from the person's documents), `storage_key` (the bucket key; for a
-person's document the version's own key). **No bytes in the database** (V105's rule).
+Attachments shipped as V147 `app_lm_outreach_message_attachment` (phase 5, below): `message_id` (FK cascade),
+`workspace_id`, the order, `file_name`, `content_type`, `size_bytes`, `sha256`, the email's **own** `storage_key` (a
+person's document is copied there, never shared with its version), `source` (`UPLOAD | PERSON_DOCUMENT`) and the
+nullable `document_version_id` (SET NULL). **No bytes in the database** (V105's rule).
 
 Entity `OutreachMessage`: drop `updatable = false` from the columns a scheduled row later fills; factories
 `sent(...)` (unchanged signature, sets the new columns), `scheduled(...)` (MANUAL), `received(...)` (REPLY),
 `bounced(...)` (BOUNCE). New enums under `outreach/constant/`: `MessageDirection`, `MessageChannel`,
-`MessageKind`, `MessageStatus`. New entity `OutreachAttachment`.
+`MessageKind`, `MessageStatus`. Attachments are `OutreachMessageAttachment` (phase 5).
 
 **Where a thread is identified**: on the message row, `(workspace_id, sender_user_id, thread_id)` +
 `thread_gateway` — the key `OutreachEnrollmentRepository.findByWorkspaceIdAndSenderUserIdAndThreadId` already uses
@@ -216,8 +216,8 @@ a call becomes a `CALL` row with duration/outcome in details. Written down in `d
 `outreach/controller/OutreachConversationController`, `@RequireProjectPermission(WORK_EXECUTE)`) → 201
 `MessageResponse`. `SendMessageRequest(toAddress, subject [≤200, one line; required for a fresh thread], body
 [Markdown, 1–10,000, tokens allowed], sendAt [null = now; else > now and ≤ 60 days], replyToThread,
-attachments[] {documentVersionId} | {uploadId})`. Uploads go first to `POST …/messages/uploads` (multipart, the
-`DocumentFormat` name/bytes agreement, held under a storage key for an hour until a send claims them).
+documentVersionIds)`. As built (phase 5) there is no separate uploads route: files ride the same POST as
+`multipart/form-data` (the request a `message` part, each file a `files` part).
 
 **Rendering**: new `outreach/model/OutreachMarkdownEmail` — tokens substituted by `OutreachPersonalisation`, then
 commonmark-java `HtmlRenderer` with the same link allowlist `common/note`'s reader applies (http, https, mailto),
@@ -252,9 +252,10 @@ rate limits defer as today.
 **Attachments through the gateways** (`OutgoingEmail` gains `List<Attachment(fileName, contentType, bytes)>`;
 bytes read at send time from `DocumentStore` by `storage_key`, never held on the row): Gmail `RawEmail` becomes
 `multipart/mixed` (HTML part + base64 file parts); Graph `POST /me/messages/{id}/attachments` with
-`#microsoft.graph.fileAttachment` on the draft before `/send`; Nylas `attachments[]` base64 in the send body.
-Cap `lightmove.outreach.attachment-max-bytes` (3 MB per email — the inline limit all three share; refuse above
-with `ATTACHMENT_TOO_LARGE`; Graph's upload session is not in this epic). Sending a person's document out is a
+`#microsoft.graph.fileAttachment` on the draft before `/send`; Nylas a multipart send. As built (phase 5) the limits
+are `lightmove.outreach.attachments.*` — 5 files, 3,000,000 bytes each, 10 MB together (`FILE_TOO_LARGE`,
+`OUTREACH_TOO_MANY_ATTACHMENTS`, `OUTREACH_ATTACHMENTS_TOO_LARGE`): there is no inline limit the three share,
+since Nylas's JSON send caps the whole request at 3 MB; Graph's upload session is not in this epic. Sending a person's document out is a
 disclosure: audited like a download (`PERSON_DOCUMENT_SENT`, with the message id), and the conversation card lists
 the attachment names.
 
@@ -279,8 +280,8 @@ position — or three quick replies file three tasks.
 Audit (`core/audit/constant/ProjectEventType`): `OUTREACH_MESSAGE_SCHEDULED / SENT / FAILED / CANCELLED`,
 `OUTREACH_REPLY_STORED` (details `messageId`, `threadKnownBy`), `PERSON_DOCUMENT_SENT`. Error codes (`ErrorCode` +
 `apps/web/src/lib/errorCodes.ts`, the coverage test fails otherwise): `OUTREACH_DAILY_CAP_REACHED`,
-`ADDRESS_NOT_ON_LEDGER`, `MESSAGE_ALREADY_SENDING`, `MESSAGE_NOT_SCHEDULED`, `ATTACHMENT_TOO_LARGE`,
-`MAILBOX_NOT_CONNECTED`.
+`ADDRESS_NOT_ON_LEDGER`, `MESSAGE_ALREADY_SENDING`, `MESSAGE_NOT_SCHEDULED`, `MAILBOX_NOT_CONNECTED` (phase 5
+added `OUTREACH_TOO_MANY_ATTACHMENTS` and `OUTREACH_ATTACHMENTS_TOO_LARGE`).
 
 ## C. The reads (built in phase 1)
 
@@ -378,8 +379,8 @@ invalidates `["outreach"]`. Ship the enum and the TS union in the same PR (an un
   `MailboxChip`; `MailboxBanner`; `NoteComposerModal`; `SequencesPage`.
 - **`ReplyComposer`**: the notes editor (`features/notes/components/NoteEditor.tsx`, Markdown out, no mentions)
   with the sequence token bar (`lib/sequenceTokens.ts`); subject row (read-only "Re: …" in a thread, an input for a
-  fresh one); "From {address}"; **Attach** (a popover: the person's documents from `…/documents`, or Upload →
-  the uploads route; chips with size; the 3 MB total shown); **Insert follow-up** (the position's sequence steps,
+  fresh one); "From {address}"; **Attach** (a popover: the person's documents from `…/documents`, or an upload
+  sent with the email; chips with size and the running total against the limits); **Insert follow-up** (the position's sequence steps,
   rendered); **Schedule** (`Popover` with `DateInput` + time → an instant, pinned); **Send now**. "Saved template"
   is not drawn (nothing to pick from yet; README says so). Footnote composed client-side: "Sending resolves this
   reply task." when `openTask.rule === "reply"`; "Pipeline stage stays {label}." vs "Moves to {target}." from
@@ -428,7 +429,8 @@ project; every repository query carries `workspaceId`. Reply text appears only i
 replied", no excerpt) or `CandidateMaterialReader`; AI reading the conversation is **not in this epic** (when it
 comes, through `ContactRedaction`). Activity details carry `messageId`, never a subject or body. Logs never print
 `body_text`. Retention: person and workspace cascades take the text; `candidate_id SET NULL` keeps the approach on
-unmap; uploaded attachment bytes are deleted with the message's cascade by a purge like `PersonNotePurge`. When
+unmap; attachment bytes go when their email is cancelled or definitely fails, and stay with an email that went or
+may have (phase 5 lists what is not yet swept). When
 person merge is built, message and attachment rows move with the enrollments.
 
 ## H. Phases (one PR each, each shippable)
@@ -531,8 +533,16 @@ person merge is built, message and attachment rows move with the enrollments.
      before storing anything, and a refused email takes what it stored with it. A version not on this person is a 404.
    - Bytes are read at send, outside the claim's transaction; a file that cannot be read fails the email
      (`SEND_FAILED`) rather than sending it without. Each person's document an email carried is audited
-     `PERSON_DOCUMENT_SENT` once it went. Cancelling — by its sender or by archiving — deletes the stored files once the
-     cancel commits; a sent or failed email keeps them, for the history's download.
+     `PERSON_DOCUMENT_SENT` once it went — ids only, since a CV's name is usually its person's and the trail is
+     append-only — also on the last-resort record path. A file Graph will not take onto the draft deletes the draft
+     and fails the email (`AttachmentNotAccepted` → `SEND_FAILED`), never a wait that builds a new draft a minute.
+   - Files are kept while an email waits, once it went, and while nobody knows whether it went (`SEND_UNCERTAIN`);
+     cancelling it (by its sender or by archiving) or a definite failure deletes them once that commits, and the
+     history neither lists nor downloads them after. A scheduled email still carries a document removed after it was
+     attached — that is the copy's purpose; cancel the email to stop it. **Not yet swept**: files staged by a request
+     whose instance died between storing and saving, and files of a workspace or person deleted outright (their rows
+     cascade, the bucket keeps the bytes) — the same gap person documents have; a bucket sweep of unreferenced keys
+     would close both.
    - Reads: `ConversationMessageResponse.attachments` (name, type, size) and `composer.attachmentLimits`;
      `GET …/outreach/messages/{id}/attachments/{attachmentId}` downloads one (`WORK_EXECUTE`, never a cancelled
      email's, audited `OUTREACH_ATTACHMENT_DOWNLOADED`). No `attachableDocuments` on the conversation: the composer
@@ -579,8 +589,9 @@ person merge is built, message and attachment rows move with the enrollments.
 16. `ProjectStreamPublisher` is `MANDATORY`; `AFTER_COMMIT` listeners need their own `REQUIRES_NEW`.
 17. The e2e matrix (`PROFILE=e2e`) has no mail gateway: reads, notes and permissions only; sends and replies stay
     in `@IntegrationTest` with `RecordingMailboxGateway` (never `@Primary`).
-18. Attachments: 3 MB inline limit shared by all three gateways; bytes read at send time, never on the row; a
-    person's document send is a disclosure and is audited; uploaded bytes purged with the message.
+18. Attachments: no limit is shared by all three gateways — each sends files its own largest way and the limits are
+    `lightmove.outreach.attachments.*`; bytes read at send time, never on the row; a person's document sent is a
+    disclosure and is audited (ids only, never its name); a cancelled or definitely failed email's files are deleted.
 19. `twMerge` per breakpoint: pane widths live in the page grid; the details-pane `Drawer` below `xl` gets the
     same `lg:` width override.
 20. Markdown email: links limited to http/https/mailto as the notes reader does; tokens substituted before

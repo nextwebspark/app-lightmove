@@ -171,7 +171,10 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         } catch (VendorException failed) {
             // Nothing was sent yet, whatever the failure: a half-built draft is one click from a send, so it goes.
             discardDraft(accessToken, messageId);
-            throw failed;
+            if (failed.getKind() == VendorFailureKind.CREDENTIALS) {
+                throw failed;
+            }
+            throw new AttachmentNotAccepted(failed);
         }
         try {
             if (email.replyToMessageId() != null) {

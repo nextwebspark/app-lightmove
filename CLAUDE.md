@@ -634,10 +634,12 @@ key when it is written (so a version removed later neither changes nor breaks it
 (`multipart/form-data`: the request a `message` part, each file a `files` part), its bytes matched to its name
 (`DocumentFormat`) — held to `lightmove.outreach.attachments.*` (5 files, 3,000,000 bytes each, Graph's single-post
 limit; 10 MB together) before anything is stored (`OutreachAttachments`). Each gateway sends them its own largest way:
-Gmail's upload endpoint (`RawEmail` as `multipart/mixed`, RFC 2231 names), a `fileAttachment` post per file on the Graph
-draft (a failed one deletes the draft), Nylas's multipart send (its JSON send caps the whole request at 3 MB). Bytes are
-read at send and never logged (`EmailAttachment.toString`); a document that went is audited `PERSON_DOCUMENT_SENT`, a
-download from the history `OUTREACH_ATTACHMENT_DOWNLOADED`, and a cancel deletes the files once it commits.
+Gmail's upload endpoint (`RawEmail` as `multipart/mixed`, RFC 2231 names folded into continuations), a `fileAttachment`
+post per file on the Graph draft (a refused one deletes the draft and fails the email, `AttachmentNotAccepted`), Nylas's
+multipart send (its JSON send caps the whole request at 3 MB). Bytes are read at send and never logged
+(`EmailAttachment.toString`); a document that went is audited `PERSON_DOCUMENT_SENT` by ids alone (a CV's name is its
+person's), a download from the history `OUTREACH_ATTACHMENT_DOWNLOADED`, and a cancel or a definite failure deletes the
+files once it commits (`OutreachMessage.keepsAttachmentFiles`).
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today

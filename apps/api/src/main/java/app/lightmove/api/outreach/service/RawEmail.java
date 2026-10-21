@@ -3,8 +3,10 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -23,6 +25,9 @@ final class RawEmail {
     private static final int ENCODED_WORD_BYTES = 45;
 
     private static final Base64.Encoder MIME_BASE64 = Base64.getMimeEncoder(76, CRLF.getBytes(StandardCharsets.US_ASCII));
+
+    /** Encoded characters per RFC 2231 continuation line, short enough to read and far under any line limit. */
+    private static final int CONTINUATION_LENGTH = 60;
 
     /** RFC 2231's attribute-char: what a parameter value may carry unescaped. */
     private static final String ATTRIBUTE_CHARS =
@@ -85,11 +90,18 @@ final class RawEmail {
     private static void attachmentPart(StringBuilder raw, EmailAttachment attachment) {
         String fileName = attachment.fileName();
         header(raw, "Content-Type", attachment.contentType() + "; name=\"" + asciiFallbackOf(fileName) + "\"");
-        String disposition = "attachment; filename=\"" + asciiFallbackOf(fileName) + "\"";
+        header(raw, "Content-Disposition", "attachment; filename=\"" + asciiFallbackOf(fileName) + "\"");
         if (!isPlainAscii(fileName)) {
-            disposition += "; filename*=UTF-8''" + percentEncoded(fileName);
+            // The header just written ends in CRLF; each continuation is a folded line of it, so no line passes
+            // RFC 5322's 998 octets however long the name: 255 Arabic letters are some 1,500 encoded characters.
+            raw.setLength(raw.length() - CRLF.length());
+            List<String> chunks = continuationsOf(percentEncoded(fileName));
+            for (int index = 0; index < chunks.size(); index++) {
+                raw.append(';').append(CRLF).append(" filename*").append(index).append("*=")
+                        .append(index == 0 ? "UTF-8''" : "").append(chunks.get(index));
+            }
+            raw.append(CRLF);
         }
-        header(raw, "Content-Disposition", disposition);
         header(raw, "Content-Transfer-Encoding", "base64");
         raw.append(CRLF);
         raw.append(MIME_BASE64.encodeToString(attachment.content()));
@@ -103,6 +115,24 @@ final class RawEmail {
                 codePoint >= 0x20 && codePoint < 0x7f && codePoint != '"' && codePoint != '\\'
                         ? (char) codePoint : '_'));
         return fallback.toString();
+    }
+
+    /** RFC 2231 continuations of an encoded value, never splitting a {@code %XX} triplet. */
+    static List<String> continuationsOf(String encoded) {
+        List<String> chunks = new ArrayList<>();
+        int start = 0;
+        while (start < encoded.length()) {
+            int end = Math.min(encoded.length(), start + CONTINUATION_LENGTH);
+            if (end < encoded.length()) {
+                int percent = encoded.lastIndexOf('%', end - 1);
+                if (percent >= start && percent > end - 3) {
+                    end = percent;
+                }
+            }
+            chunks.add(encoded.substring(start, end));
+            start = end;
+        }
+        return chunks;
     }
 
     static String percentEncoded(String value) {

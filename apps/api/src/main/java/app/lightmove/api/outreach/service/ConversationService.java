@@ -298,7 +298,8 @@ public class ConversationService {
                     senderNames.get(line.getSenderUserId()), line.getEnrollmentId(),
                     sequence == null ? null : sequence.getName(), line.getStep() == null ? null : line.getStep() + 1,
                     sequence == null ? null : Math.max(sequence.getSteps().size(), run.sentCount()),
-                    line.getFailReason(), files.getOrDefault(line.getId(), List.of()));
+                    line.getFailReason(),
+                    line.keepsAttachmentFiles() ? files.getOrDefault(line.getId(), List.of()) : List.of());
         }).toList();
     }
 

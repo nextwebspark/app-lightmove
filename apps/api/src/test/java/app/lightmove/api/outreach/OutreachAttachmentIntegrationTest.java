@@ -22,10 +22,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -101,6 +104,10 @@ class OutreachAttachmentIntegrationTest extends FlowTestSupport {
                 .isEqualTo("%PDF-1.7\nher CV");
         assertThat(email.toString()).doesNotContain("her CV");
         assertThat(auditCount("PERSON_DOCUMENT_SENT")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select metadata::text from app_lm_audit_event where event_type = "
+                + "'PERSON_DOCUMENT_SENT' and metadata->>'messageId' = ?", String.class, scheduled.get("id").asText()))
+                .as("a CV's name is usually its person's: the trail keeps ids").contains(versionId)
+                .doesNotContain("Priya CV");
 
         JsonNode line = conversationLine(scheduled.get("id").asText());
         assertThat(line.at("/attachments/0/fileName").asText()).isEqualTo("Brief.pdf");
@@ -197,6 +204,101 @@ class OutreachAttachmentIntegrationTest extends FlowTestSupport {
         assertThatThrownBy(() -> store.open(key).close()).isInstanceOf(IOException.class);
     }
 
+    @Test
+    @DisplayName("a file that cannot be read at send fails the email unsent, and never goes without it")
+    void anUnreadableFileFailsTheEmail() throws Exception {
+        JsonNode scheduled = sendWithFiles(status().isCreated(), message(List.of()), pdf("files", "Brief.pdf", "gone"));
+        store.delete(storageKeyOf(scheduled.get("id").asText()));
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        assertThat(gateway.sent()).isEmpty();
+        assertThat(jdbc.queryForMap("select status, fail_reason from app_lm_outreach_message where id = ?::uuid",
+                scheduled.get("id").asText())).containsEntry("status", "FAILED").containsEntry("fail_reason", "SEND_FAILED");
+    }
+
+    @Test
+    @DisplayName("an email that definitely never went keeps no copy: its files are deleted and no longer offered")
+    void aFailedEmailKeepsNoCopy() throws Exception {
+        JsonNode scheduled = sendWithFiles(status().isCreated(), message(List.of()), pdf("files", "Brief.pdf", "unsent"));
+        String id = scheduled.get("id").asText();
+        String key = storageKeyOf(id);
+        String attachmentId = attachmentIdOf(id);
+        markDoNotContact();
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        assertThat(gateway.sent()).isEmpty();
+        assertThatThrownBy(() -> store.open(key).close()).isInstanceOf(IOException.class);
+        assertThat(conversationLine(id).get("attachments")).isEmpty();
+        as(consultant, get(outreach("/messages/" + id + "/attachments/" + attachmentId))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("a file downloads only from its own position and email, never a cancelled one's, and never for a client seat")
+    void downloadsAreHeldToTheirEmail() throws Exception {
+        String later = Instant.now().plus(Duration.ofHours(2)).toString();
+        String id = sendWithFiles(status().isCreated(), """
+                {"toAddress":"%s","subject":"Later","body":"Hello","replyInThread":false,"sendAt":"%s"}"""
+                .formatted(priyaAddress, later), pdf("files", "Brief.pdf", "held")).get("id").asText();
+        String attachmentId = attachmentIdOf(id);
+        as(consultant, get(outreach("/messages/" + id + "/attachments/" + attachmentId))).andExpect(status().isOk());
+
+        String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group COO\"}".formatted(clientIdOf())))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        as(consultant, get("/api/v1/projects/" + otherProject + "/outreach/messages/" + id + "/attachments/"
+                + attachmentId)).andExpect(status().isNotFound());
+        as(clientSeat(), get(outreach("/messages/" + id + "/attachments/" + attachmentId)))
+                .andExpect(status().isForbidden());
+
+        as(consultant, delete(outreach("/messages/" + id))).andExpect(status().isNoContent());
+        as(consultant, get(outreach("/messages/" + id + "/attachments/" + attachmentId))).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("archiving the position deletes a waiting email's files with it")
+    void archivingDeletesWaitingFiles() throws Exception {
+        String later = Instant.now().plus(Duration.ofDays(1)).toString();
+        String id = sendWithFiles(status().isCreated(), """
+                {"toAddress":"%s","subject":"Later","body":"Hello","replyInThread":false,"sendAt":"%s"}"""
+                .formatted(priyaAddress, later), pdf("files", "Brief.pdf", "archived")).get("id").asText();
+        String key = storageKeyOf(id);
+
+        as(consultant, post("/api/v1/projects/" + projectId + "/archive").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"confirmName\":\"Group CFO\"}")).andExpect(status().is2xxSuccessful());
+
+        assertThatThrownBy(() -> store.open(key).close()).isInstanceOf(IOException.class);
+    }
+
+    @Test
+    @DisplayName("the JSON request carries a person's document without any upload")
+    void theJsonRequestCarriesDocuments() throws Exception {
+        String versionId = uploadDocument(priya, pdf("file", "Priya CV.pdf", "by json"));
+        as(consultant, post(outreach("/conversations/" + priya + "/messages")).contentType(MediaType.APPLICATION_JSON)
+                .content(message(List.of(versionId)))).andExpect(status().isCreated());
+
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+
+        assertThat(gateway.sent().getLast().email().attachments()).extracting(EmailAttachment::fileName)
+                .containsExactly("Priya CV.pdf");
+    }
+
+    @Test
+    @DisplayName("a refused email leaves no stored file behind")
+    void aRefusedEmailStoresNothing() throws Exception {
+        markDoNotContact();
+        sendExpecting(status().isConflict(), message(List.of()), pdf("files", "Brief.pdf", "refused"),
+                pdf("files", "Brief 2.pdf", "refused too"));
+
+        Path stored = Path.of("target/test-documents", "ws", workspaceIdOf(), "outreach", "attachments");
+        if (Files.exists(stored)) {
+            try (Stream<Path> files = Files.list(stored)) {
+                assertThat(files).isEmpty();
+            }
+        }
+    }
+
     private JsonNode sendWithFiles(ResultMatcher expected, String json, MockMultipartFile... files) throws Exception {
         return body(sendExpecting(expected, json, files).andReturn());
     }
@@ -210,6 +312,43 @@ class OutreachAttachmentIntegrationTest extends FlowTestSupport {
             request.file(file);
         }
         return mvc.perform(request.header("Authorization", "Bearer " + consultant)).andExpect(expected);
+    }
+
+    private String storageKeyOf(String messageId) {
+        return jdbc.queryForObject("select storage_key from app_lm_outreach_message_attachment where message_id = ?::uuid",
+                String.class, messageId);
+    }
+
+    private String attachmentIdOf(String messageId) {
+        return jdbc.queryForObject("select id::text from app_lm_outreach_message_attachment where message_id = ?::uuid",
+                String.class, messageId);
+    }
+
+    private String workspaceIdOf() {
+        return jdbc.queryForObject("select workspace_id::text from app_lm_project where id = ?::uuid", String.class,
+                projectId);
+    }
+
+    private String clientIdOf() {
+        return jdbc.queryForObject("select client_id::text from app_lm_project where id = ?::uuid", String.class,
+                projectId);
+    }
+
+    private String clientSeat() throws Exception {
+        String clientEmail = "client@attachment-client-" + domain;
+        as(consultant, post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"fullName":"A Client","position":"Chair","email":"%s"}
+                        """.formatted(clientEmail)))
+                .andExpect(status().isOk());
+        return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"A Client","password":"%s"}
+                                """.formatted(email.latestTokenFor(clientEmail), PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
     }
 
     private String message(List<String> documentVersionIds) {

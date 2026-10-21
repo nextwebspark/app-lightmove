@@ -129,6 +129,14 @@ public class OutreachMessageSendService {
             log.error("Outreach message {} was sent but could not be recorded; marking it sent so it never goes "
                     + "again", prepared.messageId(), failed);
             claims.recordDelivered(prepared.messageId(), sent, MailboxGatewayKind.ofGrant(prepared.grantId()), now);
+            // The record's own audit rolled back with it; a document that left must still say so.
+            try {
+                transactions.executeWithoutResult(status -> messages.findById(prepared.messageId())
+                        .ifPresent(this::auditDocumentsSent));
+            } catch (RuntimeException unaudited) {
+                log.error("Outreach message {} sent documents that could not be audited", prepared.messageId(),
+                        unaudited);
+            }
         }
     }
 
@@ -227,9 +235,9 @@ public class OutreachMessageSendService {
                         .target("person", message.getPersonId())
                         .detail("messageId", message.getId().toString())
                         .detail("projectId", message.getProjectId().toString())
+                        .detail("attachmentId", attachment.getId().toString())
                         .detailIfPresent("versionId", attachment.getDocumentVersionId() == null ? null
                                 : attachment.getDocumentVersionId().toString())
-                        .detail("fileName", attachment.getFileName())
                         .record());
     }
 
@@ -265,6 +273,9 @@ public class OutreachMessageSendService {
 
     private void failed(OutreachMessage message, OutreachStopReason reason, Instant now) {
         message.fail(reason, now);
+        if (!message.keepsAttachmentFiles()) {
+            attachments.deleteFilesOnCommit(message.getId());
+        }
         audit.projectEvent(ProjectEventType.OUTREACH_MESSAGE_FAILED, message.getSenderUserId(),
                         message.getWorkspaceId(), message.getProjectId(), null)
                 .detail("messageId", message.getId().toString())

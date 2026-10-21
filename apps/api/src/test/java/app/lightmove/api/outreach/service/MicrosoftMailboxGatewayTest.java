@@ -271,7 +271,7 @@ class MicrosoftMailboxGatewayTest {
 
         microsoft.clearRequests();
         microsoft.attachAnswers(413);
-        assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOf(VendorException.class);
+        assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOf(AttachmentNotAccepted.class);
         assertThat(microsoft.requested()).contains("DELETE " + draft).doesNotContain("POST " + draft + "/send");
     }
 

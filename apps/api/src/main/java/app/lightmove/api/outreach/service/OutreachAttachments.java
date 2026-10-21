@@ -59,6 +59,9 @@ public class OutreachAttachments {
     public List<StagedAttachment> stage(UUID workspaceId, UUID projectId, UUID candidateId, List<MultipartFile> uploads,
                                         List<UUID> documentVersionIds) {
         List<MultipartFile> files = uploads == null ? List.of() : uploads;
+        if (documentVersionIds != null && documentVersionIds.contains(null)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "documentVersionIds", "Choose a document to attach");
+        }
         List<UUID> versionIds = documentVersionIds == null ? List.of()
                 : List.copyOf(new LinkedHashSet<>(documentVersionIds));
         if (files.size() + versionIds.size() > limits().maxFiles()) {
@@ -81,10 +84,13 @@ public class OutreachAttachments {
                     "attachments of " + total + " bytes exceed " + limits().maxTotalBytes());
         }
 
+        List<CheckedUpload> checked = files.stream().map(OutreachAttachments::checkedUpload).toList();
         List<StagedAttachment> staged = new ArrayList<>();
         try {
-            for (MultipartFile file : files) {
-                staged.add(stageUpload(workspaceId, file));
+            for (CheckedUpload upload : checked) {
+                String key = put(workspaceId, upload.content(), upload.contentType());
+                staged.add(new StagedAttachment(upload.fileName(), upload.contentType(), upload.content().length,
+                        sha256Of(upload.content()), key, null));
             }
             for (AttachableDocument document : documents) {
                 staged.add(stageDocument(workspaceId, document));
@@ -163,8 +169,13 @@ public class OutreachAttachments {
         return sizeBytes;
     }
 
-    /** Held in memory whole: one file is at most a few megabytes, and the mail service takes it as bytes anyway. */
-    private StagedAttachment stageUpload(UUID workspaceId, MultipartFile file) {
+    private record CheckedUpload(String fileName, String contentType, byte[] content) {}
+
+    /**
+     * Read and typed before anything is stored. Held in memory whole: one file is at most a few megabytes, and the
+     * mail service takes it as bytes anyway.
+     */
+    private static CheckedUpload checkedUpload(MultipartFile file) {
         if (file.isEmpty()) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "One of the files is empty");
         }
@@ -179,8 +190,7 @@ public class OutreachAttachments {
                         Arrays.copyOf(content, Math.min(content.length, DocumentFormat.HEADER_LENGTH)))
                 .orElseThrow(() -> new ApiException(ErrorCode.UNSUPPORTED_FILE_TYPE, "rejected "
                         + DocumentFormat.extensionOf(fileName) + " attachment whose bytes match no accepted format"));
-        String key = put(workspaceId, content, format.contentType());
-        return new StagedAttachment(fileName, format.contentType(), content.length, sha256Of(content), key, null);
+        return new CheckedUpload(fileName, format.contentType(), content);
     }
 
     private StagedAttachment stageDocument(UUID workspaceId, AttachableDocument document) {
@@ -190,9 +200,11 @@ public class OutreachAttachments {
         } catch (IOException failure) {
             throw new UncheckedIOException("could not read a person document to attach", failure);
         }
+        // The limits were checked against the version's recorded size; what is copied is held to them as read.
+        requireWithinFileLimit(content.length);
         String key = put(workspaceId, content, document.file().contentType());
         return new StagedAttachment(document.file().fileName(), document.file().contentType(), content.length,
-                document.sha256(), key, document.versionId());
+                sha256Of(content), key, document.versionId());
     }
 
     private String put(UUID workspaceId, byte[] content, String contentType) {

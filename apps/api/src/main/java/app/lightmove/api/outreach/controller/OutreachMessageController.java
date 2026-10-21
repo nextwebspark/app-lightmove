@@ -10,6 +10,7 @@ import app.lightmove.api.outreach.service.OutreachAttachments;
 import app.lightmove.api.outreach.service.OutreachMessageService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -73,8 +74,10 @@ public class OutreachMessageController {
     public ResponseEntity<Resource> attachment(@AuthenticationPrincipal AuthPrincipal principal,
                                                @PathVariable UUID projectId, @PathVariable UUID messageId,
                                                @PathVariable UUID attachmentId, HttpServletRequest httpRequest) {
-        OutreachMessageAttachment file = messages.attachmentOf(principal.userId(), principal.requireWorkspaceId(),
-                projectId, messageId, attachmentId, httpRequest);
+        UUID workspaceId = principal.requireWorkspaceId();
+        OutreachMessageAttachment file = messages.attachmentOf(workspaceId, projectId, messageId, attachmentId);
+        InputStream content = attachments.open(file);
+        messages.recordDownload(principal.userId(), workspaceId, projectId, file, httpRequest);
         ContentDisposition disposition = ContentDisposition.attachment()
                 .filename(file.getFileName(), StandardCharsets.UTF_8)
                 .build();
@@ -84,7 +87,7 @@ public class OutreachMessageController {
                 .cacheControl(CacheControl.noStore().cachePrivate())
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header("X-Content-Type-Options", "nosniff")
-                .body(new InputStreamResource(attachments.open(file)));
+                .body(new InputStreamResource(content));
     }
 
     @DeleteMapping("/api/v1/projects/{projectId}/outreach/messages/{messageId}")

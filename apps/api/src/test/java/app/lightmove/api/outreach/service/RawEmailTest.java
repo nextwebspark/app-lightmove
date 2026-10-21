@@ -70,11 +70,31 @@ class RawEmailTest {
                 .contains("Content-Disposition: attachment; filename=\"Brief.pdf\"\r\n")
                 .doesNotContain("filename*");
         assertThat(decodedBody(parts[2])).isEqualTo("%PDF-1.7".getBytes(StandardCharsets.US_ASCII));
-        assertThat(parts[3]).contains("filename=\"R_sum_ _final_.pdf\"")
-                .contains("filename*=UTF-8''R%C3%A9sum%C3%A9%20%22final%22.pdf");
+        assertThat(parts[3]).contains("filename=\"R_sum_ _final_.pdf\";\r\n filename*0*=UTF-8''R%C3%A9sum%C3%A9%20%22final%22.pdf\r\n");
         assertThat(decodedBody(parts[3])).isEqualTo(cv);
         String encodedLines = parts[3].substring(parts[3].indexOf("\r\n\r\n") + 4);
         assertThat(encodedLines.split("\r\n")).allSatisfy(line -> assertThat(line.length()).isLessThanOrEqualTo(76));
+    }
+
+    @Test
+    @DisplayName("a long non-ASCII name is folded into RFC 2231 continuations that rejoin whole, no line past 998")
+    void longNamesAreContinued() {
+        String name = "ا".repeat(250) + ".pdf";
+        String text = sent(RawEmail.of(new OutgoingEmail("priya@client.example", "CV", "<p>CV</p>", null,
+                java.util.List.of(new EmailAttachment(name, "application/pdf", new byte[] {1}))), null, null));
+
+        assertThat(text.split("\r\n")).allSatisfy(line -> assertThat(line.length()).isLessThanOrEqualTo(998));
+        java.util.regex.Matcher continuation = java.util.regex.Pattern
+                .compile("\r\n filename\\*(\\d+)\\*=(?:UTF-8'')?([^;\r\n]+)").matcher(text);
+        StringBuilder rejoined = new StringBuilder();
+        int expected = 0;
+        while (continuation.find()) {
+            assertThat(Integer.parseInt(continuation.group(1))).isEqualTo(expected++);
+            rejoined.append(continuation.group(2));
+        }
+        assertThat(expected).isGreaterThan(1);
+        assertThat(java.net.URLDecoder.decode(rejoined.toString().replace("+", "%2B"), StandardCharsets.UTF_8))
+                .isEqualTo(name);
     }
 
     private static byte[] decodedBody(String part) {

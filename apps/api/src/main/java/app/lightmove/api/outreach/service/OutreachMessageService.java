@@ -158,22 +158,24 @@ public class OutreachMessageService {
                 .record();
     }
 
-    /** A file a line of the conversation carried — any line still in it, so never a cancelled one's. */
-    public OutreachMessageAttachment attachmentOf(UUID userId, UUID workspaceId, UUID projectId, UUID messageId,
-                                                  UUID attachmentId, HttpServletRequest httpRequest) {
-        OutreachMessageAttachment file = transactions.execute(status -> {
+    /** A file a line of the conversation still holds: never a cancelled one's, nor one's that definitely never went. */
+    public OutreachMessageAttachment attachmentOf(UUID workspaceId, UUID projectId, UUID messageId, UUID attachmentId) {
+        return transactions.execute(status -> {
             messages.findByIdAndWorkspaceIdAndProjectId(messageId, workspaceId, projectId)
-                    .filter(message -> message.getStatus() != MessageStatus.CANCELLED)
+                    .filter(OutreachMessage::keepsAttachmentFiles)
                     .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             return attachmentRows.findByIdAndMessageIdAndWorkspaceId(attachmentId, messageId, workspaceId)
                     .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         });
+    }
+
+    public void recordDownload(UUID userId, UUID workspaceId, UUID projectId, OutreachMessageAttachment file,
+                               HttpServletRequest httpRequest) {
         audit.projectEvent(ProjectEventType.OUTREACH_ATTACHMENT_DOWNLOADED, userId, workspaceId, projectId,
                         httpRequest)
-                .detail("messageId", messageId.toString())
-                .detail("attachmentId", attachmentId.toString())
+                .detail("messageId", file.getMessageId().toString())
+                .detail("attachmentId", file.getId().toString())
                 .record();
-        return file;
     }
 
     private Instant sendAtOf(SendMessageRequest request, Instant now) {

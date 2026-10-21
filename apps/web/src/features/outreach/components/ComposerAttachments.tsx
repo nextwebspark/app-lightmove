@@ -34,14 +34,6 @@ export function AttachButton({
   onChange: (next: ComposerAttachment[]) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const scope = { kind: "position", projectId, candidateId } as const;
-  const documents = useQuery({
-    queryKey: documentsApi.DOCUMENTS_KEY(scope),
-    queryFn: ({ signal }) => documentsApi.listDocuments(scope, signal),
-  });
-  const latestVersions = (documents.data ?? []).flatMap((document) =>
-    document.versions.length > 0 ? [{ document, version: document.versions[0] }] : [],
-  );
   const isFull = attachments.length >= limits.maxFiles;
 
   return (
@@ -63,7 +55,7 @@ export function AttachButton({
         align="left"
         placement="auto"
         width={300}
-        hasPopup="menu"
+        hasPopup="dialog"
         disabled={disabled || isFull}
         triggerClassName="inline-flex items-center gap-1 rounded-u-control px-2 py-1 text-note font-medium text-u-text2 hover:bg-u-raised hover:text-u-text disabled:opacity-50"
         trigger={() => (
@@ -74,56 +66,92 @@ export function AttachButton({
         )}
       >
         {(close) => (
-          <div role="menu" aria-label="Attach" className="flex flex-col py-1.5">
-            <div className="px-2 pb-1 pt-1.5 type-micro-label text-u-text3">Their documents</div>
-            {documents.isPending ? (
-              <p className="px-2 py-1.5 text-note text-u-text3">Reading their documents…</p>
-            ) : documents.isError ? (
-              <p className="px-2 py-1.5 text-note text-u-text3">Their documents couldn&rsquo;t be read just now.</p>
-            ) : latestVersions.length === 0 ? (
-              <p className="px-2 py-1.5 text-note text-u-text3">No documents on file for them yet.</p>
-            ) : (
-              latestVersions.map(({ document, version }) => {
-                const attached = attachments.some((attachment) => attachment.key === `document:${version.id}`);
-                return (
-                  <button
-                    key={version.id}
-                    type="button"
-                    role="menuitem"
-                    disabled={attached}
-                    className="flex items-center gap-2 px-2 py-1.5 text-start text-note text-u-text2 hover:bg-u-raised hover:text-u-text disabled:opacity-50"
-                    onClick={() => {
-                      onChange(withAttachment(attachments, documentOf(version.id, version.fileName, version.sizeBytes)));
-                      close();
-                    }}
-                  >
-                    <Icon d={ICONS.fileText} size={13} className="flex-none text-u-text3" />
-                    <span className="min-w-0 flex-1 truncate">{document.title}</span>
-                    <span className="flex-none font-mono text-meta text-u-text3">
-                      {attached ? "Attached" : formatBytes(version.sizeBytes)}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-            <div className="mt-1 border-t border-u-border pt-1">
-              <button
-                type="button"
-                role="menuitem"
-                className="flex w-full items-center gap-2 px-2 py-1.5 text-start text-note text-u-text2 hover:bg-u-raised hover:text-u-text"
-                onClick={() => {
-                  close();
-                  input.current?.click();
-                }}
-              >
-                <Icon d={ICONS.uploadCloud} size={13} className="flex-none text-u-text3" />
-                Upload from this computer
-              </button>
-            </div>
-          </div>
+          <AttachChoices
+            projectId={projectId}
+            candidateId={candidateId}
+            attachments={attachments}
+            onPick={(attachment) => {
+              onChange(withAttachment(attachments, attachment));
+              close();
+            }}
+            onUpload={() => {
+              close();
+              input.current?.click();
+            }}
+          />
         )}
       </Popover>
     </>
+  );
+}
+
+/** Mounted only while Attach is open, so their documents are read when someone looks for one, not with every composer. */
+function AttachChoices({
+  projectId,
+  candidateId,
+  attachments,
+  onPick,
+  onUpload,
+}: {
+  projectId: string;
+  candidateId: string;
+  attachments: readonly ComposerAttachment[];
+  onPick: (attachment: ComposerAttachment) => void;
+  onUpload: () => void;
+}) {
+  const scope = { kind: "position", projectId, candidateId } as const;
+  const documents = useQuery({
+    queryKey: documentsApi.DOCUMENTS_KEY(scope),
+    queryFn: ({ signal }) => documentsApi.listDocuments(scope, signal),
+  });
+  const latestVersions = (documents.data ?? []).flatMap((document) =>
+    document.versions.length > 0 ? [{ document, version: document.versions[0] }] : [],
+  );
+  return (
+    <div className="flex flex-col py-1.5">
+      <h3 id="attach-their-documents" className="px-2 pb-1 pt-1.5 type-micro-label text-u-text3">
+        Their documents
+      </h3>
+      {documents.isPending ? (
+        <p className="px-2 py-1.5 text-note text-u-text3">Reading their documents…</p>
+      ) : documents.isError ? (
+        <p className="px-2 py-1.5 text-note text-u-text3">Their documents couldn&rsquo;t be read just now.</p>
+      ) : latestVersions.length === 0 ? (
+        <p className="px-2 py-1.5 text-note text-u-text3">No documents on file for them yet.</p>
+      ) : (
+        <ul aria-labelledby="attach-their-documents" className="flex flex-col">
+          {latestVersions.map(({ document, version }) => {
+            const attached = attachments.some((attachment) => attachment.key === `document:${version.id}`);
+            return (
+              <li key={version.id}>
+                <button
+                  type="button"
+                  disabled={attached}
+                  className="flex w-full items-center gap-2 px-2 py-1.5 text-start text-note text-u-text2 hover:bg-u-raised hover:text-u-text disabled:opacity-50"
+                  onClick={() => onPick(documentOf(version.id, version.fileName, version.sizeBytes))}
+                >
+                  <Icon d={ICONS.fileText} size={13} className="flex-none text-u-text3" />
+                  <span className="min-w-0 flex-1 truncate">{document.title}</span>
+                  <span className="flex-none font-mono text-meta text-u-text3">
+                    {attached ? "Attached" : formatBytes(version.sizeBytes)}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div className="mt-1 border-t border-u-border pt-1">
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 px-2 py-1.5 text-start text-note text-u-text2 hover:bg-u-raised hover:text-u-text"
+          onClick={onUpload}
+        >
+          <Icon d={ICONS.uploadCloud} size={13} className="flex-none text-u-text3" />
+          Upload from this computer
+        </button>
+      </div>
+    </div>
   );
 }
 

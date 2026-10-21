@@ -239,10 +239,11 @@ describe("ReplyComposer", () => {
 
   it("sends their document and an uploaded file with the email, and holds a file past the limit back", async () => {
     render(composerFor(conversation()), { wrapper });
+    expect(documentsApi.listDocuments).not.toHaveBeenCalled();
     await writeFirstEmail();
 
     await userEvent.click(screen.getByRole("button", { name: "Attach" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: /Fatima CV/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /Fatima CV/ }));
     const brief = new File(["%PDF-1.7"], "Brief.pdf", { type: "application/pdf" });
     await userEvent.upload(screen.getByLabelText("Attach a file from this computer"), brief);
     const chips = screen.getByRole("list", { name: "Attachments" });
