@@ -2,7 +2,10 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
+import app.lightmove.api.outreach.constant.MessageStatus;
+import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
+import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import app.lightmove.api.project.model.ProjectArchived;
 import java.time.Clock;
 import java.time.Instant;
@@ -14,7 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * An archived position sends nothing more: every scheduled or active run on it stops, each with the timeline line
- * and audit event a consultant's Stop writes, in the transaction that archives it. Restoring starts none again.
+ * and audit event a consultant's Stop writes, and every email a consultant scheduled there is cancelled, in the
+ * transaction that archives it. Restoring starts and schedules none again.
  */
 @Component
 @RequiredArgsConstructor
@@ -22,6 +26,7 @@ class PositionArchiveOutreach {
 
     private final OutreachEnrollmentRepository enrollments;
     private final OutreachOutcomes outcomes;
+    private final OutreachMessageRepository messages;
     private final Clock clock;
 
     @EventListener
@@ -31,5 +36,7 @@ class PositionArchiveOutreach {
         enrollments.findByProjectIdAndStatusIn(archived.projectId(), EnrollmentStatus.LIVE)
                 .forEach(enrollment -> outcomes.stop(enrollment, OutreachStopReason.POSITION_ARCHIVED,
                         archived.actorUserId(), now, null));
+        messages.findByProjectIdAndStatus(archived.projectId(), MessageStatus.SCHEDULED)
+                .forEach(OutreachMessage::cancel);
     }
 }

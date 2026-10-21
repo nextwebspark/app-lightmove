@@ -133,6 +133,10 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
 
     boolean existsByWorkspaceIdAndRuleKey(UUID workspaceId, String ruleKey);
 
+    List<Task> findByWorkspaceIdAndProjectIdAndPersonIdAndRuleAndStatus(UUID workspaceId, UUID projectId,
+                                                                         UUID personId, TaskRule rule,
+                                                                         TaskStatus status);
+
     Optional<Task> findFirstByWorkspaceIdAndProjectIdAndPersonIdAndRuleAndStatusOrderByDueAtAsc(UUID workspaceId,
                                                                                                UUID projectId,
                                                                                                UUID personId,

@@ -225,6 +225,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
     /** A message as the mail service holds it, its id chosen by the test: one the webhook also reports. */
     public void writeInto(String threadId, ThreadMessage message) {
         threadWriters.computeIfAbsent(threadId, key -> new CopyOnWriteArrayList<>()).add(message);
+        threadOfMessage.put(message.providerMessageId(), threadId);
     }
 
     /** {@code receivedAt} null reads as received whenever the poll found it; the words are cut as a provider's are. */
@@ -233,6 +234,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         threadWriters.computeIfAbsent(threadId, key -> new CopyOnWriteArrayList<>())
                 .add(new ThreadMessage(messageId, fromAddress.toLowerCase(Locale.ROOT), receivedAt,
                         ReplyText.ofPlainText(text)));
+        threadOfMessage.put(messageId, threadId);
         return messageId;
     }
 

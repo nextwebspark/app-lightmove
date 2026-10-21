@@ -10,7 +10,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * The timer behind outreach: every minute it sends what is due, and every quarter hour it asks each
+ * The timer behind outreach: every minute it sends what is due — sequences' steps, then consultants' own emails —
+ * and every quarter hour it asks each
  * listening thread whether anyone answered, for the replies a webhook never delivered, and reads any
  * calendar still owed its first read. Safe on several
  * instances at once — see {@code OutreachEnrollmentClaims}.
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 public class OutreachDispatcher {
 
     private final OutreachSendService sends;
+    private final OutreachMessageSendService ownSends;
     private final OutreachInboxService inbox;
     private final MeetingBackfill calendars;
     private final RecallCalendars recallCalendars;
@@ -54,6 +56,14 @@ public class OutreachDispatcher {
                 sends.sendClaimed(enrollmentId, now);
             } catch (RuntimeException failed) {
                 log.error("Outreach dispatch of enrollment {} failed", enrollmentId, failed);
+            }
+        }
+        ownSends.failUncertainClaims(now);
+        for (UUID messageId : ownSends.claimDue(now)) {
+            try {
+                ownSends.sendClaimed(messageId, now);
+            } catch (RuntimeException failed) {
+                log.error("Outreach dispatch of message {} failed", messageId, failed);
             }
         }
     }

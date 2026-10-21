@@ -406,6 +406,24 @@ public enum ErrorCode {
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
 
+    /** Send now is refused at the day's cap; a scheduled email waits for the next day instead. */
+    OUTREACH_DAILY_CAP_REACHED(HttpStatus.CONFLICT, "You have sent today's emails. Schedule this one for tomorrow"),
+
+    /** An email goes only to an address on the person's record, as a sequence's does. */
+    OUTREACH_ADDRESS_NOT_ON_RECORD(HttpStatus.CONFLICT, "That address is not on this person's record"),
+
+    OUTREACH_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
+
+    /** A reply needs a thread the caller's mailbox started and can still read; a first email needs none. */
+    OUTREACH_THREAD_UNAVAILABLE(HttpStatus.CONFLICT,
+            "There is no email thread from your mailbox to reply in. Send a new email instead"),
+
+    /** Only a scheduled email can be cancelled, and only before the dispatcher has taken it. */
+    OUTREACH_MESSAGE_NOT_SCHEDULED(HttpStatus.CONFLICT, "This email is no longer waiting to be sent"),
+
+    /** It goes from its sender's own mailbox, so only they may take it back. */
+    OUTREACH_MESSAGE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this email can cancel it"),
+
     /** The booking page behind the link could not be made; nothing was started or sent. */
     OUTREACH_BOOKING_LINK_FAILED(HttpStatus.BAD_GATEWAY, "Your booking page couldn't be set up. Try again"),
 

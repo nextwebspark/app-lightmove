@@ -610,6 +610,15 @@ A Google mailbox consented before the read is asked to reconnect (`reconnectToRe
 listens, ends the run — and a reply received more than a day before it is found is a line alone, announced to
 nobody, unless its run still waits. V145 gave each earlier reply and bounce a **placeholder** line (no provider id),
 which the first matching message a read finds — received before it was noticed — completes instead of joining.
+**Phase 3 (V146)**: a consultant's **own email** — a first email, or a reply in the thread their mailbox last wrote to
+the person in — through `POST …/outreach/conversations/{candidateId}/messages` (Markdown, tokens, now or `sendAt` ≤ 60
+days), checked as Start checks (mailbox, live position, do not contact, the address on the record, Send now under the
+cap) and kept as a `SCHEDULED` line that `OutreachMessageSendService`, the dispatcher's second loop, claims, re-checks
+and sends once — never retried, held to the cap but never to a window, cancelled by its sender until taken
+(`DELETE …/outreach/messages/{id}`) or by archiving. `OutreachMarkdownEmail` renders it: raw HTML as text, links
+http/https/mailto only, an image as its alt text, a mention as a name. A send writes `EMAIL_SENT` (`manual`) with its
+status automation, stops a live run in the same thread as `MANUAL`, and publishes `OutreachEmailSentByHand`, on which
+`task` closes the person's open reply-rule tasks.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today
@@ -1169,7 +1178,8 @@ and a follow-up's decoded from its HTML through Spring's whole entity table. `se
 that went (a CHECK), since the daily cap counts it; the `(enrollment_id, step)` uniqueness holds for sequence steps
 alone. V145 fills any deploy-window row's `project_id`/`person_id` and sets both `NOT NULL`, inserts a reply placeholder
 per answered run and a bounce placeholder per bounced one, adds `app_lm_mailbox_connection.reply_text_granted`
-(direct Microsoft rows backfilled true), and indexes the thread, the inbound dedupe and the listening scan.
+(direct Microsoft rows backfilled true), and indexes the thread, the inbound dedupe and the listening scan. V146 gives
+it a consultant's own email's `send_at`, `sending_since` claim, `in_reply_to` and `fail_reason`, with the due index.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

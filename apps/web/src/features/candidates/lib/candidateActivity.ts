@@ -192,7 +192,7 @@ function phraseOf(
         detail: [details.sequence, details.step ? `step ${details.step}` : null].filter(Boolean).join(", ") || null,
       };
     case "EMAIL_REPLIED":
-      return { text: `replied to ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"} on ${where}`, detail: null };
+      return { text: details.sequence ? `replied to the sequence ${details.sequence} on ${where}` : `replied on ${where}`, detail: null };
     case "OUTREACH_STOPPED":
       return {
         text: `stopped ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"}${forThem} on ${where}`,

@@ -8,6 +8,7 @@ import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.outreach.model.OutreachBounced;
 import app.lightmove.api.outreach.model.OutreachCallBooked;
+import app.lightmove.api.outreach.model.OutreachEmailSentByHand;
 import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.task.constant.OutreachFollowUpKind;
 import app.lightmove.api.task.constant.TaskKind;
@@ -119,6 +120,29 @@ public class TaskRuleService {
                 "booked_call:" + booked.projectId() + ":" + booked.personId() + ":" + booked.startsAt().getEpochSecond(),
                 booked.workspaceId(), booked.projectId(), booked.personId(), booked.candidateId(),
                 booked.consultantUserId(), TaskKind.FOLLOW_UP, "Debrief %s", ends, booked.viaLink()));
+    }
+
+    /**
+     * An email the consultant wrote themselves answers whatever reply waited on that person: every open task the
+     * reply rule filed for them on the position is done, by the sender. A task anyone filed by hand is left alone.
+     */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onEmailSentByHand(OutreachEmailSentByHand sent) {
+        Instant now = clock.instant();
+        tasks.findByWorkspaceIdAndProjectIdAndPersonIdAndRuleAndStatus(sent.workspaceId(), sent.projectId(),
+                        sent.personId(), TaskRule.REPLY, TaskStatus.OPEN)
+                .forEach(task -> {
+                    task.complete(sent.senderUserId(), now);
+                    timeline.record(task, sent.senderUserId(), PersonActivityKind.TASK_COMPLETED, null);
+                    audit.projectEvent(ProjectEventType.TASK_UPDATED, sent.senderUserId(), task.getWorkspaceId(),
+                                    task.getProjectId(), null)
+                            .detail("taskId", task.getId().toString())
+                            .detail("status", TaskStatus.DONE.value())
+                            .detail("messageId", sent.messageId().toString())
+                            .record();
+                });
     }
 
     private void follow(FollowUpCase followUp) {
