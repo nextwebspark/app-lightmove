@@ -14,6 +14,11 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
 
     List<PersonMeeting> findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(UUID workspaceId, UUID personId);
 
+    /** Which of these people a teammate's calendar holds a meeting with. */
+    @Query("select distinct m.personId from PersonMeeting m where m.workspaceId = :workspaceId "
+            + "and m.personId in :personIds")
+    List<UUID> findPersonIdsMetAmong(UUID workspaceId, Collection<UUID> personIds);
+
     /**
      * A booking that arrives again on the calendar's own webhook keeps who booked it, and a join link the
      * calendar has not filled in yet does not erase the one already held.

@@ -24,6 +24,15 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
     List<PersonActivity> findPersonTimeline(UUID workspaceId, UUID personId, long before,
                                             Collection<PersonActivityKind> kinds, Limit limit);
 
+    @Query("""
+            select a from PersonActivity a
+            where a.workspaceId = :workspaceId and a.personId = :personId and a.projectId = :projectId
+              and a.kind in :kinds
+            order by a.id desc
+            """)
+    List<PersonActivity> findPositionTimeline(UUID workspaceId, UUID personId, UUID projectId,
+                                              Collection<PersonActivityKind> kinds, Limit limit);
+
     /**
      * The workspace's feed. A filter left open is a flag rather than a null parameter, because Postgres
      * cannot type a bare null bind and an open filter would otherwise fail rather than match everything.

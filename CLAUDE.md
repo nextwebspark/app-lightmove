@@ -588,6 +588,13 @@ is a bounce. Every email is an `app_lm_outreach_message` row (staff-only); every
 `EMAIL_REPLIED` / `OUTREACH_STOPPED` line and an audit event (`OutreachOutcomes`). The Outreach page reads
 `…/outreach/people` (counts and runs, filtered in the SPA), the drawer's Outreach fold
 `…/outreach/candidates/{id}`, and Stop is `…/enrollments/{id}/stop`, all `WORK_EXECUTE`.
+**Conversations (`docs/outreach-conversations.md`, phase 1 of 6)**: the message table is becoming one
+executive's conversation on one position (V144) — every line carries person, position, `direction` and `channel`
+(email only so far; WhatsApp, SMS and calls reserved) — and `ConversationService` answers the coming three-pane
+Outreach page: `…/outreach/conversations` (the action queue — Needs reply, Follow-ups, Preparation, Attention, read
+off each executive's open tasks through `NextActionLookup.openTasksOf` and their latest run — by tab, Mine or Team,
+and a search over names and what was sent) and `…/outreach/conversations/{candidateId}` (emails, run events, this
+position's notes and meetings merged newest first). Both `WORK_EXECUTE`; they own nothing.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today
@@ -1139,6 +1146,12 @@ V143 adds `app_lm_company_note` (workspace, project and `triage_company_id`, ON 
 `body_format`, pinned, author, edited and soft-delete columns) and backfills each company's V32 `note` as its first
 note, by its `added_by`, leaving the column frozen; `CompanyNotePurge` deletes a deleted one for good as
 `PersonNotePurge` does.
+V144 widens `app_lm_outreach_message` into the conversation ledger: `direction`, `channel`, `kind`, `status`,
+`project_id`/`person_id`/`candidate_id` (SET NULL), the two addresses, `thread_gateway`, `occurred_at`, and
+`body_text` (≤ 20,000) with its `body_format`, each defaulting to what an old row is so the previous revision's
+insert lands mid-deploy; backfilled from each row's enrollment and HTML. `sent_at` is set only on an outbound email
+that went (a CHECK), since the daily cap counts it; the `(enrollment_id, step)` uniqueness holds for sequence steps
+alone. `project_id`/`person_id` stay nullable until phase 2 sets them `NOT NULL`.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

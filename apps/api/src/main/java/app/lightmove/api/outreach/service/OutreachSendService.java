@@ -188,8 +188,9 @@ public class OutreachSendService {
             enrollment.deferToOpening(window, window.openingAfterToday(now, zone));
             return null;
         }
-        return new PreparedSend(enrollment.getId(), mailbox.getGrantId(),
-                emailOf(enrollment, sequence, recipient.orElseThrow(), mailbox), enrollment.getNextStep());
+        RenderedEmail rendered = emailOf(enrollment, sequence, recipient.orElseThrow(), mailbox);
+        return new PreparedSend(enrollment.getId(), mailbox.getGrantId(), mailbox.getAddress(), rendered.email(),
+                rendered.text(), enrollment.getNextStep());
     }
 
     /** Everything Add to sequence refused at Start, asked again: any of it may have changed since. */
@@ -210,12 +211,13 @@ public class OutreachSendService {
      * The first email is the one the consultant reviewed, frozen at Start. A follow-up is rendered from
      * the sequence as it stands now and goes as a reply to the last email, which keeps it in the thread.
      */
-    private OutgoingEmail emailOf(OutreachEnrollment enrollment, OutreachSequence sequence,
+    private RenderedEmail emailOf(OutreachEnrollment enrollment, OutreachSequence sequence,
                                   OutreachRecipient recipient, MailboxConnection mailbox) {
         int step = enrollment.getNextStep();
         if (step == 0) {
-            return new OutgoingEmail(enrollment.getToAddress(), enrollment.getFirstSubject(),
-                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox)));
+            return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(), enrollment.getFirstSubject(),
+                    OutreachEmailBody.htmlOf(enrollment.getFirstBody(), bookingPages.linkOf(mailbox))),
+                    enrollment.getFirstBody());
         }
         SequenceStep followUp = sequence.getSteps().get(step);
         SenderContext sender = personalisation.senderContextOf(enrollment.getSenderUserId(),
@@ -227,8 +229,9 @@ public class OutreachSendService {
         }
         String body = OutreachPersonalisation.tokensOf(recipient, sender, enrollment.getOpener())
                 .render(followUp.getBody());
-        return new OutgoingEmail(enrollment.getToAddress(), replySubjectOf(enrollment.getFirstSubject()),
-                OutreachEmailBody.htmlOf(body, sender.bookingLink()), enrollment.getLastMessageId());
+        return new RenderedEmail(new OutgoingEmail(enrollment.getToAddress(),
+                replySubjectOf(enrollment.getFirstSubject()), OutreachEmailBody.htmlOf(body, sender.bookingLink()),
+                enrollment.getLastMessageId()), body);
     }
 
     private void recordSent(PreparedSend prepared, SentEmail sent, Instant now) {
@@ -241,8 +244,10 @@ public class OutreachSendService {
             followingDue = sequence.sendingWindow().followUpDue(now, zoneOf(enrollment), next.getDelayWorkingDays(),
                     next.getSendTime());
         }
-        enrollment.markSent(sent, MailboxGatewayKind.ofGrant(prepared.grantId()), now, followingDue);
-        messages.save(OutreachMessage.sent(enrollment, prepared.step(), prepared.email(), sent, now));
+        MailboxGatewayKind threadGateway = MailboxGatewayKind.ofGrant(prepared.grantId());
+        enrollment.markSent(sent, threadGateway, now, followingDue);
+        messages.save(OutreachMessage.sent(enrollment, prepared.step(), prepared.email(), prepared.text(),
+                prepared.fromAddress(), sent, threadGateway, now));
         if (enrollment.getCandidateId() != null) {
             people.recordEmailSent(enrollment.getSenderUserId(), enrollment.getProjectId(), enrollment.getCandidateId(),
                     sequence.getId(), sequence.getName(), prepared.step() + 1);
@@ -309,4 +314,7 @@ public class OutreachSendService {
     private OutreachSettings settings() {
         return properties.outreach();
     }
+
+    /** An email as it goes, and the plain text it was rendered from. */
+    private record RenderedEmail(OutgoingEmail email, String text) {}
 }

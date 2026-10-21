@@ -1,8 +1,8 @@
 # Outreach conversations — design and build plan
 
-Status: **planned, not built** (approved 2026-10-21). This is the design the Outreach workspace in
-`claude-design/Outreach.dc.html` is built from; each phase below is one PR. Until a phase ships, the tables, routes
-and entities it names do not exist. The research and the decisions are kept here so the PRs can stay small.
+Status: **phase 1 built** (the ledger and the two reads, section C); phases 2–6 planned (approved 2026-10-21).
+This is the design the Outreach workspace in `claude-design/Outreach.dc.html` is built from; each phase is one PR.
+Until a phase ships, the tables, routes and entities it names do not exist.
 
 
 ## Context
@@ -85,28 +85,31 @@ today / thread of this person" read into a UNION. V91's frozen-copy idiom was fo
 nullable or defaulted columns are added, so the previous revision's `OutreachMessage.sent(...)` keeps working during
 the deploy window.
 
-`V144__outreach_message_ledger.sql`:
+`V144__outreach_message_ledger.sql` (shipped in phase 1):
 - Relax `NOT NULL` on `enrollment_id`, `step`, `provider_message_id` (a scheduled row has none yet), `subject`,
   `body` (a bounce has none), `sent_at` (**outbound SENT only — it is the cap's column**).
-- Add: `direction` (`OUTBOUND|INBOUND`, default OUTBOUND), `channel` (`EMAIL|WHATSAPP|SMS|CALL`, default EMAIL),
-  `kind` (`SEQUENCE_STEP|MANUAL|REPLY|BOUNCE`, default SEQUENCE_STEP), `status`
-  (`SCHEDULED|SENT|FAILED|CANCELLED|RECEIVED`, default SENT), `project_id` (FK cascade), `person_id` (FK cascade),
-  `candidate_id` (FK **SET NULL** — unmapping keeps the record, the enrollment's rule), `from_address`,
-  `to_address`, `thread_gateway` (`NYLAS|DIRECT`), `in_reply_to`, `occurred_at` (the ordering instant: sent,
-  received or due), `send_at` (a SCHEDULED row's pinned time), `sending_since` (the claim), `fail_reason`
-  (`OutreachStopReason` names), `body_format` (`PLAIN|MARKDOWN`, V142's idiom; the composer writes MARKDOWN),
-  `body_text` (plain text ≤ 20,000: a reply's stripped text, or the outbound's source).
+- Add: `direction` (`OUTBOUND|INBOUND`), `channel` (`EMAIL|WHATSAPP|SMS|CALL`), `kind`
+  (`SEQUENCE_STEP|MANUAL|REPLY|BOUNCE`), `status` (`SCHEDULED|SENT|FAILED|CANCELLED|RECEIVED`), each defaulting to
+  what every row so far is, so the previous revision's insert still lands during a deploy; `project_id` and
+  `person_id` (FK cascade), `candidate_id` (FK **SET NULL** — unmapping keeps the record, the enrollment's rule),
+  `from_address`, `to_address`, `thread_gateway` (`NYLAS|DIRECT`), `occurred_at` (the ordering instant, default
+  `now()`), `body_format` (`TEXT|MARKDOWN`: a sequence's paragraph text, or the composer's Markdown) and
+  `body_text` (plain text ≤ 20,000).
 - Backfill `project_id, person_id, candidate_id, to_address, thread_gateway` from the enrollment, `from_address`
-  from the sender's mailbox (null where gone), `occurred_at = sent_at`, `body_text` from `body` with tags
-  stripped; then `SET NOT NULL` on `project_id`, `person_id`, `occurred_at`.
+  from the sender's mailbox, `occurred_at = sent_at`, and `body_text` read back out of the HTML
+  `OutreachEmailBody` wrote (paragraphs, line breaks, entities).
+- `project_id` and `person_id` stay **nullable** for the deploy window — the previous revision inserts without
+  them, and its row is still found through its enrollment. Phase 2's migration fills any such row and sets
+  `NOT NULL`.
 - Drop `app_lm_outreach_message_step_uk`; add `UNIQUE (enrollment_id, step) WHERE kind = 'SEQUENCE_STEP'`.
 - CHECKs: `status <> 'SENT' OR sent_at IS NOT NULL`; `direction = 'OUTBOUND' OR sent_at IS NULL` (a reply can never
   count against the cap); `char_length(body_text) <= 20000`.
-- Indexes: `(workspace_id, project_id, person_id, occurred_at DESC)`; `(send_at) WHERE status = 'SCHEDULED'`;
-  `(workspace_id, sender_user_id, thread_id) WHERE thread_id IS NOT NULL`; `UNIQUE (workspace_id, sender_user_id,
-  provider_message_id) WHERE provider_message_id IS NOT NULL` (reply/bounce dedupe); `(sender_user_id,
-  occurred_at) WHERE direction = 'OUTBOUND' AND status = 'SENT' AND thread_id IS NOT NULL` (the listening scan).
-- Table COMMENT rewritten: a reply *is* a row since V144, text only, staff-only.
+- Index `(workspace_id, project_id, person_id, occurred_at DESC)`, the conversation's read.
+- Table COMMENT rewritten.
+
+Left to the phase that first writes them, so no column sits unwritten: `in_reply_to`, `send_at`, `sending_since`
+and `fail_reason` (phase 3, one-off sends), and the thread index, the provider-message dedupe index and the
+listening-scan index (phase 2, replies).
 
 `V145__mailbox_reads_replies.sql`: `app_lm_mailbox_connection.reads_replies boolean NOT NULL DEFAULT false`,
 `granted_scopes text`; backfill `true` for direct Microsoft rows (Mail.ReadWrite already covers it).
@@ -235,58 +238,65 @@ Audit (`core/audit/constant/ProjectEventType`): `OUTREACH_MESSAGE_SCHEDULED / SE
 `ADDRESS_NOT_ON_LEDGER`, `MESSAGE_ALREADY_SENDING`, `MESSAGE_NOT_SCHEDULED`, `ATTACHMENT_TOO_LARGE`,
 `MAILBOX_NOT_CONNECTED`.
 
-## C. The reads
+## C. The reads (built in phase 1)
 
-**`GET /projects/{p}/outreach/conversations?view=needs|all|scheduled|sent&who=mine|team&q=&before=&limit=`**
-→ `ConversationListResponse(counts{needs, scheduled}, nextScheduledAt, rows[], nextCursor)`;
-`ConversationRowResponse(candidateId, personId, fullName, title, companyName, enrichedAt, status, statusLabel,
-statusColour, pipelineStage, group, action{taskId, text, kind, dueAt, assigneeUserId, assigneeName, rule},
-latest{channel, direction, kind, at, preview ≤140}, scheduledAt, lastSentAt)`.
+Both are `WORK_EXECUTE` on the position, in `outreach/controller/OutreachConversationController`, composed by
+`outreach/service/ConversationService`, which owns nothing.
 
-Groups, in `outreach/service/ConversationService`, from the executive's open tasks and message rows:
-- `NEEDS_REPLY`: earliest open task has `rule = REPLY`; **or** no open task but the latest message is an inbound
-  REPLY newer than the latest outbound SENT (the workspace switched the reply rule off — the reply must still show).
-- `ATTENTION`: an open task with `rule = BOUNCE`; or the latest message is a BOUNCE or a FAILED outbound; or the
-  latest run is `BOUNCED` / stopped `SEND_FAILED | SEND_UNCERTAIN | MAILBOX_INACTIVE | MAILBOX_MOVED |
-  ADDRESS_REMOVED` with no later SENT.
-- `PREPARATION`: an open task and **no outbound SENT ever** for this person on this position.
-- `FOLLOW_UP`: any other open task. `null`: nothing open — absent from `needs`, present in `all`.
-- Precedence ATTENTION > NEEDS_REPLY > PREPARATION > FOLLOW_UP. Sort ("Priority"): overdue first by `dueAt`, then
-  `latest.at` desc. `who=mine`: in `needs` the task is mine; elsewhere `sender_user_id = me`.
-- Views: `all` = anyone with a message row, a run or a meeting on the position; `scheduled` = a SCHEDULED row or a
-  live run's `next_send_at`, by time asc; `sent` = ≥1 outbound SENT, by `lastSentAt` desc. `needs` returned
-  whole (bounded by open tasks); the others paged `before=&limit=` (50, max 100).
+**`GET /api/v1/projects/{p}/outreach/conversations?view=needs|all|scheduled|sent&who=mine|team&q=`** (defaults
+`needs`, `mine`; any other token is a 400) → `ConversationListResponse(counts{needs, scheduled}, nextScheduledAt,
+rows[], truncated)`. Each `ConversationRowResponse` carries the executive as the Pipeline draws them (name, title,
+employer, `enrichedAt`, status key, label and colour), `group`, `action` (a `CandidateOpenTaskDto`: task id, title,
+kind, `rule`, `dueAt`, assignee), `run` (their latest run, the `OutreachRunResponse` the old table used),
+`latest{channel, direction, kind, at, preview}` (the first 140 characters of their latest line), `lastSentAt`,
+`scheduledAt` and `lastActivityAt`.
 
-Dependencies keep `candidate ← outreach ← task`: executives through a new
-`CandidateOutreachService.conversationSubjectsOf(workspace, project, q)` (name/title/company `ILIKE`); open tasks
-through `NextActionLookup.openTasksOf(projectId, candidateIds)` (new, in `task`'s adapter; today's
-`CandidateNextActionDto` lacks `rule` and `assigneeUserId`); messages through new JPQL on
-`OutreachMessageRepository` (`latestPerPerson`, `scheduledPerPerson`, `hasSentPerPerson`, `searchIds` on
-`subject ILIKE OR body_text ILIKE`). **No full-text index**: a position holds hundreds of people and a few
-thousand rows, the project index bounds the scan before `ILIKE` runs; `pg_trgm` is a later migration if measured
-slow. `q` ≤ 100 chars, `%`/`_` escaped.
+The list is answered whole, held to 500 rows with `truncated` set past that, as the old overview held its runs: a
+position maps hundreds of executives at most, so the cursor paging the plan sketched would only have cost a
+round trip.
 
-**`GET …/outreach/conversations/{candidateId}?before=&limit=`** → `ConversationResponse(person, stage,
-statusLabel/colour, clientVisible, contact{emails[], phones[], location} (the ledger as `ContactPanel` reads it; no
-time-zone row — nothing stores one), keyDates{addedAt, firstContactedAt, repliedAt, lastUpdatedAt}, currentRun
-(reuse `OutreachMonitorService.ofCandidate`), openTask, emailSentMovesTo{statusLabel}|null (from
-`StatusAutomationService.targetOf`, for the composer's footnote), mailbox{readsReplies}, events[], nextCursor)`.
+Groups, first match wins:
+- `ATTENTION`: an open task the bounce rule filed; or their latest run stopped `SEND_FAILED | SEND_UNCERTAIN |
+  MAILBOX_INACTIVE | MAILBOX_MOVED | ADDRESS_REMOVED` with nothing sent to them since. The second kind has no task,
+  so `action` is null, and it leaves the group when something goes to them again or a new run starts.
+- `NEEDS_REPLY`: an open task the reply rule filed. Decision 6 holds strictly: with the reply rule switched off a
+  reply shows in All conversations and the bell, not here, since nothing could mark it handled.
+- `PREPARATION`: an open task, and no email ever sent to them on this position.
+- `FOLLOW_UP`: any other open task.
+- `null`: nothing open — absent from `needs`, present in `all` while they have a run, a line, a meeting or a task.
 
-`events` — **one `ConversationService` composing four sources** (the activity table never holds a body; notes and
-meetings are their own tables), merged in memory by instant desc, cut at `limit`, each source asked `< before`:
-1. message rows (SENT → "sent email" with `body`; REPLY → "synced email" with `body_text`; BOUNCE / FAILED →
-   "delivery"; SCHEDULED → a scheduled card with Cancel), context "{sequence} · Step n of 3" or "One-off",
-   attachments by name;
-2. run and status events from `PersonTimelineService.linesOf(workspace, person, project, kinds, before, limit)` —
-   `OUTREACH_ENROLLED, OUTREACH_STOPPED, MEETING_BOOKED, STATUS_CHANGED, TASK_COMPLETED` (`EMAIL_SENT`/`EMAIL_REPLIED`
-   excluded: the message rows say it) → "automation" cards; "Sequence ended on reply" is drawn from the run's
-   `status = REPLIED` + `replied_at` (a reply writes no stop line today);
-3. notes via `PersonNoteService.list(…, NoteViewpoint.position(projectId))` — this position's + All positions,
-   staff — "human note" cards (`kind = CALL` → "Call note added by …");
-4. meetings via `PersonMeetingRepository` for the person.
+Needs action sorts by group (the order above is the queue's drawing order: Needs reply, Follow-ups, Preparation,
+Attention), then the task's due date, then the latest activity. All sorts by latest activity, Scheduled by the next
+send, Sent by the latest send. `who=mine`: in Needs action the deciding task is the caller's (a task-less Attention
+row is the run sender's); elsewhere the caller sent them something or holds their task. The counts are the scope's,
+before any search.
 
-Fix `PersonTimelineService.DETAIL_KEYS` on the way: add `sequence, sequenceId, step, reason, startsAt, viaLink,
-manual, messageId`, with a regression test that an `EMAIL_SENT` line answers `details.sequence` and `step`.
+`q` (at most 100 characters) matches a name, title or employer, or the subject or text of any line, as a
+case-insensitive substring with `%`, `_` and `\` escaped. **No full-text index**: the project's own rows bound the
+scan before `LIKE` runs; `pg_trgm` is the migration for the day it measures slow.
+
+Seams, keeping `candidate ← outreach ← task`: the executives are `PositionPipelineService.pipelineOf` (and its new
+`rowOf` for one); open tasks are `NextActionLookup.openTasksOf`, a second method on the interface `task` already
+implements (`CandidateNextActionDto` carries neither the rule nor every task); runs, lines and meetings are
+outreach's own repositories.
+
+**`GET /api/v1/projects/{p}/outreach/conversations/{candidateId}`** → `ConversationResponse(executive` (the Pipeline
+row), `openTasks, currentRun` (the drawer's `CandidateOutreachResponse`), `keyDates{addedAt, firstContactedAt,
+repliedAt, lastActivityAt}, events[], truncated)`. Contact details are not repeated here: the screen reads them
+where the drawer does. `emailSentMovesTo` waits for phase 3, whose composer is its only reader.
+
+`events`, newest first, held to 200 with `truncated` set past that, each a `ConversationEventResponse` whose
+`type` names the one payload it carries:
+1. `MESSAGE` — a line of the ledger: direction, channel, kind, status, subject, `text` (always text, never HTML),
+   from and to, the sender's name, and for a sequence's email its name, step number and step count.
+2. `ACTIVITY` — the person's timeline lines about this position of kinds `OUTREACH_ENROLLED`, `EMAIL_REPLIED`,
+   `OUTREACH_STOPPED` and `STATUS_CHANGED`, through `PersonTimelineService.positionLinesOf`. `EMAIL_SENT` is left
+   out because the message says it; `EMAIL_REPLIED` stays until phase 2 stores the reply itself.
+3. `NOTE` — `PersonNoteService.list` from this position's viewpoint: its own notes and those about the person.
+4. `MEETING` — `MeetingService.ofCandidate`'s upcoming and recent meetings, at their start.
+
+`PersonTimelineService.DETAIL_KEYS` now passes `sequenceId`, `sequence`, `step`, `reason`, `startsAt` and
+`viaLink`, which the outreach lines always wrote and the drawer's Activity tab always expected.
 
 ## D. Live refresh
 
@@ -377,14 +387,16 @@ person merge is built, message and attachment rows move with the enrollments.
 
 ## H. Phases (one PR each, each shippable)
 
-1. **Ledger + conversation reads (no UI change)** — V144; `OutreachMessage` + enums; `OutreachMessageRepository`
-   queries; `OutreachSendService.recordSent` sets the new columns; `NextActionLookup.openTasksOf` +
-   `NextActionLookupAdapter`, `OpenTaskDto`; `CandidateOutreachService.conversationSubjectsOf`;
-   `PersonTimelineService` (`DETAIL_KEYS` fix, `linesOf`); `ConversationService`, `OutreachConversationController`,
-   DTOs. Tests: new `OutreachConversationIntegrationTest` (`@IntegrationTest`, the dispatch test's helpers):
-   grouping per rule, Mine/Team, search, client seat 403, foreign position 404, event merge order, `EMAIL_SENT`
-   now carries `sequence`/`step`. Verify `./mvnw test`.
-2. **Reply bodies, bounce rows, listening by thread** — V145; `GrantedMailbox.scopes`, `MailboxConnection`,
+1. **Ledger + conversation reads (no UI change) — built.** V144; `OutreachMessage` + the message enums;
+   `OutreachMessageRepository`'s conversation queries; `OutreachSendService` records the plain text, the sending
+   address and the thread's gateway; `NextActionLookup.openTasksOf` + `CandidateOpenTaskDto`;
+   `PositionPipelineService.rowOf`; `PersonTimelineService` (`DETAIL_KEYS` fix, `positionLinesOf`);
+   `ConversationService`, `OutreachConversationController`, the `Conversation*` DTOs. Tests:
+   `OutreachMessageLedgerMigrationTest` (the backfill and both constraints, seeded at V143) and
+   `OutreachConversationIntegrationTest` (each group, the tabs, Mine/Team, search and its escaping, the merged
+   history, this position's notes only, the timeline's sequence and step, client seat 403, foreign 404).
+2. **Reply bodies, bounce rows, listening by thread** — V145 (also: fill V144's deploy-window rows and set
+   `project_id`/`person_id` `NOT NULL`; the thread, dedupe and listening-scan indexes); `GrantedMailbox.scopes`, `MailboxConnection`,
    `ConnectedMailboxResponse`, `MailboxService`; `MailboxGateway.messagesInThread` + `ThreadMessage`; the three
    gateways + `Routing`/`Unconfigured`/`Recording`; `ReplyText`; `OutreachInboxService` (message-first resolution,
    thread scan, REPLY/BOUNCE rows, dedupe, replies on ended runs and manual threads, no double `replied()`, no
@@ -394,7 +406,8 @@ person merge is built, message and attachment rows move with the enrollments.
    reply after run ended files one task, two quick replies one task, bounce row, no-read-scope mailbox still stops
    by address). Manual: a real Google reconnect in `npm run dev` shows the new scope; add it to
    `docs/integrations/registration.md`.
-3. **One-off sends (Markdown body), schedule, cancel, task resolution** — `OutreachMessageClaims`,
+3. **One-off sends (Markdown body), schedule, cancel, task resolution** — a migration adding `in_reply_to`,
+   `send_at`, `sending_since`, `fail_reason` and the scheduled-row index; `OutreachMessageClaims`,
    `OutreachMessageService`, `OutreachEligibility`, `OutreachMarkdownEmail`, `OutreachDispatcher` second loop,
    POST/DELETE routes; `OutreachReplySent` + listener in `task`; `recordEmailSent` overload; `PositionArchiveOutreach`;
    `MailboxService` disconnect counts; `ErrorCode` + `errorCodes.ts`; `docs/validation-matrix.md` rows. Tests: new
