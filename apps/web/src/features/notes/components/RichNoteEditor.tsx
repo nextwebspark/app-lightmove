@@ -18,11 +18,14 @@ interface Picker {
   options: MentionPickerOption[];
   active: number;
   pick: (attrs: MentionNodeAttrs) => void;
+  /** Where the `@` being typed is on screen, when the editor can say. */
+  caret: (() => DOMRect | null) | null;
 }
 
 /**
- * A note typed with formatting (bold, lists, a checklist, links, @mentions) and kept as Markdown. The same editor
- * opens in a larger view on Expand — moved, not copied — so the words, the undo history and the caret go with it.
+ * A note typed with formatting (bold, lists, a checklist, links, @mentions) and kept as Markdown. The same composer —
+ * the editor with its `header` and `footer` — opens in a larger view on Expand, moved rather than copied, so the
+ * words, the undo history, the kind, who reads it and the save all go with it. A save that empties it closes the view.
  */
 export default function RichNoteEditor({
   value,
@@ -36,12 +39,16 @@ export default function RichNoteEditor({
   canSubmit = true,
   expandTitle = "Note",
   variant = "note",
+  roomy = false,
   autoFocus = false,
+  header,
+  footer,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const pickerRef = useRef<Picker | null>(null);
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const teammatesRef = useRef(teammates);
   const onChangeRef = useRef(onChange);
   const onSubmitRef = useRef(onSubmit);
@@ -68,9 +75,9 @@ export default function RichNoteEditor({
           items: ({ query }) => mentionOptionsFor(teammatesRef.current ?? [], query),
           render: () => ({
             onStart: (props: SuggestionProps<MentionPickerOption, MentionNodeAttrs>) =>
-              showPicker({ options: props.items, active: 0, pick: props.command }),
+              showPicker({ options: props.items, active: 0, pick: props.command, caret: props.clientRect ?? null }),
             onUpdate: (props: SuggestionProps<MentionPickerOption, MentionNodeAttrs>) =>
-              showPicker({ options: props.items, active: 0, pick: props.command }),
+              showPicker({ options: props.items, active: 0, pick: props.command, caret: props.clientRect ?? null }),
             onKeyDown: ({ event }: SuggestionKeyDownProps) => handlePickerKey(event),
             onExit: () => showPicker(null),
           }),
@@ -108,12 +115,7 @@ export default function RichNoteEditor({
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": ariaLabel,
-        class: cn(
-          NOTE_PROSE,
-          "outline-none",
-          variant === "note" ? "min-h-14" : "min-h-20",
-          expanded && "min-h-[50vh]",
-        ),
+        class: surfaceClassOf(variant, roomy, expanded),
       },
     },
     onUpdate: ({ editor: changed }) => {
@@ -127,6 +129,7 @@ export default function RichNoteEditor({
     if (!editor || value === lastEmitted.current) return;
     lastEmitted.current = value;
     editor.commands.setContent(noteDocOf(value, format), { emitUpdate: false });
+    if (value === "") setExpanded(false);
   }, [editor, value, format]);
 
   useEffect(() => {
@@ -136,11 +139,11 @@ export default function RichNoteEditor({
           role: "textbox",
           "aria-multiline": "true",
           "aria-label": ariaLabel,
-          class: cn(NOTE_PROSE, "outline-none", variant === "note" ? "min-h-14" : "min-h-20", expanded && "min-h-[50vh]"),
+          class: surfaceClassOf(variant, roomy, expanded),
         },
       },
     });
-  }, [editor, ariaLabel, variant, expanded]);
+  }, [editor, ariaLabel, variant, roomy, expanded]);
 
   const mentioned = useEditorState({
     editor,
@@ -202,15 +205,18 @@ export default function RichNoteEditor({
       ? (teammates?.find((teammate) => teammate.userId === mention.userId)?.avatarUrl ?? null)
       : null;
 
+  // The larger view, and a composer that is a whole dialog, write in a field of their own under a toolbar band.
+  const isFramed = expanded || roomy;
   const surface = (
     <div
+      ref={surfaceRef}
       className={cn(
         "relative",
-        expanded &&
+        isFramed &&
           "rounded-lg border border-u-border-strong bg-u-bg transition focus-within:border-u-accent focus-within:ring-2 focus-within:ring-u-accent-ring",
       )}
     >
-      <div className={cn(expanded && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
+      <div className={cn(isFramed && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
         <NoteToolbar
           editor={editor}
           mentionsOffered={teammates !== null}
@@ -222,9 +228,10 @@ export default function RichNoteEditor({
         />
         {linkOpen && editor && <LinkRow editor={editor} onClose={() => setLinkOpen(false)} />}
       </div>
-      <EditorContent editor={editor} className={expanded ? "cursor-text px-4 py-3" : "mt-1.5"} />
+      <EditorContent editor={editor} className={isFramed ? "cursor-text px-4 py-3" : "mt-1.5"} />
       {teammates !== null && picker && (
         <MentionPickerList
+          anchor={() => picker.caret?.() ?? surfaceRef.current?.getBoundingClientRect() ?? null}
           options={picker.options}
           active={picker.active}
           teammates={teammates}
@@ -236,7 +243,7 @@ export default function RichNoteEditor({
         <div
           className={cn(
             "mt-2 flex flex-wrap items-center gap-1.5 border-t border-u-border pt-2",
-            expanded && "mx-4 mb-3",
+            isFramed && "mx-4 mb-3",
           )}
         >
           <span className="text-meta text-u-text3">Notifies</span>
@@ -253,7 +260,21 @@ export default function RichNoteEditor({
     </div>
   );
 
-  if (!expanded) return surface;
+  const composer = (
+    <>
+      {header}
+      <div className={cn(header !== undefined && "mt-2")}>{surface}</div>
+    </>
+  );
+
+  if (!expanded) {
+    return (
+      <>
+        {composer}
+        {footer && <div className="mt-2">{footer}</div>}
+      </>
+    );
+  }
   return (
     <>
       <p className="rounded-u-control border border-dashed border-u-border px-3 py-2 text-note text-u-text3">
@@ -265,29 +286,34 @@ export default function RichNoteEditor({
         title={expandTitle}
         className="md:w-[880px]"
         footer={
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" size="md" onClick={() => setExpanded(false)}>
-              Collapse
+          footer ? (
+            <div className="w-full">{footer}</div>
+          ) : onSubmit ? (
+            <Button
+              type="button"
+              size="md"
+              disabled={!canSubmit}
+              onClick={() => {
+                setExpanded(false);
+                onSubmit();
+              }}
+            >
+              {submitLabel}
             </Button>
-            {onSubmit && (
-              <Button
-                type="button"
-                size="md"
-                disabled={!canSubmit}
-                onClick={() => {
-                  setExpanded(false);
-                  onSubmit();
-                }}
-              >
-                {submitLabel}
-              </Button>
-            )}
-          </div>
+          ) : undefined
         }
       >
-        {surface}
+        {composer}
       </Modal>
     </>
+  );
+}
+
+function surfaceClassOf(variant: NoteEditorProps["variant"], roomy: boolean, expanded: boolean): string {
+  return cn(
+    NOTE_PROSE,
+    "outline-none",
+    expanded ? "min-h-[50vh]" : roomy ? "min-h-40" : variant === "note" ? "min-h-14" : "min-h-20",
   );
 }
 

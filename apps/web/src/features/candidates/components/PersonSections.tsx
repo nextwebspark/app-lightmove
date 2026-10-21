@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, LinesSkeleton, Spinner, useToast } from "../../../components/ui";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatActivityTime } from "../../projects/lib/activity";
 import type { TaskNote } from "../../tasks/api/types";
@@ -121,16 +122,22 @@ export function NotesSection({
 
 /**
  * A note on one executive, written from one position: its kind, its words, and whether it is about this position or
- * all of them. The drawer's Notes tab opens on it, and the Outreach page's Log call and Add note open it alone.
+ * all of them. The drawer's Notes tab opens on it, and the Outreach page's Log call and Add note open it as a dialog.
  */
 export function PositionNoteComposer({
   projectId,
   candidateId,
   initialKind = "general",
+  title = "New note",
+  presentation = "inline",
   onSetNextAction,
   onSaved,
 }: PersonSectionProps & {
   initialKind?: PersonNoteKind;
+  /** The larger view's title. */
+  title?: string;
+  /** In a dialog the composer is the dialog's whole body: no frame of its own, and room to write. */
+  presentation?: "inline" | "dialog";
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
   onSaved?: () => void;
@@ -183,54 +190,59 @@ export function PositionNoteComposer({
   const canSave = body.length > 0 && !tooLong && !saving.isPending;
   const save = () => canSave && saving.mutate(false);
 
+  const isDialog = presentation === "dialog";
   return (
-    <div className="rounded-[8px] border border-u-border p-2.5">
-      <NoteKindPicker value={kind} onChange={setKind} />
-      <div className="mt-2">
-        <NoteEditor
-          value={draft}
-          format="markdown"
-          onChange={setDraft}
-          teammates={forEveryPosition ? null : team.teammates}
-          ariaLabel="New note"
-          placeholder="What was said, and what happens next…"
-          onSubmit={save}
-          submitLabel="Save note"
-          canSubmit={canSave}
-          expandTitle="New note"
-        />
-      </div>
-      {tooLong && (
-        <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-          {NOTE_TOO_LONG}
-        </p>
-      )}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <NoteScopePicker positionTitle={thisPosition} value={scope} onChange={changeScope} />
-        </div>
-        {onSetNextAction && (
-          <Button
-            type="button"
-            size="xs"
-            variant="secondary"
-            disabled={!canSave}
-            loading={saving.isPending && saving.variables}
-            onClick={() => saving.mutate(true)}
-          >
-            Save & set next action
-          </Button>
-        )}
-        <Button
-          type="button"
-          size="xs"
-          disabled={!canSave}
-          loading={saving.isPending && !saving.variables}
-          onClick={() => saving.mutate(false)}
-        >
-          Save note
-        </Button>
-      </div>
+    <div className={cn(!isDialog && "rounded-[8px] border border-u-border p-2.5")}>
+      <NoteEditor
+        value={draft}
+        format="markdown"
+        onChange={setDraft}
+        teammates={forEveryPosition ? null : team.teammates}
+        ariaLabel="New note"
+        placeholder="What was said, and what happens next…"
+        onSubmit={save}
+        submitLabel="Save note"
+        canSubmit={canSave}
+        expandTitle={title}
+        roomy={isDialog}
+        autoFocus={isDialog}
+        header={<NoteKindPicker value={kind} onChange={setKind} />}
+        footer={
+          <>
+            {tooLong && (
+              <p role="alert" className="mb-2 text-meta text-u-offlimits">
+                {NOTE_TOO_LONG}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <NoteScopePicker positionTitle={thisPosition} value={scope} onChange={changeScope} />
+              </div>
+              {onSetNextAction && (
+                <Button
+                  type="button"
+                  size={isDialog ? "sm" : "xs"}
+                  variant="secondary"
+                  disabled={!canSave}
+                  loading={saving.isPending && saving.variables}
+                  onClick={() => saving.mutate(true)}
+                >
+                  Save & set next action
+                </Button>
+              )}
+              <Button
+                type="button"
+                size={isDialog ? "sm" : "xs"}
+                disabled={!canSave}
+                loading={saving.isPending && !saving.variables}
+                onClick={() => saving.mutate(false)}
+              >
+                Save note
+              </Button>
+            </div>
+          </>
+        }
+      />
     </div>
   );
 }

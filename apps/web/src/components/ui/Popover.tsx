@@ -1,11 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-
-/** Gap between the trigger's bottom edge and the panel, and the margin kept from the viewport edge. */
-const PANEL_GAP = 6;
-const EDGE_GAP = 12;
-/** Room an `auto` panel wants beneath its trigger before it opens above instead. */
-const AUTO_PANEL_ROOM = 340;
+import { EDGE_GAP, verticalPlacement } from "./anchoredPlacement";
 
 /**
  * A toolbar dropdown: a button, and a panel that closes on an outside click, Escape, or a scroll.
@@ -24,6 +19,7 @@ export function Popover({
   trigger,
   triggerClassName,
   label,
+  title,
   align = "left",
   placement = "below",
   width = 280,
@@ -36,6 +32,8 @@ export function Popover({
   triggerClassName?: string;
   /** Accessible name for the trigger, when its contents are not text enough. */
   label?: string;
+  /** The trigger's hover hint. */
+  title?: string;
   align?: "left" | "right";
   /** `auto` opens above a trigger too near the foot of the window to fit the panel beneath it. */
   placement?: "below" | "auto";
@@ -97,6 +95,7 @@ export function Popover({
         ref={triggerRef}
         type="button"
         aria-label={label}
+        title={title}
         aria-expanded={open}
         aria-haspopup={hasPopup}
         disabled={disabled}
@@ -129,13 +128,4 @@ export function Popover({
         )}
     </>
   );
-}
-
-function verticalPlacement(anchor: DOMRect, placement: "below" | "auto") {
-  const below = window.innerHeight - anchor.bottom - PANEL_GAP - EDGE_GAP;
-  const above = anchor.top - PANEL_GAP - EDGE_GAP;
-  if (placement === "auto" && below < AUTO_PANEL_ROOM && above > below) {
-    return { bottom: window.innerHeight - anchor.top + PANEL_GAP, maxHeight: above };
-  }
-  return { top: anchor.bottom + PANEL_GAP };
 }

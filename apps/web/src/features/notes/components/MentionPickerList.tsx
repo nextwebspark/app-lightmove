@@ -1,3 +1,6 @@
+import { useEffect, useReducer } from "react";
+import { createPortal } from "react-dom";
+import { EDGE_GAP, PANEL_GAP, verticalPlacement } from "../../../components/ui/anchoredPlacement";
 import { Avatar } from "../../../components/ui/Avatar";
 import { cn } from "../../../lib/cn";
 import { RolePill } from "../../tasks/components/TaskBits";
@@ -20,27 +23,59 @@ export function mentionOptionsFor(teammates: readonly TeammateOption[], query: s
   ];
 }
 
-/** The mention picker (`Position.dc.html`, "Mention picker"): the team, one row each, the active one raised. */
+const PICKER_WIDTH = 300;
+
+/**
+ * The mention picker (`Position.dc.html`, "Mention picker"): the team, one row each, the active one raised.
+ *
+ * <p>Portalled and placed at the `@` it answers: drawn inside the editor, the note modal's scrolling body and the
+ * Expand view's footer clipped it out of sight.
+ */
 export function MentionPickerList({
+  anchor,
   options,
   active,
   teammates,
   onActive,
   onPick,
 }: {
+  /** The box it opens against — the `@` being typed — read again whenever anything behind it scrolls. */
+  anchor: () => DOMRect | null;
   options: readonly MentionPickerOption[];
   active: number;
   teammates: readonly TeammateOption[];
   onActive: (index: number) => void;
   onPick: (mention: Mention) => void;
 }) {
+  const [, remeasure] = useReducer((count: number) => count + 1, 0);
+  useEffect(() => {
+    // Capture: what scrolls is the modal's body or the drawer, never the window.
+    window.addEventListener("scroll", remeasure, true);
+    window.addEventListener("resize", remeasure);
+    return () => {
+      window.removeEventListener("scroll", remeasure, true);
+      window.removeEventListener("resize", remeasure);
+    };
+  }, []);
+
+  const box = anchor();
+  if (!box) return null;
   const others = teammates.filter((teammate) => !teammate.isMe);
-  return (
+  const placed = verticalPlacement(box, "auto");
+  return createPortal(
     <div
       onMouseDown={(event) => event.preventDefault()}
-      className="absolute left-0 top-full z-[110] mt-1 w-[300px] max-w-full rounded-u-chip border border-u-border-strong bg-u-surface p-1 shadow-u-e3"
+      style={{
+        ...placed,
+        maxHeight: "maxHeight" in placed ? placed.maxHeight : window.innerHeight - box.bottom - PANEL_GAP - EDGE_GAP,
+        left: Math.max(EDGE_GAP, Math.min(box.left, window.innerWidth - PICKER_WIDTH - EDGE_GAP)),
+        width: PICKER_WIDTH,
+        maxWidth: `calc(100vw - ${EDGE_GAP * 2}px)`,
+      }}
+      // Above the modal (100) the note is often typed in, below the toast (120), as `Popover` sits.
+      className="fixed z-[110] flex flex-col rounded-u-chip border border-u-border-strong bg-u-surface p-1 shadow-u-e3"
     >
-      <ul role="listbox" aria-label="Mention someone on this position's team" className="max-h-64 overflow-y-auto">
+      <ul role="listbox" aria-label="Mention someone on this position's team" className="min-h-0 max-h-64 overflow-y-auto">
         {options.map((option, index) => {
           const selected = index === active;
           const rowClass = cn(
@@ -97,6 +132,7 @@ export function MentionPickerList({
       <p className="mt-1 border-t border-u-border px-2 pb-1 pt-1.5 text-meta text-u-text3">
         Only this position's team. They're told who mentioned them, never what the note says.
       </p>
-    </div>
+    </div>,
+    document.body,
   );
 }

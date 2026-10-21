@@ -61,7 +61,8 @@ there, never sent to that position's AI — while the Candidates page reads them
 The position drawer's composer offers This position or All positions, never another position. A note is
 formatted (bold, italic, underline, strike, two heading sizes, bulleted, numbered and checklist lists, a quote, a
 link, @mentions) in one shared editor — the composers, an edit in place, a business unit's or client's notes —
-which opens in a larger view on Expand without losing a word. A note a door
+which opens in a larger view on Expand without losing a word — the whole composer moves, its kind, who reads it
+and its save included, and Collapse sits where Expand was. A note a door
 sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
 Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
 may change, remove or restore one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
