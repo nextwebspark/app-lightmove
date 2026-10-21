@@ -232,32 +232,33 @@ export function NoteCard({
           <span title={new Date(note.editedAt).toLocaleString()}>Edited by {note.editedByName ?? "someone"}</span>
         )}
         {actions && (
-          <span className="ms-auto flex gap-3">
-            <button type="button" onClick={actions.onPin} disabled={actions.busy} className="hover:text-u-text">
-              {note.pinned ? "Unpin" : "Pin"}
-            </button>
+          <span className="-my-1 ms-auto flex items-center gap-0.5">
+            <NoteActionButton
+              label={note.pinned ? "Unpin" : "Pin"}
+              icon={ICONS.pin}
+              active={note.pinned}
+              onClick={actions.onPin}
+              disabled={actions.busy}
+            />
             {note.editable && !editing && (
-              <button
-                type="button"
+              <NoteActionButton
+                label="Edit"
+                icon={ICONS.pencil}
                 onClick={() => {
                   setDraft(note.body);
                   setEditing(true);
                 }}
                 disabled={actions.busy}
-                className="hover:text-u-text"
-              >
-                Edit
-              </button>
+              />
             )}
             {note.editable && (
-              <button
-                type="button"
+              <NoteActionButton
+                label="Delete"
+                icon={ICONS.trash}
+                danger
                 onClick={() => setConfirmingRemove(true)}
                 disabled={actions.busy}
-                className="hover:text-u-offlimits"
-              >
-                Delete
-              </button>
+              />
             )}
           </span>
         )}
@@ -277,5 +278,38 @@ export function NoteCard({
         </ConfirmDialog>
       )}
     </li>
+  );
+}
+
+function NoteActionButton({
+  label,
+  icon,
+  active = false,
+  danger = false,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  active?: boolean;
+  danger?: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "grid size-9 place-items-center rounded-u-control text-u-text3 transition hover:bg-u-raised disabled:opacity-50 lg:size-7",
+        danger ? "hover:text-u-offlimits" : "hover:text-u-text",
+        active && "text-u-accent hover:text-u-accent",
+      )}
+    >
+      <Icon d={icon} size={14} />
+    </button>
   );
 }
