@@ -128,7 +128,8 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
     void theWebhookAndThePollRecordOnce() throws Exception {
         Instant sent = monday.plus(Duration.ofMinutes(5));
         webhook(List.of(new InboundMessage("grant-" + domain, thread, "priya@" + domain, "msg-from-priya", sent,
-                "<div>Yes, call me.</div><div class=\"gmail_quote\">On Mon wrote: Hi</div>")));
+                "<div>Yes, call me.</div><div class=\"gmail_quote\"><div class=\"gmail_attr\">On Mon, Yara wrote:</div>"
+                + "<blockquote class=\"gmail_quote\">Hi</blockquote></div>")));
         gateway.writeInto(thread, new ThreadMessage("msg-from-priya", "priya@" + domain, sent, "Yes, call me."));
         inbox.pollListeningThreads(monday.plus(Duration.ofMinutes(15)));
         webhook(List.of(new InboundMessage("grant-" + domain, thread, "priya@" + domain, "msg-from-priya", sent, null)));
@@ -164,6 +165,45 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
         assertThat(enrollmentOf(priya).get("status")).isEqualTo("REPLIED");
         assertThat(activityKinds(priya).stream().filter("EMAIL_REPLIED"::equals)).hasSize(2);
         assertThat(openReplyTasks()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a reply to a run long finished, first found now, is kept as a line and announced to nobody")
+    void anOldReplyToAFinishedRunIsHistory() throws Exception {
+        jdbc.update("update app_lm_outreach_enrollment set status = 'STOPPED', stop_reason = 'MANUAL', "
+                + "stopped_at = ?, next_send_at = null where id = ?", Timestamp.from(monday.plus(Duration.ofHours(1))),
+                enrollmentOf(priya).get("id"));
+        gateway.writeInto(thread, "priya@" + domain, "Sorry for the slow answer.", monday.plus(Duration.ofHours(2)));
+
+        inbox.pollListeningThreads(monday.plus(Duration.ofDays(5)));
+
+        assertThat(replies()).extracting(row -> row.get("body_text")).containsExactly("Sorry for the slow answer.");
+        assertThat(activityKinds(priya)).doesNotContain("EMAIL_REPLIED");
+        assertThat(openReplyTasks()).isZero();
+        assertThat(enrollmentOf(priya).get("status")).isEqualTo("STOPPED");
+    }
+
+    @Test
+    @DisplayName("a run still waiting is ended by its reply however late the reply is found")
+    void aLateReplyStillEndsAWaitingRun() throws Exception {
+        gateway.writeInto(thread, "priya@" + domain, "Yes.", monday.plus(Duration.ofMinutes(5)));
+
+        inbox.pollListeningThreads(monday.plus(Duration.ofDays(2)));
+
+        assertThat(enrollmentOf(priya).get("status")).isEqualTo("REPLIED");
+        assertThat(openReplyTasks()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a thread sent from another address is not read once the mailbox is connected to another account")
+    void anotherAccountsThreadIsNotRead() throws Exception {
+        jdbc.update("update app_lm_mailbox_connection set address = ? where grant_id = ?", "yara.new@" + domain,
+                "grant-" + domain);
+        gateway.writeInto(thread, "priya@" + domain, "Thursday works.");
+
+        inbox.pollListeningThreads(monday.plus(Duration.ofMinutes(15)));
+
+        assertThat(replies()).isEmpty();
     }
 
     @Test

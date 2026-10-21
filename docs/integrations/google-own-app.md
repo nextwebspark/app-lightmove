@@ -26,7 +26,8 @@ once.
 
 **Why these scopes:** `gmail.send` sends the emails your consultants write; `gmail.readonly` reads the replies to
 them — only in the threads Uncava started — so a sequence stops when someone answers and the reply shows in
-Uncava for your team. A consultant who unticks it on Google's consent screen still has their sequences stopped by
-a reply; its words just stay in Gmail. Mailboxes connected while Uncava asked for `gmail.metadata` instead show
-"Reconnect" on the Outreach page until reconnected. The calendar scopes book calls,
+Uncava for your team. Uncava refuses a connection where it was unticked on Google's consent screen, since without
+it no reply would ever stop a sequence, and asks the consultant to connect again. Mailboxes connected while Uncava
+asked for `gmail.metadata` instead keep stopping sequences on a reply and show "Reconnect" on the Outreach page
+until reconnected. The calendar scopes book calls,
 read free time and show meetings with candidates.

@@ -165,11 +165,6 @@ public class OutreachMessage extends BaseEntity {
         return message;
     }
 
-    /** A line with no provider id stands for a message nobody has read yet: V145's backfill, or a reported bounce. */
-    public boolean isPlaceholder() {
-        return providerMessageId == null && direction == MessageDirection.INBOUND;
-    }
-
     /** A bounce's words are a mail server's, quoting our own email; only a reply's are kept. */
     public void completeWith(ThreadMessage found) {
         providerMessageId = found.providerMessageId();

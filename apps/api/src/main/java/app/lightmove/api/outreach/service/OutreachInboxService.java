@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -59,6 +60,15 @@ public class OutreachInboxService {
 
     /** A read starts this far before the latest line that came back: a message is dated when it was received. */
     private static final Duration READ_OVERLAP = Duration.ofHours(1);
+
+    /**
+     * A reply received longer ago than this is history when it is first found — the first read after V145 finds every
+     * reply to a thread whose run had already ended, which nobody was ever told of — so it is kept as a line and
+     * announced to nobody, unless its run still waits on it.
+     */
+    private static final Duration ANNOUNCE_WITHIN = Duration.ofDays(1);
+
+    private static final int MAX_ADDRESS = 320;
 
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository mailboxes;
@@ -148,7 +158,7 @@ public class OutreachInboxService {
         }
         String text = null;
         if (replyText.readsText(mailbox)) {
-            text = inbound.html() != null ? ReplyText.ofHtml(inbound.html()) : textReadBack(mailbox, inbound);
+            text = inbound.html() != null ? ReplyText.ofBody(inbound.html()) : textReadBack(mailbox, inbound);
         }
         record(mailbox, thread.get(), new ThreadMessage(inbound.messageId(),
                 inbound.fromAddress().toLowerCase(Locale.ROOT), inbound.receivedAt(), text), now);
@@ -177,7 +187,15 @@ public class OutreachInboxService {
      * placeholder of its kind dated after it is completed; anything else is a new line and what it means for the run.
      */
     private void record(MailboxConnection mailbox, OutreachThread thread, ThreadMessage found, Instant now) {
+        if (found.fromAddress().length() > MAX_ADDRESS) {
+            log.warn("Message {} in thread {} names a sender too long to be an address", found.providerMessageId(),
+                    thread.threadId());
+            return;
+        }
         MessageKind kind = isDeliveryDaemon(found.fromAddress()) ? MessageKind.BOUNCE : MessageKind.REPLY;
+        // A mail server's notice can carry a clock a little ahead of the report that told us of it.
+        Duration placeholderSlack = kind == MessageKind.BOUNCE ? READ_OVERLAP : Duration.ZERO;
+        boolean isNews = found.receivedAt() == null || !found.receivedAt().isBefore(now.minus(ANNOUNCE_WITHIN));
         try {
             transactions.executeWithoutResult(status -> {
                 if (found.providerMessageId() != null && messages
@@ -189,7 +207,7 @@ public class OutreachInboxService {
                         .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindAndProviderMessageIdIsNullOrderByOccurredAtAsc(
                                 thread.workspaceId(), thread.senderUserId(), thread.threadId(), kind)
                         .filter(waiting -> found.receivedAt() == null
-                                || !found.receivedAt().isAfter(waiting.getOccurredAt()));
+                                || !found.receivedAt().isAfter(waiting.getOccurredAt().plus(placeholderSlack)));
                 if (placeholder.isPresent()) {
                     if (found.providerMessageId() != null) {
                         placeholder.get().completeWith(found);
@@ -200,17 +218,36 @@ public class OutreachInboxService {
                         OutreachMessage.received(thread, kind, found, mailbox.getAddress(), now));
                 OutreachEnrollment run = thread.enrollmentId() == null ? null
                         : enrollments.findById(thread.enrollmentId()).orElse(null);
-                if (kind == MessageKind.REPLY) {
+                boolean runWaits = run != null && run.isListening();
+                if (kind == MessageKind.REPLY && (runWaits || isNews)) {
                     outcomes.replied(line, run, now);
-                } else if (run != null && run.isListening()) {
+                } else if (kind == MessageKind.BOUNCE && runWaits) {
                     outcomes.bounced(run, now);
                 }
             });
-        } catch (DataIntegrityViolationException alreadyRecorded) {
-            // The webhook and the poll found the same message at once; the other one recorded it.
-            log.debug("Message {} in thread {} was recorded concurrently", found.providerMessageId(),
-                    thread.threadId());
+        } catch (DataIntegrityViolationException refused) {
+            if (isRecordedAlready(refused)) {
+                log.debug("Message {} in thread {} was recorded concurrently", found.providerMessageId(),
+                        thread.threadId());
+            } else {
+                log.warn("Message {} in thread {} could not be recorded", found.providerMessageId(), thread.threadId(),
+                        refused);
+            }
+        } catch (OptimisticLockingFailureException raced) {
+            // Another writer completed the same placeholder or moved the run meanwhile; the next read settles it.
+            log.info("Message {} in thread {} met a concurrent change; the next read retries it",
+                    found.providerMessageId(), thread.threadId());
+        } catch (RuntimeException failed) {
+            // One message must not end the poll for every mailbox after it.
+            log.warn("Message {} in thread {} could not be recorded", found.providerMessageId(), thread.threadId(),
+                    failed);
         }
+    }
+
+    /** The webhook and the poll found the same message at once, and the inbound index kept the other's line. */
+    private static boolean isRecordedAlready(DataIntegrityViolationException refused) {
+        String cause = String.valueOf(refused.getMostSpecificCause().getMessage());
+        return cause.contains("app_lm_outreach_message_inbound_uk");
     }
 
     private void apply(MailboxEvent event, Instant now) {

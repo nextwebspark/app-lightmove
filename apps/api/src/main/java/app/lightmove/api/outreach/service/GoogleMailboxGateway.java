@@ -82,6 +82,12 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
         return granted.stream().anyMatch(BODY_SCOPES::contains);
     }
 
+    /** {@code gmail.metadata} is what a mailbox connected before the read was asked holds; it reads who wrote. */
+    @Override
+    protected boolean readsThreads(Set<String> granted) {
+        return grantsReplyText(granted) || granted.contains("https://www.googleapis.com/auth/gmail.metadata");
+    }
+
     /** {@code prompt=consent} because Google sends a refresh token only on a consent it actually showed. */
     @Override
     protected UriComponentsBuilder consentEndpoint(ProviderCredentials app) {
@@ -296,22 +302,45 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     /**
-     * What was written into the thread since {@code since}: each message's {@code From}, and with {@code withText}
-     * its body, read from the {@code text/plain} part or else the HTML one. The consultant's own sent copies and
-     * drafts are left out by label, whatever address they went from.
+     * What was written into the thread since {@code since}: the thread read by its {@code From} headers, and with
+     * {@code withText} each message the read keeps fetched whole, its body from the {@code text/plain} part or else
+     * the HTML one — never our own sent HTML, and only the few messages a poll finds new. A body that cannot be read
+     * leaves the message without its words rather than unseen. The consultant's own sent copies and drafts are left
+     * out by label, whatever address they went from.
      */
     @Override
     public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
         String accessToken = accessTokenOf(grantId);
         JsonNode thread = apiCall("thread", accessToken, client -> client.get()
-                .uri(builder -> withText
-                        ? builder.path("/gmail/v1/users/me/threads/{id}").queryParam("format", "full").build(threadId)
-                        : builder.path("/gmail/v1/users/me/threads/{id}")
-                                .queryParam("format", "metadata")
-                                .queryParam("metadataHeaders", "From")
-                                .build(threadId))
+                .uri(builder -> builder.path("/gmail/v1/users/me/threads/{id}")
+                        .queryParam("format", "metadata")
+                        .queryParam("metadataHeaders", "From")
+                        .build(threadId))
                 .accept(MediaType.APPLICATION_JSON));
-        return messagesSince(thread, since, withText);
+        List<ThreadMessage> written = messagesSince(thread, since, false);
+        if (!withText) {
+            return written;
+        }
+        return written.stream()
+                .map(message -> new ThreadMessage(message.providerMessageId(), message.fromAddress(),
+                        message.receivedAt(), bodyTextOf(accessToken, message.providerMessageId())))
+                .toList();
+    }
+
+    private String bodyTextOf(String accessToken, String messageId) {
+        if (messageId == null) {
+            return null;
+        }
+        try {
+            JsonNode message = apiCall("message", accessToken, client -> client.get()
+                    .uri(builder -> builder.path("/gmail/v1/users/me/messages/{id}")
+                            .queryParam("format", "full")
+                            .build(messageId))
+                    .accept(MediaType.APPLICATION_JSON));
+            return message == null ? null : bodyTextOf(message.path("payload"));
+        } catch (VendorException unreadable) {
+            return null;
+        }
     }
 
     static List<ThreadMessage> messagesSince(JsonNode thread, Instant since, boolean withText) {

@@ -35,11 +35,39 @@ class ReplyTextTest {
     }
 
     @Test
-    @DisplayName("a reply that is only a quote keeps the whole rather than reading as empty")
-    void onlyAQuoteKeepsTheWhole() {
-        assertThat(ReplyText.ofPlainText("> Would you be open to a call?")).isEqualTo("> Would you be open to a call?");
+    @DisplayName("a reply that writes nothing of its own is null, never our own email read back as theirs")
+    void nothingWrittenIsNull() {
+        assertThat(ReplyText.ofPlainText("> Would you be open to a call?")).isNull();
+        assertThat(ReplyText.ofHtml("<div>&nbsp;</div><blockquote>Would you be open?</blockquote>")).isNull();
         assertThat(ReplyText.ofPlainText("  \n ")).isNull();
         assertThat(ReplyText.ofPlainText(null)).isNull();
+    }
+
+    @Test
+    @DisplayName("an answer typed between quoted lines is kept")
+    void inlineAnswersStay() {
+        assertThat(ReplyText.ofPlainText("See my answers below.\n\nOn Mon, Yara <yara@firm.example> wrote:\n"
+                + "> Are you open to Dubai?\nYes, with family.\n> Notice period?\nThree months."))
+                .isEqualTo("See my answers below.\n\nYes, with family.\nThree months.");
+        assertThat(ReplyText.ofHtml("<div>See my answers inline.</div><div class=\"gmail_quote\">"
+                + "<div class=\"gmail_attr\">On Mon, Yara wrote:</div><blockquote>Q1</blockquote><div>A1: yes</div>"
+                + "<blockquote>Q2</blockquote><div>A2: three months</div></div>"))
+                .isEqualTo("See my answers inline.\nA1: yes\nA2: three months");
+    }
+
+    @Test
+    @DisplayName("a body sent without its type is read as what it looks like, its lines kept")
+    void anUntypedBodyIsReadAsItLooks() {
+        assertThat(ReplyText.ofBody("Thanks, yes.\nOn Mon, Priya wrote:\n> hello")).isEqualTo("Thanks, yes.");
+        assertThat(ReplyText.ofBody("<p>Thanks, yes.</p><blockquote>hello</blockquote>")).isEqualTo("Thanks, yes.");
+    }
+
+    @Test
+    @DisplayName("Outlook's header block is cut in the languages Gulf mailboxes are set to")
+    void localisedHeadersAreCut() {
+        assertThat(ReplyText.ofPlainText("Gerne.\n\nVon: Yara Haddad\nGesendet: Montag\nAn: Priya"))
+                .isEqualTo("Gerne.");
+        assertThat(ReplyText.ofPlainText("شكراً\n\nمن: Yara Haddad\nالتاريخ: الاثنين")).isEqualTo("شكراً");
     }
 
     @Test
@@ -67,5 +95,7 @@ class ReplyTextTest {
     void heldToLength() {
         assertThat(ReplyText.ofPlainText("a".repeat(OutreachMessage.MAX_TEXT + 50)))
                 .hasSize(OutreachMessage.MAX_TEXT);
+        assertThat(ReplyText.ofPlainText("a".repeat(OutreachMessage.MAX_TEXT - 1) + "😀"))
+                .as("never half an emoji").hasSize(OutreachMessage.MAX_TEXT - 1);
     }
 }

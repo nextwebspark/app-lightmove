@@ -477,7 +477,7 @@ public class NylasMailboxGateway implements MailboxGateway {
                 .map(message -> new ThreadMessage(message.id(),
                         message.from().getFirst().email().toLowerCase(Locale.ROOT),
                         message.date() == null ? null : Instant.ofEpochSecond(message.date()),
-                        withText ? ReplyText.ofHtml(message.body()) : null))
+                        withText ? ReplyText.ofBody(message.body()) : null))
                 .sorted(Comparator.comparing(ThreadMessage::receivedAt,
                         Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
@@ -523,7 +523,7 @@ public class NylasMailboxGateway implements MailboxGateway {
 
     record ThreadMessages(List<ThreadMessageAnswer> data) {}
 
-    /** {@code date} in epoch seconds; {@code body} HTML, and only where asked for. */
+    /** {@code date} in epoch seconds; {@code body} HTML or plain text as the message was, and only where asked for. */
     record ThreadMessageAnswer(String id, List<Participant> from, Long date, String body) {}
 
     record Participant(String email) {}

@@ -134,8 +134,8 @@ public class CandidateOutreachService {
     }
 
     /**
-     * Nobody here acted, so the lines have no actor; the reply's content is never seen, let alone written. A
-     * reply moves the person forward only where the reply automation is on and they are still mapped.
+     * Nobody here acted, so the lines have no actor, and a line names the reply, never quotes it. A reply moves the
+     * person forward only where the reply automation is on and they are still mapped.
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordReplied(UUID workspaceId, UUID projectId, UUID personId, UUID sequenceId, String sequenceName) {

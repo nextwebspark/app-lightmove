@@ -500,8 +500,8 @@ a consent it showed — for `gmail.send`, `gmail.readonly` (a reply's words, pha
 RFC 2822 message (`RawEmail`: UTF-8 HTML, an RFC 2047 subject where it is not ASCII, a line break in any header
 refused); a follow-up names the thread and carries the last message's own `Message-ID` in `In-Reply-To` and
 `References`, read with `format=metadata`, so it threads in the executive's client whatever it is. The poll reads
-the thread with `format=full` where the consent granted the read (`format=metadata`, `From` alone, otherwise) and
-drops `SENT` and `DRAFT` by label. Google revokes by the refresh token, so
+the thread by its `From` headers and drops `SENT` and `DRAFT` by label, then, where the consent granted the read,
+fetches each message it kept whole; a consent that unticks the read is refused (`MAILBOX_READ_NOT_GRANTED`). Google revokes by the refresh token, so
 `MailboxService` decrypts it before a disconnect or a reconnect lets the row go (`ReleasedGrant`, only where the
 gateway `revokesByRefreshToken`) and hands it to `revoke`. A reconnect of the **same mailbox** drops the old token
 without revoking it: Google's revoke withdraws the account's whole grant to the app, the token just issued included. Bounces: a mail daemon's `From` (`mailer-daemon`, `postmaster`, and Exchange
@@ -607,8 +607,9 @@ logged, the quoted history cut by `ReplyText` (jsoup for an HTML body) — only 
 since no grant says what the Nylas app's connectors reach); otherwise the line has no text and still stops the run.
 A Google mailbox consented before the read is asked to reconnect (`reconnectToReadReplies`). Every reply writes its
 `EMAIL_REPLIED` line, audit event and `OutreachReplied` (now with `messageId`); only the first, while its run still
-listens, ends the run. V145 gave each earlier reply and bounce a **placeholder** line (no provider id), which the
-first matching message a read finds — received before it was noticed — completes instead of joining.
+listens, ends the run — and a reply received more than a day before it is found is a line alone, announced to
+nobody, unless its run still waits. V145 gave each earlier reply and bounce a **placeholder** line (no provider id),
+which the first matching message a read finds — received before it was noticed — completes instead of joining.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today

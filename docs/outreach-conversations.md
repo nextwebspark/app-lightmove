@@ -159,19 +159,37 @@ message table knows, window or not.
 List<ThreadMessage>` (`providerMessageId, fromAddress, receivedAt, text`) **replaces** `senderAddressesInThread`:
 every gateway names a message's id and time without reading content, so every reply and bounce is a line, and its
 `text` is asked only `withText`, which `ReplyTextAccess.readsText(mailbox)` decides:
-- Google: thread metadata as today to find new ids, then `messages.get?format=full` per new id, `text/plain` part
-  else flattened `text/html`. `GoogleMailboxGateway.SCOPES`: `gmail.metadata` → `gmail.readonly` (both restricted
-  scopes; same verification tier, but **existing direct Google mailboxes must reconnect**).
+- Google: the thread read with `format=metadata` (`From` and `internalDate`, as before), then each message it keeps
+  fetched with `messages.get?format=full` — never our own sent HTML — its `text/plain` part else its `text/html`; a
+  body that cannot be read leaves the message without words, never unseen. `GoogleMailboxGateway.SCOPES`:
+  `gmail.metadata` → `gmail.readonly` (both restricted; same verification tier). A consent that unticks the read is
+  **refused** (`MAILBOX_READ_NOT_GRANTED`, its refresh token handed back): with no read scope Gmail answers the poll
+  403, no reply would ever be seen, and the sequence would keep writing. A mailbox consented under `gmail.metadata`
+  still reads who wrote and is offered the reconnect.
 - Microsoft: the existing `conversationId` read with `$select=…,uniqueBody` and `Prefer:
   outlook.body-content-type="text"` — `uniqueBody` is already the unquoted part. No scope change.
 - Nylas: `GET /v3/grants/{g}/messages?thread_id=&received_after=&select=id,from,date,body`. Whether the Nylas
   app's provider scopes include read is not discoverable per grant → `lightmove.outreach.nylas.reads-replies`
-  (default false) decides; a 4xx falls back to addresses, logged once per thread, never stopping the run.
+  (default false) decides. Its body arrives without a type, so `ReplyText.ofBody` reads it as plain text or HTML by
+  what it looks like.
 - Test double `apps/api/src/test/java/app/lightmove/api/RecordingMailboxGateway.java` gains `writeInto(threadId,
   from, text)` and `messagesInThread`.
-- Quoted history is **stripped** (`outreach/model/ReplyText`: cut at the first of `^On .* wrote:`, `-----Original
-  Message-----`, `^From: `, a `> ` block, `gmail_quote`; if nothing is left, keep the whole), capped at 20,000.
-- Dedupe on the unique index; the insert catches the violation and skips.
+- Quoted history is **removed, not cut after** (`outreach/model/ReplyText`), so an answer typed between quoted lines
+  stays: HTML loses its `blockquote`s, Gmail's `.gmail_attr`, Thunderbird's cite prefix and Outlook on the web's
+  reply header and everything after it; plain text loses its `On … wrote:` lines and `>` lines, and is cut at an
+  `Original Message` rule or an Outlook header block (`From:` over `Sent:`/`Date:`, and their German, French,
+  Italian, Spanish, Dutch and Arabic spellings). A reply with nothing of its own left is **null**, never our own
+  quoted email read back as theirs. Held to 20,000, never splitting a character.
+- Dedupe on the unique index; a violation of that index is the other writer's line, a concurrent completion is left
+  to the next read, and any other failure is logged and skipped — one message never ends the poll for every mailbox.
+- **Announced only while it is news**: a reply received more than a day before it is found writes its line and
+  nothing else — no timeline line, audit event, task or bell — unless its run still waits on it. The first read
+  after V145 finds every reply to a thread whose run had already ended, which nobody was told of then.
+- A thread sent from another address than the mailbox's is not read: the consultant reconnected to another account,
+  which holds no such thread.
+- Known and left: on Nylas nothing marks the consultant's own sent mail, so a manual email from an alias or a cc'd
+  colleague's message reads as a reply (as before phase 2, now on every listening thread); the poll runs on every
+  instance unclaimed; two replies in a moment can file two tasks, the open-task check running after commit.
 - Mailbox capability: `ProviderTokenGrant` reads the token answer's `scope`, and each direct gateway decides
   `GrantedMailbox.replyTextGranted` from it (Google `gmail.readonly`, `gmail.modify` or full mail; Microsoft
   `Mail.Read*`); a consent where the person unticked the scope is `false`, not an error. A Nylas mailbox's reach is
