@@ -102,6 +102,8 @@ function renderSection({
       livePeople: 0,
       readsReplies: false,
       reconnectToReadReplies: false,
+    sentToday: 0,
+    scheduledEmails: 0,
     },
   });
   vi.mocked(poolApi.getPerson).mockResolvedValue({

@@ -117,7 +117,7 @@ function SequenceEditor({
   const [editingField, setEditingField] = useState<"subject" | "body">("body");
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const mailbox = useMailbox();
-  const backToOverview = () => navigate(`/projects/${projectId}/outreach`);
+  const backToSequences = () => navigate(`/projects/${projectId}/outreach/sequences`);
 
   const save = useMutation({
     mutationFn: () => {
@@ -155,7 +155,7 @@ function SequenceEditor({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sequenceApi.SEQUENCES_KEY(projectId) });
       toast("Sequence deleted.");
-      backToOverview();
+      backToSequences();
     },
     onError: (error) => {
       setIsConfirmingDelete(false);
@@ -205,11 +205,11 @@ function SequenceEditor({
       <div className="mb-[18px] flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={backToOverview}
+          onClick={backToSequences}
           className="inline-flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text"
         >
           <Icon d={ICONS.back} size={14} />
-          Outreach
+          Sequences
         </button>
         <input
           value={name}

@@ -58,6 +58,9 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
     Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndSubjectIsNotNullOrderByOccurredAtAsc(
             UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction);
 
+    long countByWorkspaceIdAndSenderUserIdAndKindAndStatus(UUID workspaceId, UUID senderUserId, MessageKind kind,
+                                                           MessageStatus status);
+
     /** A claim that outlived its dispatcher. A system read across workspaces, as the claim itself is. */
     List<OutreachMessage> findByStatusAndSendingSinceBefore(MessageStatus status, Instant cutoff);
 

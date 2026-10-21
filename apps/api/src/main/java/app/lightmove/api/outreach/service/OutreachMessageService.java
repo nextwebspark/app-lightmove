@@ -14,19 +14,21 @@ import app.lightmove.api.outreach.dto.ScheduledMessageResponse;
 import app.lightmove.api.outreach.dto.SendMessageRequest;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutreachMarkdownEmail;
+import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.ReplyThreadPreview;
 import app.lightmove.api.outreach.model.OutreachThread;
 import app.lightmove.api.outreach.model.SenderContext;
 import app.lightmove.api.outreach.model.SequenceTokens;
 import app.lightmove.api.outreach.model.ThreadReply;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -45,9 +47,11 @@ public class OutreachMessageService {
     private static final Duration SCHEDULE_HORIZON = Duration.ofDays(60);
 
     private final OutreachMessageRepository messages;
+    private final OutreachEnrollmentRepository enrollments;
     private final MailboxConnectionRepository mailboxes;
     private final CandidateOutreachService people;
     private final OutreachPersonalisation personalisation;
+    private final DailySendCount sentToday;
     private final BookingPages bookingPages;
     private final ProjectRepository projects;
     private final TransactionTemplate transactions;
@@ -71,11 +75,13 @@ public class OutreachMessageService {
                 throw ApiException.of(ErrorCode.OUTREACH_DO_NOT_CONTACT);
             }
             String toAddress = ledgerSpellingOf(recipient, request.toAddress());
-            if (request.sendAt() == null && sentTodayFrom(mailbox, now) >= mailbox.getDailyCap()) {
+            if (request.sendAt() == null && sentToday.of(mailbox, now) >= mailbox.getDailyCap()) {
                 throw ApiException.of(ErrorCode.OUTREACH_DAILY_CAP_REACHED);
             }
             ThreadReply reply = request.replyInThread()
-                    ? threadOf(workspaceId, projectId, recipient.personId(), mailbox) : null;
+                    ? threadOf(workspaceId, projectId, recipient.personId(), mailbox)
+                            .orElseThrow(() -> ApiException.of(ErrorCode.OUTREACH_THREAD_UNAVAILABLE))
+                    : null;
             String subject = reply != null ? OutreachSendService.replySubjectOf(reply.subject())
                     : requireSubject(request.subject());
             SenderContext sender = personalisation.senderContextOf(userId, workspaceId, projectId);
@@ -92,6 +98,19 @@ public class OutreachMessageService {
                 .record();
         return new ScheduledMessageResponse(scheduled.getId(), scheduled.getStatus(), scheduled.getSendAt(),
                 scheduled.getSubject(), scheduled.getThreadId() != null);
+    }
+
+    /**
+     * What a reply from the caller's mailbox would do, read off the thread {@link #schedule} would answer — empty where it
+     * would answer {@code OUTREACH_THREAD_UNAVAILABLE} — and the runs a send there stops, as
+     * {@code OutreachMessageSendService} stops them: the caller's own, still live, in that thread.
+     */
+    public Optional<ReplyThreadPreview> replyPreviewFor(UUID userId, UUID workspaceId, UUID projectId, UUID personId) {
+        return mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId)
+                .flatMap(mailbox -> threadOf(workspaceId, projectId, personId, mailbox))
+                .map(reply -> new ReplyThreadPreview(OutreachSendService.replySubjectOf(reply.subject()),
+                        enrollments.findByWorkspaceIdAndSenderUserIdAndThreadId(workspaceId, userId, reply.threadId())
+                                .stream().anyMatch(OutreachEnrollment::isLive)));
     }
 
     /** Only before the dispatcher has taken it: once claimed it may already be on its way. */
@@ -130,25 +149,26 @@ public class OutreachMessageService {
      * The thread this mailbox last wrote to the person in on this position, if this mailbox can still write into it,
      * and the message in it a reply answers: their latest, else ours.
      */
-    private ThreadReply threadOf(UUID workspaceId, UUID projectId, UUID personId, MailboxConnection mailbox) {
-        OutreachMessage lastSent = messages
+    private Optional<ThreadReply> threadOf(UUID workspaceId, UUID projectId, UUID personId,
+                                          MailboxConnection mailbox) {
+        Optional<OutreachMessage> lastSent = messages
                 .findFirstByWorkspaceIdAndProjectIdAndPersonIdAndSenderUserIdAndDirectionAndStatusAndThreadIdIsNotNullOrderByOccurredAtDesc(
                         workspaceId, projectId, personId, mailbox.getUserId(), MessageDirection.OUTBOUND,
                         MessageStatus.SENT)
-                .filter(sent -> OutreachThread.of(sent).isReadableBy(mailbox))
-                .orElseThrow(() -> ApiException.of(ErrorCode.OUTREACH_THREAD_UNAVAILABLE));
-        String threadId = lastSent.getThreadId();
-        String answered = messages
-                .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndProviderMessageIdIsNotNullAndKindNotOrderByOccurredAtDesc(
-                        workspaceId, mailbox.getUserId(), threadId, MessageKind.BOUNCE)
-                .map(OutreachMessage::getProviderMessageId)
-                .orElseThrow(() -> ApiException.of(ErrorCode.OUTREACH_THREAD_UNAVAILABLE));
-        String subject = messages
-                .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndSubjectIsNotNullOrderByOccurredAtAsc(
-                        workspaceId, mailbox.getUserId(), threadId, MessageDirection.OUTBOUND)
-                .map(OutreachMessage::getSubject)
-                .orElse(lastSent.getSubject());
-        return new ThreadReply(threadId, lastSent.getThreadGateway(), answered, subject);
+                .filter(sent -> OutreachThread.of(sent).isReadableBy(mailbox));
+        return lastSent.flatMap(sent -> {
+            String threadId = sent.getThreadId();
+            String subject = messages
+                    .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndSubjectIsNotNullOrderByOccurredAtAsc(
+                            workspaceId, mailbox.getUserId(), threadId, MessageDirection.OUTBOUND)
+                    .map(OutreachMessage::getSubject)
+                    .orElse(sent.getSubject());
+            return messages
+                    .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndProviderMessageIdIsNotNullAndKindNotOrderByOccurredAtDesc(
+                            workspaceId, mailbox.getUserId(), threadId, MessageKind.BOUNCE)
+                    .map(answered -> new ThreadReply(threadId, sent.getThreadGateway(),
+                            answered.getProviderMessageId(), subject));
+        });
     }
 
     /** One line, as an email header must be: a line break would be refused by the mail service anyway. */
@@ -161,12 +181,6 @@ public class OutreachMessageService {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "subject", "Keep the subject to one line");
         }
         return trimmed;
-    }
-
-    private long sentTodayFrom(MailboxConnection mailbox, Instant now) {
-        Instant midnight = LocalDate.ofInstant(now, mailbox.zone()).atStartOfDay(mailbox.zone()).toInstant();
-        return messages.countByWorkspaceIdAndSenderUserIdAndSentAtGreaterThanEqual(mailbox.getWorkspaceId(),
-                mailbox.getUserId(), midnight);
     }
 
     private MailboxConnection requireSendingMailbox(UUID userId, UUID workspaceId) {

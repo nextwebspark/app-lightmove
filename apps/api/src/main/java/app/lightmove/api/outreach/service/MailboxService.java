@@ -11,6 +11,8 @@ import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
+import app.lightmove.api.outreach.constant.MessageKind;
+import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -24,6 +26,7 @@ import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
+import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -70,6 +73,8 @@ public class MailboxService {
     private final ApplicationEventPublisher events;
     private final BookingPages bookingPages;
     private final ReplyTextAccess replyText;
+    private final DailySendCount sentToday;
+    private final OutreachMessageRepository messages;
     private final MailboxTokens tokens;
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
@@ -97,7 +102,10 @@ public class MailboxService {
         return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped,
                 enrollments.countLiveRunsOf(workspaceId, userId), replyText.readsText(mailbox),
                 replyText.wantsReconnectToRead(mailbox) && gateway.holdsRefreshTokens(workspaceId,
-                        mailbox.getProvider()));
+                        mailbox.getProvider()),
+                sentToday.of(mailbox, clock.instant()),
+                messages.countByWorkspaceIdAndSenderUserIdAndKindAndStatus(workspaceId, userId, MessageKind.MANUAL,
+                        MessageStatus.SCHEDULED));
     }
 
     /**

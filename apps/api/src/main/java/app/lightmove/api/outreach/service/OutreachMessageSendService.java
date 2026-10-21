@@ -55,6 +55,7 @@ public class OutreachMessageSendService {
 
     private final OutreachMessageClaims claims;
     private final OutreachMessageRepository messages;
+    private final DailySendCount sentToday;
     private final OutreachEnrollmentRepository enrollments;
     private final MailboxConnectionRepository mailboxes;
     private final CandidateOutreachService people;
@@ -159,10 +160,7 @@ public class OutreachMessageSendService {
             return null;
         }
         ZoneId zone = mailbox.zone();
-        Instant midnight = LocalDate.ofInstant(now, zone).atStartOfDay(zone).toInstant();
-        long sentToday = messages.countByWorkspaceIdAndSenderUserIdAndSentAtGreaterThanEqual(
-                message.getWorkspaceId(), message.getSenderUserId(), midnight);
-        if (sentToday >= mailbox.getDailyCap()) {
+        if (sentToday.of(mailbox, now) >= mailbox.getDailyCap()) {
             message.deferTo(LocalDate.ofInstant(now, zone).plusDays(1).atTime(settings().windowStart()).atZone(zone)
                     .toInstant());
             return null;

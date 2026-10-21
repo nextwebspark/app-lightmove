@@ -194,7 +194,7 @@ every gateway names a message's id and time without reading content, so every re
   `GrantedMailbox.replyTextGranted` from it (Google `gmail.readonly`, `gmail.modify` or full mail; Microsoft
   `Mail.Read*`); a consent where the person unticked the scope is `false`, not an error. A Nylas mailbox's reach is
   the setting. `ConnectedMailboxResponse` gains `readsReplies` and `reconnectToReadReplies` (a direct mailbox without
-  the grant, where the workspace still connects directly); `sentToday` waits for phase 4's chip, its only reader.
+  the grant, where the workspace still connects directly); `sentToday` came with phase 4's chip, its only reader.
 - What a line means: a REPLY writes its `EMAIL_REPLIED` line, its audit event (with `messageId`) and
   `OutreachReplied` every time, and moves the run to `REPLIED` only while it `isListening()` — never twice, never
   over a STOPPED, BOUNCED or BOOKED run. A BOUNCE ends a listening run as before. A webhook `DeliveryFailure` is a
@@ -326,8 +326,9 @@ outreach's own repositories.
 
 **`GET /api/v1/projects/{p}/outreach/conversations/{candidateId}`** → `ConversationResponse(executive` (the Pipeline
 row), `openTasks, currentRun` (the drawer's `CandidateOutreachResponse`), `keyDates{addedAt, firstContactedAt,
-repliedAt, lastActivityAt}, events[], truncated)`. Contact details are not repeated here: the screen reads them
-where the drawer does. `emailSentMovesTo` waits for phase 3, whose composer is its only reader.
+repliedAt, lastActivityAt}, contact, composer, events[], truncated)`. Phase 4 added `contact` (the ledger's emails
+and phones, location, do not contact) and `composer` (`replySubject`, `replyStopsRun`, `emailSentMovesTo`) for the screen's
+details pane and composer.
 
 `events`, newest first, held to 200 with `truncated` set past that, each a `ConversationEventResponse` whose
 `type` names the one payload it carries:
@@ -480,15 +481,31 @@ person merge is built, message and attachment rows move with the enrollments.
    - On a send: an `EMAIL_SENT` line with `manual`, the `EMAIL_SENT` status automation, a live run in the same thread
      stopped `MANUAL`, `OUTREACH_MESSAGE_SENT`, and `OutreachEmailSentByHand`, on which `task` closes the person's open
      reply-rule tasks on the position (never a task filed by hand).
-   - Archiving cancels the position's scheduled emails the dispatcher has not taken. The Disconnect confirm's count of them waits for phase 4's
-     mailbox chip, its only reader.
+   - Archiving cancels the position's scheduled emails the dispatcher has not taken. The Disconnect confirm counts them since phase 4
+     (`scheduledEmails`).
    - Tests: `OutreachMarkdownEmailTest`, `OutreachOwnEmailIntegrationTest`.
-4. **The screen** (Attach control absent until phase 5) — routes, `OutreachPage` rewrite, `SequencesPage`, `conversationApi.ts`, the components in E,
-   `PersonSections.tsx` props, mockup swap + README, glossary. Tests: `OutreachPage.test.tsx` (tabs, URL state,
-   auto-select, 403 shows no counts, each `mailboxState`), `ActionQueue.test.tsx`, `ReplyComposer.test.tsx`
-   (payloads, footnotes, disabled reasons, attachment cap), `CandidateDetailsPane.test.tsx`, `MailboxChip.test.tsx`;
-   `copyGuard`, `styleRatchet`, `node e2e/spa/responsive.mjs` with the route added. Verify `npm run build`, then
-   `/verify`: connect mailbox → New outreach → a reply arrives → Needs reply → Send now → task gone.
+4. **The screen — built.** What shipped, where it differs:
+   - `/projects/:id/outreach` is `RequireStaff` (the nav hides it from a client seat) and fills the viewport by an
+     exact path match in `ProjectLayout`; the old cards and People in outreach table moved unchanged to
+     `/projects/:id/outreach/sequences` (`SequencesPage`), reached from New outreach.
+   - Three panes (`ActionQueue`, `ConversationPane`, `CandidateDetailsPane`): side by side at `xl`; at `lg` the
+     details sit under the history; below `lg` one pane at a time, the conversation with a back link. URL state
+     `?view=&who=&q=&candidate=`; the first row opens itself only where the panes sit side by side. Both reads poll
+     every minute until phase 6's stream.
+   - The backend added what the composer and chip lacked: `ConversationResponse.contact` (the ledger, location, do
+     not contact) and `.composer` (`replySubject` for the caller's mailbox — `OutreachMessageService` answers it with
+     the same thread choice it sends with — `replyStopsRun`, whether a run of the caller's is still live in that
+     thread, which is the only run a send stops, and `emailSentMovesTo`, the forward-only status move), and
+     `sentToday`/`scheduledEmails` on the mailbox read (`DailySendCount`).
+   - The mockup draws no mailbox or empty states: `lib/mailboxState.ts` reads the mailbox once for the banner, the
+     chip and the composer, with the old page's copy. The composer has no token bar (tokens still work when typed;
+     Insert follow-up brings the next step's text), no Saved template and no Attach; the mockup's contact Time zone
+     row, the group context lines and the details "⋯" are not drawn — nothing is behind them.
+   - Log call and Add note open the drawer's own composer (`PositionNoteComposer`, pulled out of `NotesSection`) in a
+     modal; Mark handled completes the next-action task and moves to the next person.
+   - Tests: `OutreachPage.test.tsx`, `SequencesPage.test.tsx`, `mailboxState.test.ts`,
+     `conversationVocabulary.test.ts`; `e2e/spa/responsive.mjs` sweeps all three routes (its fixtures also gained
+     the pipeline, catalog and My tasks reads every project page now makes).
 5. **Attachments** — V147; `OutreachMessageAttachment` entity/repository; `OutreachAttachmentSettings` (`max-files` 5,
    `max-total-bytes` 3 MB); `OutgoingEmail.attachments` + `EmailAttachment` (`toString` omits bytes); `RawEmail`
    `multipart/mixed` (boundary, RFC 2231 `filename*`, 76-col base64, CRLF); Graph `fileAttachment` posts before `/send`

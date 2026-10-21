@@ -32,6 +32,10 @@ export interface ConnectedMailbox {
   readsReplies: boolean;
   /** A reconnect now would let them be: Uncava's own connection, consented to before it asked for the read. */
   reconnectToReadReplies: boolean;
+  /** Emails sent from it today, in its own zone: what the daily cap counts. */
+  sentToday: number;
+  /** The owner's own emails still waiting to go: what a disconnect leaves unsent. */
+  scheduledEmails: number;
 }
 
 export interface Mailbox {

@@ -49,7 +49,7 @@ const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports", "/pipeline"];
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
  * and Strategy under "Position", the three triage stages under "Market mapping", Pipeline and Outreach
- * under "CRM" — and the routed page.
+ * under "CRM" for staff — and the routed page.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
  * shows the not-found screen once the id is confirmed unreadable.
  */
@@ -63,9 +63,11 @@ export function ProjectLayout() {
   // `includes`, not `endsWith`: the Companies stages are a path segment deep (/companies/universe),
   // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
   // wide grid ending in mid-air.
-  const fillsViewport = VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
+  // Matched exactly: the conversation workspace owns the viewport, the sequences list and editor beneath it do not.
+  const isOutreachWorkspace = pathname.replace(/\/$/, "") === `/projects/${projectId}/outreach`;
+  const fillsViewport = isOutreachWorkspace || VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
   const isBriefTab = pathname.replace(/\/$/, "") === `/projects/${projectId}`;
-  const fullBleed = isBriefTab || FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
+  const fullBleed = isBriefTab || isOutreachWorkspace || FULL_BLEED_TABS.some((tab) => pathname.includes(tab));
 
   const { data: projects, isPending } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -135,9 +137,11 @@ export function ProjectLayout() {
       label: "CRM",
       items: [
         ...(isStaff
-          ? [{ to: `${base}/pipeline`, label: "Pipeline", icon: ICONS.pipeline, count: activeInPipeline }]
+          ? [
+              { to: `${base}/pipeline`, label: "Pipeline", icon: ICONS.pipeline, count: activeInPipeline },
+              { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
+            ]
           : []),
-        { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
       ],
     },
     {
@@ -166,7 +170,7 @@ export function ProjectLayout() {
         </div>
       }
       notice={isArchived(project) ? <PositionArchivedNotice project={project} /> : undefined}
-      navGroups={groups}
+      navGroups={groups.filter((group) => group.items.length > 0)}
       navBackLink={{ to: origin.path, label: origin.label, title: `Back to ${origin.label}`, icon: ICONS.back }}
       assistantContext={`${project.clientName} · ${project.positionTitle}`}
       assistantProjectId={project.id}
