@@ -1,12 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { Button, Field, FormError, Input, Select } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { titleCase } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import type { WorkspaceRole } from "../../auth/api/types";
-import { LANGUAGE_OPTIONS, TIMEZONE_OPTIONS } from "../lib/profileOptions";
+import { browserTimeZone, cityOf, LANGUAGE_OPTIONS, timezoneGroups } from "../lib/profileOptions";
 import { profileSchema, type ProfileValues } from "../lib/profileSchema";
 
 /**
@@ -37,8 +37,13 @@ export function ProfileForm({
     register,
     handleSubmit,
     setError,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), defaultValues });
+  const timezone = watch("timezone");
+  const timezones = useMemo(() => timezoneGroups(defaultValues.timezone), [defaultValues.timezone]);
+  const computerZone = useMemo(browserTimeZone, []);
 
   const submit = async (values: ProfileValues) => {
     setFormError(null);
@@ -93,15 +98,37 @@ export function ProfileForm({
           <ReadOnlyValue>{`${roles.map(titleCase).join(", ")} — set by workspace owner`}</ReadOnlyValue>
         </Field>
 
-        <Field label="Timezone" error={errors.timezone?.message}>
-          <Select invalid={!!errors.timezone} className="!bg-u-surface" {...register("timezone")}>
-            {TIMEZONE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        <div>
+          <Field
+            label="Timezone"
+            error={errors.timezone?.message}
+            hint="Sequences, scheduled emails and your daily digest follow this clock"
+          >
+            <Select invalid={!!errors.timezone} className="!bg-u-surface" {...register("timezone")}>
+              {timezones.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.options.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
+          </Field>
+          {computerZone && computerZone !== timezone && (
+            <p className="-mt-2.5 mb-4 text-meta text-u-text3">
+              Your computer is on {cityOf(computerZone)} time.{" "}
+              <button
+                type="button"
+                onClick={() => setValue("timezone", computerZone, { shouldDirty: true, shouldValidate: true })}
+                className="font-medium text-u-accent hover:underline"
+              >
+                Use {cityOf(computerZone)}
+              </button>
+            </p>
+          )}
+        </div>
 
         <Field label="Language" error={errors.locale?.message}>
           <Select invalid={!!errors.locale} className="!bg-u-surface" {...register("locale")}>

@@ -277,10 +277,6 @@
     "arbitraryText": 34,
     "arbitraryRadius": 10
   },
-  "features/outreach/components/MailboxTimeZoneSelect.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 1
-  },
   "features/outreach/components/MeetingsSection.tsx": {
     "arbitraryText": 14,
     "arbitraryRadius": 4

@@ -151,7 +151,7 @@ public class NotificationEmails {
                     position, link));
         }
         if (row.getKind() == NotificationKind.TASK_ASSIGNED && row.getTaskId() != null) {
-            ZoneId zone = zones.zoneOf(row.getRecipientUserId(), row.getWorkspaceId());
+            ZoneId zone = zones.zoneOf(row.getRecipientUserId());
             return tasks.find(row.getWorkspaceId(), row.getTaskId())
                     .filter(task -> "open".equals(task.status())
                             && row.getRecipientUserId().equals(task.assignee().userId()))
@@ -187,7 +187,7 @@ public class NotificationEmails {
     private boolean digestOne(TaskHolder recipient, Instant now) {
         UUID userId = recipient.userId();
         UUID workspaceId = recipient.workspaceId();
-        ZoneId zone = zones.zoneOf(userId, workspaceId);
+        ZoneId zone = zones.zoneOf(userId);
         ZonedDateTime local = now.atZone(zone);
         if (local.getHour() != properties.notifications().digestHour() || isWeekend(local.getDayOfWeek())
                 || !workspaceAccess.isStaff(userId, workspaceId) || !preferences.digest(userId, workspaceId)) {

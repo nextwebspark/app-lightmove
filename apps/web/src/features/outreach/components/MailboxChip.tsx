@@ -9,12 +9,11 @@ import * as mailboxApi from "../api/mailboxApi";
 import type { ConnectedMailbox } from "../api/mailboxApi";
 import { providerLabel, type MailboxState } from "../lib/mailboxState";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
-import { MailboxTimeZoneSelect } from "./MailboxTimeZoneSelect";
 import { ZoomConnectControl } from "./ZoomConnectControl";
 
 /**
  * The consultant's own mailbox in the Outreach tab row: which address sends and how much of today's allowance it has
- * used, with its settings — the time zone, a test email, Zoom and Disconnect — one click away.
+ * used, with its settings — a test email, Zoom and Disconnect — one click away.
  */
 export function MailboxChip({
   state,
@@ -147,10 +146,6 @@ function ConnectedChip({
                   : `${connection.sentToday} of ${connection.dailyCap} sent today. Replies land in your own inbox.`}
               </div>
             </div>
-            <label className="flex flex-col gap-1 text-meta text-u-text3">
-              Sending time zone
-              <MailboxTimeZoneSelect timeZone={connection.timeZone} />
-            </label>
             <div className="flex flex-wrap items-center gap-2">
               {isWithdrawn ? (
                 <Button

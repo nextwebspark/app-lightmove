@@ -1,7 +1,9 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { useToast } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
+import * as mailboxApi from "../../outreach/api/mailboxApi";
 import { ProfileForm } from "../components/ProfileForm";
 import { ProfileIdentityRow } from "../components/ProfileIdentityRow";
 import type { ProfileValues } from "../lib/profileSchema";
@@ -10,6 +12,7 @@ import type { ProfileValues } from "../lib/profileSchema";
 export function SettingsProfilePage() {
   const { user, reload } = useAuth();
   const toast = useToast();
+  const queryClient = useQueryClient();
 
   // RequireWorkspace has already resolved the session; this only satisfies the type.
   if (!user) return null;
@@ -24,6 +27,8 @@ export function SettingsProfilePage() {
     });
     // The topbar avatar and the roster read the same name, and reload() re-mints the token first.
     await reload();
+    // The mailbox read carries the same zone, which the composer, Add to sequence and the sequence editor show.
+    void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
     toast("Profile saved");
   };
 

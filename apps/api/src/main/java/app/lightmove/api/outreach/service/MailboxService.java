@@ -9,6 +9,9 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.security.model.TimezoneChanged;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageKind;
@@ -35,12 +38,13 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -56,9 +60,6 @@ public class MailboxService {
     public static final String CALLBACK_PATH = "/api/v1/outreach/mailbox/callback";
 
     private static final String TARGET = "mailbox_connection";
-
-    private static final Pattern REGION_ZONE = Pattern.compile(
-            "UTC|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z0-9_+\\-/]+");
 
     private static final String TEST_SUBJECT = "Your mailbox is connected to Uncava";
     private static final String TEST_BODY = "<p>This is a test from Uncava.</p>"
@@ -78,6 +79,7 @@ public class MailboxService {
     private final MailboxTokens tokens;
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
+    private final UserRepository users;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -86,12 +88,6 @@ public class MailboxService {
         ConnectedMailboxResponse connection = mailbox.map(found -> responseOf(found, userId, workspaceId)).orElse(null);
         return new MailboxResponse(gateway.isOfferedTo(workspaceId), gateway.providersFor(workspaceId), connection,
                 mailbox.map(bookingPages::isOfferedFor).orElseGet(bookingPages::isOffered));
-    }
-
-    /** The zone the person's connected mailbox works in, the one their day is read in; none without a mailbox. */
-    @Transactional(readOnly = true)
-    public Optional<ZoneId> timeZoneOf(UUID userId, UUID workspaceId) {
-        return connections.findByWorkspaceIdAndUserId(workspaceId, userId).map(MailboxConnection::zone);
     }
 
     private ConnectedMailboxResponse responseOf(MailboxConnection mailbox, UUID userId, UUID workspaceId) {
@@ -109,30 +105,13 @@ public class MailboxService {
     }
 
     /**
-     * Sends already due keep their time; the window and the cap read the new zone from the next one. Only a
-     * region's own zone is taken ({@code Europe/London}, or {@code UTC}), never a legacy alias like {@code EST}.
+     * A person's clock is their profile's (V148): every mailbox they hold, one per workspace, sends and caps by it. Sends
+     * already due keep their time; the window and the cap read the new zone from the next one.
      */
-    @Transactional
-    public MailboxResponse changeTimeZone(UUID userId, UUID workspaceId, String timeZone, HttpServletRequest request) {
-        if (!isRegionZone(timeZone)) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timeZone", "Choose a time zone from the list");
-        }
-        MailboxConnection connection = requireConnection(userId, workspaceId);
-        String previous = connection.getTimeZone();
-        connection.changeTimeZone(ZoneId.of(timeZone));
-        audit.event(WorkspaceEventType.MAILBOX_TIME_ZONE_CHANGED)
-                .actor(userId)
-                .workspace(workspaceId)
-                .target(TARGET, userId)
-                .from(request)
-                .detail("from", previous)
-                .detail("to", timeZone)
-                .record();
-        return view(userId, workspaceId);
-    }
-
-    private static boolean isRegionZone(String timeZone) {
-        return REGION_ZONE.matcher(timeZone).matches() && ZoneId.getAvailableZoneIds().contains(timeZone);
+    @EventListener
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void onTimezoneChanged(TimezoneChanged changed) {
+        connections.findByUserId(changed.userId()).forEach(connection -> connection.changeTimeZone(changed.zone()));
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
@@ -264,10 +243,14 @@ public class MailboxService {
                 .orElseGet(() -> {
                     MailboxConnection connected = connections.save(MailboxConnection.connected(
                             started.getWorkspaceId(), started.getUserId(), granted, refreshTokenEncrypted,
-                            settings().dailyCap(), now));
+                            settings().dailyCap(), zoneOf(started.getUserId()), now));
                     events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });
+    }
+
+    private ZoneId zoneOf(UUID userId) {
+        return users.findById(userId).map(User::getTimezone).map(ZoneId::of).orElse(MailboxConnection.DEFAULT_ZONE);
     }
 
     /** Our own gateway's refresh token, sealed before it reaches the row; Nylas's grants carry none. */

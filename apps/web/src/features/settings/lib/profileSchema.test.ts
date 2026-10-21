@@ -38,8 +38,12 @@ describe("profileSchema", () => {
 
   /** A stale tab offering a value the server no longer accepts fails here, with the field named. */
   it("refuses a timezone or language outside the pickers", () => {
-    const zone = profileSchema.safeParse({ ...valid, timezone: "Mars/Olympus" });
-    expect(issueFor(zone, "timezone")).toBe("Pick a timezone from the list");
+    for (const refused of ["Mars/Olympus", "EST", "Etc/GMT"]) {
+      const zone = profileSchema.safeParse({ ...valid, timezone: refused });
+      expect(issueFor(zone, "timezone")).toBe("Pick a timezone from the list");
+    }
+    expect(profileSchema.safeParse({ ...valid, timezone: "America/Argentina/Buenos_Aires" }).success).toBe(true);
+    expect(profileSchema.safeParse({ ...valid, timezone: "UTC" }).success).toBe(true);
 
     const language = profileSchema.safeParse({ ...valid, locale: "zz" });
     expect(issueFor(language, "locale")).toBe("Pick a language from the list");

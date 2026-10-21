@@ -45,6 +45,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 |---|---|---|---|
 | ☐ Default region / currency | select | unchecked | toast |
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
+| Profile timezone | a region's zone or UTC, from the grouped list (the saved value kept if the browser lists none) | `@NotBlank @Size(64)`; a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) | field |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |
@@ -135,7 +136,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Own email: to | one of the person's addresses, offered as a list (one is shown as text); the composer locks with none on file or do not contact | ≤ 320; on the person's record (`OUTREACH_ADDRESS_NOT_ON_FILE`), not do not contact (`OUTREACH_DO_NOT_CONTACT`) | sentence |
 | Own email: subject | a first email's Send now and Schedule stay disabled until it has one; a reply shows its thread's, read-only | required for a first email, ≤ 200, one line; a reply keeps its thread's | field |
 | Own email: body | Send now and Schedule stay disabled while it is empty or past 10,000 characters, which says so under the editor | 1–10,000, Markdown; raw HTML sent as text, links http/https/mailto | field |
-| Own email: send at | a day and a half hour in the mailbox's zone; the picker's button refuses no day, a time already past and one more than 60 days ahead | ahead of now, ≤ 60 days; none is now, refused at the day's cap (`OUTREACH_DAILY_CAP_REACHED`) | field / sentence |
+| Own email: send at | a day and a half hour in the sender's profile zone; the picker's button refuses no day, a time already past and one more than 60 days ahead | ahead of now, ≤ 60 days; none is now, refused at the day's cap (`OUTREACH_DAILY_CAP_REACHED`) | field / sentence |
 | Own email: attachments | Attach offers their documents and an upload (the picker filters to the accepted types); the chips say past the count, a file's size or the total, and Send now and Schedule stay disabled until it is fixed | ≤ `max-files` (5, `OUTREACH_TOO_MANY_ATTACHMENTS`), each ≤ `max-file-bytes` (3,000,000, `FILE_TOO_LARGE`), together ≤ `max-total-bytes` (10 MB, `OUTREACH_ATTACHMENTS_TOO_LARGE`); an upload's bytes match its name (`UNSUPPORTED_FILE_TYPE`); a document version on this person (404) | sentence |
 | Own email: reply in thread | offered only where the conversation read names a reply subject (`composer.replySubject`) | a thread this mailbox wrote to them in and can still write into (`OUTREACH_THREAD_UNAVAILABLE`) | sentence |
 | ☐ Assistant question | no `maxLength` | ≤ 4000 | nothing shown |

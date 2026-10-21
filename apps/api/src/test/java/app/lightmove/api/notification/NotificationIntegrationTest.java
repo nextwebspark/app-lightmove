@@ -1,8 +1,10 @@
 package app.lightmove.api.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
@@ -322,6 +325,19 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
         String client = clientOn(projectId);
         assertThat(mvc.perform(get("/api/v1/me/notifications").header("Authorization", "Bearer " + client))
                 .andReturn().getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    @DisplayName("a person's day is read in their profile's zone, with no mailbox connected to say it")
+    void theDayIsReadInTheProfilesZone() throws Exception {
+        mvc.perform(patch("/api/v1/auth/me").header("Authorization", "Bearer " + researcher).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sara Al-Mansour","title":null,"timezone":"Europe/London","locale":"en"}"""))
+                .andExpect(status().isOk());
+
+        assertThat(read(researcher, "/api/v1/me/notification-preferences").get("timeZone").asText())
+                .isEqualTo("Europe/London");
     }
 
     @Test

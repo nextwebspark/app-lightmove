@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -69,17 +70,19 @@ class ProfileIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a timezone the JDK cannot format a date in is refused, under that field")
+    @DisplayName("a timezone that is no region's own — unknown, or a legacy alias — is refused, under that field")
     void refusesUnknownTimezone() throws Exception {
         String token = adminOf("Alok Kumar", "Zone Firm");
 
-        MvcResult refused = mvc.perform(patchProfile(token, """
-                        {"fullName":"Alok Kumar","title":null,
-                         "timezone":"Mars/Olympus","locale":"en"}"""))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fieldErrors.timezone").exists())
-                .andReturn();
-        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        for (String refusedZone : List.of("Mars/Olympus", "EST", "Etc/GMT")) {
+            MvcResult refused = mvc.perform(patchProfile(token, """
+                            {"fullName":"Alok Kumar","title":null,
+                             "timezone":"%s","locale":"en"}""".formatted(refusedZone)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.timezone").exists())
+                    .andReturn();
+            assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        }
     }
 
     @Test
@@ -128,7 +131,7 @@ class ProfileIntegrationTest extends FlowTestSupport {
 
         mvc.perform(patchProfile(login(sara), """
                         {"fullName":"Sara Mansour","title":"Consultant",
-                         "timezone":"Etc/GMT","locale":"fr"}"""))
+                         "timezone":"UTC","locale":"fr"}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + admin))

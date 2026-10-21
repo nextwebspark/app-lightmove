@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { useNavigate, useOutletContext, useParams } from "react-router-dom";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Modal, Skeleton, useToast } from "../../../components/ui";
@@ -451,9 +451,13 @@ function SendingScheduleCard({
     <div className="rounded-[10px] border border-u-border px-4 py-3.5">
       <div className="mb-1 text-[13px] font-semibold">Sending schedule</div>
       <p className="mb-2.5 text-[12px]/[1.5] text-u-text3">
-        Emails go only on these days and between these hours, in your mailbox's time zone
-        {timeZone ? ` (${zoneCityOf(timeZone)})` : ""}. The days in the delays above are these days. A first email you
-        start Now, or at a time you pick, goes when you said.
+        Emails go only on these days and between these hours, in your time zone
+        {timeZone ? ` (${zoneCityOf(timeZone)})` : ""} —{" "}
+        <Link to="/settings/profile" className="font-medium text-u-accent hover:underline">
+          change it in your profile
+        </Link>
+        . The days in the delays above are these days. A first email you start Now, or at a time you pick, goes when you
+        said.
       </p>
       <div role="group" aria-label="Sending days" className="mb-2.5 flex flex-wrap items-center gap-1.5">
         {WEEKDAYS.map(({ day, label }) => {

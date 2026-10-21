@@ -15,7 +15,5 @@ public record NotificationSettings(
         /** How often open tasks are checked for falling due. */
         @DefaultValue("0 */5 * * * *") String dueScan,
         /** How far ahead a task counts as due soon. */
-        @DefaultValue("1h") Duration dueSoonWindow,
-        /** The zone a digest goes out in for someone with no connected mailbox to say theirs. */
-        @DefaultValue("Asia/Dubai") String defaultTimeZone
+        @DefaultValue("1h") Duration dueSoonWindow
 ) {}
