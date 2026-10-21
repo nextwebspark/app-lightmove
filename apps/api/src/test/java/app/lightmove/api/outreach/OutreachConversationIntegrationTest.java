@@ -10,6 +10,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
+import app.lightmove.api.outreach.service.OutreachInboxService;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
 import java.time.DayOfWeek;
@@ -46,6 +47,7 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
 
     @Autowired private RecordingMailboxGateway gateway;
     @Autowired private OutreachDispatcher dispatcher;
+    @Autowired private OutreachInboxService inbox;
     @Autowired private JdbcTemplate jdbc;
 
     private String consultant;
@@ -215,8 +217,12 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         assertThat(email.get("stepNumber").asInt()).isEqualTo(1);
         assertThat(email.get("stepCount").asInt()).isEqualTo(3);
         assertThat(events).extracting(event -> event.at("/activity/kind").asText(""))
-                .contains("OUTREACH_ENROLLED", "EMAIL_REPLIED")
-                .doesNotContain("EMAIL_SENT");
+                .contains("OUTREACH_ENROLLED")
+                .doesNotContain("EMAIL_SENT", "EMAIL_REPLIED");
+        JsonNode reply = events.stream().filter(event -> event.at("/message/kind").asText("").equals("REPLY"))
+                .findFirst().orElseThrow().get("message");
+        assertThat(reply.get("direction").asText()).isEqualTo("INBOUND");
+        assertThat(reply.get("fromAddress").asText()).isEqualTo("priya@" + domain);
         assertThat(events).extracting(event -> event.at("/note/body").asText(""))
                 .contains("Brief call; she wants the mandate scope first.")
                 .doesNotContain("Treasurer search: not for her.");
@@ -240,6 +246,29 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         assertThat(sent).isNotNull();
         assertThat(sent.at("/details/sequence").asText()).isEqualTo("First approach");
         assertThat(sent.at("/details/step").asText()).isEqualTo("1");
+    }
+
+    @Test
+    @DisplayName("a mailbox whose reach stops short of a reply's words still records the reply and stops the run")
+    void aReplyWithoutItsWordsStillStopsTheRun() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null)));
+        dispatcher.dispatchAt(monday);
+        String thread = (String) jdbc.queryForMap("select thread_id from app_lm_outreach_enrollment "
+                + "where candidate_id = ?::uuid", priya).get("thread_id");
+
+        gateway.writeInto(thread, "priya@" + domain, "Thursday works.");
+        inbox.pollListeningThreads(monday.plus(Duration.ofMinutes(15)));
+
+        assertThat(jdbc.queryForList("select coalesce(body_text, '-') from app_lm_outreach_message "
+                + "where thread_id = ? and kind = 'REPLY' and person_id = (select person_id from "
+                + "app_lm_project_candidate where id = ?::uuid)", String.class, thread, priya)).containsExactly("-");
+        assertThat(jdbc.queryForObject("select status from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                String.class, priya)).isEqualTo("REPLIED");
+        JsonNode mailbox = body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn());
+        assertThat(mailbox.at("/connection/readsReplies").asBoolean()).isFalse();
+        assertThat(mailbox.at("/connection/reconnectToReadReplies").asBoolean())
+                .as("a Nylas grant's reach is the app's, which no reconnect changes").isFalse();
     }
 
     @Test

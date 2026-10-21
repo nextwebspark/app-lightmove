@@ -641,6 +641,10 @@ lightmove:
       # <web.base-url>/book/<slug> where the executive picks a time. Subscribe the webhook to
       # booking.created too, so a booking stops their sequence.
       scheduler-enabled: ${NYLAS_SCHEDULER_ENABLED:false}
+      # True where the Nylas app's Google and Microsoft connectors carry a read scope (gmail.readonly,
+      # Mail.Read): the words of a reply into a thread Uncava started are then kept. False, a reply is still
+      # recorded and still stops its sequence, without its words.
+      reads-replies: ${NYLAS_READS_REPLIES:false}
     # Uncava's own OAuth apps, which every workspace on the shared mode connects through (epic #642). A blank
     # client id or secret leaves that provider's shared app unoffered; a workspace may still register its own in
     # Settings → Integrations. Each app lists <web.base-url>/api/v1/outreach/mailbox/callback as a redirect URI
@@ -650,7 +654,7 @@ lightmove:
       google:
         client-id: ${GOOGLE_MAIL_CLIENT_ID:}
         client-secret: ${GOOGLE_MAIL_CLIENT_SECRET:}
-        scopes: ${GOOGLE_MAIL_SCOPES:openid,email,https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/gmail.metadata,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/calendar.freebusy}
+        scopes: ${GOOGLE_MAIL_SCOPES:openid,email,https://www.googleapis.com/auth/gmail.send,https://www.googleapis.com/auth/gmail.readonly,https://www.googleapis.com/auth/calendar.events,https://www.googleapis.com/auth/calendar.freebusy}
         own-app-guide-url: ${GOOGLE_MAIL_OWN_APP_GUIDE_URL:}
         shared-app-guide-url: ${GOOGLE_MAIL_SHARED_APP_GUIDE_URL:}
       microsoft:

@@ -13,7 +13,9 @@ import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
+import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import java.nio.charset.StandardCharsets;
 import java.time.DateTimeException;
 import java.time.Instant;
@@ -23,8 +25,10 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,6 +63,11 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     /** Every time Graph answers is then UTC, whatever zone the consultant's calendar is kept in. */
     private static final String UTC_TIMES = "outlook.timezone=\"UTC\"";
+
+    /** A body asked as text, which Graph renders from the HTML itself. */
+    private static final String TEXT_BODIES = "outlook.body-content-type=\"text\"";
+
+    private static final String THREAD_FIELDS = "id,from,receivedDateTime,isDraft,parentFolderId";
 
     /** Only what a meeting row keeps: never a body, a location or an attachment. */
     private static final String EVENT_FIELDS = "id,iCalUId,subject,start,end,isAllDay,isCancelled,type,seriesMasterId,"
@@ -100,6 +109,13 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     @Override
     protected List<String> scopes() {
         return SCOPES;
+    }
+
+    /** {@code Mail.ReadWrite}, which every connection asks, already reaches a reply's words. */
+    @Override
+    protected boolean grantsReplyText(Set<String> granted) {
+        return granted.stream().map(scope -> scope.substring(scope.lastIndexOf('/') + 1).toLowerCase(Locale.ROOT))
+                .anyMatch(scope -> scope.equals("mail.read") || scope.equals("mail.readwrite"));
     }
 
     @Override
@@ -378,29 +394,35 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     /**
-     * Who wrote into the conversation since {@code since}: the sender's address only, never subject or body. Drafts
-     * and the consultant's own Sent Items are left out by folder, so their own mail never reads as a reply even where
-     * their sending address is not the one the mailbox was connected as.
+     * What was written into the conversation since {@code since}. Its words are {@code uniqueBody}, the part of a
+     * message that is new to the conversation, asked as text; never subject. Drafts and the consultant's own Sent
+     * Items are left out by folder, so their own mail never reads as a reply even where their sending address is not
+     * the one the mailbox was connected as.
      */
     @Override
-    public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
+    public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
         String accessToken = accessTokenOf(grantId);
         String sentItems = sentItemsFolders.computeIfAbsent(grantId, grant -> sentItemsFolderId(accessToken));
         String filter = "conversationId eq '" + threadId.replace("'", "''") + "'";
-        JsonNode page = apiCall("thread", accessToken, client -> client.get()
-                .uri(builder -> builder.path("/v1.0/me/messages")
-                        .queryParam("$filter", "{filter}")
-                        .queryParam("$select", "from,receivedDateTime,isDraft,parentFolderId")
-                        .queryParam("$top", THREAD_PAGE)
-                        .build(filter))
-                .accept(MediaType.APPLICATION_JSON));
-        return sendersSince(page, since, sentItems);
+        String fields = withText ? THREAD_FIELDS + ",uniqueBody" : THREAD_FIELDS;
+        JsonNode page = apiCall("thread", accessToken, client -> {
+            RestClient.RequestHeadersSpec<?> request = client.get()
+                    .uri(builder -> builder.path("/v1.0/me/messages")
+                            .queryParam("$filter", "{filter}")
+                            .queryParam("$select", "{fields}")
+                            .queryParam("$top", THREAD_PAGE)
+                            .build(filter, fields))
+                    .accept(MediaType.APPLICATION_JSON);
+            return withText ? request.header("Prefer", TEXT_BODIES) : request;
+        });
+        return messagesSince(page, since, sentItems, withText);
     }
 
-    static List<String> sendersSince(JsonNode page, Instant since, String sentItemsFolderId) {
-        List<String> senders = new ArrayList<>();
+    static List<ThreadMessage> messagesSince(JsonNode page, Instant since, String sentItemsFolderId,
+                                             boolean withText) {
+        List<ThreadMessage> messages = new ArrayList<>();
         if (page == null) {
-            return senders;
+            return messages;
         }
         for (JsonNode message : page.path("value")) {
             String folder = textOrNull(message.get("parentFolderId"));
@@ -410,10 +432,14 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
             Instant received = instantOrNull(message.get("receivedDateTime"));
             String address = textOrNull(message.path("from").path("emailAddress").get("address"));
             if (address != null && (received == null || !received.isBefore(since))) {
-                senders.add(address);
+                String text = withText ? ReplyText.ofPlainText(textOrNull(message.path("uniqueBody").get("content")))
+                        : null;
+                messages.add(new ThreadMessage(textOrNull(message.get("id")), address.toLowerCase(Locale.ROOT),
+                        received, text));
             }
         }
-        return senders;
+        messages.sort(Comparator.comparing(ThreadMessage::receivedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+        return messages;
     }
 
     /** Every recipient list set outright, so nothing Graph drafted from the replied-to message survives. */

@@ -2,6 +2,8 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MessageDirection;
+import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
@@ -12,11 +14,17 @@ import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.OutreachThread;
+import app.lightmove.api.outreach.model.ReplyText;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -26,14 +34,16 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * What comes back into a sender's mailbox: a reply stops the person's run, a bounce ends it, a
- * mailbox whose access was withdrawn stops sending, a calendar event with a mapped person is kept as
- * their meeting, and a booking through a consultant's link ends that person's run. Learned from the mail service's webhook, and from a
- * poll for whatever a webhook never delivered. Only who wrote and where is ever read — never what.
+ * What comes back into a sender's mailbox: a reply or a bounce is a line of the conversation and may end its run, a
+ * mailbox whose access was withdrawn stops sending, a calendar event with a mapped person is kept as their meeting,
+ * and a booking through a consultant's link ends that person's run. Learned from the mail service's webhook, and from
+ * a poll of every thread an email went into lately. Only a thread Uncava started is ever read, and a reply's words
+ * only where the mailbox grants them; they are staff-only and never logged.
  */
 @Service
 @RequiredArgsConstructor
@@ -47,6 +57,9 @@ public class OutreachInboxService {
     private static final Set<String> DELIVERY_DAEMONS = Set.of("mailer-daemon", "postmaster",
             "microsoftexchange329e71ec88ae4615bbc36ab6ce41109e");
 
+    /** A read starts this far before the latest line that came back: a message is dated when it was received. */
+    private static final Duration READ_OVERLAP = Duration.ofHours(1);
+
     private final MailboxGateway gateway;
     private final MailboxConnectionRepository mailboxes;
     private final OutreachEnrollmentRepository enrollments;
@@ -54,6 +67,7 @@ public class OutreachInboxService {
     private final OutreachOutcomes outcomes;
     private final MeetingSync meetings;
     private final LinkBookings linkBookings;
+    private final ReplyTextAccess replyText;
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
     private final Clock clock;
@@ -62,54 +76,148 @@ public class OutreachInboxService {
     public void receive(String signature, byte[] body) {
         Instant now = clock.instant();
         for (MailboxEvent event : gateway.readWebhook(signature, body)) {
-            transactions.executeWithoutResult(status -> apply(event, now));
+            if (event instanceof InboundMessage inbound) {
+                mailboxes.findByGrantId(inbound.grantId()).forEach(mailbox -> received(mailbox, inbound, now));
+            } else {
+                transactions.executeWithoutResult(status -> apply(event, now));
+            }
         }
     }
 
-    /** The fallback for a missed webhook: every thread still listening, asked who has written into it. */
+    /**
+     * The fallback for a missed webhook, and the only listener for our own gateways: every thread an email went into
+     * within the listening window, and every thread a run still waits on.
+     */
     public void pollListeningThreads(Instant now) {
         Instant since = now.minus(properties.outreach().replyListenWindow());
-        Map<SenderKey, List<OutreachEnrollment>> bySender = enrollments
-                .findListeningSince(since, Set.of(EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED)).stream()
-                .collect(Collectors.groupingBy(enrollment -> new SenderKey(enrollment.getWorkspaceId(),
-                        enrollment.getSenderUserId())));
-        bySender.forEach((sender, listening) -> mailboxes
+        Map<ThreadKey, OutreachThread> listening = new LinkedHashMap<>();
+        for (OutreachMessage sent : messages.findLatestSendOfEachThreadSince(since)) {
+            listening.putIfAbsent(ThreadKey.of(sent.getWorkspaceId(), sent.getSenderUserId(), sent.getThreadId()),
+                    OutreachThread.of(sent));
+        }
+        for (OutreachEnrollment run : enrollments.findListeningSince(since,
+                Set.of(EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED))) {
+            listening.putIfAbsent(ThreadKey.of(run.getWorkspaceId(), run.getSenderUserId(), run.getThreadId()),
+                    OutreachThread.of(run));
+        }
+        Map<SenderKey, List<OutreachThread>> bySender = listening.values().stream()
+                .collect(Collectors.groupingBy(thread -> new SenderKey(thread.workspaceId(), thread.senderUserId()),
+                        LinkedHashMap::new, Collectors.toList()));
+        bySender.forEach((sender, threads) -> mailboxes
                 .findByWorkspaceIdAndUserId(sender.workspaceId(), sender.userId())
                 .filter(MailboxConnection::canSend)
-                .ifPresent(mailbox -> listening.stream()
-                        .filter(enrollment -> enrollment.getThreadGateway() == null
-                                || enrollment.getThreadGateway() == mailbox.getGateway())
-                        .forEach(enrollment -> pollThread(mailbox, enrollment, now))));
+                .ifPresent(mailbox -> threads.stream()
+                        .filter(thread -> thread.isReadableBy(mailbox))
+                        .forEach(thread -> pollThread(mailbox, thread, now))));
     }
 
-    private void pollThread(MailboxConnection mailbox, OutreachEnrollment enrollment, Instant now) {
-        List<String> writers;
+    private void pollThread(MailboxConnection mailbox, OutreachThread thread, Instant now) {
+        List<ThreadMessage> written;
         try {
-            writers = gateway.senderAddressesInThread(mailbox.getGrantId(), enrollment.getThreadId(),
-                    enrollment.getEnrolledAt());
+            written = gateway.messagesInThread(mailbox.getGrantId(), thread.threadId(), readFromOf(thread),
+                    replyText.readsText(mailbox));
         } catch (RuntimeException failed) {
-            log.warn("Could not read outreach thread of enrollment {} at the mail service", enrollment.getId(), failed);
+            log.warn("Could not read outreach thread {} of mailbox {} at the mail service", thread.threadId(),
+                    mailbox.getId(), failed);
             return;
         }
-        writers.stream()
-                .filter(address -> !address.equalsIgnoreCase(mailbox.getAddress()))
-                .findFirst()
-                .ifPresent(address -> transactions.executeWithoutResult(status -> enrollments
-                        .findById(enrollment.getId())
-                        .filter(OutreachEnrollment::isListening)
-                        .ifPresent(fresh -> answered(fresh, address, now))));
+        written.stream()
+                .filter(message -> !message.fromAddress().equalsIgnoreCase(mailbox.getAddress()))
+                .forEach(message -> record(mailbox, thread, message, now));
+    }
+
+    private Instant readFromOf(OutreachThread thread) {
+        Instant from = messages.findThreadReadFrom(thread.workspaceId(), thread.senderUserId(), thread.threadId());
+        if (from == null) {
+            return thread.enrollmentId() == null ? clock.instant().minus(properties.outreach().replyListenWindow())
+                    : enrollments.findById(thread.enrollmentId()).map(OutreachEnrollment::getEnrolledAt)
+                            .orElse(clock.instant());
+        }
+        return from.minus(READ_OVERLAP);
+    }
+
+    /** A message the webhook reported. Its body, where the service sent one, is kept only as the poll's would be. */
+    private void received(MailboxConnection mailbox, InboundMessage inbound, Instant now) {
+        if (inbound.threadId() == null || inbound.fromAddress() == null
+                || inbound.fromAddress().equalsIgnoreCase(mailbox.getAddress())) {
+            return;
+        }
+        Optional<OutreachThread> thread = threadOf(mailbox, inbound.threadId());
+        if (thread.isEmpty()) {
+            return;
+        }
+        String text = null;
+        if (replyText.readsText(mailbox)) {
+            text = inbound.html() != null ? ReplyText.ofHtml(inbound.html()) : textReadBack(mailbox, inbound);
+        }
+        record(mailbox, thread.get(), new ThreadMessage(inbound.messageId(),
+                inbound.fromAddress().toLowerCase(Locale.ROOT), inbound.receivedAt(), text), now);
+    }
+
+    /** A delivery too large to carry its body names the message; the thread is read for it. */
+    private String textReadBack(MailboxConnection mailbox, InboundMessage inbound) {
+        if (inbound.messageId() == null) {
+            return null;
+        }
+        Instant since = inbound.receivedAt() == null ? clock.instant().minus(READ_OVERLAP)
+                : inbound.receivedAt().minus(READ_OVERLAP);
+        try {
+            return gateway.messagesInThread(mailbox.getGrantId(), inbound.threadId(), since, true).stream()
+                    .filter(message -> inbound.messageId().equals(message.providerMessageId()))
+                    .map(ThreadMessage::text)
+                    .findFirst().orElse(null);
+        } catch (RuntimeException failed) {
+            log.warn("Could not read reply {} back at the mail service", inbound.messageId(), failed);
+            return null;
+        }
+    }
+
+    /**
+     * One message into one thread, in a transaction of its own. A line already holding its id is left alone; a
+     * placeholder of its kind dated after it is completed; anything else is a new line and what it means for the run.
+     */
+    private void record(MailboxConnection mailbox, OutreachThread thread, ThreadMessage found, Instant now) {
+        MessageKind kind = isDeliveryDaemon(found.fromAddress()) ? MessageKind.BOUNCE : MessageKind.REPLY;
+        try {
+            transactions.executeWithoutResult(status -> {
+                if (found.providerMessageId() != null && messages
+                        .existsByWorkspaceIdAndSenderUserIdAndProviderMessageIdAndDirection(thread.workspaceId(),
+                                thread.senderUserId(), found.providerMessageId(), MessageDirection.INBOUND)) {
+                    return;
+                }
+                Optional<OutreachMessage> placeholder = messages
+                        .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindAndProviderMessageIdIsNullOrderByOccurredAtAsc(
+                                thread.workspaceId(), thread.senderUserId(), thread.threadId(), kind)
+                        .filter(waiting -> found.receivedAt() == null
+                                || !found.receivedAt().isAfter(waiting.getOccurredAt()));
+                if (placeholder.isPresent()) {
+                    if (found.providerMessageId() != null) {
+                        placeholder.get().completeWith(found);
+                    }
+                    return;
+                }
+                OutreachMessage line = messages.saveAndFlush(
+                        OutreachMessage.received(thread, kind, found, mailbox.getAddress(), now));
+                OutreachEnrollment run = thread.enrollmentId() == null ? null
+                        : enrollments.findById(thread.enrollmentId()).orElse(null);
+                if (kind == MessageKind.REPLY) {
+                    outcomes.replied(line, run, now);
+                } else if (run != null && run.isListening()) {
+                    outcomes.bounced(run, now);
+                }
+            });
+        } catch (DataIntegrityViolationException alreadyRecorded) {
+            // The webhook and the poll found the same message at once; the other one recorded it.
+            log.debug("Message {} in thread {} was recorded concurrently", found.providerMessageId(),
+                    thread.threadId());
+        }
     }
 
     private void apply(MailboxEvent event, Instant now) {
         switch (event) {
-            case InboundMessage inbound -> mailboxes.findByGrantId(inbound.grantId()).stream()
-                    .filter(mailbox -> inbound.threadId() != null && inbound.fromAddress() != null)
-                    .filter(mailbox -> !inbound.fromAddress().equalsIgnoreCase(mailbox.getAddress()))
-                    .flatMap(mailbox -> listeningIn(mailbox, inbound.threadId()).stream())
-                    .forEach(enrollment -> answered(enrollment, inbound.fromAddress(), now));
+            case InboundMessage inbound -> throw new IllegalStateException("An inbound message is recorded on its own");
             case DeliveryFailure failure -> mailboxes.findByGrantId(failure.grantId())
-                    .forEach(mailbox -> bouncedIn(mailbox, failure).filter(OutreachEnrollment::isListening)
-                            .ifPresent(enrollment -> outcomes.bounced(enrollment, now)));
+                    .forEach(mailbox -> bouncedIn(mailbox, failure, now));
             case MailboxAccessWithdrawn withdrawn -> mailboxes.findByGrantId(withdrawn.grantId())
                     .forEach(MailboxConnection::markAccessWithdrawn);
             case CalendarEventChanged changed -> mailboxes.findByGrantId(changed.grantId())
@@ -121,32 +229,55 @@ public class OutreachInboxService {
         }
     }
 
-    private void answered(OutreachEnrollment enrollment, String fromAddress, Instant now) {
-        if (isDeliveryDaemon(fromAddress)) {
-            outcomes.bounced(enrollment, now);
-        } else {
-            outcomes.replied(enrollment, now);
-        }
+    /**
+     * A bounce the service reported carries no message of its own: it is a placeholder line the mail server's own
+     * message completes once a read finds it. A thread whose latest send has already bounced adds nothing, whether
+     * the report came twice or the poll found the mail server's message first. Told by when each line was written,
+     * not when it says it happened: a placeholder is dated by the report, a completed one by the provider.
+     */
+    private void bouncedIn(MailboxConnection mailbox, DeliveryFailure failure, Instant now) {
+        Optional<OutreachThread> thread = failure.threadId() != null ? threadOf(mailbox, failure.threadId())
+                : Optional.ofNullable(failure.messageId())
+                        .flatMap(id -> messages.findFirstByWorkspaceIdAndSenderUserIdAndProviderMessageIdAndDirection(
+                                mailbox.getWorkspaceId(), mailbox.getUserId(), id, MessageDirection.OUTBOUND))
+                        .filter(sent -> sent.getThreadId() != null)
+                        .map(OutreachThread::of);
+        thread.ifPresent(bounced -> {
+            Instant lastSent = messages
+                    .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByCreatedAtDesc(
+                            bounced.workspaceId(), bounced.senderUserId(), bounced.threadId(),
+                            MessageDirection.OUTBOUND)
+                    .map(OutreachMessage::getCreatedAt).orElse(null);
+            boolean reported = messages
+                    .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindOrderByCreatedAtDesc(
+                            bounced.workspaceId(), bounced.senderUserId(), bounced.threadId(), MessageKind.BOUNCE)
+                    .filter(bounce -> lastSent == null || bounce.getCreatedAt().isAfter(lastSent))
+                    .isPresent();
+            if (!reported) {
+                messages.save(OutreachMessage.received(bounced, MessageKind.BOUNCE, null, mailbox.getAddress(), now));
+            }
+            Optional.ofNullable(bounced.enrollmentId()).flatMap(enrollments::findById)
+                    .filter(OutreachEnrollment::isListening)
+                    .ifPresent(run -> outcomes.bounced(run, now));
+        });
     }
 
-    private List<OutreachEnrollment> listeningIn(MailboxConnection mailbox, String threadId) {
-        return enrollments.findByWorkspaceIdAndSenderUserIdAndThreadId(mailbox.getWorkspaceId(), mailbox.getUserId(),
-                        threadId).stream()
-                .filter(OutreachEnrollment::isListening)
-                .toList();
-    }
-
-    private Optional<OutreachEnrollment> bouncedIn(MailboxConnection mailbox, DeliveryFailure failure) {
-        if (failure.threadId() != null) {
-            return listeningIn(mailbox, failure.threadId()).stream().findFirst();
+    /**
+     * Whose conversation a thread of {@code mailbox} is: its latest send says, and a run whose send went unrecorded
+     * says where there is none. Nothing for a thread Uncava never wrote into, or one another gateway made.
+     */
+    private Optional<OutreachThread> threadOf(MailboxConnection mailbox, String threadId) {
+        Optional<OutreachThread> thread = messages
+                .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByOccurredAtDesc(
+                        mailbox.getWorkspaceId(), mailbox.getUserId(), threadId, MessageDirection.OUTBOUND)
+                .map(OutreachThread::of);
+        if (thread.isEmpty()) {
+            thread = enrollments.findByWorkspaceIdAndSenderUserIdAndThreadId(mailbox.getWorkspaceId(),
+                            mailbox.getUserId(), threadId).stream()
+                    .max(Comparator.comparing(OutreachEnrollment::getEnrolledAt))
+                    .map(OutreachThread::of);
         }
-        if (failure.messageId() == null) {
-            return Optional.empty();
-        }
-        return messages.findFirstByWorkspaceIdAndSenderUserIdAndProviderMessageId(mailbox.getWorkspaceId(),
-                        mailbox.getUserId(), failure.messageId())
-                .map(OutreachMessage::getEnrollmentId)
-                .flatMap(enrollments::findById);
+        return thread.filter(found -> found.isReadableBy(mailbox));
     }
 
     private static boolean isDeliveryDaemon(String address) {
@@ -156,4 +287,11 @@ public class OutreachInboxService {
     }
 
     private record SenderKey(UUID workspaceId, UUID userId) {}
+
+    private record ThreadKey(UUID workspaceId, UUID senderUserId, String threadId) {
+
+        static ThreadKey of(UUID workspaceId, UUID senderUserId, String threadId) {
+            return new ThreadKey(workspaceId, senderUserId, threadId);
+        }
+    }
 }

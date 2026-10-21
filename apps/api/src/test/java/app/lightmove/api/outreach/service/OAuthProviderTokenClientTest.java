@@ -52,6 +52,18 @@ class OAuthProviderTokenClientTest {
                 .isInstanceOf(VendorException.class);
     }
 
+    @Test
+    @DisplayName("the scopes granted are read off the answer, repeated or spaced however the provider sends them")
+    void theGrantedScopesAreRead() {
+        ProviderTokenGrant token = OAuthProviderTokenClient.read(CALL, JSON.readTree("""
+                {"access_token":"ya29.a","scope":" openid  https://www.googleapis.com/auth/gmail.readonly openid"}"""));
+        ProviderTokenGrant unsaid = OAuthProviderTokenClient.read(CALL, JSON.readTree("""
+                {"access_token":"ya29.a"}"""));
+
+        assertThat(token.scopes()).containsExactlyInAnyOrder("openid", "https://www.googleapis.com/auth/gmail.readonly");
+        assertThat(unsaid.scopes()).isEmpty();
+    }
+
     private static RuntimeException refusalOf(HttpStatus status, String body) throws Exception {
         return OAuthProviderTokenClient.refusalOrFailure(CALL,
                 new MockClientHttpResponse(body.getBytes(StandardCharsets.UTF_8), status));

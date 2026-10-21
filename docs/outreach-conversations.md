@@ -120,8 +120,18 @@ Left to the phase that first writes them, so no column sits unwritten: `in_reply
 and `fail_reason` (phase 3, one-off sends), and the thread index, the provider-message dedupe index and the
 listening-scan index (phase 2, replies).
 
-`V145__mailbox_reads_replies.sql`: `app_lm_mailbox_connection.reads_replies boolean NOT NULL DEFAULT false`,
-`granted_scopes text`; backfill `true` for direct Microsoft rows (Mail.ReadWrite already covers it).
+`V145__outreach_replies.sql` (shipped in phase 2):
+- Fills any V144 deploy-window row's `project_id` / `person_id` from its enrollment and sets both `NOT NULL`.
+- **Placeholders**: one `INBOUND / REPLY / RECEIVED` line per run with `replied_at` (from the address the run went
+  to) and one `INBOUND / BOUNCE / RECEIVED` line per `BOUNCED` run, with no provider id and no text, so the
+  conversation keeps what already happened once the `EMAIL_REPLIED` activity line leaves its read. A read that finds
+  a message of that kind in that thread, received no later than the placeholder says, completes it rather than
+  adding a line, and writes no outcome — it already happened.
+- `app_lm_mailbox_connection.reply_text_granted boolean NOT NULL DEFAULT false` — what the consultant's consent
+  answered, nothing stored about its scopes beyond that — backfilled `true` for direct Microsoft rows.
+- Indexes: the thread `(workspace_id, sender_user_id, thread_id)`, the inbound dedupe `UNIQUE (workspace_id,
+  sender_user_id, provider_message_id) WHERE direction = 'INBOUND'` (outbound rows are left out, so no existing row
+  can collide), and the listening scan `(occurred_at) WHERE direction = 'OUTBOUND' AND status = 'SENT'`.
 
 `V146__outreach_attachment.sql`: `app_lm_outreach_attachment` — `message_id` (FK cascade), `workspace_id`,
 `file_name`, `content_type`, `size_bytes`, `sha256`, `document_version_id` (nullable FK SET NULL to
@@ -145,9 +155,10 @@ its age. The poll's `since` becomes the newest `occurred_at` we hold in that thr
 `enrolled_at`); the dedupe index absorbs the overlap. A webhook `InboundMessage` is accepted for any thread the
 message table knows, window or not.
 
-**Reply storage** — new `MailboxGateway.messagesInThread(grantId, threadId, since) -> List<ThreadMessage>`
-(`providerMessageId, fromAddress, receivedAt, textBody, isOwn`); `senderAddressesInThread` stays for mailboxes that
-cannot read bodies, and `OutreachInboxService` branches once on `mailbox.readsReplies()`:
+**Reply storage (built in phase 2)** — `MailboxGateway.messagesInThread(grantId, threadId, since, withText) ->
+List<ThreadMessage>` (`providerMessageId, fromAddress, receivedAt, text`) **replaces** `senderAddressesInThread`:
+every gateway names a message's id and time without reading content, so every reply and bounce is a line, and its
+`text` is asked only `withText`, which `ReplyTextAccess.readsText(mailbox)` decides:
 - Google: thread metadata as today to find new ids, then `messages.get?format=full` per new id, `text/plain` part
   else flattened `text/html`. `GoogleMailboxGateway.SCOPES`: `gmail.metadata` → `gmail.readonly` (both restricted
   scopes; same verification tier, but **existing direct Google mailboxes must reconnect**).
@@ -161,11 +172,16 @@ cannot read bodies, and `OutreachInboxService` branches once on `mailbox.readsRe
 - Quoted history is **stripped** (`outreach/model/ReplyText`: cut at the first of `^On .* wrote:`, `-----Original
   Message-----`, `^From: `, a `> ` block, `gmail_quote`; if nothing is left, keep the whole), capped at 20,000.
 - Dedupe on the unique index; the insert catches the violation and skips.
-- Mailbox capability: `GrantedMailbox` gains `scopes` (Google and Microsoft return `scope` with the token; Nylas
-  null); `MailboxConnection.connected/reconnect` set `reads_replies` from them (Google `gmail.readonly`, Microsoft
-  `Mail.Read*`, Nylas the setting); a consent where the user unticked the scope is `false`, not an error.
-  `ConnectedMailboxResponse` gains `readsReplies`, `reconnectToReadReplies` and `sentToday` (for the chip, counted
-  in the mailbox zone with the cap query).
+- Mailbox capability: `ProviderTokenGrant` reads the token answer's `scope`, and each direct gateway decides
+  `GrantedMailbox.replyTextGranted` from it (Google `gmail.readonly`, `gmail.modify` or full mail; Microsoft
+  `Mail.Read*`); a consent where the person unticked the scope is `false`, not an error. A Nylas mailbox's reach is
+  the setting. `ConnectedMailboxResponse` gains `readsReplies` and `reconnectToReadReplies` (a direct mailbox without
+  the grant, where the workspace still connects directly); `sentToday` waits for phase 4's chip, its only reader.
+- What a line means: a REPLY writes its `EMAIL_REPLIED` line, its audit event (with `messageId`) and
+  `OutreachReplied` every time, and moves the run to `REPLIED` only while it `isListening()` — never twice, never
+  over a STOPPED, BOUNCED or BOOKED run. A BOUNCE ends a listening run as before. A webhook `DeliveryFailure` is a
+  placeholder BOUNCE line unless the thread's latest send already has one (told by when each was written); the mail
+  server's own message completes it. The conversation's read drops `EMAIL_REPLIED` lines: the REPLY row says it.
 
 **Bounce rows: yes** — `INBOUND / BOUNCE / RECEIVED`, `from_address` the daemon, `body_text` null (no DSN
 parsing), so one source draws "Email bounced" and feeds Attention. `OutreachOutcomes.bounced` is unchanged.
@@ -299,9 +315,9 @@ where the drawer does. `emailSentMovesTo` waits for phase 3, whose composer is i
 `type` names the one payload it carries:
 1. `MESSAGE` — a line of the ledger: direction, channel, kind, status, subject, `text` (always text, never HTML),
    from and to, the sender's name, and for a sequence's email its name, step number and step count.
-2. `ACTIVITY` — the person's timeline lines about this position of kinds `OUTREACH_ENROLLED`, `EMAIL_REPLIED`,
-   `OUTREACH_STOPPED` and `STATUS_CHANGED`, through `PersonTimelineService.positionLinesOf`. `EMAIL_SENT` is left
-   out because the message says it; `EMAIL_REPLIED` stays until phase 2 stores the reply itself.
+2. `ACTIVITY` — the person's timeline lines about this position of kinds `OUTREACH_ENROLLED`, `OUTREACH_STOPPED`
+   and `STATUS_CHANGED`, through `PersonTimelineService.positionLinesOf`. `EMAIL_SENT` and (since phase 2)
+   `EMAIL_REPLIED` are left out because their message rows say them.
 3. `NOTE` — `PersonNoteService.list` from this position's viewpoint: its own notes and those about the person.
 4. `MEETING` — `MeetingService.ofCandidate`'s upcoming and recent meetings, at their start.
 
@@ -405,7 +421,9 @@ person merge is built, message and attachment rows move with the enrollments.
    `OutreachMessageLedgerMigrationTest` (the backfill and both constraints, seeded at V143) and
    `OutreachConversationIntegrationTest` (each group, the tabs, Mine/Team, search and its escaping, the merged
    history, this position's notes only, the timeline's sequence and step, client seat 403, foreign 404).
-2. **Reply bodies, bounce rows, listening by thread** — V145 (also: fill V144's deploy-window rows and set
+2. **Reply bodies, bounce rows, listening by thread — built.** As planned, except: one gateway method rather than
+   two, the placeholders above, `reply_text_granted` rather than a scopes column, and `sentToday` left to phase 4.
+   Planned: V145 (also: fill V144's deploy-window rows and set
    `project_id`/`person_id` `NOT NULL`; the thread, dedupe and listening-scan indexes); `GrantedMailbox.scopes`, `MailboxConnection`,
    `ConnectedMailboxResponse`, `MailboxService`; `MailboxGateway.messagesInThread` + `ThreadMessage`; the three
    gateways + `Routing`/`Unconfigured`/`Recording`; `ReplyText`; `OutreachInboxService` (message-first resolution,

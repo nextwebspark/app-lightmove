@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.repository;
 
+import app.lightmove.api.outreach.constant.MessageDirection;
 import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.PersonSentTally;
@@ -18,9 +19,49 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
     long countByWorkspaceIdAndSenderUserIdAndSentAtGreaterThanEqual(UUID workspaceId, UUID senderUserId,
                                                                     Instant since);
 
-    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndProviderMessageId(UUID workspaceId,
-                                                                                    UUID senderUserId,
-                                                                                    String providerMessageId);
+    /** The email a bounce names, or a reply already recorded: a provider id is unique only within one mailbox. */
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndProviderMessageIdAndDirection(
+            UUID workspaceId, UUID senderUserId, String providerMessageId, MessageDirection direction);
+
+    boolean existsByWorkspaceIdAndSenderUserIdAndProviderMessageIdAndDirection(UUID workspaceId, UUID senderUserId,
+                                                                              String providerMessageId,
+                                                                              MessageDirection direction);
+
+    /** The latest email a mailbox sent into a thread: whose conversation the thread is. */
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByOccurredAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction);
+
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindOrderByCreatedAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageKind kind);
+
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByCreatedAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction);
+
+    /** A line of {@code kind} in the thread no read has completed yet, oldest first. */
+    Optional<OutreachMessage>
+            findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindAndProviderMessageIdIsNullOrderByOccurredAtAsc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageKind kind);
+
+    /**
+     * Every thread an email went into since {@code since}, each by its latest send. A system read across workspaces:
+     * the poll that listens for replies; each row it answers carries its own workspace.
+     */
+    @Query(nativeQuery = true, value = """
+            SELECT DISTINCT ON (workspace_id, sender_user_id, thread_id) * FROM app_lm_outreach_message
+            WHERE direction = 'OUTBOUND' AND status = 'SENT' AND thread_id IS NOT NULL AND occurred_at >= :since
+            ORDER BY workspace_id, sender_user_id, thread_id, occurred_at DESC
+            """)
+    List<OutreachMessage> findLatestSendOfEachThreadSince(Instant since);
+
+    /** Where a read of the thread may start: the latest line that came back, else the first that went. */
+    @Query("""
+            select coalesce(max(case when m.direction = app.lightmove.api.outreach.constant.MessageDirection.INBOUND
+                                     then m.occurredAt end),
+                            min(m.occurredAt))
+            from OutreachMessage m
+            where m.workspaceId = :workspaceId and m.senderUserId = :senderUserId and m.threadId = :threadId
+            """)
+    Instant findThreadReadFrom(UUID workspaceId, UUID senderUserId, String threadId);
 
     /** A run's steps as they went. Asked by kind: the table holds more of a conversation than its runs. */
     List<OutreachMessage> findByWorkspaceIdAndEnrollmentIdInAndKindOrderBySentAtAsc(UUID workspaceId,

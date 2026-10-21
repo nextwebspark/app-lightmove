@@ -15,5 +15,5 @@ approval"** when they connect Outlook, an administrator approves Uncava once for
 Consultants can now connect their mailboxes without asking. Approval does not connect anyone's mailbox by itself, and
 you can withdraw it at any time under **Entra admin center → Enterprise applications → Uncava**.
 
-**What Uncava does with it:** sends the emails your consultants write, from their own mailbox; notices who replied,
-never what they wrote; books calls and shows meetings with candidates on their calendar.
+**What Uncava does with it:** sends the emails your consultants write, from their own mailbox; reads the replies in the
+threads Uncava started, for your team only; books calls and shows meetings with candidates on their calendar.

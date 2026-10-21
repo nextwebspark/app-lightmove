@@ -19,8 +19,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One line of an executive's conversation on a position (V101, widened by V144). So far always an outbound
- * sequence step, written once it went. Staff-only.
+ * One line of an executive's conversation on a position (V101, widened by V144 and V145): a sequence's email once
+ * it went, or a reply or bounce in its thread. Staff-only; a reply's words are never logged.
  */
 @Entity
 @Table(name = "app_lm_outreach_message")
@@ -70,13 +70,13 @@ public class OutreachMessage extends BaseEntity {
     @Column(name = "sender_user_id", nullable = false, updatable = false)
     private UUID senderUserId;
 
-    @Column(name = "from_address", updatable = false)
+    @Column(name = "from_address")
     private String fromAddress;
 
-    @Column(name = "to_address", updatable = false)
+    @Column(name = "to_address")
     private String toAddress;
 
-    @Column(name = "provider_message_id", updatable = false)
+    @Column(name = "provider_message_id")
     private String providerMessageId;
 
     @Column(name = "thread_id", updatable = false)
@@ -97,7 +97,7 @@ public class OutreachMessage extends BaseEntity {
     @Column(name = "body_format", nullable = false, updatable = false)
     private MessageBodyFormat bodyFormat;
 
-    @Column(name = "body_text", updatable = false)
+    @Column(name = "body_text")
     private String bodyText;
 
     /** Set only on an outbound email that went: the daily cap counts these. */
@@ -105,7 +105,7 @@ public class OutreachMessage extends BaseEntity {
     private Instant sentAt;
 
     /** Where the line sits in the conversation. */
-    @Column(name = "occurred_at", nullable = false, updatable = false)
+    @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
 
     /** {@code text} is the plain text the HTML was rendered from, booking link and all. */
@@ -135,5 +135,50 @@ public class OutreachMessage extends BaseEntity {
         message.sentAt = now;
         message.occurredAt = now;
         return message;
+    }
+
+    /**
+     * What came back into {@code thread}: a reply, or a mail server's bounce. {@code found} is null for a bounce a
+     * webhook reported without a message of its own; the row then waits, as a placeholder, for the one a read finds.
+     */
+    public static OutreachMessage received(OutreachThread thread, MessageKind kind, ThreadMessage found,
+                                           String mailboxAddress, Instant now) {
+        OutreachMessage message = new OutreachMessage();
+        message.workspaceId = thread.workspaceId();
+        message.projectId = thread.projectId();
+        message.personId = thread.personId();
+        message.candidateId = thread.candidateId();
+        message.enrollmentId = thread.enrollmentId();
+        message.direction = MessageDirection.INBOUND;
+        message.channel = MessageChannel.EMAIL;
+        message.kind = kind;
+        message.status = MessageStatus.RECEIVED;
+        message.senderUserId = thread.senderUserId();
+        message.toAddress = mailboxAddress;
+        message.threadId = thread.threadId();
+        message.threadGateway = thread.gateway();
+        message.bodyFormat = MessageBodyFormat.TEXT;
+        message.occurredAt = now;
+        if (found != null) {
+            message.completeWith(found);
+        }
+        return message;
+    }
+
+    /** A line with no provider id stands for a message nobody has read yet: V145's backfill, or a reported bounce. */
+    public boolean isPlaceholder() {
+        return providerMessageId == null && direction == MessageDirection.INBOUND;
+    }
+
+    /** A bounce's words are a mail server's, quoting our own email; only a reply's are kept. */
+    public void completeWith(ThreadMessage found) {
+        providerMessageId = found.providerMessageId();
+        fromAddress = found.fromAddress();
+        if (found.receivedAt() != null) {
+            occurredAt = found.receivedAt();
+        }
+        if (kind == MessageKind.REPLY) {
+            bodyText = found.text();
+        }
     }
 }

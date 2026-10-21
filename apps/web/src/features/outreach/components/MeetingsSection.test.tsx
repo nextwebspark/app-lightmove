@@ -100,6 +100,8 @@ function renderSection({
       runsStoppedByMove: 0,
       liveSequences: 0,
       livePeople: 0,
+      readsReplies: false,
+      reconnectToReadReplies: false,
     },
   });
   vi.mocked(poolApi.getPerson).mockResolvedValue({

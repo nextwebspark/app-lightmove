@@ -41,13 +41,14 @@ Settings → Integrations prints the same URIs for the running deployment (`Prov
      listed test users (up to 100) can connect, and their refresh tokens expire after 7 days.
    - App name `Uncava`, support email, logo, home page, privacy policy and terms URLs, authorised domain `uncava.com`.
    - **Data access (scopes):** `openid`, `email`, `https://www.googleapis.com/auth/gmail.send`,
-     `https://www.googleapis.com/auth/gmail.metadata`, `https://www.googleapis.com/auth/calendar.events`,
+     `https://www.googleapis.com/auth/gmail.readonly`, `https://www.googleapis.com/auth/calendar.events`,
      `https://www.googleapis.com/auth/calendar.freebusy`.
 4. **Clients → Create client → Web application**, the redirect URIs above. Copy the client id and secret.
 5. **Verification** (Publish app → Prepare for verification):
    - brand verification, then sensitive-scope verification (`gmail.send`, `calendar.events`) with a demo video
      of the consent screen and each scope in use;
-   - `gmail.metadata` is a **restricted** scope: production use for more than 100 users needs the annual CASA
+   - `gmail.readonly` (a reply's words, in threads Uncava started; it replaced `gmail.metadata` in outreach
+     phase 2 — add it to the app before deploying that release) is a **restricted** scope: production use for more than 100 users needs the annual CASA
      security assessment. Decide on it separately, once Google customers justify the cost — a customer's own
      Internal app (see `google-own-app.md`) needs none of this.
 

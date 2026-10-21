@@ -11,7 +11,7 @@ project. An Internal app needs no Google verification and is limited to your org
 4. **Data access → Add or remove scopes**, and add:
    - `openid`, `email`
    - `https://www.googleapis.com/auth/gmail.send`
-   - `https://www.googleapis.com/auth/gmail.metadata`
+   - `https://www.googleapis.com/auth/gmail.readonly`
    - `https://www.googleapis.com/auth/calendar.events`
    - `https://www.googleapis.com/auth/calendar.freebusy`
 5. **Clients → Create client → Web application.** Under **Authorised redirect URIs**, paste the **Redirect URI**
@@ -24,6 +24,9 @@ project. An Internal app needs no Google verification and is limited to your org
 Your consultants then connect Gmail from the Outreach page. Mailboxes connected before the switch need reconnecting
 once.
 
-**Why these scopes:** `gmail.send` sends the emails your consultants write; `gmail.metadata` reads message headers
-only — who replied, never the message — so a sequence stops when someone answers. The calendar scopes book calls,
+**Why these scopes:** `gmail.send` sends the emails your consultants write; `gmail.readonly` reads the replies to
+them — only in the threads Uncava started — so a sequence stops when someone answers and the reply shows in
+Uncava for your team. A consultant who unticks it on Google's consent screen still has their sequences stopped by
+a reply; its words just stay in Gmail. Mailboxes connected while Uncava asked for `gmail.metadata` instead show
+"Reconnect" on the Outreach page until reconnected. The calendar scopes book calls,
 read free time and show meetings with candidates.

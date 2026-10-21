@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -77,6 +78,9 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
 
     /** The address of the mailbox {@code accessToken} was just issued for; null when the provider did not say. */
     protected abstract String mailboxAddressOf(String accessToken);
+
+    /** Whether {@code granted}, the scopes the person actually consented to, let us read the words of a reply. */
+    protected abstract boolean grantsReplyText(Set<String> granted);
 
     /** Whether a code redemption repeats {@link #scopes()}; Google takes them from the consent alone. */
     protected boolean repeatsScopesAtRedemption() {
@@ -155,7 +159,8 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
         if (address == null) {
             throw new VendorException(vendorCall("mailbox-address"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
-        return new GrantedMailbox(MailboxGrants.mintDirect(providerName), address, providerName, token.refreshToken());
+        return new GrantedMailbox(MailboxGrants.mintDirect(providerName), address, providerName, token.refreshToken(),
+                grantsReplyText(token.scopes()));
     }
 
     @Override

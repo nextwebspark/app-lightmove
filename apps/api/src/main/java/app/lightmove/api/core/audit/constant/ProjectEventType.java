@@ -119,7 +119,7 @@ public enum ProjectEventType implements AuditEventType {
     /** One email of a sequence went from the sender's mailbox; the actor is the sender, the dispatcher sent it. */
     OUTREACH_EMAIL_SENT,
 
-    /** The person answered; only that they did is recorded, never what they said. */
+    /** The person answered: which reply it was, never what it says (that is the conversation's, staff-only). */
     OUTREACH_REPLIED,
     OUTREACH_BOUNCED,
 
