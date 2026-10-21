@@ -273,6 +273,12 @@ class MicrosoftMailboxGatewayTest {
         microsoft.attachAnswers(413);
         assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOf(AttachmentNotAccepted.class);
         assertThat(microsoft.requested()).contains("DELETE " + draft).doesNotContain("POST " + draft + "/send");
+
+        // Throttled is no wait either: a retry would build one more draft a minute.
+        microsoft.clearRequests();
+        microsoft.attachAnswers(429);
+        assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOf(AttachmentNotAccepted.class);
+        assertThat(microsoft.requested()).contains("DELETE " + draft).doesNotContain("POST " + draft + "/send");
     }
 
     @Test
