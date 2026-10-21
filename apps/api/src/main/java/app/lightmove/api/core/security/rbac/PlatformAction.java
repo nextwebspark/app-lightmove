@@ -10,5 +10,8 @@ public enum PlatformAction {
     CREDIT_GRANT,
 
     /** Set the plan and seats of a workspace billed outside Stripe. */
-    SUBSCRIPTION_MANAGE
+    SUBSCRIPTION_MANAGE,
+
+    /** Edit and publish the words on every screen, error messages included. */
+    SCREEN_TEXT_MANAGE
 }

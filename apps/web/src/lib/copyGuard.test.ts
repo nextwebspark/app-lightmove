@@ -1,11 +1,12 @@
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { NEVER_ON_SCREEN } from "../copy/neverOnScreen";
 
 /**
  * docs/glossary.md's "never on screen" list, held over the SPA's prose: JSX text and any string or
  * template piece with a space in it. A one-word string is a query key, a route or an id, never copy.
  */
-const FORBIDDEN = /\bNylas\b|\bthis deployment\b|\btriage\b/i;
+const FORBIDDEN = NEVER_ON_SCREEN;
 
 /** Copy a mockup still draws — the mockup wins until it changes (docs/glossary.md). */
 const MOCKUP_BACKED = new Set([

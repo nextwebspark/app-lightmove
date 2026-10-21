@@ -1413,6 +1413,131 @@
           </div>
         </sc-if>
 
+
+        <!-- SCREEN TEXT -->
+        <sc-if value="{{ isScreenText }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Screen text">
+            <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px">
+              <div style="min-width:0;flex:1">
+                <div style="font:600 19px/1.25 var(--sans)">Screen text</div>
+                <div style="margin-top:4px;max-width:640px;font:400 12px/1.5 var(--mono);color:var(--text3)">The words on every screen and every error message, for every workspace. Edits wait as drafts until you publish them together; a published release can be rolled back. Anything you never edit keeps the wording that ships with Uncava.</div>
+              </div>
+              <div role="tablist" aria-label="Screen text view" style="display:inline-flex;border-radius:7px;border:1px solid var(--line);padding:2px">
+                <button role="tab" aria-selected="{{ stOnEdit }}" data-view="edit" onClick="{{ stSetView }}" style="{{ stEditTabStyle }}">Edit</button>
+                <button role="tab" aria-selected="{{ stOnReleases }}" data-view="releases" onClick="{{ stSetView }}" style="{{ stReleasesTabStyle }}">Releases</button>
+              </div>
+            </div>
+
+            <sc-if value="{{ stPreviewing }}">
+              <div role="status" style="margin-bottom:14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-radius:8px;border:1px solid var(--u-accent);background:var(--u-accent-tint);padding:10px 14px">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--u-accent)"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                <span style="flex:1;min-width:200px;font:400 12.5px/1.5 var(--sans);color:var(--text)">Previewing unpublished text. Only you see it, in this tab — open any screen to check the wording in place.</span>
+                <button onClick="{{ stTogglePreview }}" style="border-radius:6px;padding:6px 12px;font:500 12.5px var(--sans);color:var(--text);background:var(--panel);border:1px solid var(--line);cursor:pointer">Exit preview</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ stOnEdit }}">
+              <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
+                <nav aria-label="Screens" style="width:240px;max-width:100%;flex:none;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:6px">
+                  <div style="padding:8px 10px 4px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Screens</div>
+                  <sc-for list="{{ stScreenGroups }}" as="g" hint-placeholder-count="3">
+                    <button data-group="{{ g.id }}" onClick="{{ stPickGroup }}" aria-current="{{ g.current }}" style="{{ g.style }}" style-hover="background:var(--panel);color:var(--text)">
+                      <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.title }}</span>
+                      <sc-if value="{{ g.hasDrafts }}"><span title="{{ g.draftTitle }}" style="flex:none;border-radius:999px;padding:1px 7px;font:600 10px var(--mono);color:var(--on-amber);background:var(--amber-btn)">{{ g.drafts }}</span></sc-if>
+                      <span style="flex:none;font:400 11px var(--mono);color:var(--text3)">{{ g.count }}</span>
+                    </button>
+                  </sc-for>
+                  <div style="padding:12px 10px 4px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Error messages</div>
+                  <sc-for list="{{ stErrorGroups }}" as="g" hint-placeholder-count="4">
+                    <button data-group="{{ g.id }}" onClick="{{ stPickGroup }}" aria-current="{{ g.current }}" style="{{ g.style }}" style-hover="background:var(--panel);color:var(--text)">
+                      <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.title }}</span>
+                      <sc-if value="{{ g.hasDrafts }}"><span title="{{ g.draftTitle }}" style="flex:none;border-radius:999px;padding:1px 7px;font:600 10px var(--mono);color:var(--on-amber);background:var(--amber-btn)">{{ g.drafts }}</span></sc-if>
+                      <span style="flex:none;font:400 11px var(--mono);color:var(--text3)">{{ g.count }}</span>
+                    </button>
+                  </sc-for>
+                </nav>
+
+                <div style="min-width:0;flex:1">
+                  <div style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                    <input value="{{ stQuery }}" onChange="{{ stOnQuery }}" placeholder="Search every screen's text" aria-label="Search screen text" style="width:280px;max-width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 11px;font:400 13px var(--mono);color:var(--text);outline:none">
+                    <sc-for list="{{ stFilterChips }}" as="f">
+                      <button data-filter="{{ f.id }}" onClick="{{ stSetFilter }}" aria-pressed="{{ f.on }}" style="{{ f.style }}">{{ f.label }}</button>
+                    </sc-for>
+                  </div>
+                  <div style="margin-bottom:10px;font:400 11.5px var(--mono);color:var(--text3)">{{ stListCaption }}</div>
+
+                  <sc-if value="{{ stNoRows }}">
+                    <div style="border-radius:10px;border:1px dashed var(--line);background:var(--panel2);padding:28px 20px;text-align:center;font:400 12.5px var(--mono);color:var(--text3)">Nothing here matches. Clear the search or pick another filter.</div>
+                  </sc-if>
+
+                  <sc-for list="{{ stRows }}" as="r" hint-placeholder-count="4">
+                    <div data-screen-label="Screen text row" style="margin-bottom:10px;border-radius:10px;border:1px solid {{ r.border }};background:var(--panel2);padding:14px 16px">
+                      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+                        <span style="font:600 13px var(--sans);color:var(--text)">{{ r.label }}</span>
+                        <span style="{{ r.kindStyle }}">{{ r.kind }}</span>
+                        <sc-if value="{{ r.hasStatus }}"><span style="{{ r.statusStyle }}">{{ r.status }}</span></sc-if>
+                        <span style="margin-left:auto;font:400 10.5px var(--mono);color:var(--text3)">{{ r.key }}</span>
+                      </div>
+                      <div style="margin-top:3px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">{{ r.where }}</div>
+                      <sc-if value="{{ r.showsDefault }}">
+                        <div style="margin-top:10px;border-left:2px solid var(--line);padding:2px 0 2px 10px">
+                          <div style="font:600 9.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Default</div>
+                          <div style="margin-top:2px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">{{ r.defaultText }}</div>
+                        </div>
+                      </sc-if>
+                      <textarea data-key="{{ r.key }}" value="{{ r.value }}" onChange="{{ stOnDraft }}" aria-label="Text for {{ r.label }}" rows="{{ r.rows }}" style="margin-top:10px;width:100%;box-sizing:border-box;resize:vertical;border-radius:6px;border:1px solid {{ r.inputBorder }};background:var(--panel);padding:9px 11px;font:400 13px/1.5 var(--sans);color:var(--text);outline:none"></textarea>
+                      <sc-if value="{{ r.error }}"><div role="alert" style="margin-top:6px;font:400 11.5px var(--mono);color:var(--red)">{{ r.error }}</div></sc-if>
+                      <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+                        <sc-for list="{{ r.placeholders }}" as="ph">
+                          <span title="Keep this: the screen fills it in" style="border-radius:4px;padding:2px 7px;font:500 11px var(--mono);color:var(--u-accent);background:var(--u-accent-tint)">{{ ph.label }}</span>
+                        </sc-for>
+                        <span style="font:400 11px var(--mono);color:{{ r.countColor }}">{{ r.count }}</span>
+                        <span style="margin-left:auto;display:flex;gap:4px">
+                          <sc-if value="{{ r.canDiscard }}"><button data-key="{{ r.key }}" onClick="{{ stDiscard }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Discard draft</button></sc-if>
+                          <sc-if value="{{ r.canReset }}"><button data-key="{{ r.key }}" onClick="{{ stReset }}" style="border-radius:5px;padding:4px 9px;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">Reset to default</button></sc-if>
+                        </span>
+                      </div>
+                    </div>
+                  </sc-for>
+
+                  <details style="margin-top:16px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:12px 16px">
+                    <summary style="cursor:pointer;font:600 12.5px var(--sans);color:var(--text)">How we write screen text</summary>
+                    <ul style="margin:10px 0 0;padding-left:18px;font:400 12px/1.7 var(--mono);color:var(--text2)">
+                      <li>Say what happened, then what the person can do next.</li>
+                      <li>Say why only when we know it. Never guess a cause.</li>
+                      <li>Offer "Try again" only when trying again can work.</li>
+                      <li>Never blame the person, and never name a vendor or an internal word.</li>
+                      <li>Keep every <span style="color:var(--u-accent)">{placeholder}</span>: the screen fills it in.</li>
+                    </ul>
+                  </details>
+                </div>
+              </div>
+
+              <div style="position:sticky;bottom:0;margin:20px -28px -60px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-top:1px solid var(--line);background:var(--panel);padding:12px 112px 12px 28px">
+                <span style="flex:1;min-width:180px;font:400 12.5px var(--mono);color:var(--text2)">{{ stFootLabel }}</span>
+                <button onClick="{{ stTogglePreview }}" disabled="{{ stNothingDrafted }}" style="{{ stPreviewStyle }}">{{ stPreviewLabel }}</button>
+                <button onClick="{{ stOpenPublish }}" disabled="{{ stNothingDrafted }}" style="{{ stPublishStyle }}" style-hover="filter:brightness(1.05)">Publish…</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ stOnReleases }}">
+              <div style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:4px 16px">
+                <sc-for list="{{ stReleaseRows }}" as="rl" hint-placeholder-count="3">
+                  <div style="{{ rl.rowStyle }}">
+                    <span style="flex:none;width:44px;font:600 13px var(--mono);color:var(--text)">#{{ rl.number }}</span>
+                    <div style="min-width:0;flex:1">
+                      <div style="font:500 13px var(--sans);color:var(--text)">{{ rl.note }}</div>
+                      <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ rl.meta }}</div>
+                    </div>
+                    <sc-if value="{{ rl.live }}"><span style="border-radius:999px;padding:2px 8px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;background:var(--green-dim);color:var(--green)">Live</span></sc-if>
+                    <sc-if value="{{ rl.restorable }}"><button data-number="{{ rl.number }}" onClick="{{ stRestore }}" style="border-radius:6px;padding:6px 12px;font:500 12.5px var(--sans);color:var(--text);background:var(--panel);border:1px solid var(--line);cursor:pointer">Restore</button></sc-if>
+                  </div>
+                </sc-for>
+              </div>
+              <p style="margin:12px 2px 0;max-width:640px;font:400 11.5px/1.5 var(--mono);color:var(--text3)">Restoring publishes that release's wording again as a new release, so nothing is lost and the restore can itself be undone. Drafts you have not published stay as they are.</p>
+            </sc-if>
+          </div>
+        </sc-if>
       </div>
     </main>
   </div>
@@ -1422,6 +1547,27 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><path d="M9.9 2.6 11 5.9a2 2 0 0 0 1.3 1.3l3.3 1.1-3.3 1.1a2 2 0 0 0-1.3 1.3L9.9 14l-1.1-3.3a2 2 0 0 0-1.3-1.3L4.2 8.3l3.3-1.1a2 2 0 0 0 1.3-1.3ZM18 14l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6Z"></path></svg>
     Ask
   </a>
+
+  <!-- Publish screen text dialog -->
+  <sc-if value="{{ stPublishOpen }}" hint-placeholder-val="{{ false }}">
+    <div data-screen-label="Publish screen text" onClick="{{ stClosePublish }}" style="position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:rgba(15,20,30,.4);padding:16px">
+      <div role="dialog" aria-modal="true" aria-label="Publish screen text" onClick="{{ stStop }}" style="width:480px;max-width:100%;border-radius:12px;border:1px solid var(--line);background:var(--panel);padding:22px;box-shadow:var(--shadow)">
+        <div style="font:600 16px var(--sans);color:var(--text)">Publish {{ stDraftCountLabel }}?</div>
+        <div style="margin-top:6px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">Everyone sees the new wording within a minute, in every workspace. You can roll it back from Releases.</div>
+        <ul style="margin:12px 0 0;padding-left:18px;font:400 12px/1.6 var(--mono);color:var(--text2)">
+          <sc-for list="{{ stPublishList }}" as="pl"><li>{{ pl.label }}</li></sc-for>
+        </ul>
+        <label style="margin-top:14px;display:block">
+          <span style="display:block;margin-bottom:6px;font:500 12px var(--sans);color:var(--text2)">Release note <span style="color:var(--text3)">(optional)</span></span>
+          <input value="{{ stNote }}" onChange="{{ stOnNote }}" placeholder="e.g. Clearer sign-in errors" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:9px 11px;font:400 13px var(--mono);color:var(--text);outline:none">
+        </label>
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px">
+          <button onClick="{{ stClosePublish }}" style="border-radius:6px;padding:9px 14px;font:500 13px var(--sans);color:var(--text);background:var(--panel);border:1px solid var(--line);cursor:pointer">Cancel</button>
+          <button onClick="{{ stPublish }}" style="border-radius:6px;padding:9px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Publish</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
 
   <!-- Import templates dialog -->
   <sc-if value="{{ importOpen }}" hint-placeholder-val="{{ false }}">
@@ -1745,7 +1891,7 @@
 </div>
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">SE</text></svg></template>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;profile&quot;,&quot;options&quot;:[&quot;profile&quot;,&quot;notifications&quot;,&quot;security&quot;,&quot;workspaces&quot;,&quot;api-keys&quot;,&quot;ai-apps&quot;,&quot;general&quot;,&quot;members&quot;,&quot;candidate-tags&quot;,&quot;task-presets&quot;,&quot;pipeline-stages&quot;,&quot;integrations&quot;,&quot;templates&quot;,&quot;template-editor&quot;,&quot;library&quot;,&quot;library-editor&quot;,&quot;screen-text&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;superAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;isAdmin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;deleteOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;providerOnly&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;workspaces&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;one&quot;,&quot;options&quot;:[&quot;one&quot;,&quot;several&quot;,&quot;several-with-invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;newWorkspaceStage&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;organisation&quot;,&quot;options&quot;:[&quot;organisation&quot;,&quot;invite&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeyDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;create&quot;,&quot;reveal&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;apiKeysEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;mine&quot;,&quot;options&quot;:[&quot;mine&quot;,&quot;all&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsDialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;revoke&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;aiAppsEmpty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;screenTextView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;edit&quot;,&quot;options&quot;:[&quot;edit&quot;,&quot;releases&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;screenTextPreview&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;screenTextPublishOpen&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -1772,7 +1918,7 @@ class Component extends DCLogic {
     this.DISC_ORDER = Object.keys(this.DISC);
     this.SEN = { BOARD: 'Board', C_SUITE: 'C-Suite', N_MINUS_1: 'N-1', N_MINUS_2: 'N-2', N_MINUS_3: 'N-3' };
     this.SEN_ORDER = Object.keys(this.SEN);
-    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library' };
+    this.LABELS = { 'api-keys': 'API keys', 'ai-apps': 'Connected AI apps', 'candidate-tags': 'Candidate tags', 'task-presets': 'Task presets', notifications: 'Notifications', 'pipeline-stages': 'Pipeline stages', integrations: 'Integrations', profile: 'Profile', security: 'Security', workspaces: 'Workspaces', general: 'General', members: 'Members', templates: 'Templates', 'template-editor': 'Templates', library: 'Template library', 'library-editor': 'Template library', 'screen-text': 'Screen text' };
 
     const t = (code, title, discipline, seniority, summary, keywords, extra) => Object.assign({ code, title, discipline, seniority, summary, keywords, fallback: false, copies: 0, revisedAt: '02 Sep 2026', revisedBy: null }, extra || {});
     this.library = [
@@ -1849,12 +1995,51 @@ class Component extends DCLogic {
     const aiDialog = urlProp('aiAppsDialog') || props.aiAppsDialog || 'none';
     const aiEmpty = (urlProp('aiAppsEmpty') || String(!!props.aiAppsEmpty)) === 'true';
     if (aiDialog !== 'none' || urlProp('aiAppsView') || urlProp('aiAppsEmpty')) section = 'ai-apps';
+    const stView = urlProp('screenTextView') || props.screenTextView || 'edit';
+    const stPreview = (urlProp('screenTextPreview') || String(!!props.screenTextPreview)) === 'true';
+    const stPublishOpen = (urlProp('screenTextPublishOpen') || String(!!props.screenTextPublishOpen)) === 'true';
+    if (urlProp('screenTextView') || urlProp('screenTextPreview') || urlProp('screenTextPublishOpen')) section = 'screen-text';
 
     let collapsed = false;
     try { collapsed = localStorage.getItem('lm-side-collapsed') === '1'; } catch (e) {}
 
+    this.SCREEN_TEXT = [
+      { id: 'signin', title: 'Sign in', entries: [
+        ['title', 'Page title', 'Title', 'Sign in to Uncava', 'The heading of the sign-in page'],
+        ['subtitle', 'Line under the title', 'Help', 'Use your work email.', 'Under the heading, above the email field'],
+        ['submit', 'Sign-in button', 'Button', 'Sign in', 'The button under the password field'],
+        ['forgot', 'Forgotten password link', 'Label', 'Forgot your password?', 'Beside the password field'],
+      ] },
+      { id: 'signup', title: 'Sign up', entries: [
+        ['title', 'Page title', 'Title', 'Create your workspace', 'The heading of step one of sign-up'],
+      ] },
+      { id: 'errors-general', title: 'Error messages · Everywhere', entries: [
+        ['generic', 'Generic failure', 'Error', 'Something went wrong. Try again.', 'Any failure with no reference to quote'],
+        ['unexpected', 'Unexpected failure', 'Error', 'Something went wrong on our side. Try again, or contact support and quote reference {reference}.', 'Any failure we did not expect; {reference} is the request’s support reference'],
+        ['RATE_LIMITED', 'Too many requests', 'Error', 'Too many requests in a short time. Wait a minute and try again.', 'Shown when someone acts faster than the limit allows'],
+      ] },
+      { id: 'errors-account', title: 'Error messages · Account and workspace', entries: [
+        ['LAST_ADMIN', 'Last admin', 'Error', 'A workspace must keep at least one admin.', 'Settings → Members, when removing or demoting the only admin'],
+        ['CURRENT_PASSWORD_INVALID', 'Wrong current password', 'Error', 'That is not your current password.', 'Settings → Security, when changing the password'],
+      ] },
+      { id: 'errors-candidates', title: 'Error messages · Candidates and pipeline', entries: [
+        ['PERSON_DOCUMENT_DUPLICATE', 'Duplicate document', 'Error', 'That file is already on this candidate.', 'A candidate’s Documents tab, when the same file is uploaded twice'],
+        ['CONTACT_LOOKUP_NO_PROFILE', 'Contact lookup needs a profile', 'Error', 'Add this person’s LinkedIn profile URL first.', 'The Contact section, when Find email or Find phone is pressed'],
+      ] },
+      { id: 'errors-outreach', title: 'Error messages · Outreach, mailbox and meetings', entries: [
+        ['MEETING_SLOT_TAKEN', 'Time no longer free', 'Error', 'That time is no longer free. Pick another.', 'Book a call, when the slot was taken meanwhile'],
+      ] },
+    ];
     this.state = {
       section, dark: true, collapsed, toast: '', wsMenuOpen: false,
+      stView: stView === 'releases' ? 'releases' : 'edit', stPreview, stPublishOpen, stGroup: 'signin', stQuery: '', stFilter: 'all', stNote: '',
+      stDrafts: { 'errors-candidates.PERSON_DOCUMENT_DUPLICATE': 'This file is already on this candidate. Upload a different version, or rename it first.', 'signin.subtitle': 'Sign in with your work email, or with Google or LinkedIn.', 'errors-general.unexpected': 'Something broke. Contact support.' },
+      stPublished: { 'errors-account.LAST_ADMIN': 'Every workspace needs an admin. Make someone else an admin first.', 'signin.title': 'Welcome back' },
+      stReleases: [
+        { number: 3, note: 'Clearer admin and sign-in wording', by: 'Yara Haddad', on: '14 Oct 2026, 10:12', changed: 2 },
+        { number: 2, note: 'Contact lookup errors say what to do next', by: 'Yara Haddad', on: '02 Oct 2026, 16:40', changed: 5 },
+        { number: 1, note: 'First edits', by: 'Omar Haddad', on: '21 Sep 2026, 09:05', changed: 3 },
+      ],
       ctags: [['openWork', 'Open to work', 'green', 4], ['relocate', 'Open to relocate', 'accent', 4], ['passive', 'Passive', 'neutral', 2], ['referral', 'Referral', 'violet', 2], ['prior', 'Prior placement', 'adjacent', 1], ['interviewed', 'Interviewed before', 'inferred', 1], ['boardReady', 'Board-ready', 'neutral', 0, true]]
         .map(([id, label, colour, count, retired]) => ({ id, label, colour, count, retired: !!retired })),
       ctNew: '', ctEditing: null, ctDraft: '',
@@ -2071,12 +2256,127 @@ class Component extends DCLogic {
     return out;
   }
 
+  screenTextVals(sec) {
+    const st = this.state;
+    const pill = 'display:inline-flex;border-radius:999px;padding:2px 8px;font:600 9.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;';
+    const holes = (text) => [...new Set((text.match(/\{[A-Za-z][A-Za-z0-9]*\}/g) || []))].sort();
+    const all = this.SCREEN_TEXT.flatMap((g) => g.entries.map(([local, label, kind, text, where]) => ({
+      key: g.id + '.' + local, group: g.id, label, kind, defaultText: text, where, max: Math.max(300, text.length),
+    })));
+    const errorOf = (e, value) => {
+      if (!value.trim()) return 'Enter the text, or reset it to the default';
+      if (value.length > e.max) return 'Keep it to ' + e.max + ' characters or fewer';
+      if (holes(value).join() !== holes(e.defaultText).join()) return 'Keep every {placeholder} the default has, and add no new ones';
+      if (/<\s*[\/!A-Za-z]/.test(value)) return 'Screen text is plain words. Take out the < > tags';
+      return '';
+    };
+    const draftKeys = Object.keys(st.stDrafts);
+    const q = st.stQuery.trim().toLowerCase();
+    const searching = q.length > 0;
+    const matches = (e) => !searching || [e.label, e.defaultText, e.where, e.key, st.stDrafts[e.key] || '', st.stPublished[e.key] || ''].join(' ').toLowerCase().includes(q);
+    const passes = (e) => st.stFilter === 'all' || (st.stFilter === 'changed' && (st.stPublished[e.key] || st.stDrafts[e.key]))
+      || (st.stFilter === 'drafts' && st.stDrafts[e.key] !== undefined) || (st.stFilter === 'errors' && e.group.startsWith('errors-'));
+    const visible = all.filter((e) => (searching || st.stFilter !== 'all' || e.group === st.stGroup) && matches(e) && passes(e));
+    const groupTitle = (id) => (this.SCREEN_TEXT.find((g) => g.id === id) || {}).title;
+    const rows = visible.map((e) => {
+      const draft = st.stDrafts[e.key], published = st.stPublished[e.key];
+      const value = draft !== undefined ? draft : published !== undefined ? published : e.defaultText;
+      const error = draft !== undefined ? errorOf(e, draft) : '';
+      const [status, tone] = draft !== undefined ? ['Unpublished draft', 'background:var(--amber-dim);color:var(--amber)']
+        : published !== undefined ? ['Edited', 'background:var(--sky-dim);color:var(--sky)'] : ['', ''];
+      return {
+        key: e.key, label: (searching || st.stFilter !== 'all' ? groupTitle(e.group) + ' · ' : '') + e.label, where: e.where,
+        kind: e.kind, kindStyle: pill + 'border:1px solid var(--line-soft);background:var(--panel);color:var(--text2)',
+        hasStatus: !!status, status, statusStyle: pill + tone,
+        showsDefault: value !== e.defaultText, defaultText: e.defaultText, value, rows: value.length > 90 ? 3 : 2,
+        error, inputBorder: error ? 'var(--red)' : draft !== undefined ? 'var(--amber)' : 'var(--line)',
+        border: error ? 'var(--red)' : 'var(--line-soft)',
+        placeholders: holes(e.defaultText).map((label) => ({ label })),
+        count: value.length + ' / ' + e.max, countColor: value.length > e.max ? 'var(--red)' : 'var(--text3)',
+        canDiscard: draft !== undefined, canReset: value !== e.defaultText,
+      };
+    });
+    const groupRows = this.SCREEN_TEXT.map((g) => {
+      const on = !searching && st.stFilter === 'all' && st.stGroup === g.id;
+      const drafts = g.entries.filter(([local]) => st.stDrafts[g.id + '.' + local] !== undefined).length;
+      return { id: g.id, title: g.title.replace('Error messages · ', ''), error: g.id.startsWith('errors-'), count: g.entries.length, drafts, hasDrafts: drafts > 0, current: on,
+        draftTitle: drafts + (drafts === 1 ? ' unpublished draft' : ' unpublished drafts'),
+        style: 'display:flex;width:100%;align-items:center;gap:8px;border-radius:6px;padding:8px 10px;text-align:left;font:400 13px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel)' : 'none') + ';color:' + (on ? 'var(--text)' : 'var(--text2)') };
+    });
+    const chip = (id, label) => ({ id, label, on: st.stFilter === id,
+      style: 'border-radius:999px;padding:5px 11px;font:500 12px var(--sans);cursor:pointer;border:1px solid ' + (st.stFilter === id ? 'var(--u-accent)' : 'var(--line)') + ';background:' + (st.stFilter === id ? 'var(--u-accent-tint)' : 'var(--panel)') + ';color:' + (st.stFilter === id ? 'var(--u-accent)' : 'var(--text2)') });
+    const tab = (on) => 'border-radius:5px;padding:6px 14px;font:500 12.5px var(--sans);border:none;cursor:pointer;background:' + (on ? 'var(--panel2)' : 'none') + ';color:' + (on ? 'var(--text)' : 'var(--text3)');
+    const invalid = draftKeys.filter((k) => { const e = all.find((x) => x.key === k); return e && errorOf(e, st.stDrafts[k]); });
+    const n = draftKeys.length;
+    const nothing = n === 0 || invalid.length > 0;
+    const caption = searching ? rows.length + (rows.length === 1 ? ' match' : ' matches') + ' across every screen'
+      : st.stFilter !== 'all' ? rows.length + ' shown across every screen' : groupTitle(st.stGroup) + ' · ' + rows.length + ' pieces of text';
+    const latest = st.stReleases[0] ? st.stReleases[0].number : 0;
+    return {
+      isScreenText: sec === 'screen-text', stOnEdit: st.stView === 'edit', stOnReleases: st.stView === 'releases',
+      stEditTabStyle: tab(st.stView === 'edit'), stReleasesTabStyle: tab(st.stView === 'releases'),
+      stPreviewing: st.stPreview, stScreenGroups: groupRows.filter((g) => !g.error), stErrorGroups: groupRows.filter((g) => g.error), stRows: rows, stNoRows: rows.length === 0, stQuery: st.stQuery,
+      stListCaption: caption,
+      stFilterChips: [chip('all', 'All'), chip('changed', 'Changed'), chip('drafts', 'Unpublished'), chip('errors', 'Error messages')],
+      stFootLabel: n === 0 ? 'No unpublished changes. Release #' + latest + ' is live.'
+        : invalid.length ? invalid.length + (invalid.length === 1 ? ' draft needs' : ' drafts need') + ' fixing before you can publish'
+        : n + (n === 1 ? ' unpublished change' : ' unpublished changes') + ' · release #' + latest + ' is live',
+      stNothingDrafted: nothing, stPreviewLabel: st.stPreview ? 'Exit preview' : 'Preview',
+      stPreviewStyle: 'border-radius:6px;padding:9px 14px;font:500 13px var(--sans);color:var(--text);background:var(--panel);border:1px solid var(--line);cursor:' + (nothing ? 'not-allowed;opacity:.5' : 'pointer'),
+      stPublishStyle: 'border-radius:6px;padding:9px 14px;font:500 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:' + (nothing ? 'not-allowed;opacity:.5' : 'pointer'),
+      stPublishOpen: st.stPublishOpen, stNote: st.stNote,
+      stDraftCountLabel: n + (n === 1 ? ' change' : ' changes'),
+      stPublishList: draftKeys.map((k) => { const e = all.find((x) => x.key === k); return { label: e ? groupTitle(e.group) + ' · ' + e.label : k }; }),
+      stReleaseRows: st.stReleases.map((r, i) => ({ number: r.number, note: r.note || 'No note',
+        meta: r.on + ' · ' + r.by + ' · ' + r.changed + (r.changed === 1 ? ' change' : ' changes') + (r.restoredFrom ? ' · restored #' + r.restoredFrom : ''),
+        live: i === 0, restorable: i > 0,
+        rowStyle: 'display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:12px 0' + (i ? ';border-top:1px solid var(--line-soft)' : '') })),
+      stSetView: (e) => this.setState({ stView: e.currentTarget.dataset.view }),
+      stPickGroup: (e) => this.setState({ stGroup: e.currentTarget.dataset.group, stQuery: '', stFilter: 'all' }),
+      stOnQuery: (e) => this.setState({ stQuery: e.target.value }),
+      stSetFilter: (e) => this.setState({ stFilter: e.currentTarget.dataset.filter }),
+      stOnDraft: (e) => {
+        const key = e.target.dataset.key, value = e.target.value;
+        const entry = all.find((x) => x.key === key);
+        const live = st.stPublished[key] !== undefined ? st.stPublished[key] : entry.defaultText;
+        const drafts = Object.assign({}, st.stDrafts);
+        if (value === live) delete drafts[key]; else drafts[key] = value;
+        this.setState({ stDrafts: drafts });
+      },
+      stDiscard: (e) => { const drafts = Object.assign({}, st.stDrafts); delete drafts[e.currentTarget.dataset.key]; this.setState({ stDrafts: drafts }); },
+      stReset: (e) => {
+        const key = e.currentTarget.dataset.key, entry = all.find((x) => x.key === key);
+        const drafts = Object.assign({}, st.stDrafts);
+        if (st.stPublished[key] !== undefined) drafts[key] = entry.defaultText; else delete drafts[key];
+        this.setState({ stDrafts: drafts });
+      },
+      stTogglePreview: () => { if (!nothing || st.stPreview) this.setState({ stPreview: !st.stPreview }); },
+      stOpenPublish: () => { if (!nothing) this.setState({ stPublishOpen: true }); },
+      stClosePublish: () => this.setState({ stPublishOpen: false }),
+      stStop: (e) => e.stopPropagation(),
+      stOnNote: (e) => this.setState({ stNote: e.target.value }),
+      stPublish: () => {
+        const published = Object.assign({}, st.stPublished);
+        draftKeys.forEach((k) => { const e = all.find((x) => x.key === k); if (e && st.stDrafts[k] === e.defaultText) delete published[k]; else published[k] = st.stDrafts[k]; });
+        const release = { number: latest + 1, note: st.stNote.trim(), by: 'Yara Haddad', on: '21 Oct 2026, 11:30', changed: n };
+        this.setState({ stPublished: published, stDrafts: {}, stPublishOpen: false, stPreview: false, stNote: '', stReleases: [release].concat(st.stReleases) });
+        this.showToast('Published release #' + release.number + ' — live everywhere within a minute');
+      },
+      stRestore: (e) => {
+        const number = Number(e.currentTarget.dataset.number);
+        const release = { number: latest + 1, note: 'Restored release #' + number, by: 'Yara Haddad', on: '21 Oct 2026, 11:32', changed: 2, restoredFrom: number };
+        this.setState({ stReleases: [release].concat(st.stReleases) });
+        this.showToast('Release #' + number + ' is live again as #' + release.number);
+      },
+    };
+  }
+
   renderVals() {
     const st = this.state, I = this.I, props = this.props;
     const isAdmin = props.isAdmin !== false, superAdmin = props.superAdmin !== false;
     let sec = st.section;
     if (!isAdmin && ['general', 'members', 'candidate-tags', 'task-presets', 'templates', 'template-editor'].includes(sec)) sec = 'profile';
-    if (!superAdmin && ['library', 'library-editor'].includes(sec)) sec = 'profile';
+    if (!superAdmin && ['library', 'library-editor', 'screen-text'].includes(sec)) sec = 'profile';
     const scope = this.scopeOf(sec);
     const isTplList = sec === 'templates' || sec === 'library';
     const isEditor = sec === 'template-editor' || sec === 'library-editor';
@@ -2091,7 +2391,7 @@ class Component extends DCLogic {
     const navGroups = [{ label: 'Account', items: [item('profile', 'Profile', I.profile), item('notifications', 'Notifications', 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0'), item('security', 'Security', I.lock), item('workspaces', 'Workspaces', 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'), item('api-keys', 'API keys', I.key), item('ai-apps', 'Connected AI apps', I.sparkle)] }];
     if (isAdmin) navGroups.push({ label: 'Workspace', items: [item('general', 'General', I.settings), item('members', 'Members', I.members), item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('candidate-tags', 'Candidate tags', 'M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4ZM7.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1Z'), item('task-presets', 'Task presets', 'M3 5l2 2 4-4M3 17l2 2 4-4M13 6h8M13 12h8M13 18h8'), item('pipeline-stages', 'Pipeline stages', I.columns), item('integrations', 'Integrations', 'M9 2v6M15 2v6M6 8h12v4a6 6 0 0 1-12 0V8ZM12 18v4'), item('templates', 'Templates', I.file)] });
     else navGroups.push({ label: 'Workspace', items: [item('billing', 'Billing', 'M2 5h20v14H2zM2 10h20M6 15h4'), item('pipeline-stages', 'Pipeline stages', I.columns)] });
-    if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position)] });
+    if (superAdmin) navGroups.push({ label: 'Platform', items: [item('library', 'Template library', I.position), item('screen-text', 'Screen text', 'M4 7V4h16v3M9 20h6M12 4v16')] });
 
     const inputStyle = (err, bg) => 'width:100%;border-radius:6px;border:1px solid ' + (err ? 'var(--red)' : 'var(--line)') + ';background:' + (bg || 'var(--panel)') + ';padding:10px 12px;font:400 13px var(--mono);color:var(--text);outline:none';
     const primary = (disabled) => 'display:flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;padding:10px 14px;font:500 13.5px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:' + (disabled ? 'not-allowed;opacity:.5' : 'pointer');
@@ -2468,7 +2768,8 @@ class Component extends DCLogic {
       closeNewWorkspace: () => this.setState({ newWorkspaceOpen: false }),
       newWorkspaceContinue: () => this.setState({ newWorkspaceStage: 'invite', toast: 'Workspace created — you are now in it' }),
       newWorkspaceFinish: () => this.setState({ newWorkspaceOpen: false, newWorkspaceStage: 'organisation' }),
-      contentStyle: isTplList ? 'display:flex;height:100%;width:100%;flex-direction:column' : 'max-width:760px;margin:0 auto;padding:28px 28px 60px',
+      ...this.screenTextVals(sec),
+      contentStyle: isTplList ? 'display:flex;height:100%;width:100%;flex-direction:column' : sec === 'screen-text' ? 'max-width:1080px;margin:0 auto;padding:28px 28px 60px' : 'max-width:760px;margin:0 auto;padding:28px 28px 60px',
       wsMenuOpen: st.wsMenuOpen, navGroups,
       sideWidth: c ? '56px' : '210px', labelDisplay: c ? 'none' : 'inline', rowJustify: c ? 'center' : 'flex-start',
       themeLabel: st.dark ? 'Light mode' : 'Dark mode', themeIcon: st.dark ? I.sun : I.moon,

@@ -31,8 +31,22 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 - Internal words: triage, enrichment, seat, grant.
 
 `apps/web/src/lib/copyGuard.test.ts` fails when "Nylas", "this deployment" or "triage" reaches on-screen
-copy; `lib/errorCodes.coverage.test.ts` holds the error messages to the same list. A mockup-backed
+copy (the list is `copy/neverOnScreen.ts`, which the catalogue test and the server's screen text check read too); `lib/errorCodes.coverage.test.ts` holds the error messages to the same list. A mockup-backed
 exception is listed in the guard by its full sentence.
+
+## How we write messages
+
+What Settings → Platform → Screen text shows a super admin beside every sentence, and what any new copy follows:
+
+- Say what happened, then what the person can do next.
+- Say why only when we know it. Never guess a cause.
+- Offer "Try again" only when trying again can work.
+- Never blame the person, and never name a vendor or an internal word (the list above).
+- Keep every `{placeholder}`: the screen fills it in. The server refuses an edit that drops or adds one.
+
+A super admin's edit reaches every workspace; an edit nobody publishes changes nothing. The defaults live in
+`apps/web/src/copy/catalog/`, one file per screen group, and `catalogFile.test.ts` keeps the server's copy
+(`apps/api/src/main/resources/screen-text/catalog.json`) in step.
 
 ## Known, left as the mockups draw them
 
