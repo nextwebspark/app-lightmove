@@ -7,6 +7,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.OutreachStepState;
 import app.lightmove.api.outreach.dto.CandidateOutreachResponse;
 import app.lightmove.api.outreach.dto.OutreachCountsResponse;
@@ -70,8 +71,8 @@ public class OutreachMonitorService {
         }
         OutreachEnrollment latest = runs.getFirst();
         OutreachRunResponse run = runsOf(workspaceId, projectId, List.of(latest)).getFirst();
-        List<OutreachMessage> sent = messages.findByWorkspaceIdAndEnrollmentIdInOrderBySentAtAsc(workspaceId,
-                List.of(latest.getId()));
+        List<OutreachMessage> sent = messages.findByWorkspaceIdAndEnrollmentIdInAndKindOrderBySentAtAsc(workspaceId,
+                List.of(latest.getId()), MessageKind.SEQUENCE_STEP);
         return new CandidateOutreachResponse(run, stepsOf(latest, run.stepCount(), sent));
     }
 
@@ -101,7 +102,7 @@ public class OutreachMonitorService {
                 .orElse(null);
     }
 
-    private List<OutreachRunResponse> runsOf(UUID workspaceId, UUID projectId, List<OutreachEnrollment> shown) {
+    List<OutreachRunResponse> runsOf(UUID workspaceId, UUID projectId, List<OutreachEnrollment> shown) {
         if (shown.isEmpty()) {
             return List.of();
         }
@@ -138,7 +139,7 @@ public class OutreachMonitorService {
         }).toList();
     }
 
-    private static Instant endedAtOf(OutreachEnrollment enrollment) {
+    static Instant endedAtOf(OutreachEnrollment enrollment) {
         return switch (enrollment.getStatus()) {
             case REPLIED -> enrollment.getRepliedAt();
             case BOUNCED, STOPPED, BOOKED -> enrollment.getStoppedAt();

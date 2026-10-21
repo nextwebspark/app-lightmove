@@ -50,7 +50,7 @@ public class PersonTimelineService {
             "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind", "tagId", "tag",
             "ownerUserId", "owner", "documentId", "version", "category", "versions", "fromLabel", "toLabel",
             "text", "dueAt", "cleared", "visible", "taskId", "title", "taskKind", "assignee", "previousAssignee",
-            "rule");
+            "rule", "sequenceId", "sequence", "step", "reason", "startsAt", "viaLink");
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
@@ -90,6 +90,19 @@ public class PersonTimelineService {
         Map<UUID, Person> persons = people.findByWorkspaceIdAndIdIn(workspaceId, personIds).stream()
                 .collect(Collectors.toMap(Person::getId, Function.identity()));
         return pageOf(workspaceId, page, size, persons, NoteViewpoint.workspace());
+    }
+
+    /**
+     * One person's lines about one position, newest first, held to {@code kinds} — the outreach conversation's
+     * run and status events. Unpaged: a person's lines on one position are tens, and {@code limit} bounds them.
+     */
+    @Transactional(readOnly = true)
+    public List<PersonTimelineEntryResponse> positionLinesOf(UUID workspaceId, UUID personId, UUID projectId,
+                                                             Set<PersonActivityKind> kinds, int limit) {
+        Person person = people.requireInWorkspace(personId, workspaceId);
+        List<PersonActivity> lines = activity.findPositionTimeline(workspaceId, personId, projectId, kinds,
+                Limit.of(limit));
+        return entriesOf(workspaceId, lines, Map.of(person.getId(), person), NoteViewpoint.position(projectId));
     }
 
     /** Each person's latest line, for the Candidates page's Last activity column. */

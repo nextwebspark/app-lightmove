@@ -87,6 +87,14 @@ public class PositionPipelineService {
                 shown.size());
     }
 
+    /** One executive as the Pipeline draws them, for a read that shows a single person (the outreach conversation). */
+    @Transactional(readOnly = true)
+    public PipelineRowResponse rowOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        return toRow(candidate, nextActionsOf(projectId, List.of(candidate)));
+    }
+
     /**
      * The stage's rows are locked first, so two drags queue, and the row lands beside {@code after} as the
      * stage now stands rather than as the caller last read it: two rows dropped into one gap never share
