@@ -37,6 +37,15 @@ public class ScreenTextRules {
         }
     }
 
+    public boolean allows(ScreenTextCatalogEntry entry, String text) {
+        try {
+            check(entry, text);
+            return true;
+        } catch (ApiException refused) {
+            return false;
+        }
+    }
+
     private static ApiException refused(String message) {
         return ApiException.withField(ErrorCode.VALIDATION_FAILED, FIELD, message);
     }

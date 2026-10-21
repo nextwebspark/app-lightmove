@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+/** Drafts by locale and key; at most one per key (V144). */
 public interface ScreenTextDraftRepository extends JpaRepository<ScreenTextDraft, UUID> {
 
     Optional<ScreenTextDraft> findByLocaleAndTextKey(String locale, String textKey);

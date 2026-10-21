@@ -1,4 +1,4 @@
-import { applyBundle, rememberedBundle, type ScreenTextBundle } from "./store";
+import { applyBundle, isPreviewingScreenText, rememberedBundle, type ScreenTextBundle } from "./store";
 
 const LOCALE = "en";
 
@@ -12,7 +12,8 @@ export function loadScreenText(): Promise<void> {
   return fetch(`/api/v1/screen-text?locale=${LOCALE}`, { headers: { Accept: "application/json" } })
     .then((response) => (response.ok ? (response.json() as Promise<ScreenTextBundle>) : null))
     .then((bundle) => {
-      if (bundle && bundle.version !== remembered?.version) applyBundle(bundle);
+      // A super admin's preview, applied while this read was in flight, outranks it.
+      if (bundle && bundle.version !== remembered?.version && !isPreviewingScreenText()) applyBundle(bundle);
     })
     .catch(() => undefined);
 }

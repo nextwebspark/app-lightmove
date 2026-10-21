@@ -60,8 +60,9 @@ public class ScreenTextLibraryController {
     @DeleteMapping("/drafts/{key}")
     @RequirePlatformPermission(PlatformAction.SCREEN_TEXT_MANAGE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void discardDraft(@PathVariable String key, @RequestParam(defaultValue = "en") String locale) {
-        editor.discardDraft(ScreenTextLocale.of(locale), key);
+    public void discardDraft(@PathVariable String key, @RequestParam(defaultValue = "en") String locale,
+                             @RequestParam(required = false) Long version) {
+        editor.discardDraft(ScreenTextLocale.of(locale), key, version);
     }
 
     @GetMapping("/preview")

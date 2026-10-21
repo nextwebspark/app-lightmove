@@ -4,7 +4,13 @@
   "neverOnScreen": [
     "\\bNylas\\b",
     "\\bthis deployment\\b",
-    "\\btriage\\b"
+    "\\btriage\\b",
+    "\\bdeployment\\b",
+    "\\bmandate\\b",
+    "\\bcontactout\\b",
+    "\\bbright ?data\\b",
+    "\\bapollo\\b",
+    "\\blightmove\\b"
   ],
   "screens": [
     {
@@ -1133,7 +1139,7 @@
       "screen": "errors-settings",
       "kind": "error",
       "where": "Shown when: screen text nothing to publish",
-      "defaultText": "There are no unpublished changes to publish.",
+      "defaultText": "Nothing on screen would change, so nothing was published.",
       "placeholders": [],
       "maxLength": 300
     }

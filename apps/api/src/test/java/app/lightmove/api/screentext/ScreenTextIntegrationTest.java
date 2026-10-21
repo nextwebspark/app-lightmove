@@ -6,9 +6,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.positiontemplate.PositionTemplateFlowSupport;
+import app.lightmove.api.screentext.constant.ScreenTextLocale;
+import app.lightmove.api.screentext.service.ScreenTextBundles;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
@@ -22,6 +25,8 @@ class ScreenTextIntegrationTest extends PositionTemplateFlowSupport {
     private static final String PUBLIC = "/api/v1/screen-text";
     private static final String EDITOR = "/api/v1/platform/screen-text";
 
+    @Autowired private ScreenTextBundles bundles;
+
     @Test
     @DisplayName("a published edit reaches the public read; the default undoes it, and restoring its release redoes it")
     void publishResetAndRestore() throws Exception {
@@ -29,26 +34,83 @@ class ScreenTextIntegrationTest extends PositionTemplateFlowSupport {
         String key = "errors-account.LAST_ADMIN";
         String defaultText = entryOf(admin, key).get("defaultText").asText();
 
-        JsonNode draft = expect(200, putJson(admin, draftUrl(key),
-                "{\"text\":\"Every workspace needs an admin. Make someone else an admin first.\"}"));
-        assertThat(draft.get("draftText").asText()).startsWith("Every workspace needs an admin");
-        assertThat(publicEntries().has(key)).isFalse();
-        assertThat(getJson(admin, EDITOR + "/preview").at("/entries/" + key).asText())
-                .startsWith("Every workspace needs an admin");
+        try {
+            JsonNode draft = expect(200, putJson(admin, draftUrl(key),
+                    "{\"text\":\"Every workspace needs an admin. Make someone else an admin first.\"}"));
+            assertThat(draft.get("draftText").asText()).startsWith("Every workspace needs an admin");
+            JsonNode preview = getJson(admin, EDITOR + "/preview");
+            assertThat(preview.at("/entries/" + key).asText()).startsWith("Every workspace needs an admin");
+            assertThat(preview.get("version").asText()).isNotEqualTo(publicBundle().get("version").asText());
+            assertThat(publicBundle().get("entries").has(key)).isFalse();
 
-        JsonNode edited = expect(201, postJson(admin, EDITOR + "/releases", "{\"note\":\"Clearer admin wording\"}"));
-        assertThat(edited.get("changedKeys").toString()).contains(key);
-        assertThat(publicEntries().get(key).asText()).startsWith("Every workspace needs an admin");
-        assertThat(auditCount("SCREEN_TEXT_PUBLISHED", edited.get("number").asInt())).isEqualTo(1);
+            JsonNode edited = expect(201, postJson(admin, EDITOR + "/releases", "{\"note\":\"Clearer admin wording\"}"));
+            assertThat(edited.get("changedKeys").toString()).contains(key);
+            assertThat(publicBundle().get("entries").get(key).asText()).startsWith("Every workspace needs an admin");
+            assertThat(auditCount("SCREEN_TEXT_PUBLISHED", edited.get("number").asInt())).isEqualTo(1);
+            int editedNumber = edited.get("number").asInt();
 
-        resetToDefault(admin, key, defaultText);
-        assertThat(publicEntries().has(key)).isFalse();
+            resetToDefault(admin, key, defaultText);
+            assertThat(publicBundle().get("entries").has(key)).isFalse();
 
-        JsonNode restored = expect(201, postJson(admin, EDITOR + "/releases/" + edited.get("number").asInt() + "/restore", "{}"));
-        assertThat(restored.get("restoredFrom").asInt()).isEqualTo(edited.get("number").asInt());
-        assertThat(publicEntries().get(key).asText()).startsWith("Every workspace needs an admin");
+            JsonNode restored = expect(201, postJson(admin, EDITOR + "/releases/" + editedNumber + "/restore", "{}"));
+            assertThat(restored.get("restoredFrom").asInt()).isEqualTo(editedNumber);
+            assertThat(restored.get("changedKeys").toString()).contains(key);
+            assertThat(publicBundle().get("entries").get(key).asText()).startsWith("Every workspace needs an admin");
+            assertThat(auditCount("SCREEN_TEXT_RESTORED", restored.get("number").asInt())).isEqualTo(1);
 
-        resetToDefault(admin, key, defaultText);
+            expectRefused(409, "SCREEN_TEXT_NOTHING_TO_PUBLISH",
+                    postJson(admin, EDITOR + "/releases/" + restored.get("number").asInt() + "/restore", "{}"));
+        } finally {
+            resetToDefault(admin, key, defaultText);
+        }
+    }
+
+    @Test
+    @DisplayName("an override for a key the code no longer has is never served, and the next publish drops it")
+    void overridesForLostKeysAreDropped() throws Exception {
+        String admin = superAdmin();
+        String key = "errors-settings.SCREEN_TEXT_KEY_UNKNOWN";
+        String defaultText = entryOf(admin, key).get("defaultText").asText();
+        int latest = getJson(admin, EDITOR).get("latestRelease").asInt();
+        db.update("""
+                INSERT INTO app_lm_screen_text_release (locale, number, entries, changed_keys)
+                SELECT 'en', ?, coalesce(
+                    (SELECT entries FROM app_lm_screen_text_release WHERE locale = 'en' ORDER BY number DESC LIMIT 1),
+                    '{}'::jsonb) || '{"errors-general.retired": "A sentence a deploy removed."}'::jsonb, '[]'::jsonb
+                """, latest + 1);
+        bundles.evict(ScreenTextLocale.EN);
+        assertThat(publicBundle().get("entries").has("errors-general.retired")).isFalse();
+
+        try {
+            expect(200, putJson(admin, draftUrl(key), "{\"text\":\"That text is gone. Reload to see what is left.\"}"));
+            JsonNode published = expect(201, postJson(admin, EDITOR + "/releases", "{}"));
+            assertThat(published.get("changedKeys").toString()).contains("errors-general.retired");
+            assertThat(db.queryForObject("""
+                    SELECT jsonb_exists(entries, 'errors-general.retired') FROM app_lm_screen_text_release
+                    WHERE locale = 'en' AND number = ?
+                    """, Boolean.class, published.get("number").asInt())).isFalse();
+        } finally {
+            resetToDefault(admin, key, defaultText);
+        }
+    }
+
+    @Test
+    @DisplayName("discarding a draft a colleague has since revised is refused; discarding the current one removes it")
+    void discardChecksTheVersion() throws Exception {
+        String admin = superAdmin();
+        String url = draftUrl("errors-settings.SCREEN_TEXT_NOTHING_TO_PUBLISH");
+
+        long first = expect(200, putJson(admin, url, "{\"text\":\"Nothing changed, so nothing was published.\"}"))
+                .get("draftVersion").asLong();
+        long second = expect(200, putJson(admin, url,
+                "{\"text\":\"Nothing would change, so nothing was published.\",\"version\":" + first + "}"))
+                .get("draftVersion").asLong();
+
+        expectRefused(409, "SCREEN_TEXT_STALE",
+                mvc.perform(delete(url).param("version", String.valueOf(first)).header("Authorization", bearer(admin))).andReturn());
+        assertThat(mvc.perform(delete(url).param("version", String.valueOf(second)).header("Authorization", bearer(admin)))
+                .andReturn().getResponse().getStatus()).isEqualTo(204);
+        assertThat(entryOf(admin, "errors-settings.SCREEN_TEXT_NOTHING_TO_PUBLISH").get("draftText").isNull()).isTrue();
     }
 
     @Test
@@ -104,7 +166,6 @@ class ScreenTextIntegrationTest extends PositionTemplateFlowSupport {
     @DisplayName("publishing with nothing drafted is refused rather than writing an empty release")
     void nothingToPublish() throws Exception {
         String admin = superAdmin();
-        postJson(admin, EDITOR + "/releases", "{}");
         expectRefused(409, "SCREEN_TEXT_NOTHING_TO_PUBLISH", postJson(admin, EDITOR + "/releases", "{}"));
     }
 
@@ -114,13 +175,15 @@ class ScreenTextIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(refused.at("/fieldErrors/text").asText()).isNotBlank();
     }
 
-    private JsonNode publicEntries() throws Exception {
-        return body(mvc.perform(get(PUBLIC)).andReturn()).get("entries");
+    private JsonNode publicBundle() throws Exception {
+        return body(mvc.perform(get(PUBLIC)).andReturn());
     }
 
     private void resetToDefault(String admin, String key, String defaultText) throws Exception {
-        expect(200, putJson(admin, draftUrl(key), json.writeValueAsString(Map.of("text", defaultText))));
-        expect(201, postJson(admin, EDITOR + "/releases", "{}"));
+        MvcResult drafted = putJson(admin, draftUrl(key), json.writeValueAsString(Map.of("text", defaultText)));
+        if (drafted.getResponse().getStatus() == 200 && !body(drafted).get("draftText").isNull()) {
+            expect(201, postJson(admin, EDITOR + "/releases", "{}"));
+        }
     }
 
     private JsonNode entryOf(String admin, String key) throws Exception {

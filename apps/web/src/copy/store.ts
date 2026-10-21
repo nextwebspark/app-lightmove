@@ -1,4 +1,4 @@
-import { type CopyScreen, fillPlaceholders, keyOf } from "./defineScreen";
+import { type CopyScreen, fillPlaceholders, keyOf, placeholdersOf } from "./defineScreen";
 
 /** The bundle `GET /screen-text` answers: only the sentences a super admin changed. */
 export interface ScreenTextBundle {
@@ -26,9 +26,17 @@ export function screenText<Local extends string>(
   local: Local,
   values?: Readonly<Record<string, string | number>>,
 ): string {
-  const entry = screen.entries[local];
-  const text = overrides[keyOf(screen, local)] ?? entry?.text ?? local;
-  return fillPlaceholders(text, values);
+  const fallback = screen.entries[local]?.text ?? local;
+  const override = overrides[keyOf(screen, local)];
+  return fillPlaceholders(usable(override, fallback) ? override : fallback, values);
+}
+
+/**
+ * The server already drops an override whose placeholders no longer match, but a bundle remembered from before a
+ * deploy has not been re-checked against this build's defaults — and storage is anyone's to edit.
+ */
+function usable(override: unknown, fallback: string): override is string {
+  return typeof override === "string" && placeholdersOf(override).join() === placeholdersOf(fallback).join();
 }
 
 export function applyBundle(bundle: ScreenTextBundle, options: { preview?: boolean } = {}): void {

@@ -60,7 +60,9 @@ public class ScreenTextEditorService {
     @Transactional(readOnly = true)
     public ScreenTextEditorOverview overview(ScreenTextLocale locale) {
         Map<String, String> published = catalog.servable(latestEntries(locale));
-        Set<String> drafted = draftsByKey(locale).keySet();
+        Set<String> drafted = draftsByKey(locale).keySet().stream()
+                .filter(key -> catalog.entry(key).isPresent())
+                .collect(Collectors.toSet());
         Map<String, List<ScreenTextCatalogEntry>> byScreen = catalog.entries().stream()
                 .collect(Collectors.groupingBy(ScreenTextCatalogEntry::screen));
         List<ScreenTextScreenSummary> screens = catalog.screens().stream()
@@ -86,7 +88,10 @@ public class ScreenTextEditorService {
                 .toList();
     }
 
-    /** A draft equal to what is already published is no change at all, so it removes the draft rather than keeping one. */
+    /**
+     * A draft equal to what is stored is no change at all, so it removes the draft rather than keeping one. Stored, not
+     * served: an override the screens stopped drawing is cleared by drafting the default, which publish turns into a removal.
+     */
     @Transactional
     public ScreenTextEntryView saveDraft(UUID userId, ScreenTextLocale locale, String key, ScreenTextDraftRequest request) {
         ScreenTextCatalogEntry entry = requireEntry(key);
@@ -96,8 +101,8 @@ public class ScreenTextEditorService {
         if (!Objects.equals(request.version() == null ? -1L : request.version(), readVersion)) {
             throw ApiException.of(ErrorCode.SCREEN_TEXT_STALE);
         }
-        String effective = catalog.servable(latestEntries(locale)).getOrDefault(key, entry.defaultText());
-        if (effective.equals(request.text())) {
+        String stored = latestEntries(locale).getOrDefault(key, entry.defaultText());
+        if (stored.equals(request.text())) {
             existing.ifPresent(drafts::delete);
         } else {
             existing.ifPresentOrElse(draft -> draft.revise(request.text(), userId),
@@ -110,10 +115,15 @@ public class ScreenTextEditorService {
                 .orElseThrow();
     }
 
+    /** Any key, the catalogue's or one a deploy removed, so no draft is ever stuck. {@code version} guards a colleague's newer one. */
     @Transactional
-    public void discardDraft(ScreenTextLocale locale, String key) {
-        requireEntry(key);
-        drafts.findByLocaleAndTextKey(locale.tag(), key).ifPresent(drafts::delete);
+    public void discardDraft(ScreenTextLocale locale, String key, Long version) {
+        drafts.findByLocaleAndTextKey(locale.tag(), key).ifPresent(draft -> {
+            if (version != null && version != draft.getVersion()) {
+                throw ApiException.of(ErrorCode.SCREEN_TEXT_STALE);
+            }
+            drafts.delete(draft);
+        });
     }
 
     /** What the screens would read if the drafts were published now, for the editor's own preview. */
@@ -121,7 +131,7 @@ public class ScreenTextEditorService {
     public ScreenTextBundle preview(ScreenTextLocale locale) {
         Map<String, String> next = applyDrafts(latestEntries(locale), draftsByKey(locale).values());
         int latest = releases.findFirstByLocaleOrderByNumberDesc(locale.tag()).map(ScreenTextRelease::getNumber).orElse(0);
-        return bundles.of(locale, latest, next);
+        return bundles.preview(locale, latest, next);
     }
 
     @Transactional
@@ -133,7 +143,10 @@ public class ScreenTextEditorService {
             throw ApiException.of(ErrorCode.SCREEN_TEXT_NOTHING_TO_PUBLISH);
         }
         Map<String, String> current = latestEntries(locale);
-        Map<String, String> next = applyDrafts(current, pending);
+        Map<String, String> next = publishable(applyDrafts(current, pending));
+        if (next.equals(current)) {
+            throw ApiException.of(ErrorCode.SCREEN_TEXT_NOTHING_TO_PUBLISH);
+        }
         List<String> changed = changedKeys(current, next);
         ScreenTextRelease release = releases.save(ScreenTextRelease.of(locale.tag(), nextNumber(locale), next, changed,
                 blankToNull(request == null ? null : request.note()), null, userId, clock.instant()));
@@ -142,14 +155,19 @@ public class ScreenTextEditorService {
         return viewOf(release, namesOf(List.of(userId)));
     }
 
+    /** Publishes an old release's text again as a new release, minus anything today's catalogue and rules would refuse. */
     @Transactional
     public ScreenTextReleaseView restore(UUID userId, ScreenTextLocale locale, int number, HttpServletRequest httpRequest) {
         lockPublishing(locale);
         ScreenTextRelease source = releases.findByLocaleAndNumber(locale.tag(), number)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         Map<String, String> current = latestEntries(locale);
+        Map<String, String> next = publishable(source.getEntries());
+        if (next.equals(current)) {
+            throw ApiException.of(ErrorCode.SCREEN_TEXT_NOTHING_TO_PUBLISH);
+        }
         ScreenTextRelease release = releases.save(ScreenTextRelease.of(locale.tag(), nextNumber(locale),
-                source.getEntries(), changedKeys(current, source.getEntries()), null, number, userId, clock.instant()));
+                next, changedKeys(current, next), null, number, userId, clock.instant()));
         recorded(PlatformEventType.SCREEN_TEXT_RESTORED, userId, release, httpRequest);
         return viewOf(release, namesOf(List.of(userId)));
     }
@@ -182,6 +200,20 @@ public class ScreenTextEditorService {
             }
         }
         return next;
+    }
+
+    /**
+     * What a release may store: overrides the screens would draw and today's rules allow. Without this, a key a deploy
+     * dropped rode every later release and came back on whatever sentence reused it.
+     */
+    private Map<String, String> publishable(Map<String, String> overrides) {
+        Map<String, String> kept = new LinkedHashMap<>();
+        catalog.servable(overrides).forEach((key, text) -> {
+            if (rules.allows(catalog.entry(key).orElseThrow(), text)) {
+                kept.put(key, text);
+            }
+        });
+        return kept;
     }
 
     private static List<String> changedKeys(Map<String, String> before, Map<String, String> after) {

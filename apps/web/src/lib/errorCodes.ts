@@ -158,7 +158,11 @@ export type ApiErrorCode =
 
 /** Which group of the catalogue words each code, so `messageFor` reads a super admin's edit before the default. */
 const ERROR_SCREEN_OF: ReadonlyMap<string, CopyScreen> = new Map(
-  ERROR_SCREENS.flatMap((screen) => Object.keys(screen.entries).map((code) => [code, screen] as const)),
+  ERROR_SCREENS.flatMap((screen) =>
+    Object.keys(screen.entries)
+      .filter((key) => /^[A-Z][A-Z0-9_]+$/.test(key))
+      .map((code) => [code, screen] as const),
+  ),
 );
 
 function wordingOf(code: string): string | null {

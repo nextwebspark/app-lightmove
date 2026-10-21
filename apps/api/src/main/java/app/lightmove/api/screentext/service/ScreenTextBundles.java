@@ -44,6 +44,13 @@ public class ScreenTextBundles {
                 catalog.servable(overrides));
     }
 
+    /** Never the published bundle's version, so nothing keyed on it mistakes a preview for what is live. */
+    public ScreenTextBundle preview(ScreenTextLocale locale, int release, Map<String, String> overrides) {
+        Map<String, String> servable = catalog.servable(overrides);
+        return new ScreenTextBundle(locale.tag(), release,
+                "preview-r%d-%s-%08x".formatted(release, catalog.fingerprint(), servable.hashCode()), servable);
+    }
+
     public void evict(ScreenTextLocale locale) {
         published.invalidate(locale);
     }

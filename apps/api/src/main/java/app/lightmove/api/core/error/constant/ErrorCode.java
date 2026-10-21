@@ -488,7 +488,8 @@ public enum ErrorCode {
     /** A key the SPA's catalogue does not hold: the screen it named has moved on, or it never existed. */
     SCREEN_TEXT_KEY_UNKNOWN(HttpStatus.NOT_FOUND, "That piece of screen text no longer exists"),
 
-    SCREEN_TEXT_NOTHING_TO_PUBLISH(HttpStatus.CONFLICT, "There are no unpublished changes"),
+    /** A publish or restore that would leave the screens exactly as they are; no empty release is written. */
+    SCREEN_TEXT_NOTHING_TO_PUBLISH(HttpStatus.CONFLICT, "Nothing on screen would change"),
 
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 

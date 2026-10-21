@@ -40,5 +40,5 @@ export function placeholdersOf(text: string): string[] {
 }
 
 export function fillPlaceholders(text: string, values: Readonly<Record<string, string | number>> = {}): string {
-  return text.replace(PLACEHOLDER, (whole, name: string) => (name in values ? String(values[name]) : whole));
+  return text.replace(PLACEHOLDER, (whole, name: string) => (Object.hasOwn(values, name) ? String(values[name]) : whole));
 }

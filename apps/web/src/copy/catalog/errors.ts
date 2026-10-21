@@ -159,7 +159,7 @@ export const errorsSettings = defineScreen("errors-settings", "Error messages ·
   TASK_PRESET_EXISTS: { text: "Your team already has that preset.", where: "Shown when: task preset exists", kind: "error" },
   SCREEN_TEXT_STALE: { text: "Someone changed this text after you opened it. Reload to see their version.", where: "Shown when: screen text stale", kind: "error" },
   SCREEN_TEXT_KEY_UNKNOWN: { text: "That piece of screen text no longer exists. Reload to see the current list.", where: "Shown when: screen text key unknown", kind: "error" },
-  SCREEN_TEXT_NOTHING_TO_PUBLISH: { text: "There are no unpublished changes to publish.", where: "Shown when: screen text nothing to publish", kind: "error" },
+  SCREEN_TEXT_NOTHING_TO_PUBLISH: { text: "Nothing on screen would change, so nothing was published.", where: "Shown when: screen text nothing to publish", kind: "error" },
 });
 
 export const ERROR_SCREENS = [errorsGeneral, errorsAccount, errorsPositions, errorsCandidates, errorsOutreach, errorsBilling, errorsSettings] as const;
