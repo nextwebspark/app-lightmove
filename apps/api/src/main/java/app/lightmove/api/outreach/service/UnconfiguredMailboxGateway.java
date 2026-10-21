@@ -11,6 +11,7 @@ import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -54,7 +55,7 @@ public class UnconfiguredMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
+    public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
         throw unavailable();
     }
 

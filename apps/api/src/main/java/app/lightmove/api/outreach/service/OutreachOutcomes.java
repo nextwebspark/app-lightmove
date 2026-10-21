@@ -7,6 +7,7 @@ import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.model.OutreachBounced;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
+import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
@@ -44,15 +45,26 @@ class OutreachOutcomes {
                 .record();
     }
 
+    /**
+     * Every reply is a timeline line, an audit event and a task's cue; only the first, while its run still listens,
+     * ends the run. A run already stopped, bounced, booked or answered is never written back to.
+     */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void replied(OutreachEnrollment enrollment, Instant now) {
-        enrollment.replied(now);
-        people.recordReplied(enrollment.getWorkspaceId(), enrollment.getProjectId(), enrollment.getPersonId(),
-                enrollment.getSequenceId(), sequenceNameOf(enrollment));
-        audited(ProjectEventType.OUTREACH_REPLIED, enrollment, null, null).record();
-        events.publishEvent(new OutreachReplied(enrollment.getWorkspaceId(), enrollment.getProjectId(),
-                enrollment.getCandidateId(), enrollment.getPersonId(), enrollment.getId(),
-                enrollment.getSenderUserId()));
+    public void replied(OutreachMessage reply, OutreachEnrollment run, Instant now) {
+        if (run != null && run.isListening()) {
+            run.replied(now);
+        }
+        people.recordReplied(reply.getWorkspaceId(), reply.getProjectId(), reply.getPersonId(),
+                run == null ? null : run.getSequenceId(), run == null ? null : sequenceNameOf(run));
+        audit.projectEvent(ProjectEventType.OUTREACH_REPLIED, null, reply.getWorkspaceId(), reply.getProjectId(), null)
+                .detail("messageId", reply.getId().toString())
+                .detailIfPresent("sequenceId", run == null ? null : run.getSequenceId().toString())
+                .detailIfPresent("enrollmentId", run == null ? null : run.getId().toString())
+                .detailIfPresent("candidateId", reply.getCandidateId() == null ? null
+                        : reply.getCandidateId().toString())
+                .record();
+        events.publishEvent(new OutreachReplied(reply.getWorkspaceId(), reply.getProjectId(), reply.getCandidateId(),
+                reply.getPersonId(), run == null ? null : run.getId(), reply.getSenderUserId(), reply.getId()));
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

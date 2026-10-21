@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
@@ -77,6 +78,17 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
 
     /** The address of the mailbox {@code accessToken} was just issued for; null when the provider did not say. */
     protected abstract String mailboxAddressOf(String accessToken);
+
+    /** Whether {@code granted}, the scopes the person actually consented to, let us read the words of a reply. */
+    protected abstract boolean grantsReplyText(Set<String> granted);
+
+    /**
+     * Whether {@code granted} lets the poll read who wrote into a thread at all. Without it a reply is never seen and
+     * a sequence's next step goes to someone who already answered, so such a consent connects nothing.
+     */
+    protected boolean readsThreads(Set<String> granted) {
+        return true;
+    }
 
     /** Whether a code redemption repeats {@link #scopes()}; Google takes them from the consent alone. */
     protected boolean repeatsScopesAtRedemption() {
@@ -151,11 +163,17 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
             // Without a refresh token the mailbox dies with its first access token, within the hour.
             throw new VendorException(call, VendorFailureKind.MALFORMED_RESPONSE, null);
         }
+        // A provider that names no scopes is taken at its word; one that names them without a read is refused.
+        if (!token.scopes().isEmpty() && !readsThreads(token.scopes())) {
+            revokeQuietly(token.refreshToken());
+            throw ApiException.of(ErrorCode.MAILBOX_READ_NOT_GRANTED);
+        }
         String address = mailboxAddressOf(token.accessToken());
         if (address == null) {
             throw new VendorException(vendorCall("mailbox-address"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
-        return new GrantedMailbox(MailboxGrants.mintDirect(providerName), address, providerName, token.refreshToken());
+        return new GrantedMailbox(MailboxGrants.mintDirect(providerName), address, providerName, token.refreshToken(),
+                grantsReplyText(token.scopes()));
     }
 
     @Override
@@ -203,6 +221,14 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
     /** Withdraws the whole grant behind {@code refreshToken} at the provider's revocation endpoint. */
     protected void revokeRefreshToken(String refreshToken) {
         tokenEndpoint.revoke(integrationProvider, refreshToken);
+    }
+
+    private void revokeQuietly(String refreshToken) {
+        try {
+            revokeRefreshToken(refreshToken);
+        } catch (RuntimeException ignored) {
+            // The refusal is what the consultant needs; a grant left at the provider expires unused.
+        }
     }
 
     protected VendorCall vendorCall(String operation) {

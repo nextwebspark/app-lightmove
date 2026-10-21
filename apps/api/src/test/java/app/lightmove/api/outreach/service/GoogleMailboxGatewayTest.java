@@ -8,6 +8,8 @@ import static org.mockito.Mockito.when;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.ResilienceSettings;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
@@ -25,6 +27,7 @@ import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -38,6 +41,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -48,6 +52,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -108,7 +113,8 @@ class GoogleMailboxGatewayTest {
         assertThat(query.getFirst("access_type")).isEqualTo("offline");
         assertThat(query.getFirst("prompt")).isEqualTo("consent");
         assertThat(decoded(query.getFirst("scope"))).contains("https://www.googleapis.com/auth/gmail.send",
-                "https://www.googleapis.com/auth/gmail.metadata", "https://www.googleapis.com/auth/calendar.events");
+                "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/calendar.events")
+                .doesNotContain("gmail.metadata");
         assertThat(query.getFirst("state")).isEqualTo("state-1");
         assertThat(link.toString()).doesNotContain("uncava-google-secret");
     }
@@ -121,6 +127,7 @@ class GoogleMailboxGatewayTest {
         assertThat(MailboxGrants.directProviderOf(granted.grantId())).contains("google");
         assertThat(granted.address()).isEqualTo("yara.haddad@meridian.example");
         assertThat(granted.refreshToken()).isEqualTo("1//0g-refresh");
+        assertThat(granted.replyTextGranted()).isTrue();
         assertThat(google.lastForm()).containsEntry("grant_type", "authorization_code")
                 .containsEntry("code", "4/0Ab-code").containsEntry("client_secret", "uncava-google-secret")
                 .doesNotContainKey("scope");
@@ -163,17 +170,70 @@ class GoogleMailboxGatewayTest {
     }
 
     @Test
-    @DisplayName("who wrote into a thread is read from From headers: never the consultant's own mail, nor an undated message")
-    void threadSendersAreAddressesOnly() {
+    @DisplayName("a consent that leaves the read unticked connects nothing and is handed back to Google")
+    void aConsentWithoutTheReadIsRefused() {
+        google.tokenScope = "https://www.googleapis.com/auth/gmail.send openid";
+
+        assertThatThrownBy(() -> gateway.redeem(WORKSPACE, "google", "4/0Ab-code", CALLBACK))
+                .isInstanceOfSatisfying(ApiException.class,
+                        refused -> assertThat(refused.getCode()).isEqualTo(ErrorCode.MAILBOX_READ_NOT_GRANTED));
+        assertThat(google.lastForm()).containsEntry("token", "1//0g-refresh");
+    }
+
+    @Test
+    @DisplayName("a mailbox consented before the read was asked still reads who wrote, without their words")
+    void aMetadataConsentStillConnects() {
+        google.tokenScope = "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.metadata";
+
+        assertThat(gateway.redeem(WORKSPACE, "google", "4/0Ab-code", CALLBACK).replyTextGranted()).isFalse();
+    }
+
+    @Test
+    @DisplayName("without the read, who wrote into a thread is read from From headers alone: never the consultant's own "
+            + "mail, nor an undated message")
+    void threadMessagesWithoutTheReadAreHeadersOnly() {
         String grantId = MailboxGrants.mintDirect("google");
         when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
 
-        List<String> writers = gateway.senderAddressesInThread(grantId, "18c2a1f0e5d4b3a2",
-                Instant.parse("2026-10-01T00:00:00Z"));
+        List<ThreadMessage> written = gateway.messagesInThread(grantId, "18c2a1f0e5d4b3a2",
+                Instant.parse("2026-10-01T00:00:00Z"), false);
 
-        assertThat(writers).containsExactly("priya@client.example", "mailer-daemon@googlemail.com");
+        assertThat(written).extracting(ThreadMessage::providerMessageId).containsExactly("m2", "m4", "m6");
+        assertThat(written).extracting(ThreadMessage::fromAddress)
+                .containsExactly("priya@client.example", "mailer-daemon@googlemail.com", "omar@client.example");
+        assertThat(written.getFirst().receivedAt()).isEqualTo(Instant.ofEpochMilli(1790940600000L));
+        assertThat(written).extracting(ThreadMessage::text).containsOnlyNulls();
         assertThat(google.lastQueryOf("/api/gmail/v1/users/me/threads/18c2a1f0e5d4b3a2"))
                 .contains("format=metadata").contains("metadataHeaders=From");
+        assertThat(google.fullReads).isEmpty();
+    }
+
+    @Test
+    @DisplayName("with the read, each kept message is fetched whole: its words from the plain part without the quote, "
+            + "else the HTML part, never an attachment")
+    void threadMessagesWithTheReadCarryWords() {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        List<ThreadMessage> written = gateway.messagesInThread(grantId, "18c2a1f0e5d4b3a2",
+                Instant.parse("2026-10-01T00:00:00Z"), true);
+
+        assertThat(written).extracting(ThreadMessage::text)
+                .as("the bounce's body could not be read: it still counts, without its words")
+                .containsExactly("Thursday works.", null, "Call me tomorrow & bring the brief.");
+        assertThat(google.lastQueryOf("/api/gmail/v1/users/me/threads/18c2a1f0e5d4b3a2"))
+                .contains("format=metadata");
+        assertThat(google.fullReads).as("only the messages the read kept, never our own sent copy")
+                .containsExactly("m2?format=full", "m4?format=full", "m6?format=full");
+    }
+
+    @Test
+    @DisplayName("the words are granted by gmail.readonly, or a scope reaching further, and nothing narrower")
+    void theReadIsGrantedByItsScope() {
+        assertThat(gateway.grantsReplyText(Set.of("openid", "https://www.googleapis.com/auth/gmail.readonly"))).isTrue();
+        assertThat(gateway.grantsReplyText(Set.of("https://mail.google.com/"))).isTrue();
+        assertThat(gateway.grantsReplyText(Set.of("https://www.googleapis.com/auth/gmail.metadata",
+                "https://www.googleapis.com/auth/gmail.send"))).isFalse();
     }
 
     @Test
@@ -341,6 +401,42 @@ class GoogleMailboxGatewayTest {
     /** Google's answers, as its API reference records them, and every request it was sent. */
     private static final class RecordedGoogle {
 
+        static final ObjectMapper THREAD_JSON = JsonMapper.builder().build();
+
+        /** A thread as Gmail holds it; {@code format=metadata} answers it without bodies, a full read with them. */
+        static final String THREAD = """
+                        {"id":"18c2a1f0e5d4b3a2","messages":[
+                          {"id":"m0","labelIds":["INBOX"],"internalDate":"1789000000000",
+                           "payload":{"headers":[{"name":"From","value":"Old <someone-earlier@client.example>"}]}},
+                          {"id":"m1","labelIds":["SENT"],"internalDate":"1790845200000",
+                           "payload":{"headers":[{"name":"From","value":"Yara Haddad <yhaddad@meridian.example>"}]}},
+                          {"id":"m2","labelIds":["INBOX","UNREAD"],"internalDate":"1790940600000",
+                           "payload":{"mimeType":"multipart/alternative",
+                             "headers":[{"name":"From","value":"\\"Priya Raman\\" <Priya@Client.example>"}],
+                             "parts":[
+                               {"mimeType":"text/plain","headers":[{"name":"Content-Type","value":"text/plain; charset=\\"UTF-8\\""}],
+                                "body":{"data":"VGh1cnNkYXkgd29ya3MuCgpPbiBNb24sIDIwIE9jdCAyMDI2IGF0IDEwOjAwLCBZYXJhIEhhZGRhZCA8eWFyYUBtZXJpZGlhbi5leGFtcGxlPiB3cm90ZToKPiBXb3VsZCB5b3UgYmUgb3BlbiB0byBhIGNhbGw_Cg"}},
+                               {"mimeType":"text/html","body":{"data":"PGRpdj5UaHVyc2RheSA8Yj53b3JrczwvYj4uPC9kaXY-"}}]}},
+                          {"id":"m3","labelIds":["DRAFT"],"internalDate":"1790940700000",
+                           "payload":{"headers":[{"name":"From","value":"Yara Haddad <yara.haddad@meridian.example>"}]}},
+                          {"id":"m4","labelIds":["INBOX"],"internalDate":"1790940800000",
+                           "payload":{"headers":[{"name":"From","value":"Mail Delivery Subsystem <mailer-daemon@googlemail.com>"}]}},
+                          {"id":"m5","labelIds":["INBOX"],
+                           "payload":{"headers":[{"name":"From","value":"Undated <undated@client.example>"}]}},
+                          {"id":"m6","labelIds":["INBOX"],"internalDate":"1790941000000",
+                           "payload":{"mimeType":"multipart/mixed",
+                             "headers":[{"name":"From","value":"Omar <omar@client.example>"}],
+                             "parts":[
+                               {"mimeType":"text/plain","filename":"cv.txt","body":{"data":"Tm90IHRoZSBib2R5OiBhbiBhdHRhY2hlZCBDVg"}},
+                               {"mimeType":"text/html","body":{"data":"PHA-Q2FsbCBtZSB0b21vcnJvdyAmYW1wOyBicmluZyB0aGUgYnJpZWYuPC9wPg"}}]}}
+                        ]}""";
+
+        final List<String> fullReads = new CopyOnWriteArrayList<>();
+        volatile String tokenScope = "https://www.googleapis.com/auth/gmail.send "
+                + "https://www.googleapis.com/auth/gmail.readonly openid";
+        volatile String threadQuery;
+
+
         private static final String MEET_EVENT = """
                 {"id":"evt-meet","status":"confirmed","summary":"Confidential: first conversation",
                  "start":{"dateTime":"2026-10-06T10:00:00+04:00","timeZone":"Asia/Dubai"},
@@ -381,8 +477,8 @@ class GoogleMailboxGatewayTest {
                 }
                 respond(exchange, 200, """
                         {"access_token":"ya29.access","expires_in":3599,"refresh_token":"1//0g-refresh",
-                         "scope":"https://www.googleapis.com/auth/gmail.send openid","token_type":"Bearer",
-                         "id_token":"eyJhbGciOi.unused"}""");
+                         "scope":"%s","token_type":"Bearer",
+                         "id_token":"eyJhbGciOi.unused"}""".formatted(tokenScope));
             } else if (path.equals("/oauth2/revoke")) {
                 lastForm = body;
                 respond(exchange, 200, "");
@@ -398,21 +494,20 @@ class GoogleMailboxGatewayTest {
                         {"id":"18c2a1f0e5d4b3a2","threadId":"18c2a1f0e5d4b3a2","labelIds":["SENT"],
                          "payload":{"headers":[{"name":"Message-Id","value":"<CAB2+first@mail.gmail.com>"}]}}""");
             } else if (path.equals("/api/gmail/v1/users/me/threads/18c2a1f0e5d4b3a2")) {
-                respond(exchange, 200, """
-                        {"id":"18c2a1f0e5d4b3a2","messages":[
-                          {"id":"m0","labelIds":["INBOX"],"internalDate":"1789000000000",
-                           "payload":{"headers":[{"name":"From","value":"Old <someone-earlier@client.example>"}]}},
-                          {"id":"m1","labelIds":["SENT"],"internalDate":"1790845200000",
-                           "payload":{"headers":[{"name":"From","value":"Yara Haddad <yhaddad@meridian.example>"}]}},
-                          {"id":"m2","labelIds":["INBOX","UNREAD"],"internalDate":"1790940600000",
-                           "payload":{"headers":[{"name":"From","value":"\\"Priya Raman\\" <Priya@Client.example>"}]}},
-                          {"id":"m3","labelIds":["DRAFT"],"internalDate":"1790940700000",
-                           "payload":{"headers":[{"name":"From","value":"Yara Haddad <yara.haddad@meridian.example>"}]}},
-                          {"id":"m4","labelIds":["INBOX"],"internalDate":"1790940800000",
-                           "payload":{"headers":[{"name":"From","value":"Mail Delivery Subsystem <mailer-daemon@googlemail.com>"}]}},
-                          {"id":"m5","labelIds":["INBOX"],
-                           "payload":{"headers":[{"name":"From","value":"Undated <undated@client.example>"}]}}
-                        ]}""");
+                threadQuery = exchange.getRequestURI().getQuery();
+                respond(exchange, 200, THREAD);
+            } else if (path.startsWith("/api/gmail/v1/users/me/messages/m")) {
+                String id = path.substring(path.lastIndexOf('/') + 1);
+                fullReads.add(id + "?" + exchange.getRequestURI().getQuery());
+                JsonNode found = null;
+                for (JsonNode message : THREAD_JSON.readTree(THREAD).path("messages")) {
+                    if (id.equals(message.path("id").asString(""))) {
+                        found = message;
+                    }
+                }
+                // The bounce's body cannot be read: its message still counts, without its words.
+                respond(exchange, found == null || id.equals("m4") ? 403 : 200,
+                        found == null || id.equals("m4") ? "{\"error\":{\"code\":403}}" : found.toString());
             } else if (key.equals("GET /api/calendar/v3/calendars/primary/events")) {
                 respond(exchange, 200, exchange.getRequestURI().getQuery().contains("pageToken=page-2") ? """
                         {"items":[

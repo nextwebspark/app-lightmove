@@ -90,6 +90,8 @@ describe("EnrolDialog", () => {
         runsStoppedByMove: 0,
         liveSequences: 0,
         livePeople: 0,
+        readsReplies: false,
+        reconnectToReadReplies: false,
       },
     });
     vi.mocked(sequenceApi.getSequences).mockResolvedValue([SEQUENCE]);

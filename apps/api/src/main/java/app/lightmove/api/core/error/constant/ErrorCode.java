@@ -347,6 +347,13 @@ public enum ErrorCode {
 
     MAILBOX_CONNECT_FAILED(HttpStatus.BAD_GATEWAY, "Your mailbox could not be connected. Try again"),
 
+    /**
+     * The consent screen came back without the read a reply is noticed by (Google's granular consent lets a box be
+     * unticked): connected, a sequence would keep writing to someone who already answered.
+     */
+    MAILBOX_READ_NOT_GRANTED(HttpStatus.BAD_REQUEST,
+            "Allow Uncava to read the replies to its emails on the sign-in screen, then connect again"),
+
     /** Never retried on our side, so nothing went twice; trying again may still find the first one delivered. */
     MAILBOX_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The email could not be sent. Try again in a moment"),
 

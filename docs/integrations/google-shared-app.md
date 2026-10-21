@@ -14,5 +14,5 @@ Google Workspace can block third-party apps that ask for Gmail access. If your c
 Consultants can now connect Gmail from the Outreach page. You can change or remove the app's access on the same page
 at any time.
 
-**What Uncava does with it:** sends the emails your consultants write, from their own Gmail; reads message headers
-only to notice who replied, never what they wrote; books calls and shows meetings with candidates on their calendar.
+**What Uncava does with it:** sends the emails your consultants write, from their own Gmail; reads the replies in the
+threads Uncava started, for your team only; books calls and shows meetings with candidates on their calendar.

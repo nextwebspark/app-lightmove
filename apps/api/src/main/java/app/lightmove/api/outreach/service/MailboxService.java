@@ -69,6 +69,7 @@ public class MailboxService {
     private final OutreachEnrollmentRepository enrollments;
     private final ApplicationEventPublisher events;
     private final BookingPages bookingPages;
+    private final ReplyTextAccess replyText;
     private final MailboxTokens tokens;
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
@@ -94,7 +95,9 @@ public class MailboxService {
         int runsStopped = movesOffNylas
                 ? (int) enrollments.countRunningThreadsOf(workspaceId, userId, MailboxGatewayKind.NYLAS) : 0;
         return ConnectedMailboxResponse.of(mailbox, bookingPages.linkOf(mailbox), movesOffNylas, runsStopped,
-                enrollments.countLiveRunsOf(workspaceId, userId));
+                enrollments.countLiveRunsOf(workspaceId, userId), replyText.readsText(mailbox),
+                replyText.wantsReconnectToRead(mailbox) && gateway.holdsRefreshTokens(workspaceId,
+                        mailbox.getProvider()));
     }
 
     /**

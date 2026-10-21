@@ -10,6 +10,7 @@ import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -82,10 +83,12 @@ public interface MailboxGateway {
     List<MailboxEvent> readWebhook(String signature, byte[] body);
 
     /**
-     * Who wrote into a thread of the mailbox since {@code since}, the mailbox itself included: the poll
-     * that finds a reply when a webhook never arrived. Addresses only, never content.
+     * What was written into a thread of the mailbox since {@code since}, oldest first, the consultant's own sent
+     * copies and drafts left out where the service marks them: the poll that finds a reply when a webhook never
+     * arrived. Only a thread Uncava started is ever asked, and its words only {@code withText} — a mailbox whose
+     * consent does not reach them answers who and when alone.
      */
-    List<String> senderAddressesInThread(String grantId, String threadId, Instant since);
+    List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText);
 
     /** The timed events on the mailbox's own calendar between {@code from} and {@code to}. */
     List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to);

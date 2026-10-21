@@ -318,11 +318,13 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a reply files one task for whoever sent the sequence, however often it is reported")
+    @DisplayName("a reply files one task for whoever sent the sequence, however often it is reported, and a second "
+            + "reply while it is open files none")
     void aReplyFilesOneTask() throws Exception {
-        UUID enrollmentId = UUID.randomUUID();
-        replied(enrollmentId);
-        replied(enrollmentId);
+        UUID messageId = UUID.randomUUID();
+        replied(messageId);
+        replied(messageId);
+        replied(UUID.randomUUID());
 
         JsonNode open = read(researcher, tasksUrl(layla)).get("open");
         assertThat(open).hasSize(1);
@@ -351,12 +353,12 @@ class TaskIntegrationTest extends PipelineFlowSupport {
         });
     }
 
-    private void replied(UUID enrollmentId) {
+    private void replied(UUID messageId) {
         UUID personId = db.queryForObject("select person_id from app_lm_project_candidate where id = ?::uuid",
                 UUID.class, layla);
         transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
                 UUID.fromString(workspaceId), UUID.fromString(projectId), UUID.fromString(layla), personId,
-                enrollmentId, UUID.fromString(researcherId))));
+                UUID.randomUUID(), UUID.fromString(researcherId), messageId)));
     }
 
     private MvcResult created(String token, String candidateId, String title, String assigneeId, String dueAt)

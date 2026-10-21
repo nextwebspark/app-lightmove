@@ -14,20 +14,27 @@ import java.time.Instant;
  * @param runsStoppedByMove the runs that move would stop, counted only where it is offered
  * @param liveSequences    the sequences the owner's live runs belong to: what a disconnect stops sending
  * @param livePeople       the people those live runs are addressed to
+ * @param readsReplies     whether the words of a reply are kept, not only that it came
+ * @param reconnectToReadReplies whether a reconnect now would let them be: a mailbox of ours whose consent did not
+ *                         reach them, where the workspace still connects through us
  */
 public record ConnectedMailboxResponse(String address, String provider, MailboxStatus status, int dailyCap,
                                        String timeZone, Instant connectedAt, String bookingLink,
                                        boolean movesOffNylas, int runsStoppedByMove,
-                                       int liveSequences, int livePeople) {
+                                       int liveSequences, int livePeople, boolean readsReplies,
+                                       boolean reconnectToReadReplies) {
 
     public static ConnectedMailboxResponse of(MailboxConnection connection, String bookingLink,
                                               boolean movesOffNylas, int runsStoppedByMove,
-                                              SenderLiveRunCount live) {
+                                              SenderLiveRunCount live, boolean readsReplies,
+                                              boolean reconnectToReadReplies) {
         return new ConnectedMailboxResponse(connection.getAddress(), connection.getProvider(), connection.getStatus(),
                 connection.getDailyCap(), connection.getTimeZone(), connection.getConnectedAt(), bookingLink,
                 movesOffNylas,
                 runsStoppedByMove,
                 (int) live.getSequences(),
-                (int) live.getPeople());
+                (int) live.getPeople(),
+                readsReplies,
+                reconnectToReadReplies);
     }
 }

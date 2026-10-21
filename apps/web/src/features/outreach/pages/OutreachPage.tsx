@@ -286,6 +286,15 @@ function MailboxState({
       />
     );
   }
+  if (connection?.reconnectToReadReplies) {
+    return (
+      <ReconnectToReadRepliesBanner
+        connection={connection}
+        isConnecting={connectingProvider === connection.provider}
+        onReconnect={() => onConnect(connection.provider)}
+      />
+    );
+  }
   if (connection) {
     return null;
   }
@@ -297,8 +306,8 @@ function MailboxState({
       <div className="min-w-[260px] flex-1">
         <div className="text-[14px] font-semibold">Connect your mailbox to send outreach</div>
         <div className="mt-[3px] text-[12.5px]/[1.5] text-u-text2">
-          Emails go from your own address and replies land in your own inbox. Uncava only notices that
-          someone replied, so it can stop their sequence. It never keeps what they wrote.
+          Emails go from your own address and replies land in your own inbox. A reply stops its sequence,
+          and Uncava keeps the emails you send from here and the replies to them, for your team only.
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -354,6 +363,29 @@ function MoveOffNylasBanner({
         loading={isConnecting}
         onClick={onReconnect}
       >
+        Reconnect
+      </Button>
+    </div>
+  );
+}
+
+/** Sending works as it is; only the words of a reply stay in the inbox until the consultant consents again. */
+function ReconnectToReadRepliesBanner({
+  connection,
+  isConnecting,
+  onReconnect,
+}: {
+  connection: ConnectedMailbox;
+  isConnecting: boolean;
+  onReconnect: () => void;
+}) {
+  return (
+    <div className="mb-[18px] flex flex-wrap items-center gap-3 rounded-u-chip border border-u-border bg-u-raised px-3.5 py-2.5 text-body text-u-text">
+      <span className="min-w-[260px] flex-1">
+        <b>Reconnect to show replies here.</b> Reconnect {connection.address} so Uncava can show what people
+        reply. Until then a reply still stops its sequence.
+      </span>
+      <Button variant="secondary" size="xs" className="ms-auto" loading={isConnecting} onClick={onReconnect}>
         Reconnect
       </Button>
     </div>

@@ -17,6 +17,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  *
  * <p>{@code schedulerEnabled} says the Nylas plan carries Scheduler (Essentials and up): only then is the
  * {@code {{bookingLink}}} token offered.
+ *
+ * <p>{@code readsReplies} says the Nylas app's own provider scopes reach a message's body, which no grant reports:
+ * only then are the words of a reply kept. Off, a reply is still recorded and still stops its run.
  */
 public record NylasSettings(
         String apiKey,
@@ -25,7 +28,8 @@ public record NylasSettings(
         @DefaultValue("google,microsoft") List<String> providers,
         @DefaultValue("5") int requestsPerSecond,
         String webhookSecret,
-        @DefaultValue("false") boolean schedulerEnabled
+        @DefaultValue("false") boolean schedulerEnabled,
+        @DefaultValue("false") boolean readsReplies
 ) {
 
     public boolean isConfigured() {

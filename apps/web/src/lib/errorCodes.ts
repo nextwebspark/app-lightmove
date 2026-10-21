@@ -112,6 +112,7 @@ export type ApiErrorCode =
   | "MAILBOX_CONNECT_EXPIRED"
   | "MAILBOX_CONNECT_CANCELLED"
   | "MAILBOX_CONNECT_FAILED"
+  | "MAILBOX_READ_NOT_GRANTED"
   | "MAILBOX_SEND_FAILED"
   | "OUTREACH_SEQUENCE_IN_USE"
   | "OUTREACH_PERSON_SKIPPED"
@@ -257,6 +258,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",
   MAILBOX_CONNECT_EXPIRED: "That connection attempt expired. Start again.",
   MAILBOX_CONNECT_FAILED: "Your mailbox couldn't be connected. Try again.",
+  MAILBOX_READ_NOT_GRANTED:
+    "Uncava needs to see replies to stop a sequence. Connect again and allow it to read the replies to its emails.",
   MAILBOX_SEND_FAILED: "The email couldn't be sent. Try again in a moment.",
   OUTREACH_SEQUENCE_IN_USE: "People are on this sequence, so it can't be deleted.",
   OUTREACH_PERSON_SKIPPED: "Someone you chose can no longer be added. Go back and review the list.",

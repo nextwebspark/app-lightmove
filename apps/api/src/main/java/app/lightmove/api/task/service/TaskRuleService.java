@@ -12,6 +12,7 @@ import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.task.constant.OutreachFollowUpKind;
 import app.lightmove.api.task.constant.TaskKind;
 import app.lightmove.api.task.constant.TaskRule;
+import app.lightmove.api.task.constant.TaskStatus;
 import app.lightmove.api.task.dto.TaskRulesDto;
 import app.lightmove.api.task.model.OutreachFollowUp;
 import app.lightmove.api.task.model.Task;
@@ -93,7 +94,7 @@ public class TaskRuleService {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onReplied(OutreachReplied replied) {
-        follow(new FollowUpCase(OutreachFollowUpKind.REPLIED, TaskRule.REPLY, "reply:" + replied.enrollmentId(),
+        follow(new FollowUpCase(OutreachFollowUpKind.REPLIED, TaskRule.REPLY, "reply:" + replied.messageId(),
                 replied.workspaceId(), replied.projectId(), replied.personId(), replied.candidateId(),
                 replied.senderUserId(), TaskKind.EMAIL, "Reply to %s", clock.instant().plus(REPLY_WITHIN), true));
     }
@@ -129,7 +130,15 @@ public class TaskRuleService {
             log.info("No one works project {} any more; {} files no task", followUp.projectId(), followUp.ruleKey());
             return;
         }
-        Task filed = switchesOf(followUp.workspaceId()).get(followUp.rule()) ? file(followUp, holder) : null;
+        Task filed = null;
+        if (switchesOf(followUp.workspaceId()).get(followUp.rule())) {
+            // Three quick replies are one reply to answer: an open one already stands for the rest.
+            filed = followUp.rule() == TaskRule.REPLY
+                    ? tasks.findFirstByWorkspaceIdAndProjectIdAndPersonIdAndRuleAndStatusOrderByDueAtAsc(
+                            followUp.workspaceId(), followUp.projectId(), followUp.personId(), TaskRule.REPLY,
+                            TaskStatus.OPEN).orElseGet(() -> file(followUp, holder))
+                    : file(followUp, holder);
+        }
         if (followUp.announce()) {
             events.publishEvent(new OutreachFollowUp(followUp.kind(), followUp.workspaceId(), followUp.projectId(),
                     followUp.personId(), followUp.candidateId(), holder, filed == null ? null : filed.getId(),

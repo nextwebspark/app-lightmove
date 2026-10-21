@@ -88,9 +88,12 @@ public class ConversationService {
             OutreachStopReason.SEND_UNCERTAIN, OutreachStopReason.MAILBOX_INACTIVE, OutreachStopReason.MAILBOX_MOVED,
             OutreachStopReason.ADDRESS_REMOVED);
 
-    /** The run and status lines a conversation shows; an email's own lines are its message rows. */
+    /**
+     * The run and status lines a conversation shows. An email, a reply or a bounce is its own message row, so the
+     * lines that announced one are left out; V145 gave every earlier reply and bounce a row.
+     */
     private static final Set<PersonActivityKind> HISTORY_KINDS = EnumSet.of(PersonActivityKind.OUTREACH_ENROLLED,
-            PersonActivityKind.EMAIL_REPLIED, PersonActivityKind.OUTREACH_STOPPED, PersonActivityKind.STATUS_CHANGED);
+            PersonActivityKind.OUTREACH_STOPPED, PersonActivityKind.STATUS_CHANGED);
 
     private static final Comparator<Instant> LATEST_FIRST = Comparator.nullsLast(Comparator.reverseOrder());
     private static final Comparator<Instant> SOONEST_FIRST = Comparator.nullsLast(Comparator.naturalOrder());

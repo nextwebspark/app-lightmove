@@ -100,6 +100,8 @@ const connected: Mailbox = {
     runsStoppedByMove: 0,
     liveSequences: 0,
     livePeople: 0,
+    readsReplies: false,
+    reconnectToReadReplies: false,
   },
 };
 
@@ -227,6 +229,22 @@ describe("OutreachPage", () => {
 
     expect(await screen.findByText("Reconnect your mailbox.")).toBeInTheDocument();
     expect(screen.getByText(/2 running sequences stop at their next email/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reconnect" }));
+
+    expect(mailboxApi.startMailboxConnect).toHaveBeenCalledWith("google");
+  });
+
+  it("asks a mailbox whose consent stopped short of replies to reconnect, while it keeps sending", async () => {
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
+      ...connected,
+      connection: { ...connected.connection!, reconnectToReadReplies: true },
+    });
+    vi.mocked(mailboxApi.startMailboxConnect).mockResolvedValue({ authorizationUrl: "https://mail.example/connect?state=s" });
+    vi.stubGlobal("open", vi.fn(() => ({ location: { href: "about:blank" }, closed: false, close: vi.fn() })));
+    renderPage();
+
+    expect(await screen.findByText("Reconnect to show replies here.")).toBeInTheDocument();
+    expect(screen.getByText(/Until then a reply still stops its sequence/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Reconnect" }));
 
     expect(mailboxApi.startMailboxConnect).toHaveBeenCalledWith("google");

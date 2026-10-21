@@ -13,15 +13,23 @@ import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
+import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.http.MediaType;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
@@ -30,8 +38,9 @@ import tools.jackson.databind.JsonNode;
  * Gmail and Google Workspace mail through the Gmail API, connected through the OAuth app the workspace chose:
  * Uncava's, or the customer's Internal app. A send is a raw RFC 2822 message ({@link RawEmail}); a follow-up names
  * the thread and carries the last message's {@code Message-ID} in {@code In-Reply-To} and {@code References}, which
- * is what threads it in the executive's own client, Gmail or not. Only headers are ever read ({@code gmail.metadata}),
- * never a body. A send is never retried — see {@link MailboxGateway}.
+ * is what threads it in the executive's own client, Gmail or not. A body is read only from a thread Uncava started,
+ * and only where the consultant granted {@code gmail.readonly}; otherwise headers alone. A send is never retried — see
+ * {@link MailboxGateway}.
  */
 public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
 
@@ -39,9 +48,13 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     public static final String API = "https://www.googleapis.com";
     public static final String ACCOUNTS = "https://accounts.google.com";
 
+    /** Any of these reaches a message's body; Google's granular consent lets a person untick it. */
+    private static final Set<String> BODY_SCOPES = Set.of("https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/gmail.modify", "https://mail.google.com/");
+
     /** {@code calendar.*} for meetings, free/busy and booking; together they cover Recall's read too. */
     static final List<String> SCOPES = List.of("openid", "email", "https://www.googleapis.com/auth/gmail.send",
-            "https://www.googleapis.com/auth/gmail.metadata", "https://www.googleapis.com/auth/calendar.events",
+            "https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/calendar.events",
             "https://www.googleapis.com/auth/calendar.freebusy");
 
     /** Only what a meeting row keeps: never a description, a location or an attachment. */
@@ -50,6 +63,8 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
             + "conferenceData(entryPoints,conferenceSolution/name))";
 
     private static final int EVENT_PAGE = 250;
+
+    private static final Pattern CHARSET = Pattern.compile("(?i)charset=\"?([^\";\\s]+)");
 
     private final String accountsBaseUrl;
 
@@ -60,6 +75,17 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
         super(IntegrationProvider.GOOGLE, VENDOR, credentials, tokenEndpoint, mailboxTokens, clientFactory,
                 rateLimiter, guard, apiBaseUrl);
         this.accountsBaseUrl = accountsBaseUrl;
+    }
+
+    @Override
+    protected boolean grantsReplyText(Set<String> granted) {
+        return granted.stream().anyMatch(BODY_SCOPES::contains);
+    }
+
+    /** {@code gmail.metadata} is what a mailbox connected before the read was asked holds; it reads who wrote. */
+    @Override
+    protected boolean readsThreads(Set<String> granted) {
+        return grantsReplyText(granted) || granted.contains("https://www.googleapis.com/auth/gmail.metadata");
     }
 
     /** {@code prompt=consent} because Google sends a refresh token only on a consent it actually showed. */
@@ -276,11 +302,14 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     /**
-     * Who wrote into the thread since {@code since}, from each message's {@code From} header alone. The consultant's
-     * own sent copies and drafts are left out by label, whatever address they went from.
+     * What was written into the thread since {@code since}: the thread read by its {@code From} headers, and with
+     * {@code withText} each message the read keeps fetched whole, its body from the {@code text/plain} part or else
+     * the HTML one — never our own sent HTML, and only the few messages a poll finds new. A body that cannot be read
+     * leaves the message without its words rather than unseen. The consultant's own sent copies and drafts are left
+     * out by label, whatever address they went from.
      */
     @Override
-    public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
+    public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
         String accessToken = accessTokenOf(grantId);
         JsonNode thread = apiCall("thread", accessToken, client -> client.get()
                 .uri(builder -> builder.path("/gmail/v1/users/me/threads/{id}")
@@ -288,13 +317,36 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
                         .queryParam("metadataHeaders", "From")
                         .build(threadId))
                 .accept(MediaType.APPLICATION_JSON));
-        return sendersSince(thread, since);
+        List<ThreadMessage> written = messagesSince(thread, since, false);
+        if (!withText) {
+            return written;
+        }
+        return written.stream()
+                .map(message -> new ThreadMessage(message.providerMessageId(), message.fromAddress(),
+                        message.receivedAt(), bodyTextOf(accessToken, message.providerMessageId())))
+                .toList();
     }
 
-    static List<String> sendersSince(JsonNode thread, Instant since) {
-        List<String> senders = new ArrayList<>();
+    private String bodyTextOf(String accessToken, String messageId) {
+        if (messageId == null) {
+            return null;
+        }
+        try {
+            JsonNode message = apiCall("message", accessToken, client -> client.get()
+                    .uri(builder -> builder.path("/gmail/v1/users/me/messages/{id}")
+                            .queryParam("format", "full")
+                            .build(messageId))
+                    .accept(MediaType.APPLICATION_JSON));
+            return message == null ? null : bodyTextOf(message.path("payload"));
+        } catch (VendorException unreadable) {
+            return null;
+        }
+    }
+
+    static List<ThreadMessage> messagesSince(JsonNode thread, Instant since, boolean withText) {
+        List<ThreadMessage> messages = new ArrayList<>();
         if (thread == null) {
-            return senders;
+            return messages;
         }
         for (JsonNode message : thread.path("messages")) {
             if (hasLabel(message, "SENT") || hasLabel(message, "DRAFT")) {
@@ -304,10 +356,73 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
             long internalDate = message.path("internalDate").asLong(-1);
             String address = RawEmail.addressOf(headerOf(message, "From"));
             if (address != null && internalDate >= 0 && !Instant.ofEpochMilli(internalDate).isBefore(since)) {
-                senders.add(address);
+                messages.add(new ThreadMessage(textOrNull(message.get("id")), address,
+                        Instant.ofEpochMilli(internalDate), withText ? bodyTextOf(message.path("payload")) : null));
             }
         }
-        return senders;
+        return messages;
+    }
+
+    static String bodyTextOf(JsonNode payload) {
+        JsonNode plain = partOf(payload, "text/plain");
+        if (plain != null) {
+            return ReplyText.ofPlainText(decodedBodyOf(plain));
+        }
+        JsonNode html = partOf(payload, "text/html");
+        return html == null ? null : ReplyText.ofHtml(decodedBodyOf(html));
+    }
+
+    /** The first part of {@code mimeType} in the message's tree, an attachment never one. */
+    private static JsonNode partOf(JsonNode part, String mimeType) {
+        if (part == null || part.isMissingNode()) {
+            return null;
+        }
+        boolean attached = !part.path("filename").asString("").isEmpty();
+        if (!attached && mimeType.equalsIgnoreCase(part.path("mimeType").asString(""))
+                && part.path("body").hasNonNull("data")) {
+            return part;
+        }
+        for (JsonNode child : part.path("parts")) {
+            JsonNode found = partOf(child, mimeType);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
+    /** Gmail has already undone the transfer encoding; what is left is base64url in the part's own charset. */
+    private static String decodedBodyOf(JsonNode part) {
+        byte[] bytes;
+        try {
+            bytes = Base64.getUrlDecoder().decode(part.path("body").path("data").asString(""));
+        } catch (IllegalArgumentException unreadable) {
+            return null;
+        }
+        return new String(bytes, charsetOf(headerOfPart(part, "Content-Type")));
+    }
+
+    private static Charset charsetOf(String contentType) {
+        if (contentType != null) {
+            Matcher declared = CHARSET.matcher(contentType);
+            if (declared.find()) {
+                try {
+                    return Charset.forName(declared.group(1));
+                } catch (IllegalArgumentException unknown) {
+                    // An unknown or illegal name reads as UTF-8, what nearly every client sends.
+                }
+            }
+        }
+        return StandardCharsets.UTF_8;
+    }
+
+    private static String headerOfPart(JsonNode part, String name) {
+        for (JsonNode header : part.path("headers")) {
+            if (name.equalsIgnoreCase(header.path("name").asString(""))) {
+                return textOrNull(header.get("value"));
+            }
+        }
+        return null;
     }
 
     private static boolean hasLabel(JsonNode message, String label) {

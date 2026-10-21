@@ -28,6 +28,10 @@ export interface ConnectedMailbox {
   liveSequences: number;
   /** The people those live sequences are addressed to. */
   livePeople: number;
+  /** Whether the words of a reply are kept, not only that someone replied. */
+  readsReplies: boolean;
+  /** A reconnect now would let them be: Uncava's own connection, consented to before it asked for the read. */
+  reconnectToReadReplies: boolean;
 }
 
 export interface Mailbox {

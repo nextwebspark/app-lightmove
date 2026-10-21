@@ -359,7 +359,7 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
                 UUID.class, candidateId);
         transactions.executeWithoutResult(status -> events.publishEvent(new OutreachReplied(
                 UUID.fromString(workspaceId), UUID.fromString(projectId), UUID.fromString(candidateId), personId,
-                UUID.randomUUID(), UUID.fromString(researcherId))));
+                UUID.randomUUID(), UUID.fromString(researcherId), UUID.randomUUID())));
     }
 
     private JsonNode read(String token, String url) throws Exception {

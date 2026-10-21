@@ -11,11 +11,14 @@ import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ReleasedGrant;
+import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import app.lightmove.api.outreach.service.MailboxGateway;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -42,7 +45,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private volatile boolean offered = true;
     private final AtomicInteger sequence = new AtomicInteger();
     private final Map<String, String> threadOfMessage = new ConcurrentHashMap<>();
-    private final Map<String, List<String>> threadWriters = new ConcurrentHashMap<>();
+    private final Map<String, List<ThreadMessage>> threadWriters = new ConcurrentHashMap<>();
+    /** Which grant made each thread since the last clear: thread ids restart, and the suite shares one database. */
+    private final Map<String, String> grantOfThread = new ConcurrentHashMap<>();
     private volatile List<MailboxEvent> nextWebhook = List.of();
     private volatile List<CalendarEvent> calendar = List.of();
     private volatile List<BusyInterval> busy = List.of();
@@ -92,6 +97,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         String threadId = email.replyToMessageId() == null ? "thread-" + number
                 : threadOfMessage.getOrDefault(email.replyToMessageId(), "thread-" + number);
         threadOfMessage.put(messageId, threadId);
+        grantOfThread.putIfAbsent(threadId, grantId);
         return new SentEmail(messageId, threadId);
     }
 
@@ -103,9 +109,20 @@ public class RecordingMailboxGateway implements MailboxGateway {
         return nextWebhook;
     }
 
+    /**
+     * Every message written into the thread, whatever {@code since}; its words only {@code withText}. Only the grant
+     * that made the thread is answered: an older test's thread of the same id belongs to another mailbox.
+     */
     @Override
-    public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
-        return List.copyOf(threadWriters.getOrDefault(threadId, List.of()));
+    public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
+        String maker = grantOfThread.get(threadId);
+        if (maker != null && !maker.equals(grantId)) {
+            return List.of();
+        }
+        return threadWriters.getOrDefault(threadId, List.of()).stream()
+                .map(message -> withText ? message : new ThreadMessage(message.providerMessageId(),
+                        message.fromAddress(), message.receivedAt(), null))
+                .toList();
     }
 
     @Override
@@ -196,9 +213,27 @@ public class RecordingMailboxGateway implements MailboxGateway {
         this.nextWebhook = List.copyOf(events);
     }
 
-    /** Someone wrote into a thread, as the reply poll will find it. */
-    public void writeInto(String threadId, String fromAddress) {
-        threadWriters.computeIfAbsent(threadId, key -> new CopyOnWriteArrayList<>()).add(fromAddress);
+    /** Someone wrote into a thread, as the reply poll will find it; answers the id the message was given. */
+    public String writeInto(String threadId, String fromAddress) {
+        return writeInto(threadId, fromAddress, null, null);
+    }
+
+    public String writeInto(String threadId, String fromAddress, String text) {
+        return writeInto(threadId, fromAddress, text, null);
+    }
+
+    /** A message as the mail service holds it, its id chosen by the test: one the webhook also reports. */
+    public void writeInto(String threadId, ThreadMessage message) {
+        threadWriters.computeIfAbsent(threadId, key -> new CopyOnWriteArrayList<>()).add(message);
+    }
+
+    /** {@code receivedAt} null reads as received whenever the poll found it; the words are cut as a provider's are. */
+    public String writeInto(String threadId, String fromAddress, String text, Instant receivedAt) {
+        String messageId = "inbound-" + sequence.incrementAndGet();
+        threadWriters.computeIfAbsent(threadId, key -> new CopyOnWriteArrayList<>())
+                .add(new ThreadMessage(messageId, fromAddress.toLowerCase(Locale.ROOT), receivedAt,
+                        ReplyText.ofPlainText(text)));
+        return messageId;
     }
 
     public String threadOf(String messageId) {
@@ -243,6 +278,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         offered = true;
         threadOfMessage.clear();
         threadWriters.clear();
+        grantOfThread.clear();
         nextWebhook = List.of();
         calendar = List.of();
         busy = List.of();

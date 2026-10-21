@@ -45,7 +45,7 @@ class NylasMailboxGatewayTest {
 
     private final NylasMailboxGateway gateway = new NylasMailboxGateway(
             new NylasSettings("nyk_secret", "client-123", "https://api.us.nylas.com", List.of("google", "microsoft"), 5,
-                    WEBHOOK_SECRET, true),
+                    WEBHOOK_SECRET, true, false),
             mock(VendorClientFactory.class), mock(VendorRateLimiter.class), mock(VendorCallGuard.class),
             RestClient.builder());
 
@@ -87,20 +87,34 @@ class NylasMailboxGatewayTest {
     }
 
     @Test
-    @DisplayName("a webhook delivery is read only when Nylas's signature over the raw body verifies")
+    @DisplayName("a webhook delivery is read only when Nylas's signature over the raw body verifies, and carries the "
+            + "message's id, time and body")
     void aWebhookNeedsItsSignature() throws Exception {
         byte[] body = """
-                {"type":"message.created","data":{"object":{"grant_id":"grant-9","thread_id":"thr-1",
-                 "from":[{"email":"priya@target.example","name":"Priya"}],"body":"never read"}}}"""
+                {"type":"message.created","data":{"object":{"grant_id":"grant-9","thread_id":"thr-1","id":"msg-7",
+                 "date":1790940600,"from":[{"email":"priya@target.example","name":"Priya"}],"body":"<p>Yes</p>"}}}"""
                 .getBytes(StandardCharsets.UTF_8);
 
         assertThat(gateway.readWebhook(signatureOf(body), body))
-                .containsExactly(new InboundMessage("grant-9", "thr-1", "priya@target.example"));
+                .containsExactly(new InboundMessage("grant-9", "thr-1", "priya@target.example", "msg-7",
+                        Instant.ofEpochSecond(1790940600L), "<p>Yes</p>"));
         assertThat(gateway.readWebhook(signatureOf(body).toUpperCase(), body)).hasSize(1);
         assertThatThrownBy(() -> gateway.readWebhook("0".repeat(64), body))
                 .isInstanceOfSatisfying(ApiException.class,
                         rejected -> assertThat(rejected.getCode()).isEqualTo(ErrorCode.MAILBOX_WEBHOOK_REJECTED));
         assertThatThrownBy(() -> gateway.readWebhook(null, body)).isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    @DisplayName("a truncated delivery carries no body, so the inbox reads it from the thread")
+    void aTruncatedDeliveryCarriesNoBody() throws Exception {
+        byte[] body = """
+                {"type":"message.created.truncated","data":{"object":{"grant_id":"grant-9","thread_id":"thr-1",
+                 "id":"msg-8","from":[{"email":"priya@target.example"}]}}}"""
+                .getBytes(StandardCharsets.UTF_8);
+
+        assertThat(gateway.readWebhook(signatureOf(body), body))
+                .containsExactly(new InboundMessage("grant-9", "thr-1", "priya@target.example", "msg-8", null, null));
     }
 
     @Test
@@ -227,7 +241,7 @@ class NylasMailboxGatewayTest {
     void noSecretNoWebhook() throws Exception {
         NylasMailboxGateway unsigned = new NylasMailboxGateway(
                 new NylasSettings("nyk_secret", "client-123", "https://api.us.nylas.com", List.of("google"), 5, "",
-                        false),
+                        false, false),
                 mock(VendorClientFactory.class), mock(VendorRateLimiter.class), mock(VendorCallGuard.class),
                 RestClient.builder());
         byte[] body = "{}".getBytes(StandardCharsets.UTF_8);
@@ -236,15 +250,19 @@ class NylasMailboxGatewayTest {
     }
 
     @Test
-    @DisplayName("a thread's messages read back as their senders")
+    @DisplayName("a thread's messages read back as their ids, senders, times and bodies")
     void threadMessagesReadBack() {
         NylasMailboxGateway.ThreadMessages messages = JSON.readValue("""
-                {"request_id":"r3","data":[{"from":[{"email":"consultant@firm.example"}]},
-                 {"from":[{"name":"Priya","email":"priya@target.example"}]}]}""",
+                {"request_id":"r3","data":[{"id":"m1","date":1790940000,"from":[{"email":"consultant@firm.example"}]},
+                 {"id":"m2","date":1790940600,"from":[{"name":"Priya","email":"priya@target.example"}],
+                  "body":"<div>Yes</div>"}]}""",
                 NylasMailboxGateway.ThreadMessages.class);
 
         assertThat(messages.data()).extracting(message -> message.from().getFirst().email())
                 .containsExactly("consultant@firm.example", "priya@target.example");
+        assertThat(messages.data().get(1).id()).isEqualTo("m2");
+        assertThat(messages.data().get(1).date()).isEqualTo(1790940600L);
+        assertThat(messages.data().get(1).body()).isEqualTo("<div>Yes</div>");
     }
 
     private static String signatureOf(byte[] body) throws Exception {

@@ -101,6 +101,10 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "recall_calendar_retry_at")
     private Instant recallCalendarRetryAt;
 
+    /** Whether the consultant's consent reaches the words written into our threads; Nylas's reach is a setting. */
+    @Column(name = "reply_text_granted", nullable = false)
+    private boolean replyTextGranted;
+
     /** {@code refreshTokenEncrypted}: the refresh token under {@link #refreshTokenContext}; null for Nylas. */
     public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox,
                                               String refreshTokenEncrypted, int dailyCap, Instant now) {
@@ -123,6 +127,7 @@ public class MailboxConnection extends BaseEntity {
         this.provider = mailbox.provider();
         this.address = mailbox.address();
         this.grantId = mailbox.grantId();
+        this.replyTextGranted = mailbox.replyTextGranted();
         this.status = MailboxStatus.ACTIVE;
         this.connectedAt = now;
         this.calendarSyncedAt = null;

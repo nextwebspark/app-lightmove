@@ -3,6 +3,7 @@ package app.lightmove.api.task.repository;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.task.constant.TaskRule;
 import app.lightmove.api.task.constant.TaskStatus;
 import app.lightmove.api.task.model.Task;
 import java.time.Instant;
@@ -131,6 +132,12 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
     long countByProjectIdAndStatus(UUID projectId, TaskStatus status);
 
     boolean existsByWorkspaceIdAndRuleKey(UUID workspaceId, String ruleKey);
+
+    Optional<Task> findFirstByWorkspaceIdAndProjectIdAndPersonIdAndRuleAndStatusOrderByDueAtAsc(UUID workspaceId,
+                                                                                               UUID projectId,
+                                                                                               UUID personId,
+                                                                                               TaskRule rule,
+                                                                                               TaskStatus status);
 
     @Query("""
             select t.presetId as presetId, count(t) as uses from Task t

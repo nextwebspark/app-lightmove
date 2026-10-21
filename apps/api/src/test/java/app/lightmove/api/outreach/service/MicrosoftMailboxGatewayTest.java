@@ -25,6 +25,7 @@ import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -36,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -128,6 +130,7 @@ class MicrosoftMailboxGatewayTest {
         assertThat(granted.address()).isEqualTo("yara.haddad@meridian.example");
         assertThat(granted.provider()).isEqualTo("microsoft");
         assertThat(granted.refreshToken()).isEqualTo("M.C123_refresh");
+        assertThat(granted.replyTextGranted()).as("Mail.ReadWrite reaches a reply's words").isTrue();
         Map<String, String> form = microsoft.lastForm();
         assertThat(form).containsEntry("grant_type", "authorization_code").containsEntry("code", "code-1")
                 .containsEntry("client_secret", "uncava-secret").containsEntry("redirect_uri", CALLBACK.toString());
@@ -183,18 +186,46 @@ class MicrosoftMailboxGatewayTest {
     }
 
     @Test
-    @DisplayName("who wrote into a conversation is read by address only, from the send on, never drafts or Sent Items")
-    void threadSendersAreAddressesOnly() {
+    @DisplayName("who wrote into a conversation is read without its words, from the send on, oldest first, never "
+            + "drafts or Sent Items")
+    void threadMessagesWithoutTheRead() {
         String grantId = MailboxGrants.mintDirect("microsoft");
         when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
 
-        List<String> writers = gateway.senderAddressesInThread(grantId,
-                "AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg==", Instant.parse("2026-10-01T00:00:00Z"));
+        List<ThreadMessage> written = gateway.messagesInThread(grantId,
+                "AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg==", Instant.parse("2026-10-01T00:00:00Z"), false);
 
-        assertThat(writers).containsExactly("priya@client.example", "postmaster@client.example");
+        assertThat(written).extracting(ThreadMessage::fromAddress)
+                .containsExactly("priya@client.example", "postmaster@client.example");
+        assertThat(written).extracting(ThreadMessage::providerMessageId).containsExactly("AAkPriya", "AAkBounce");
+        assertThat(written).extracting(ThreadMessage::text).containsOnlyNulls();
         String query = microsoft.lastQuery();
         assertThat(query).contains("$filter=conversationId eq 'AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg=='")
-                .contains("$select=from,receivedDateTime,isDraft,parentFolderId");
+                .contains("$select=id,from,receivedDateTime,isDraft,parentFolderId")
+                .doesNotContain("uniqueBody");
+    }
+
+    @Test
+    @DisplayName("with the read, a reply's words are its unique body, asked as text and its quote cut")
+    void threadMessagesWithTheRead() {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        List<ThreadMessage> written = gateway.messagesInThread(grantId,
+                "AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg==", Instant.parse("2026-10-01T00:00:00Z"), true);
+
+        assertThat(written).extracting(ThreadMessage::text).containsExactly("Thursday suits me.", null);
+        assertThat(microsoft.lastQuery()).contains("$select=id,from,receivedDateTime,isDraft,parentFolderId,uniqueBody");
+        assertThat(microsoft.preferOf("/graph/v1.0/me/messages")).contains("outlook.body-content-type=\"text\"")
+                .contains("IdType=\"ImmutableId\"");
+    }
+
+    @Test
+    @DisplayName("the words are granted by Mail.Read or Mail.ReadWrite, however Graph spells the scope")
+    void theReadIsGrantedByItsScope() {
+        assertThat(gateway.grantsReplyText(Set.of("https://graph.microsoft.com/Mail.ReadWrite"))).isTrue();
+        assertThat(gateway.grantsReplyText(Set.of("mail.read"))).isTrue();
+        assertThat(gateway.grantsReplyText(Set.of("Mail.Send", "User.Read"))).isFalse();
     }
 
     @Test
@@ -522,10 +553,11 @@ class MicrosoftMailboxGatewayTest {
                            "from":{"emailAddress":{"name":"Yara Haddad","address":"yhaddad@meridian.onmicrosoft.com"}}},
                           {"receivedDateTime":"2026-10-02T08:00:00Z","isDraft":true,"parentFolderId":"AAMkDrafts",
                            "from":{"emailAddress":{"name":"Yara Haddad","address":"yara.haddad@meridian.example"}}},
-                          {"receivedDateTime":"2026-10-02T11:30:00Z",
-                           "from":{"emailAddress":{"name":"Priya Raman","address":"priya@client.example"}}},
-                          {"receivedDateTime":"2026-10-02T11:31:00Z",
-                           "from":{"emailAddress":{"name":"Mail Delivery","address":"postmaster@client.example"}}}
+                          {"id":"AAkBounce","receivedDateTime":"2026-10-02T11:31:00Z",
+                           "from":{"emailAddress":{"name":"Mail Delivery","address":"postmaster@client.example"}}},
+                          {"id":"AAkPriya","receivedDateTime":"2026-10-02T11:30:00Z",
+                           "uniqueBody":{"contentType":"text","content":"Thursday suits me.\\r\\n\\r\\nFrom: Yara Haddad\\r\\nSent: Wednesday\\r\\n"},
+                           "from":{"emailAddress":{"name":"Priya Raman","address":"Priya@Client.example"}}}
                         ]}""");
             } else {
                 respond(exchange, 404, "{\"error\":{\"code\":\"ErrorItemNotFound\"}}");

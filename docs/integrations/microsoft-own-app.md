@@ -25,5 +25,5 @@ Your consultants then connect their mailboxes from the Outreach page as usual. M
 need reconnecting once.
 
 **Why these permissions:** `Mail.ReadWrite` lets Uncava write each email as a draft and send it, which is how
-follow-ups thread; Uncava reads only who replied, never what they wrote. `Calendars.ReadWrite` lets it book calls and
+follow-ups thread; Uncava reads the replies in the threads it started, for your team only. `Calendars.ReadWrite` lets it book calls and
 show meetings with candidates. `offline_access` keeps the connection alive without signing in again.

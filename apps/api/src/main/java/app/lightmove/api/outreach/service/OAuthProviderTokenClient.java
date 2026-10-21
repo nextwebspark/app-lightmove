@@ -143,8 +143,10 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
         }
         JsonNode expiresIn = answer.get("expires_in");
         long seconds = expiresIn == null || !expiresIn.canConvertToLong() ? 3600 : expiresIn.asLong();
+        String scope = textOrNull(answer.get("scope"));
+        Set<String> scopes = scope == null ? Set.of() : Set.copyOf(List.of(scope.trim().split("\\s+")));
         return new ProviderTokenGrant(accessToken, Duration.ofSeconds(seconds),
-                textOrNull(answer.get("refresh_token")));
+                textOrNull(answer.get("refresh_token")), scopes);
     }
 
     /** RFC 6749 §5.2's {@code error}, read off the body; whatever else the body says is never kept. */

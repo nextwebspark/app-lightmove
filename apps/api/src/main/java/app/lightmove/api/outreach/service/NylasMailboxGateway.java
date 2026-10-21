@@ -25,7 +25,9 @@ import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ReleasedGrant;
+import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -33,6 +35,7 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -186,8 +189,9 @@ public class NylasMailboxGateway implements MailboxGateway {
             return List.of();
         }
         return switch (notification.path("type").asString("")) {
-            case "message.created", "message.created.truncated" -> List.of(new InboundMessage(grantId,
-                    textOrNull(object.path("thread_id")), textOrNull(object.path("from").path(0).path("email"))));
+            case "message.created" -> List.of(inboundOf(grantId, object, textOrNull(object.path("body"))));
+            // A truncated delivery leaves its body out; the inbox reads it from the thread when it may.
+            case "message.created.truncated" -> List.of(inboundOf(grantId, object, null));
             case "message.bounce_detected" -> List.of(new DeliveryFailure(grantId,
                     firstText(object.path("origin").path("thread_id"), object.path("thread_id")),
                     firstText(object.path("origin").path("id"), object.path("message_id"))));
@@ -440,14 +444,25 @@ public class NylasMailboxGateway implements MailboxGateway {
                 Instant.ofEpochSecond(when.path("end_time").asLong()), participants, joinUrl, provider);
     }
 
+    private static InboundMessage inboundOf(String grantId, JsonNode object, String html) {
+        JsonNode date = object.path("date");
+        return new InboundMessage(grantId, textOrNull(object.path("thread_id")),
+                textOrNull(object.path("from").path(0).path("email")), textOrNull(object.path("id")),
+                date.canConvertToLong() ? Instant.ofEpochSecond(date.asLong()) : null, html);
+    }
+
+    /**
+     * Nylas sends a body only where its own app's scopes reach one; whether they do is {@code reads-replies}, which
+     * the inbox asks before it passes {@code withText}.
+     */
     @Override
-    public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
+    public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
         ThreadMessages messages = guard.call(VendorCall.of(VENDOR, "thread-messages"), () -> client.get()
                 .uri(builder -> builder.path("/v3/grants/{grantId}/messages")
                         .queryParam("thread_id", threadId)
                         .queryParam("received_after", since.getEpochSecond())
                         .queryParam("limit", THREAD_PAGE)
-                        .queryParam("select", "from")
+                        .queryParam("select", withText ? "id,from,date,body" : "id,from,date")
                         .build(grantId))
                 .accept(MediaType.APPLICATION_JSON)
                 .retrieve()
@@ -457,8 +472,14 @@ public class NylasMailboxGateway implements MailboxGateway {
         }
         return messages.data().stream()
                 .filter(message -> message.from() != null && !message.from().isEmpty())
-                .map(message -> message.from().getFirst().email())
-                .filter(address -> address != null && !address.isBlank())
+                .filter(message -> message.from().getFirst().email() != null
+                        && !message.from().getFirst().email().isBlank())
+                .map(message -> new ThreadMessage(message.id(),
+                        message.from().getFirst().email().toLowerCase(Locale.ROOT),
+                        message.date() == null ? null : Instant.ofEpochSecond(message.date()),
+                        withText ? ReplyText.ofBody(message.body()) : null))
+                .sorted(Comparator.comparing(ThreadMessage::receivedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
     }
 
@@ -500,9 +521,10 @@ public class NylasMailboxGateway implements MailboxGateway {
     @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
     record SentMessage(String id, String threadId) {}
 
-    record ThreadMessages(List<ThreadMessage> data) {}
+    record ThreadMessages(List<ThreadMessageAnswer> data) {}
 
-    record ThreadMessage(List<Participant> from) {}
+    /** {@code date} in epoch seconds; {@code body} HTML or plain text as the message was, and only where asked for. */
+    record ThreadMessageAnswer(String id, List<Participant> from, Long date, String body) {}
 
     record Participant(String email) {}
 }

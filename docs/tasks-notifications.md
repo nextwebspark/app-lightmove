@@ -21,7 +21,9 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
 - **Rules** file tasks from outreach — a reply (`Reply to {name}`), a bounce (`Find a working email for
   {name}`), a booked call (`Debrief {name}`, due when the call ends) — for whoever started the sequence or
   booked the call. Each carries a `rule_key`, unique while open, so a replayed webhook files nothing twice;
-  each rule can be switched off per workspace (`app_lm_workspace_task_rule`, absent means on).
+  each rule can be switched off per workspace (`app_lm_workspace_task_rule`, absent means on). A reply's key is
+  its message (`reply:<messageId>`, since outreach phase 2 stores every reply), and a reply while that person
+  already has an open reply task on the position files none: three quick replies are one reply to answer.
 - **Mentions** are tokens in a note's body, `@[Full Name](user:<uuid>)` or `@[team](team)`. The server keeps
   only users who may work the note's position; a note about no position mentions nobody.
 - **Notifications** (`app_lm_notification`) are one per recipient per event, grouped while unread by

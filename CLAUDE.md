@@ -495,11 +495,13 @@ audited) only with the `state` our link carried — an HMAC of the workspace und
 crafted return link records nothing — and the card says "Approved for your organisation"; it gates nothing.
 **Google (#646)** is `GoogleMailboxGateway`, over the Gmail API, offered the same way (Uncava's app, or a firm's
 Internal one). Its consent asks `access_type=offline` with `prompt=consent` — Google sends a refresh token only on
-a consent it showed — for `gmail.send`, `gmail.metadata`, `calendar.events` and `calendar.freebusy`. A send is one raw
+a consent it showed — for `gmail.send`, `gmail.readonly` (a reply's words, phase 2; `gmail.metadata` before it),
+`calendar.events` and `calendar.freebusy`. A send is one raw
 RFC 2822 message (`RawEmail`: UTF-8 HTML, an RFC 2047 subject where it is not ASCII, a line break in any header
 refused); a follow-up names the thread and carries the last message's own `Message-ID` in `In-Reply-To` and
 `References`, read with `format=metadata`, so it threads in the executive's client whatever it is. The poll reads
-`From` headers alone and drops `SENT` and `DRAFT` by label. Google revokes by the refresh token, so
+the thread by its `From` headers and drops `SENT` and `DRAFT` by label, then, where the consent granted the read,
+fetches each message it kept whole; a consent that unticks the read is refused (`MAILBOX_READ_NOT_GRANTED`). Google revokes by the refresh token, so
 `MailboxService` decrypts it before a disconnect or a reconnect lets the row go (`ReleasedGrant`, only where the
 gateway `revokesByRefreshToken`) and hands it to `revoke`. A reconnect of the **same mailbox** drops the old token
 without revoking it: Google's revoke withdraws the account's whole grant to the app, the token just issued included. Bounces: a mail daemon's `From` (`mailer-daemon`, `postmaster`, and Exchange
@@ -583,8 +585,8 @@ frozen email; a follow-up is rendered from the sequence as it stands and replies
 threads it. The first send moves Identified to Contacted, forward only. A reply or bounce arrives on the
 public `/api/v1/outreach/webhooks/mailbox`, whose HMAC signature is its credential
 (`lightmove.outreach.nylas.webhook-secret`; blank refuses every delivery), with a 15-minute poll of each
-listening thread as the fallback; only who wrote into a thread is read, never what. A mail daemon's message
-is a bounce. Every email is an `app_lm_outreach_message` row (staff-only); every end is an
+listening thread as the fallback. Only a thread Uncava started is read, and a reply's words only where the mailbox
+grants them (phase 2, below). A mail daemon's message is a bounce. Every email is an `app_lm_outreach_message` row (staff-only); every end is an
 `EMAIL_REPLIED` / `OUTREACH_STOPPED` line and an audit event (`OutreachOutcomes`). The Outreach page reads
 `…/outreach/people` (counts and runs, filtered in the SPA), the drawer's Outreach fold
 `…/outreach/candidates/{id}`, and Stop is `…/enrollments/{id}/stop`, all `WORK_EXECUTE`.
@@ -595,6 +597,19 @@ Outreach page: `…/outreach/conversations` (the action queue — Needs reply, F
 off each executive's open tasks through `NextActionLookup.openTasksOf` and their latest run — by tab, Mine or Team,
 and a search over names and what was sent) and `…/outreach/conversations/{candidateId}` (emails, run events, this
 position's notes and meetings merged newest first). Both `WORK_EXECUTE`; they own nothing.
+**Phase 2 (V145)**: every reply and bounce is a line of that ledger (`INBOUND`, `REPLY | BOUNCE`), found by the
+webhook or by `OutreachInboxService`'s poll of **every thread an email went into** within `reply-listen-window` (no
+longer only live runs' threads) through one `MailboxGateway.messagesInThread(grantId, threadId, since, withText)`,
+deduplicated on the provider's id (a partial unique index, inbound only). Its words are kept — staff-only, never
+logged, the quoted history cut by `ReplyText` (jsoup for an HTML body) — only where the mailbox grants them
+(`ReplyTextAccess`): a direct mailbox's consent (`reply_text_granted`, from the token's `scope`: Google's
+`gmail.readonly`, Microsoft's `Mail.Read*`), a Nylas one by `lightmove.outreach.nylas.reads-replies` (off by default,
+since no grant says what the Nylas app's connectors reach); otherwise the line has no text and still stops the run.
+A Google mailbox consented before the read is asked to reconnect (`reconnectToReadReplies`). Every reply writes its
+`EMAIL_REPLIED` line, audit event and `OutreachReplied` (now with `messageId`); only the first, while its run still
+listens, ends the run — and a reply received more than a day before it is found is a line alone, announced to
+nobody, unless its run still waits. V145 gave each earlier reply and bounce a **placeholder** line (no provider id),
+which the first matching message a read finds — received before it was noticed — completes instead of joining.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today
@@ -1152,7 +1167,9 @@ V144 widens `app_lm_outreach_message` into the conversation ledger: `direction`,
 insert lands mid-deploy; backfilled from each row's enrollment, a first email's text from its run's `first_body`
 and a follow-up's decoded from its HTML through Spring's whole entity table. `sent_at` is set only on an outbound email
 that went (a CHECK), since the daily cap counts it; the `(enrollment_id, step)` uniqueness holds for sequence steps
-alone. `project_id`/`person_id` stay nullable until phase 2 sets them `NOT NULL`.
+alone. V145 fills any deploy-window row's `project_id`/`person_id` and sets both `NOT NULL`, inserts a reply placeholder
+per answered run and a bounce placeholder per bounced one, adds `app_lm_mailbox_connection.reply_text_granted`
+(direct Microsoft rows backfilled true), and indexes the thread, the inbound dedupe and the listening scan.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

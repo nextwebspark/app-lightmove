@@ -14,6 +14,7 @@ import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.ThreadMessage;
 import java.net.URI;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -114,8 +115,8 @@ public class RoutingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public List<String> senderAddressesInThread(String grantId, String threadId, Instant since) {
-        return holding(grantId).senderAddressesInThread(grantId, threadId, since);
+    public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
+        return holding(grantId).messagesInThread(grantId, threadId, since, withText);
     }
 
     @Override
