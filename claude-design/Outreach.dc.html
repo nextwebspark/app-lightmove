@@ -75,142 +75,246 @@
 
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
 
-      <!-- ============ OVERVIEW ============ -->
+      <!-- ============ OUTREACH WORKSPACE ============ -->
       <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
-        <div data-screen-label="Outreach overview" style="max-width:1440px;margin:0 auto;padding:28px 28px 80px">
-
-          <div style="margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px">
-            <div style="min-width:0">
-              <div style="font:600 19px/1.25 var(--sans)">Outreach</div>
-              <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">Personal email from your own mailbox. A sequence stops the moment someone replies.</div>
-            </div>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-              <sc-if value="{{ mailboxConnected }}" hint-placeholder-val="{{ true }}">
-                <span title="Emails you send go from this address; replies land in your inbox" style="display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-soft);border-radius:7px;padding:6px 10px;font:500 12px var(--mono);color:var(--text2)">
-                  <span style="width:7px;height:7px;border-radius:50%;background:var(--green)"></span>yara.haddad@alfuttaim.com
-                  <span style="color:var(--text3)">· 12 of 50 today</span>
-                </span>
-              </sc-if>
-              <button onClick="{{ openEditor }}" data-id="new" style="display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 12px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="color:var(--text);border-color:var(--text3)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.plus }}"></path></svg>New sequence</button>
-              <button onClick="{{ openEnrol }}" style="display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 12px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.05)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.userPlus }}"></path></svg>Add people</button>
+        <div data-screen-label="Outreach workspace" style="height:100%;min-height:0;display:flex;flex-direction:column">
+          <div style="flex:none;border-bottom:1px solid var(--line-soft)">
+            <div style="display:flex;align-items:stretch;justify-content:space-between;height:48px;padding:4px 24px 0">
+              <div role="tablist" aria-label="Outreach views" style="display:flex;align-items:stretch;gap:24px">
+                <sc-for list="{{ oqTabs }}" as="t" hint-placeholder-count="4">
+                  <button role="tab" data-id="{{ t.key }}" onClick="{{ oqSetTab }}" aria-selected="{{ t.on }}" style="{{ t.style }}">
+                    <span style="{{ t.labelStyle }}">{{ t.label }}</span>
+                    <sc-if value="{{ t.hasCount }}"><span style="{{ t.countStyle }}">{{ t.count }}</span></sc-if>
+                  </button>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center"><button onClick="{{ openEnrol }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--amber-btn);color:var(--on-amber);font:600 12px/1 var(--sans);cursor:pointer" style-hover="filter:brightness(1.08)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5v14"></path></svg>New outreach</button></div>
             </div>
           </div>
 
-          <sc-if value="{{ mailboxNone }}" hint-placeholder-val="{{ false }}">
-            <div data-screen-label="Connect mailbox" style="margin-bottom:18px;display:flex;flex-wrap:wrap;align-items:center;gap:18px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);padding:18px 20px">
-              <div style="width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber);flex:none">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.mail }}"></path></svg></div>
-              <div style="flex:1;min-width:260px">
-                <div style="font:600 14px var(--sans)">Connect your mailbox to send outreach</div>
-                <div style="margin-top:3px;font:400 12.5px/1.5 var(--sans);color:var(--text2)">Emails go from your own address and replies land in your own inbox. Uncava only notices that someone replied, so it can stop their sequence. It never keeps what they wrote.</div>
+          <div style="flex:1;min-height:0;display:flex;overflow-x:auto">
+            <aside aria-label="Action queue" data-screen-label="Action queue" style="width:clamp(260px,24vw,336px);flex:none;display:flex;flex-direction:column;min-height:0;background:var(--bg);border-right:1px solid var(--line-soft)">
+              <div style="flex:none;display:flex;flex-direction:column;gap:12px;padding:14px">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <span style="font:500 13px/1 var(--sans);color:var(--text)">Action queue</span>
+                  <span style="font:400 11px/1 var(--sans);color:var(--text3)">{{ oqOpenLabel }}</span>
+                </div>
+                <label style="display:flex;align-items:center;gap:7px;height:32px;padding:0 8px;border-radius:6px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);box-sizing:border-box">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex:none;color:var(--text3)"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                  <input value="{{ oqQuery }}" onChange="{{ oqOnQuery }}" placeholder="Search people or messages…" aria-label="Search people or messages" style="flex:1;min-width:0;background:transparent;border:none;outline:none;font:400 11px/1 var(--sans);color:var(--text)">
+                  <span style="font:400 10px/1 var(--sans);color:var(--text3)">⌘K</span>
+                </label>
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <div style="display:flex;gap:3px">
+                    <button data-id="mine" onClick="{{ oqSetWho }}" style="{{ oqMineStyle }}">Mine</button>
+                    <button data-id="team" onClick="{{ oqSetWho }}" style="{{ oqTeamStyle }}">Team</button>
+                  </div>
+                  <span style="display:flex;align-items:center;gap:5px;font:400 10px/1 var(--sans);color:var(--text3)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M7 12h10M10 18h4"></path></svg>Priority</span>
+                </div>
               </div>
-              <div style="display:flex;gap:8px">
-                <button onClick="{{ connect }}" style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:8px 14px;font:600 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)"><span style="font:700 13px var(--sans);color:#4285F4">G</span>Connect Gmail</button>
-                <button onClick="{{ connect }}" style="display:inline-flex;align-items:center;gap:8px;border-radius:8px;padding:8px 14px;font:600 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer" style-hover="border-color:var(--text3)"><span style="font:700 13px var(--sans);color:#0A64C9">O</span>Connect Outlook</button>
+              <div style="flex:1;min-height:0;overflow-y:auto">
+                <sc-for list="{{ oqGroups }}" as="g" hint-placeholder-count="4">
+                  <div>
+                    <div style="display:flex;align-items:center;gap:7px;height:33px;padding:0 14px;background:var(--panel);border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft)">
+                      <span style="font:500 11px/1 var(--sans);color:var(--text2)">{{ g.label }}</span>
+                      <span style="display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--panel2);font:400 11px/1 var(--u-num);color:var(--text3)">{{ g.count }}</span>
+                      <span style="flex:1;text-align:right;font:400 9px/1 var(--sans);color:var(--text3)">{{ g.context }}</span>
+                    </div>
+                    <sc-for list="{{ g.items }}" as="q" hint-placeholder-count="2">
+                      <button data-id="{{ q.id }}" onClick="{{ oqSelect }}" aria-pressed="{{ q.on }}" style="{{ q.rowStyle }}" style-hover="{{ q.hover }}">
+                        <span aria-hidden="true" style="width:28px;height:28px;border-radius:99px;flex:none;background:var(--panel2) center / cover no-repeat;background-image:{{ q.photoBg }}"></span>
+                        <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
+                          <span style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                            <span style="font:600 12px/1.25 var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ q.name }}</span>
+                            <span style="{{ q.timeStyle }}">{{ q.time }}</span>
+                          </span>
+                          <span style="font:400 10px/1.2 var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ q.role }}</span>
+                          <span style="display:flex;align-items:center;gap:5px">
+                            <span style="{{ q.dotStyle }}"></span>
+                            <span style="font:400 11px/1.2 var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ q.action }}</span>
+                          </span>
+                          <span style="font:400 10px/1.2 var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ q.preview }}</span>
+                        </span>
+                      </button>
+                    </sc-for>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ oqNoResults }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:28px 14px;text-align:center;font:400 12px/1.5 var(--sans);color:var(--text3)">Nothing matches that search.</div>
+                </sc-if>
               </div>
-            </div>
-          </sc-if>
+              <div style="flex:none;display:flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-top:1px solid var(--line-soft);font:400 11px/1 var(--sans);color:var(--text2)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text3)"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                <span style="flex:1">1 scheduled · tomorrow, 09:00</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text3)"><path d="M7 17 17 7M8 7h9v9"></path></svg>
+              </div>
+            </aside>
 
-          <sc-if value="{{ mailboxError }}" hint-placeholder-val="{{ false }}">
-            <div role="alert" style="margin-bottom:18px;display:flex;align-items:center;gap:12px;border-radius:8px;background:var(--red-dim);padding:10px 14px;font:400 13px var(--sans);color:var(--text)">
-              <b style="color:var(--red)">Gmail disconnected.</b> Google revoked Uncava's access to yara.haddad@alfuttaim.com. 4 scheduled emails are paused until you reconnect.
-              <button onClick="{{ connect }}" style="margin-left:auto;border-radius:6px;padding:5px 11px;font:600 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer">Reconnect</button>
-            </div>
-          </sc-if>
-
-          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
-            <div data-screen-label="Empty" style="display:flex;flex-direction:column;align-items:center;padding:60px 20px;text-align:center;animation:fadeUp .5s ease both">
-              <div style="margin-bottom:18px;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--amber-dim);color:var(--amber)">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.outreach }}"></path></svg></div>
-              <div style="margin-bottom:6px;font-size:19px;font-weight:600">No outreach on this position yet</div>
-              <div style="margin-bottom:26px;max-width:520px;font-size:13px;color:var(--text2)">Write a sequence once: a first email and up to two follow-ups in the same thread. Then add the executives you mapped. Each person's first email is shown to you before anything is sent.</div>
-              <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-bottom:26px">
-                <sc-for list="{{ howSteps }}" as="h" hint-placeholder-count="3">
-                  <div style="width:210px;border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:14px;text-align:left">
-                    <div style="font:700 11px var(--mono);color:var(--amber)">{{ h.n }}</div>
-                    <div style="margin-top:4px;font:600 13px var(--sans)">{{ h.t }}</div>
-                    <div style="margin-top:4px;font:400 12px/1.45 var(--sans);color:var(--text2)">{{ h.d }}</div>
+            <section aria-label="Conversation" data-screen-label="Conversation" style="flex:1;min-width:420px;display:flex;flex-direction:column;min-height:0;background:var(--panel)">
+              <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;min-height:76px;padding:14px 24px;border-bottom:1px solid var(--line-soft);box-sizing:border-box">
+                <div style="min-width:0;display:flex;flex-direction:column;gap:7px">
+                  <div style="display:flex;align-items:center;gap:9px">
+                    <span style="font:600 17px/1.2 var(--sans);letter-spacing:-0.3px;color:var(--text);white-space:nowrap">{{ oc.name }}</span>
+                    <span style="{{ oc.stagePill }}"><span style="{{ oc.stageDot }}"></span>{{ oc.stage }}</span>
+                  </div>
+                  <span style="font:400 11px/1 var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ oc.role }}</span>
+                </div>
+                <div style="flex:none;display:flex;align-items:center;gap:5px">
+                  <button onClick="{{ oqLogCall }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"></path></svg>Log call</button>
+                  <button onClick="{{ oqAddNote }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path></svg>Add note</button>
+                  <button onClick="{{ oqHandled }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>Mark handled</button>
+                </div>
+              </div>
+              <div style="flex:none;display:flex;flex-direction:column;gap:6px;padding:13px 24px;background:var(--amber-dim);border-bottom:1px solid var(--line-soft)">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <span style="display:flex;align-items:center;gap:7px;font:600 11px/1 var(--sans);color:var(--amber)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 4 12l5-5"></path><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>Required next action</span>
+                  <span style="font:400 10px/1 var(--u-num);color:var(--amber)">{{ oc.due }}</span>
+                </div>
+                <span style="font:400 13px/1.35 var(--sans);color:var(--text)">{{ oc.next }}</span>
+              </div>
+              <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:20px 24px 8px">
+                <div style="display:flex;align-items:center;justify-content:space-between">
+                  <span style="font:500 11px/1 var(--sans);color:var(--text3)">Communication history</span>
+                  <span style="font:400 9px/1 var(--u-num);color:var(--text3)">{{ oc.range }}</span>
+                </div>
+                <sc-for list="{{ oc.history }}" as="ev" hint-placeholder-count="4">
+                  <div style="display:flex;gap:12px;align-items:flex-start">
+                    <span style="{{ ev.markerStyle }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ ev.icon }}"></path></svg></span>
+                    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;padding-bottom:14px;border-bottom:1px solid var(--line-soft)">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                        <span style="font:500 13px/1.25 var(--sans);color:var(--text)">{{ ev.title }}</span>
+                        <span style="flex:none;font:400 9px/1 var(--u-num);color:var(--text3)">{{ ev.time }}</span>
+                      </div>
+                      <span style="font:400 14px/21px var(--sans);color:var(--text2);text-wrap:pretty">{{ ev.message }}</span>
+                      <span style="display:flex;align-items:center;gap:7px">
+                        <span style="{{ ev.typeStyle }}">{{ ev.type }}</span>
+                        <span style="font:400 10px/1.2 var(--sans);color:var(--text3)">·  {{ ev.context }}</span>
+                      </span>
+                    </div>
                   </div>
                 </sc-for>
               </div>
-              <button onClick="{{ openEditor }}" data-id="new" style="border-radius:8px;padding:8px 16px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Write your first sequence</button>
-            </div>
-          </sc-if>
-
-          <sc-if value="{{ hasData }}" hint-placeholder-val="{{ true }}">
-            <div data-screen-label="Counts" style="margin-bottom:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
-              <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
-                <div style="border-radius:10px;border:1px solid var(--line-soft);background:{{ k.bg }};padding:12px 14px">
-                  <div style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">{{ k.label }}</div>
-                  <div style="margin-top:6px;font:600 22px var(--u-num);color:{{ k.color }}">{{ k.value }}</div>
-                  <div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">{{ k.sub }}</div>
+              <div data-screen-label="Reply composer" style="flex:none;display:flex;flex-direction:column;gap:12px;padding:16px 24px;border-top:1px solid var(--line-soft)">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <span style="display:flex;align-items:center;gap:7px;font:500 12px/1 var(--sans);color:var(--text)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--amber)"><path d="M9 17 4 12l5-5"></path><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>{{ oc.composeTitle }}</span>
+                  <span style="font:400 10px/1 var(--sans);color:var(--text3)">From yara.haddad@alfuttaim.com</span>
                 </div>
-              </sc-for>
-            </div>
+                <div style="display:flex;flex-direction:column;border-radius:8px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);overflow:hidden">
+                  <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-soft)">
+                    <span style="flex:none;font:400 11px/1 var(--sans);color:var(--text3)">Subject</span>
+                    <span style="flex:1;min-width:0;font:400 12px/1.2 var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ oc.subject }}</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;padding:12px">
+                    <span style="font:400 14px/1 var(--sans);color:var(--text2)">{{ oc.salutation }}</span>
+                    <textarea value="{{ oc.draft }}" onChange="{{ oqOnDraft }}" aria-label="Message" rows="4" style="width:100%;resize:none;background:transparent;border:none;outline:none;padding:0;font:400 14px/22px var(--sans);color:var(--text)"></textarea>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:14px;height:34px;padding:0 12px;color:var(--text3)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"></path></svg>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 4h-9M14 20H5M15 4 9 20"></path></svg>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
+                    <span style="width:1px;height:14px;background:var(--line-soft)"></span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"></path></svg>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+                  <div style="display:flex;gap:5px">
+                    <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"></rect><path d="M4 16V5a1 1 0 0 1 1-1h11"></path></svg>Saved template</button>
+                    <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><path d="M6 8.5V21M18 8.5a9 9 0 0 1-9 9H6"></path></svg>Insert follow-up</button>
+                    <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"></path></svg>Attach</button>
+                  </div>
+                  <div style="display:flex;gap:7px">
+                    <button onClick="{{ oqSchedule }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Schedule</button>
+                    <button onClick="{{ oqSend }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--amber-btn);font:600 12px/1 var(--sans);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.08)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4ZM22 2 11 13"></path></svg>Send now</button>
+                  </div>
+                </div>
+                <span style="font:400 11px/17px var(--sans);color:var(--text3)">{{ oc.footNote }}</span>
+              </div>
+            </section>
 
-            <div style="margin-bottom:10px;font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">Sequences</div>
-            <div data-screen-label="Sequences" style="margin-bottom:26px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px">
-              <sc-for list="{{ seqCards }}" as="sq" hint-placeholder-count="2">
-                <button onClick="{{ openEditor }}" data-id="{{ sq.id }}" style="text-align:left;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:14px 16px;cursor:pointer;color:var(--text)" style-hover="border-color:var(--text3)">
+            <aside aria-label="Candidate details" data-screen-label="Candidate details" style="width:clamp(260px,22vw,320px);flex:none;display:flex;flex-direction:column;min-height:0;overflow-y:auto;background:var(--bg);border-left:1px solid var(--line-soft)">
+              <div style="flex:none;display:flex;align-items:center;justify-content:space-between;height:48px;padding:0 20px">
+                <span style="font:500 12px/1 var(--sans);color:var(--text2)">Candidate details</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="color:var(--text3)"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg>
+              </div>
+              <div style="display:flex;flex-direction:column;padding:0 20px 20px">
+                <div style="display:flex;gap:12px;align-items:flex-start;padding-bottom:16px">
+                  <span aria-hidden="true" style="width:40px;height:40px;border-radius:99px;flex:none;background:var(--panel2) center / cover no-repeat;background-image:{{ oc.photoBg }}"></span>
+                  <div style="min-width:0;display:flex;flex-direction:column;gap:5px">
+                    <span style="font:600 14px/1.25 var(--sans);color:var(--text)">{{ oc.name }}</span>
+                    <span style="font:400 11px/1.45 var(--sans);color:var(--text3)">{{ oc.role }}</span>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:20px;border-bottom:1px solid var(--line-soft)">
+                  <span style="font:400 11px/1 var(--sans);color:var(--text3)">Pipeline stage</span>
+                  <span style="{{ oc.stagePill }}"><span style="{{ oc.stageDot }}"></span>{{ oc.stage }}</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;padding:20px 0;border-bottom:1px solid var(--line-soft)">
                   <div style="display:flex;align-items:center;gap:8px">
-                    <span style="font:600 14px var(--sans)">{{ sq.name }}</span>
-                    <span style="{{ sq.pillStyle }}">{{ sq.state }}</span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text3)"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    <span style="flex:1;font:400 12px/1 var(--sans);color:var(--text)">Client visible</span>
+                    <button role="switch" aria-checked="{{ oc.visible }}" aria-label="Client visible" onClick="{{ oqToggleVisible }}" style="{{ oc.switchStyle }}"><span style="{{ oc.knobStyle }}"></span></button>
                   </div>
-                  <div style="margin-top:6px;font:400 12px var(--mono);color:var(--text3)">{{ sq.meta }}</div>
-                  <div style="margin-top:10px;display:flex;gap:16px;font:500 12px var(--mono);color:var(--text2)">
-                    <span>{{ sq.enrolled }} enrolled</span><span>{{ sq.sent }} sent</span><span style="color:var(--green)">{{ sq.replied }} replied</span>
-                  </div>
-                </button>
-              </sc-for>
-            </div>
-
-            <div style="margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
-              <div style="font:600 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--text3)">People in outreach</div>
-              <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:6px">
-                <sc-for list="{{ filterChips }}" as="f" hint-placeholder-count="5">
-                  <button onClick="{{ setFilter }}" data-id="{{ f.key }}" style="{{ f.style }}">{{ f.label }}<span style="font:500 11px var(--mono);color:var(--text3)">{{ f.count }}</span></button>
-                </sc-for>
-              </div>
-            </div>
-
-            <div role="table" aria-label="People in outreach" data-screen-label="Enrolled table" style="border-radius:8px;border:1px solid var(--line);overflow:hidden">
-              <div role="row" style="display:grid;grid-template-columns:minmax(240px,2.2fr) minmax(150px,1.3fr) 110px minmax(140px,1fr) minmax(170px,1.3fr) 56px 90px;gap:12px;align-items:center;padding:9px 14px;background:var(--panel2);border-bottom:1px solid var(--line);font:600 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">
-                <span>Person</span><span>Sequence</span><span>Steps</span><span>Next send</span><span>Status</span><span>From</span><span></span>
-              </div>
-              <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
-                <div role="row" onClick="{{ openDrawer }}" data-id="{{ r.id }}" style="display:grid;grid-template-columns:minmax(240px,2.2fr) minmax(150px,1.3fr) 110px minmax(140px,1fr) minmax(170px,1.3fr) 56px 90px;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
-                  <span style="display:flex;align-items:center;gap:10px;min-width:0">
-                    <span style="{{ r.avStyle }}">{{ r.initials }}</span>
-                    <span style="min-width:0">
-                      <span style="display:block;font:500 13px var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.name }}</span>
-                      <span style="display:block;font:400 11.5px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.sub }}</span>
-                    </span>
-                  </span>
-                  <span style="font:400 12.5px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.seq }}</span>
-                  <span style="display:flex;align-items:center;gap:5px" title="{{ r.stepsTitle }}">
-                    <sc-for list="{{ r.dots }}" as="d" hint-placeholder-count="3"><span style="{{ d.style }}"></span></sc-for>
-                  </span>
-                  <span style="font:400 12px var(--mono);color:{{ r.nextColor }}">{{ r.next }}</span>
-                  <span style="display:flex;align-items:center;gap:8px;min-width:0">
-                    <span style="{{ r.pillStyle }}">{{ r.state }}</span>
-                    <span style="font:400 11px var(--mono);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.stateNote }}</span>
-                  </span>
-                  <span title="{{ r.sender }}" style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--sky-dim);color:var(--sky);font:600 9.5px var(--mono)">{{ r.senderInitials }}</span>
-                  <span style="display:flex;justify-content:flex-end">
-                    <sc-if value="{{ r.canStop }}" hint-placeholder-val="{{ false }}">
-                      <button onClick="{{ stopRow }}" data-id="{{ r.id }}" title="Stop this person's sequence — nothing more is sent" style="border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);background:none;border:1px solid var(--line);color:var(--text2);cursor:pointer" style-hover="border-color:var(--red);color:var(--red)">Stop</button>
-                    </sc-if>
-                    <sc-if value="{{ r.needsStatus }}" hint-placeholder-val="{{ false }}">
-                      <button onClick="{{ openDrawer }}" data-id="{{ r.id }}" title="They replied — record where they stand" style="border-radius:6px;padding:4px 9px;font:600 11.5px var(--sans);background:var(--green-dim);border:1px solid transparent;color:var(--green);cursor:pointer">Set status</button>
-                    </sc-if>
-                  </span>
+                  <span style="font:400 11px/1.5 var(--sans);color:var(--text3)">Client-visible profile only. Emails and private notes remain internal.</span>
                 </div>
-              </sc-for>
-            </div>
-            <p style="margin:10px 2px 0;font:400 11.5px var(--mono);color:var(--text3)">The first email moves a person from Identified to Contacted. A reply stops their sequence and asks you where they stand. Uncava never guesses from what they wrote.</p>
-          </sc-if>
+                <div style="display:flex;flex-direction:column;gap:14px;padding:20px 0;border-bottom:1px solid var(--line-soft)">
+                  <span style="font:500 11px/1 var(--sans);color:var(--text2)">Contact details</span>
+                  <sc-for list="{{ oc.contact }}" as="kv" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;align-items:baseline">
+                      <span style="font:400 11px/1.3 var(--sans);color:var(--text3)">{{ kv.k }}</span>
+                      <span style="font:400 11.5px/1.3 var(--sans);color:var(--text2);overflow-wrap:anywhere">{{ kv.v }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:14px;padding:20px 0;border-bottom:1px solid var(--line-soft)">
+                  <span style="font:500 11px/1 var(--sans);color:var(--text2)">Key dates</span>
+                  <sc-for list="{{ oc.dates }}" as="kv" hint-placeholder-count="4">
+                    <div style="display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;align-items:baseline">
+                      <span style="font:400 11px/1.3 var(--sans);color:var(--text3)">{{ kv.k }}</span>
+                      <span style="font:400 10.5px/1.3 var(--u-num);color:var(--text2)">{{ kv.v }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:12px;padding:20px 0;border-bottom:1px solid var(--line-soft)">
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font:500 11px/1 var(--sans);color:var(--text2)">Current sequence</span>
+                    <span style="font:400 9px/1 var(--u-num);color:var(--text3)">{{ oc.seqState }}</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <span style="font:400 12px/1.2 var(--sans);color:var(--text)">{{ oc.seq }}</span>
+                    <span style="font:400 10px/1 var(--u-num);color:var(--text3)">{{ oc.seqStep }}</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px">
+                    <sc-for list="{{ oc.seqBars }}" as="sb" hint-placeholder-count="3"><span style="{{ sb.style }}"></span></sc-for>
+                  </div>
+                  <div style="display:grid;grid-template-columns:86px minmax(0,1fr);gap:8px;align-items:baseline">
+                    <span style="font:400 11px/1.3 var(--sans);color:var(--text3)">Send status</span>
+                    <span style="font:400 11.5px/1.45 var(--sans);color:var(--text2)">{{ oc.sendStatus }}</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between">
+                    <button onClick="{{ openEditor }}" data-id="s1" style="border:none;background:none;padding:0;font:400 11px/1 var(--sans);color:var(--amber);cursor:pointer" style-hover="text-decoration:underline">View sequence</button>
+                    <button onClick="{{ oqViewHistory }}" style="border:none;background:none;padding:0;font:400 11px/1 var(--sans);color:var(--amber);cursor:pointer" style-hover="text-decoration:underline">View history</button>
+                  </div>
+                </div>
+                <div style="padding-top:20px">
+                  <a href="Position.dc.html?page=pipeline&amp;drawer=candidate" style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:6px;box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"></path></svg>Open persistent candidate record</a>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </sc-if>
 
@@ -543,26 +647,33 @@
   <sc-if value="{{ showDrawer }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeDrawer }}" style="position:fixed;inset:0;z-index:90;background:rgba(15,20,30,.4)"></div>
     <aside role="dialog" aria-label="{{ dr.name }}" data-screen-label="Executive drawer" style="position:fixed;right:10px;top:10px;bottom:10px;z-index:95;width:560px;max-width:92vw;display:flex;flex-direction:column;border-radius:10px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
-      <div style="position:relative;flex:none;border-bottom:1px solid var(--line-soft);padding:16px 20px">
-        <button onClick="{{ closeDrawer }}" aria-label="Close" style="position:absolute;right:14px;top:14px;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
-        <div style="display:flex;align-items:flex-start;gap:12px;padding-right:32px">
-          <span style="{{ dr.avStyle }}">{{ dr.initials }}</span>
+      <div style="position:relative;flex:none;padding:14px 20px 0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span style="font:700 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">{{ dr.breadcrumb }}</span>
+          <div style="display:flex;align-items:center;gap:2px">
+            <a href="{{ dr.recordHref }}" style="display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:6px;font:500 12px var(--sans);color:var(--sky);text-decoration:none" style-hover="background:var(--panel2)">Expand record<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 17 17 7M8 7h9v9"></path></svg></a>
+            <button aria-label="More" style="border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg></button>
+            <button onClick="{{ closeDrawer }}" aria-label="Close" style="border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;align-items:flex-start;gap:12px">
+          <image-slot id="dr-photo-{{ dr.id }}" shape="rounded" radius="10" placeholder="Photo" style="width:48px;height:48px;flex:none"></image-slot>
           <div style="min-width:0;flex:1">
             <h2 style="margin:0;font:600 16px var(--sans)">{{ dr.name }}</h2>
-            <p style="margin:2px 0 0;font:400 12.5px var(--mono);color:var(--text2)">{{ dr.title }}</p>
-            <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-              <select value="{{ dr.status }}" onChange="{{ setStatus }}" aria-label="Status" style="border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text)">
+            <p style="margin:2px 0 0;font:400 12.5px var(--mono);color:var(--text2)">{{ dr.role }}</p>
+            <p style="margin:4px 0 0;font:400 11.5px var(--mono);color:var(--text3)">{{ dr.company }}</p>
+            <div style="margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+              <select value="{{ dr.status }}" onChange="{{ setStatus }}" aria-label="Status" style="width:auto;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:4px 8px;font:400 12px var(--mono);color:var(--text);outline:none">
                 <sc-for list="{{ statusOptions }}" as="so"><option value="{{ so.value }}">{{ so.label }}</option></sc-for>
               </select>
             </div>
-            <sc-if value="{{ dr.dnc }}" hint-placeholder-val="{{ false }}"><div role="note" style="margin-top:8px;border-radius:6px;background:var(--red-dim);padding:6px 9px;font:400 12px/1.45 var(--sans);color:var(--text2)"><b style="color:var(--red)">Do not contact.</b> Asked not to be approached again for twelve months. Set by Omar Khalil, 16 Sep 2026.</div></sc-if>
           </div>
         </div>
-      </div>
-      <!-- The executive drawer opened on its Contact & outreach tab. Position.dc.html draws the whole drawer:
-           Profile · Contact & outreach · Records · Timeline. -->
-      <div role="tablist" aria-label="Executive sections" style="flex:none;display:flex;gap:2px;margin:0 20px;border-bottom:1px solid var(--line-soft)">
-        <sc-for list="{{ drawerTabs }}" as="dt" hint-placeholder-count="4"><a href="{{ dt.href }}" role="tab" aria-selected="{{ dt.on }}" style="{{ dt.style }}">{{ dt.label }}</a></sc-for>
+        <sc-if value="{{ dr.dnc }}" hint-placeholder-val="{{ false }}"><div role="note" style="margin-top:12px;border-radius:6px;background:var(--red-dim);padding:6px 9px;font:400 12px/1.45 var(--sans);color:var(--text2)"><b style="color:var(--red)">Do not contact.</b> Asked not to be approached again for twelve months. Set by Omar Khalil, 16 Sep 2026.</div></sc-if>
+        <!-- Same tabs, in the same order, as the candidate record in Position.dc.html; this drawer opens on Contact. -->
+        <div role="tablist" aria-label="Executive sections" style="margin-top:12px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line-soft)">
+          <sc-for list="{{ drawerTabs }}" as="dt" hint-placeholder-count="7"><a href="{{ dt.href }}" role="tab" aria-selected="{{ dt.on }}" style="{{ dt.style }}">{{ dt.label }}</a></sc-for>
+        </div>
       </div>
       <div style="min-height:0;flex:1;overflow-y:auto;padding:0 20px 20px">
         <section data-screen-label="Outreach section" style="border-bottom:1px solid var(--line-soft);padding:14px 0">
@@ -774,6 +885,76 @@ function render(text, id) {
 
 const isClosed = (st) => st === "replied" || st === "booked" || st === "bounced" || st === "stopped";
 
+const OQ_P = {
+  fatima: { name: "Fatima Al Mazrouei", role: "Group Finance Director · Al Naboodah Group", photo: "assets/outreach/fatima.jpg", group: "reply", time: "NOW", tone: "accent", action: "Reply received · next action required", preview: "I would be open to a confidential discussion…",
+    stage: "Interested", stageTone: "green", next: "Reply with confidential call times and confirm Thursday afternoon.", due: "DUE 05 OCT · 17:00", range: "28 SEP — TODAY",
+    history: [["sent", "CFO search — confidential introduction", "28 SEP · 09:04", "I’m leading a discreet Group CFO search in Dubai. Your transformation work at Al Naboodah is highly relevant, and I’d value a confidential introduction.", "SENT EMAIL", "CFO — first approach · Step 1 of 3"],
+      ["reply", "Fatima replied", "TODAY · 09:18", "Thank you, Yara. I would be open to a confidential discussion. Thursday afternoon is best if you can share a couple of times.", "SYNCED EMAIL", "Reply moved to Needs reply · sequence ended on reply"],
+      ["auto", "Sequence ended on reply", "TODAY · 09:18", "Initial outreach ended on human reply. Remaining automated steps cancelled.", "AUTOMATION", "Cancelled on reply · no future sends scheduled"],
+      ["note", "Call note added by Yara Haddad", "TODAY · 10:05", "Brief two-minute call. Fatima confirmed discretion is essential and asked for mandate scope before a longer conversation.", "HUMAN NOTE", "Private team note · not shared with client"]],
+    composeTitle: "Reply to Fatima", subject: "Re: CFO search — confidential introduction", salutation: "Fatima,", draft: "Thank you — Thursday works well. I can hold 15:30 or 17:00 GST for a confidential 30-minute call. I’ll send a one-page mandate overview beforehand.",
+    footNote: "Sending resolves this reply task. Pipeline stage stays Interested. Schedule a follow-up afterwards if needed.",
+    contact: [["Email", "fatima.mazrouei@alnaboodah.com"], ["Mobile", "+971 50 418 7426"], ["Location", "Dubai, UAE"], ["Time zone", "GST · UTC+4"]],
+    dates: [["Added", "20 SEP 2026"], ["First contacted", "28 SEP 09:04"], ["Replied", "05 OCT 09:18"], ["Last updated", "TODAY 10:05"]],
+    seq: "CFO — first approach", seqStep: "1 / 3", seqDone: 1, seqState: "ENDED", sendStatus: "Remaining steps cancelled. No sends scheduled.", visible: true },
+  hind: { name: "Hind Al Suwaidi", role: "VP Treasury · Chalhoub Group", photo: "assets/outreach/hind.jpg", group: "reply", time: "12m", tone: "green", action: "Reply received", preview: "Thursday afternoon could work well for me.",
+    stage: "Interested", stageTone: "green", next: "Reply and propose two call slots for Thursday afternoon.", due: "DUE TODAY · 18:00", range: "01 OCT — TODAY",
+    history: [["sent", "Treasury leadership — introduction", "01 OCT · 10:12", "I’m mapping senior treasury leaders across the GCC for a confidential group role and would value a short conversation.", "SENT EMAIL", "Treasury bench — warm intro · Step 1 of 3"],
+      ["reply", "Hind replied", "TODAY · 09:52", "Thanks for reaching out. Thursday afternoon could work well for me.", "SYNCED EMAIL", "Reply moved to Needs reply · sequence ended on reply"]],
+    composeTitle: "Reply to Hind", subject: "Re: Treasury leadership — introduction", salutation: "Hind,", draft: "Thank you — Thursday afternoon suits. Would 14:00 or 16:30 GST work for a 30-minute call?",
+    footNote: "Sending resolves this reply task. Pipeline stage stays Interested.",
+    contact: [["Email", "hind.suwaidi@chalhoub.com"], ["Mobile", "+971 55 210 3381"], ["Location", "Dubai, UAE"], ["Time zone", "GST · UTC+4"]],
+    dates: [["Added", "24 SEP 2026"], ["First contacted", "01 OCT 10:12"], ["Replied", "TODAY 09:52"], ["Last updated", "TODAY 09:52"]],
+    seq: "Treasury bench — warm intro", seqStep: "1 / 3", seqDone: 1, seqState: "ENDED", sendStatus: "Remaining steps cancelled. No sends scheduled.", visible: false },
+  priya: { name: "Priya Raman", role: "Head of FP&A · Al Naboodah Group", photo: "assets/outreach/priya.jpg", group: "follow", time: "11:00", tone: "red", action: "Follow up on introduction", preview: "Last email sent 3 working days ago.",
+    stage: "Approach", stageTone: "accent", next: "Send the step 2 follow-up in the same thread.", due: "DUE TODAY · 11:00", range: "30 SEP — TODAY",
+    history: [["sent", "CFO search — confidential introduction", "30 SEP · 09:30", "I’m leading a discreet Group CFO search in Dubai and would value your perspective on the finance leadership market.", "SENT EMAIL", "CFO — first approach · Step 1 of 3"]],
+    composeTitle: "Follow up with Priya", subject: "Re: CFO search — confidential introduction", salutation: "Priya,", draft: "Following up on my note last week. I’d value 20 minutes this week if you’re open to it.",
+    footNote: "Sending records step 2 of the sequence. Step 3 stays scheduled unless Priya replies.",
+    contact: [["Email", "priya.raman@alnaboodah.com"], ["Mobile", "+971 50 772 1904"], ["Location", "Dubai, UAE"], ["Time zone", "GST · UTC+4"]],
+    dates: [["Added", "22 SEP 2026"], ["First contacted", "30 SEP 09:30"], ["Replied", "—"], ["Last updated", "30 SEP 09:30"]],
+    seq: "CFO — first approach", seqStep: "1 / 3", seqDone: 1, seqState: "ACTIVE", sendStatus: "Step 2 due today, 11:00.", visible: false },
+  rajesh: { name: "Rajesh Menon", role: "VP Finance · Al Habtoor Group", photo: "assets/outreach/rajesh.jpg", group: "follow", time: "15:00", tone: "signal", action: "Call after email", preview: "No reply · suggested direct call.",
+    stage: "Approach", stageTone: "accent", next: "Call Rajesh. Two emails sent without a reply.", due: "DUE TODAY · 15:00", range: "26 SEP — TODAY",
+    history: [["sent", "Finance leadership — introduction", "26 SEP · 10:00", "I’m mapping senior finance leaders across the UAE for a confidential mandate.", "SENT EMAIL", "CFO — first approach · Step 1 of 3"],
+      ["sent", "Following up", "01 OCT · 10:00", "A short follow-up on my note last week.", "SENT EMAIL", "CFO — first approach · Step 2 of 3"]],
+    composeTitle: "Email Rajesh", subject: "Re: Finance leadership — introduction", salutation: "Rajesh,", draft: "I tried you by phone today. Would a short call later this week suit?",
+    footNote: "Log the call first if you reach him. Sending records step 3 of the sequence.",
+    contact: [["Email", "rajesh.menon@alhabtoor.com"], ["Mobile", "+971 52 640 1187"], ["Location", "Dubai, UAE"], ["Time zone", "GST · UTC+4"]],
+    dates: [["Added", "18 SEP 2026"], ["First contacted", "26 SEP 10:00"], ["Replied", "—"], ["Last updated", "01 OCT 10:00"]],
+    seq: "CFO — first approach", seqStep: "2 / 3", seqDone: 2, seqState: "ACTIVE", sendStatus: "Step 3 paused for a direct call.", visible: false },
+  layla: { name: "Layla Haddad", role: "Group Finance Director · Majid Al Futtaim", photo: "assets/outreach/layla.jpg", group: "prep", time: "PREP", tone: "accent", action: "Prepare first approach", preview: "Approval creates preparation work, not sends.",
+    stage: "Longlist", stageTone: "neutral", next: "Write and approve the first email.", due: "DUE 07 OCT", range: "TODAY",
+    history: [["auto", "Approved for outreach", "TODAY · 08:40", "Approved from the Pipeline. No email has been sent.", "AUTOMATION", "Preparation task created"]],
+    composeTitle: "First email to Layla", subject: "CFO search — confidential introduction", salutation: "Layla,", draft: "I’m leading a discreet Group CFO search in Dubai and would value a confidential introduction.",
+    footNote: "Nothing is sent until you press Send now or Schedule.",
+    contact: [["Email", "layla.haddad@maf.ae"], ["Mobile", "Not found"], ["Location", "Dubai, UAE"], ["Time zone", "GST · UTC+4"]],
+    dates: [["Added", "02 OCT 2026"], ["First contacted", "—"], ["Replied", "—"], ["Last updated", "TODAY 08:40"]],
+    seq: "None yet", seqStep: "0 / 3", seqDone: 0, seqState: "DRAFT", sendStatus: "Not enrolled.", visible: false },
+  khalid: { name: "Khalid Al Mansouri", role: "CFO · Automotive · AW Rostamani", photo: "assets/outreach/khalid.jpg", group: "prep", time: "PREP", tone: "accent", action: "Review contact details", preview: "Approval creates preparation work, not sends.",
+    stage: "Longlist", stageTone: "neutral", next: "Confirm a work email before the first approach.", due: "DUE 07 OCT", range: "TODAY",
+    history: [["auto", "Approved for outreach", "TODAY · 08:41", "Approved from the Pipeline. Email address unverified.", "AUTOMATION", "Preparation task created"]],
+    composeTitle: "First email to Khalid", subject: "CFO search — confidential introduction", salutation: "Khalid,", draft: "I’m leading a discreet Group CFO search in Dubai and would value a confidential introduction.",
+    footNote: "Verify the email address before sending.",
+    contact: [["Email", "k.mansouri@awrostamani.com (unverified)"], ["Mobile", "+971 50 118 9042"], ["Location", "Dubai, UAE"], ["Time zone", "GST · UTC+4"]],
+    dates: [["Added", "02 OCT 2026"], ["First contacted", "—"], ["Replied", "—"], ["Last updated", "TODAY 08:41"]],
+    seq: "None yet", seqStep: "0 / 3", seqDone: 0, seqState: "DRAFT", sendStatus: "Not enrolled.", visible: false },
+  noura: { name: "Noura Al Thani", role: "Chief Financial Officer · ADCB", photo: "assets/outreach/noura.jpg", group: "attn", time: "1D", tone: "red", action: "Delivery issue · verify address", preview: "Message could not be delivered.",
+    stage: "Approach", stageTone: "accent", next: "Verify Noura’s address and resend the first email.", due: "OVERDUE · 1 DAY", range: "YESTERDAY",
+    history: [["bounce", "Email bounced", "YESTERDAY · 09:00", "The recipient’s server rejected the message: mailbox not found.", "DELIVERY", "CFO — first approach · Step 1 of 3 paused"]],
+    composeTitle: "Resend to Noura", subject: "CFO search — confidential introduction", salutation: "Noura,", draft: "I’m leading a discreet Group CFO search and would value a confidential introduction.",
+    footNote: "The sequence stays paused until a working address is confirmed.",
+    contact: [["Email", "noura.althani@adcb.com (bounced)"], ["Mobile", "Not found"], ["Location", "Abu Dhabi, UAE"], ["Time zone", "GST · UTC+4"]],
+    dates: [["Added", "15 SEP 2026"], ["First contacted", "Bounced"], ["Replied", "—"], ["Last updated", "YESTERDAY 09:00"]],
+    seq: "CFO — first approach", seqStep: "0 / 3", seqDone: 0, seqState: "PAUSED", sendStatus: "Paused on delivery failure.", visible: false }
+};
+const OQ_GROUPS = [["reply", "Needs reply", "Since yesterday 16:00"], ["follow", "Follow-ups", "2 due today"], ["prep", "Preparation", ""], ["attn", "Attention", ""]];
+const OQ_TONE = { accent: "var(--amber)", green: "var(--green)", red: "var(--red)", signal: "var(--u-signal)", neutral: "var(--text3)" };
+const OQ_TONE_BG = { accent: "var(--amber-dim)", green: "var(--green-dim)", red: "var(--red-dim)", signal: "var(--u-signal-tint)", neutral: "var(--panel2)" };
+const OQ_EV = { sent: ["m22 2-7 20-4-9-9-4ZM22 2 11 13", "accent"], reply: ["M21.2 8.4c.5.4.8 1 .8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0zM22 10l-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 10", "green"],
+  auto: ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2", "signal"], note: ["M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z", "accent"],
+  bounce: ["M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8v4M12 16h.01", "red"] };
+
 class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -850,7 +1031,7 @@ class Component extends DCLogic {
       return { title, meta, dot, color: cancelled ? "var(--text3)" : "var(--text)" };
     });
     return {
-      show: true, name: pp.name, title: `${pp.title} · ${pp.company}`, initials: initials(pp.name), avStyle: avatar(r.id, 40),
+      show: true, id: r.id, name: pp.name, title: `${pp.title} · ${pp.company}`, role: pp.title, company: pp.company, breadcrumb: "OUTREACH / CANDIDATE RECORD", recordHref: "Position.dc.html?page=pipeline&drawer=candidate&cdTab=career", initials: initials(pp.name), avStyle: avatar(r.id, 40),
       status: s.statusOf[r.id] || pp.status, dnc: !!pp.dnc, first: firstOf(pp.name),
       state: STATE[st].label, pillStyle: pill(st), replied: st === "replied", repliedAt: r.note,
       booked: st === "booked", bookedAt: r.note,
@@ -901,6 +1082,61 @@ class Component extends DCLogic {
       title: "Confidential: Chief Financial Officer, first conversation",
       summary: `${day} · ${time}–${end} · Asia/Dubai`,
       summaryNote: `${s.bookLength} min · invite from yara.haddad@alfuttaim.com`
+    };
+  }
+
+  oqVals() {
+    const s = this.state; const set = (o) => this.setState(o);
+    const done = s.oqDone || {}; const q = (s.oqQuery || "").toLowerCase();
+    const live = Object.keys(OQ_P).filter((id) => !done[id]);
+    const sel = live.includes(s.oqSel || "fatima") ? (s.oqSel || "fatima") : live[0];
+    const tab = s.oqTab || "needs"; const who = s.oqWho || "mine";
+    const match = (id) => { const p = OQ_P[id]; return !q || (p.name + " " + p.role + " " + p.action + " " + p.preview).toLowerCase().includes(q); };
+    const oqGroups = OQ_GROUPS.map(([key, label, context]) => {
+      const items = live.filter((id) => OQ_P[id].group === key && match(id)).map((id) => { const p = OQ_P[id]; const on = id === sel; const c = OQ_TONE[p.tone];
+        return { id, on, name: p.name, role: p.role, photoBg: "url(" + p.photo + ")", time: p.time, action: p.action, preview: p.preview,
+          rowStyle: "display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:11px 12px 11px 14px;border:none;border-bottom:1px solid var(--line-soft);background:" + (on ? "var(--panel2)" : "transparent") + ";cursor:pointer;font-family:inherit;box-sizing:border-box",
+          hover: on ? "" : "background:var(--panel2)",
+          timeStyle: "flex:none;font:400 9px/1 var(--u-num);color:" + c,
+          dotStyle: "flex:none;width:4px;height:4px;border-radius:50%;background:" + c };
+      });
+      return { key, label, context, items, count: items.length };
+    }).filter((g) => g.items.length);
+    const p = OQ_P[sel] || OQ_P.fatima; const st = OQ_TONE[p.stageTone]; const vis = (s.oqVisible || {})[sel] ?? p.visible;
+    const tabs = [["needs", "Needs action", live.length], ["all", "All conversations"], ["scheduled", "Scheduled", 1], ["sent", "Sent"]].map(([key, label, count]) => { const on = key === tab;
+      return { key, label, on, count, hasCount: count !== undefined,
+        style: "display:flex;align-items:center;gap:8px;padding:0;border:none;border-bottom:2px solid " + (on ? "var(--amber)" : "transparent") + ";background:none;cursor:pointer;font-family:inherit",
+        labelStyle: "font:" + (on ? 500 : 400) + " 12px/1 var(--sans);color:" + (on ? "var(--text)" : "var(--text3)"),
+        countStyle: "display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:4px;font:400 11px/1 var(--u-num);background:" + (on ? "var(--amber-dim)" : "var(--panel2)") + ";color:" + (on ? "var(--amber)" : "var(--text3)") }; });
+    const whoStyle = (on) => "height:24px;padding:0 9px;border-radius:4px;border:none;cursor:pointer;font:400 11px/1 var(--sans);background:" + (on ? "var(--amber-dim)" : "transparent") + ";color:" + (on ? "var(--text)" : "var(--text3)");
+    const resolve = (msg) => { const next = live.filter((id) => id !== sel)[0]; set({ oqDone: { ...done, [sel]: true }, oqSel: next }); this.showToast(msg); };
+    return {
+      oqTabs: tabs, oqGroups, oqNoResults: oqGroups.length === 0, oqOpenLabel: live.length + " open", oqQuery: s.oqQuery || "",
+      oqMineStyle: whoStyle(who === "mine"), oqTeamStyle: whoStyle(who === "team"),
+      oc: { name: p.name, role: p.role, photoBg: "url(" + p.photo + ")", stage: p.stage, next: p.next, due: p.due, range: p.range,
+        stagePill: "display:inline-flex;align-items:center;gap:5px;padding:3px 7px;border-radius:4px;font:400 11px/1.2 var(--sans);white-space:nowrap;background:" + OQ_TONE_BG[p.stageTone] + ";color:" + st,
+        stageDot: "width:5px;height:5px;border-radius:99px;background:" + st,
+        history: p.history.map(([kind, title, time, message, type, context]) => { const [icon, tone] = OQ_EV[kind]; const c = OQ_TONE[tone];
+          return { icon, title, time, message, type, context, markerStyle: "flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:99px;background:var(--panel2);color:" + c, typeStyle: "flex:none;font:400 9px/1 var(--u-num);color:" + c }; }),
+        composeTitle: p.composeTitle, subject: p.subject, salutation: p.salutation, draft: (s.oqDrafts || {})[sel] ?? p.draft, footNote: p.footNote,
+        contact: p.contact.map(([k, v]) => ({ k, v })), dates: p.dates.map(([k, v]) => ({ k, v })),
+        seq: p.seq, seqStep: p.seqStep, seqState: p.seqState, sendStatus: p.sendStatus,
+        seqBars: [0, 1, 2].map((i) => ({ style: "height:3px;border-radius:2px;background:" + (i < p.seqDone ? "var(--text2)" : "var(--line)") })),
+        visible: vis,
+        switchStyle: "position:relative;width:30px;height:18px;flex:none;border-radius:99px;border:none;padding:0;cursor:pointer;background:" + (vis ? "var(--amber-btn)" : "var(--line)"),
+        knobStyle: "position:absolute;top:2px;left:" + (vis ? 14 : 2) + "px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s" },
+      oqSetTab: (e) => set({ oqTab: e.currentTarget.dataset.id }),
+      oqSetWho: (e) => set({ oqWho: e.currentTarget.dataset.id }),
+      oqOnQuery: (e) => set({ oqQuery: e.target.value }),
+      oqSelect: (e) => set({ oqSel: e.currentTarget.dataset.id }),
+      oqOnDraft: (e) => set({ oqDrafts: { ...(s.oqDrafts || {}), [sel]: e.target.value } }),
+      oqToggleVisible: () => set({ oqVisible: { ...(s.oqVisible || {}), [sel]: !vis } }),
+      oqHandled: () => resolve(p.name + " marked handled."),
+      oqSend: () => resolve("Sent to " + p.name.split(" ")[0] + "."),
+      oqSchedule: () => resolve("Scheduled for tomorrow, 09:00."),
+      oqLogCall: () => this.showToast("Call logged for " + p.name + "."),
+      oqAddNote: () => this.showToast("Note added."),
+      oqViewHistory: () => set({ drawer: "none" })
     };
   }
 
@@ -982,6 +1218,7 @@ class Component extends DCLogic {
     const bk = this.bookVals();
     const set = (o) => this.setState(o);
     return {
+      ...this.oqVals(),
       ic: I, navGroups,
       themeLabel: s.dark ? "Light mode" : "Dark mode", themeIcon: s.dark ? I.sun : I.moon,
       isOverview, isEditor: !isOverview,
@@ -1005,8 +1242,8 @@ class Component extends DCLogic {
       showBookCall: s.dialog === "bookCall", bk,
       statusOptions: STATUSES.map(([value, label]) => ({ value, label })),
       replyChoices: [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })),
-      drawerTabs: [["profile", "Profile"], ["contact", "Contact & outreach"], ["records", "Records"], ["timeline", "Timeline"]].map(([key, label]) => { const on = key === "contact";
-        return { key, label, on, href: `Position.dc.html?page=universe&drawer=candidate&cdTab=${key}`, style: `display:inline-flex;align-items:center;margin-bottom:-1px;padding:9px 12px;font:500 13px var(--sans);text-decoration:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"}` }; }),
+      drawerTabs: [["career", "Career"], ["notes", "Notes"], ["assessment", "Assessment"], ["contact", "Contact"], ["documents", "Documents"], ["timeline", "Activity"], ["positions", "Positions"]].map(([key, label]) => { const on = key === "contact";
+        return { key, label, on, href: `Position.dc.html?page=pipeline&drawer=candidate&cdTab=${key}`, style: `display:inline-flex;flex:none;align-items:center;gap:7px;white-space:nowrap;margin-bottom:-1px;padding:9px 10px;font:500 13px var(--sans);text-decoration:none;background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer` }; }),
       toast: s.toast,
       toggleTheme: () => { const d = !s.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
       stop: (e) => e.stopPropagation(),
