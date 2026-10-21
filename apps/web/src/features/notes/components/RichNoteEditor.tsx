@@ -203,18 +203,26 @@ export default function RichNoteEditor({
       : null;
 
   const surface = (
-    <div className="relative">
-      <NoteToolbar
-        editor={editor}
-        mentionsOffered={teammates !== null}
-        pickerOpen={picker !== null}
-        onMention={startMention}
-        onLink={() => setLinkOpen((open) => !open)}
-        expanded={expanded}
-        onExpand={() => setExpanded((open) => !open)}
-      />
-      {linkOpen && editor && <LinkRow editor={editor} onClose={() => setLinkOpen(false)} />}
-      <EditorContent editor={editor} className="mt-1.5" />
+    <div
+      className={cn(
+        "relative",
+        expanded &&
+          "rounded-lg border border-u-border-strong bg-u-bg transition focus-within:border-u-accent focus-within:ring-2 focus-within:ring-u-accent-ring",
+      )}
+    >
+      <div className={cn(expanded && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
+        <NoteToolbar
+          editor={editor}
+          mentionsOffered={teammates !== null}
+          pickerOpen={picker !== null}
+          onMention={startMention}
+          onLink={() => setLinkOpen((open) => !open)}
+          expanded={expanded}
+          onExpand={() => setExpanded((open) => !open)}
+        />
+        {linkOpen && editor && <LinkRow editor={editor} onClose={() => setLinkOpen(false)} />}
+      </div>
+      <EditorContent editor={editor} className={expanded ? "cursor-text px-4 py-3" : "mt-1.5"} />
       {teammates !== null && picker && (
         <MentionPickerList
           options={picker.options}
@@ -225,7 +233,12 @@ export default function RichNoteEditor({
         />
       )}
       {mentioned && mentioned.length > 0 && (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-u-border pt-2">
+        <div
+          className={cn(
+            "mt-2 flex flex-wrap items-center gap-1.5 border-t border-u-border pt-2",
+            expanded && "mx-4 mb-3",
+          )}
+        >
           <span className="text-meta text-u-text3">Notifies</span>
           {mentioned.map((mention) => (
             <MentionChip
