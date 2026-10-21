@@ -10,6 +10,7 @@ import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.outreach.model.DeliveryFailure;
+import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.ThreadMessage;
@@ -82,6 +83,9 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
         projectId = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group CFO\"}".formatted(clientId)))
                 .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        // A grant of its own: the poll reads every recent thread in the shared database, and older tests' threads
+        // carry the same ids under the default grant.
+        gateway.grant(new GrantedMailbox("grant-" + domain, MAILBOX, "google"));
         connectMailbox();
         monday = LocalDate.now(DUBAI).plusWeeks(1).with(TemporalAdjusters.next(DayOfWeek.MONDAY))
                 .atTime(LocalTime.of(10, 0)).atZone(DUBAI).toInstant();
@@ -123,11 +127,11 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
     @DisplayName("a reply the webhook reports and the poll finds again is one line, its outcome written once")
     void theWebhookAndThePollRecordOnce() throws Exception {
         Instant sent = monday.plus(Duration.ofMinutes(5));
-        webhook(List.of(new InboundMessage("grant-1", thread, "priya@" + domain, "msg-from-priya", sent,
+        webhook(List.of(new InboundMessage("grant-" + domain, thread, "priya@" + domain, "msg-from-priya", sent,
                 "<div>Yes, call me.</div><div class=\"gmail_quote\">On Mon wrote: Hi</div>")));
         gateway.writeInto(thread, new ThreadMessage("msg-from-priya", "priya@" + domain, sent, "Yes, call me."));
         inbox.pollListeningThreads(monday.plus(Duration.ofMinutes(15)));
-        webhook(List.of(new InboundMessage("grant-1", thread, "priya@" + domain, "msg-from-priya", sent, null)));
+        webhook(List.of(new InboundMessage("grant-" + domain, thread, "priya@" + domain, "msg-from-priya", sent, null)));
 
         assertThat(replies()).extracting(row -> row.get("body_text")).containsExactly("Yes, call me.");
         assertThat(activityKinds(priya).stream().filter("EMAIL_REPLIED"::equals)).hasSize(1);
@@ -142,7 +146,7 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
         Instant sent = monday.plus(Duration.ofMinutes(5));
         gateway.writeInto(thread, new ThreadMessage("msg-long", "priya@" + domain, sent, "A long answer."));
 
-        webhook(List.of(new InboundMessage("grant-1", thread, "priya@" + domain, "msg-long", sent, null)));
+        webhook(List.of(new InboundMessage("grant-" + domain, thread, "priya@" + domain, "msg-long", sent, null)));
 
         assertThat(replies()).extracting(row -> row.get("body_text")).containsExactly("A long answer.");
     }
@@ -191,16 +195,16 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("a reported bounce is one line, completed by the mail server's message, however often it is told")
     void aBounceIsOneLine() throws Exception {
-        webhook(List.of(new DeliveryFailure("grant-1", thread, null)));
+        webhook(List.of(new DeliveryFailure("grant-" + domain, thread, null)));
         assertThat(enrollmentOf(priya).get("status")).isEqualTo("BOUNCED");
 
         // Received before the report came, as a mail server's notice always is.
         gateway.writeInto(thread, "mailer-daemon@googlemail.com", "Address not found");
         inbox.pollListeningThreads(monday.plus(Duration.ofMinutes(15)));
-        webhook(List.of(new DeliveryFailure("grant-1", thread, null)));
+        webhook(List.of(new DeliveryFailure("grant-" + domain, thread, null)));
 
         List<Map<String, Object>> bounces = jdbc.queryForList("select * from app_lm_outreach_message "
-                + "where thread_id = ? and kind = 'BOUNCE'", thread);
+                + "where thread_id = ? and kind = 'BOUNCE' and project_id = ?::uuid", thread, projectId);
         assertThat(bounces).hasSize(1);
         assertThat(bounces.getFirst().get("from_address")).isEqualTo("mailer-daemon@googlemail.com");
         assertThat(bounces.getFirst().get("body_text")).as("a mail server's words quote our own email").isNull();
@@ -218,7 +222,7 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
 
     private List<Map<String, Object>> replies() {
         return jdbc.queryForList("select * from app_lm_outreach_message where thread_id = ? and kind = 'REPLY' "
-                + "order by occurred_at", thread);
+                + "and project_id = ?::uuid order by occurred_at", thread, projectId);
     }
 
     private int openReplyTasks() {

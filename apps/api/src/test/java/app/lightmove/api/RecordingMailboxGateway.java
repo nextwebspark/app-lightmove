@@ -46,6 +46,8 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final AtomicInteger sequence = new AtomicInteger();
     private final Map<String, String> threadOfMessage = new ConcurrentHashMap<>();
     private final Map<String, List<ThreadMessage>> threadWriters = new ConcurrentHashMap<>();
+    /** Which grant made each thread since the last clear: thread ids restart, and the suite shares one database. */
+    private final Map<String, String> grantOfThread = new ConcurrentHashMap<>();
     private volatile List<MailboxEvent> nextWebhook = List.of();
     private volatile List<CalendarEvent> calendar = List.of();
     private volatile List<BusyInterval> busy = List.of();
@@ -95,6 +97,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         String threadId = email.replyToMessageId() == null ? "thread-" + number
                 : threadOfMessage.getOrDefault(email.replyToMessageId(), "thread-" + number);
         threadOfMessage.put(messageId, threadId);
+        grantOfThread.putIfAbsent(threadId, grantId);
         return new SentEmail(messageId, threadId);
     }
 
@@ -106,9 +109,16 @@ public class RecordingMailboxGateway implements MailboxGateway {
         return nextWebhook;
     }
 
-    /** Every message written into the thread, whatever {@code since}; its words only {@code withText}. */
+    /**
+     * Every message written into the thread, whatever {@code since}; its words only {@code withText}. Only the grant
+     * that made the thread is answered: an older test's thread of the same id belongs to another mailbox.
+     */
     @Override
     public List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText) {
+        String maker = grantOfThread.get(threadId);
+        if (maker != null && !maker.equals(grantId)) {
+            return List.of();
+        }
         return threadWriters.getOrDefault(threadId, List.of()).stream()
                 .map(message -> withText ? message : new ThreadMessage(message.providerMessageId(),
                         message.fromAddress(), message.receivedAt(), null))
@@ -268,6 +278,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         offered = true;
         threadOfMessage.clear();
         threadWriters.clear();
+        grantOfThread.clear();
         nextWebhook = List.of();
         calendar = List.of();
         busy = List.of();
