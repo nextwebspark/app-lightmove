@@ -5,6 +5,7 @@ import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.PersonNextSend;
+import app.lightmove.api.outreach.model.PersonScheduledSender;
 import app.lightmove.api.outreach.model.PersonSentTally;
 import java.time.Instant;
 import java.util.Collection;
@@ -132,6 +133,14 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
             group by m.personId
             """)
     List<PersonNextSend> findNextSendOfEachPerson(UUID workspaceId, UUID projectId);
+
+    /** Who has an own email waiting to go to each executive on a position: it makes the conversation theirs too. */
+    @Query("""
+            select distinct m.personId as personId, m.senderUserId as senderUserId from OutreachMessage m
+            where m.workspaceId = :workspaceId and m.projectId = :projectId
+              and m.status = app.lightmove.api.outreach.constant.MessageStatus.SCHEDULED
+            """)
+    List<PersonScheduledSender> findScheduledSendersOfEachPerson(UUID workspaceId, UUID projectId);
 
     /** When the first email went to one executive on a position, or null before any has. */
     @Query("""

@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
-/** The Outreach page's tabs: who each lists. */
+/** The Outreach list's filters: who each shows. */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
@@ -14,7 +14,7 @@ public enum ConversationView implements ApiValueEnum {
     /** Everyone in a queue group. */
     NEEDS("needs"),
 
-    /** Everyone this position wrote to, enrolled, met, or holds a task on. */
+    /** Everyone this position wrote to, has an email waiting for, enrolled, met, or holds a task on. */
     ALL("all"),
 
     /** Everyone with an email still to go, soonest first. */
