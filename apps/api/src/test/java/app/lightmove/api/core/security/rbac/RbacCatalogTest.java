@@ -75,7 +75,7 @@ class RbacCatalogTest {
         grantsAre(RoleScope.PROJECT, "RESEARCHER", "WORK_VIEW", "WORK_EXECUTE");
         grantsAre(RoleScope.PROJECT, "CLIENT", "WORK_VIEW");
         grantsAre(RoleScope.PLATFORM, "SUPER_ADMIN", "TEMPLATE_LIBRARY_MANAGE", "CREDIT_GRANT",
-                "SUBSCRIPTION_MANAGE");
+                "SUBSCRIPTION_MANAGE", "SCREEN_TEXT_MANAGE");
     }
 
     private void grantsAre(RoleScope scope, String roleName, String... expectedActions) {

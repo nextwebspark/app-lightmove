@@ -1,0 +1,1141 @@
+{
+  "format": "lightmove.screen-text-catalog",
+  "formatVersion": 1,
+  "neverOnScreen": [
+    "\\bNylas\\b",
+    "\\bthis deployment\\b",
+    "\\btriage\\b"
+  ],
+  "screens": [
+    {
+      "id": "errors-general",
+      "title": "Error messages · Everywhere"
+    },
+    {
+      "id": "errors-account",
+      "title": "Error messages · Account and workspace"
+    },
+    {
+      "id": "errors-positions",
+      "title": "Error messages · Positions and the market"
+    },
+    {
+      "id": "errors-candidates",
+      "title": "Error messages · Candidates and pipeline"
+    },
+    {
+      "id": "errors-outreach",
+      "title": "Error messages · Outreach, mailbox and meetings"
+    },
+    {
+      "id": "errors-billing",
+      "title": "Error messages · Billing and credits"
+    },
+    {
+      "id": "errors-settings",
+      "title": "Error messages · Settings"
+    }
+  ],
+  "entries": [
+    {
+      "key": "errors-general.generic",
+      "screen": "errors-general",
+      "kind": "error",
+      "where": "Any failure with no reference to quote",
+      "defaultText": "Something went wrong. Try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-general.unexpected",
+      "screen": "errors-general",
+      "kind": "error",
+      "where": "Any failure we did not expect; {reference} is the request's support reference",
+      "defaultText": "Something went wrong on our side. Try again, or contact support and quote reference {reference}.",
+      "placeholders": [
+        "reference"
+      ],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-general.unsavedChanges",
+      "screen": "errors-general",
+      "kind": "error",
+      "where": "An action that first had to save the screen's edits, when that save was refused",
+      "defaultText": "Couldn't save your last change. Check your connection and try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-general.FORBIDDEN",
+      "screen": "errors-general",
+      "kind": "error",
+      "where": "Shown when: forbidden",
+      "defaultText": "You don't have permission to do this.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-general.RATE_LIMITED",
+      "screen": "errors-general",
+      "kind": "error",
+      "where": "Shown when: rate limited",
+      "defaultText": "Too many requests in a short time. Wait a minute and try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-general.NOT_FOUND",
+      "screen": "errors-general",
+      "kind": "error",
+      "where": "Shown when: not found",
+      "defaultText": "That item no longer exists. Reload to see the latest.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.LAST_ADMIN",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: last admin",
+      "defaultText": "A workspace must keep at least one admin.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.MEMBER_LEADS_PROJECTS",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: member leads projects",
+      "defaultText": "They are the only lead on active positions — hand those over first.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.WORKSPACE_NAME_MISMATCH",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: workspace name mismatch",
+      "defaultText": "Type the workspace name exactly to confirm.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.ALREADY_IN_WORKSPACE",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: already in workspace",
+      "defaultText": "You already belong to a workspace. Found another from Settings → Workspaces.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.EMAIL_NOT_VERIFIED",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: email not verified",
+      "defaultText": "Verify your email address to continue.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.ACCOUNT_SUSPENDED",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: account suspended",
+      "defaultText": "This account has been suspended.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.EMAIL_NOT_WORK_ADDRESS",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: email not work address",
+      "defaultText": "Use your work email — the domain identifies your organization.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.CURRENT_PASSWORD_INVALID",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: current password invalid",
+      "defaultText": "That is not your current password.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.PASSWORD_NOT_SET",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: password not set",
+      "defaultText": "This account signs in with a provider — set a password from the reset link.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.SESSION_NOT_FOUND",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: session not found",
+      "defaultText": "That session has already ended.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.CURRENT_SESSION_NOT_REVOCABLE",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: current session not revocable",
+      "defaultText": "Use sign out to end the session you are using.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.WORKSPACE_NOT_FOUND",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: workspace not found",
+      "defaultText": "That workspace isn't available to you any more.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-account.NOT_A_MEMBER",
+      "screen": "errors-account",
+      "kind": "error",
+      "where": "Shown when: not a member",
+      "defaultText": "That workspace isn't available to you any more.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.ASSISTANT_UNAVAILABLE",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: assistant unavailable",
+      "defaultText": "The assistant could not answer just now. Try again in a moment.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.ASSISTANT_BUSY",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: assistant busy",
+      "defaultText": "The assistant is busy answering other questions. Try again in a moment.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.ASSISTANT_STILL_ANSWERING",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: assistant still answering",
+      "defaultText": "This is taking longer than usual. The answer will appear here when it is ready — no need to ask again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.ASSISTANT_PROPOSAL_ALREADY_ACCEPTED",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: assistant proposal already accepted",
+      "defaultText": "These companies have already been filed.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.TEMPLATE_STALE",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: template stale",
+      "defaultText": "Someone saved this template after you opened it. Reload to see their version.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.TEMPLATE_FALLBACK_REQUIRED",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: template fallback required",
+      "defaultText": "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.TEMPLATE_IMPORT_INVALID",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: template import invalid",
+      "defaultText": "Some templates in the file are invalid, so none were imported.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.CLIENT_ALREADY_EXISTS",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: client already exists",
+      "defaultText": "That name is already taken.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PROJECT_LAST_LEAD",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: project last lead",
+      "defaultText": "A position must keep at least one lead.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.ARCHIVE_NAME_MISMATCH",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: archive name mismatch",
+      "defaultText": "Type the name exactly as shown to confirm.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PROJECT_ARCHIVED",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: project archived",
+      "defaultText": "This position is archived. Restore it to start outreach.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.CLIENT_HAS_LIVE_POSITIONS",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: client has live positions",
+      "defaultText": "Some of its positions are still open. Their leads archive them first.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.CLIENT_ARCHIVED",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: client archived",
+      "defaultText": "That one is archived. Restore it before opening a position under it.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.CLIENT_NAME_ARCHIVED",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: client name archived",
+      "defaultText": "An archived record already has that name. Restore it instead.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.STRATEGY_SEARCH_NAME_TAKEN",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: strategy search name taken",
+      "defaultText": "A search with that name is already saved here.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.UNSUPPORTED_FILE_TYPE",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: unsupported file type",
+      "defaultText": "That file type is not supported.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.CUSTOM_COLUMN_NAME_TAKEN",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: custom column name taken",
+      "defaultText": "This position already has a column with that name. Map onto that column instead.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.TRIAGE_COMPANY_NOT_EDITABLE",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: triage company not editable",
+      "defaultText": "This company came from the market export, so its details are not yours to edit.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.EXECUTIVE_SOURCING_UNAVAILABLE",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: executive sourcing unavailable",
+      "defaultText": "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.EXECUTIVE_SOURCING_TOO_MANY_COMPANIES",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: executive sourcing too many companies",
+      "defaultText": "Too many companies ticked. Find executives takes a limited batch — untick some and try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.EXECUTIVE_SOURCING_IN_PROGRESS",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: executive sourcing in progress",
+      "defaultText": "A Find executives run is already in progress for this position.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PEOPLE_SEARCH_UNAVAILABLE",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: people search unavailable",
+      "defaultText": "People search isn't switched on for your workspace. Contact Uncava support to turn it on.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PEOPLE_SEARCH_NO_CREDITS",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: people search no credits",
+      "defaultText": "Your workspace has used this period's people search credits. Ask an admin to top them up.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PEOPLE_SEARCH_FAILED",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: people search failed",
+      "defaultText": "People search didn't respond — the provider may be busy. Try again in a minute.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PEOPLE_SEARCH_REJECTED",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: people search rejected",
+      "defaultText": "People search couldn't run that filter. Loosen or change it and try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PEOPLE_SEARCH_EMPTY_FILTER",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: people search empty filter",
+      "defaultText": "Add at least one filter before searching.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.PEOPLE_SEARCH_PERSON_UNKNOWN",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: people search person unknown",
+      "defaultText": "That person is no longer in the results. Search again and add them from there.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.TRIAGE_COMPANY_ALREADY_HELD",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: triage company already held",
+      "defaultText": "This position already has a company with that name.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-positions.IMPORT_FILE_UNREADABLE",
+      "screen": "errors-positions",
+      "kind": "error",
+      "where": "Shown when: import file unreadable",
+      "defaultText": "That file couldn't be read as a table. Check it has a header row, then try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_ALREADY_MAPPED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate already mapped",
+      "defaultText": "Someone with that name is already mapped here.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_POSSIBLE_DUPLICATE",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate possible duplicate",
+      "defaultText": "Your team already has someone with that name at that employer.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_KEYS_NAME_ANOTHER",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate keys name another",
+      "defaultText": "The LinkedIn profile or email typed belongs to someone else in your candidates.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PERSON_PROFILE_HELD",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: person profile held",
+      "defaultText": "Another candidate in this workspace already has that LinkedIn profile.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PERSON_NOTE_NOT_YOURS",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: person note not yours",
+      "defaultText": "Only the person who wrote this note, or an admin, can change it.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.COMPANY_NOTE_NOT_YOURS",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: company note not yours",
+      "defaultText": "Only the person who wrote this note, or an admin, can change it.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PERSON_DOCUMENT_DUPLICATE",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: person document duplicate",
+      "defaultText": "That file is already on this candidate.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PERSON_DOCUMENT_NOT_YOURS",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: person document not yours",
+      "defaultText": "Only the person who uploaded this, or an admin, can remove it.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PERSON_DOCUMENT_LIMIT",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: person document limit",
+      "defaultText": "This candidate has reached the limit for documents.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.TASK_ASSIGNEE_NOT_ON_TEAM",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: task assignee not on team",
+      "defaultText": "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.TASK_NOT_YOURS",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: task not yours",
+      "defaultText": "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_TAG_EXISTS",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate tag exists",
+      "defaultText": "Your team already has that tag.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_TAG_RETIRED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate tag retired",
+      "defaultText": "That tag is retired. Restore it in Settings to use it again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_ASSESSMENT_STALE",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate assessment stale",
+      "defaultText": "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_ASSESSMENT_NO_CRITERIA",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate assessment no criteria",
+      "defaultText": "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_ASSESSMENT_NOTHING_OPEN",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate assessment nothing open",
+      "defaultText": "Every score and section is already your team's. There is nothing left for the AI to draft.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.AI_UNAVAILABLE",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: ai unavailable",
+      "defaultText": "The AI could not answer just now. Try again in a moment.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PIPELINE_STAGE_NOT_EMPTY",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: pipeline stage not empty",
+      "defaultText": "This stage still has statuses. Retire them with the stage, or retire them first.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PIPELINE_STAGE_REQUIRED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: pipeline stage required",
+      "defaultText": "The pipeline keeps at least one active stage and its closed stage.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PIPELINE_STATUS_REQUIRED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: pipeline status required",
+      "defaultText": "The pipeline keeps at least one active status for new candidates to start at.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PIPELINE_LABEL_TAKEN",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: pipeline label taken",
+      "defaultText": "That name is already in use.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PIPELINE_STATUS_RETIRED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: pipeline status retired",
+      "defaultText": "That status is retired. Ask an admin to restore it in Settings.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PIPELINE_ORDER_INVALID",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: pipeline order invalid",
+      "defaultText": "The pipeline changed meanwhile. Reload and try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PERSON_OWNER_NOT_STAFF",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: person owner not staff",
+      "defaultText": "The owner must be someone on your team.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.PERSON_DO_NOT_CONTACT",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: person do not contact",
+      "defaultText": "This person is marked do not contact, so contact lookups are off.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CONTACT_LOOKUP_UNAVAILABLE",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: contact lookup unavailable",
+      "defaultText": "Contact lookup isn't switched on for your workspace. Contact Uncava support to turn it on.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CONTACT_LOOKUP_NO_CREDITS",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: contact lookup no credits",
+      "defaultText": "Your workspace has used this period's contact lookup credits. Ask an admin to top them up.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CONTACT_LOOKUP_FAILED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: contact lookup failed",
+      "defaultText": "Contact lookup didn't respond — the provider may be busy. Try again in a minute.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CONTACT_LOOKUP_NO_PROFILE",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: contact lookup no profile",
+      "defaultText": "Add this person's LinkedIn profile URL first.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CONTACT_LIMIT_REACHED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: contact limit reached",
+      "defaultText": "A profile holds ten email addresses and ten phone numbers at most.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-candidates.CANDIDATE_PROFILE_URL_LOCKED",
+      "screen": "errors-candidates",
+      "kind": "error",
+      "where": "Shown when: candidate profile url locked",
+      "defaultText": "This profile was captured from LinkedIn, so its URL is not editable.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_UNAVAILABLE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox unavailable",
+      "defaultText": "Outreach email isn't switched on for your workspace. Contact Uncava support to turn it on.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.ZOOM_UNAVAILABLE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: zoom unavailable",
+      "defaultText": "Zoom isn't set up for your workspace. Ask an admin to set it up in Settings → Integrations.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.ZOOM_NOT_CONNECTED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: zoom not connected",
+      "defaultText": "Connect Zoom first.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.ZOOM_RECONNECT_NEEDED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: zoom reconnect needed",
+      "defaultText": "Your Zoom account needs reconnecting.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.ZOOM_CONNECT_CANCELLED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: zoom connect cancelled",
+      "defaultText": "Zoom was not connected.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.ZOOM_CONNECT_FAILED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: zoom connect failed",
+      "defaultText": "Zoom could not be connected. Try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.INTEGRATION_ENCRYPTION_UNAVAILABLE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: integration encryption unavailable",
+      "defaultText": "Your own app's keys can't be stored for your workspace yet. Use the shared app for now, or contact Uncava support.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.INTEGRATION_SHARED_APP_UNAVAILABLE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: integration shared app unavailable",
+      "defaultText": "Uncava's shared app isn't available for this provider yet. Use your own app instead.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_PROVIDER_UNSUPPORTED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox provider unsupported",
+      "defaultText": "That kind of mailbox can't be connected.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_NOT_CONNECTED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox not connected",
+      "defaultText": "Connect your mailbox first.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_RECONNECT_NEEDED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox reconnect needed",
+      "defaultText": "Your mailbox needs reconnecting before it can send.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_CONNECT_EXPIRED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox connect expired",
+      "defaultText": "That connection attempt expired. Start again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_CONNECT_FAILED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox connect failed",
+      "defaultText": "Your mailbox couldn't be connected. Try again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_SEND_FAILED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox send failed",
+      "defaultText": "The email couldn't be sent. Try again in a moment.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.OUTREACH_SEQUENCE_IN_USE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: outreach sequence in use",
+      "defaultText": "People are on this sequence, so it can't be deleted.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.OUTREACH_PERSON_SKIPPED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: outreach person skipped",
+      "defaultText": "Someone you chose can no longer be added. Go back and review the list.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.OUTREACH_ALREADY_ENROLLED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: outreach already enrolled",
+      "defaultText": "Someone you chose is already in a sequence on this position.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.OUTREACH_ADDRESS_NOT_ON_FILE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: outreach address not on file",
+      "defaultText": "That address isn't on file for this person.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.OUTREACH_NOT_RUNNING",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: outreach not running",
+      "defaultText": "This sequence has already ended.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MEETING_DO_NOT_CONTACT",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: meeting do not contact",
+      "defaultText": "This person is marked do not contact.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MEETING_SLOT_TAKEN",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: meeting slot taken",
+      "defaultText": "That time is no longer free. Pick another.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MEETING_SLOT_INVALID",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: meeting slot invalid",
+      "defaultText": "That time can't be booked. Pick one from the grid.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MEETING_BOOK_FAILED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: meeting book failed",
+      "defaultText": "The invite couldn't be sent. Check your calendar before trying again.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MEETING_CALENDAR_UNAVAILABLE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: meeting calendar unavailable",
+      "defaultText": "Your calendar couldn't be read. Try again in a moment, or reconnect your mailbox if it keeps failing.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.MAILBOX_CONNECT_CANCELLED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: mailbox connect cancelled",
+      "defaultText": "Your mailbox was not connected.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.OUTREACH_BOOKING_LINK_UNAVAILABLE",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: outreach booking link unavailable",
+      "defaultText": "Booking links aren't available for your mailbox. Remove the booking link from the emails to start this sequence.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-outreach.OUTREACH_BOOKING_LINK_FAILED",
+      "screen": "errors-outreach",
+      "kind": "error",
+      "where": "Shown when: outreach booking link failed",
+      "defaultText": "Your booking page couldn't be set up, so nothing was sent. Try again in a moment.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.INSUFFICIENT_CREDITS",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: insufficient credits",
+      "defaultText": "Your workspace is out of contact credits. Nothing was spent.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.FAIR_USE_REACHED",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: fair use reached",
+      "defaultText": "Your team has reached this month's fair use for this feature.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.TRIAL_ENDED",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: trial ended",
+      "defaultText": "Your workspace's trial has ended. Choose a plan to carry on.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.BILLING_UNAVAILABLE",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: billing unavailable",
+      "defaultText": "Paying online isn't available right now. Use Contact Uncava in Settings → Billing instead.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.BILLING_PLAN_UNKNOWN",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: billing plan unknown",
+      "defaultText": "That plan can't be bought online. Use Contact Uncava in Settings → Billing to choose it.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.BILLING_PACK_UNKNOWN",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: billing pack unknown",
+      "defaultText": "That credit pack is no longer sold. Choose another.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.SUBSCRIPTION_BILLED_BY_STRIPE",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: subscription billed by stripe",
+      "defaultText": "This workspace already pays through Stripe — change the plan from Invoices & card.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-billing.SEAT_LIMIT_REACHED",
+      "screen": "errors-billing",
+      "kind": "error",
+      "where": "Shown when: seat limit reached",
+      "defaultText": "Every seat your workspace pays for is taken. An admin can add seats through Contact Uncava in Settings → Billing.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.API_KEY_NOT_FOUND",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: api key not found",
+      "defaultText": "That key no longer exists. Reload to see the current list.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.API_KEY_LIMIT_REACHED",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: api key limit reached",
+      "defaultText": "You have the most API keys allowed. Revoke one you no longer use.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.API_KEY_READS_NOTHING",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: api key reads nothing",
+      "defaultText": "Choose what the key may read as well as MCP access.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.OAUTH_GRANT_NOT_FOUND",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: oauth grant not found",
+      "defaultText": "That app is already disconnected. Reload to see the current list.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.TASK_PRESET_EXISTS",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: task preset exists",
+      "defaultText": "Your team already has that preset.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.SCREEN_TEXT_STALE",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: screen text stale",
+      "defaultText": "Someone changed this text after you opened it. Reload to see their version.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.SCREEN_TEXT_KEY_UNKNOWN",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: screen text key unknown",
+      "defaultText": "That piece of screen text no longer exists. Reload to see the current list.",
+      "placeholders": [],
+      "maxLength": 300
+    },
+    {
+      "key": "errors-settings.SCREEN_TEXT_NOTHING_TO_PUBLISH",
+      "screen": "errors-settings",
+      "kind": "error",
+      "where": "Shown when: screen text nothing to publish",
+      "defaultText": "There are no unpublished changes to publish.",
+      "placeholders": [],
+      "maxLength": 300
+    }
+  ]
+}

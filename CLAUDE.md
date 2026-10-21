@@ -386,7 +386,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `screentext` (the words on screen, edited by a super admin), `task` and `notification` (epic #862, `docs/tasks-notifications.md`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -652,6 +652,17 @@ since archiving those is their leads' call. It leaves the registry's list (`GET 
 and the New position picker; nothing is opened or restored under it (`CLIENT_ARCHIVED`, the record row locked
 against a racing archive), and its name stays held (`CLIENT_NAME_ARCHIVED`, kept apart from
 `CLIENT_ALREADY_EXISTS`, whose caller reuses the record it names).
+**Screen text (V144, `screentext`)** is the words on screen as a super admin edits them (`SCREEN_TEXT_MANAGE`, the
+platform's like the template library, Settings → Platform → Screen text in `Settings.dc.html`). Every default ships in
+the SPA under a stable key, one file per screen group in `apps/web/src/copy/catalog/` (the error wording first:
+`messageFor` reads it through `screenText`), and `catalogFile.test.ts` writes the server's copy,
+`resources/screen-text/catalog.json`, which the server checks every edit against — a known key, the default's exact
+`{placeholders}`, its length, plain words, no never-on-screen word. The tables hold only what changed: drafts per key,
+published together as a release that is the whole set of overrides, so a rollback publishes an old one again
+(audited `SCREEN_TEXT_PUBLISHED`/`_RESTORED`). Every page load reads `GET /api/v1/screen-text` — public, since the
+sign-in screen needs it, a minute's cache per instance, ETag-revalidated — and a key the code lost, or an override
+whose default changed its placeholders, is never served: the default stands. The SPA draws defaults until the bundle
+lands (the last one is kept in `localStorage`), so a failed read changes nothing on screen.
 
 `publicapi` is **the public API** (epic #690, `docs/public-api.md`): read-only JSON for an ATS, a BI tool or a
 script, under `/api/v1/public/**` and nowhere else, documented as OpenAPI 3.1 at `/api/v1/public/openapi.json`
@@ -1139,6 +1150,9 @@ V143 adds `app_lm_company_note` (workspace, project and `triage_company_id`, ON 
 `body_format`, pinned, author, edited and soft-delete columns) and backfills each company's V32 `note` as its first
 note, by its `added_by`, leaving the column frozen; `CompanyNotePurge` deletes a deleted one for good as
 `PersonNotePurge` does.
+V144 adds `app_lm_screen_text_draft` (one per locale and key, versioned) and `app_lm_screen_text_release` (numbered per
+locale, its `entries` jsonb every override as of that publish, never updated), and seeds `SCREEN_TEXT_MANAGE` to
+`SUPER_ADMIN`. Not tenant-scoped, for V49's reason.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

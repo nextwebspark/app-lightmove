@@ -1,10 +1,14 @@
+import type { CopyScreen } from "../copy/defineScreen";
+import { ERROR_SCREENS, errorsGeneral } from "../copy/catalog/errors";
+import { screenText } from "../copy/store";
 import { ApiRequestError } from "./apiClient";
 import { AutosaveFailedError } from "./useAutosave";
 
 /**
  * The backend's ErrorCode enum, mirrored — the machine-readable identity every failure carries.
- * UI switches on these; `messageFor` is the one place user-facing wording lives, so the same failure
- * never reads differently on two screens.
+ * UI switches on these; `messageFor` is the one place user-facing wording is chosen, so the same failure
+ * never reads differently on two screens. The words themselves are `copy/catalog/errors.ts`'s, which a super admin
+ * edits in Settings → Screen text.
  */
 export type ApiErrorCode =
   | "VALIDATION_FAILED"
@@ -147,139 +151,20 @@ export type ApiErrorCode =
   | "API_KEY_READS_NOTHING"
   | "OAUTH_GRANT_NOT_FOUND"
   | "INTERNAL_ERROR"
-  | "TASK_PRESET_EXISTS";
+  | "TASK_PRESET_EXISTS"
+  | "SCREEN_TEXT_STALE"
+  | "SCREEN_TEXT_KEY_UNKNOWN"
+  | "SCREEN_TEXT_NOTHING_TO_PUBLISH";
 
-const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
-  ASSISTANT_UNAVAILABLE: "The assistant could not answer just now. Try again in a moment.",
-  ASSISTANT_BUSY: "The assistant is busy answering other questions. Try again in a moment.",
-  ASSISTANT_STILL_ANSWERING:
-    "This is taking longer than usual. The answer will appear here when it is ready — no need to ask again.",
-  ASSISTANT_PROPOSAL_ALREADY_ACCEPTED: "These companies have already been filed.",
-  TEMPLATE_STALE: "Someone saved this template after you opened it. Reload to see their version.",
-  TEMPLATE_FALLBACK_REQUIRED:
-    "The fallback template can't be archived or hidden — a title nothing else matches is drafted from it.",
-  TEMPLATE_IMPORT_INVALID: "Some templates in the file are invalid, so none were imported.",
-  LAST_ADMIN: "A workspace must keep at least one admin.",
-  MEMBER_LEADS_PROJECTS: "They are the only lead on active positions — hand those over first.",
-  CLIENT_ALREADY_EXISTS: "That name is already taken.",
-  PROJECT_LAST_LEAD: "A position must keep at least one lead.",
-  WORKSPACE_NAME_MISMATCH: "Type the workspace name exactly to confirm.",
-  ARCHIVE_NAME_MISMATCH: "Type the name exactly as shown to confirm.",
-  PROJECT_ARCHIVED: "This position is archived. Restore it to start outreach.",
-  CLIENT_HAS_LIVE_POSITIONS: "Some of its positions are still open. Their leads archive them first.",
-  CLIENT_ARCHIVED: "That one is archived. Restore it before opening a position under it.",
-  CLIENT_NAME_ARCHIVED: "An archived record already has that name. Restore it instead.",
-  FORBIDDEN: "You don't have permission to do this.",
-  API_KEY_NOT_FOUND: "That key no longer exists. Reload to see the current list.",
-  API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
-  API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
-  RATE_LIMITED: "Too many requests in a short time. Wait a minute and try again.",
-  ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
-  EMAIL_NOT_VERIFIED: "Verify your email address to continue.",
-  ACCOUNT_SUSPENDED: "This account has been suspended.",
-  EMAIL_NOT_WORK_ADDRESS: "Use your work email — the domain identifies your organization.",
-  CURRENT_PASSWORD_INVALID: "That is not your current password.",
-  PASSWORD_NOT_SET: "This account signs in with a provider — set a password from the reset link.",
-  SESSION_NOT_FOUND: "That session has already ended.",
-  CURRENT_SESSION_NOT_REVOCABLE: "Use sign out to end the session you are using.",
-  STRATEGY_SEARCH_NAME_TAKEN: "A search with that name is already saved here.",
-  CANDIDATE_ALREADY_MAPPED: "Someone with that name is already mapped here.",
-  CANDIDATE_POSSIBLE_DUPLICATE: "Your team already has someone with that name at that employer.",
-  CANDIDATE_KEYS_NAME_ANOTHER: "The LinkedIn profile or email typed belongs to someone else in your candidates.",
-  PERSON_PROFILE_HELD: "Another candidate in this workspace already has that LinkedIn profile.",
-  PERSON_NOTE_NOT_YOURS: "Only the person who wrote this note, or an admin, can change it.",
-  COMPANY_NOTE_NOT_YOURS: "Only the person who wrote this note, or an admin, can change it.",
-  PERSON_DOCUMENT_DUPLICATE: "That file is already on this candidate.",
-  PERSON_DOCUMENT_NOT_YOURS: "Only the person who uploaded this, or an admin, can remove it.",
-  PERSON_DOCUMENT_LIMIT: "This candidate has reached the limit for documents.",
-  TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
-  TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
-  CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
-  CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
-  CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",
-  CANDIDATE_ASSESSMENT_NO_CRITERIA:
-    "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
-  CANDIDATE_ASSESSMENT_NOTHING_OPEN:
-    "Every score and section is already your team's. There is nothing left for the AI to draft.",
-  AI_UNAVAILABLE: "The AI could not answer just now. Try again in a moment.",
-  PIPELINE_STAGE_NOT_EMPTY: "This stage still has statuses. Retire them with the stage, or retire them first.",
-  PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one active stage and its closed stage.",
-  PIPELINE_STATUS_REQUIRED: "The pipeline keeps at least one active status for new candidates to start at.",
-  PIPELINE_LABEL_TAKEN: "That name is already in use.",
-  PIPELINE_STATUS_RETIRED: "That status is retired. Ask an admin to restore it in Settings.",
-  PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",
-  PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
-  PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
-  // Two uploads raise this — the spreadsheet import and the position description — so the wording
-  // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
-  // dropzone already states what it takes.
-  UNSUPPORTED_FILE_TYPE: "That file type is not supported.",
-  CUSTOM_COLUMN_NAME_TAKEN: "This position already has a column with that name. Map onto that column instead.",
-  TRIAGE_COMPANY_NOT_EDITABLE:
-    "This company came from the market export, so its details are not yours to edit.",
-  CONTACT_LOOKUP_UNAVAILABLE: "Contact lookup isn't switched on for your workspace. Contact Uncava support to turn it on.",
-  // Distinct from a failure on purpose: nothing was written, so the same button works once the
-  // account is topped up.
-  CONTACT_LOOKUP_NO_CREDITS: "Your workspace has used this period's contact lookup credits. Ask an admin to top them up.",
-  CONTACT_LOOKUP_FAILED: "Contact lookup didn't respond — the provider may be busy. Try again in a minute.",
-  CONTACT_LOOKUP_NO_PROFILE: "Add this person's LinkedIn profile URL first.",
-  CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
-  INSUFFICIENT_CREDITS: "Your workspace is out of contact credits. Nothing was spent.",
-  FAIR_USE_REACHED: "Your team has reached this month's fair use for this feature.",
-  TRIAL_ENDED: "Your workspace's trial has ended. Choose a plan to carry on.",
-  BILLING_UNAVAILABLE: "Paying online isn't available right now. Use Contact Uncava in Settings → Billing instead.",
-  BILLING_PLAN_UNKNOWN: "That plan can't be bought online. Use Contact Uncava in Settings → Billing to choose it.",
-  BILLING_PACK_UNKNOWN: "That credit pack is no longer sold. Choose another.",
-  SUBSCRIPTION_BILLED_BY_STRIPE: "This workspace already pays through Stripe — change the plan from Invoices & card.",
-  SEAT_LIMIT_REACHED: "Every seat your workspace pays for is taken. An admin can add seats through Contact Uncava in Settings → Billing.",
-  CANDIDATE_PROFILE_URL_LOCKED:
-    "This profile was captured from LinkedIn, so its URL is not editable.",
-  EXECUTIVE_SOURCING_UNAVAILABLE: "Find executives isn't switched on for your workspace. Contact Uncava support to turn it on.",
-  EXECUTIVE_SOURCING_TOO_MANY_COMPANIES: "Too many companies ticked. Find executives takes a limited batch — untick some and try again.",
-  EXECUTIVE_SOURCING_IN_PROGRESS: "A Find executives run is already in progress for this position.",
-  PEOPLE_SEARCH_UNAVAILABLE: "People search isn't switched on for your workspace. Contact Uncava support to turn it on.",
-  // Nothing was bought, so the same button works once the account is topped up.
-  PEOPLE_SEARCH_NO_CREDITS: "Your workspace has used this period's people search credits. Ask an admin to top them up.",
-  PEOPLE_SEARCH_FAILED: "People search didn't respond — the provider may be busy. Try again in a minute.",
-  PEOPLE_SEARCH_REJECTED: "People search couldn't run that filter. Loosen or change it and try again.",
-  PEOPLE_SEARCH_EMPTY_FILTER: "Add at least one filter before searching.",
-  PEOPLE_SEARCH_PERSON_UNKNOWN: "That person is no longer in the results. Search again and add them from there.",
-  MAILBOX_UNAVAILABLE: "Outreach email isn't switched on for your workspace. Contact Uncava support to turn it on.",
-  ZOOM_UNAVAILABLE: "Zoom isn't set up for your workspace. Ask an admin to set it up in Settings → Integrations.",
-  ZOOM_NOT_CONNECTED: "Connect Zoom first.",
-  ZOOM_RECONNECT_NEEDED: "Your Zoom account needs reconnecting.",
-  ZOOM_CONNECT_CANCELLED: "Zoom was not connected.",
-  ZOOM_CONNECT_FAILED: "Zoom could not be connected. Try again.",
-  INTEGRATION_ENCRYPTION_UNAVAILABLE: "Your own app's keys can't be stored for your workspace yet. Use the shared app for now, or contact Uncava support.",
-  INTEGRATION_SHARED_APP_UNAVAILABLE: "Uncava's shared app isn't available for this provider yet. Use your own app instead.",
-  MAILBOX_PROVIDER_UNSUPPORTED: "That kind of mailbox can't be connected.",
-  MAILBOX_NOT_CONNECTED: "Connect your mailbox first.",
-  MAILBOX_RECONNECT_NEEDED: "Your mailbox needs reconnecting before it can send.",
-  MAILBOX_CONNECT_EXPIRED: "That connection attempt expired. Start again.",
-  MAILBOX_CONNECT_FAILED: "Your mailbox couldn't be connected. Try again.",
-  MAILBOX_SEND_FAILED: "The email couldn't be sent. Try again in a moment.",
-  OUTREACH_SEQUENCE_IN_USE: "People are on this sequence, so it can't be deleted.",
-  OUTREACH_PERSON_SKIPPED: "Someone you chose can no longer be added. Go back and review the list.",
-  OUTREACH_ALREADY_ENROLLED: "Someone you chose is already in a sequence on this position.",
-  OUTREACH_ADDRESS_NOT_ON_FILE: "That address isn't on file for this person.",
-  OUTREACH_NOT_RUNNING: "This sequence has already ended.",
-  MEETING_DO_NOT_CONTACT: "This person is marked do not contact.",
-  MEETING_SLOT_TAKEN: "That time is no longer free. Pick another.",
-  MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
-  MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
-  MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again in a moment, or reconnect your mailbox if it keeps failing.",
-  WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
-  NOT_A_MEMBER: "That workspace isn't available to you any more.",
-  NOT_FOUND: "That item no longer exists. Reload to see the latest.",
-  TRIAGE_COMPANY_ALREADY_HELD: "This position already has a company with that name.",
-  IMPORT_FILE_UNREADABLE: "That file couldn't be read as a table. Check it has a header row, then try again.",
-  MAILBOX_CONNECT_CANCELLED: "Your mailbox was not connected.",
-  OUTREACH_BOOKING_LINK_UNAVAILABLE:
-    "Booking links aren't available for your mailbox. Remove the booking link from the emails to start this sequence.",
-  OUTREACH_BOOKING_LINK_FAILED: "Your booking page couldn't be set up, so nothing was sent. Try again in a moment.",
-  OAUTH_GRANT_NOT_FOUND: "That app is already disconnected. Reload to see the current list.",
-  TASK_PRESET_EXISTS: "Your team already has that preset.",
-};
+/** Which group of the catalogue words each code, so `messageFor` reads a super admin's edit before the default. */
+const ERROR_SCREEN_OF: ReadonlyMap<string, CopyScreen> = new Map(
+  ERROR_SCREENS.flatMap((screen) => Object.keys(screen.entries).map((code) => [code, screen] as const)),
+);
+
+function wordingOf(code: string): string | null {
+  const screen = ERROR_SCREEN_OF.get(code);
+  return screen ? screenText(screen, code) : null;
+}
 
 /**
  * Everything the server can reject about an email address, all of which belong under the email field
@@ -294,7 +179,9 @@ export const EMAIL_FIELD_ERROR_CODES: readonly ApiErrorCode[] = [
 ];
 
 /** What an act that first had to save the screen's edits says when that save was refused. */
-export const UNSAVED_CHANGES_MESSAGE = "Couldn't save your last change. Check your connection and try again.";
+export function unsavedChangesMessage(): string {
+  return screenText(errorsGeneral, "unsavedChanges");
+}
 
 /**
  * Codes whose server detail is itself the message: a fixed sentence the server opts in
@@ -325,16 +212,18 @@ export const DETAIL_ALLOWED: ReadonlySet<ApiErrorCode> = new Set<ApiErrorCode>([
   "CSRF_TOKEN_INVALID",
 ]);
 
-const GENERIC_MESSAGE = "Something went wrong. Try again.";
+function genericMessage(): string {
+  return screenText(errorsGeneral, "generic");
+}
 
 /**
  * Wording for a failure: our copy for the code, the server's detail only for an allow-listed code, and
  * otherwise a line carrying the request's reference so support can find it in the logs.
  */
 export function messageFor(error: unknown): string {
-  if (error instanceof AutosaveFailedError) return UNSAVED_CHANGES_MESSAGE;
-  if (!(error instanceof ApiRequestError)) return GENERIC_MESSAGE;
-  const known = MESSAGES[error.code as ApiErrorCode];
+  if (error instanceof AutosaveFailedError) return unsavedChangesMessage();
+  if (!(error instanceof ApiRequestError)) return genericMessage();
+  const known = wordingOf(error.code);
   if (known) return known;
   const namedField = firstFieldError(error);
   if (namedField) return namedField;
@@ -361,13 +250,13 @@ export function fieldLabelOf(serverKey: string): string {
 }
 
 function unexpectedFailureMessage(correlationId: string | undefined): string {
-  if (!correlationId || correlationId === "none") return GENERIC_MESSAGE;
-  return `Something went wrong on our side. Try again, or contact support and quote reference ${correlationId}.`;
+  if (!correlationId || correlationId === "none") return genericMessage();
+  return screenText(errorsGeneral, "unexpected", { reference: correlationId });
 }
 
 /** The sentence for a code that arrived without a response, such as a redirect's `?error=`. */
 export function messageForCode(code: string): string {
-  return MESSAGES[code as ApiErrorCode] ?? GENERIC_MESSAGE;
+  return wordingOf(code) ?? genericMessage();
 }
 
 /** The code of a failed request, if it was one — for switching on special-cased failures. */

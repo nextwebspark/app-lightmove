@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
+import { loadScreenText } from "./copy/loadScreenText";
 import { AssistantProvider } from "./features/assistant/AssistantProvider";
 import { AuthProvider } from "./features/auth/AuthProvider";
 import { BillingRefusalSheets } from "./features/billing/components/BillingRefusalSheets";
@@ -14,6 +15,8 @@ import "./styles/global.css";
 // Before the first paint, so a dark-mode user is not flashed a white login screen on the way in.
 applyStoredTheme();
 redrawFaviconOnColorSchemeChange();
+// Not awaited: the screens draw their shipped defaults until the published text lands, and a failure leaves them there.
+void loadScreenText();
 
 const queryClient = new QueryClient({
   defaultOptions: {

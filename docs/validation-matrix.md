@@ -52,6 +52,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the closed or the last active stage (`PIPELINE_STAGE_REQUIRED`), nor the last live active status (`PIPELINE_STATUS_REQUIRED`) | toast |
 | ☐ Own app secret / expiry | ≤ 2048, any date | `@Size(2048)`, any date | field |
 | ☐ Invitation role | always sent | not required (500 when absent) | — |
+| Screen text (Platform) | — (the editor is the next PR) | not blank; ≤ the catalogue's `maxLength`; exactly the default's `{placeholders}`; no `<` tags; no never-on-screen word the default lacks (`VALIDATION_FAILED` on `text`); a key the catalogue lacks is `SCREEN_TEXT_KEY_UNKNOWN`; a stale draft `SCREEN_TEXT_STALE` | field |
 
 ### Projects and clients
 | Field | Client | Server | Shown as |

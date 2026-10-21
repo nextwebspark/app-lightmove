@@ -481,6 +481,15 @@ public enum ErrorCode {
     /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
     BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
 
+    /** A screen text draft saved against a version somebody has since replaced. */
+    SCREEN_TEXT_STALE(HttpStatus.CONFLICT,
+            "Someone changed this text after you opened it. Reload to see their version"),
+
+    /** A key the SPA's catalogue does not hold: the screen it named has moved on, or it never existed. */
+    SCREEN_TEXT_KEY_UNKNOWN(HttpStatus.NOT_FOUND, "That piece of screen text no longer exists"),
+
+    SCREEN_TEXT_NOTHING_TO_PUBLISH(HttpStatus.CONFLICT, "There are no unpublished changes"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;
