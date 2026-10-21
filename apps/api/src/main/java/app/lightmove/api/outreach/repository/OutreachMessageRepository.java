@@ -2,7 +2,9 @@ package app.lightmove.api.outreach.repository;
 
 import app.lightmove.api.outreach.constant.MessageDirection;
 import app.lightmove.api.outreach.constant.MessageKind;
+import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.PersonNextSend;
 import app.lightmove.api.outreach.model.PersonSentTally;
 import java.time.Instant;
 import java.util.Collection;
@@ -27,15 +29,41 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
                                                                               String providerMessageId,
                                                                               MessageDirection direction);
 
-    /** The latest email a mailbox sent into a thread: whose conversation the thread is. */
-    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByOccurredAtDesc(
-            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction);
+    /**
+     * The latest email a mailbox sent into a thread: whose conversation the thread is. Asked by status — a line
+     * still waiting carries the thread it will answer and a time ahead, and would take the thread from its run.
+     */
+    Optional<OutreachMessage>
+            findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndStatusOrderByOccurredAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction, MessageStatus status);
 
     Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindOrderByCreatedAtDesc(
             UUID workspaceId, UUID senderUserId, String threadId, MessageKind kind);
 
-    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByCreatedAtDesc(
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndStatusOrderByCreatedAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction, MessageStatus status);
+
+    /** The thread a consultant last emailed an executive in on a position: where a reply from the composer goes. */
+    Optional<OutreachMessage>
+            findFirstByWorkspaceIdAndProjectIdAndPersonIdAndSenderUserIdAndDirectionAndStatusAndThreadIdIsNotNullOrderByOccurredAtDesc(
+            UUID workspaceId, UUID projectId, UUID personId, UUID senderUserId, MessageDirection direction,
+            MessageStatus status);
+
+    /** The thread's latest message the provider knows — what a reply answers. A bounce is a mail server's, never it. */
+    Optional<OutreachMessage>
+            findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndProviderMessageIdIsNotNullAndKindNotOrderByOccurredAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageKind kind);
+
+    /** The thread's first email: its subject is the one a reply keeps. */
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndSubjectIsNotNullOrderByOccurredAtAsc(
             UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction);
+
+    /** A claim that outlived its dispatcher. A system read across workspaces, as the claim itself is. */
+    List<OutreachMessage> findByStatusAndSendingSinceBefore(MessageStatus status, Instant cutoff);
+
+    List<OutreachMessage> findByProjectIdAndStatus(UUID projectId, MessageStatus status);
+
+    Optional<OutreachMessage> findByIdAndWorkspaceIdAndProjectId(UUID id, UUID workspaceId, UUID projectId);
 
     /** A line of {@code kind} in the thread no read has completed yet, oldest first. */
     Optional<OutreachMessage>
@@ -77,10 +105,11 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
             """)
     List<OutreachMessage> findConversation(UUID workspaceId, UUID projectId, UUID personId, Limit limit);
 
-    /** Each executive's latest line on a position, for the queue's preview. */
+    /** Each executive's latest line on a position, for the queue's preview: what happened, never what is due. */
     @Query(nativeQuery = true, value = """
             SELECT DISTINCT ON (person_id) * FROM app_lm_outreach_message
-            WHERE workspace_id = :workspaceId AND project_id = :projectId AND status <> 'CANCELLED'
+            WHERE workspace_id = :workspaceId AND project_id = :projectId
+              AND status NOT IN ('CANCELLED', 'SCHEDULED')
             ORDER BY person_id, occurred_at DESC, id DESC
             """)
     List<OutreachMessage> findLatestOfEachPerson(UUID workspaceId, UUID projectId);
@@ -92,6 +121,14 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
             group by m.personId
             """)
     List<PersonSentTally> tallySentByPerson(UUID workspaceId, UUID projectId);
+
+    @Query("""
+            select m.personId as personId, min(m.sendAt) as sendAt from OutreachMessage m
+            where m.workspaceId = :workspaceId and m.projectId = :projectId
+              and m.status = app.lightmove.api.outreach.constant.MessageStatus.SCHEDULED
+            group by m.personId
+            """)
+    List<PersonNextSend> findNextSendOfEachPerson(UUID workspaceId, UUID projectId);
 
     /** When the first email went to one executive on a position, or null before any has. */
     @Query("""

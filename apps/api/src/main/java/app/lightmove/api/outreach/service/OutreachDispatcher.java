@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -10,7 +11,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * The timer behind outreach: every minute it sends what is due, and every quarter hour it asks each
+ * The timer behind outreach: every minute it sends what is due — sequences' steps, then consultants' own emails —
+ * and every quarter hour it asks each
  * listening thread whether anyone answered, for the replies a webhook never delivered, and reads any
  * calendar still owed its first read. Safe on several
  * instances at once — see {@code OutreachEnrollmentClaims}.
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Component;
 public class OutreachDispatcher {
 
     private final OutreachSendService sends;
+    private final OutreachMessageSendService ownSends;
     private final OutreachInboxService inbox;
     private final MeetingBackfill calendars;
     private final RecallCalendars recallCalendars;
@@ -47,6 +50,7 @@ public class OutreachDispatcher {
 
     /** One pass. The timer calls it with the clock; tests call it with the moment they arranged. */
     public void dispatchAt(Instant now) {
+        Instant started = clock.instant();
         sends.stopUncertainClaims(now);
         List<UUID> claimed = sends.claimDue(now);
         for (UUID enrollmentId : claimed) {
@@ -54,6 +58,27 @@ public class OutreachDispatcher {
                 sends.sendClaimed(enrollmentId, now);
             } catch (RuntimeException failed) {
                 log.error("Outreach dispatch of enrollment {} failed", enrollmentId, failed);
+            }
+        }
+        // Moved on by the time the sequences' sends took: a claim stamped with the pass's start would read to every
+        // other instance as already that old, and be failed as uncertain while its email was still going.
+        dispatchOwnEmailsAt(now.plus(Duration.between(started, clock.instant())));
+    }
+
+    private void dispatchOwnEmailsAt(Instant now) {
+        List<UUID> claimed;
+        try {
+            ownSends.failUncertainClaims(now);
+            claimed = ownSends.claimDue(now);
+        } catch (RuntimeException failed) {
+            log.error("Outreach dispatch of consultants' own emails failed", failed);
+            return;
+        }
+        for (UUID messageId : claimed) {
+            try {
+                ownSends.sendClaimed(messageId, now);
+            } catch (RuntimeException failed) {
+                log.error("Outreach dispatch of message {} failed", messageId, failed);
             }
         }
     }

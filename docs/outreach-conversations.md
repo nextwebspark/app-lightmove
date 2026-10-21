@@ -452,22 +452,44 @@ person merge is built, message and attachment rows move with the enrollments.
    reply after run ended files one task, two quick replies one task, bounce row, no-read-scope mailbox still stops
    by address). Manual: a real Google reconnect in `npm run dev` shows the new scope; add it to
    `docs/integrations/registration.md`.
-3. **One-off sends (Markdown body), schedule, cancel, task resolution** — a migration adding `in_reply_to`,
-   `send_at`, `sending_since`, `fail_reason` and the scheduled-row index; `OutreachMessageClaims`,
-   `OutreachMessageService`, `OutreachEligibility`, `OutreachMarkdownEmail`, `OutreachDispatcher` second loop,
-   POST/DELETE routes; `OutreachReplySent` + listener in `task`; `recordEmailSent` overload; `PositionArchiveOutreach`;
-   `MailboxService` disconnect counts; `ErrorCode` + `errorCodes.ts`; `docs/validation-matrix.md` rows. Tests: new
-   `OutreachManualSendIntegrationTest` (Send now outside the window still goes, threads on the reply's id, scheduled
-   waits pinned, cancel before/after claim, cap refuses now / defers scheduled, DNC refused at POST and at send,
-   archive cancels, a reply send completes the REPLY task only, first contact Identified → Contacted, a send in a
-   live thread stops it MANUAL, two dispatchers send once, a mention never reaches the HTML).
+3. **One-off sends (Markdown body), schedule, cancel, task resolution — built.** What shipped, where it differs:
+   - V146 adds `send_at`, `sending_since`, `in_reply_to` and `fail_reason` (the stop reasons one email can meet, and
+     `SENDER_WITHOUT_ACCESS`), with
+     CHECKs that a scheduled line has a `send_at`, a failed one a reason, and only a scheduled one a claim.
+   - `POST …/outreach/conversations/{candidateId}/messages` (`SendMessageRequest`: `toAddress`, `subject`, `body`,
+     `sendAt`, `replyInThread`) and `DELETE …/outreach/messages/{id}`, both `WORK_EXECUTE`; a cancel is its sender's
+     alone (`OUTREACH_MESSAGE_NOT_YOURS`) and only before the dispatcher takes it (`OUTREACH_MESSAGE_NOT_SCHEDULED`).
+   - The composer's checks sit in `OutreachMessageService` rather than an extracted `OutreachEligibility`: a mailbox
+     that can send, a live position, do not contact (`OUTREACH_DO_NOT_CONTACT`), the address on the record
+     (`OUTREACH_ADDRESS_NOT_ON_FILE`), Send now under the cap (`OUTREACH_DAILY_CAP_REACHED`). Someone out of the
+     running may still be written to. A reply answers the thread this mailbox last wrote to them in on the position
+     (`OUTREACH_THREAD_UNAVAILABLE` without one), the latest message in it that is not a bounce — theirs where they
+     wrote — under the thread's first subject.
+   - `OutreachMarkdownEmail` renders the body: tokens first (the booking link as an autolink), raw HTML as text,
+     links http/https/mailto only, an image as its alt text, a mention as `@Name`. The Markdown is kept as `body_text`.
+   - `OutreachMessageSendService` is the dispatcher's second loop, `OutreachSendService`'s shape: a scheduled email is
+     held to the daily cap only (deferred to the next day's window start), never to a sequence's window; a failure is
+     a FAILED line — Attention in the queue, Mine for its sender — and never retried; a send recorded nowhere is marked
+     sent by `OutreachMessageClaims.recordDelivered`, and one that went after another instance failed its claim as
+     uncertain is recorded sent all the same. At send it asks again what the composer asked, and two things more: a
+     reply's thread must still be this mailbox's gateway and address (`MAILBOX_MOVED`; a first email goes from the
+     address the mailbox has by then), and the sender must still hold `WORK_EXECUTE` on the position
+     (`SENDER_WITHOUT_ACCESS`), since an email may wait 60 days past a seat or a membership.
+   - A line still waiting, or one that never went, says nothing about whose a thread is: the inbox resolves a reply or
+     a bounce by the thread's latest *sent* line, so a scheduled reply cannot take a thread from the run still in it.
+   - On a send: an `EMAIL_SENT` line with `manual`, the `EMAIL_SENT` status automation, a live run in the same thread
+     stopped `MANUAL`, `OUTREACH_MESSAGE_SENT`, and `OutreachEmailSentByHand`, on which `task` closes the person's open
+     reply-rule tasks on the position (never a task filed by hand).
+   - Archiving cancels the position's scheduled emails the dispatcher has not taken. The Disconnect confirm's count of them waits for phase 4's
+     mailbox chip, its only reader.
+   - Tests: `OutreachMarkdownEmailTest`, `OutreachOwnEmailIntegrationTest`.
 4. **The screen** (Attach control absent until phase 5) — routes, `OutreachPage` rewrite, `SequencesPage`, `conversationApi.ts`, the components in E,
    `PersonSections.tsx` props, mockup swap + README, glossary. Tests: `OutreachPage.test.tsx` (tabs, URL state,
    auto-select, 403 shows no counts, each `mailboxState`), `ActionQueue.test.tsx`, `ReplyComposer.test.tsx`
    (payloads, footnotes, disabled reasons, attachment cap), `CandidateDetailsPane.test.tsx`, `MailboxChip.test.tsx`;
    `copyGuard`, `styleRatchet`, `node e2e/spa/responsive.mjs` with the route added. Verify `npm run build`, then
    `/verify`: connect mailbox → New outreach → a reply arrives → Needs reply → Send now → task gone.
-5. **Attachments** — V146; `OutreachMessageAttachment` entity/repository; `OutreachAttachmentSettings` (`max-files` 5,
+5. **Attachments** — V147; `OutreachMessageAttachment` entity/repository; `OutreachAttachmentSettings` (`max-files` 5,
    `max-total-bytes` 3 MB); `OutgoingEmail.attachments` + `EmailAttachment` (`toString` omits bytes); `RawEmail`
    `multipart/mixed` (boundary, RFC 2231 `filename*`, 76-col base64, CRLF); Graph `fileAttachment` posts before `/send`
    (a failed post deletes the draft); Nylas `attachments[]`; the POST becomes `multipart/form-data` (`message` JSON part +

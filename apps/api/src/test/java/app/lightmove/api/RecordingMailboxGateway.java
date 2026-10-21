@@ -42,6 +42,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final List<String> redeemedCodes = new CopyOnWriteArrayList<>();
     private volatile GrantedMailbox granted = new GrantedMailbox("grant-1", "consultant@firm.example", "google");
     private volatile RuntimeException sendFailure;
+    private volatile Runnable whileSending;
     private volatile boolean offered = true;
     private final AtomicInteger sequence = new AtomicInteger();
     private final Map<String, String> threadOfMessage = new ConcurrentHashMap<>();
@@ -88,6 +89,11 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     @Override
     public SentEmail send(String grantId, OutgoingEmail email) {
+        Runnable hook = whileSending;
+        whileSending = null;
+        if (hook != null) {
+            hook.run();
+        }
         if (sendFailure != null) {
             throw sendFailure;
         }
@@ -225,6 +231,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
     /** A message as the mail service holds it, its id chosen by the test: one the webhook also reports. */
     public void writeInto(String threadId, ThreadMessage message) {
         threadWriters.computeIfAbsent(threadId, key -> new CopyOnWriteArrayList<>()).add(message);
+        threadOfMessage.put(message.providerMessageId(), threadId);
     }
 
     /** {@code receivedAt} null reads as received whenever the poll found it; the words are cut as a provider's are. */
@@ -233,6 +240,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         threadWriters.computeIfAbsent(threadId, key -> new CopyOnWriteArrayList<>())
                 .add(new ThreadMessage(messageId, fromAddress.toLowerCase(Locale.ROOT), receivedAt,
                         ReplyText.ofPlainText(text)));
+        threadOfMessage.put(messageId, threadId);
         return messageId;
     }
 
@@ -247,6 +255,11 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     public void grant(GrantedMailbox mailbox) {
         this.granted = mailbox;
+    }
+
+    /** Runs once, inside the next send: what another instance does while the mail service is being asked. */
+    public void whileSending(Runnable hook) {
+        this.whileSending = hook;
     }
 
     public void failSendsWith(RuntimeException failure) {
@@ -275,6 +288,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         redeemedCodes.clear();
         granted = new GrantedMailbox("grant-1", "consultant@firm.example", "google");
         sendFailure = null;
+        whileSending = null;
         offered = true;
         threadOfMessage.clear();
         threadWriters.clear();

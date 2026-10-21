@@ -16,11 +16,30 @@ public record SequenceTokens(String firstName, String currentTitle, String curre
 
     private static final Pattern TOKEN = Pattern.compile("\\{\\{\\s*([A-Za-z]+)\\s*}}");
 
+    /** What can open markup inline — a link, an image, an autolink, emphasis, a heading — and nothing a name needs. */
+    private static final Pattern MARKDOWN_PUNCTUATION = Pattern.compile("[\\\\`*_\\[\\]<>~#+!]");
+
     public String render(String template) {
+        return renderWith(template, values());
+    }
+
+    /**
+     * For a body written in Markdown: a value came from a profile, and a profile from the web, so whatever in it could
+     * open markup is escaped and it can never become a link, a heading or an image. The booking link is the one
+     * anchor, as an autolink.
+     */
+    public String renderMarkdown(String template) {
+        Map<String, String> values = new LinkedHashMap<>();
+        values().forEach((name, value) -> values.put(name, BOOKING_LINK.equals(name)
+                ? (value.isBlank() ? "" : "<" + value + ">")
+                : MARKDOWN_PUNCTUATION.matcher(value.replaceAll("\\s+", " ")).replaceAll("\\\\$0")));
+        return renderWith(template, values);
+    }
+
+    private static String renderWith(String template, Map<String, String> values) {
         if (template == null) {
             return "";
         }
-        Map<String, String> values = values();
         Matcher token = TOKEN.matcher(template);
         StringBuilder rendered = new StringBuilder();
         while (token.find()) {

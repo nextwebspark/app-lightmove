@@ -105,6 +105,16 @@ public class CandidateOutreachService {
                 recordEmailSent(candidate, sender, sequenceId, sequenceName, stepNumber));
     }
 
+    /** An email the consultant wrote themselves, outside any sequence; it moves the person forward as a step does. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordOwnEmailSent(UUID sender, UUID projectId, UUID candidateId, UUID messageId) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            activity.record(candidate, sender, PersonActivityKind.EMAIL_SENT,
+                    PersonActivityDetails.of("manual", true).and("messageId", messageId));
+            moveForwardTo(candidate, sender, StatusAutomationTrigger.EMAIL_SENT);
+        });
+    }
+
     private void recordEmailSent(Candidate candidate, UUID sender, UUID sequenceId, String sequenceName,
                                  int stepNumber) {
         activity.record(candidate, sender, PersonActivityKind.EMAIL_SENT, PersonActivityDetails

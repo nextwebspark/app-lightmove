@@ -8,6 +8,8 @@ import app.lightmove.api.candidate.service.NextActionLookup;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
 import app.lightmove.api.candidate.service.PositionPipelineService;
+import app.lightmove.api.common.constant.NoteFormat;
+import app.lightmove.api.common.note.NoteText;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -16,6 +18,8 @@ import app.lightmove.api.outreach.constant.ConversationGroup;
 import app.lightmove.api.outreach.constant.ConversationScope;
 import app.lightmove.api.outreach.constant.ConversationView;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MessageBodyFormat;
+import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.dto.CandidateOutreachResponse;
 import app.lightmove.api.outreach.dto.ConversationCountsResponse;
@@ -30,6 +34,7 @@ import app.lightmove.api.outreach.dto.OutreachRunResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.PersonNextSend;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.model.PersonSentTally;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
@@ -192,6 +197,8 @@ public class ConversationService {
                 .collect(Collectors.toMap(OutreachMessage::getPersonId, Function.identity()));
         Map<UUID, PersonSentTally> sent = messages.tallySentByPerson(workspaceId, projectId).stream()
                 .collect(Collectors.toMap(PersonSentTally::getPersonId, Function.identity()));
+        Map<UUID, Instant> ownSends = messages.findNextSendOfEachPerson(workspaceId, projectId).stream()
+                .collect(Collectors.toMap(PersonNextSend::getPersonId, PersonNextSend::getSendAt));
 
         Map<UUID, OutreachEnrollment> latestRuns = new LinkedHashMap<>();
         Map<UUID, Set<UUID>> senders = new HashMap<>();
@@ -214,8 +221,8 @@ public class ConversationService {
             PersonSentTally tally = sent.get(personId);
             return QueueEntry.of(executive, tasks.getOrDefault(executive.candidateId(), List.of()), run,
                     run == null ? null : runResponses.get(run.getId()), latestMessages.get(personId),
-                    tally == null ? null : tally.getLastSentAt(), senders.getOrDefault(personId, Set.of()),
-                    met.contains(personId));
+                    tally == null ? null : tally.getLastSentAt(), ownSends.get(personId),
+                    senders.getOrDefault(personId, Set.of()), met.contains(personId));
         }).toList();
     }
 
@@ -249,7 +256,8 @@ public class ConversationService {
                     line.getBodyFormat(), line.getFromAddress(), line.getToAddress(), line.getSenderUserId(),
                     senderNames.get(line.getSenderUserId()), line.getEnrollmentId(),
                     sequence == null ? null : sequence.getName(), line.getStep() == null ? null : line.getStep() + 1,
-                    sequence == null ? null : Math.max(sequence.getSteps().size(), run.sentCount()));
+                    sequence == null ? null : Math.max(sequence.getSteps().size(), run.sentCount()),
+                    line.getFailReason());
         }).toList();
     }
 
@@ -277,7 +285,10 @@ public class ConversationService {
     }
 
     private static String previewOf(OutreachMessage message) {
-        String text = message.getBodyText() == null ? message.getSubject() : message.getBodyText();
+        String text = message.getBodyText() == null ? message.getSubject()
+                : message.getBodyFormat() == MessageBodyFormat.MARKDOWN
+                        ? NoteText.plainTextOf(message.getBodyText(), NoteFormat.MARKDOWN)
+                        : message.getBodyText();
         if (text == null) {
             return null;
         }
@@ -314,17 +325,18 @@ public class ConversationService {
 
         static QueueEntry of(PipelineRowResponse executive, List<CandidateOpenTaskDto> tasks, OutreachEnrollment run,
                              OutreachRunResponse runResponse, OutreachMessage latestMessage, Instant lastSentAt,
-                             Set<UUID> senders, boolean met) {
+                             Instant ownSendAt, Set<UUID> senders, boolean met) {
             Instant runEnded = run == null ? null : OutreachMonitorService.endedAtOf(run);
             CandidateOpenTaskDto bounceTask = firstWithRule(tasks, CandidateOpenTaskDto.BOUNCE_RULE);
             CandidateOpenTaskDto replyTask = firstWithRule(tasks, CandidateOpenTaskDto.REPLY_RULE);
             boolean failedSend = run != null && run.getStatus() == EnrollmentStatus.STOPPED
                     && FAILED_SEND.contains(run.getStopReason())
                     && (lastSentAt == null || runEnded == null || !lastSentAt.isAfter(runEnded));
+            boolean ownEmailFailed = latestMessage != null && latestMessage.getStatus() == MessageStatus.FAILED;
 
             ConversationGroup group = null;
             CandidateOpenTaskDto action = null;
-            if (bounceTask != null || failedSend) {
+            if (bounceTask != null || failedSend || ownEmailFailed) {
                 group = ConversationGroup.ATTENTION;
                 action = bounceTask != null ? bounceTask : tasks.stream().findFirst().orElse(null);
             } else if (replyTask != null) {
@@ -334,7 +346,8 @@ public class ConversationService {
                 group = lastSentAt == null ? ConversationGroup.PREPARATION : ConversationGroup.FOLLOW_UP;
                 action = tasks.getFirst();
             }
-            Instant scheduledAt = run != null && run.isLive() ? run.getNextSendAt() : null;
+            Instant scheduledAt = Stream.of(run != null && run.isLive() ? run.getNextSendAt() : null, ownSendAt)
+                    .filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
             Instant lastActivityAt = Stream.of(latestMessage == null ? null : latestMessage.getOccurredAt(),
                             run == null ? null : run.getEnrolledAt(), runEnded)
                     .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
@@ -347,10 +360,13 @@ public class ConversationService {
             return run != null || latestMessage != null || met || hasTasks;
         }
 
-        /** Mine in Needs action: the task is mine, or the failed run I sent when no task is open on them. */
+        /** Mine in Needs action: the task is mine, or — with no task open — the failed email or run was mine. */
         boolean needsActionFrom(UUID userId) {
             if (action != null) {
                 return action.assignee() != null && userId.equals(action.assignee().userId());
+            }
+            if (latestMessage != null && latestMessage.getStatus() == MessageStatus.FAILED) {
+                return userId.equals(latestMessage.getSenderUserId());
             }
             return run != null && userId.equals(run.getSenderUserId());
         }

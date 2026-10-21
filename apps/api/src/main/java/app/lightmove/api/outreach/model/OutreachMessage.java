@@ -7,6 +7,7 @@ import app.lightmove.api.outreach.constant.MessageChannel;
 import app.lightmove.api.outreach.constant.MessageDirection;
 import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
+import app.lightmove.api.outreach.constant.OutreachStopReason;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -19,8 +20,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One line of an executive's conversation on a position (V101, widened by V144 and V145): a sequence's email once
- * it went, or a reply or bounce in its thread. Staff-only; a reply's words are never logged.
+ * One line of an executive's conversation on a position (V101, widened by V144–V146): a sequence's email once it
+ * went, a consultant's own email from scheduled to sent, or a reply or bounce in its thread. Staff-only; nobody's
+ * words are ever logged.
  */
 @Entity
 @Table(name = "app_lm_outreach_message")
@@ -64,7 +66,7 @@ public class OutreachMessage extends BaseEntity {
     private MessageKind kind;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, updatable = false)
+    @Column(name = "status", nullable = false)
     private MessageStatus status;
 
     @Column(name = "sender_user_id", nullable = false, updatable = false)
@@ -79,11 +81,11 @@ public class OutreachMessage extends BaseEntity {
     @Column(name = "provider_message_id")
     private String providerMessageId;
 
-    @Column(name = "thread_id", updatable = false)
+    @Column(name = "thread_id")
     private String threadId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "thread_gateway", updatable = false)
+    @Column(name = "thread_gateway")
     private MailboxGatewayKind threadGateway;
 
     @Column(name = "subject", updatable = false)
@@ -101,8 +103,24 @@ public class OutreachMessage extends BaseEntity {
     private String bodyText;
 
     /** Set only on an outbound email that went: the daily cap counts these. */
-    @Column(name = "sent_at", updatable = false)
+    @Column(name = "sent_at")
     private Instant sentAt;
+
+    /** When a scheduled line is due; it never moves for a window, only for the daily cap. */
+    @Column(name = "send_at")
+    private Instant sendAt;
+
+    /** The dispatcher's claim, written by {@code OutreachMessageClaims} and released here. */
+    @Column(name = "sending_since")
+    private Instant sendingSince;
+
+    /** The provider's id of the message this one answers. */
+    @Column(name = "in_reply_to", updatable = false)
+    private String inReplyTo;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fail_reason")
+    private OutreachStopReason failReason;
 
     /** Where the line sits in the conversation. */
     @Column(name = "occurred_at", nullable = false)
@@ -135,6 +153,84 @@ public class OutreachMessage extends BaseEntity {
         message.sentAt = now;
         message.occurredAt = now;
         return message;
+    }
+
+    /**
+     * A consultant's own email, waiting for {@code sendAt}. {@code reply} names the thread it answers and the message
+     * in it, or is null for a first email in a thread of its own. {@code markdown} is what they wrote, tokens filled.
+     */
+    public static OutreachMessage scheduled(UUID workspaceId, UUID projectId, UUID personId, UUID candidateId,
+                                            UUID senderUserId, String fromAddress, String toAddress, String subject,
+                                            String html, String markdown, ThreadReply reply, Instant sendAt) {
+        OutreachMessage message = new OutreachMessage();
+        message.workspaceId = workspaceId;
+        message.projectId = projectId;
+        message.personId = personId;
+        message.candidateId = candidateId;
+        message.direction = MessageDirection.OUTBOUND;
+        message.channel = MessageChannel.EMAIL;
+        message.kind = MessageKind.MANUAL;
+        message.status = MessageStatus.SCHEDULED;
+        message.senderUserId = senderUserId;
+        message.fromAddress = fromAddress;
+        message.toAddress = toAddress;
+        message.subject = subject;
+        message.body = html;
+        message.bodyFormat = MessageBodyFormat.MARKDOWN;
+        message.bodyText = markdown;
+        if (reply != null) {
+            message.threadId = reply.threadId();
+            message.threadGateway = reply.gateway();
+            message.inReplyTo = reply.messageId();
+        }
+        message.sendAt = sendAt;
+        message.occurredAt = sendAt;
+        return message;
+    }
+
+    public boolean isScheduled() {
+        return status == MessageStatus.SCHEDULED;
+    }
+
+    /** It went — even after another dispatcher gave its claim up as uncertain, which is then no longer true. */
+    public void markSent(SentEmail sent, MailboxGatewayKind gateway, Instant now) {
+        status = MessageStatus.SENT;
+        failReason = null;
+        providerMessageId = sent.messageId();
+        threadId = threadId != null ? threadId : sent.threadId();
+        threadGateway = gateway;
+        sentAt = now;
+        occurredAt = now;
+        sendingSince = null;
+    }
+
+    /** It never went, and never will: a send is not retried. */
+    public void fail(OutreachStopReason reason, Instant now) {
+        status = MessageStatus.FAILED;
+        failReason = reason;
+        occurredAt = now;
+        sendingSince = null;
+    }
+
+    public void cancel() {
+        status = MessageStatus.CANCELLED;
+        sendingSince = null;
+    }
+
+    /** Not yet: the daily cap is full, or the service asked us to wait. Nothing went. */
+    public void deferTo(Instant due) {
+        sendAt = due;
+        occurredAt = due;
+        sendingSince = null;
+    }
+
+    public void releaseClaim() {
+        sendingSince = null;
+    }
+
+    /** A first email goes from the mailbox as it is when it goes: a reconnect may have moved it to another address. */
+    public void sendFrom(String address) {
+        fromAddress = address;
     }
 
     /**

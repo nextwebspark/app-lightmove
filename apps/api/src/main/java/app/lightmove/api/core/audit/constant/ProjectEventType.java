@@ -126,6 +126,13 @@ public enum ProjectEventType implements AuditEventType {
     /** A sequence ended short — by a consultant's Stop, or by the send-time re-check. */
     OUTREACH_STOPPED,
 
+    /** A consultant's own email to an executive, written and waiting to go; never its words. */
+    OUTREACH_MESSAGE_SCHEDULED,
+    OUTREACH_MESSAGE_SENT,
+    /** It did not go, and will not: a send is never retried. */
+    OUTREACH_MESSAGE_FAILED,
+    OUTREACH_MESSAGE_CANCELLED,
+
     /** A call booked with an executive from a consultant's own calendar. */
     OUTREACH_MEETING_BOOKED,
 
