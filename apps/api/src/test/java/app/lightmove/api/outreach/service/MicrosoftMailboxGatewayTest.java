@@ -21,6 +21,7 @@ import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
+import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
@@ -249,6 +250,38 @@ class MicrosoftMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("each file is a fileAttachment on the draft before the send; a refused one deletes the draft unsent")
+    void filesAreAttachedToTheDraft() throws Exception {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        OutgoingEmail email = new OutgoingEmail("priya@client.example", "The brief", "<p>Attached</p>", null,
+                List.of(new EmailAttachment("Brief.pdf", "application/pdf", "%PDF-1.7".getBytes(StandardCharsets.US_ASCII))));
+        String draft = "/graph/v1.0/me/messages/AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-draft";
+
+        gateway.send(grantId, email);
+
+        assertThat(microsoft.requested()).containsSubsequence("POST /graph/v1.0/me/messages",
+                "POST " + draft + "/attachments", "POST " + draft + "/send");
+        JsonNode file = JSON.readTree(microsoft.bodyOf("POST " + draft + "/attachments"));
+        assertThat(file.path("@odata.type").asString("")).isEqualTo("#microsoft.graph.fileAttachment");
+        assertThat(file.path("name").asString("")).isEqualTo("Brief.pdf");
+        assertThat(file.path("contentType").asString("")).isEqualTo("application/pdf");
+        assertThat(java.util.Base64.getDecoder().decode(file.path("contentBytes").asString("")))
+                .isEqualTo("%PDF-1.7".getBytes(StandardCharsets.US_ASCII));
+
+        microsoft.clearRequests();
+        microsoft.attachAnswers(413);
+        assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOf(AttachmentNotAccepted.class);
+        assertThat(microsoft.requested()).contains("DELETE " + draft).doesNotContain("POST " + draft + "/send");
+
+        // Throttled is no wait either: a retry would build one more draft a minute.
+        microsoft.clearRequests();
+        microsoft.attachAnswers(429);
+        assertThatThrownBy(() -> gateway.send(grantId, email)).isInstanceOf(AttachmentNotAccepted.class);
+        assertThat(microsoft.requested()).contains("DELETE " + draft).doesNotContain("POST " + draft + "/send");
+    }
+
+    @Test
     @DisplayName("a send Graph refuses deletes the unsent draft; one that may have gone leaves it alone")
     void aRefusedSendDiscardsTheDraft() {
         String grantId = MailboxGrants.mintDirect("microsoft");
@@ -449,6 +482,7 @@ class MicrosoftMailboxGatewayTest {
         private volatile String lastPath = "";
         private volatile int refreshStatus = 200;
         private volatile int sendStatus = 202;
+        private volatile int attachStatus = 201;
         private volatile String refreshBody;
         private volatile int createEventStatus = 201;
         private volatile boolean scheduleError;
@@ -537,6 +571,9 @@ class MicrosoftMailboxGatewayTest {
                 respond(exchange, 201, """
                         {"id":"AAkALgAAAAAAHYQDEapmEc2byACqAC-EWg0A-reply",
                          "conversationId":"AAQkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgAQAAmsg==","isDraft":true}""");
+            } else if (path.endsWith("/attachments")) {
+                respond(exchange, attachStatus, attachStatus == 201 ? "{\"id\":\"AAMkAttachment\"}"
+                        : "{\"error\":{\"code\":\"ErrorAttachmentSizeLimitExceeded\"}}");
             } else if (path.endsWith("/send")) {
                 respond(exchange, sendStatus, "");
             } else if (path.equals("/graph/v1.0/me/mailFolders/sentitems")) {
@@ -566,6 +603,10 @@ class MicrosoftMailboxGatewayTest {
 
         void sendAnswers(int status) {
             this.sendStatus = status;
+        }
+
+        void attachAnswers(int status) {
+            this.attachStatus = status;
         }
 
         void createEventAnswers(int status) {

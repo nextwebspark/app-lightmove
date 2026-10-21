@@ -1,14 +1,21 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 /**
  * One outreach email as the RFC 2822 message Gmail's {@code messages.send} takes: an HTML part in UTF-8, a subject
  * encoded per RFC 2047 where it is not ASCII, and on a follow-up the {@code In-Reply-To} and {@code References} that
- * thread it in any client. Gmail writes {@code From}, {@code Date} and {@code Message-ID} itself.
+ * thread it in any client. Gmail writes {@code From}, {@code Date} and {@code Message-ID} itself. An email carrying
+ * files is {@code multipart/mixed}: the HTML part first, then each file base64-encoded under its name, written per
+ * RFC 2231 where it is not ASCII.
  */
 final class RawEmail {
 
@@ -16,6 +23,15 @@ final class RawEmail {
 
     /** RFC 2047 caps an encoded word at 75 characters; this many bytes of UTF-8 always fit one. */
     private static final int ENCODED_WORD_BYTES = 45;
+
+    private static final Base64.Encoder MIME_BASE64 = Base64.getMimeEncoder(76, CRLF.getBytes(StandardCharsets.US_ASCII));
+
+    /** Encoded characters per RFC 2231 continuation line, short enough to read and far under any line limit. */
+    private static final int CONTINUATION_LENGTH = 60;
+
+    /** RFC 2231's attribute-char: what a parameter value may carry unescaped. */
+    private static final String ATTRIBUTE_CHARS =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$&+-.^_`|~";
 
     private final String message;
 
@@ -36,18 +52,105 @@ final class RawEmail {
             header(raw, "References", references == null ? inReplyTo : references + " " + inReplyTo);
         }
         header(raw, "MIME-Version", "1.0");
-        header(raw, "Content-Type", "text/html; charset=UTF-8");
-        header(raw, "Content-Transfer-Encoding", "base64");
+        if (!email.hasAttachments()) {
+            htmlPart(raw, email.htmlBody());
+            return new RawEmail(raw.toString());
+        }
+        String boundary = "=_uncava_" + UUID.randomUUID().toString().replace("-", "");
+        header(raw, "Content-Type", "multipart/mixed; boundary=\"" + boundary + "\"");
         raw.append(CRLF);
-        raw.append(Base64.getMimeEncoder(76, CRLF.getBytes(StandardCharsets.US_ASCII))
-                .encodeToString(email.htmlBody().getBytes(StandardCharsets.UTF_8)));
-        raw.append(CRLF);
+        raw.append("--").append(boundary).append(CRLF);
+        htmlPart(raw, email.htmlBody());
+        for (EmailAttachment attachment : email.attachments()) {
+            raw.append("--").append(boundary).append(CRLF);
+            attachmentPart(raw, attachment);
+        }
+        raw.append("--").append(boundary).append("--").append(CRLF);
         return new RawEmail(raw.toString());
     }
 
     /** What {@code messages.send} takes as {@code raw}. */
     String encoded() {
-        return Base64.getUrlEncoder().encodeToString(message.getBytes(StandardCharsets.UTF_8));
+        return Base64.getUrlEncoder().encodeToString(bytes());
+    }
+
+    /** The message itself, as Gmail's upload endpoint takes it ({@code message/rfc822}). Every byte is ASCII. */
+    byte[] bytes() {
+        return message.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static void htmlPart(StringBuilder raw, String htmlBody) {
+        header(raw, "Content-Type", "text/html; charset=UTF-8");
+        header(raw, "Content-Transfer-Encoding", "base64");
+        raw.append(CRLF);
+        raw.append(MIME_BASE64.encodeToString(htmlBody.getBytes(StandardCharsets.UTF_8)));
+        raw.append(CRLF);
+    }
+
+    private static void attachmentPart(StringBuilder raw, EmailAttachment attachment) {
+        String fileName = attachment.fileName();
+        header(raw, "Content-Type", attachment.contentType() + "; name=\"" + asciiFallbackOf(fileName) + "\"");
+        header(raw, "Content-Disposition", "attachment; filename=\"" + asciiFallbackOf(fileName) + "\"");
+        if (!isPlainAscii(fileName)) {
+            // The header just written ends in CRLF; each continuation is a folded line of it, so no line passes
+            // RFC 5322's 998 octets however long the name: 255 Arabic letters are some 1,500 encoded characters.
+            raw.setLength(raw.length() - CRLF.length());
+            List<String> chunks = continuationsOf(percentEncoded(fileName));
+            for (int index = 0; index < chunks.size(); index++) {
+                raw.append(';').append(CRLF).append(" filename*").append(index).append("*=")
+                        .append(index == 0 ? "UTF-8''" : "").append(chunks.get(index));
+            }
+            raw.append(CRLF);
+        }
+        header(raw, "Content-Transfer-Encoding", "base64");
+        raw.append(CRLF);
+        raw.append(MIME_BASE64.encodeToString(attachment.content()));
+        raw.append(CRLF);
+    }
+
+    /** What a client that never learned RFC 2231 shows: the name with anything outside printable ASCII as {@code _}. */
+    static String asciiFallbackOf(String fileName) {
+        StringBuilder fallback = new StringBuilder();
+        fileName.codePoints().forEach(codePoint -> fallback.append(
+                codePoint >= 0x20 && codePoint < 0x7f && codePoint != '"' && codePoint != '\\'
+                        ? (char) codePoint : '_'));
+        return fallback.toString();
+    }
+
+    /** RFC 2231 continuations of an encoded value, never splitting a {@code %XX} triplet. */
+    static List<String> continuationsOf(String encoded) {
+        List<String> chunks = new ArrayList<>();
+        int start = 0;
+        while (start < encoded.length()) {
+            int end = Math.min(encoded.length(), start + CONTINUATION_LENGTH);
+            if (end < encoded.length()) {
+                int percent = encoded.lastIndexOf('%', end - 1);
+                if (percent >= start && percent > end - 3) {
+                    end = percent;
+                }
+            }
+            chunks.add(encoded.substring(start, end));
+            start = end;
+        }
+        return chunks;
+    }
+
+    static String percentEncoded(String value) {
+        StringBuilder encoded = new StringBuilder();
+        for (byte octet : value.getBytes(StandardCharsets.UTF_8)) {
+            char character = (char) (octet & 0xff);
+            if (character < 0x80 && ATTRIBUTE_CHARS.indexOf(character) >= 0) {
+                encoded.append(character);
+            } else {
+                encoded.append('%').append(HexFormat.of().withUpperCase().toHexDigits(octet));
+            }
+        }
+        return encoded.toString();
+    }
+
+    private static boolean isPlainAscii(String value) {
+        return value.chars().allMatch(character -> character >= 0x20 && character < 0x7f
+                && character != '"' && character != '\\');
     }
 
     /** The address in a {@code From} header, {@code "Name" <a@b>} or bare; lower-cased like every ledger address. */

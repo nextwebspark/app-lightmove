@@ -6,9 +6,11 @@ import { Popover } from "../../../components/ui/Popover";
 import { messageFor } from "../../../lib/errorCodes";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import * as conversationApi from "../api/conversationApi";
-import type { Conversation } from "../api/conversationApi";
+import type { AttachmentLimits, Conversation } from "../api/conversationApi";
 import * as mailboxApi from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
+import { AttachButton, AttachmentChips } from "./ComposerAttachments";
+import { attachmentProblemOf, type ComposerAttachment } from "../lib/composerAttachments";
 import { composerFootnoteOf } from "../lib/conversationVocabulary";
 import { canSendFrom, providerLabel, type MailboxState } from "../lib/mailboxState";
 import { isLive } from "../lib/runVocabulary";
@@ -60,6 +62,7 @@ export function ReplyComposer({
       movesTo={composer.emailSentMovesTo?.label ?? null}
       runningSequenceId={currentRun.run && isLive(currentRun.run) ? currentRun.run.sequenceId : null}
       nextStepIndex={currentRun.run ? currentRun.run.sentCount : null}
+      attachmentLimits={composer.attachmentLimits}
     />
   );
 }
@@ -78,6 +81,7 @@ function OpenComposer({
   movesTo,
   runningSequenceId,
   nextStepIndex,
+  attachmentLimits,
 }: {
   projectId: string;
   candidateId: string;
@@ -92,6 +96,7 @@ function OpenComposer({
   movesTo: string | null;
   runningSequenceId: string | null;
   nextStepIndex: number | null;
+  attachmentLimits: AttachmentLimits;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -99,6 +104,7 @@ function OpenComposer({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [chosenAddress, setChosenAddress] = useState(emails[0]);
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   // The ledger can change under an open composer: an address since removed falls back to the first one left.
   const toAddress = emails.includes(chosenAddress) ? chosenAddress : emails[0];
   // A thread that went away (a reconnect elsewhere) leaves a first email; one that appears is offered only to an empty draft.
@@ -117,10 +123,12 @@ function OpenComposer({
         body,
         sendAt: sendAt ? sendAt.toISOString() : null,
         replyInThread: isReply,
-      }),
+        documentVersionIds: attachments.flatMap((attachment) => (attachment.kind === "document" ? [attachment.versionId] : [])),
+      }, attachments.flatMap((attachment) => (attachment.kind === "upload" ? [attachment.file] : []))),
     onSuccess: (scheduled, sendAt) => {
       setBody("");
       setSubject("");
+      setAttachments([]);
       toast(sendAt ? `Scheduled for ${whenLabelOf(new Date(scheduled.sendAt), timeZone)}.` : `Goes to ${firstName} within a minute.`);
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
@@ -143,7 +151,9 @@ function OpenComposer({
 
   const hasBody = body.trim().length > 0;
   const isTooLong = body.length > BODY_MAX_LENGTH;
-  const canSend = hasBody && !isTooLong && (isReply || subject.trim().length > 0) && !send.isPending;
+  const attachmentProblem = attachmentProblemOf(attachments, attachmentLimits);
+  const canSend =
+    hasBody && !isTooLong && attachmentProblem === null && (isReply || subject.trim().length > 0) && !send.isPending;
   const footnote = composerFootnoteOf({
     isReply,
     resolvesReplyTask,
@@ -214,12 +224,21 @@ function OpenComposer({
           />
         </div>
       </div>
+      <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
       {isTooLong && (
         <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
           Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
         </p>
       )}
       <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <AttachButton
+          projectId={projectId}
+          candidateId={candidateId}
+          attachments={attachments}
+          limits={attachmentLimits}
+          disabled={send.isPending}
+          onChange={setAttachments}
+        />
         {runningSequenceId && (
           <Button variant="ghost" size="xs" loading={insertFollowUp.isPending} onClick={() => insertFollowUp.mutate()}>
             Insert follow-up

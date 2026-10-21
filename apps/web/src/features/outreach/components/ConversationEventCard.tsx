@@ -3,9 +3,11 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
+import { saveBlob } from "../../../lib/saveBlob";
+import { formatBytes } from "../../candidates/lib/documents";
 import { NoteText } from "../../notes/components/NoteText";
 import * as conversationApi from "../api/conversationApi";
-import type { ConversationEvent, ConversationMessage } from "../api/conversationApi";
+import type { ConversationAttachment, ConversationEvent, ConversationMessage } from "../api/conversationApi";
 import { cardTimeOf, eventFaceOf, TONE_TEXT } from "../lib/conversationVocabulary";
 import { sendTimeOf } from "../lib/runVocabulary";
 
@@ -108,10 +110,41 @@ function MessageBody({
         ) : (
           <p className="mt-1 whitespace-pre-wrap text-body text-u-text2">{message.text}</p>
         ))}
+      {message.attachments.length > 0 && <MessageAttachments message={message} projectId={projectId} />}
       {message.status === "SCHEDULED" && (
         <ScheduledLine message={message} projectId={projectId} isMine={message.senderUserId === viewerUserId} />
       )}
     </>
+  );
+}
+
+/** The files an email carried, each a download of the bytes as they went (a fetch: the bytes need the bearer token). */
+function MessageAttachments({ message, projectId }: { message: ConversationMessage; projectId: string }) {
+  const toast = useToast();
+  const download = useMutation({
+    mutationFn: (attachment: ConversationAttachment) =>
+      conversationApi.attachmentContent(projectId, message.id, attachment.id),
+    onSuccess: (blob, attachment) => saveBlob(blob, attachment.fileName),
+    onError: (error) => toast.error(messageFor(error)),
+  });
+  return (
+    <ul aria-label="Attachments" className="mt-2 flex flex-wrap gap-1.5">
+      {message.attachments.map((attachment) => (
+        <li key={attachment.id}>
+          <button
+            type="button"
+            aria-label={`Download ${attachment.fileName}`}
+            disabled={download.isPending && download.variables?.id === attachment.id}
+            onClick={() => download.mutate(attachment)}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-u-chip border border-u-border bg-u-raised px-2 py-0.5 text-note text-u-text2 hover:text-u-text disabled:opacity-50"
+          >
+            <Icon d={ICONS.paperclip} size={12} className="flex-none text-u-text3" />
+            <span className="min-w-0 truncate">{attachment.fileName}</span>
+            <span className="flex-none font-mono text-meta text-u-text3">{formatBytes(attachment.sizeBytes)}</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

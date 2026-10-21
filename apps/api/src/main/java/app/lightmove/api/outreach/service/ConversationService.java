@@ -25,6 +25,8 @@ import app.lightmove.api.outreach.constant.MessageBodyFormat;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.dto.CandidateOutreachResponse;
+import app.lightmove.api.outreach.dto.AttachmentLimitsResponse;
+import app.lightmove.api.outreach.dto.ConversationAttachmentResponse;
 import app.lightmove.api.outreach.dto.ConversationComposerResponse;
 import app.lightmove.api.outreach.dto.ConversationContactResponse;
 import app.lightmove.api.outreach.dto.ConversationCountsResponse;
@@ -39,11 +41,13 @@ import app.lightmove.api.outreach.dto.OutreachRunResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.OutreachMessageAttachment;
 import app.lightmove.api.outreach.model.PersonNextSend;
 import app.lightmove.api.outreach.model.ReplyThreadPreview;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.model.PersonSentTally;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
+import app.lightmove.api.outreach.repository.OutreachMessageAttachmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
 import app.lightmove.api.outreach.repository.PersonMeetingRepository;
@@ -120,6 +124,8 @@ public class ConversationService {
     private final MeetingService meetings;
     private final OutreachEnrollmentRepository enrollments;
     private final OutreachMessageRepository messages;
+    private final OutreachMessageAttachmentRepository attachmentRows;
+    private final OutreachAttachments attachments;
     private final OutreachSequenceRepository sequences;
     private final PersonMeetingRepository personMeetings;
     private final UserRepository users;
@@ -176,7 +182,7 @@ public class ConversationService {
         List<OutreachMessage> lines = messages.findConversation(workspaceId, projectId, personId,
                 Limit.of(MAX_EVENTS + 1));
         List<ConversationEventResponse> events = new ArrayList<>();
-        messageResponsesOf(lines, runs).forEach(message -> events.add(ConversationEventResponse.of(message)));
+        messageResponsesOf(workspaceId, lines, runs).forEach(message -> events.add(ConversationEventResponse.of(message)));
         timeline.positionLinesOf(workspaceId, personId, projectId, HISTORY_KINDS, MAX_EVENTS + 1)
                 .forEach(line -> events.add(ConversationEventResponse.of(line)));
         notes.list(userId, workspaceId, personId, NoteViewpoint.position(projectId))
@@ -206,7 +212,9 @@ public class ConversationService {
         Optional<ReplyThreadPreview> reply = ownMessages.replyPreviewFor(userId, workspaceId, projectId, personId);
         return new ConversationComposerResponse(reply.map(ReplyThreadPreview::subject).orElse(null),
                 reply.map(ReplyThreadPreview::stopsLiveRun).orElse(false),
-                people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null));
+                people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null),
+                new AttachmentLimitsResponse(attachments.limits().maxFiles(), attachments.limits().maxFileBytes(),
+                        attachments.limits().maxTotalBytes()));
     }
 
     private ConversationContactResponse contactOf(UUID workspaceId, UUID projectId, UUID candidateId) {
@@ -264,8 +272,14 @@ public class ConversationService {
         return matching;
     }
 
-    private List<ConversationMessageResponse> messageResponsesOf(List<OutreachMessage> lines,
+    private List<ConversationMessageResponse> messageResponsesOf(UUID workspaceId, List<OutreachMessage> lines,
                                                                  List<OutreachEnrollment> runs) {
+        Map<UUID, List<ConversationAttachmentResponse>> files = attachmentRows
+                .findByWorkspaceIdAndMessageIdInOrderByPosition(workspaceId,
+                        lines.stream().map(OutreachMessage::getId).toList()).stream()
+                .collect(Collectors.groupingBy(OutreachMessageAttachment::getMessageId, Collectors.mapping(
+                        file -> new ConversationAttachmentResponse(file.getId(), file.getFileName(),
+                                file.getContentType(), file.getSizeBytes()), Collectors.toList())));
         Map<UUID, OutreachEnrollment> runsById = runs.stream()
                 .collect(Collectors.toMap(OutreachEnrollment::getId, Function.identity()));
         Map<UUID, OutreachSequence> sequencesById = sequences.findAllById(runs.stream()
@@ -284,7 +298,8 @@ public class ConversationService {
                     senderNames.get(line.getSenderUserId()), line.getEnrollmentId(),
                     sequence == null ? null : sequence.getName(), line.getStep() == null ? null : line.getStep() + 1,
                     sequence == null ? null : Math.max(sequence.getSteps().size(), run.sentCount()),
-                    line.getFailReason());
+                    line.getFailReason(),
+                    line.keepsAttachmentFiles() ? files.getOrDefault(line.getId(), List.of()) : List.of());
         }).toList();
     }
 

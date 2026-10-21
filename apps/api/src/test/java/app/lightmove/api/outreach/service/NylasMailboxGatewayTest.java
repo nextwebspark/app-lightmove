@@ -17,8 +17,11 @@ import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.DeliveryFailure;
+import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
+import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.SentEmail;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +51,59 @@ class NylasMailboxGatewayTest {
                     WEBHOOK_SECRET, true, false),
             mock(VendorClientFactory.class), mock(VendorRateLimiter.class), mock(VendorCallGuard.class),
             RestClient.builder());
+
+    @Test
+    @DisplayName("an email without files is one JSON send; one with files is multipart, the message JSON a part of its own")
+    void filesAreAMultipartSend() throws Exception {
+        java.util.List<String> contentTypes = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.List<String> bodies = new java.util.concurrent.CopyOnWriteArrayList<>();
+        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(
+                new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v3/grants/grant-1/messages/send", exchange -> {
+            contentTypes.add(exchange.getRequestHeaders().getFirst("Content-Type"));
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+            byte[] answer = "{\"data\":{\"id\":\"msg-1\",\"thread_id\":\"thread-1\"}}"
+                    .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, answer.length);
+            exchange.getResponseBody().write(answer);
+            exchange.close();
+        });
+        server.start();
+        try {
+            app.lightmove.api.core.config.LightMoveProperties properties =
+                    mock(app.lightmove.api.core.config.LightMoveProperties.class);
+            org.mockito.Mockito.when(properties.resilience()).thenReturn(new app.lightmove.api.core.config.ResilienceSettings(
+                    java.time.Duration.ofSeconds(2), 0, java.time.Duration.ofMillis(1), 1.0, java.time.Duration.ZERO,
+                    java.time.Duration.ofMillis(1), java.time.Duration.ofSeconds(1)));
+            VendorRateLimiter limiter = new VendorRateLimiter();
+            NylasMailboxGateway live = new NylasMailboxGateway(
+                    new NylasSettings("nyk_secret", "client-123", "http://127.0.0.1:" + server.getAddress().getPort(),
+                            List.of("google"), 5, WEBHOOK_SECRET, false, false),
+                    new VendorClientFactory(properties), limiter, new VendorCallGuard(limiter, properties),
+                    RestClient.builder());
+
+            live.send("grant-1", new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>"));
+            SentEmail sent = live.send("grant-1", new OutgoingEmail("priya@client.example", "The brief",
+                    "<p>Attached</p>", "msg-0", List.of(new EmailAttachment("Brief.pdf", "application/pdf",
+                            "%PDF-1.7 brief".getBytes(java.nio.charset.StandardCharsets.US_ASCII)))));
+
+            assertThat(sent.messageId()).isEqualTo("msg-1");
+            assertThat(contentTypes.get(0)).startsWith("application/json");
+            assertThat(JSON.readTree(bodies.get(0)).has("attachments")).isFalse();
+            assertThat(contentTypes.get(1)).startsWith("multipart/form-data");
+            String multipart = bodies.get(1);
+            assertThat(multipart).contains("Content-Disposition: form-data; name=\"message\"")
+                    .contains("\"reply_to_message_id\":\"msg-0\"")
+                    .contains("\"subject\":\"The brief\"")
+                    .contains("name=\"file0\"; filename=\"Brief.pdf\"")
+                    .contains("Content-Type: application/pdf")
+                    .contains("%PDF-1.7 brief")
+                    .doesNotContain("\"attachments\"");
+        } finally {
+            server.stop(0);
+        }
+    }
 
     @Test
     @DisplayName("the sign-in link names our application, the host, the callback and the state, and never the key")

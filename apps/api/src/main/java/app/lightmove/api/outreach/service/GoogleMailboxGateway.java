@@ -16,6 +16,7 @@ import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.model.ThreadMessage;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -33,6 +34,7 @@ import java.util.regex.Pattern;
 import org.springframework.http.MediaType;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Gmail and Google Workspace mail through the Gmail API, connected through the OAuth app the workspace chose:
@@ -51,6 +53,8 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     /** Any of these reaches a message's body; Google's granular consent lets a person untick it. */
     private static final Set<String> BODY_SCOPES = Set.of("https://www.googleapis.com/auth/gmail.readonly",
             "https://www.googleapis.com/auth/gmail.modify", "https://mail.google.com/");
+
+    private static final JsonMapper UPLOAD_JSON = JsonMapper.builder().build();
 
     /** {@code calendar.*} for meetings, free/busy and booking; together they cover Recall's read too. */
     static final List<String> SCOPES = List.of("openid", "email", "https://www.googleapis.com/auth/gmail.send",
@@ -115,8 +119,9 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     public SentEmail send(String grantId, OutgoingEmail email) {
         String accessToken = accessTokenOf(grantId);
         Map<String, Object> message = new LinkedHashMap<>();
+        RawEmail raw;
         if (email.replyToMessageId() == null) {
-            message.put("raw", RawEmail.of(email, null, null).encoded());
+            raw = RawEmail.of(email, null, null);
         } else {
             JsonNode last = apiCall("reply-headers", accessToken, client -> client.get()
                     .uri(builder -> builder.path("/gmail/v1/users/me/messages/{id}")
@@ -132,12 +137,9 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
                         VendorFailureKind.MALFORMED_RESPONSE, null);
             }
             message.put("threadId", threadId);
-            message.put("raw", RawEmail.of(email, messageIdHeader, headerOf(last, "References")).encoded());
+            raw = RawEmail.of(email, messageIdHeader, headerOf(last, "References"));
         }
-        JsonNode sent = apiCall("send", accessToken, client -> client.post()
-                .uri("/gmail/v1/users/me/messages/send")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(message));
+        JsonNode sent = email.hasAttachments() ? uploadSend(accessToken, message, raw) : jsonSend(accessToken, message, raw);
         String messageId = textOrNull(sent == null ? null : sent.get("id"));
         String threadId = textOrNull(sent == null ? null : sent.get("threadId"));
         if (messageId == null || threadId == null) {
@@ -145,6 +147,41 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
             throw new VendorException(vendorCall("send"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return new SentEmail(messageId, threadId);
+    }
+
+    private static byte[] uploadBodyOf(String boundary, byte[] metadata, byte[] message) {
+        ByteArrayOutputStream body = new ByteArrayOutputStream(metadata.length + message.length + 256);
+        body.writeBytes(("--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n")
+                .getBytes(StandardCharsets.US_ASCII));
+        body.writeBytes(metadata);
+        body.writeBytes(("\r\n--" + boundary + "\r\nContent-Type: message/rfc822\r\n\r\n")
+                .getBytes(StandardCharsets.US_ASCII));
+        body.writeBytes(message);
+        body.writeBytes(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.US_ASCII));
+        return body.toByteArray();
+    }
+
+    private JsonNode jsonSend(String accessToken, Map<String, Object> message, RawEmail raw) {
+        message.put("raw", raw.encoded());
+        return apiCall("send", accessToken, client -> client.post()
+                .uri("/gmail/v1/users/me/messages/send")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(message));
+    }
+
+    /**
+     * An email carrying files goes through the upload endpoint, whose ceiling is Gmail's own message size rather than
+     * a JSON body's: the metadata (the thread, on a follow-up) as one part and the message itself as another.
+     */
+    private JsonNode uploadSend(String accessToken, Map<String, Object> metadata, RawEmail raw) {
+        String boundary = "uncava_" + UUID.randomUUID().toString().replace("-", "");
+        byte[] body = uploadBodyOf(boundary, UPLOAD_JSON.writeValueAsBytes(metadata), raw.bytes());
+        return apiCall("send", accessToken, client -> client.post()
+                .uri(builder -> builder.path("/upload/gmail/v1/users/me/messages/send")
+                        .queryParam("uploadType", "multipart")
+                        .build())
+                .contentType(MediaType.parseMediaType("multipart/related; boundary=" + boundary))
+                .body(body));
     }
 
     @Override

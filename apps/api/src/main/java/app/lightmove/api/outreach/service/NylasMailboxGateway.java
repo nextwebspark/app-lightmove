@@ -23,6 +23,7 @@ import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
+import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.ReplyText;
@@ -43,7 +44,11 @@ import java.util.Locale;
 import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.core.JacksonException;
@@ -67,7 +72,7 @@ public class NylasMailboxGateway implements MailboxGateway {
     /** Nylas's documented constant for the API-key flow, which asks no PKCE of the caller. */
     private static final String API_KEY_FLOW_VERIFIER = "nylas";
 
-    private static final ObjectMapper WEBHOOK_JSON = JsonMapper.builder().build();
+    private static final ObjectMapper JSON = JsonMapper.builder().build();
 
     /** A thread an outreach run writes into is a handful of messages; this is far past any real one. */
     private static final int THREAD_PAGE = 50;
@@ -152,13 +157,34 @@ public class NylasMailboxGateway implements MailboxGateway {
         if (email.replyToMessageId() != null) {
             message.put("reply_to_message_id", email.replyToMessageId());
         }
-        SendAnswer sent = guard.call(VendorCall.of(VENDOR, "send"), () -> client.post()
-                .uri("/v3/grants/{grantId}/messages/send", grantId)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(message)
+        SendAnswer sent = guard.call(VendorCall.of(VENDOR, "send"), () -> (email.hasAttachments()
+                        ? client.post()
+                                .uri("/v3/grants/{grantId}/messages/send", grantId)
+                                .contentType(MediaType.MULTIPART_FORM_DATA)
+                                .body(multipartOf(message, email))
+                        : client.post()
+                                .uri("/v3/grants/{grantId}/messages/send", grantId)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .body(message))
                 .retrieve()
                 .body(SendAnswer.class));
         return new SentEmail(sent.data().id(), sent.data().threadId());
+    }
+
+    /**
+     * Files go as a multipart send, never base64 in the JSON body: Nylas caps a JSON request at 3 MB whole, which
+     * a 2 MB CV already passes once encoded. The message's JSON is the {@code message} part, each file one more.
+     */
+    private static MultiValueMap<String, HttpEntity<?>> multipartOf(Map<String, Object> message, OutgoingEmail email) {
+        MultipartBodyBuilder parts = new MultipartBodyBuilder();
+        parts.part("message", JSON.writeValueAsString(message), MediaType.APPLICATION_JSON);
+        for (int index = 0; index < email.attachments().size(); index++) {
+            EmailAttachment attachment = email.attachments().get(index);
+            parts.part("file" + index, new ByteArrayResource(attachment.content()),
+                            MediaType.parseMediaType(attachment.contentType()))
+                    .filename(attachment.fileName());
+        }
+        return parts.build();
     }
 
     @Override
@@ -176,7 +202,7 @@ public class NylasMailboxGateway implements MailboxGateway {
         }
         JsonNode notification;
         try {
-            notification = WEBHOOK_JSON.readTree(body);
+            notification = JSON.readTree(body);
         } catch (JacksonException unreadable) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "A signed webhook delivery was not JSON");
         }

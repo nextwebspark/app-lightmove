@@ -629,6 +629,17 @@ everyone in them moved to `…/outreach/sequences`. The conversation read gained
 (`replySubject` and `replyStopsRun` for the caller's mailbox, `emailSentMovesTo`), the mailbox read `sentToday` and
 `scheduledEmails`.
 Both reads poll every minute until phase 6 pushes.
+**Phase 5 (V147)**: an own email carries **files** — one of the person's documents, copied under the email's own storage
+key when it is written (so a version removed later neither changes nor breaks it), or one uploaded in the composer
+(`multipart/form-data`: the request a `message` part, each file a `files` part), its bytes matched to its name
+(`DocumentFormat`) — held to `lightmove.outreach.attachments.*` (5 files, 3,000,000 bytes each, Graph's single-post
+limit; 10 MB together) before anything is stored (`OutreachAttachments`). Each gateway sends them its own largest way:
+Gmail's upload endpoint (`RawEmail` as `multipart/mixed`, RFC 2231 names folded into continuations), a `fileAttachment`
+post per file on the Graph draft (a refused one deletes the draft and fails the email, `AttachmentNotAccepted`), Nylas's
+multipart send (its JSON send caps the whole request at 3 MB). Bytes are read at send and never logged
+(`EmailAttachment.toString`); a document that went is audited `PERSON_DOCUMENT_SENT` by ids alone (a CV's name is its
+person's), a download from the history `OUTREACH_ATTACHMENT_DOWNLOADED`, and a cancel or a definite failure deletes the
+files once it commits (`OutreachMessage.keepsAttachmentFiles`).
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today
@@ -1190,6 +1201,8 @@ alone. V145 fills any deploy-window row's `project_id`/`person_id` and sets both
 per answered run and a bounce placeholder per bounced one, adds `app_lm_mailbox_connection.reply_text_granted`
 (direct Microsoft rows backfilled true), and indexes the thread, the inbound dedupe and the listening scan. V146 gives
 it a consultant's own email's `send_at`, `sending_since` claim, `in_reply_to` and `fail_reason`, with the due index.
+V147 adds `app_lm_outreach_message_attachment` — an own email's files in order (name, read type, size, `sha256`, the
+bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

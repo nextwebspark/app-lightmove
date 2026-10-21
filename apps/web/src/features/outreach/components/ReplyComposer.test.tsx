@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { typeInto } from "../../../test/noteEditor";
+import * as documentsApi from "../../candidates/api/documentsApi";
 import * as conversationApi from "../api/conversationApi";
 import type { Conversation } from "../api/conversationApi";
 import type { MailboxState } from "../lib/mailboxState";
@@ -14,6 +15,11 @@ import { ReplyComposer } from "./ReplyComposer";
 vi.mock("../api/conversationApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/conversationApi")>()),
   sendMessage: vi.fn(),
+}));
+
+vi.mock("../../candidates/api/documentsApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../candidates/api/documentsApi")>()),
+  listDocuments: vi.fn(),
 }));
 
 const MAILBOX: MailboxState = {
@@ -65,7 +71,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: null,
       doNotContact: false,
     },
-    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null },
+    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } },
     events: [],
     truncated: false,
     ...overrides,
@@ -94,6 +100,35 @@ describe("ReplyComposer", () => {
       subject: "Hello",
       inThread: false,
     });
+    vi.mocked(documentsApi.listDocuments).mockResolvedValue([
+      {
+        id: "d1",
+        category: "cv",
+        title: "Fatima CV",
+        primaryCv: true,
+        projectId: "p1",
+        projectTitle: "Group CFO",
+        createdBy: "u1",
+        createdByName: "Yara",
+        createdAt: "2026-10-01T09:00:00Z",
+        updatedAt: "2026-10-01T09:00:00Z",
+        removable: true,
+        versions: [
+          {
+            id: "v2",
+            versionNo: 2,
+            fileName: "Fatima_CV_2026.pdf",
+            contentType: "application/pdf",
+            sizeBytes: 120_000,
+            uploadedBy: "u1",
+            uploadedByName: "Yara",
+            uploadedAt: "2026-10-01T09:00:00Z",
+            previewable: true,
+            removable: true,
+          },
+        ],
+      },
+    ]);
   });
 
   afterEach(() => {
@@ -129,6 +164,7 @@ describe("ReplyComposer", () => {
         "p1",
         "c1",
         expect.objectContaining({ sendAt: "2026-10-22T06:00:00.000Z", subject: "A conversation", replyInThread: false }),
+        [],
       ),
     );
   });
@@ -146,7 +182,12 @@ describe("ReplyComposer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Send now" }));
 
     await waitFor(() =>
-      expect(conversationApi.sendMessage).toHaveBeenCalledWith("p1", "c1", expect.objectContaining({ toAddress: "fatima@new.example" })),
+      expect(conversationApi.sendMessage).toHaveBeenCalledWith(
+        "p1",
+        "c1",
+        expect.objectContaining({ toAddress: "fatima@new.example" }),
+        [],
+      ),
     );
   });
 
@@ -154,7 +195,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     await writeFirstEmail();
 
-    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } });
+    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } });
     rerender(composerFor(withThread));
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("A conversation");
@@ -164,7 +205,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } })));
     const composer = screen.getByRole("region", { name: "Reply" });
     expect(within(composer).getByText("Reply to Fatima")).toBeInTheDocument();
 
@@ -174,17 +215,17 @@ describe("ReplyComposer", () => {
 
   it("says a reply stops the running sequence only where the server says it would", async () => {
     const { rerender } = render(
-      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } })),
+      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } })),
       { wrapper },
     );
     expect(screen.queryByText(/Sending stops the running sequence/)).not.toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } })));
     expect(screen.getByText(/Sending stops the running sequence/)).toBeInTheDocument();
   });
 
   it("refuses a body past the server's limit before anything is sent", async () => {
-    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null } })), {
+    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } })), {
       wrapper,
     });
     const box = await screen.findByRole("textbox", { name: "Message" });
@@ -194,5 +235,36 @@ describe("ReplyComposer", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Too long to send.");
     expect(screen.getByRole("button", { name: "Send now" })).toBeDisabled();
+  });
+
+  it("sends their document and an uploaded file with the email, and holds a file past the limit back", async () => {
+    render(composerFor(conversation()), { wrapper });
+    expect(documentsApi.listDocuments).not.toHaveBeenCalled();
+    await writeFirstEmail();
+
+    await userEvent.click(screen.getByRole("button", { name: "Attach" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Fatima CV/ }));
+    const brief = new File(["%PDF-1.7"], "Brief.pdf", { type: "application/pdf" });
+    await userEvent.upload(screen.getByLabelText("Attach a file from this computer"), brief);
+    const chips = screen.getByRole("list", { name: "Attachments" });
+    expect(within(chips).getByText("Fatima_CV_2026.pdf")).toBeInTheDocument();
+    expect(within(chips).getByText("Brief.pdf")).toBeInTheDocument();
+
+    const huge = new File(["x"], "Huge.pdf", { type: "application/pdf" });
+    Object.defineProperty(huge, "size", { value: 3_000_001 });
+    await userEvent.upload(screen.getByLabelText("Attach a file from this computer"), huge);
+    expect(screen.getByRole("alert")).toHaveTextContent("Huge.pdf is larger than 2.9 MB");
+    expect(screen.getByRole("button", { name: "Send now" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Remove Huge.pdf" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenCalledWith(
+        "p1",
+        "c1",
+        expect.objectContaining({ documentVersionIds: ["v2"] }),
+        [brief],
+      ),
+    );
   });
 });

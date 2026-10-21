@@ -10,6 +10,7 @@ import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
+import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
@@ -25,6 +26,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -163,6 +165,16 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         String conversationId = textOrNull(draft == null ? null : draft.get("conversationId"));
         if (messageId == null || conversationId == null) {
             throw new VendorException(vendorCall("draft"), VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        try {
+            attachFiles(accessToken, messageId, email);
+        } catch (VendorException failed) {
+            // Nothing was sent yet, whatever the failure: a half-built draft is one click from a send, so it goes.
+            discardDraft(accessToken, messageId);
+            if (failed.getKind() == VendorFailureKind.CREDENTIALS) {
+                throw failed;
+            }
+            throw new AttachmentNotAccepted(failed);
         }
         try {
             if (email.replyToMessageId() != null) {
@@ -458,6 +470,25 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         return message;
     }
 
+    /** Each file onto the draft as a {@code fileAttachment}; the ceiling per file is Graph's own for a single post. */
+    private void attachFiles(String accessToken, String messageId, OutgoingEmail email) {
+        for (EmailAttachment attachment : email.attachments()) {
+            apiCall("attach", accessToken, client -> client.post()
+                    .uri("/v1.0/me/messages/{id}/attachments", messageId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(fileAttachmentOf(attachment)));
+        }
+    }
+
+    static Map<String, Object> fileAttachmentOf(EmailAttachment attachment) {
+        Map<String, Object> file = new LinkedHashMap<>();
+        file.put("@odata.type", "#microsoft.graph.fileAttachment");
+        file.put("name", attachment.fileName());
+        file.put("contentType", attachment.contentType());
+        file.put("contentBytes", Base64.getEncoder().encodeToString(attachment.content()));
+        return file;
+    }
+
     /**
      * A definite refusal leaves a finished approach in the consultant's Drafts, one click from a second send; it is
      * deleted. A timeout or an outage may have sent it, so it is left alone.
@@ -466,6 +497,10 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
         if (failed.getKind() == VendorFailureKind.TIMEOUT || failed.getKind() == VendorFailureKind.UNAVAILABLE) {
             return;
         }
+        discardDraft(accessToken, messageId);
+    }
+
+    private void discardDraft(String accessToken, String messageId) {
         try {
             apiExchange("discard-draft", accessToken, client -> client.delete()
                     .uri("/v1.0/me/messages/{id}", messageId));

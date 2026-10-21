@@ -212,6 +212,18 @@ public class OutreachMessage extends BaseEntity {
         sendingSince = null;
     }
 
+    /**
+     * Whether its files are still held: while it waits, once it went, and while nobody knows whether it went. One
+     * that definitely never went, or was cancelled, keeps no copy of anyone's document.
+     */
+    public boolean keepsAttachmentFiles() {
+        return switch (status) {
+            case SCHEDULED, SENT -> true;
+            case FAILED -> failReason == OutreachStopReason.SEND_UNCERTAIN;
+            case CANCELLED, RECEIVED -> false;
+        };
+    }
+
     public void cancel() {
         status = MessageStatus.CANCELLED;
         sendingSince = null;
