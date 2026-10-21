@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
 import { cn } from "../../../lib/cn";
 import type { PersonNote, PersonNoteKind } from "../api/types";
@@ -116,8 +117,8 @@ export interface NoteCardActions {
 
 /**
  * One note as both drawers draw it: author, kind, pinned, when, the words, and what it is about. With
- * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete is taken back with
- * the toast's Undo, not asked about first.
+ * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete asks first, a stray click
+ * on a note being too easy, and is still taken back with the toast's Undo.
  */
 export function NoteCard({
   note,
@@ -136,6 +137,7 @@ export function NoteCard({
   flashAt?: number | null;
 }) {
   const [editing, setEditing] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [draft, setDraft] = useState(note.body);
   const revised = draft.trim();
   const revisedTooLong = revised.length > NOTE_MAX_STORED;
@@ -250,7 +252,7 @@ export function NoteCard({
             {note.editable && (
               <button
                 type="button"
-                onClick={actions.onRemove}
+                onClick={() => setConfirmingRemove(true)}
                 disabled={actions.busy}
                 className="hover:text-u-offlimits"
               >
@@ -260,6 +262,20 @@ export function NoteCard({
           </span>
         )}
       </div>
+      {actions && (
+        <ConfirmDialog
+          open={confirmingRemove}
+          title="Delete this note?"
+          confirmLabel="Delete note"
+          onConfirm={() => {
+            setConfirmingRemove(false);
+            actions.onRemove();
+          }}
+          onClose={() => setConfirmingRemove(false)}
+        >
+          <p>It is removed for everyone on the team. You can undo it straight after.</p>
+        </ConfirmDialog>
+      )}
     </li>
   );
 }

@@ -351,16 +351,28 @@ describe("a note in the position's drawer", () => {
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
   });
 
-  it("is deleted at once, and Undo brings it back", async () => {
+  it("is deleted once confirmed, and Undo brings it back", async () => {
     vi.mocked(personCrmApi.removePersonNote).mockResolvedValue(undefined);
     vi.mocked(personCrmApi.restorePersonNote).mockResolvedValue(aNote("Prefers a call after 6pm"));
     renderNotes();
 
     await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete note" }));
     await waitFor(() => expect(personCrmApi.removePersonNote).toHaveBeenCalledWith("p1", "c1", "n1"));
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
     await waitFor(() => expect(personCrmApi.restorePersonNote).toHaveBeenCalledWith("p1", "c1", "n1"));
+  });
+
+  it("is kept when the delete is cancelled", async () => {
+    vi.mocked(personCrmApi.removePersonNote).mockClear();
+    renderNotes();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("button", { name: "Delete note" })).not.toBeInTheDocument();
+    expect(personCrmApi.removePersonNote).not.toHaveBeenCalled();
   });
 
   it("cannot be deleted twice while the list catches up", async () => {
@@ -369,6 +381,7 @@ describe("a note in the position's drawer", () => {
     renderNotes();
 
     await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete note" }));
     await screen.findByRole("button", { name: "Undo" });
 
     expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
