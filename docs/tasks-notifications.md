@@ -24,6 +24,11 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   each rule can be switched off per workspace (`app_lm_workspace_task_rule`, absent means on). A reply's key is
   its message (`reply:<messageId>`, since outreach phase 2 stores every reply), and a reply while that person
   already has an open reply task on the position files none: three quick replies are one reply to answer.
+  A consultant's own email to them that goes (`OutreachEmailSentByHand`, outreach phase 3) completes their open
+  reply-rule tasks on that position, by its sender; a task somebody filed by hand stays open.
+- **Live**: every write of a task announces `task` on its position's project stream (`TaskStreamAnnouncer`, an
+  entity listener, inside the writing transaction), sent only to streams whose holder may work the position; the
+  Outreach page refreshes its queue and the open executive's tasks on it.
 - **Mentions** are tokens in a note's body, `@[Full Name](user:<uuid>)` or `@[team](team)`. The server keeps
   only users who may work the note's position; a note about no position mentions nobody.
 - **Notifications** (`app_lm_notification`) are one per recipient per event, grouped while unread by

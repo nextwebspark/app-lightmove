@@ -5,7 +5,9 @@ import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import jakarta.persistence.Column;
+import app.lightmove.api.outreach.service.OutreachStreamAnnouncer;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
@@ -21,6 +23,7 @@ import lombok.NoArgsConstructor;
  * an edit to one person's opener reaches that person's email and nobody else's.
  */
 @Entity
+@EntityListeners(OutreachStreamAnnouncer.class)
 @Table(name = "app_lm_outreach_enrollment")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

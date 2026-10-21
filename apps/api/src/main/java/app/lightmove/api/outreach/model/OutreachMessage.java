@@ -9,7 +9,9 @@ import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import jakarta.persistence.Column;
+import app.lightmove.api.outreach.service.OutreachStreamAnnouncer;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
@@ -25,6 +27,7 @@ import lombok.NoArgsConstructor;
  * words are ever logged.
  */
 @Entity
+@EntityListeners(OutreachStreamAnnouncer.class)
 @Table(name = "app_lm_outreach_message")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

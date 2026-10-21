@@ -1,10 +1,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { streamEvents } from "../../../lib/apiClient";
-import type { SseEvent } from "../../../lib/sse";
+import { streamEvents } from "./apiClient";
+import type { SseEvent } from "./sse";
 import { useProjectStream } from "./useProjectStream";
 
-vi.mock("../../../lib/apiClient", () => ({ streamEvents: vi.fn() }));
+vi.mock("./apiClient", () => ({ streamEvents: vi.fn() }));
 
 const streamEventsMock = vi.mocked(streamEvents);
 
@@ -128,6 +128,8 @@ it("names every kind for a payload it does not recognise", async () => {
     "company-captured",
     "company-enriched",
     "executive-sourcing",
+    "outreach",
+    "task",
   ]);
 });
 

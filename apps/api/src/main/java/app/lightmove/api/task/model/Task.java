@@ -6,7 +6,9 @@ import app.lightmove.api.task.constant.TaskRule;
 import app.lightmove.api.task.constant.TaskSource;
 import app.lightmove.api.task.constant.TaskStatus;
 import jakarta.persistence.Column;
+import app.lightmove.api.task.service.TaskStreamAnnouncer;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
@@ -22,6 +24,7 @@ import lombok.NoArgsConstructor;
  * unmapped from the position keeps their task history; the position's own reads go through the mapping.
  */
 @Entity
+@EntityListeners(TaskStreamAnnouncer.class)
 @Table(name = "app_lm_task")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

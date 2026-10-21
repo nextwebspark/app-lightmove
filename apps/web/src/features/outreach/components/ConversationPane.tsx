@@ -20,7 +20,7 @@ import { NextActionStrip } from "./NextActionStrip";
 import { NoteComposerModal } from "./NoteComposerModal";
 import { ReplyComposer } from "./ReplyComposer";
 
-/** While the page is open, how often an executive's history is read again: replies arrive without a push yet. */
+/** While the page's stream is down, how often an executive's history is read again. */
 export const CONVERSATION_REFRESH_MS = 60_000;
 
 /**
@@ -36,12 +36,15 @@ export function ConversationPane({
   onHandled,
   onOpenRecord,
   onBack,
+  refreshMs = CONVERSATION_REFRESH_MS,
 }: {
   projectId: string;
   candidateId: string;
   isArchived: boolean;
   mailbox: MailboxState;
   connector: MailboxConnect;
+  /** How often their history is read again: slowly while the page's stream says what moved. */
+  refreshMs?: number;
   /** After Mark handled: the queue moves on to the next person. */
   onHandled: () => void;
   /** Opens the person's full record in place; `activity` lands on its Activity tab. */
@@ -52,7 +55,7 @@ export function ConversationPane({
   const conversation = useQuery({
     queryKey: conversationApi.CONVERSATION_KEY(projectId, candidateId),
     queryFn: ({ signal }) => conversationApi.getConversation(projectId, candidateId, signal),
-    refetchInterval: CONVERSATION_REFRESH_MS,
+    refetchInterval: refreshMs,
   });
 
   if (conversation.isError) {

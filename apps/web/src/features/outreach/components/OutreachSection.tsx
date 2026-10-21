@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { cn } from "../../../lib/cn";
 import type { CandidateStatus } from "../../candidates/api/types";
@@ -39,6 +40,7 @@ export function OutreachSection({
   isSettingStatus: boolean;
   onSetStatus: (status: CandidateStatus) => void;
 }) {
+  const location = useLocation();
   const outreach = useQuery({
     queryKey: runApi.CANDIDATE_OUTREACH_KEY(projectId, candidateId),
     queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidateId, signal),
@@ -57,6 +59,10 @@ export function OutreachSection({
     return null;
   }
   const state = RUN_STATES[run.status];
+  const conversationPath = `/projects/${projectId}/outreach?candidate=${candidateId}`;
+  // Over the Outreach page itself the drawer opens on top of this very conversation: no link back to it.
+  const isOnOutreach = /\/projects\/[^/]+\/outreach\/?$/.test(location.pathname);
+  const replyText = outreach.data?.latestReply?.text ?? null;
 
   return (
     <CollapsibleSection
@@ -65,6 +71,13 @@ export function OutreachSection({
       onToggle={onToggle}
       title="Outreach"
       summary={`${state.label} · ${run.sentCount} of ${run.stepCount} sent`}
+      action={
+        isOnOutreach ? undefined : (
+          <Link to={conversationPath} className="text-note font-medium text-u-accent hover:underline">
+            Open conversation
+          </Link>
+        )
+      }
     >
       <div className="pb-3">
         {run.status === "REPLIED" && (
@@ -72,7 +85,17 @@ export function OutreachSection({
             <b className="text-u-direct">
               {firstName} replied{run.endedAt ? ` ${sendTimeOf(run.endedAt)}` : ""}.
             </b>{" "}
-            Read it in your inbox{candidateStatus === "contacted" ? ", then record where they stand." : "."}
+            {replyText ? (
+              <>
+                <q className="mt-1 block whitespace-pre-wrap text-u-text2">{replyText}</q>
+                {candidateStatus === "contacted" ? "Record where they stand." : null}
+              </>
+            ) : (
+              <>
+                Read it in your inbox
+                {candidateStatus === "contacted" ? ", then record where they stand." : "."}
+              </>
+            )}
             {candidateStatus === "contacted" && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {replyChoices.map((choice) => (

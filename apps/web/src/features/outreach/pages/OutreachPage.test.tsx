@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -12,6 +12,17 @@ import type { Conversation, ConversationList, ConversationRow } from "../api/con
 import * as mailboxApi from "../api/mailboxApi";
 import type { Mailbox } from "../api/mailboxApi";
 import { OutreachPage } from "./OutreachPage";
+
+vi.mock("../../../lib/apiClient", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../lib/apiClient")>()),
+  // The page holds the position's stream open; it stays silent unless a test speaks for it.
+  streamEvents: vi.fn((_path: string, onEvent: (event: { name: string; data: string }) => void) => {
+    streamListeners.push(onEvent);
+    return new Promise<void>(() => {});
+  }),
+}));
+
+const streamListeners: ((event: { name: string; data: string }) => void)[] = [];
 
 vi.mock("../../auth/AuthProvider", () => ({
   useAuth: () => ({ user: { id: "u1", workspace: { id: "w1", roles: ["MEMBER"] } } }),
@@ -259,6 +270,7 @@ function renderPage(path = "/projects/p1/outreach") {
 describe("OutreachPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    streamListeners.length = 0;
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue(connected);
     vi.mocked(conversationApi.listConversations).mockResolvedValue(QUEUE);
     vi.mocked(conversationApi.getConversation).mockResolvedValue(conversation());
@@ -284,6 +296,19 @@ describe("OutreachPage", () => {
     expect(screen.getByText("SENT EMAIL")).toBeInTheDocument();
     expect(screen.getByText(/CFO — first approach · Step 1 of 3/)).toBeInTheDocument();
     expect(await screen.findByText("Required next action")).toBeInTheDocument();
+  });
+
+  it("reads the queue and the open conversation again the moment the stream says outreach moved", async () => {
+    renderPage();
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+    const queueReads = vi.mocked(conversationApi.listConversations).mock.calls.length;
+    const conversationReads = vi.mocked(conversationApi.getConversation).mock.calls.length;
+
+    act(() => streamListeners.forEach((emit) => emit({ name: "connected", data: "{}" })));
+    act(() => streamListeners.forEach((emit) => emit({ name: "change", data: '{"kind":"outreach"}' })));
+
+    await waitFor(() => expect(vi.mocked(conversationApi.listConversations).mock.calls.length).toBeGreaterThan(queueReads));
+    expect(vi.mocked(conversationApi.getConversation).mock.calls.length).toBeGreaterThan(conversationReads);
   });
 
   it("draws a reply's words as text, never as markup", async () => {

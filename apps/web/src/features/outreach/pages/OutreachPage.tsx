@@ -6,9 +6,11 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { EmptyState } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { tabPanelProps } from "../../../components/ui/tabPanelProps";
+import { useProjectStream } from "../../../lib/useProjectStream";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { rememberDrawerTab } from "../../candidates/lib/drawerTabs";
+import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as conversationApi from "../api/conversationApi";
 import type { ConversationScope, ConversationView } from "../api/conversationApi";
 import { ActionQueue } from "../components/ActionQueue";
@@ -23,6 +25,8 @@ import { useMailboxConnect } from "../lib/useMailboxConnect";
 
 const VIEWS: readonly ConversationView[] = ["needs", "all", "scheduled", "sent"];
 const SEARCH_DELAY_MS = 250;
+/** While the stream is live: a read every five minutes catches what it does not announce. */
+export const LIVE_SAFETY_REFRESH_MS = 5 * 60_000;
 
 /**
  * A position's Outreach page (`claude-design/Outreach.dc.html`): the conversation workspace — the action queue, one
@@ -45,11 +49,19 @@ export function OutreachPage() {
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [recordId, setRecordId] = useState<string | null>(null);
 
+  // Live, the server says when an email, a reply, a run or a task moved; the slow read is the safety net for what
+  // it does not announce (a note, a meeting, a status), and the minute's read stands in whenever the stream is down.
+  const streamIsLive = useProjectStream(project.id, (kinds) => {
+    void queryClient.invalidateQueries({ queryKey: ["outreach", project.id] });
+    if (kinds.includes("task")) void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
+  });
+  const refreshMs = streamIsLive ? LIVE_SAFETY_REFRESH_MS : CONVERSATION_REFRESH_MS;
+
   const list = useQuery({
     queryKey: conversationApi.CONVERSATIONS_KEY(project.id, view, who, query),
     queryFn: ({ signal }) => conversationApi.listConversations(project.id, view, who, query, signal),
     placeholderData: keepPreviousData,
-    refetchInterval: CONVERSATION_REFRESH_MS,
+    refetchInterval: refreshMs,
   });
   const rows = list.data?.rows ?? [];
   // The conversation pane's own read, shared through the cache: the open person may be in no row of this tab.
@@ -57,7 +69,7 @@ export function OutreachPage() {
     queryKey: conversationApi.CONVERSATION_KEY(project.id, candidateId ?? ""),
     queryFn: ({ signal }) => conversationApi.getConversation(project.id, candidateId!, signal),
     enabled: candidateId !== null,
-    refetchInterval: CONVERSATION_REFRESH_MS,
+    refetchInterval: refreshMs,
   });
   const selectedName =
     rows.find((row) => row.candidateId === candidateId)?.fullName ?? openConversation.data?.executive.fullName ?? null;
@@ -158,6 +170,7 @@ export function OutreachPage() {
             onHandled={selectNextAfterHandled}
             onOpenRecord={openRecord}
             onBack={() => select(null)}
+            refreshMs={refreshMs}
           />
         ) : (
           <div className="hidden min-h-0 items-center justify-center bg-u-surface lg:flex xl:col-span-2">

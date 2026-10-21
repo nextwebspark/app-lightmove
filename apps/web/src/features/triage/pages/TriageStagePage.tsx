@@ -59,7 +59,7 @@ import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
-import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
+import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
 /**
  * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
@@ -316,8 +316,11 @@ function TriageStage() {
       void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_LATEST_KEY(project.id) });
     }
     // Both halves are points on the globe. Free while the grid is the view: the map's reads are
-    // disabled there, and an inactive query is marked stale rather than refetched.
-    refreshMap();
+    // disabled there, and an inactive query is marked stale rather than refetched. Outreach and tasks
+    // move neither half.
+    if (kinds.some((kind) => kind !== "outreach" && kind !== "task")) {
+      refreshMap();
+    }
   };
 
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);

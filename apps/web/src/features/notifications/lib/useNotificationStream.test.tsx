@@ -44,7 +44,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it("listens on the caller's own stream and refreshes the bell and every task read once per burst", async () => {
+it("listens on the caller's own stream and refreshes the bell, every task read and the open outreach reads once per burst", async () => {
   renderHook(() => useNotificationStream(), { wrapper });
 
   act(() => {
@@ -55,7 +55,7 @@ it("listens on the caller's own stream and refreshes the bell and every task rea
   await act(() => vi.advanceTimersByTimeAsync(500));
 
   expect(openStreams[0].path).toBe("/me/notifications/stream");
-  expect(invalidatedKeys()).toEqual([["notifications"], ["tasks"]]);
+  expect(invalidatedKeys()).toEqual([["notifications"], ["tasks"], ["outreach"]]);
 });
 
 it("refreshes nothing for the greeting alone", async () => {

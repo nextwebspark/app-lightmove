@@ -98,6 +98,7 @@ step api/14-strategy-company-search.sh
 # so it does its full work on a runner.
 step api/15-extension-capture.sh
 step api/20-workspace-switching.sh
+step api/21-outreach-conversations.sh
 
 step_node spa/run.mjs
 step_node spa/roles.mjs

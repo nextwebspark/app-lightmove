@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { streamEvents } from "../../../lib/apiClient";
+import { streamEvents } from "./apiClient";
 
 /** Failures back off exponentially to this; a healthy stream's cyclic close reconnects at once. */
 const MAX_RETRY_MS = 30_000;
@@ -19,7 +19,11 @@ export type ProjectStreamKind =
   | "candidate-enriched"
   | "company-captured"
   | "company-enriched"
-  | "executive-sourcing";
+  | "executive-sourcing"
+  /** An email, a reply or a sequence run moved. Sent only to someone who may work the position. */
+  | "outreach"
+  /** A task was filed, changed or closed. Sent only to someone who may work the position. */
+  | "task";
 
 const EVERY_KIND: ProjectStreamKind[] = [
   "candidate-captured",
@@ -27,6 +31,8 @@ const EVERY_KIND: ProjectStreamKind[] = [
   "company-captured",
   "company-enriched",
   "executive-sourcing",
+  "outreach",
+  "task",
 ];
 
 /**

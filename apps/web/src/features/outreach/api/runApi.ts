@@ -85,6 +85,8 @@ export interface OutreachStep {
 export interface CandidateOutreach {
   run: OutreachRun | null;
   steps: OutreachStep[];
+  /** Their newest reply on the position; `text` is null where the mailbox does not read replies' words. */
+  latestReply?: { at: string; text: string | null } | null;
 }
 
 export function getOutreachPeople(projectId: string, signal?: AbortSignal): Promise<OutreachOverview> {

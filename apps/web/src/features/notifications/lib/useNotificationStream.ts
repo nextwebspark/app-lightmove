@@ -33,6 +33,8 @@ export function useNotificationStream(): boolean {
     const refresh = () => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY_PREFIX });
       void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
+      // A reply or a booking reaches the bell and the conversation together; only open reads refetch.
+      void queryClient.invalidateQueries({ queryKey: ["outreach"] });
     };
 
     const announceChange = () => {
