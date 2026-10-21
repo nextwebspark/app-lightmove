@@ -122,6 +122,34 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the conversation tells the composer what an email would do, and the mailbox what it has sent")
+    void theComposerIsToldBeforeSending() throws Exception {
+        JsonNode before = conversation();
+        assertThat(before.at("/composer/replySubject").isNull()).as("no thread to reply in yet").isTrue();
+        assertThat(before.at("/composer/emailSentMovesTo/statusKey").asText()).isEqualTo("contacted");
+        assertThat(before.at("/contact/emails/0/address").asText()).isEqualTo(priyaAddress);
+        assertThat(before.at("/contact/doNotContact").asBoolean()).isFalse();
+        assertThat(mailbox().get("sentToday").asLong()).isZero();
+
+        send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello"}"""
+                .formatted(priyaAddress));
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        send("""
+                {"toAddress":"%s","subject":"Later","replyInThread":false,"body":"Hello","sendAt":"%s"}"""
+                .formatted(priyaAddress, Instant.now().plus(Duration.ofHours(2))));
+        markDoNotContact();
+
+        JsonNode after = conversation();
+        assertThat(after.at("/composer/replySubject").asText()).isEqualTo("Re: A conversation");
+        assertThat(after.at("/composer/emailSentMovesTo").isNull()).as("already Contacted: they stay").isTrue();
+        assertThat(after.at("/contact/doNotContact").asBoolean()).isTrue();
+        JsonNode connection = mailbox();
+        assertThat(connection.get("sentToday").asLong()).isEqualTo(1);
+        assertThat(connection.get("scheduledEmails").asLong()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a reply in the thread answers the executive's own message, closes the reply task, keeps the subject")
     void aReplyAnswersTheThread() throws Exception {
         start(createSequence(), priyaAddress);
@@ -445,6 +473,15 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                                 """.formatted(email.latestTokenFor(clientEmail), PASSWORD)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("accessToken").asText();
+    }
+
+    private JsonNode conversation() throws Exception {
+        return body(as(consultant, get(outreach("/conversations/" + priya))).andExpect(status().isOk()).andReturn());
+    }
+
+    private JsonNode mailbox() throws Exception {
+        return body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn())
+                .get("connection");
     }
 
     private void markDoNotContact() throws Exception {

@@ -73,16 +73,74 @@ export function NotesSection({
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
 }) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const team = usePositionTeam(projectId);
   const notes = useQuery({
     queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
     queryFn: ({ signal }) => personCrmApi.getPersonNotes(projectId, candidateId, signal),
   });
+  const list = notes.data ?? [];
+  const loaded = notes.isSuccess;
+
+  useEffect(() => {
+    if (!focus || !loaded) return;
+    const card = document.getElementById(noteAnchorOf(focus.noteId));
+    card?.scrollIntoView({ block: "center", behavior: "smooth" });
+    card?.focus({ preventScroll: true });
+  }, [focus, loaded]);
+
+  return (
+    <section aria-label="Notes" className="py-4">
+      <div className="flex flex-col gap-3">
+        <PositionNoteComposer projectId={projectId} candidateId={candidateId} onSetNextAction={onSetNextAction} />
+
+        {notes.isError ? (
+          <p className="text-[13px] text-u-text3">{messageFor(notes.error)}</p>
+        ) : notes.isPending ? (
+          <LinesSkeleton />
+        ) : list.length === 0 ? (
+          <p className="text-[13px]/[1.6] text-u-text3">
+            No notes yet. A note saved here stays with this position; choose All positions to share it with
+            every position this person is in.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {list.map((note) => (
+              <PositionNoteCard
+                key={note.id}
+                projectId={projectId}
+                candidateId={candidateId}
+                note={note}
+                flashAt={focus?.noteId === note.id ? focus.at : null}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * A note on one executive, written from one position: its kind, its words, and whether it is about this position or
+ * all of them. The drawer's Notes tab opens on it, and the Outreach page's Log call and Add note open it alone.
+ */
+export function PositionNoteComposer({
+  projectId,
+  candidateId,
+  initialKind = "general",
+  onSetNextAction,
+  onSaved,
+}: PersonSectionProps & {
+  initialKind?: PersonNoteKind;
+  /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
+  onSetNextAction?: (note: TaskNote) => void;
+  onSaved?: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const team = usePositionTeam(projectId);
   const positions = usePositions(projectId, candidateId);
   const thisPosition = positions.data?.find((row) => row.projectId === projectId)?.positionTitle;
-  const [kind, setKind] = useState<PersonNoteKind>("general");
+  const [kind, setKind] = useState<PersonNoteKind>(initialKind);
   const [scope, setScope] = useState<NoteScope>("position");
   const [draft, setDraft] = useState("");
   const forEveryPosition = scope === "everywhere";
@@ -118,97 +176,62 @@ export function NotesSection({
       } else {
         toast(note.projectId ? "Note saved" : "Note saved — your team sees it on every position");
       }
+      onSaved?.();
     },
     onError: (error) => toast.error(messageFor(error)),
   });
   const canSave = body.length > 0 && !tooLong && !saving.isPending;
   const save = () => canSave && saving.mutate(false);
-  const list = notes.data ?? [];
-  const loaded = notes.isSuccess;
-
-  useEffect(() => {
-    if (!focus || !loaded) return;
-    const card = document.getElementById(noteAnchorOf(focus.noteId));
-    card?.scrollIntoView({ block: "center", behavior: "smooth" });
-    card?.focus({ preventScroll: true });
-  }, [focus, loaded]);
 
   return (
-    <section aria-label="Notes" className="py-4">
-      <div className="flex flex-col gap-3">
-        <div className="rounded-[8px] border border-u-border p-2.5">
-          <NoteKindPicker value={kind} onChange={setKind} />
-          <div className="mt-2">
-            <NoteEditor
-              value={draft}
-              format="markdown"
-              onChange={setDraft}
-              teammates={forEveryPosition ? null : team.teammates}
-              ariaLabel="New note"
-              placeholder="What was said, and what happens next…"
-              onSubmit={save}
-              submitLabel="Save note"
-              canSubmit={canSave}
-              expandTitle="New note"
-            />
-          </div>
-          {tooLong && (
-            <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-              {NOTE_TOO_LONG}
-            </p>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <NoteScopePicker positionTitle={thisPosition} value={scope} onChange={changeScope} />
-            </div>
-            {onSetNextAction && (
-              <Button
-                type="button"
-                size="xs"
-                variant="secondary"
-                disabled={!canSave}
-                loading={saving.isPending && saving.variables}
-                onClick={() => saving.mutate(true)}
-              >
-                Save & set next action
-              </Button>
-            )}
-            <Button
-              type="button"
-              size="xs"
-              disabled={!canSave}
-              loading={saving.isPending && !saving.variables}
-              onClick={() => saving.mutate(false)}
-            >
-              Save note
-            </Button>
-          </div>
-        </div>
-
-        {notes.isError ? (
-          <p className="text-[13px] text-u-text3">{messageFor(notes.error)}</p>
-        ) : notes.isPending ? (
-          <LinesSkeleton />
-        ) : list.length === 0 ? (
-          <p className="text-[13px]/[1.6] text-u-text3">
-            No notes yet. A note saved here stays with this position; choose All positions to share it with
-            every position this person is in.
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {list.map((note) => (
-              <PositionNoteCard
-                key={note.id}
-                projectId={projectId}
-                candidateId={candidateId}
-                note={note}
-                flashAt={focus?.noteId === note.id ? focus.at : null}
-              />
-            ))}
-          </ul>
-        )}
+    <div className="rounded-[8px] border border-u-border p-2.5">
+      <NoteKindPicker value={kind} onChange={setKind} />
+      <div className="mt-2">
+        <NoteEditor
+          value={draft}
+          format="markdown"
+          onChange={setDraft}
+          teammates={forEveryPosition ? null : team.teammates}
+          ariaLabel="New note"
+          placeholder="What was said, and what happens next…"
+          onSubmit={save}
+          submitLabel="Save note"
+          canSubmit={canSave}
+          expandTitle="New note"
+        />
       </div>
-    </section>
+      {tooLong && (
+        <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+          {NOTE_TOO_LONG}
+        </p>
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <NoteScopePicker positionTitle={thisPosition} value={scope} onChange={changeScope} />
+        </div>
+        {onSetNextAction && (
+          <Button
+            type="button"
+            size="xs"
+            variant="secondary"
+            disabled={!canSave}
+            loading={saving.isPending && saving.variables}
+            onClick={() => saving.mutate(true)}
+          >
+            Save & set next action
+          </Button>
+        )}
+        <Button
+          type="button"
+          size="xs"
+          disabled={!canSave}
+          loading={saving.isPending && !saving.variables}
+          onClick={() => saving.mutate(false)}
+        >
+          Save note
+        </Button>
+      </div>
+    </div>
   );
 }
 

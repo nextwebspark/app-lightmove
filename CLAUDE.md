@@ -621,6 +621,13 @@ http/https/mailto only, an image as its alt text, a mention as a name. A send wr
 status automation, stops a live run in the same thread as `MANUAL`, and publishes `OutreachEmailSentByHand`, on which
 `task` closes the person's open reply-rule tasks. Only a *sent* line says whose a thread is: one still waiting never
 takes a thread from the run in it.
+**Phase 4** is the screen: `/projects/:id/outreach` (`RequireStaff`, viewport-filling by an exact path match) draws
+`Outreach.dc.html`'s three panes — `ActionQueue`, `ConversationPane` (history and `ReplyComposer`) and
+`CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL and the mailbox as a chip in the tab row
+(`MailboxChip`; `lib/mailboxState.ts` is the one reading the banner, chip and composer share); the sequences and
+everyone in them moved to `…/outreach/sequences`. The conversation read gained `contact` and `composer`
+(`replySubject` for the caller's mailbox, `emailSentMovesTo`), the mailbox read `sentToday` and `scheduledEmails`.
+Both reads poll every minute until phase 6 pushes.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today

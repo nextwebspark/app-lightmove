@@ -671,10 +671,145 @@ const ROUTES = [
  * @param search   the query string, because two reads of the candidates endpoint differ only by it —
  *                 the people at this page's companies, and the ones mapped to no company at all.
  */
+// The Outreach page: a queue of two, one conversation open, and a connected mailbox.
+const OUTREACH_TASK = {
+  taskId: "task-1",
+  title: "Reply to Fatima with call times",
+  kind: "email",
+  rule: "reply",
+  dueAt: "2026-10-22T13:00:00Z",
+  assignee: { userId: "user-1", fullName: "Yara Haddad", avatarUrl: null },
+};
+const OUTREACH_EXECUTIVE = {
+  candidateId: "cand-1",
+  personId: "person-1",
+  fullName: "Fatima Al Mazrouei",
+  title: "Chief Financial Officer",
+  companyName: "Emirates Global Aluminium",
+  triageCompanyId: null,
+  status: "interested",
+  statusLabel: "Interested",
+  statusColour: "green",
+  pipelineStage: { key: "interested", label: "Interested", colour: "green", kind: "active", position: 3 },
+  addedAt: "2026-09-20T05:00:00Z",
+  statusChangedAt: "2026-10-01T05:00:00Z",
+  nextAction: null,
+  clientVisible: false,
+};
+const CONVERSATION_LIST = {
+  counts: { needs: 2, scheduled: 1 },
+  nextScheduledAt: "2026-10-22T05:00:00Z",
+  rows: [
+    {
+      ...OUTREACH_EXECUTIVE,
+      enrichedAt: null,
+      group: "NEEDS_REPLY",
+      action: OUTREACH_TASK,
+      run: null,
+      latest: { channel: "EMAIL", direction: "INBOUND", kind: "REPLY", at: "2026-10-21T09:18:00Z", preview: "I would be open to a confidential discussion about the role and its remit." },
+      lastSentAt: "2026-10-20T05:00:00Z",
+      scheduledAt: null,
+      lastActivityAt: "2026-10-21T09:18:00Z",
+    },
+    {
+      ...OUTREACH_EXECUTIVE,
+      candidateId: "cand-2",
+      personId: "person-2",
+      fullName: "Noura Al Thani",
+      enrichedAt: null,
+      group: "ATTENTION",
+      action: null,
+      run: null,
+      latest: { channel: "EMAIL", direction: "INBOUND", kind: "BOUNCE", at: "2026-10-20T05:00:00Z", preview: null },
+      lastSentAt: "2026-10-19T05:00:00Z",
+      scheduledAt: null,
+      lastActivityAt: "2026-10-20T05:00:00Z",
+    },
+  ],
+  truncated: false,
+};
+const OUTREACH_MESSAGE = {
+  channel: "EMAIL",
+  format: "TEXT",
+  fromAddress: "yara.haddad@firm.example",
+  toAddress: "fatima@ega.example",
+  senderUserId: "user-1",
+  senderName: "Yara Haddad",
+  enrollmentId: null,
+  failReason: null,
+};
+const CONVERSATION = {
+  executive: OUTREACH_EXECUTIVE,
+  openTasks: [OUTREACH_TASK],
+  currentRun: { run: null, steps: [] },
+  keyDates: { addedAt: "2026-09-20T05:00:00Z", firstContactedAt: "2026-10-20T05:00:00Z", repliedAt: "2026-10-21T09:18:00Z", lastActivityAt: "2026-10-21T09:18:00Z" },
+  contact: {
+    emails: [{ address: "fatima.almazrouei@ega.example", kind: "work", verified: true, status: null, source: "contactout", foundAt: null }],
+    phones: [],
+    locationCity: "Dubai",
+    locationCountry: "United Arab Emirates",
+    doNotContact: false,
+  },
+  composer: { replySubject: "Re: CFO search — a confidential introduction", emailSentMovesTo: null },
+  events: [
+    {
+      type: "MESSAGE",
+      at: "2026-10-21T09:18:00Z",
+      message: { ...OUTREACH_MESSAGE, id: "msg-2", direction: "INBOUND", kind: "REPLY", status: "RECEIVED", at: "2026-10-21T09:18:00Z", subject: null, text: "I would be open to a confidential discussion. Thursday afternoon could work well for me, ideally after three.", sequenceName: null, stepNumber: null, stepCount: null },
+    },
+    {
+      type: "MESSAGE",
+      at: "2026-10-20T05:00:00Z",
+      message: { ...OUTREACH_MESSAGE, id: "msg-1", direction: "OUTBOUND", kind: "SEQUENCE_STEP", status: "SENT", at: "2026-10-20T05:00:00Z", subject: "CFO search — a confidential introduction", text: "Fatima, I lead a confidential search for a Group CFO and your name came up more than once.", sequenceName: "CFO — first approach", stepNumber: 1, stepCount: 3 },
+    },
+  ],
+  truncated: false,
+};
+const MAILBOX = {
+  offered: true,
+  providers: ["google", "microsoft"],
+  bookingLinkOffered: false,
+  connection: {
+    address: "yara.haddad@firm.example",
+    provider: "google",
+    status: "ACTIVE",
+    dailyCap: 50,
+    timeZone: "Asia/Dubai",
+    connectedAt: "2026-10-01T09:00:00Z",
+    bookingLink: null,
+    movesOffNylas: false,
+    runsStoppedByMove: 0,
+    liveSequences: 1,
+    livePeople: 4,
+    readsReplies: true,
+    reconnectToReadReplies: false,
+    sentToday: 12,
+    scheduledEmails: 1,
+  },
+};
+const OUTREACH_PEOPLE = {
+  counts: { enrolled: 0, emailsSent: 0, reached: 0, replied: 0, inFlight: 0, bounced: 0, stopped: 0, booked: 0 },
+  nextSendAt: null,
+  people: [],
+};
+
 export function payloadFor(pathname, search = "") {
   if (pathname.endsWith("/auth/csrf")) return {};
 
   if (/\/projects\/[^/]+\/activity/.test(pathname)) return ACTIVITY;
+
+  if (/\/projects\/[^/]+\/outreach\/conversations\/[^/]+$/.test(pathname)) return CONVERSATION;
+  if (/\/projects\/[^/]+\/outreach\/conversations$/.test(pathname)) return CONVERSATION_LIST;
+  if (/\/projects\/[^/]+\/outreach\/people$/.test(pathname)) return OUTREACH_PEOPLE;
+  if (pathname.endsWith("/outreach/mailbox")) return MAILBOX;
+  // The nav's Pipeline count and My positions' tasks card read these on every project and list page.
+  if (/\/projects\/[^/]+\/pipeline$/.test(pathname)) return { rows: [], stageCounts: [], total: 0 };
+  if (pathname.endsWith("/workspace/pipeline")) return { stages: [] };
+  if (pathname.endsWith("/me/tasks")) {
+    return { tasks: [], counts: { today: 0, overdue: 0, upcoming: 0, assignedByMe: 0 }, hasMore: false };
+  }
+  // Before the candidates read below: an executive's tasks sit beneath their candidate path.
+  if (/\/projects\/[^/]+\/candidates\/[^/]+\/tasks/.test(pathname)) return { open: [], done: [], doneCount: 0 };
 
   if (/\/projects\/[^/]+\/strategy\/companies/.test(pathname))
     return { companies: COMPANIES, totalCount: 71822, page: 0, size: 25 };

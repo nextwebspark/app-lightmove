@@ -305,10 +305,6 @@
   "features/outreach/pages/MailboxCallbackPage.tsx": {
     "arbitraryText": 1
   },
-  "features/outreach/pages/OutreachPage.tsx": {
-    "arbitraryText": 18,
-    "arbitraryRadius": 10
-  },
   "features/outreach/pages/SequenceEditorPage.tsx": {
     "arbitraryText": 32,
     "arbitraryRadius": 19

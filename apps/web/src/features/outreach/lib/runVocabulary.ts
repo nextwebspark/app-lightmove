@@ -24,6 +24,7 @@ export const STOP_NOTES: Record<StopReason, string> = {
   SEND_FAILED: "The mail service refused it",
   SEND_UNCERTAIN: "A send may not have gone",
   POSITION_ARCHIVED: "Position archived",
+  SENDER_WITHOUT_ACCESS: "The sender no longer works this position",
 };
 
 export type RunFilter = "all" | "inFlight" | "replied" | "booked" | "bounced" | "stopped";

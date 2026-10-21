@@ -4,6 +4,9 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.dto.CandidateOpenTaskDto;
 import app.lightmove.api.candidate.dto.PipelineRowResponse;
 import app.lightmove.api.candidate.model.NoteViewpoint;
+import app.lightmove.api.candidate.dto.CandidateContactsDto;
+import app.lightmove.api.candidate.model.OutreachRecipient;
+import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.candidate.service.NextActionLookup;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
@@ -22,6 +25,8 @@ import app.lightmove.api.outreach.constant.MessageBodyFormat;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.dto.CandidateOutreachResponse;
+import app.lightmove.api.outreach.dto.ConversationComposerResponse;
+import app.lightmove.api.outreach.dto.ConversationContactResponse;
 import app.lightmove.api.outreach.dto.ConversationCountsResponse;
 import app.lightmove.api.outreach.dto.ConversationEventResponse;
 import app.lightmove.api.outreach.dto.ConversationKeyDatesResponse;
@@ -104,6 +109,8 @@ public class ConversationService {
     private static final Comparator<Instant> SOONEST_FIRST = Comparator.nullsLast(Comparator.naturalOrder());
 
     private final PositionPipelineService pipeline;
+    private final CandidateOutreachService people;
+    private final OutreachMessageService ownMessages;
     private final NextActionLookup nextActions;
     private final PersonTimelineService timeline;
     private final PersonNoteService notes;
@@ -187,7 +194,19 @@ public class ConversationService {
                 .max(Comparator.naturalOrder()).orElse(null);
         return new ConversationResponse(executive, openTasks, currentRun,
                 new ConversationKeyDatesResponse(executive.addedAt(), firstContactedAt, repliedAt, lastActivityAt),
+                contactOf(workspaceId, projectId, candidateId),
+                new ConversationComposerResponse(
+                        ownMessages.replySubjectFor(userId, workspaceId, projectId, personId).orElse(null),
+                        people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null)),
                 List.copyOf(shown), truncated);
+    }
+
+    private ConversationContactResponse contactOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        OutreachRecipient recipient = people.currentRecipient(workspaceId, projectId, candidateId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        CandidateContactsDto contacts = people.contactsOf(workspaceId, projectId, candidateId).orElseThrow();
+        return new ConversationContactResponse(contacts.emails(), contacts.phones(), recipient.locationCity(),
+                recipient.locationCountry(), recipient.doNotContact());
     }
 
     private List<QueueEntry> entriesOf(UUID workspaceId, UUID projectId, List<PipelineRowResponse> executives) {

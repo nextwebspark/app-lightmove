@@ -31,6 +31,7 @@ import BookingPage from "../features/outreach/pages/BookingPage";
 import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackPage";
 import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
+import { SequencesPage } from "../features/outreach/pages/SequencesPage";
 import PipelinePage from "../features/pipeline/pages/PipelinePage";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
@@ -149,7 +150,8 @@ export function AppRoutes() {
           element={<Navigate to="../companies/universe" replace relative="path" />}
         />
         <Route path="/projects/:projectId/pipeline" element={<RequireStaff><PipelinePage /></RequireStaff>} />
-        <Route path="/projects/:projectId/outreach" element={<OutreachPage />} />
+        <Route path="/projects/:projectId/outreach" element={<RequireStaff><OutreachPage /></RequireStaff>} />
+        <Route path="/projects/:projectId/outreach/sequences" element={<RequireStaff><SequencesPage /></RequireStaff>} />
         <Route
           path="/projects/:projectId/outreach/sequences/:sequenceId"
           element={

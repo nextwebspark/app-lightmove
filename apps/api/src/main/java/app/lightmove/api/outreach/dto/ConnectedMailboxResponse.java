@@ -17,17 +17,19 @@ import java.time.Instant;
  * @param readsReplies     whether the words of a reply are kept, not only that it came
  * @param reconnectToReadReplies whether a reconnect now would let them be: a mailbox of ours whose consent did not
  *                         reach them, where the workspace still connects through us
+ * @param sentToday        the emails sent from it today, in its own zone: what the daily cap counts
+ * @param scheduledEmails  the owner's own emails still waiting to go: what a disconnect leaves unsent
  */
 public record ConnectedMailboxResponse(String address, String provider, MailboxStatus status, int dailyCap,
                                        String timeZone, Instant connectedAt, String bookingLink,
                                        boolean movesOffNylas, int runsStoppedByMove,
                                        int liveSequences, int livePeople, boolean readsReplies,
-                                       boolean reconnectToReadReplies) {
+                                       boolean reconnectToReadReplies, long sentToday, long scheduledEmails) {
 
     public static ConnectedMailboxResponse of(MailboxConnection connection, String bookingLink,
                                               boolean movesOffNylas, int runsStoppedByMove,
                                               SenderLiveRunCount live, boolean readsReplies,
-                                              boolean reconnectToReadReplies) {
+                                              boolean reconnectToReadReplies, long sentToday, long scheduledEmails) {
         return new ConnectedMailboxResponse(connection.getAddress(), connection.getProvider(), connection.getStatus(),
                 connection.getDailyCap(), connection.getTimeZone(), connection.getConnectedAt(), bookingLink,
                 movesOffNylas,
@@ -35,6 +37,8 @@ public record ConnectedMailboxResponse(String address, String provider, MailboxS
                 (int) live.getSequences(),
                 (int) live.getPeople(),
                 readsReplies,
-                reconnectToReadReplies);
+                reconnectToReadReplies,
+                sentToday,
+                scheduledEmails);
     }
 }

@@ -132,9 +132,9 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Import template headers | — | not defused | — |
 | Sequence steps | ≤ 3 | 1–3, delays, window ordering | field |
 | ☐ Sequence subject | — | CR/LF accepted | fails at send |
-| Own email: to | — (phase 4's composer) | ≤ 320; on the person's record (`OUTREACH_ADDRESS_NOT_ON_FILE`), not do not contact (`OUTREACH_DO_NOT_CONTACT`) | sentence |
-| Own email: subject | — | required for a first email, ≤ 200, one line; a reply keeps its thread's | field |
-| Own email: body | — | 1–10,000, Markdown; raw HTML sent as text, links http/https/mailto | field |
-| Own email: send at | — | ahead of now, ≤ 60 days; none is now, refused at the day's cap (`OUTREACH_DAILY_CAP_REACHED`) | field / sentence |
-| Own email: reply in thread | — | a thread this mailbox wrote to them in and can still write into (`OUTREACH_THREAD_UNAVAILABLE`) | sentence |
+| Own email: to | one of the person's addresses, offered as a list (one is shown as text); the composer locks with none on file or do not contact | ≤ 320; on the person's record (`OUTREACH_ADDRESS_NOT_ON_FILE`), not do not contact (`OUTREACH_DO_NOT_CONTACT`) | sentence |
+| Own email: subject | a first email's Send now and Schedule stay disabled until it has one; a reply shows its thread's, read-only | required for a first email, ≤ 200, one line; a reply keeps its thread's | field |
+| Own email: body | Send now and Schedule stay disabled while it is empty | 1–10,000, Markdown; raw HTML sent as text, links http/https/mailto | field |
+| Own email: send at | a day from today to 60 days out and a half hour, in the mailbox's zone; a time already past is refused in the picker | ahead of now, ≤ 60 days; none is now, refused at the day's cap (`OUTREACH_DAILY_CAP_REACHED`) | field / sentence |
+| Own email: reply in thread | offered only where the conversation read names a reply subject (`composer.replySubject`) | a thread this mailbox wrote to them in and can still write into (`OUTREACH_THREAD_UNAVAILABLE`) | sentence |
 | ☐ Assistant question | no `maxLength` | ≤ 4000 | nothing shown |

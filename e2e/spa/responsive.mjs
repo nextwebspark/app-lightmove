@@ -53,6 +53,9 @@ const ROUTES = [
   { path: "/projects/proj-1/reports?chapter=comp", name: "project-reports-remuneration" },
   { path: "/projects/proj-1/reports?chapter=dei", name: "project-reports-diversity" },
   { path: "/projects/proj-1/team", name: "project-team" },
+  { path: "/projects/proj-1/outreach", name: "project-outreach" },
+  { path: "/projects/proj-1/outreach?candidate=cand-1", name: "project-outreach-conversation" },
+  { path: "/projects/proj-1/outreach/sequences", name: "project-outreach-sequences" },
   // Not screens anyone links to: an unknown URL and an unreadable project id render the not-found
   // page at the address that was asked for, so "reaches the path" is itself the assertion.
   { path: "/nowhere-in-particular", name: "not-found" },

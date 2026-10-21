@@ -18,6 +18,9 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Executive** | a person mapped at a company on a position | — |
 | **Candidate** | the same person on the workspace's Candidates page | — |
 | **Universe** | the companies a position has taken from the market (In universe / Shortlisted / Declined) | triage |
+| **Conversation** | everything with one executive on one position on the Outreach page: emails both ways, run events, notes, meetings | thread, inbox |
+| **Action queue** / **Needs action** | the Outreach page's list of people waiting on someone, and its first tab; its groups are Needs reply, Follow-ups, Preparation and Attention | inbox, to-do |
+| **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
 | **Archive** / **Restore** | putting a position or a business unit away, hidden from every list and picker, and bringing it back; nothing is deleted | delete, close |
 | **Uncava support** | who switches on a feature a workspace cannot | "this deployment" |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |

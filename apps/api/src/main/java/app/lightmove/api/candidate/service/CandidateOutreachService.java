@@ -3,6 +3,8 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.StatusAutomationTrigger;
+import app.lightmove.api.candidate.dto.CandidateContactsDto;
+import app.lightmove.api.candidate.dto.CandidateStatusTargetDto;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDossier;
@@ -92,6 +94,23 @@ public class CandidateOutreachService {
         return candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateOutreachService::recipientOf);
     }
 
+    /** Every email and phone on the person's ledger, as the drawer lists them. Empty once they are off the position. */
+    @Transactional(readOnly = true)
+    public Optional<CandidateContactsDto> contactsOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findByIdAndProjectId(candidateId, projectId)
+                .map(candidate -> CandidateResponseMapper.contactsOf(candidate.getPerson()));
+    }
+
+    /** The status an email sent to them now would move them to, by the rule {@link #moveForwardTo} applies; none if they stay. */
+    @Transactional(readOnly = true)
+    public Optional<CandidateStatusTargetDto> emailSentMoveOf(UUID workspaceId, UUID projectId, UUID candidateId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findByIdAndProjectId(candidateId, projectId)
+                .flatMap(candidate -> forwardTargetOf(candidate, workspaceId, StatusAutomationTrigger.EMAIL_SENT))
+                .map(to -> new CandidateStatusTargetDto(to.getStatusKey(), to.getLabel(), to.getColour().value()));
+    }
+
     /**
      * One email went. It moves someone to the email-sent automation's status — forward only, by the
      * pipeline's own order, so a person a consultant already moved on (or out of the running) is left where
@@ -128,19 +147,21 @@ public class CandidateOutreachService {
      */
     private void moveForwardTo(Candidate candidate, UUID actor, StatusAutomationTrigger trigger) {
         CandidateStatusDefinition was = candidate.getStatus();
-        if (was.hasLeftTheRunning()) {
-            return;
-        }
         UUID workspaceId = projects.findById(candidate.getProjectId()).map(Project::getWorkspaceId).orElseThrow();
-        Optional<CandidateStatusDefinition> target = automations.targetOf(workspaceId, trigger);
-        if (target.isEmpty()) {
-            return;
-        }
-        CandidateStatusDefinition to = target.get();
-        if (was.isBefore(to) && candidate.moveTo(to)) {
+        Optional<CandidateStatusDefinition> target = forwardTargetOf(candidate, workspaceId, trigger);
+        if (target.isPresent() && candidate.moveTo(target.get())) {
             activity.record(candidate, actor, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.statusChange(was, to));
+                    PersonActivityDetails.statusChange(was, target.get()));
         }
+    }
+
+    private Optional<CandidateStatusDefinition> forwardTargetOf(Candidate candidate, UUID workspaceId,
+                                                                StatusAutomationTrigger trigger) {
+        CandidateStatusDefinition was = candidate.getStatus();
+        if (was.hasLeftTheRunning()) {
+            return Optional.empty();
+        }
+        return automations.targetOf(workspaceId, trigger).filter(was::isBefore);
     }
 
     /**
