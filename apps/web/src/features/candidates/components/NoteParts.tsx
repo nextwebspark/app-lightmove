@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
 import { cn } from "../../../lib/cn";
 import type { PersonNote, PersonNoteKind } from "../api/types";
@@ -116,8 +117,8 @@ export interface NoteCardActions {
 
 /**
  * One note as both drawers draw it: author, kind, pinned, when, the words, and what it is about. With
- * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete is taken back with
- * the toast's Undo, not asked about first.
+ * actions it offers Pin to anyone and Edit and Delete to whoever may change it; Delete asks first, a stray click
+ * on a note being too easy, and is still taken back with the toast's Undo.
  */
 export function NoteCard({
   note,
@@ -136,6 +137,7 @@ export function NoteCard({
   flashAt?: number | null;
 }) {
   const [editing, setEditing] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [draft, setDraft] = useState(note.body);
   const revised = draft.trim();
   const revisedTooLong = revised.length > NOTE_MAX_STORED;
@@ -230,36 +232,84 @@ export function NoteCard({
           <span title={new Date(note.editedAt).toLocaleString()}>Edited by {note.editedByName ?? "someone"}</span>
         )}
         {actions && (
-          <span className="ms-auto flex gap-3">
-            <button type="button" onClick={actions.onPin} disabled={actions.busy} className="hover:text-u-text">
-              {note.pinned ? "Unpin" : "Pin"}
-            </button>
+          <span className="-my-1 ms-auto flex items-center gap-0.5">
+            <NoteActionButton
+              label={note.pinned ? "Unpin" : "Pin"}
+              icon={ICONS.pin}
+              active={note.pinned}
+              onClick={actions.onPin}
+              disabled={actions.busy}
+            />
             {note.editable && !editing && (
-              <button
-                type="button"
+              <NoteActionButton
+                label="Edit"
+                icon={ICONS.pencil}
                 onClick={() => {
                   setDraft(note.body);
                   setEditing(true);
                 }}
                 disabled={actions.busy}
-                className="hover:text-u-text"
-              >
-                Edit
-              </button>
+              />
             )}
             {note.editable && (
-              <button
-                type="button"
-                onClick={actions.onRemove}
+              <NoteActionButton
+                label="Delete"
+                icon={ICONS.trash}
+                danger
+                onClick={() => setConfirmingRemove(true)}
                 disabled={actions.busy}
-                className="hover:text-u-offlimits"
-              >
-                Delete
-              </button>
+              />
             )}
           </span>
         )}
       </div>
+      {actions && (
+        <ConfirmDialog
+          open={confirmingRemove}
+          title="Delete this note?"
+          confirmLabel="Delete note"
+          onConfirm={() => {
+            setConfirmingRemove(false);
+            actions.onRemove();
+          }}
+          onClose={() => setConfirmingRemove(false)}
+        >
+          <p>It is removed for everyone on the team. You can undo it straight after.</p>
+        </ConfirmDialog>
+      )}
     </li>
+  );
+}
+
+function NoteActionButton({
+  label,
+  icon,
+  active = false,
+  danger = false,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  icon: string;
+  active?: boolean;
+  danger?: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "grid size-9 place-items-center rounded-u-control text-u-text3 transition hover:bg-u-raised disabled:opacity-50 lg:size-7",
+        danger ? "hover:text-u-offlimits" : "hover:text-u-text",
+        active && "text-u-accent hover:text-u-accent",
+      )}
+    >
+      <Icon d={icon} size={14} />
+    </button>
   );
 }

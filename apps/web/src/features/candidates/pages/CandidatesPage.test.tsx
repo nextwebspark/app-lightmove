@@ -549,6 +549,7 @@ describe("CandidatesPage", () => {
     renderPage("/candidates?person=person-1&tab=notes");
 
     await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Delete note" }));
     await waitFor(() => expect(poolApi.removePoolNote).toHaveBeenCalledWith("person-1", "n1"));
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
