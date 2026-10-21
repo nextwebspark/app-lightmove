@@ -18,6 +18,7 @@ import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.OutreachEmailSentByHand;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.OutreachMessageAttachment;
 import app.lightmove.api.outreach.model.PreparedOwnSend;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
@@ -55,6 +56,7 @@ public class OutreachMessageSendService {
 
     private final OutreachMessageClaims claims;
     private final OutreachMessageRepository messages;
+    private final OutreachAttachments attachments;
     private final DailySendCount sentToday;
     private final OutreachEnrollmentRepository enrollments;
     private final MailboxConnectionRepository mailboxes;
@@ -84,9 +86,9 @@ public class OutreachMessageSendService {
     }
 
     public void sendClaimed(UUID messageId, Instant now) {
-        PreparedOwnSend prepared;
+        PreparedOwnSend checked;
         try {
-            prepared = transactions.execute(status -> prepare(messageId, now));
+            checked = transactions.execute(status -> prepare(messageId, now));
         } catch (RuntimeException failed) {
             // Nothing was sent, so the claim is released and the next dispatch looks again.
             transactions.executeWithoutResult(status -> messages.findById(messageId)
@@ -94,7 +96,15 @@ public class OutreachMessageSendService {
                     .ifPresent(OutreachMessage::releaseClaim));
             throw failed;
         }
-        if (prepared == null) {
+        if (checked == null) {
+            return;
+        }
+        PreparedOwnSend prepared;
+        try {
+            prepared = checked.carrying(attachments.contentOf(messageId));
+        } catch (RuntimeException unreadable) {
+            // Nothing went: a file it was to carry cannot be read, and it never goes without it.
+            transactions.executeWithoutResult(status -> recordFailure(checked, unreadable, now));
             return;
         }
 
@@ -202,8 +212,25 @@ public class OutreachMessageSendService {
                 .detailIfPresent("candidateId", message.getCandidateId() == null ? null
                         : message.getCandidateId().toString())
                 .record();
+        auditDocumentsSent(message);
         events.publishEvent(new OutreachEmailSentByHand(message.getWorkspaceId(), message.getProjectId(),
                 message.getPersonId(), message.getCandidateId(), message.getSenderUserId(), message.getId()));
+    }
+
+    /** A person's document that went with the email left the app as a download does, and is recorded as one. */
+    private void auditDocumentsSent(OutreachMessage message) {
+        attachments.of(message.getId()).stream()
+                .filter(OutreachMessageAttachment::isPersonDocument)
+                .forEach(attachment -> audit.event(ProjectEventType.PERSON_DOCUMENT_SENT)
+                        .actor(message.getSenderUserId())
+                        .workspace(message.getWorkspaceId())
+                        .target("person", message.getPersonId())
+                        .detail("messageId", message.getId().toString())
+                        .detail("projectId", message.getProjectId().toString())
+                        .detailIfPresent("versionId", attachment.getDocumentVersionId() == null ? null
+                                : attachment.getDocumentVersionId().toString())
+                        .detail("fileName", attachment.getFileName())
+                        .record());
     }
 
     private void recordFailure(PreparedOwnSend prepared, RuntimeException failed, Instant now) {

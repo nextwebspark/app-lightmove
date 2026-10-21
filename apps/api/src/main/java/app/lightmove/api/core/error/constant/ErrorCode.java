@@ -418,6 +418,12 @@ public enum ErrorCode {
     /** Only a scheduled email can be cancelled, and only before the dispatcher has taken it. */
     OUTREACH_MESSAGE_NOT_SCHEDULED(HttpStatus.CONFLICT, "This email is no longer waiting to be sent"),
 
+    /** More files than one email may carry ({@code lightmove.outreach.attachments.max-files}). */
+    OUTREACH_TOO_MANY_ATTACHMENTS(HttpStatus.BAD_REQUEST, "That's more files than one email can carry"),
+
+    /** An email's files together past {@code lightmove.outreach.attachments.max-total-bytes}. */
+    OUTREACH_ATTACHMENTS_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "These files are too large to send together"),
+
     /** It goes from its sender's own mailbox, so only they may take it back. */
     OUTREACH_MESSAGE_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who wrote this email can cancel it"),
 

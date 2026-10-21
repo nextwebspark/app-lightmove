@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.dto.PersonDocumentResponse;
 import app.lightmove.api.candidate.dto.PersonDocumentUploadResponse;
 import app.lightmove.api.candidate.dto.PersonDocumentVersionResponse;
 import app.lightmove.api.candidate.dto.UpdatePersonDocumentRequest;
+import app.lightmove.api.candidate.model.AttachableDocument;
 import app.lightmove.api.candidate.model.FiledPersonDocument;
 import app.lightmove.api.candidate.model.PersonDocument;
 import app.lightmove.api.candidate.model.PersonDocumentVersion;
@@ -42,6 +43,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -190,6 +192,20 @@ public class PersonDocumentService {
                 .detail("preview", Boolean.toString(preview))
                 .record();
         return version.toStoredFile(isPreviewable(version.getContentType()));
+    }
+
+    /**
+     * A version of the person's document an email is to carry, to be copied under the email's own key. Nothing is
+     * audited here: what leaves is the email, and its send records each document it carried.
+     */
+    @Transactional(readOnly = true)
+    public Optional<AttachableDocument> attachableVersionOf(UUID workspaceId, UUID personId, UUID versionId) {
+        return versions.findById(versionId)
+                .filter(version -> version.getPersonId().equals(personId))
+                .filter(version -> documents.findByIdAndWorkspaceIdAndPersonId(version.getDocumentId(), workspaceId,
+                        personId).isPresent())
+                .map(version -> new AttachableDocument(version.getDocumentId(), version.getId(), version.getSha256(),
+                        version.toStoredFile(isPreviewable(version.getContentType()))));
     }
 
     public InputStream open(StoredDocumentFile file) {

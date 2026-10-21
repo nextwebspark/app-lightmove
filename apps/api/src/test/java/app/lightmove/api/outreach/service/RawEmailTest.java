@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -44,6 +45,40 @@ class RawEmailTest {
             decoded.append(new String(Base64.getDecoder().decode(payload), StandardCharsets.UTF_8));
         }
         assertThat(decoded.toString()).isEqualTo(subject);
+    }
+
+    @Test
+    @DisplayName("files make it multipart/mixed: the HTML first, then each file base64 in 76 columns under its name")
+    void filesAreMultipartMixed() {
+        byte[] cv = new byte[200];
+        java.util.Arrays.fill(cv, (byte) 7);
+        OutgoingEmail email = new OutgoingEmail("priya@client.example", "The brief", "<p>Attached</p>", null,
+                java.util.List.of(new EmailAttachment("Brief.pdf", "application/pdf", "%PDF-1.7".getBytes(
+                                StandardCharsets.US_ASCII)),
+                        new EmailAttachment("Résumé \"final\".pdf", "application/pdf", cv)));
+        String text = sent(RawEmail.of(email, null, null));
+
+        java.util.regex.Matcher boundary = java.util.regex.Pattern
+                .compile("Content-Type: multipart/mixed; boundary=\"([^\"]+)\"\r\n").matcher(text);
+        assertThat(boundary.find()).isTrue();
+        String[] parts = text.split("--" + java.util.regex.Pattern.quote(boundary.group(1)));
+        assertThat(parts).hasSize(5);
+        assertThat(parts[4]).isEqualTo("--\r\n");
+        assertThat(parts[1]).contains("Content-Type: text/html; charset=UTF-8\r\n");
+        assertThat(decodedBody(parts[1])).isEqualTo("<p>Attached</p>".getBytes(StandardCharsets.UTF_8));
+        assertThat(parts[2]).contains("Content-Type: application/pdf; name=\"Brief.pdf\"\r\n")
+                .contains("Content-Disposition: attachment; filename=\"Brief.pdf\"\r\n")
+                .doesNotContain("filename*");
+        assertThat(decodedBody(parts[2])).isEqualTo("%PDF-1.7".getBytes(StandardCharsets.US_ASCII));
+        assertThat(parts[3]).contains("filename=\"R_sum_ _final_.pdf\"")
+                .contains("filename*=UTF-8''R%C3%A9sum%C3%A9%20%22final%22.pdf");
+        assertThat(decodedBody(parts[3])).isEqualTo(cv);
+        String encodedLines = parts[3].substring(parts[3].indexOf("\r\n\r\n") + 4);
+        assertThat(encodedLines.split("\r\n")).allSatisfy(line -> assertThat(line.length()).isLessThanOrEqualTo(76));
+    }
+
+    private static byte[] decodedBody(String part) {
+        return Base64.getMimeDecoder().decode(part.substring(part.indexOf("\r\n\r\n") + 4).strip());
     }
 
     @Test

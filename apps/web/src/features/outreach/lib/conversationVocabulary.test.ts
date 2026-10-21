@@ -24,6 +24,7 @@ function message(overrides: Partial<ConversationMessage>): ConversationMessage {
     stepNumber: null,
     stepCount: null,
     failReason: null,
+    attachments: [],
     ...overrides,
   };
 }

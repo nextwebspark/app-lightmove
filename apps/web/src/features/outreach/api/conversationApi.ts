@@ -1,4 +1,4 @@
-import { request } from "../../../lib/apiClient";
+import { request, requestBlob } from "../../../lib/apiClient";
 import type {
   CandidateEmail,
   CandidatePhone,
@@ -99,6 +99,22 @@ export interface ConversationMessage {
   stepNumber: number | null;
   stepCount: number | null;
   failReason: StopReason | null;
+  /** The files it carries, in the order it carries them. */
+  attachments: ConversationAttachment[];
+}
+
+export interface ConversationAttachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+/** What one email may carry, as the server holds it to. */
+export interface AttachmentLimits {
+  maxFiles: number;
+  maxFileBytes: number;
+  maxTotalBytes: number;
 }
 
 export type ConversationEvent =
@@ -128,6 +144,7 @@ export interface ConversationComposer {
   replyStopsRun: boolean;
   /** Where an email now would move the person; null where they would stay. */
   emailSentMovesTo: StatusTarget | null;
+  attachmentLimits: AttachmentLimits;
 }
 
 export interface Conversation {
@@ -157,6 +174,8 @@ export interface SendMessageRequest {
   /** Null sends it now. */
   sendAt: string | null;
   replyInThread: boolean;
+  /** Versions of the person's own documents the email carries. */
+  documentVersionIds: string[];
 }
 
 export interface ScheduledMessage {
@@ -183,15 +202,23 @@ export function getConversation(projectId: string, candidateId: string, signal?:
   return request<Conversation>(`/projects/${projectId}/outreach/conversations/${candidateId}`, { signal });
 }
 
+/** With files, the request is a `message` part and each file a `files` part; without, plain JSON. */
 export function sendMessage(
   projectId: string,
   candidateId: string,
   message: SendMessageRequest,
+  files: readonly File[] = [],
 ): Promise<ScheduledMessage> {
-  return request<ScheduledMessage>(`/projects/${projectId}/outreach/conversations/${candidateId}/messages`, {
-    method: "POST",
-    body: message,
-  });
+  const path = `/projects/${projectId}/outreach/conversations/${candidateId}/messages`;
+  if (files.length === 0) return request<ScheduledMessage>(path, { method: "POST", body: message });
+  const form = new FormData();
+  form.append("message", new Blob([JSON.stringify(message)], { type: "application/json" }), "message.json");
+  files.forEach((file) => form.append("files", file, file.name));
+  return request<ScheduledMessage>(path, { method: "POST", body: form });
+}
+
+export function attachmentContent(projectId: string, messageId: string, attachmentId: string): Promise<Blob> {
+  return requestBlob(`/projects/${projectId}/outreach/messages/${messageId}/attachments/${attachmentId}`);
 }
 
 export function cancelMessage(projectId: string, messageId: string): Promise<void> {

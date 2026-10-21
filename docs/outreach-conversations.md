@@ -1,6 +1,7 @@
 # Outreach conversations — design and build plan
 
-Status: **phase 1 built** (the ledger and the two reads, section C); phases 2–6 planned (approved 2026-10-21).
+Status: **phases 1–5 built** (the ledger, the reads, replies, own sends, the screen and attachments); phase 6
+planned (approved 2026-10-21).
 This is the design the Outreach workspace in `claude-design/Outreach.dc.html` is built from; each phase is one PR.
 Until a phase ships, the tables, routes and entities it names do not exist.
 
@@ -506,15 +507,42 @@ person merge is built, message and attachment rows move with the enrollments.
    - Tests: `OutreachPage.test.tsx`, `SequencesPage.test.tsx`, `mailboxState.test.ts`,
      `conversationVocabulary.test.ts`; `e2e/spa/responsive.mjs` sweeps all three routes (its fixtures also gained
      the pipeline, catalog and My tasks reads every project page now makes).
-5. **Attachments** — V147; `OutreachMessageAttachment` entity/repository; `OutreachAttachmentSettings` (`max-files` 5,
-   `max-total-bytes` 3 MB); `OutgoingEmail.attachments` + `EmailAttachment` (`toString` omits bytes); `RawEmail`
-   `multipart/mixed` (boundary, RFC 2231 `filename*`, 76-col base64, CRLF); Graph `fileAttachment` posts before `/send`
-   (a failed post deletes the draft); Nylas `attachments[]`; the POST becomes `multipart/form-data` (`message` JSON part +
-   `files[]`, `documentVersionIds`); the attachment download route (`PERSON_DOCUMENT_DOWNLOADED` /
-   `OUTREACH_ATTACHMENT_DOWNLOADED`); `attachableDocuments` on the conversation read; `PERSON_DOCUMENT_SENT`; the SPA
-   Attach control + chips; validation-matrix rows. Tests: `RawEmailTest` multipart, the Graph and Nylas gateway tests,
-   integration (a person document sent audits the disclosure, a name/bytes mismatch refused, 3 MB + 1 refused, cancel
-   deletes the bytes). Verify `./mvnw test`, `npm run build`, a real send from each provider in `npm run dev`.
+5. **Attachments — built.** What shipped, where it differs:
+   - V147 `app_lm_outreach_message_attachment` (`OutreachMessageAttachment`): one row per file in the order attached,
+     the name, the type its bytes were read as, size, `sha256`, the bucket's `storage_key`, and `source`
+     (`UPLOAD | PERSON_DOCUMENT`) beside the nullable `document_version_id` (SET NULL). A person's document is
+     **copied** under the email's own key when the email is written, so removing that version later neither changes
+     nor breaks what goes, and `source` still says a document left. No bytes in the database.
+   - Limits (`OutreachAttachmentSettings`, `lightmove.outreach.attachments.*`): 5 files, **3,000,000 bytes a file**
+     (Microsoft Graph takes a file in one post only below 3 MB, base64 under its 4 MB request limit) and 10 MB
+     together. The plan's "3 MB per email, the inline limit all three share" was wrong for Nylas, whose JSON send caps
+     the *whole request* at 3 MB (a 2.2 MB file passes it once encoded): so each gateway sends files the way its own
+     ceiling is highest — **Nylas** as `multipart/form-data` (the message JSON a `message` part, each file a part, 25
+     MB), **Gmail** through the upload endpoint (`/upload/gmail/v1/users/me/messages/send?uploadType=multipart`, the
+     thread as JSON metadata and the `RawEmail` as `message/rfc822`; an email without files keeps the JSON `raw`
+     send), **Graph** a `fileAttachment` post per file on the draft before `/send`, and a failed post deletes the
+     draft whatever the failure, since nothing was sent yet.
+   - `RawEmail` is `multipart/mixed` when files ride: the HTML part, then each file base64 at 76 columns, named in
+     ASCII with an RFC 2231 `filename*` where the name is not. `EmailAttachment.toString` names the file and its size,
+     never the bytes.
+   - The POST takes both shapes: JSON as before (now with `documentVersionIds`), or `multipart/form-data` with the
+     same request as a `message` part and each upload a `files` part. `OutreachAttachments.stage` checks the count,
+     each size, the total, and each upload's name against its bytes (`DocumentFormat`, as a person's document is)
+     before storing anything, and a refused email takes what it stored with it. A version not on this person is a 404.
+   - Bytes are read at send, outside the claim's transaction; a file that cannot be read fails the email
+     (`SEND_FAILED`) rather than sending it without. Each person's document an email carried is audited
+     `PERSON_DOCUMENT_SENT` once it went. Cancelling — by its sender or by archiving — deletes the stored files once the
+     cancel commits; a sent or failed email keeps them, for the history's download.
+   - Reads: `ConversationMessageResponse.attachments` (name, type, size) and `composer.attachmentLimits`;
+     `GET …/outreach/messages/{id}/attachments/{attachmentId}` downloads one (`WORK_EXECUTE`, never a cancelled
+     email's, audited `OUTREACH_ATTACHMENT_DOWNLOADED`). No `attachableDocuments` on the conversation: the composer
+     reads the person's documents through the drawer's own route (`…/candidates/{id}/documents`).
+   - SPA: Attach (`ComposerAttachments`) beside Insert follow-up — their documents' latest versions, or Upload from
+     this computer — with chips (name, size, remove), the running total and the server's refusals said before
+     sending (`lib/composerAttachments.ts`); history cards list an email's files as downloads.
+   - Tests: `RawEmailTest`, `GoogleMailboxGatewayTest`, `MicrosoftMailboxGatewayTest`, `NylasMailboxGatewayTest`,
+     `OutreachAttachmentIntegrationTest`, `composerAttachments.test.ts`, `ReplyComposer.test.tsx`. A real send through
+     each provider needs their credentials and is not run here.
 6. **Live refresh, drawer parity, docs** — stream kinds + publish sites, `useProjectStream` move, subscriptions;
    `OutreachSection` link + `latestReply`; `docs/outreach-conversations.md` (tables, routes, groups, listening
    rule, channel seam, what AI never reads), `docs/help/outreach-conversations.md`, `docs/tasks-notifications.md`

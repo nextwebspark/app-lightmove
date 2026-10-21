@@ -7,12 +7,13 @@ import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 /**
  * One conversation line in full. {@code text} is read as {@code format} says and drawn as text, never as HTML;
  * {@code stepNumber} and {@code sequenceName} are set on a sequence's email; {@code at} is a scheduled email's due
- * time, and {@code failReason} why a failed one never went. Staff-only.
+ * time, and {@code failReason} why a failed one never went; {@code attachments} the files it carries. Staff-only.
  */
 public record ConversationMessageResponse(
         UUID id,
@@ -32,5 +33,6 @@ public record ConversationMessageResponse(
         String sequenceName,
         Integer stepNumber,
         Integer stepCount,
-        OutreachStopReason failReason
+        OutreachStopReason failReason,
+        List<ConversationAttachmentResponse> attachments
 ) {}

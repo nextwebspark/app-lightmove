@@ -732,6 +732,7 @@ const OUTREACH_MESSAGE = {
   senderName: "Yara Haddad",
   enrollmentId: null,
   failReason: null,
+  attachments: [],
 };
 const CONVERSATION = {
   executive: OUTREACH_EXECUTIVE,
@@ -745,7 +746,7 @@ const CONVERSATION = {
     locationCountry: "United Arab Emirates",
     doNotContact: false,
   },
-  composer: { replySubject: "Re: CFO search — a confidential introduction", replyStopsRun: false, emailSentMovesTo: null },
+  composer: { replySubject: "Re: CFO search — a confidential introduction", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3000000, maxTotalBytes: 10485760 } },
   events: [
     {
       type: "MESSAGE",
@@ -810,6 +811,8 @@ export function payloadFor(pathname, search = "") {
   }
   // Before the candidates read below: an executive's tasks sit beneath their candidate path.
   if (/\/projects\/[^/]+\/candidates\/[^/]+\/tasks/.test(pathname)) return { open: [], done: [], doneCount: 0 };
+  // The composer's Attach reads the person's documents beneath the same path.
+  if (/\/projects\/[^/]+\/candidates\/[^/]+\/documents$/.test(pathname)) return [];
 
   if (/\/projects\/[^/]+\/strategy\/companies/.test(pathname))
     return { companies: COMPANIES, totalCount: 71822, page: 0, size: 25 };

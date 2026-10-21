@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.StatusAutomationTrigger;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
 import app.lightmove.api.candidate.dto.CandidateStatusTargetDto;
+import app.lightmove.api.candidate.model.AttachableDocument;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDossier;
@@ -17,6 +18,7 @@ import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
+import java.io.InputStream;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -45,6 +47,7 @@ public class CandidateOutreachService {
     private final CandidateService candidateService;
     private final PersonActivityRecorder activity;
     private final StatusAutomationService automations;
+    private final PersonDocumentService documents;
 
     /** The named executives plus everyone mapped at the named companies, each once, in that order. */
     @Transactional(readOnly = true)
@@ -92,6 +95,19 @@ public class CandidateOutreachService {
     public Optional<OutreachRecipient> currentRecipient(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
         return candidates.findByIdAndProjectId(candidateId, projectId).map(CandidateOutreachService::recipientOf);
+    }
+
+    /** A version of the executive's own document, for an email to them to carry. Empty if it is not theirs. */
+    @Transactional(readOnly = true)
+    public Optional<AttachableDocument> attachableDocumentOf(UUID workspaceId, UUID projectId, UUID candidateId,
+                                                             UUID versionId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return candidates.findByIdAndProjectId(candidateId, projectId)
+                .flatMap(candidate -> documents.attachableVersionOf(workspaceId, candidate.getPerson().getId(), versionId));
+    }
+
+    public InputStream openDocument(AttachableDocument document) {
+        return documents.open(document.file());
     }
 
     /** Every email and phone on the person's ledger, as the drawer lists them. Empty once they are off the position. */

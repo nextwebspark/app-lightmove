@@ -27,6 +27,7 @@ class PositionArchiveOutreach {
     private final OutreachEnrollmentRepository enrollments;
     private final OutreachOutcomes outcomes;
     private final OutreachMessageRepository messages;
+    private final OutreachAttachments attachments;
     private final Clock clock;
 
     @EventListener
@@ -40,6 +41,9 @@ class PositionArchiveOutreach {
         // its next dispatch fails it as archived.
         messages.findByProjectIdAndStatus(archived.projectId(), MessageStatus.SCHEDULED).stream()
                 .filter(message -> message.getSendingSince() == null)
-                .forEach(OutreachMessage::cancel);
+                .forEach(message -> {
+                    message.cancel();
+                    attachments.deleteFilesOnCommit(message.getId());
+                });
     }
 }

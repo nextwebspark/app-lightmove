@@ -125,6 +125,8 @@ export type ApiErrorCode =
   | "OUTREACH_THREAD_UNAVAILABLE"
   | "OUTREACH_MESSAGE_NOT_SCHEDULED"
   | "OUTREACH_MESSAGE_NOT_YOURS"
+  | "OUTREACH_TOO_MANY_ATTACHMENTS"
+  | "OUTREACH_ATTACHMENTS_TOO_LARGE"
   | "OUTREACH_BOOKING_LINK_FAILED"
   | "MEETING_DO_NOT_CONTACT"
   | "MEETING_SLOT_TAKEN"
@@ -289,6 +291,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   OUTREACH_THREAD_UNAVAILABLE: "There's no email thread from your mailbox to reply in. Send a new email instead.",
   OUTREACH_MESSAGE_NOT_SCHEDULED: "This email is no longer waiting to be sent.",
   OUTREACH_MESSAGE_NOT_YOURS: "Only the person who wrote this email can cancel it.",
+  OUTREACH_TOO_MANY_ATTACHMENTS: "That's more files than one email can carry.",
+  OUTREACH_ATTACHMENTS_TOO_LARGE: "These files are too large to send together.",
   OUTREACH_BOOKING_LINK_FAILED: "Your booking page couldn't be set up, so nothing was sent. Try again in a moment.",
   OAUTH_GRANT_NOT_FOUND: "That app is already disconnected. Reload to see the current list.",
   TASK_PRESET_EXISTS: "Your team already has that preset.",

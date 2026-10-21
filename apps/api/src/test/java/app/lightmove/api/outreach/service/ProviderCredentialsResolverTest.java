@@ -102,7 +102,7 @@ class ProviderCredentialsResolverTest {
                 new ProviderAppSettings("", "", List.of(), "", ""));
         OutreachSettings outreach = new OutreachSettings(null, apps, Duration.ofMinutes(10), 50,
                 LocalTime.of(8, 0), LocalTime.of(18, 0), List.of(), 25, Duration.ofMinutes(10), Duration.ofDays(30),
-                OutreachGateway.NYLAS);
+                OutreachGateway.NYLAS, null);
         WebSettings web = new WebSettings("https://app.example", List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2));
         return new LightMoveProperties(null, null, web, null, null, null, null, null, null, null, null, null, null,
                 null, null, outreach, null, null, null, null, null, null, null, null, null);

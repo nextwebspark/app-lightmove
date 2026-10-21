@@ -65,6 +65,8 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_DOCUMENT_VERSION_REMOVED,
     /** A CV leaving as a file is not the same act as reading the drawer, so every download is recorded. */
     PERSON_DOCUMENT_DOWNLOADED,
+    /** A person's document attached to an email that went: it left the app as surely as a download. */
+    PERSON_DOCUMENT_SENT,
     PERSON_OWNER_CHANGED,
     PERSON_TAGGED,
     PERSON_UNTAGGED,
@@ -132,6 +134,8 @@ public enum ProjectEventType implements AuditEventType {
     /** It did not go, and will not: a send is never retried. */
     OUTREACH_MESSAGE_FAILED,
     OUTREACH_MESSAGE_CANCELLED,
+    /** A file an email carried, opened again from the conversation. */
+    OUTREACH_ATTACHMENT_DOWNLOADED,
 
     /** A call booked with an executive from a consultant's own calendar. */
     OUTREACH_MEETING_BOOKED,

@@ -23,6 +23,7 @@ import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
+import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
@@ -149,6 +150,33 @@ class GoogleMailboxGatewayTest {
         String raw = new String(Base64.getUrlDecoder().decode(body.path("raw").asString("")), StandardCharsets.UTF_8);
         assertThat(raw).contains("To: priya@client.example").contains("Subject: A CFO role")
                 .doesNotContain("In-Reply-To");
+    }
+
+    @Test
+    @DisplayName("an email carrying files goes through the upload endpoint: the thread as metadata, the message whole")
+    void filesGoThroughTheUploadEndpoint() throws Exception {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        SentEmail sent = gateway.send(grantId, new OutgoingEmail("priya@client.example", "Re: A CFO role",
+                "<p>Attached</p>", "18c2a1f0e5d4b3a2", List.of(new EmailAttachment("Brief.pdf", "application/pdf",
+                        "%PDF-1.7 brief".getBytes(StandardCharsets.US_ASCII)))));
+
+        assertThat(sent.messageId()).isEqualTo("18c2a1f0e5d4b3a2");
+        String key = "POST /api/upload/gmail/v1/users/me/messages/send";
+        assertThat(google.requested()).contains(key).doesNotContain("POST /api/gmail/v1/users/me/messages/send");
+        assertThat(google.lastQueryOf("/api/upload/gmail/v1/users/me/messages/send")).isEqualTo("uploadType=multipart");
+        String contentType = google.contentTypeOf(key);
+        assertThat(contentType).startsWith("multipart/related").contains("boundary=");
+        String boundary = contentType.substring(contentType.indexOf("boundary=") + "boundary=".length());
+        String[] parts = google.bodyOf(key).split("--" + java.util.regex.Pattern.quote(boundary));
+        assertThat(parts).hasSize(4);
+        assertThat(parts[1]).contains("Content-Type: application/json")
+                .contains("\"threadId\":\"18c2a1f0e5d4b3a2\"");
+        assertThat(parts[2]).contains("Content-Type: message/rfc822")
+                .contains("In-Reply-To: <CAB2+first@mail.gmail.com>")
+                .contains("Content-Type: multipart/mixed")
+                .contains("filename=\"Brief.pdf\"");
     }
 
     @Test
@@ -453,6 +481,7 @@ class GoogleMailboxGatewayTest {
         private final Map<String, String> bodies = new ConcurrentHashMap<>();
         private final Map<String, String> queries = new ConcurrentHashMap<>();
         private final Map<String, String> authorizations = new ConcurrentHashMap<>();
+        private final Map<String, String> contentTypes = new ConcurrentHashMap<>();
         private volatile String lastForm = "";
         private volatile int refreshStatus = 200;
         private volatile String refreshBody;
@@ -486,7 +515,9 @@ class GoogleMailboxGatewayTest {
                 respond(exchange, 200, """
                         {"emailAddress":"yara.haddad@meridian.example","messagesTotal":4182,"threadsTotal":2210,
                          "historyId":"9876543"}""");
-            } else if (path.equals("/api/gmail/v1/users/me/messages/send")) {
+            } else if (path.equals("/api/gmail/v1/users/me/messages/send")
+                    || path.equals("/api/upload/gmail/v1/users/me/messages/send")) {
+                contentTypes.put(key, String.valueOf(exchange.getRequestHeaders().getFirst("Content-Type")));
                 respond(exchange, sendStatus, sendStatus != 200 ? "{\"error\":{\"code\":" + sendStatus + "}}" : """
                         {"id":"18c2a1f0e5d4b3a2","threadId":"18c2a1f0e5d4b3a2","labelIds":["SENT"]}""");
             } else if (path.equals("/api/gmail/v1/users/me/messages/18c2a1f0e5d4b3a2")) {
@@ -571,6 +602,10 @@ class GoogleMailboxGatewayTest {
 
         String bodyOf(String key) {
             return bodies.get(key);
+        }
+
+        String contentTypeOf(String key) {
+            return contentTypes.get(key);
         }
 
         String lastQueryOf(String path) {

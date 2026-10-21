@@ -150,7 +150,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: "United Arab Emirates",
       doNotContact: false,
     },
-    composer: { replySubject: "Re: A confidential conversation", replyStopsRun: false, emailSentMovesTo: null },
+    composer: { replySubject: "Re: A confidential conversation", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } },
     events: [
       {
         type: "MESSAGE",
@@ -188,6 +188,7 @@ function message(overrides: Partial<conversationApi.ConversationMessage>): conve
     stepNumber: null,
     stepCount: null,
     failReason: null,
+    attachments: [],
     ...overrides,
   };
 }
@@ -358,14 +359,15 @@ describe("OutreachPage", () => {
         body: "Thursday at 10?",
         sendAt: null,
         replyInThread: true,
-      }),
+        documentVersionIds: [],
+      }, []),
     );
     expect(await screen.findByText("Goes to Fatima within a minute.")).toBeInTheDocument();
   });
 
   it("writes a first email, with a subject of its own, where there is no thread to reply in", async () => {
     vi.mocked(conversationApi.getConversation).mockResolvedValue(
-      conversation({ composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" } } }),
+      conversation({ composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: { statusKey: "contacted", label: "Contacted", colour: "accent" }, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 } } }),
     );
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m9",
@@ -389,6 +391,7 @@ describe("OutreachPage", () => {
         "p1",
         "c1",
         expect.objectContaining({ subject: "A conversation", replyInThread: false }),
+        [],
       ),
     );
   });
