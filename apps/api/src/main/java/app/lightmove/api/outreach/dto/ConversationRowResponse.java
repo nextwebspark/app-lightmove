@@ -6,8 +6,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One executive in the Outreach page's queue. {@code group} is null outside Needs action; {@code action} is the
- * task that put them in it, null for a stopped run that needs attention without one. Staff-only.
+ * One executive in the Outreach page's queue. {@code group} is null outside Needs action. {@code action} is the task
+ * to act on — in Attention the bounce task, else their soonest open one — and null only when nothing is open.
+ * Staff-only.
  */
 public record ConversationRowResponse(
         UUID candidateId,

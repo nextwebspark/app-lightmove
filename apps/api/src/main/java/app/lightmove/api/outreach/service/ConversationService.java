@@ -83,9 +83,6 @@ public class ConversationService {
 
     private static final int PREVIEW_LENGTH = 140;
 
-    private static final String REPLY_RULE = "reply";
-    private static final String BOUNCE_RULE = "bounce";
-
     /** A run these ended needs a person: the email did not go, or the mailbox cannot send it. */
     private static final Set<OutreachStopReason> FAILED_SEND = EnumSet.of(OutreachStopReason.SEND_FAILED,
             OutreachStopReason.SEND_UNCERTAIN, OutreachStopReason.MAILBOX_INACTIVE, OutreachStopReason.MAILBOX_MOVED,
@@ -177,9 +174,7 @@ public class ConversationService {
         Instant now = clock.instant();
         Instant lastActivityAt = shown.stream().map(ConversationEventResponse::at)
                 .filter(at -> at != null && !at.isAfter(now)).findFirst().orElse(null);
-        Instant firstContactedAt = messages.tallySentByPerson(workspaceId, projectId).stream()
-                .filter(tally -> personId.equals(tally.getPersonId())).map(PersonSentTally::getFirstSentAt)
-                .findFirst().orElse(null);
+        Instant firstContactedAt = messages.findFirstSentAt(workspaceId, projectId, personId);
         Instant repliedAt = runs.stream().map(OutreachEnrollment::getRepliedAt).filter(Objects::nonNull)
                 .max(Comparator.naturalOrder()).orElse(null);
         return new ConversationResponse(executive, openTasks, currentRun,
@@ -318,8 +313,8 @@ public class ConversationService {
                              OutreachRunResponse runResponse, OutreachMessage latestMessage, Instant lastSentAt,
                              Set<UUID> senders, boolean met) {
             Instant runEnded = run == null ? null : OutreachMonitorService.endedAtOf(run);
-            CandidateOpenTaskDto bounceTask = firstWithRule(tasks, BOUNCE_RULE);
-            CandidateOpenTaskDto replyTask = firstWithRule(tasks, REPLY_RULE);
+            CandidateOpenTaskDto bounceTask = firstWithRule(tasks, CandidateOpenTaskDto.BOUNCE_RULE);
+            CandidateOpenTaskDto replyTask = firstWithRule(tasks, CandidateOpenTaskDto.REPLY_RULE);
             boolean failedSend = run != null && run.getStatus() == EnrollmentStatus.STOPPED
                     && FAILED_SEND.contains(run.getStopReason())
                     && (lastSentAt == null || runEnded == null || !lastSentAt.isAfter(runEnded));
@@ -328,7 +323,7 @@ public class ConversationService {
             CandidateOpenTaskDto action = null;
             if (bounceTask != null || failedSend) {
                 group = ConversationGroup.ATTENTION;
-                action = bounceTask;
+                action = bounceTask != null ? bounceTask : tasks.stream().findFirst().orElse(null);
             } else if (replyTask != null) {
                 group = ConversationGroup.NEEDS_REPLY;
                 action = replyTask;
@@ -349,7 +344,7 @@ public class ConversationService {
             return run != null || latestMessage != null || met || hasTasks;
         }
 
-        /** Mine in Needs action: the task is mine, or the failed run I sent when no task stands for it. */
+        /** Mine in Needs action: the task is mine, or the failed run I sent when no task is open on them. */
         boolean needsActionFrom(UUID userId) {
             if (action != null) {
                 return action.assignee() != null && userId.equals(action.assignee().userId());

@@ -3,6 +3,7 @@ package app.lightmove.api.outreach;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.outreach.model.OutreachEmailBody;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -21,7 +22,7 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * V144: every email already sent becomes a line of its executive's conversation — filed under the run's position,
- * person and address, the sender's mailbox, and its words read back out of the HTML it went as. Its own container,
+ * person and address and the sender's mailbox, its words its run's first email or decoded out of the HTML it went as. Its own container,
  * stopped at V143 to seed, for {@code CompanyNotesBackfillMigrationTest}'s reason.
  */
 class OutreachMessageLedgerMigrationTest {
@@ -34,6 +35,15 @@ class OutreachMessageLedgerMigrationTest {
     private static final UUID SEQUENCE = UUID.fromString("00000000-0000-0000-0000-0000000144f1");
     private static final UUID RUN = UUID.fromString("00000000-0000-0000-0000-000000014401");
     private static final UUID MESSAGE = UUID.fromString("00000000-0000-0000-0000-000000014402");
+    private static final UUID FOLLOW_UP = UUID.fromString("00000000-0000-0000-0000-000000014403");
+    private static final UUID LATER_USER = UUID.fromString("00000000-0000-0000-0000-0000000144a2");
+    private static final UUID LATER_RUN = UUID.fromString("00000000-0000-0000-0000-000000014404");
+    private static final UUID LATER_MESSAGE = UUID.fromString("00000000-0000-0000-0000-000000014405");
+
+    private static final String FIRST_BODY = "Hi Priya,\n\nYour treasury work stood out.";
+    /** What a follow-up was written as: htmlOf turns every non-ASCII character here into a named reference. */
+    private static final String FOLLOW_UP_TEXT = "José’s café – 5€ for Müller…\n\n"
+            + "P&L <growth> at \"Al Naboodah\" isn't small.\nTalk soon: &amp;lt; stays as typed.";
 
     @Test
     @DisplayName("V144 files each sent email under its run's position and person, and reads its words back")
@@ -56,8 +66,16 @@ class OutreachMessageLedgerMigrationTest {
                         FROM app_lm_outreach_message WHERE id = ?""", MESSAGE))
                         .containsExactly(PROJECT + "|" + PERSON + "|-|priya@target.example|yara@firm.example|DIRECT"
                                 + "|OUTBOUND|EMAIL|SEQUENCE_STEP|SENT|TEXT|true");
+                // A first email reads its run's frozen text; a follow-up is decoded out of the HTML it went as.
                 assertThat(strings(connection, "SELECT body_text FROM app_lm_outreach_message WHERE id = ?", MESSAGE))
-                        .containsExactly("Hi Priya,\n\nP&L <growth> at \"Al Naboodah\" isn't small.\nTalk soon.");
+                        .containsExactly(FIRST_BODY);
+                assertThat(OutreachEmailBody.htmlOf(FOLLOW_UP_TEXT)).contains("&eacute;", "&rsquo;", "&euro;");
+                assertThat(strings(connection, "SELECT body_text FROM app_lm_outreach_message WHERE id = ?", FOLLOW_UP))
+                        .containsExactly(FOLLOW_UP_TEXT);
+                // The sender reconnected after this one went: their mailbox's address may not be the one it went from.
+                assertThat(strings(connection, """
+                        SELECT coalesce(from_address, '-') FROM app_lm_outreach_message WHERE id = ?""", LATER_MESSAGE))
+                        .containsExactly("-");
 
                 // A reply can never count against the daily cap, and a run's step is still sent once.
                 assertThatThrownBy(() -> execute(connection, """
@@ -95,8 +113,8 @@ class OutreachMessageLedgerMigrationTest {
         execute(connection, """
                 INSERT INTO app_lm_mailbox_connection (workspace_id, user_id, provider, address, grant_id, status,
                                                        daily_cap, connected_at)
-                VALUES ('%s', '%s', 'google', 'yara@firm.example', 'grant-seed', 'ACTIVE', 50, now())"""
-                .formatted(WORKSPACE, USER));
+                VALUES ('%s', '%s', 'google', 'yara@firm.example', 'grant-seed', 'ACTIVE', 50,
+                        timestamptz '2026-09-01 00:00:00+00')""".formatted(WORKSPACE, USER));
         execute(connection, """
                 INSERT INTO app_lm_outreach_sequence (id, workspace_id, project_id, name)
                 VALUES ('%s', '%s', '%s', 'First approach')""".formatted(SEQUENCE, WORKSPACE, PROJECT));
@@ -105,8 +123,8 @@ class OutreachMessageLedgerMigrationTest {
                                                         sender_user_id, to_address, status, first_subject,
                                                         first_body, enrolled_at, thread_id, thread_gateway)
                 VALUES ('%s', '%s', '%s', '%s', '%s', '%s', 'priya@target.example', 'ACTIVE', 'Confidential',
-                        'Hi Priya', now(), 'thread-1', 'DIRECT')"""
-                .formatted(RUN, WORKSPACE, PROJECT, SEQUENCE, PERSON, USER));
+                        E'%s', now(), 'thread-1', 'DIRECT')"""
+                .formatted(RUN, WORKSPACE, PROJECT, SEQUENCE, PERSON, USER, FIRST_BODY.replace("\n", "\\n")));
         try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO app_lm_outreach_message (id, workspace_id, enrollment_id, step, sender_user_id,
                                                      provider_message_id, thread_id, subject, body, sent_at)
@@ -116,8 +134,44 @@ class OutreachMessageLedgerMigrationTest {
             statement.setObject(2, WORKSPACE);
             statement.setObject(3, RUN);
             statement.setObject(4, USER);
-            statement.setString(5, "<p>Hi Priya,</p><p>P&amp;L &lt;growth&gt; at &quot;Al Naboodah&quot; "
-                    + "isn&#39;t small.<br>Talk soon.</p>");
+            statement.setString(5, OutreachEmailBody.htmlOf(FIRST_BODY));
+            statement.execute();
+        }
+        message(connection, FOLLOW_UP, RUN, 1, USER, "msg-2", "2026-09-30 09:04:00+00",
+                OutreachEmailBody.htmlOf(FOLLOW_UP_TEXT));
+
+        execute(connection, """
+                INSERT INTO app_lm_user (id, email, full_name) VALUES ('%s', 'omar@firm.example', 'Omar Khalil')"""
+                .formatted(LATER_USER));
+        execute(connection, """
+                INSERT INTO app_lm_mailbox_connection (workspace_id, user_id, provider, address, grant_id, status,
+                                                       daily_cap, connected_at)
+                VALUES ('%s', '%s', 'google', 'omar.new@firm.example', 'grant-later', 'ACTIVE', 50,
+                        timestamptz '2026-10-15 00:00:00+00')""".formatted(WORKSPACE, LATER_USER));
+        execute(connection, """
+                INSERT INTO app_lm_outreach_enrollment (id, workspace_id, project_id, sequence_id, person_id,
+                                                        sender_user_id, to_address, status, first_subject,
+                                                        first_body, enrolled_at)
+                VALUES ('%s', '%s', '%s', '%s', '%s', '%s', 'priya@target.example', 'COMPLETED', 'Hello',
+                        'Hi', now())""".formatted(LATER_RUN, WORKSPACE, PROJECT, SEQUENCE, PERSON, LATER_USER));
+        message(connection, LATER_MESSAGE, LATER_RUN, 0, LATER_USER, "msg-3", "2026-09-28 09:04:00+00",
+                OutreachEmailBody.htmlOf("Hi"));
+    }
+
+    private static void message(Connection connection, UUID id, UUID run, int step, UUID sender, String providerId,
+                                String sentAt, String html) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                INSERT INTO app_lm_outreach_message (id, workspace_id, enrollment_id, step, sender_user_id,
+                                                     provider_message_id, thread_id, subject, body, sent_at)
+                VALUES (?, ?, ?, ?, ?, ?, 'thread-1', 'Following up', ?, ?::timestamptz)""")) {
+            statement.setObject(1, id);
+            statement.setObject(2, WORKSPACE);
+            statement.setObject(3, run);
+            statement.setInt(4, step);
+            statement.setObject(5, sender);
+            statement.setString(6, providerId);
+            statement.setString(7, html);
+            statement.setString(8, sentAt);
             statement.execute();
         }
     }

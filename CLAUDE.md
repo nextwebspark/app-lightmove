@@ -1149,7 +1149,8 @@ note, by its `added_by`, leaving the column frozen; `CompanyNotePurge` deletes a
 V144 widens `app_lm_outreach_message` into the conversation ledger: `direction`, `channel`, `kind`, `status`,
 `project_id`/`person_id`/`candidate_id` (SET NULL), the two addresses, `thread_gateway`, `occurred_at`, and
 `body_text` (≤ 20,000) with its `body_format`, each defaulting to what an old row is so the previous revision's
-insert lands mid-deploy; backfilled from each row's enrollment and HTML. `sent_at` is set only on an outbound email
+insert lands mid-deploy; backfilled from each row's enrollment, a first email's text from its run's `first_body`
+and a follow-up's decoded from its HTML through Spring's whole entity table. `sent_at` is set only on an outbound email
 that went (a CHECK), since the daily cap counts it; the `(enrollment_id, step)` uniqueness holds for sequence steps
 alone. `project_id`/`person_id` stay nullable until phase 2 sets them `NOT NULL`.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and

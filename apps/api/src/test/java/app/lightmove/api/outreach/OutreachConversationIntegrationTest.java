@@ -109,7 +109,7 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a run a failed send stopped needs attention with no task, until something goes to them again")
+    @DisplayName("a run a failed send stopped needs attention, acting on any open task, until an email goes again")
     void aFailedSendNeedsAttention() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         start(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null)));
@@ -121,6 +121,17 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         assertThat(row.get("group").asText()).isEqualTo("ATTENTION");
         assertThat(row.get("action").isNull()).isTrue();
         assertThat(row.at("/run/stopReason").asText()).isEqualTo("SEND_FAILED");
+
+        task(priya, "Call Priya instead", consultantId, monday.plus(Duration.ofDays(1)));
+        row = rowOf(conversations(), priya);
+        assertThat(row.get("group").asText()).isEqualTo("ATTENTION");
+        assertThat(row.at("/action/title").asText()).isEqualTo("Call Priya instead");
+
+        start(createSequence("Second approach"), List.of(person(priya, "priya@" + domain, null)));
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(1)));
+        row = rowOf(conversations(), priya);
+        assertThat(row.get("group").asText()).isEqualTo("FOLLOW_UP");
+        assertThat(row.at("/run/status").asText()).isEqualTo("ACTIVE");
     }
 
     @Test

@@ -52,6 +52,13 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
             """)
     List<PersonSentTally> tallySentByPerson(UUID workspaceId, UUID projectId);
 
+    /** When the first email went to one executive on a position, or null before any has. */
+    @Query("""
+            select min(m.sentAt) from OutreachMessage m
+            where m.workspaceId = :workspaceId and m.projectId = :projectId and m.personId = :personId
+            """)
+    Instant findFirstSentAt(UUID workspaceId, UUID projectId, UUID personId);
+
     /** Who on a position has a line whose subject or text matches {@code pattern}, a lower-cased LIKE pattern. */
     @Query("""
             select distinct m.personId from OutreachMessage m

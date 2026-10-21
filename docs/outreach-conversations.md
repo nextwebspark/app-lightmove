@@ -95,9 +95,14 @@ the deploy window.
   `from_address`, `to_address`, `thread_gateway` (`NYLAS|DIRECT`), `occurred_at` (the ordering instant, default
   `now()`), `body_format` (`TEXT|MARKDOWN`: a sequence's paragraph text, or the composer's Markdown) and
   `body_text` (plain text ≤ 20,000).
-- Backfill `project_id, person_id, candidate_id, to_address, thread_gateway` from the enrollment, `from_address`
-  from the sender's mailbox, `occurred_at = sent_at`, and `body_text` read back out of the HTML
-  `OutreachEmailBody` wrote (paragraphs, line breaks, entities).
+- Backfill `project_id, person_id, candidate_id, to_address, thread_gateway` from the enrollment and `occurred_at =
+  sent_at`. `from_address` comes from the sender's mailbox only where it was connected before the email went: a
+  reconnect re-stamps `connected_at` and may be at another address, so an older email is left without one.
+- `body_text`: a first email takes its run's `first_body`, the exact text rendered at Start. A follow-up is decoded
+  out of the HTML `OutreachEmailBody` wrote — paragraphs, line breaks, and every reference Spring's
+  `HtmlUtils.htmlEscape` writes, which is the whole HTML 4.01 table (`&eacute;`, `&rsquo;`, `&euro;`…), not five
+  entities. The migration carries Spring's own map (`HtmlCharacterEntityReferences.properties`) in a temp table and
+  decodes each reference once, left to right, in a function it drops when done.
 - `project_id` and `person_id` stay **nullable** for the deploy window — the previous revision inserts without
   them, and its row is still found through its enrollment. Phase 2's migration fills any such row and sets
   `NOT NULL`.
@@ -106,6 +111,10 @@ the deploy window.
   count against the cap); `char_length(body_text) <= 20000`.
 - Index `(workspace_id, project_id, person_id, occurred_at DESC)`, the conversation's read.
 - Table COMMENT rewritten.
+
+V144 runs in one transaction and holds an exclusive lock on the message table, and share locks on the three tables
+its new foreign keys name, until it commits; at today's size that is moments. If the ledger has grown large by
+phase 2, that phase's migration adds its constraints `NOT VALID` and validates them in a separate step.
 
 Left to the phase that first writes them, so no column sits unwritten: `in_reply_to`, `send_at`, `sending_since`
 and `fail_reason` (phase 3, one-off sends), and the thread index, the provider-message dedupe index and the
@@ -257,8 +266,9 @@ round trip.
 
 Groups, first match wins:
 - `ATTENTION`: an open task the bounce rule filed; or their latest run stopped `SEND_FAILED | SEND_UNCERTAIN |
-  MAILBOX_INACTIVE | MAILBOX_MOVED | ADDRESS_REMOVED` with nothing sent to them since. The second kind has no task,
-  so `action` is null, and it leaves the group when something goes to them again or a new run starts.
+  MAILBOX_INACTIVE | MAILBOX_MOVED | ADDRESS_REMOVED` with nothing sent to them since. The row's `action` is the
+  bounce task, else their soonest open task, and null only when nothing is open; a failed run leaves the group once
+  an email goes to them again.
 - `NEEDS_REPLY`: an open task the reply rule filed. Decision 6 holds strictly: with the reply rule switched off a
   reply shows in All conversations and the bell, not here, since nothing could mark it handled.
 - `PREPARATION`: an open task, and no email ever sent to them on this position.

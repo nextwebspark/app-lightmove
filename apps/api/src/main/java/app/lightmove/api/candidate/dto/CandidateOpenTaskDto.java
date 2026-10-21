@@ -14,4 +14,11 @@ public record CandidateOpenTaskDto(
         String rule,
         Instant dueAt,
         NextActionAssigneeDto assignee
-) {}
+) {
+
+    /** {@code rule} of a task the reply rule filed; {@code task} holds these to its own rule names. */
+    public static final String REPLY_RULE = "reply";
+
+    /** {@code rule} of a task the bounce rule filed. */
+    public static final String BOUNCE_RULE = "bounce";
+}
