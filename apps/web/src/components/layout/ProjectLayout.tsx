@@ -63,8 +63,14 @@ export function ProjectLayout() {
   // `includes`, not `endsWith`: the Companies stages are a path segment deep (/companies/universe),
   // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
   // wide grid ending in mid-air.
-  // Matched exactly: the conversation workspace owns the viewport, the sequences list and editor beneath it do not.
-  const isOutreachWorkspace = pathname.replace(/\/$/, "") === `/projects/${projectId}/outreach`;
+  // Conversations, the sequences list and the sequence editor each own the viewport under the one Outreach header, so
+  // moving between them never moves the frame.
+  const outreachPath = pathname.replace(/\/$/, "");
+  const sequencesPath = `/projects/${projectId}/outreach/sequences`;
+  const isOutreachWorkspace =
+    outreachPath === `/projects/${projectId}/outreach` ||
+    outreachPath === sequencesPath ||
+    outreachPath.startsWith(`${sequencesPath}/`);
   const fillsViewport = isOutreachWorkspace || VIEWPORT_FILLING_TABS.some((tab) => pathname.includes(tab));
   const isBriefTab = pathname.replace(/\/$/, "") === `/projects/${projectId}`;
   const fullBleed = isBriefTab || isOutreachWorkspace || FULL_BLEED_TABS.some((tab) => pathname.includes(tab));

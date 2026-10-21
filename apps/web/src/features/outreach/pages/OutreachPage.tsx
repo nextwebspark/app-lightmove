@@ -1,40 +1,40 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { useOutletContext, useSearchParams } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import { Link, useOutletContext, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { EmptyState } from "../../../components/ui";
+import { buttonClassName, EmptyState } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
-import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { rememberDrawerTab } from "../../candidates/lib/drawerTabs";
 import * as conversationApi from "../api/conversationApi";
-import type { ConversationScope, ConversationView } from "../api/conversationApi";
-import { ActionQueue } from "../components/ActionQueue";
+import type { ConversationList, ConversationScope, ConversationView } from "../api/conversationApi";
+import { ConversationListPane } from "../components/ConversationListPane";
 import { CONVERSATION_REFRESH_MS, ConversationPane } from "../components/ConversationPane";
-import { EnrolDialog } from "../components/EnrolDialog";
 import { MailboxBanner } from "../components/MailboxBanner";
 import { MailboxChip } from "../components/MailboxChip";
-import { OutreachTabs } from "../components/OutreachTabs";
-import { mailboxStateOf } from "../lib/mailboxState";
+import { MailboxSetupCard } from "../components/MailboxSetupCard";
+import { NewEmailButton } from "../components/NewEmailButton";
+import { OutreachHeader } from "../components/OutreachHeader";
+import { mailboxStateOf, type MailboxState } from "../lib/mailboxState";
 import { useMailbox } from "../lib/useMailbox";
-import { useMailboxConnect } from "../lib/useMailboxConnect";
+import { useMailboxConnect, type MailboxConnect } from "../lib/useMailboxConnect";
 
-const VIEWS: readonly ConversationView[] = ["needs", "all", "scheduled", "sent"];
+const VIEWS: readonly ConversationView[] = ["all", "needs", "scheduled", "sent"];
 const SEARCH_DELAY_MS = 250;
 
 /**
- * A position's Outreach page (`claude-design/Outreach.dc.html`): the conversation workspace — the action queue, one
- * executive's history with the composer, and their details — with the consultant's mailbox in the tab row. Staff
- * only; the sequences and everyone in them are a page beneath it.
+ * A position's Outreach page (`claude-design/Outreach.dc.html`): everyone the team is in conversation with on the
+ * left, and the one picked — the top of the list, where there is room beside it — with their history, the composer
+ * and their details. Staff only; the sequences are the header's other view.
  */
 export function OutreachPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const view = viewOf(params.get("view"));
-  const who: ConversationScope = params.get("who") === "team" ? "team" : "mine";
+  const who: ConversationScope = params.get("who") === "mine" ? "mine" : "team";
   const query = params.get("q") ?? "";
   const candidateId = params.get("candidate");
 
@@ -42,8 +42,9 @@ export function OutreachPage() {
   const mailboxState = mailboxStateOf(mailbox);
   const connector = useMailboxConnect();
   const [searchText, setSearchText] = useState(query);
-  const [isEnrolling, setIsEnrolling] = useState(false);
   const [recordId, setRecordId] = useState<string | null>(null);
+  // Whom New email opened, so their composer takes the caret; a row click opens someone to read.
+  const [writingTo, setWritingTo] = useState<string | null>(null);
 
   const list = useQuery({
     queryKey: conversationApi.CONVERSATIONS_KEY(project.id, view, who, query),
@@ -52,15 +53,6 @@ export function OutreachPage() {
     refetchInterval: CONVERSATION_REFRESH_MS,
   });
   const rows = list.data?.rows ?? [];
-  // The conversation pane's own read, shared through the cache: the open person may be in no row of this tab.
-  const openConversation = useQuery({
-    queryKey: conversationApi.CONVERSATION_KEY(project.id, candidateId ?? ""),
-    queryFn: ({ signal }) => conversationApi.getConversation(project.id, candidateId!, signal),
-    enabled: candidateId !== null,
-    refetchInterval: CONVERSATION_REFRESH_MS,
-  });
-  const selectedName =
-    rows.find((row) => row.candidateId === candidateId)?.fullName ?? openConversation.data?.executive.fullName ?? null;
 
   const changeParams = (change: (next: URLSearchParams) => void, replace = false) =>
     setParams(
@@ -89,8 +81,9 @@ export function OutreachPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchText, query]);
 
-  // Where the queue and the conversation sit side by side, the first person is opened; on a phone the queue comes first.
-  const firstCandidateId = rows[0]?.candidateId ?? null;
+  // Where the list and the conversation sit side by side, the top one opens; on a phone the list comes first. Never off a
+  // read still in flight: that is the previous filter's list, or one still holding a row just handled.
+  const firstCandidateId = list.isFetching ? null : (rows[0]?.candidateId ?? null);
   useEffect(() => {
     if (candidateId || !firstCandidateId || !hasRoomForRails()) return;
     changeParams((next) => next.set("candidate", firstCandidateId), true);
@@ -100,7 +93,38 @@ export function OutreachPage() {
   const select = (next: string | null) =>
     changeParams((params) => (next ? params.set("candidate", next) : params.delete("candidate")));
 
+  const openToRead = (next: string) => {
+    setWritingTo(null);
+    select(next);
+  };
+
+  const openToWrite = (next: string) => {
+    setWritingTo(next);
+    select(next);
+  };
+
+  const showView = (next: ConversationView) =>
+    changeParams((params) => {
+      if (next === "all") params.delete("view");
+      else params.set("view", next);
+      params.delete("candidate");
+    });
+
+  const showEveryone = () =>
+    changeParams((params) => {
+      for (const key of ["view", "who", "q", "candidate"]) params.delete(key);
+    });
+
+  const showScope = (next: ConversationScope) =>
+    changeParams((params) => {
+      if (next === "team") params.delete("who");
+      else params.set("who", next);
+      params.delete("candidate");
+    });
+
+  // Only To do loses a handled row, so only there does the next one come up; anywhere else they stay open.
   const selectNextAfterHandled = () => {
+    if (view !== "needs") return;
     const index = rows.findIndex((row) => row.candidateId === candidateId);
     const following = rows[index + 1] ?? rows[index - 1] ?? null;
     select(following && following.candidateId !== candidateId ? following.candidateId : null);
@@ -114,37 +138,24 @@ export function OutreachPage() {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <h1 className="sr-only">Outreach</h1>
-      <OutreachTabs
-        projectId={project.id}
-        view={view}
-        counts={list.data?.counts ?? null}
-        selectedName={selectedName}
-        onViewChange={(next) => changeParams((params) => (next === "needs" ? params.delete("view") : params.set("view", next)))}
-        onAddToSequence={() => setIsEnrolling(true)}
-      >
+      <OutreachHeader projectId={project.id} section="conversations">
         <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
-      </OutreachTabs>
-      {mailboxState.kind !== "ready" && mailboxState.kind !== "loading" && mailboxState.kind !== "refused" && (
-        <div className="px-4 pt-3 md:px-6">
-          <MailboxBanner state={mailboxState} connector={connector} />
-        </div>
-      )}
+        <NewEmailButton projectId={project.id} mailbox={mailboxState} connector={connector} onPick={openToWrite} />
+      </OutreachHeader>
+      <MailboxBanner state={mailboxState} connector={connector} />
 
       <div className="grid min-h-0 flex-1 lg:grid-cols-[clamp(260px,24vw,336px)_minmax(0,1fr)] xl:grid-cols-[clamp(260px,24vw,336px)_minmax(420px,1fr)_clamp(260px,22vw,320px)]">
-        <div
-          className={cn("min-h-0 flex-col border-e border-u-border", candidateId ? "hidden lg:flex" : "flex")}
-          {...tabPanelProps("outreach-view", view)}
-        >
-          <ActionQueue
+        <div className={cn("min-h-0 flex-col border-e border-u-border", candidateId ? "hidden lg:flex" : "flex")}>
+          <ConversationListPane
             view={view}
             who={who}
             query={searchText}
             list={list}
             selectedCandidateId={candidateId}
+            onViewChange={showView}
             onQueryChange={setSearchText}
-            onWhoChange={(next) => changeParams((params) => (next === "mine" ? params.delete("who") : params.set("who", next)))}
-            onSelect={select}
-            onShowScheduled={() => changeParams((params) => params.set("view", "scheduled"))}
+            onWhoChange={showScope}
+            onSelect={openToRead}
           />
         </div>
         {candidateId ? (
@@ -158,30 +169,28 @@ export function OutreachPage() {
             onHandled={selectNextAfterHandled}
             onOpenRecord={openRecord}
             onBack={() => select(null)}
+            focusComposer={writingTo === candidateId}
           />
         ) : (
-          <div className="hidden min-h-0 items-center justify-center bg-u-surface lg:flex xl:col-span-2">
-            <EmptyState
-              icon={<Icon d={ICONS.outreach} size={22} />}
-              title={rows.length === 0 ? "No conversations here yet" : "Pick someone from the queue"}
-              body={
-                rows.length === 0
-                  ? "Add people to a sequence from New outreach, In universe or the Pipeline, or open someone and write the first email."
-                  : "Their emails, replies, notes and meetings on this position show here, newest first."
-              }
-            />
+          <div className="hidden min-h-0 overflow-y-auto bg-u-surface lg:flex xl:col-span-2">
+            <div className="m-auto">
+              <NobodyOpen
+                projectId={project.id}
+                mailbox={mailboxState}
+                connector={connector}
+                list={list.data}
+                view={view}
+                who={who}
+                query={query}
+                onShowEveryone={showEveryone}
+                onShowTeam={() => showScope("team")}
+                onClearSearch={() => setSearchText("")}
+              />
+            </div>
           </div>
         )}
       </div>
 
-      {isEnrolling && candidateId && selectedName && (
-        <EnrolDialog
-          projectId={project.id}
-          scope={{ candidateIds: [candidateId] }}
-          source={selectedName}
-          onClose={() => setIsEnrolling(false)}
-        />
-      )}
       <CandidateDrawerById
         project={project}
         candidateId={recordId}
@@ -192,6 +201,98 @@ export function OutreachPage() {
   );
 }
 
+/**
+ * The conversation's place while there is nobody to open: the way to a mailbox first, then what this list would hold
+ * and the way back to everyone. With rows, the top one is opening.
+ */
+function NobodyOpen({
+  projectId,
+  mailbox,
+  connector,
+  list,
+  view,
+  who,
+  query,
+  onShowEveryone,
+  onShowTeam,
+  onClearSearch,
+}: {
+  projectId: string;
+  mailbox: MailboxState;
+  connector: MailboxConnect;
+  list: ConversationList | undefined;
+  view: ConversationView;
+  who: ConversationScope;
+  query: string;
+  onShowEveryone: () => void;
+  onShowTeam: () => void;
+  onClearSearch: () => void;
+}): ReactNode {
+  if (mailbox.kind === "loading" || !list || list.rows.length > 0) return null;
+  if (mailbox.kind === "none") {
+    return <MailboxSetupCard providers={mailbox.providers} connector={connector} />;
+  }
+  if (mailbox.kind === "unavailable") {
+    return (
+      <EmptyState
+        icon={<Icon d={ICONS.mail} size={22} />}
+        title="Outreach email is off for your workspace"
+        body="Ask Uncava support to turn it on."
+      />
+    );
+  }
+  if (query.trim()) {
+    return (
+      <EmptyState icon={<Icon d={ICONS.searchX} size={22} />} title={`No one matches “${query.trim()}”`} body="Try a name or an email.">
+        <button type="button" onClick={onClearSearch} className={buttonClassName("secondary")}>
+          Clear search
+        </button>
+      </EmptyState>
+    );
+  }
+  if (view === "all" && who === "mine") {
+    return (
+      <EmptyState icon={<Icon d={ICONS.outreach} size={22} />} title="Nothing of yours yet" body="Conversations you start show up here.">
+        <button type="button" onClick={onShowTeam} className={buttonClassName("secondary")}>
+          Show the team’s
+        </button>
+      </EmptyState>
+    );
+  }
+  if (view === "all") {
+    return (
+      <EmptyState
+        icon={<Icon d={ICONS.outreach} size={22} />}
+        title="No conversations yet"
+        body="Write to someone with New email, or add people to a sequence from In universe or the Pipeline."
+      >
+        <div className="flex gap-2">
+          <Link to={`/projects/${projectId}/companies/universe`} className={buttonClassName("secondary")}>
+            In universe
+          </Link>
+          <Link to={`/projects/${projectId}/pipeline`} className={buttonClassName("secondary")}>
+            Pipeline
+          </Link>
+        </div>
+      </EmptyState>
+    );
+  }
+  const empty = EMPTY_FILTERS[view];
+  return (
+    <EmptyState icon={<Icon d={empty.icon} size={22} />} title={empty.title} body={empty.body}>
+      <button type="button" onClick={onShowEveryone} className={buttonClassName("secondary")}>
+        Show all conversations
+      </button>
+    </EmptyState>
+  );
+}
+
+const EMPTY_FILTERS: Record<Exclude<ConversationView, "all">, { icon: string; title: string; body: string }> = {
+  needs: { icon: ICONS.checkCircle, title: "All caught up", body: "Replies, follow-ups and bounced emails come up here." },
+  scheduled: { icon: ICONS.clock, title: "Nothing scheduled", body: "Emails you schedule wait here until they go." },
+  sent: { icon: ICONS.mail, title: "Nothing sent yet", body: "Emails show up here once they go." },
+};
+
 function viewOf(value: string | null): ConversationView {
-  return VIEWS.find((view) => view === value) ?? "needs";
+  return VIEWS.find((view) => view === value) ?? "all";
 }

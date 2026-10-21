@@ -15,7 +15,7 @@ import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactPanel } from "../../contactlookup/components/ContactPanel";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
-import { AddToSequenceButton } from "../../outreach/components/AddToSequenceButton";
+import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
@@ -657,7 +657,7 @@ export function CandidateProfile({
         <div {...panelProps("contact")}>
           {canWrite && (
             <div className="flex justify-end pt-3 empty:hidden">
-              <AddToSequenceButton projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
+              <CandidateOutreachButtons projectId={projectId} candidateId={candidate.id} fullName={candidate.fullName} />
             </div>
           )}
           <CollapsibleSection

@@ -22,7 +22,12 @@ import {
   zoneCityOf,
 } from "../lib/sendSchedule";
 import { BOOKING_LINK_PLACEHOLDER, firstNameOf, renderParts, tokenOptions } from "../lib/sequenceTokens";
+import { mailboxStateOf } from "../lib/mailboxState";
 import { useMailbox } from "../lib/useMailbox";
+import { useMailboxConnect } from "../lib/useMailboxConnect";
+import { MailboxBanner } from "../components/MailboxBanner";
+import { MailboxChip } from "../components/MailboxChip";
+import { OutreachHeader } from "../components/OutreachHeader";
 import { SequenceStatePill } from "../components/SequenceStatePill";
 
 const NEW_SEQUENCE = "new";
@@ -59,36 +64,49 @@ const DEFAULT_STEPS: SequenceStep[] = [
   },
 ];
 
-/** `Outreach.dc.html?page=sequence`: the steps on the left, a live preview as a mapped person on the right. */
+/**
+ * `Outreach.dc.html?page=sequence`: the steps on the left, a live preview as a mapped person on the right, under the
+ * Outreach header the Sequences view keeps, so writing one never leaves the frame it was started from.
+ */
 export function SequenceEditorPage() {
   const { project } = useOutletContext<ProjectOutletContext>();
   const { sequenceId = NEW_SEQUENCE } = useParams();
+  const mailbox = useMailbox();
+  const mailboxState = mailboxStateOf(mailbox);
+  const connector = useMailboxConnect();
   const sequence = useQuery({
     queryKey: sequenceApi.SEQUENCE_KEY(project.id, sequenceId),
     queryFn: ({ signal }) => sequenceApi.getSequence(project.id, sequenceId, signal),
     enabled: sequenceId !== NEW_SEQUENCE,
   });
 
-  if (sequenceId !== NEW_SEQUENCE && !sequence.data) {
-    return (
-      <div className="mx-auto max-w-[1440px] px-4 pb-20 pt-[22px] md:px-7">
-        {sequence.isError ? (
-          <p role="alert" className="text-[13px] text-u-text3">
-            {messageFor(sequence.error)}
-          </p>
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <OutreachHeader projectId={project.id} section="sequences">
+        <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
+      </OutreachHeader>
+      <MailboxBanner state={mailboxState} connector={connector} />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {sequenceId !== NEW_SEQUENCE && !sequence.data ? (
+          <div className="mx-auto max-w-[1440px] px-4 pb-20 pt-[22px] md:px-7">
+            {sequence.isError ? (
+              <p role="alert" className="text-[13px] text-u-text3">
+                {messageFor(sequence.error)}
+              </p>
+            ) : (
+              <Skeleton className="h-[420px] w-full" />
+            )}
+          </div>
         ) : (
-          <Skeleton className="h-[420px] w-full" />
+          <SequenceEditor
+            key={sequenceId}
+            projectId={project.id}
+            positionTitle={project.positionTitle}
+            saved={sequence.data ?? null}
+          />
         )}
       </div>
-    );
-  }
-  return (
-    <SequenceEditor
-      key={sequenceId}
-      projectId={project.id}
-      positionTitle={project.positionTitle}
-      saved={sequence.data ?? null}
-    />
+    </div>
   );
 }
 

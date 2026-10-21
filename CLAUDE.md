@@ -623,10 +623,13 @@ status automation, stops a live run in the same thread as `MANUAL`, and publishe
 `task` closes the person's open reply-rule tasks. Only a *sent* line says whose a thread is: one still waiting never
 takes a thread from the run in it.
 **Phase 4** is the screen: `/projects/:id/outreach` (`RequireStaff`, viewport-filling by an exact path match) draws
-`Outreach.dc.html`'s three panes — `ActionQueue`, `ConversationPane` (history and `ReplyComposer`) and
-`CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL and the mailbox as a chip in the tab row
-(`MailboxChip`; `lib/mailboxState.ts` is the one reading the banner, chip and composer share); the sequences and
-everyone in them moved to `…/outreach/sequences`. The conversation read gained `contact` and `composer`
+`Outreach.dc.html`'s three panes — `ConversationListPane`, `ConversationPane` (history and `ReplyComposer`) and
+`CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL; it lands on everyone (All, Team) and opens
+the top conversation where the list leaves room (the list alone on a phone), the tabs being chips in the list (All · To do · Scheduled · Sent). `OutreachHeader` is
+Conversations | Sequences (`…/outreach/sequences` and the sequence editor under it, the same frame), the mailbox chip (`MailboxChip`;
+`lib/mailboxState.ts` is the one reading the banner, chip, setup card and composer share) and the view's action —
+New email (anyone on the position) or New sequence. The executive drawer offers Write email (the same composer in
+`EmailComposerDialog`) beside Add to sequence. The conversation read gained `contact` and `composer`
 (`replySubject` and `replyStopsRun` for the caller's mailbox, `emailSentMovesTo`), the mailbox read `sentToday` and
 `scheduledEmails`.
 Both reads poll every minute until phase 6 pushes.

@@ -22,12 +22,12 @@ export const TONE_DOT: Record<ConversationTone, string> = {
   neutral: "bg-u-text3",
 };
 
-/** The action queue's groups, in the order Needs action lists them. */
+/** What a To do row is waiting on, in the order the To do filter lists them. */
 export const QUEUE_GROUPS: readonly { group: ConversationGroup; label: string; tone: ConversationTone }[] = [
   { group: "NEEDS_REPLY", label: "Needs reply", tone: "green" },
   { group: "FOLLOW_UP", label: "Follow-ups", tone: "signal" },
-  { group: "PREPARATION", label: "Preparation", tone: "neutral" },
-  { group: "ATTENTION", label: "Attention", tone: "red" },
+  { group: "PREPARATION", label: "Before first email", tone: "neutral" },
+  { group: "ATTENTION", label: "Delivery problems", tone: "red" },
 ];
 
 export function toneOfGroup(group: ConversationGroup | null): ConversationTone {

@@ -9,10 +9,11 @@ import * as mailboxApi from "../api/mailboxApi";
 import type { ConnectedMailbox } from "../api/mailboxApi";
 import { providerLabel, type MailboxState } from "../lib/mailboxState";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
+import { MailboxProviderMark } from "./MailboxProviderMark";
 import { ZoomConnectControl } from "./ZoomConnectControl";
 
 /**
- * The consultant's own mailbox in the Outreach tab row: which address sends and how much of today's allowance it has
+ * The consultant's own mailbox in the Outreach header: which address sends and how much of today's allowance it has
  * used, with its settings — a test email, Zoom and Disconnect — one click away.
  */
 export function MailboxChip({
@@ -32,22 +33,16 @@ export function MailboxChip({
       return null;
     case "none":
       return state.providers.length === 1 ? (
-        <Button
-          variant="secondary"
-          size="xs"
-          loading={connector.connectingProvider !== null}
+        <button
+          type="button"
+          className={NOT_CONNECTED_CHIP}
+          disabled={connector.connectingProvider !== null}
           onClick={() => connector.connect(state.providers[0])}
         >
-          Connect mailbox
-        </Button>
+          <NotConnectedLabel />
+        </button>
       ) : (
-        <Popover
-          align="right"
-          width={220}
-          hasPopup="menu"
-          triggerClassName="rounded-u-control border border-u-border-strong bg-u-surface px-3 py-1.5 text-note font-medium text-u-text2 hover:text-u-text"
-          trigger={() => "Connect mailbox"}
-        >
+        <Popover align="right" width={220} hasPopup="menu" triggerClassName={NOT_CONNECTED_CHIP} trigger={() => <NotConnectedLabel />}>
           {(close) => (
             <div role="menu" className="flex flex-col p-1.5">
               {state.providers.map((provider) => (
@@ -55,12 +50,13 @@ export function MailboxChip({
                   key={provider}
                   type="button"
                   role="menuitem"
-                  className="rounded-u-control px-2.5 py-2 text-start text-body text-u-text2 hover:bg-u-raised hover:text-u-text"
+                  className="flex items-center gap-2.5 rounded-u-control px-2.5 py-2 text-start text-body text-u-text2 hover:bg-u-raised hover:text-u-text"
                   onClick={() => {
                     close();
                     connector.connect(provider);
                   }}
                 >
+                  <MailboxProviderMark provider={provider} />
                   Connect {providerLabel(provider)}
                 </button>
               ))}
@@ -81,6 +77,18 @@ export function MailboxChip({
         />
       );
   }
+}
+
+const NOT_CONNECTED_CHIP =
+  "inline-flex items-center gap-2 rounded-u-control border border-u-border px-2.5 py-1.5 text-note font-medium text-u-text2 hover:border-u-border-strong hover:text-u-text disabled:opacity-50";
+
+function NotConnectedLabel() {
+  return (
+    <>
+      <span aria-hidden="true" className="size-1.5 flex-none rounded-full border border-u-text3" />
+      Connect mailbox
+    </>
+  );
 }
 
 function ConnectedChip({

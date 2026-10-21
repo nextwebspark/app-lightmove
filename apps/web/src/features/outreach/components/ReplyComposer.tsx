@@ -10,6 +10,7 @@ import type { AttachmentLimits, Conversation } from "../api/conversationApi";
 import * as mailboxApi from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import { AttachButton, AttachmentChips } from "./ComposerAttachments";
+import { MailboxProviderMark } from "./MailboxProviderMark";
 import { attachmentProblemOf, type ComposerAttachment } from "../lib/composerAttachments";
 import { composerFootnoteOf } from "../lib/conversationVocabulary";
 import { canSendFrom, providerLabel, type MailboxState } from "../lib/mailboxState";
@@ -34,12 +35,18 @@ export function ReplyComposer({
   mailbox,
   connector,
   isArchived,
+  autoFocus = false,
+  onSent,
 }: {
   projectId: string;
   conversation: Conversation;
   mailbox: MailboxState;
   connector: MailboxConnect;
   isArchived: boolean;
+  /** Puts the caret where writing starts — the subject of a first email, the message of a reply. */
+  autoFocus?: boolean;
+  /** After an email is sent or scheduled. */
+  onSent?: () => void;
 }) {
   const { executive, contact, composer, currentRun, openTasks } = conversation;
   const firstName = firstNameOf(executive.fullName) ?? executive.fullName;
@@ -63,6 +70,8 @@ export function ReplyComposer({
       runningSequenceId={currentRun.run && isLive(currentRun.run) ? currentRun.run.sequenceId : null}
       nextStepIndex={currentRun.run ? currentRun.run.sentCount : null}
       attachmentLimits={composer.attachmentLimits}
+      autoFocus={autoFocus}
+      onSent={onSent}
     />
   );
 }
@@ -82,6 +91,8 @@ function OpenComposer({
   runningSequenceId,
   nextStepIndex,
   attachmentLimits,
+  autoFocus,
+  onSent,
 }: {
   projectId: string;
   candidateId: string;
@@ -97,6 +108,8 @@ function OpenComposer({
   runningSequenceId: string | null;
   nextStepIndex: number | null;
   attachmentLimits: AttachmentLimits;
+  autoFocus: boolean;
+  onSent?: () => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -132,6 +145,7 @@ function OpenComposer({
       toast(sendAt ? `Scheduled for ${whenLabelOf(new Date(scheduled.sendAt), timeZone)}.` : `Goes to ${firstName} within a minute.`);
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       void queryClient.invalidateQueries({ queryKey: mailboxApi.MAILBOX_KEY });
+      onSent?.();
     },
     onError: (error) => toast.error(messageFor(error)),
   });
@@ -203,6 +217,7 @@ function OpenComposer({
           ) : (
             <input
               aria-label="Subject"
+              autoFocus={autoFocus}
               value={subject}
               maxLength={200}
               onChange={(event) => setSubject(event.target.value)}
@@ -221,6 +236,7 @@ function OpenComposer({
             placeholder={`Write to ${firstName}…`}
             variant="field"
             expandTitle={isReply ? `Reply to ${firstName}` : `First email to ${firstName}`}
+            autoFocus={autoFocus && isReply}
           />
         </div>
       </div>
@@ -375,6 +391,7 @@ function LockedComposer({
               disabled={connector.connectingProvider !== null}
               onClick={() => connector.connect(provider)}
             >
+              <MailboxProviderMark provider={provider} size={13} />
               Connect {providerLabel(provider)}
             </Button>
           ))}

@@ -365,7 +365,8 @@ invalidates `["outreach"]`. Ship the enum and the TS union in the same PR (an un
   at a time (queue, or conversation when `?candidate=` is set, with a back control). Check `ProjectLayout` lets a
   child own the scroll (`min-h-0` chain) and add a full-bleed outlet option if it pads and scrolls.
 - **URL state** (`useSearchParams`, as `PipelinePage`): `?view=needs|all|scheduled|sent&who=mine|team&candidate=&q=`;
-  defaults `needs`, `mine`; `q` debounced 250 ms; the first row auto-selects and is written to the URL.
+  defaults `all`, `team` (revised after phase 4 — see its last bullet); `q` debounced 250 ms; where the list and the
+  conversation sit side by side (`lg`) the top row opens, written with `replace`; on a phone the list comes first.
 - **Components** (`features/outreach/components/`, API `features/outreach/api/conversationApi.ts`, keys
   `["outreach", projectId, "conversations", …]` / `["outreach", projectId, "conversation", candidateId]`):
   `OutreachTabs` (`TabList` + counts; right: `MailboxChip`, `NewOutreachMenu` — a `Popover`: "Add to sequence" →
@@ -509,6 +510,29 @@ person merge is built, message and attachment rows move with the enrollments.
    - Tests: `OutreachPage.test.tsx`, `SequencesPage.test.tsx`, `mailboxState.test.ts`,
      `conversationVocabulary.test.ts`; `e2e/spa/responsive.mjs` sweeps all three routes (its fixtures also gained
      the pipeline, catalog and My tasks reads every project page now makes).
+   - **Revised after use (2026-10-21), an agreed deviation from `Outreach.dc.html`**: the page lands on everyone in
+     conversation on the position (`view=all`, `who=team`), newest first, and opens the top one where the list and the
+     conversation sit side by side — never off a read still in flight, so a filter change opens the top of its own
+     list and a handled to-do is never reopened — while a phone gets the list first. A filter with nobody in it says
+     so on the right with the way back ("All caught up" · Show all conversations; a search: Clear search). The four
+     tabs became chips in the list pane (`ConversationListPane`: All · **To do** · Scheduled · Sent, Team | Mine beside
+     the heading); To do keeps the groups, relabelled Needs reply · Follow-ups · Before first email · Delivery
+     problems. A chip or scope change moves to the top of that list; Mark handled moves on only in To do. The header
+     (`OutreachHeader`) is Conversations | Sequences, the mailbox chip and the view's one action — **New email** on Conversations (a To
+     field over the pipeline read: the five newest before anything is typed, eight matches after, so a position of
+     hundreds is narrowed by typing; the pick opens with the caret in the composer) and **New sequence** on
+     Sequences — the New outreach menu, the Priority label, the "{n} open" count and the scheduled footer are gone,
+     and `/outreach/sequences` and the sequence editor under it share the frame, so writing a sequence keeps the
+     header. A person is added to a sequence from Add to a sequence in their
+     details; the executive drawer offers **Write email** beside Add to sequence (`CandidateOutreachButtons`), the
+     same composer in a dialog (`EmailComposerDialog`). With no mailbox the right side is
+     `MailboxSetupCard` (one line, a brand-marked button per provider; with nobody to open) and the chip reads
+     "Connect mailbox", its menu no longer carrying the time zone, which is the person's own in Settings → Profile; the
+     banner keeps only an existing connection's strips. While the mailbox cannot send (none, or withdrawn), New
+     email, Write email and Add to sequence are drawn quiet and dashed, say "Connect your mailbox first" on hover,
+     and a click offers the connection (`ConnectFirstButton`) rather than doing nothing; Add to a sequence in the
+     details is not offered at all, the locked composer below it offering the connection. All also counts someone whose only line is an own email
+     still to go, and Mine counts its sender.
 5. **Attachments — built.** What shipped, where it differs:
    - V147 `app_lm_outreach_message_attachment` (`OutreachMessageAttachment`): one row per file in the order attached,
      the name, the type its bytes were read as, size, `sha256`, the bucket's `storage_key`, and `source`

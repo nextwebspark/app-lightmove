@@ -4,69 +4,84 @@ import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import type { ConversationList, ConversationRow, ConversationScope, ConversationView } from "../api/conversationApi";
 import { QUEUE_GROUPS, queueTimeOf, TONE_DOT, toneOfGroup } from "../lib/conversationVocabulary";
-import { sendTimeOf } from "../lib/runVocabulary";
 
 const SCOPES = [
-  { value: "mine", label: "Mine" },
   { value: "team", label: "Team" },
+  { value: "mine", label: "Mine" },
 ] as const;
 
+const FILTERS: readonly { view: ConversationView; label: string }[] = [
+  { view: "all", label: "All" },
+  { view: "needs", label: "To do" },
+  { view: "scheduled", label: "Scheduled" },
+  { view: "sent", label: "Sent" },
+];
+
 /**
- * The Outreach page's left pane (`Outreach.dc.html`): who needs something, grouped on Needs action — a reply to
- * write, a follow-up, preparation, a delivery problem — and listed by time on the other tabs, Mine or Team, with a
- * search over names and what was sent.
+ * The Outreach page's left pane: everyone on the position the team is in conversation with, newest first, narrowed
+ * to what is to do — grouped by what it is — scheduled or sent, Team or Mine, with a search over names and emails.
  */
-export function ActionQueue({
+export function ConversationListPane({
   view,
   who,
   query,
   list,
   selectedCandidateId,
+  onViewChange,
   onQueryChange,
   onWhoChange,
   onSelect,
-  onShowScheduled,
 }: {
   view: ConversationView;
   who: ConversationScope;
   query: string;
   list: { data?: ConversationList; isError: boolean; isPending: boolean; error: unknown };
   selectedCandidateId: string | null;
+  onViewChange: (view: ConversationView) => void;
   onQueryChange: (query: string) => void;
   onWhoChange: (who: ConversationScope) => void;
   onSelect: (candidateId: string) => void;
-  onShowScheduled: () => void;
 }) {
   const rows = list.data?.rows ?? [];
   return (
-    <section aria-label="Action queue" className="flex min-h-0 flex-col bg-u-bg">
-      <div className="flex items-baseline px-4 pt-3.5">
-        <h2 className="text-body font-semibold text-u-text">Action queue</h2>
-        {list.data && view === "needs" && (
-          <span className="ms-auto font-mono text-meta text-u-text3">{list.data.counts.needs} open</span>
-        )}
+    <section aria-label="Conversations" className="flex min-h-0 flex-1 flex-col bg-u-bg">
+      <div className="flex items-center gap-2 px-4 pt-3">
+        <h2 className="text-body font-semibold text-u-text">Conversations</h2>
+        <SegmentedControl label="Whose" options={SCOPES} value={who} onChange={onWhoChange} className="ms-auto" />
       </div>
-      <div className="flex flex-col gap-2 px-4 pb-3 pt-2.5">
+      <div className="flex flex-col gap-2.5 px-4 pb-3 pt-2.5">
         <label className="flex items-center gap-2 rounded-u-control border border-u-border bg-u-surface px-2.5 py-1.5">
           <Icon d={ICONS.search} size={13} className="flex-none text-u-text3" />
           <input
             type="search"
-            aria-label="Search people or messages"
-            placeholder="Search people or messages…"
+            aria-label="Search people or emails"
+            placeholder="Search people or emails…"
             value={query}
             maxLength={100}
             onChange={(event) => onQueryChange(event.target.value)}
             className="min-w-0 flex-1 bg-transparent text-note text-u-text outline-none placeholder:text-u-text3"
           />
         </label>
-        <div className="flex items-center gap-2">
-          <SegmentedControl label="Whose" options={SCOPES} value={who} onChange={onWhoChange} />
-          {view === "needs" && (
-            <span className="ms-auto inline-flex items-center gap-1 text-meta text-u-text3">
-              <Icon d={ICONS.filter} size={12} />
-              Priority
-            </span>
-          )}
+        <div role="group" aria-label="Show" className="flex flex-wrap gap-1.5">
+          {FILTERS.map((filter) => {
+            const isOn = filter.view === view;
+            const count = countOf(filter.view, list.data);
+            return (
+              <button
+                key={filter.view}
+                type="button"
+                aria-pressed={isOn}
+                onClick={() => onViewChange(filter.view)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-note font-medium transition",
+                  isOn ? "border-u-accent bg-u-accent-tint text-u-text" : "border-u-border text-u-text2 hover:text-u-text",
+                )}
+              >
+                {filter.label}
+                {count > 0 && <span className="font-mono text-meta text-u-text3">{count}</span>}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -104,21 +119,6 @@ export function ActionQueue({
           <p className="px-4 py-3 text-meta text-u-text3">Only the first 500 are listed. Search to narrow them.</p>
         )}
       </div>
-
-      {list.data && list.data.counts.scheduled > 0 && (
-        <button
-          type="button"
-          onClick={onShowScheduled}
-          className="flex items-center gap-2 border-t border-u-border px-4 py-2.5 text-start text-meta text-u-text3 hover:text-u-text2"
-        >
-          <Icon d={ICONS.clock} size={12} />
-          <span className="min-w-0 flex-1 truncate">
-            {list.data.counts.scheduled} scheduled
-            {list.data.nextScheduledAt && <> · {sendTimeOf(list.data.nextScheduledAt)}</>}
-          </span>
-          <Icon d={ICONS.arrowRight} size={12} />
-        </button>
-      )}
     </section>
   );
 }
@@ -187,16 +187,23 @@ function QueueRow({
   );
 }
 
+function countOf(view: ConversationView, data: ConversationList | undefined): number {
+  if (!data) return 0;
+  if (view === "needs") return data.counts.needs;
+  if (view === "scheduled") return data.counts.scheduled;
+  return 0;
+}
+
 function emptyLineOf(view: ConversationView, query: string): string {
-  if (query.trim()) return "Nothing matches that search.";
+  if (query.trim()) return "No matches.";
   switch (view) {
-    case "needs":
-      return "Nothing needs you right now.";
     case "all":
-      return "No conversations on this position yet. Start one from New outreach.";
+      return "No conversations yet.";
+    case "needs":
+      return "Nothing to do.";
     case "scheduled":
-      return "Nothing is scheduled.";
+      return "Nothing scheduled.";
     case "sent":
-      return "Nothing has been sent from this position yet.";
+      return "Nothing sent yet.";
   }
 }

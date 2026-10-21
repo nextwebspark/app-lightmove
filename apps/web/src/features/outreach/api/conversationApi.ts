@@ -60,7 +60,7 @@ export interface ConversationRow {
   status: string;
   statusLabel: string;
   statusColour: string;
-  /** Null outside Needs action, or with nothing open. */
+  /** Null with nothing to do for them. */
   group: ConversationGroup | null;
   action: ConversationTask | null;
   run: OutreachRun | null;
