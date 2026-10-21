@@ -4,6 +4,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MessageDirection;
 import app.lightmove.api.outreach.constant.MessageKind;
+import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
@@ -281,9 +282,9 @@ public class OutreachInboxService {
                         .map(OutreachThread::of);
         thread.ifPresent(bounced -> {
             Instant lastSent = messages
-                    .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByCreatedAtDesc(
+                    .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndStatusOrderByCreatedAtDesc(
                             bounced.workspaceId(), bounced.senderUserId(), bounced.threadId(),
-                            MessageDirection.OUTBOUND)
+                            MessageDirection.OUTBOUND, MessageStatus.SENT)
                     .map(OutreachMessage::getCreatedAt).orElse(null);
             boolean reported = messages
                     .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindOrderByCreatedAtDesc(
@@ -305,8 +306,9 @@ public class OutreachInboxService {
      */
     private Optional<OutreachThread> threadOf(MailboxConnection mailbox, String threadId) {
         Optional<OutreachThread> thread = messages
-                .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByOccurredAtDesc(
-                        mailbox.getWorkspaceId(), mailbox.getUserId(), threadId, MessageDirection.OUTBOUND)
+                .findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndStatusOrderByOccurredAtDesc(
+                        mailbox.getWorkspaceId(), mailbox.getUserId(), threadId, MessageDirection.OUTBOUND,
+                        MessageStatus.SENT)
                 .map(OutreachThread::of);
         if (thread.isEmpty()) {
             thread = enrollments.findByWorkspaceIdAndSenderUserIdAndThreadId(mailbox.getWorkspaceId(),

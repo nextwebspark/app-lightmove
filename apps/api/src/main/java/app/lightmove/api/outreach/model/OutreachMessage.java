@@ -192,8 +192,10 @@ public class OutreachMessage extends BaseEntity {
         return status == MessageStatus.SCHEDULED;
     }
 
+    /** It went — even after another dispatcher gave its claim up as uncertain, which is then no longer true. */
     public void markSent(SentEmail sent, MailboxGatewayKind gateway, Instant now) {
         status = MessageStatus.SENT;
+        failReason = null;
         providerMessageId = sent.messageId();
         threadId = threadId != null ? threadId : sent.threadId();
         threadGateway = gateway;
@@ -224,6 +226,11 @@ public class OutreachMessage extends BaseEntity {
 
     public void releaseClaim() {
         sendingSince = null;
+    }
+
+    /** A first email goes from the mailbox as it is when it goes: a reconnect may have moved it to another address. */
+    public void sendFrom(String address) {
+        fromAddress = address;
     }
 
     /**

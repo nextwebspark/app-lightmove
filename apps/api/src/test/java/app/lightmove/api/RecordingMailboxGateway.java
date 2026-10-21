@@ -42,6 +42,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final List<String> redeemedCodes = new CopyOnWriteArrayList<>();
     private volatile GrantedMailbox granted = new GrantedMailbox("grant-1", "consultant@firm.example", "google");
     private volatile RuntimeException sendFailure;
+    private volatile Runnable whileSending;
     private volatile boolean offered = true;
     private final AtomicInteger sequence = new AtomicInteger();
     private final Map<String, String> threadOfMessage = new ConcurrentHashMap<>();
@@ -88,6 +89,11 @@ public class RecordingMailboxGateway implements MailboxGateway {
 
     @Override
     public SentEmail send(String grantId, OutgoingEmail email) {
+        Runnable hook = whileSending;
+        whileSending = null;
+        if (hook != null) {
+            hook.run();
+        }
         if (sendFailure != null) {
             throw sendFailure;
         }
@@ -251,6 +257,11 @@ public class RecordingMailboxGateway implements MailboxGateway {
         this.granted = mailbox;
     }
 
+    /** Runs once, inside the next send: what another instance does while the mail service is being asked. */
+    public void whileSending(Runnable hook) {
+        this.whileSending = hook;
+    }
+
     public void failSendsWith(RuntimeException failure) {
         this.sendFailure = failure;
     }
@@ -277,6 +288,7 @@ public class RecordingMailboxGateway implements MailboxGateway {
         redeemedCodes.clear();
         granted = new GrantedMailbox("grant-1", "consultant@firm.example", "google");
         sendFailure = null;
+        whileSending = null;
         offered = true;
         threadOfMessage.clear();
         threadWriters.clear();

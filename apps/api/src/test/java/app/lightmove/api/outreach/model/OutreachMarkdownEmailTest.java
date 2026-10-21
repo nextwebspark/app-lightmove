@@ -59,6 +59,16 @@ class OutreachMarkdownEmailTest {
     }
 
     @Test
+    @DisplayName("a name's own punctuation is left as typed, so the email's text still reads and searches as the name")
+    void aNamesPunctuationStays() {
+        SequenceTokens tokens = new SequenceTokens("D'Arcy", "Vice-President, Finance", "Al-Futtaim & Sons, Ltd.",
+                "Group CFO", "Dubai", "Yara", null, "");
+
+        assertThat(tokens.renderMarkdown("{{firstName}}, {{currentTitle}} at {{currentCompany}}"))
+                .isEqualTo("D'Arcy, Vice-President, Finance at Al-Futtaim & Sons, Ltd.");
+    }
+
+    @Test
     @DisplayName("the booking link, wrapped as an autolink, is an anchor")
     void theBookingLinkIsAnAnchor() {
         assertThat(OutreachMarkdownEmail.htmlOf("Pick a time: <https://beta.uncava.com/book/yara-1a2b3c4d>"))

@@ -183,6 +183,6 @@ public class OutreachMessageService {
                 .map(RecipientEmail::address)
                 .filter(address -> address.equalsIgnoreCase(requested.strip()))
                 .findFirst();
-        return held.orElseThrow(() -> ApiException.of(ErrorCode.OUTREACH_ADDRESS_NOT_ON_RECORD));
+        return held.orElseThrow(() -> ApiException.of(ErrorCode.OUTREACH_ADDRESS_NOT_ON_FILE));
     }
 }

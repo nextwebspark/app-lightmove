@@ -132,7 +132,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | ☐ Import template headers | — | not defused | — |
 | Sequence steps | ≤ 3 | 1–3, delays, window ordering | field |
 | ☐ Sequence subject | — | CR/LF accepted | fails at send |
-| Own email: to | — (phase 4's composer) | ≤ 320; on the person's record (`OUTREACH_ADDRESS_NOT_ON_RECORD`), not do not contact (`OUTREACH_DO_NOT_CONTACT`) | sentence |
+| Own email: to | — (phase 4's composer) | ≤ 320; on the person's record (`OUTREACH_ADDRESS_NOT_ON_FILE`), not do not contact (`OUTREACH_DO_NOT_CONTACT`) | sentence |
 | Own email: subject | — | required for a first email, ≤ 200, one line; a reply keeps its thread's | field |
 | Own email: body | — | 1–10,000, Markdown; raw HTML sent as text, links http/https/mailto | field |
 | Own email: send at | — | ahead of now, ≤ 60 days; none is now, refused at the day's cap (`OUTREACH_DAILY_CAP_REACHED`) | field / sentence |

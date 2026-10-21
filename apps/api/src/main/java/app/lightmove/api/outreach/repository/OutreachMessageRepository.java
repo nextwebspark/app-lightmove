@@ -29,15 +29,19 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
                                                                               String providerMessageId,
                                                                               MessageDirection direction);
 
-    /** The latest email a mailbox sent into a thread: whose conversation the thread is. */
-    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByOccurredAtDesc(
-            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction);
+    /**
+     * The latest email a mailbox sent into a thread: whose conversation the thread is. Asked by status — a line
+     * still waiting carries the thread it will answer and a time ahead, and would take the thread from its run.
+     */
+    Optional<OutreachMessage>
+            findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndStatusOrderByOccurredAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction, MessageStatus status);
 
     Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndKindOrderByCreatedAtDesc(
             UUID workspaceId, UUID senderUserId, String threadId, MessageKind kind);
 
-    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionOrderByCreatedAtDesc(
-            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction);
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndSenderUserIdAndThreadIdAndDirectionAndStatusOrderByCreatedAtDesc(
+            UUID workspaceId, UUID senderUserId, String threadId, MessageDirection direction, MessageStatus status);
 
     /** The thread a consultant last emailed an executive in on a position: where a reply from the composer goes. */
     Optional<OutreachMessage>

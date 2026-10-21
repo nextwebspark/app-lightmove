@@ -17,8 +17,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * An archived position sends nothing more: every scheduled or active run on it stops, each with the timeline line
- * and audit event a consultant's Stop writes, and every email a consultant scheduled there is cancelled, in the
- * transaction that archives it. Restoring starts and schedules none again.
+ * and audit event a consultant's Stop writes, and every email a consultant scheduled there and the dispatcher has not
+ * yet taken is cancelled, in the transaction that archives it. Restoring starts and schedules none again.
  */
 @Component
 @RequiredArgsConstructor
@@ -36,7 +36,10 @@ class PositionArchiveOutreach {
         enrollments.findByProjectIdAndStatusIn(archived.projectId(), EnrollmentStatus.LIVE)
                 .forEach(enrollment -> outcomes.stop(enrollment, OutreachStopReason.POSITION_ARCHIVED,
                         archived.actorUserId(), now, null));
-        messages.findByProjectIdAndStatus(archived.projectId(), MessageStatus.SCHEDULED)
+        // One already taken is on its way, as a consultant's own Cancel finds it; should it be put back unsent,
+        // its next dispatch fails it as archived.
+        messages.findByProjectIdAndStatus(archived.projectId(), MessageStatus.SCHEDULED).stream()
+                .filter(message -> message.getSendingSince() == null)
                 .forEach(OutreachMessage::cancel);
     }
 }

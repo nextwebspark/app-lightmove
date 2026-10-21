@@ -38,5 +38,8 @@ public enum OutreachStopReason {
     SEND_UNCERTAIN,
 
     /** The position was archived; restoring it does not start the run again. */
-    POSITION_ARCHIVED
+    POSITION_ARCHIVED,
+
+    /** A consultant's own email waited past their access to the position: a seat or a membership that went. */
+    SENDER_WITHOUT_ACCESS
 }

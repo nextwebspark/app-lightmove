@@ -8,6 +8,8 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
@@ -58,6 +60,7 @@ public class OutreachMessageSendService {
     private final CandidateOutreachService people;
     private final OutreachOutcomes outcomes;
     private final ProjectRepository projects;
+    private final ProjectAccess access;
     private final MailboxGateway gateway;
     private final TransactionTemplate transactions;
     private final AuditService audit;
@@ -114,7 +117,7 @@ public class OutreachMessageSendService {
         } catch (RuntimeException failed) {
             log.error("Outreach message {} was sent but could not be recorded; marking it sent so it never goes "
                     + "again", prepared.messageId(), failed);
-            claims.recordDelivered(prepared.messageId(), sent, now);
+            claims.recordDelivered(prepared.messageId(), sent, MailboxGatewayKind.ofGrant(prepared.grantId()), now);
         }
     }
 
@@ -135,9 +138,16 @@ public class OutreachMessageSendService {
             failed(message, OutreachStopReason.MAILBOX_INACTIVE, now);
             return null;
         }
-        if (message.getThreadGateway() != null && message.getThreadGateway() != mailbox.getGateway()) {
-            // The thread it answers was made by another gateway, which this mailbox can no longer write into.
+        if (message.getThreadId() != null && (message.getThreadGateway() != mailbox.getGateway()
+                || !mailbox.getAddress().equalsIgnoreCase(message.getFromAddress()))) {
+            // The thread it answers was written from another gateway or address, which this mailbox cannot write
+            // into, nor read a reply from.
             failed(message, OutreachStopReason.MAILBOX_MOVED, now);
+            return null;
+        }
+        if (!access.allows(message.getSenderUserId(), message.getWorkspaceId(), message.getProjectId(),
+                ProjectAction.WORK_EXECUTE)) {
+            failed(message, OutreachStopReason.SENDER_WITHOUT_ACCESS, now);
             return null;
         }
         Optional<OutreachRecipient> recipient = message.getCandidateId() == null ? Optional.empty()
@@ -157,6 +167,7 @@ public class OutreachMessageSendService {
                     .toInstant());
             return null;
         }
+        message.sendFrom(mailbox.getAddress());
         return new PreparedOwnSend(message.getId(), mailbox.getGrantId(), new OutgoingEmail(message.getToAddress(),
                 message.getSubject(), message.getBody(), message.getInReplyTo()));
     }

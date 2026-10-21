@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +50,7 @@ public class OutreachDispatcher {
 
     /** One pass. The timer calls it with the clock; tests call it with the moment they arranged. */
     public void dispatchAt(Instant now) {
+        Instant started = clock.instant();
         sends.stopUncertainClaims(now);
         List<UUID> claimed = sends.claimDue(now);
         for (UUID enrollmentId : claimed) {
@@ -58,8 +60,21 @@ public class OutreachDispatcher {
                 log.error("Outreach dispatch of enrollment {} failed", enrollmentId, failed);
             }
         }
-        ownSends.failUncertainClaims(now);
-        for (UUID messageId : ownSends.claimDue(now)) {
+        // Moved on by the time the sequences' sends took: a claim stamped with the pass's start would read to every
+        // other instance as already that old, and be failed as uncertain while its email was still going.
+        dispatchOwnEmailsAt(now.plus(Duration.between(started, clock.instant())));
+    }
+
+    private void dispatchOwnEmailsAt(Instant now) {
+        List<UUID> claimed;
+        try {
+            ownSends.failUncertainClaims(now);
+            claimed = ownSends.claimDue(now);
+        } catch (RuntimeException failed) {
+            log.error("Outreach dispatch of consultants' own emails failed", failed);
+            return;
+        }
+        for (UUID messageId : claimed) {
             try {
                 ownSends.sendClaimed(messageId, now);
             } catch (RuntimeException failed) {

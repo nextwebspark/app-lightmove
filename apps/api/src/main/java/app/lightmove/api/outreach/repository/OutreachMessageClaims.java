@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.repository;
 
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.SentEmail;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -36,8 +37,9 @@ public class OutreachMessageClaims {
 
     private static final String RECORD_DELIVERED = """
             UPDATE app_lm_outreach_message
-               SET status = 'SENT', provider_message_id = ?, thread_id = coalesce(thread_id, ?), sent_at = ?,
-                   occurred_at = ?, sending_since = NULL, version = version + 1
+               SET status = 'SENT', fail_reason = NULL, provider_message_id = ?, thread_id = coalesce(thread_id, ?),
+                   thread_gateway = coalesce(thread_gateway, ?), sent_at = ?, occurred_at = ?, sending_since = NULL,
+                   version = version + 1
              WHERE id = ?
             """;
 
@@ -51,11 +53,12 @@ public class OutreachMessageClaims {
 
     /**
      * The last resort for an email that went but could not be recorded: it is marked sent with its ids, so it is
-     * never sent again, it counts against the cap, and a reply is still matched to it.
+     * never sent again, it counts against the cap, and a reply is still matched to it — a claim another dispatcher
+     * failed as uncertain included.
      */
     @Transactional
-    public void recordDelivered(UUID messageId, SentEmail sent, Instant now) {
+    public void recordDelivered(UUID messageId, SentEmail sent, MailboxGatewayKind gateway, Instant now) {
         Timestamp at = Timestamp.from(now);
-        jdbc.update(RECORD_DELIVERED, sent.messageId(), sent.threadId(), at, at, messageId);
+        jdbc.update(RECORD_DELIVERED, sent.messageId(), sent.threadId(), gateway.name(), at, at, messageId);
     }
 }

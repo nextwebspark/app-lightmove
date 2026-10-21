@@ -14,10 +14,15 @@ import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.OutgoingEmail;
+import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.repository.OutreachMessageClaims;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import app.lightmove.api.outreach.service.OutreachInboxService;
+import app.lightmove.api.outreach.service.OutreachMessageSendService;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
 import java.sql.Timestamp;
@@ -52,7 +57,11 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     @Autowired private OutreachInboxService inbox;
     @Autowired private JdbcTemplate jdbc;
 
+    @Autowired private OutreachMessageSendService ownSends;
+    @Autowired private OutreachMessageClaims claims;
+
     private String consultant;
+    private String clientId;
     private String projectId;
     private String priya;
     private String priyaAddress;
@@ -69,14 +78,14 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         // Its own name: the suite shares one database, and a name runs out of free slugs after 99 workspaces.
         createWorkspace(verifiedUser("Yara Haddad", consultantEmail), "Own Email Partners");
         consultant = login(consultantEmail);
-        String clientId = body(as(consultant, post("/api/v1/clients").contentType(MediaType.APPLICATION_JSON)
+        clientId = body(as(consultant, post("/api/v1/clients").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"customName\":\"Acme Holdings\"}")).andExpect(status().isCreated()).andReturn())
                 .get("id").asText();
         projectId = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group CFO\"}".formatted(clientId)))
                 .andExpect(status().isCreated()).andReturn()).get("id").asText();
         gateway.grant(new GrantedMailbox("grant-" + domain, MAILBOX, "google"));
-        connectMailbox();
+        connectMailbox(consultant);
         priyaAddress = "priya@" + domain;
         priya = executive("Priya Raman", priyaAddress);
     }
@@ -194,11 +203,11 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
 
     @Test
     @DisplayName("what the composer refuses: do not contact, an address off the record, a reply with no thread, "
-            + "a first email with no subject, a client seat")
+            + "a first email with no subject")
     void theComposerRefuses() throws Exception {
-        sendExpecting(status().isConflict(), """
+        sendExpecting(status().isBadRequest(), """
                 {"toAddress":"someone@else.example","subject":"Hi","replyInThread":false,"body":"Hello"}""")
-                .andExpect(jsonPath("$.code").value("OUTREACH_ADDRESS_NOT_ON_RECORD"));
+                .andExpect(jsonPath("$.code").value("OUTREACH_ADDRESS_NOT_ON_FILE"));
         sendExpecting(status().isConflict(), """
                 {"toAddress":"%s","replyInThread":true,"body":"Hello"}""".formatted(priyaAddress))
                 .andExpect(jsonPath("$.code").value("OUTREACH_THREAD_UNAVAILABLE"));
@@ -256,6 +265,161 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         assertThat(line(id)).containsEntry("status", "CANCELLED");
     }
 
+    @Test
+    @DisplayName("an email waiting to go into a sequence's thread leaves the thread to the run: a reply still ends it")
+    void aWaitingEmailLeavesTheThreadToItsRun() throws Exception {
+        start(createSequence(), priyaAddress);
+        dispatcher.dispatchAt(nextMondayTen());
+        String thread = (String) enrollment().get("thread_id");
+        send("""
+                {"toAddress":"%s","replyInThread":true,"body":"Thursday?","sendAt":"%s"}"""
+                .formatted(priyaAddress, Instant.now().plus(Duration.ofDays(30))));
+
+        gateway.deliverNext(List.of(new InboundMessage("grant-" + domain, thread, priyaAddress, "their-reply-1",
+                Instant.now(), "<p>Happy to talk.</p>")));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+
+        assertThat(enrollment().get("status")).isEqualTo("REPLIED");
+    }
+
+    @Test
+    @DisplayName("once the dispatcher has taken an email it can no longer be cancelled")
+    void aClaimedEmailCannotBeCancelled() throws Exception {
+        String id = send("""
+                {"toAddress":"%s","subject":"Later","replyInThread":false,"body":"Hello","sendAt":"%s"}"""
+                .formatted(priyaAddress, Instant.now().plus(Duration.ofHours(2)))).get("id").asText();
+        jdbc.update("update app_lm_outreach_message set sending_since = now(), version = version + 1 "
+                + "where id = ?::uuid", id);
+
+        as(consultant, delete(outreach("/messages/" + id))).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OUTREACH_MESSAGE_NOT_SCHEDULED"));
+        assertThat(line(id)).containsEntry("status", "SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("only its sender cancels an email, only on its own position; a client seat writes none")
+    void onlyTheSenderTouchesIt() throws Exception {
+        String id = send("""
+                {"toAddress":"%s","subject":"Later","replyInThread":false,"body":"Hello","sendAt":"%s"}"""
+                .formatted(priyaAddress, Instant.now().plus(Duration.ofHours(2)))).get("id").asText();
+
+        inviteAndAccept(consultant, "Omar Khalil", "omar@" + domain, "ADMIN");
+        String colleague = login("omar@" + domain);
+        as(colleague, delete(outreach("/messages/" + id))).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("OUTREACH_MESSAGE_NOT_YOURS"));
+
+        String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group Treasurer\"}".formatted(clientId)))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        as(consultant, delete("/api/v1/projects/" + otherProject + "/outreach/messages/" + id))
+                .andExpect(status().isNotFound());
+        as(consultant, post("/api/v1/projects/" + otherProject + "/outreach/conversations/" + priya + "/messages")
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}"""
+                        .formatted(priyaAddress)))
+                .andExpect(status().isNotFound());
+
+        String client = clientSeat();
+        as(client, post(outreach("/conversations/" + priya + "/messages")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}"""
+                        .formatted(priyaAddress)))
+                .andExpect(status().isForbidden());
+        as(client, delete(outreach("/messages/" + id))).andExpect(status().isForbidden());
+        assertThat(line(id)).containsEntry("status", "SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("an email another dispatcher gave up as uncertain, which went after all, is recorded as sent")
+    void anEmailFailedAsUncertainThatWentIsSent() throws Exception {
+        String id = send("""
+                {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress))
+                .get("id").asText();
+        Instant now = Instant.now().plusSeconds(5);
+        gateway.whileSending(() -> ownSends.failUncertainClaims(now.plus(Duration.ofMinutes(11))));
+
+        dispatcher.dispatchAt(now);
+
+        assertThat(gateway.sent()).hasSize(1);
+        Map<String, Object> line = line(id);
+        assertThat(line).containsEntry("status", "SENT").containsEntry("fail_reason", null);
+        assertThat(line.get("sent_at")).isNotNull();
+        assertThat(line.get("thread_id")).isNotNull();
+        assertThat(candidateStatus()).isEqualTo("contacted");
+    }
+
+    @Test
+    @DisplayName("the last-resort record of a delivered email holds even over a line already failed")
+    void theLastResortRecordHolds() throws Exception {
+        String id = send("""
+                {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello","sendAt":"%s"}"""
+                .formatted(priyaAddress, Instant.now().plus(Duration.ofHours(2)))).get("id").asText();
+        jdbc.update("update app_lm_outreach_message set status = 'FAILED', fail_reason = 'SEND_UNCERTAIN' "
+                + "where id = ?::uuid", id);
+
+        claims.recordDelivered(java.util.UUID.fromString(id), new SentEmail("delivered-1", "thread-delivered-1"),
+                MailboxGatewayKind.NYLAS, Instant.now());
+
+        assertThat(line(id)).containsEntry("status", "SENT").containsEntry("fail_reason", null)
+                .containsEntry("provider_message_id", "delivered-1")
+                .containsEntry("thread_id", "thread-delivered-1").containsEntry("thread_gateway", "NYLAS");
+    }
+
+    @Test
+    @DisplayName("an email whose sender has left the position since fails unsent")
+    void aSenderWhoLeftSendsNothing() throws Exception {
+        String saraEmail = "sara@" + domain;
+        inviteAndAccept(consultant, "Sara Nasser", saraEmail, "MEMBER");
+        String memberId = memberIdOf(consultant, saraEmail);
+        as(consultant, put("/api/v1/projects/" + projectId + "/members/" + memberId)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"RESEARCHER\"}"))
+                .andExpect(status().isOk());
+        String sara = login(saraEmail);
+        gateway.grant(new GrantedMailbox("grant-sara-" + domain, "sara@firm.example", "google"));
+        connectMailbox(sara);
+        Instant later = Instant.now().plus(Duration.ofHours(2));
+        String id = body(as(sara, post(outreach("/conversations/" + priya + "/messages"))
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello","sendAt":"%s"}"""
+                        .formatted(priyaAddress, later)))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+
+        as(consultant, delete("/api/v1/projects/" + projectId + "/members/" + memberId))
+                .andExpect(status().isOk());
+        dispatcher.dispatchAt(later.plusSeconds(60));
+
+        assertThat(gateway.sent()).isEmpty();
+        assertThat(line(id)).containsEntry("status", "FAILED").containsEntry("fail_reason", "SENDER_WITHOUT_ACCESS");
+    }
+
+    @Test
+    @DisplayName("after a reconnect at another address a reply waiting for its thread fails, a first email goes "
+            + "from the new address")
+    void aReconnectElsewhereMovesOnlyTheThread() throws Exception {
+        send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello"}"""
+                .formatted(priyaAddress));
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
+        Instant later = Instant.now().plus(Duration.ofHours(2));
+        String reply = send("""
+                {"toAddress":"%s","replyInThread":true,"body":"Thursday?","sendAt":"%s"}"""
+                .formatted(priyaAddress, later)).get("id").asText();
+        String first = send("""
+                {"toAddress":"%s","subject":"Another","replyInThread":false,"body":"Hello","sendAt":"%s"}"""
+                .formatted(priyaAddress, later)).get("id").asText();
+
+        gateway.grant(new GrantedMailbox("grant-moved-" + domain, "yara.haddad@firm.example", "google"));
+        connectMailbox(consultant);
+        dispatcher.dispatchAt(later.plusSeconds(60));
+
+        assertThat(line(reply)).containsEntry("status", "FAILED").containsEntry("fail_reason", "MAILBOX_MOVED");
+        assertThat(line(first)).containsEntry("status", "SENT")
+                .containsEntry("from_address", "yara.haddad@firm.example");
+    }
+
     private JsonNode send(String json) throws Exception {
         return body(sendExpecting(status().isCreated(), json).andReturn());
     }
@@ -264,6 +428,23 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
             throws Exception {
         return as(consultant, post(outreach("/conversations/" + priya + "/messages"))
                 .contentType(MediaType.APPLICATION_JSON).content(json)).andExpect(expected);
+    }
+
+    private String clientSeat() throws Exception {
+        String clientEmail = "client@own-email-client-" + domain;
+        as(consultant, post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"fullName":"A Client","position":"Chair","email":"%s"}
+                        """.formatted(clientEmail)))
+                .andExpect(status().isOk());
+        return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"A Client","password":"%s"}
+                                """.formatted(email.latestTokenFor(clientEmail), PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
     }
 
     private void markDoNotContact() throws Exception {
@@ -345,8 +526,8 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                 .andReturn()).get("id").asText();
     }
 
-    private void connectMailbox() throws Exception {
-        MvcResult started = as(consultant, post("/api/v1/outreach/mailbox/connect")
+    private void connectMailbox(String token) throws Exception {
+        MvcResult started = as(token, post("/api/v1/outreach/mailbox/connect")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"provider\":\"google\"}"))
                 .andExpect(status().isOk())
                 .andReturn();

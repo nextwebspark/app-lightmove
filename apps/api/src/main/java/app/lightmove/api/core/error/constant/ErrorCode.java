@@ -409,9 +409,6 @@ public enum ErrorCode {
     /** Send now is refused at the day's cap; a scheduled email waits for the next day instead. */
     OUTREACH_DAILY_CAP_REACHED(HttpStatus.CONFLICT, "You have sent today's emails. Schedule this one for tomorrow"),
 
-    /** An email goes only to an address on the person's record, as a sequence's does. */
-    OUTREACH_ADDRESS_NOT_ON_RECORD(HttpStatus.CONFLICT, "That address is not on this person's record"),
-
     OUTREACH_DO_NOT_CONTACT(HttpStatus.CONFLICT, "This person is marked do not contact"),
 
     /** A reply needs a thread the caller's mailbox started and can still read; a first email needs none. */

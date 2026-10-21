@@ -8,6 +8,8 @@ import app.lightmove.api.candidate.service.NextActionLookup;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
 import app.lightmove.api.candidate.service.PositionPipelineService;
+import app.lightmove.api.common.constant.NoteFormat;
+import app.lightmove.api.common.note.NoteText;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -16,6 +18,7 @@ import app.lightmove.api.outreach.constant.ConversationGroup;
 import app.lightmove.api.outreach.constant.ConversationScope;
 import app.lightmove.api.outreach.constant.ConversationView;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MessageBodyFormat;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.dto.CandidateOutreachResponse;
@@ -282,7 +285,10 @@ public class ConversationService {
     }
 
     private static String previewOf(OutreachMessage message) {
-        String text = message.getBodyText() == null ? message.getSubject() : message.getBodyText();
+        String text = message.getBodyText() == null ? message.getSubject()
+                : message.getBodyFormat() == MessageBodyFormat.MARKDOWN
+                        ? NoteText.plainTextOf(message.getBodyText(), NoteFormat.MARKDOWN)
+                        : message.getBodyText();
         if (text == null) {
             return null;
         }

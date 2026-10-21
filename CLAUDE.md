@@ -614,11 +614,13 @@ which the first matching message a read finds — received before it was noticed
 the person in — through `POST …/outreach/conversations/{candidateId}/messages` (Markdown, tokens, now or `sendAt` ≤ 60
 days), checked as Start checks (mailbox, live position, do not contact, the address on the record, Send now under the
 cap) and kept as a `SCHEDULED` line that `OutreachMessageSendService`, the dispatcher's second loop, claims, re-checks
-and sends once — never retried, held to the cap but never to a window, cancelled by its sender until taken
+— the sender's own `WORK_EXECUTE` and a reply's thread still their mailbox's gateway and address included — and sends
+once — never retried, held to the cap but never to a window, cancelled by its sender until taken
 (`DELETE …/outreach/messages/{id}`) or by archiving. `OutreachMarkdownEmail` renders it: raw HTML as text, links
 http/https/mailto only, an image as its alt text, a mention as a name. A send writes `EMAIL_SENT` (`manual`) with its
 status automation, stops a live run in the same thread as `MANUAL`, and publishes `OutreachEmailSentByHand`, on which
-`task` closes the person's open reply-rule tasks.
+`task` closes the person's open reply-rule tasks. Only a *sent* line says whose a thread is: one still waiting never
+takes a thread from the run in it.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today

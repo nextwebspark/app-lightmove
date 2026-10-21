@@ -9,11 +9,11 @@ ALTER TABLE app_lm_outreach_message
     ADD COLUMN sending_since timestamptz,
     -- The provider's id of the message this one answers, which keeps it in that thread.
     ADD COLUMN in_reply_to   varchar(255),
-    -- Why a line never went: the reasons a run stops for, the ones a single email can meet.
+    -- Why a line never went: the reasons a run stops for that a single email can meet, and its sender's lost access.
     ADD COLUMN fail_reason   varchar(32)
         CONSTRAINT app_lm_outreach_message_fail_reason_chk CHECK (fail_reason IN ('DO_NOT_CONTACT', 'UNMAPPED',
             'ADDRESS_REMOVED', 'MAILBOX_INACTIVE', 'MAILBOX_MOVED', 'POSITION_ARCHIVED', 'SEND_FAILED',
-            'SEND_UNCERTAIN')),
+            'SEND_UNCERTAIN', 'SENDER_WITHOUT_ACCESS')),
     ADD CONSTRAINT app_lm_outreach_message_scheduled_chk CHECK (status <> 'SCHEDULED' OR send_at IS NOT NULL),
     ADD CONSTRAINT app_lm_outreach_message_failed_chk CHECK ((status = 'FAILED') = (fail_reason IS NOT NULL)),
     ADD CONSTRAINT app_lm_outreach_message_claim_chk CHECK (sending_since IS NULL OR status = 'SCHEDULED');

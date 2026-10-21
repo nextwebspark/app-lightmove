@@ -121,7 +121,6 @@ export type ApiErrorCode =
   | "OUTREACH_NOT_RUNNING"
   | "OUTREACH_BOOKING_LINK_UNAVAILABLE"
   | "OUTREACH_DAILY_CAP_REACHED"
-  | "OUTREACH_ADDRESS_NOT_ON_RECORD"
   | "OUTREACH_DO_NOT_CONTACT"
   | "OUTREACH_THREAD_UNAVAILABLE"
   | "OUTREACH_MESSAGE_NOT_SCHEDULED"
@@ -286,7 +285,6 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   OUTREACH_BOOKING_LINK_UNAVAILABLE:
     "Booking links aren't available for your mailbox. Remove the booking link from the emails to start this sequence.",
   OUTREACH_DAILY_CAP_REACHED: "You've sent today's emails from this mailbox. Schedule this one for tomorrow.",
-  OUTREACH_ADDRESS_NOT_ON_RECORD: "That address isn't on this person's record. Add it to their contacts first.",
   OUTREACH_DO_NOT_CONTACT: "This person is marked do not contact.",
   OUTREACH_THREAD_UNAVAILABLE: "There's no email thread from your mailbox to reply in. Send a new email instead.",
   OUTREACH_MESSAGE_NOT_SCHEDULED: "This email is no longer waiting to be sent.",
