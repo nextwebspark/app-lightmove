@@ -33,6 +33,8 @@ public enum NotetakerEndReason {
     FAIR_USE_REACHED,
     /** The workspace's trial has ended unpaid. */
     TRIAL_ENDED,
+    /** Why a call went to the backup recorder without trying ours: the platform's latest canary failed. */
+    PLATFORM_UNHEALTHY,
     BACKUP_FAILED,
     /** A Zoom call, joined only by the backup recorder on the consultant's own Zoom account, which is not connected. */
     ZOOM_NOT_CONNECTED;

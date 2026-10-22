@@ -330,6 +330,8 @@ public class SecurityConfig {
                         // A Notetaker bot holds no session: its run token, checked by NotetakerRunService, is the credential.
                         .requestMatchers(HttpMethod.POST, API + "/internal/notetaker/runs/*/*").permitAll()
                         .requestMatchers(HttpMethod.PUT, API + "/internal/notetaker/runs/*/media/*/*").permitAll()
+                        // The canary bot likewise: its service account's Google ID token, checked before anything.
+                        .requestMatchers(HttpMethod.POST, API + "/internal/notetaker/canary").permitAll()
 
                         // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)

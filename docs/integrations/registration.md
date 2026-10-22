@@ -121,15 +121,19 @@ Our own bot needs no provider app — it joins as a guest — but its job does n
    and hands a run's token out only once. `MEETINGBOT_SA` still needs no role: every service account can mint its own
    ID token. Execution viewers can no longer read a token, though the join link is still in the override.
 4. **A lifecycle rule on the documents bucket** as the backstop for the purge: delete objects under `notetaker/`
-   older than 30 days. The API deletes a removed run's pieces on its next pass and a failed run's after
-   `lightmove.notetaker.failed-media-retention` (7 days); the rule catches anything a purge never reached.
+   older than 2 days. The API deletes a removed run's pieces on its next pass, and every piece once it is a day old
+   (`lightmove.notetaker.media-max-age`); the rule catches anything a purge never reached.
    ```bash
    cat > /tmp/notetaker-lifecycle.json <<'JSON'
-   {"rule":[{"action":{"type":"Delete"},"condition":{"age":30,"matchesPrefix":["notetaker/"]}}]}
+   {"rule":[{"action":{"type":"Delete"},"condition":{"age":2,"matchesPrefix":["notetaker/"]}}]}
    JSON
    gcloud storage buckets update "gs://$DOCUMENTS_BUCKET" --lifecycle-file=/tmp/notetaker-lifecycle.json
    ```
    A bucket that already has lifecycle rules: merge this one into them, since `--lifecycle-file` replaces the set.
+5. **The daily canary (#956)**, once the job is: two standing test meetings, the deploy variables
+   `NOTETAKER_CANARY_ENABLED=true`, `NOTETAKER_CANARY_MEET_URL`, `NOTETAKER_CANARY_TEAMS_URL` and `PUBLIC_BASE_URL`,
+   a Cloud Scheduler trigger and an alert. The meetings, the trigger and the alert are `docs/notetaker.md`'s
+   "Canary" runbook.
 
 ## Legal
 

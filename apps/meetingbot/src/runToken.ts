@@ -13,12 +13,7 @@ export async function runTokenOf(config: BotConfig, fetcher: typeof fetch = fetc
   if (config.runToken) {
     return config.runToken;
   }
-  const identity = await fetcher(`${METADATA_IDENTITY}?audience=${encodeURIComponent(config.tokenAudience ?? "")}`
-    + "&format=full", { headers: { "Metadata-Flavor": "Google" }, signal: AbortSignal.timeout(10_000) });
-  if (!identity.ok) {
-    throw new Error(`the metadata server answered ${identity.status} for an ID token`);
-  }
-  const idToken = (await identity.text()).trim();
+  const idToken = await identityToken(config.tokenAudience ?? "", fetcher);
   const exchanged = await fetcher(`${config.apiBaseUrl}/api/v1/internal/notetaker/runs/${config.runId}/token`, {
     method: "POST",
     headers: { "X-Notetaker-Bot-Identity": idToken },
@@ -32,4 +27,14 @@ export async function runTokenOf(config: BotConfig, fetcher: typeof fetch = fetc
     throw new Error("the run token exchange answered no token");
   }
   return answer.runToken;
+}
+
+/** An ID token of the job's own service account, minted for `audience` alone, from the metadata server. */
+export async function identityToken(audience: string, fetcher: typeof fetch = fetch): Promise<string> {
+  const identity = await fetcher(`${METADATA_IDENTITY}?audience=${encodeURIComponent(audience)}&format=full`,
+    { headers: { "Metadata-Flavor": "Google" }, signal: AbortSignal.timeout(10_000) });
+  if (!identity.ok) {
+    throw new Error(`the metadata server answered ${identity.status} for an ID token`);
+  }
+  return (await identity.text()).trim();
 }

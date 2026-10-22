@@ -50,7 +50,7 @@ public class NotetakerRunService {
     private final LightMoveProperties properties;
     private final ApplicationEventPublisher events;
     private final NotetakerRunEndings endings;
-    private final BotIdentityVerifier bots;
+    private final NotetakerBotIdentity bots;
     private final NotetakerMetrics metrics;
     private final TransactionTemplate transactions;
     private final Clock clock;
@@ -61,9 +61,7 @@ public class NotetakerRunService {
      */
     public String exchangeToken(UUID runId, String identityToken, HttpServletRequest from) {
         rateLimit.checkNotetakerRun(runId, from);
-        String expected = properties.notetaker().botServiceAccount();
-        if (expected == null || expected.isBlank() || identityToken == null || identityToken.isBlank()
-                || bots.serviceAccountOf(identityToken.strip()).filter(expected.strip()::equalsIgnoreCase).isEmpty()) {
+        if (!bots.isOurBot(identityToken)) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         String runToken = Tokens.generate();
