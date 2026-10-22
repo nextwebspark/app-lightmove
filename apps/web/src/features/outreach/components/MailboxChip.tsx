@@ -130,7 +130,7 @@ function ConnectedChip({
         width={300}
         hasPopup="dialog"
         label={`Mailbox ${connection.address}`}
-        triggerClassName="inline-flex max-w-full items-center gap-2 rounded-u-control border border-u-border px-2.5 py-1.5 font-mono text-note text-u-text2 hover:border-u-border-strong hover:text-u-text"
+        triggerClassName="inline-flex min-w-0 max-w-full items-center gap-2 rounded-u-control border border-u-border px-2.5 py-1.5 font-mono text-note text-u-text2 hover:border-u-border-strong hover:text-u-text"
         trigger={() => (
           <>
             <span

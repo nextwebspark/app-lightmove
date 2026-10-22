@@ -12,7 +12,7 @@ const SECTIONS = [
 
 /** The header's one filled button, whichever view's own action it is. */
 export const OUTREACH_PRIMARY_ACTION =
-  "inline-flex items-center gap-1.5 rounded-u-control border border-u-accent-solid bg-u-accent-solid px-3 py-1.5 text-note font-medium text-white hover:bg-u-accent-solid-hover";
+  "inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-u-control border border-u-accent-solid bg-u-accent-solid px-3 py-1.5 text-note font-medium text-white hover:bg-u-accent-solid-hover";
 
 /**
  * The header both Outreach views share, the sequence editor under Sequences included: Conversations or Sequences, and

@@ -118,6 +118,8 @@ describe("the note editor", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: "Mention a teammate" }));
     await screen.findByRole("listbox", { name: "Mention someone on this position's team" });
+    // The editor takes focus on the next frame; Escape pressed before it lands would go to the dialog.
+    await waitFor(() => expect(within(dialog).getByRole("textbox", { name: "New note" })).toHaveFocus());
     await userEvent.keyboard("{Escape}");
 
     await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
