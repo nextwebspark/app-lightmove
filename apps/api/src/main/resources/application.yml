@@ -703,6 +703,8 @@ lightmove:
   recall:
     api-key: ${RECALL_API_KEY:}
     webhook-secret: ${RECALL_WEBHOOK_SECRET:}
+    # The Notetaker's backup bots report to an endpoint of their own (/api/v1/notetaker/webhooks/recall); blank refuses.
+    bot-webhook-secret: ${RECALL_BOT_WEBHOOK_SECRET:}
     base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
 
   # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
@@ -747,6 +749,9 @@ lightmove:
     cloud-run-job: ${NOTETAKER_CLOUD_RUN_JOB:}
     # A call's audio is transcribed this often while it goes, so the note follows soon after it ends.
     transcribe-every: ${NOTETAKER_TRANSCRIBE_EVERY:5m}
+    # Recall stands behind our bot where lightmove.recall is configured (#955); a bot nobody admitted is not followed.
+    fallback: ${NOTETAKER_FALLBACK:true}
+    fallback-on-not-admitted: ${NOTETAKER_FALLBACK_ON_NOT_ADMITTED:false}
 
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:

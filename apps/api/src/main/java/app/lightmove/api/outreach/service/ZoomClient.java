@@ -79,6 +79,25 @@ public class ZoomClient implements ZoomApi {
         return id;
     }
 
+    @Override
+    public String onBehalfToken(String accessToken, String meetingId) {
+        JsonNode answer = guard.call(VendorCall.of(VENDOR, "on-behalf-token"), () -> api.get()
+                .uri(builder -> builder.path("/v2/users/me/token")
+                        .queryParam("type", "onbehalf")
+                        .queryParam("meeting_id", "{meeting}")
+                        .build(Map.of("meeting", meetingId)))
+                .header("Authorization", "Bearer " + accessToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class));
+        String token = textOrNull(answer == null ? null : answer.get("token"));
+        if (token == null) {
+            throw new VendorException(VendorCall.of(VENDOR, "on-behalf-token"), VendorFailureKind.MALFORMED_RESPONSE,
+                    null);
+        }
+        return token;
+    }
+
     /** Times go as UTC with no zone, which Zoom reads as given; the invite's own zone is the calendar's business. */
     @Override
     public ZoomMeeting createMeeting(String accessToken, String topic, Instant startsAt, int minutes) {

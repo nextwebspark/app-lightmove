@@ -1,5 +1,6 @@
 package app.lightmove.api.notetaker.repository;
 
+import app.lightmove.api.notetaker.constant.MeetingRecorderKind;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import java.time.Instant;
@@ -20,12 +21,24 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     /** A person's calls whose note is filed, whatever became of the meeting rows they were found through. */
     List<MeetingRecording> findByWorkspaceIdAndPersonIdAndNoteIdIsNotNull(UUID workspaceId, UUID personId);
 
-    /** Runs a bot is sent on but has never reported from, one removed before it did included. */
-    @Query("select r from MeetingRecording r where r.status in ('LAUNCHING', 'REMOVE_REQUESTED') "
+    /**
+     * Runs our own bot is sent on but has never reported from, one removed before it did included. A backup's bot
+     * reports by webhook and on its own clock, so it is never swept as ours is.
+     */
+    @Query("select r from MeetingRecording r where r.recorder = 'OWN' "
+            + "and r.status in ('LAUNCHING', 'REMOVE_REQUESTED') "
             + "and r.lastHeartbeatAt is null and r.createdAt < :sentBefore")
     List<MeetingRecording> findNeverReported(Instant sentBefore);
 
-    /** Runs whose bot reported once and then fell silent. */
-    @Query("select r from MeetingRecording r where r.status in :statuses and r.lastHeartbeatAt < :heardBefore")
+    /** Runs whose bot of ours reported once and then fell silent. */
+    @Query("select r from MeetingRecording r where r.recorder = 'OWN' and r.status in :statuses "
+            + "and r.lastHeartbeatAt < :heardBefore")
     List<MeetingRecording> findSilentSince(Collection<NotetakerStatus> statuses, Instant heardBefore);
+
+    /** Backup runs still in the call long after it was due to end: their bot was never heard from again. */
+    @Query("select r from MeetingRecording r where r.recorder = 'RECALL' and r.status in "
+            + "('LAUNCHING', 'WAITING_ROOM', 'RECORDING', 'REMOVE_REQUESTED') and r.endsAt < :endedBefore")
+    List<MeetingRecording> findBackupsLostSince(Instant endedBefore);
+
+    Optional<MeetingRecording> findByRecorderAndExternalId(MeetingRecorderKind recorder, String externalId);
 }

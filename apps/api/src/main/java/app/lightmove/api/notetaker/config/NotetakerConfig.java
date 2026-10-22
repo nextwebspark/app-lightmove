@@ -1,16 +1,23 @@
 package app.lightmove.api.notetaker.config;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.notetaker.model.OfferedPlatforms;
+import app.lightmove.api.core.config.RecallSettings;
+import app.lightmove.api.core.resilience.service.VendorCallGuard;
+import app.lightmove.api.core.resilience.service.VendorClientFactory;
+import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.notetaker.service.CloudRunJobMeetingRecorder;
 import app.lightmove.api.notetaker.service.GoogleAccessTokens;
 import app.lightmove.api.notetaker.service.LocalProcessMeetingRecorder;
 import app.lightmove.api.notetaker.service.LogMeetingRecorder;
 import app.lightmove.api.notetaker.service.MeetingRecorder;
+import app.lightmove.api.notetaker.service.RecallBotApi;
+import app.lightmove.api.notetaker.service.RecallBotClient;
+import app.lightmove.api.notetaker.service.UnconfiguredRecallBotApi;
 import com.google.auth.oauth2.GoogleCredentials;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +26,7 @@ import org.springframework.web.client.RestClient;
 
 /**
  * The recorder our own bot is started through — chosen by {@code lightmove.notetaker.runner}; a test's recording
- * one replaces it — and the platforms it joins.
+ * one replaces it — and Recall's bots behind it (#955).
  */
 @Configuration(proxyBeanMethods = false)
 public class NotetakerConfig {
@@ -37,9 +44,21 @@ public class NotetakerConfig {
         };
     }
 
+    /**
+     * Recall's bots, the backup behind ours, where {@code lightmove.recall} has a key and a bot webhook secret — a bot
+     * whose reports would all be refused is never sent — and the deployment has not turned the fallback off. Each
+     * workspace still turns it on for itself. A test's recording one replaces it.
+     */
     @Bean
-    OfferedPlatforms offeredNotetakerPlatforms(LightMoveProperties properties) {
-        return OfferedPlatforms.parse(properties.notetaker().platforms());
+    @Fallback
+    RecallBotApi recallBotApi(LightMoveProperties properties, VendorClientFactory clientFactory,
+                              VendorRateLimiter rateLimiter, VendorCallGuard guard, Clock clock) {
+        RecallSettings recall = properties.recall();
+        if (recall == null || !recall.isConfigured() || recall.botWebhookSecret() == null
+                || recall.botWebhookSecret().isBlank() || !properties.notetaker().fallback()) {
+            return new UnconfiguredRecallBotApi();
+        }
+        return new RecallBotClient(recall, clientFactory, rateLimiter, guard, RestClient.builder(), clock);
     }
 
     /** {@code npm run dev} starts the API in {@code apps/api}; the bot's command runs from the repository root. */

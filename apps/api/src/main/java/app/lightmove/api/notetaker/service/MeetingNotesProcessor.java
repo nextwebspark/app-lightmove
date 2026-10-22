@@ -55,6 +55,8 @@ class MeetingNotesProcessor {
     /** Passes that fail on one piece before it is given up as a gap in the transcript. */
     static final int PIECE_ATTEMPTS = 3;
     private static final Duration PIECE_LENGTH = Duration.ofSeconds(30);
+    /** How long a note waits for the backup's transcript after its bot left; past it, the note goes without. */
+    static final Duration BACKUP_TRANSCRIPT_WAIT = Duration.ofHours(1);
     private static final DateTimeFormatter LOCAL_TIME = DateTimeFormatter.ofPattern("HH:mm");
 
     private final NotetakerWorkClaims claims;
@@ -116,7 +118,8 @@ class MeetingNotesProcessor {
             }
             held = stillHeld.get();
             boolean readyForNote = Boolean.TRUE.equals(transactions.execute(status ->
-                    recordings.findById(recordingId).filter(MeetingRecording::isProcessing).isPresent()
+                    recordings.findById(recordingId).filter(MeetingRecording::isProcessing)
+                            .filter(recording -> !waitsForBackup(recording)).isPresent()
                             && pieces.untranscribedAudioOf(recordingId).isEmpty()));
             if (readyForNote) {
                 finish(recordingId);
@@ -207,7 +210,10 @@ class MeetingNotesProcessor {
                 : transactions.execute(status -> positions.assessmentBriefOf(recording.getWorkspaceId(), projectId));
         Instant callStart = recording.getJoinedAt() != null ? recording.getJoinedAt() : transcript.getFirst().at();
         MeetingSummary summary = summariser.summarise(transcript, callStart, brief);
-        String body = MeetingNoteMarkdown.of(summary, stoppedAtOf(recording), missingMinutesOf(recordingId));
+        String body = recording.resumedByBackup()
+                ? MeetingNoteMarkdown.of(summary, localTimeOf(recording, recording.getRecordedUntil()),
+                        localTimeOf(recording, recording.getBackupJoinedAt()), missingMinutesOf(recordingId))
+                : MeetingNoteMarkdown.of(summary, stoppedAtOf(recording), missingMinutesOf(recordingId));
 
         boolean filed = Boolean.TRUE.equals(transactions.execute(status -> {
             MeetingRecording fresh = recordings.findById(recordingId).orElse(null);
@@ -238,11 +244,17 @@ class MeetingNotesProcessor {
 
     /** The local time a bot that stopped mid-call stopped, in the consultant's own zone; null for a whole call. */
     private String stoppedAtOf(MeetingRecording recording) {
-        if (recording.getRecordedUntil() == null) {
-            return null;
-        }
-        return LOCAL_TIME.format(recording.getRecordedUntil().atZone(
-                transactions.execute(status -> timezones.zoneOf(recording.getUserId()))));
+        return recording.getRecordedUntil() == null ? null : localTimeOf(recording, recording.getRecordedUntil());
+    }
+
+    private String localTimeOf(MeetingRecording recording, Instant at) {
+        return LOCAL_TIME.format(at.atZone(transactions.execute(status -> timezones.zoneOf(recording.getUserId()))));
+    }
+
+    /** A backup that got in sends its transcript after it leaves; the note waits for it, but not for ever. */
+    private boolean waitsForBackup(MeetingRecording recording) {
+        return recording.awaitsBackupTranscript() && (recording.getLeftAt() == null
+                || recording.getLeftAt().plus(BACKUP_TRANSCRIPT_WAIT).isAfter(clock.instant()));
     }
 
     private int missingMinutesOf(UUID recordingId) {

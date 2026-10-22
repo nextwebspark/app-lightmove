@@ -57,8 +57,9 @@ final class MeetingTranscriptAssembly {
         Map<String, String> names = namesOf(piece.startedAt(), kept, captions);
         return kept.stream()
                 .map(line -> new TranscriptLine(piece.startedAt().plusMillis(line.offsetMillis()),
-                        names.getOrDefault(line.speakerLabel(), line.speakerLabel()), line.text(),
-                        names.containsKey(line.speakerLabel())))
+                        line.carriesName() ? line.speakerLabel()
+                                : names.getOrDefault(line.speakerLabel(), line.speakerLabel()), line.text(),
+                        line.carriesName() || names.containsKey(line.speakerLabel())))
                 .toList();
     }
 
@@ -66,6 +67,9 @@ final class MeetingTranscriptAssembly {
                                                List<CaptionedLine> captions) {
         Map<String, Map<String, Integer>> votes = new HashMap<>();
         for (HeardLine line : lines) {
+            if (line.carriesName()) {
+                continue;
+            }
             Instant at = pieceStart.plusMillis(line.offsetMillis());
             Set<String> heardWords = wordsOf(line.text());
             for (CaptionedLine caption : captions) {

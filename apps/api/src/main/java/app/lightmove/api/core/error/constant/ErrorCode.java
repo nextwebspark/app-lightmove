@@ -452,6 +452,8 @@ public enum ErrorCode {
 
     /** A webhook delivery whose signature did not verify, or one this deployment is not set up to read. */
     MAILBOX_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+    /** A Notetaker backup-bot webhook whose signature does not verify: nothing is read from it. */
+    NOTETAKER_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 
     /** A key id that is not in the caller's workspace, or not one the caller may see. */
     API_KEY_NOT_FOUND(HttpStatus.NOT_FOUND, "That API key does not exist"),

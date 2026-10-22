@@ -116,6 +116,19 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "processed_at")
     private Instant processedAt;
 
+    /** Why our bot was followed by the backup recorder; null while ours answers, and for a Zoom call it never joins. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fallback_reason", length = 32)
+    private NotetakerEndReason fallbackReason;
+
+    /** When the backup recorder's bot got into the call. */
+    @Column(name = "backup_joined_at")
+    private Instant backupJoinedAt;
+
+    /** When the backup's transcript was stored, or given up on: until then a backup run's note waits. */
+    @Column(name = "backup_transcript_at")
+    private Instant backupTranscriptAt;
+
     @Transient
     @Getter(AccessLevel.NONE)
     private NotetakerStatus statusAnnounced;
@@ -137,6 +150,69 @@ public class MeetingRecording extends BaseEntity {
     public void markLaunched(String externalId, Instant now) {
         this.externalId = externalId;
         this.launchedAt = now;
+    }
+
+    /**
+     * Sent to the backup recorder from the start: our bot could not be started ({@code reason}), or the call is one only
+     * the backup joins (no reason). It reports by webhook, so no run token is kept.
+     */
+    public void launchedAsBackup(String externalId, NotetakerEndReason reason, Instant now) {
+        recorder = MeetingRecorderKind.RECALL;
+        fallbackReason = reason;
+        runTokenHash = null;
+        markLaunched(externalId, now);
+    }
+
+    /**
+     * Our bot failed mid-run; the backup recorder takes the same run over. What ours captured stays, to be stitched
+     * before the backup's part, and {@code ownStoppedAt} — where it stopped, null when it had heard nothing — marks the
+     * start of the gap. Our bot's token goes, so a bot of ours still alive can change nothing more.
+     */
+    public void handToBackup(NotetakerEndReason reason, Instant ownStoppedAt, Instant now) {
+        recorder = MeetingRecorderKind.RECALL;
+        fallbackReason = reason;
+        status = NotetakerStatus.LAUNCHING;
+        externalId = null;
+        runTokenHash = null;
+        launchedAt = null;
+        lastHeartbeatAt = null;
+        recordedUntil = ownStoppedAt;
+    }
+
+    /** The backup's bot is in the call and recording. */
+    public void backupJoined(Instant at) {
+        lastHeartbeatAt = at;
+        if (status == NotetakerStatus.LAUNCHING || status == NotetakerStatus.WAITING_ROOM) {
+            status = NotetakerStatus.RECORDING;
+        }
+        if (joinedAt == null) {
+            joinedAt = at;
+        }
+        if (backupJoinedAt == null) {
+            backupJoinedAt = at;
+        }
+    }
+
+    public void backupTranscribed(Instant now) {
+        if (backupTranscriptAt == null) {
+            backupTranscriptAt = now;
+        }
+    }
+
+    /** A backup that got in has a transcript of its own to come, which the note waits for. */
+    public boolean awaitsBackupTranscript() {
+        return recorder == MeetingRecorderKind.RECALL && backupJoinedAt != null && backupTranscriptAt == null;
+    }
+
+    /** Our bot stopped and the backup's took over: the note marks the gap between the two. */
+    public boolean resumedByBackup() {
+        return recorder == MeetingRecorderKind.RECALL && backupJoinedAt != null && recordedUntil != null
+                && !recordedUntil.isAfter(backupJoinedAt);
+    }
+
+    /** Where the recording stopped short, as the drawer says it; a call the backup picked back up did not. */
+    public Instant stoppedShortAt() {
+        return resumedByBackup() ? null : recordedUntil;
     }
 
     public void reportWaiting(Instant now) {

@@ -51,4 +51,20 @@ class MeetingTranscriptAssemblyTest {
         assertThat(MeetingTranscriptAssembly.assemble(pieces, List.of())).extracting(TranscriptLine::text)
                 .containsExactly("Before the boundary.", "Across the boundary.");
     }
+
+    @Test
+    @DisplayName("the backup recorder's lines keep the names it heard, whatever the captions say")
+    void namedLinesKeepTheirNames() {
+        List<CaptionedLine> captions = List.of(new CaptionedLine(1, "Omar Saleh", "And the board backed the plan",
+                START.plusSeconds(60), START.plusSeconds(64)));
+        List<TranscribedPiece> pieces = List.of(new TranscribedPiece(NotetakerBackups.BACKUP_SEQUENCE,
+                START.plusSeconds(60), List.of(
+                        new HeardLine(1_000, "Priya Raman", "And the board backed the plan", true),
+                        new HeardLine(5_000, "Speaker 4", "Thanks", false))));
+
+        assertThat(MeetingTranscriptAssembly.assemble(pieces, captions))
+                .containsExactly(
+                        new TranscriptLine(START.plusSeconds(61), "Priya Raman", "And the board backed the plan", true),
+                        new TranscriptLine(START.plusSeconds(65), "Speaker 4", "Thanks", false));
+    }
 }

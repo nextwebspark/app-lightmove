@@ -34,6 +34,8 @@ class MeetingNoteMarkdownTest {
                 .startsWith("**Partial — about 2 minutes of the call could not be transcribed**");
         assertThat(MeetingNoteMarkdown.of(summary("Spoke about the role.", List.of()), null, 0))
                 .startsWith("Spoke about the role.");
+        assertThat(MeetingNoteMarkdown.of(summary("Spoke about the role.", List.of()), "14:32", "14:34", 0))
+                .startsWith("**Partial — recording stopped at 14:32 and resumed at 14:34 by the backup recorder**");
     }
 
     private static MeetingSummary summary(String overview, List<String> keyPoints) {

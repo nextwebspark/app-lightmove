@@ -1272,6 +1272,22 @@ live position the consultant works that maps the person, else about the person �
 position its note was filed under, or until then the one `MeetingPositionRule` gives it — a call it gives none is its
 consultant's alone until filed — and not found from any other. Try again is refused once the pieces are past retention;
 the note's Markdown breaks GFM's bare-link triggers with a word joiner, since the words are anyone's on the call. A removed run's transcript goes with its pieces; a done run's captions on the next pass.
+V154 is the **backup recorder** (#955): Recall.ai's bots behind ours, a third party a call's audio goes to, so a
+workspace sends nothing to it until an admin turns it on (`app_lm_workspace_notetaker.backup_enabled`, off by default,
+`PUT /workspace/notetaker/backup`, `WORKSPACE_MANAGE`, audited as a `notetaker-backup` section), and a deployment offers
+it only with a Recall key and `lightmove.recall.bot-webhook-secret` (`NOTETAKER_BACKUP_ENABLED`). `ChainedMeetingRecorder`
+sends ours, then Recall's when ours could not start or dropped mid-call (`FallbackPolicy`: a launch failure or timeout,
+a blocked join, a crash, a lost heartbeat; not admitted only under `fallback-on-not-admitted`), counted as
+`notetaker.fallbacks{platform,reason}`; there a Zoom call goes to Recall alone, on the consultant's own Zoom (an
+on-behalf token from `ZoomService.onBehalfTokenFor`; without a usable one the call is `SKIPPED`
+`ZOOM_NOT_CONNECTED`) until our own bot joins Zoom. A handover keeps the run: `recorder` becomes `RECALL`,
+`fallback_reason` says why, our token is spent, and Recall's bot is sent once the handover commits. It reports on
+`/api/v1/notetaker/webhooks/recall` (public, its Svix signature the credential, `NOTETAKER_WEBHOOK_REJECTED` otherwise)
+through `NotetakerBackups`: in the waiting room, recording (`backup_joined_at`), gone, and `transcript.done`, whose
+named lines are stored as one more piece after ours (`HeardLine.named`, never renamed from captions) and Recall's copy
+deleted (`delete_media`, as on a removal). The note waits for that transcript (`backup_transcript_at`, at most an
+hour), and one ours began says where it stopped and the backup resumed. A backup that never got in leaves ours as a
+partial note, or `BACKUP_FAILED`; one still in a call `backup-timeout` after its end is swept the same way.
 **The drawer (#953)** draws it all in the executive drawer's Meetings (`features/outreach`'s `NotetakerControls`): a
 call to come carries its switch (greyed, and said so, while the workspace's or the consultant's own is off), a call
 the bot does not join says which it does (the workspace read's `platforms`), and a call a bot went to carries a chip

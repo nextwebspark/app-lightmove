@@ -5,11 +5,13 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * Recall.ai's Calendar API — {@code lightmove.recall.*}, one account for the platform, never one per workspace.
  * The region is the base URL: each Recall region is a separate account with its own key. A blank key is a
- * deployment without Recall, where calendars are read directly whatever a workspace chose.
+ * deployment without Recall, where calendars are read directly whatever a workspace chose, and the Notetaker has no
+ * backup bot. Its bot events arrive on a webhook endpoint of their own, signed with {@code botWebhookSecret}.
  */
 public record RecallSettings(
         String apiKey,
         String webhookSecret,
+        String botWebhookSecret,
         @DefaultValue("https://us-east-1.recall.ai") String baseUrl
 ) {
 
@@ -19,6 +21,7 @@ public record RecallSettings(
 
     @Override
     public String toString() {
-        return "RecallSettings[apiKey=<redacted>, webhookSecret=<redacted>, baseUrl=" + baseUrl + "]";
+        return "RecallSettings[apiKey=<redacted>, webhookSecret=<redacted>, botWebhookSecret=<redacted>, baseUrl="
+                + baseUrl + "]";
     }
 }

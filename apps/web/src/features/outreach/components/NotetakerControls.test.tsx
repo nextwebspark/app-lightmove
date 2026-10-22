@@ -120,6 +120,8 @@ function renderSection({
     offered: true,
     enabled: true,
     platforms: ["GOOGLE_MEET"],
+    backupOffered: false,
+    backupEnabled: false,
   });
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>

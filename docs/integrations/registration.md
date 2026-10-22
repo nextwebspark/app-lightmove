@@ -85,6 +85,7 @@ printf %s "$VALUE" | gcloud secrets create lightmove-zoom-client-id             
 printf %s "$VALUE" | gcloud secrets create lightmove-zoom-client-secret           --data-file=-
 printf %s "$VALUE" | gcloud secrets create lightmove-recall-api-key               --data-file=-
 printf %s "$VALUE" | gcloud secrets create lightmove-recall-webhook-secret        --data-file=-
+printf %s "$VALUE" | gcloud secrets create lightmove-recall-bot-webhook-secret    --data-file=-
 tinkey create-keyset --key-template AES256_GCM --out-format json \
   | gcloud secrets create lightmove-credential-keyset --data-file=-
 ```
@@ -95,6 +96,7 @@ Then the repository variables `deploy.yml` reads, per environment:
 |---|---|
 | `GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`, `RECALL_ENABLED` | `true` once that provider's secrets exist |
 | `RECALL_BASE_URL` | the EU URL, for an EU account |
+| `NOTETAKER_BACKUP_ENABLED` | `true` once `lightmove-recall-bot-webhook-secret` exists — the Notetaker's backup recorder, whose bots report to `/api/v1/notetaker/webhooks/recall` (subscribe that endpoint to `bot.*`, `transcript.done` and `transcript.failed` in Recall's dashboard). Each workspace still turns it on in Settings → Integrations |
 | `CREDENTIAL_ENCRYPTION_ENABLED` | `true` once `lightmove-credential-keyset` exists (needed before any refresh token can be stored) |
 | `OUTREACH_GATEWAY` | stays `nylas` until rollout (#650) |
 | `*_OWN_APP_GUIDE_URL`, `*_SHARED_APP_GUIDE_URL` | where the guides in this folder are published |

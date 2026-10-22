@@ -24,9 +24,17 @@ export function NotetakerCard() {
     },
     onError: (error) => toast.error(messageFor(error)),
   });
+  const changeBackup = useMutation({
+    mutationFn: (next: boolean) => notetakerApi.setWorkspaceNotetakerBackup(next),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(notetakerApi.WORKSPACE_NOTETAKER_KEY, saved);
+      toast(saved.backupEnabled ? "The backup recorder is on" : "The backup recorder is off");
+    },
+    onError: (error) => toast.error(messageFor(error)),
+  });
 
   if (!notetaker.isSuccess || !notetaker.data.offered) return null;
-  const { enabled, platforms } = notetaker.data;
+  const { enabled, platforms, backupOffered, backupEnabled } = notetaker.data;
   const joins = platformListOf(platforms);
 
   return (
@@ -62,6 +70,27 @@ export function NotetakerCard() {
         Each person can turn it off for their own calls in Profile, and for one call from the meeting in an executive's
         drawer.
       </p>
+      {backupOffered && (
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-u-border pt-4">
+          <div className="min-w-[12rem] flex-1">
+            <div className="text-note font-semibold">Backup recorder</div>
+            <p className="mt-1 text-note text-u-text2">
+              When the notetaker can't join or drops out, a Recall.ai bot records the call instead, and joins Zoom
+              calls. The call's audio and transcript then pass through Recall.ai, a third party, so it stays off until
+              you turn it on.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 text-note font-medium text-u-text2">
+            {backupEnabled ? "On" : "Off"}
+            <Toggle
+              checked={backupEnabled}
+              label="Backup recorder for the workspace"
+              disabled={changeBackup.isPending}
+              onChange={(next) => changeBackup.mutate(next)}
+            />
+          </span>
+        </div>
+      )}
     </section>
   );
 }

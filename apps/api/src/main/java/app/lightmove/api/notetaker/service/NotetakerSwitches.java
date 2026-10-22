@@ -44,6 +44,33 @@ class NotetakerSwitches {
                 workspaceId, enabled, actorId);
     }
 
+    /**
+     * Whether the workspace lets the backup recorder have its calls (#955). Unlike the others this switch is off until
+     * an admin turns it on: the backup is a third party, and a call's audio goes to it.
+     */
+    boolean backupAllowed(UUID workspaceId) {
+        return !workspacesWithBackup(List.of(workspaceId)).isEmpty();
+    }
+
+    Set<UUID> workspacesWithBackup(Collection<UUID> workspaceIds) {
+        if (workspaceIds.isEmpty()) {
+            return Set.of();
+        }
+        return new HashSet<>(jdbc.queryForList("SELECT workspace_id FROM app_lm_workspace_notetaker "
+                + "WHERE backup_enabled AND workspace_id IN (" + placeholders(workspaceIds.size()) + ")",
+                UUID.class, workspaceIds.toArray()));
+    }
+
+    void setBackup(UUID workspaceId, boolean enabled, UUID actorId) {
+        jdbc.update("""
+                INSERT INTO app_lm_workspace_notetaker (workspace_id, enabled, backup_enabled, updated_by)
+                VALUES (?, true, ?, ?)
+                ON CONFLICT (workspace_id)
+                DO UPDATE SET backup_enabled = excluded.backup_enabled, updated_by = excluded.updated_by,
+                              updated_at = now()""",
+                workspaceId, enabled, actorId);
+    }
+
     boolean userAllows(UUID userId, UUID workspaceId) {
         return jdbc.query("SELECT enabled FROM app_lm_notetaker_user_preference WHERE user_id = ? AND workspace_id = ?",
                         (row, index) -> row.getBoolean("enabled"), userId, workspaceId)
