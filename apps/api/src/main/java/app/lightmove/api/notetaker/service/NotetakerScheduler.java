@@ -1,7 +1,11 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.NotetakerSettings;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.NotetakerEndReason;
 import app.lightmove.api.notetaker.constant.NotetakerPlatform;
@@ -14,6 +18,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +47,7 @@ public class NotetakerScheduler {
     private final NotetakerWorkClaims workClaims;
     private final MeetingNotesWorker notesWorker;
     private final ZoomService zoom;
+    private final FairUseGuard fairUse;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -95,6 +101,11 @@ public class NotetakerScheduler {
                 claims.claimSkipped(claimed, NotetakerEndReason.DO_NOT_CONTACT);
                 continue;
             }
+            Optional<NotetakerEndReason> refused = billingRefusalOf(claimed);
+            if (refused.isPresent()) {
+                claims.claimSkipped(claimed, refused.get());
+                continue;
+            }
             // A Zoom call is joined on the consultant's own Zoom account; without a usable one it is never tried.
             if (call.platform() == NotetakerPlatform.ZOOM
                     && !zoom.isUsableBy(claimed.sentFrom().userId(), claimed.sentFrom().workspaceId())) {
@@ -108,6 +119,25 @@ public class NotetakerScheduler {
                             claimed.sentFrom().personId())));
         }
         return pending;
+    }
+
+    /**
+     * Recorded minutes are a fair-use kind (#956), asked before a bot is sent: a workspace with any minute left this
+     * billing month gets its bot, and the minutes it records are counted once its note is filed.
+     */
+    private Optional<NotetakerEndReason> billingRefusalOf(ClaimedCall claimed) {
+        try {
+            fairUse.check(claimed.sentFrom().workspaceId(), claimed.sentFrom().userId(), UsageKind.MEETING_MINUTES, 1);
+            return Optional.empty();
+        } catch (ApiException refused) {
+            if (refused.getCode() == ErrorCode.FAIR_USE_REACHED) {
+                return Optional.of(NotetakerEndReason.FAIR_USE_REACHED);
+            }
+            if (refused.getCode() == ErrorCode.TRIAL_ENDED) {
+                return Optional.of(NotetakerEndReason.TRIAL_ENDED);
+            }
+            throw refused;
+        }
     }
 
     private List<UUID> notesDue(Instant now) {

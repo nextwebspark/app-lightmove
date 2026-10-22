@@ -52,6 +52,7 @@ describe("SettingsBillingPage", () => {
         { userId: "u1", name: "Alok Kumar", emailsFound: 12, phonesFound: 4, creditsSpent: 32 },
         { userId: "u2", name: "Sara Al-Mansour", emailsFound: 3, phonesFound: 0, creditsSpent: 3 },
       ],
+      notetakerMinutes: { used: 0, ceiling: null },
     });
   });
 
@@ -239,6 +240,19 @@ describe("SettingsBillingPage", () => {
     expect(await within(used).findByText("Alok Kumar (you)")).toBeInTheDocument();
     expect(within(used).getByText("32")).toBeInTheDocument();
     expect(within(used).getByText("Sara Al-Mansour")).toBeInTheDocument();
+  });
+
+  it("counts the notetaker's minutes against fair use, and says nothing before it has recorded any", async () => {
+    vi.mocked(billingApi.getBillingUsage).mockResolvedValue({
+      periodStart: "2026-10-01T00:00:00Z",
+      periodEnd: "2026-11-01T00:00:00Z",
+      members: [],
+      notetakerMinutes: { used: 340, ceiling: 6000 },
+    });
+    renderPage();
+
+    const used = await screen.findByRole("region", { name: "Used this month" });
+    expect(await within(used).findByText(/Notetaker: 340 of 6,000 minutes recorded this month/)).toBeInTheDocument();
   });
 
   it("says an invoiced workspace pays by bank transfer", async () => {

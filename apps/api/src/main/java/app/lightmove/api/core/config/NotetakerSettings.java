@@ -40,8 +40,10 @@ public record NotetakerSettings(
         @DefaultValue("node apps/meetingbot/dist/main.js") String localCommand,
         /** One captured piece, at most: 30 seconds of Opus audio is about 120 KB. */
         @DefaultValue("8388608") long maxMediaBytes,
-        /** How long a failed run's pieces are kept to look into before they are deleted. */
+        /** How long a failed run's transcribed text is kept for Try again before it is deleted. */
         @DefaultValue("7d") Duration failedMediaRetention,
+        /** The longest any captured piece is kept, whatever became of its run (#956). */
+        @DefaultValue("24h") Duration mediaMaxAge,
         /** How often a call's audio is transcribed while it goes, so its note comes soon after it ends. */
         @DefaultValue("5m") Duration transcribeEvery,
         @DefaultValue("true") boolean fallback,

@@ -784,7 +784,7 @@ lightmove:
       outreach-opener-cost-fils: ${FAIR_USE_OUTREACH_OPENER_COST_FILS:2}
       assistant-ask-per-seat: ${FAIR_USE_ASSISTANT_ASK_PER_SEAT:1500}
       assistant-ask-cost-fils: ${FAIR_USE_ASSISTANT_ASK_COST_FILS:15}
-      meeting-minute-per-seat: ${FAIR_USE_MEETING_MINUTE_PER_SEAT:0}
+      meeting-minute-per-seat: ${FAIR_USE_MEETING_MINUTE_PER_SEAT:3000}
       meeting-minute-cost-fils: ${FAIR_USE_MEETING_MINUTE_COST_FILS:2}
     # Given once, to every workspace that exists the first time a release with enforcement boots; 0 gives none.
     grandfather:

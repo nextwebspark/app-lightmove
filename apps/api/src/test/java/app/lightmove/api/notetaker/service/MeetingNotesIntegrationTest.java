@@ -169,6 +169,12 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
         processor.work(UUID.fromString(run));
         assertThat(jdbc.queryForObject("select count(*) from app_lm_person_note where person_id = ?::uuid "
                 + "and kind = 'MEETING'", Integer.class, personId)).isEqualTo(1);
+
+        // A transcript lives as long as its note: once the note is purged for good, its words go on the next pass.
+        jdbc.update("delete from app_lm_person_note where id = ?::uuid", recording.get("note_id").toString());
+        scheduler.scheduleAt(Instant.now());
+        assertThat(jdbc.queryForObject("select transcript is null from app_lm_meeting_recording where id = ?::uuid",
+                Boolean.class, run)).isTrue();
     }
 
     @Test

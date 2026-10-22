@@ -16,6 +16,7 @@ import app.lightmove.api.notetaker.service.NotetakerScheduler;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
 import java.time.Duration;
@@ -52,6 +53,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingMeetingRecorder recorder;
     @Autowired private NotetakerScheduler scheduler;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private MeterRegistry meters;
 
     private String grantId;
     private String consultant;
@@ -259,6 +261,43 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("nothing a bot captured outlives a day, whatever became of its run")
+    void piecesGoAfterADay() throws Exception {
+        executive("Priya Raman", "priya@" + domain);
+        changed(event("call-1", soon(), "priya@" + domain));
+        scheduler.scheduleAt(Instant.now());
+        NotetakerLaunch launch = launchesHere().getFirst();
+        String run = launch.recordingId().toString();
+        botCall(run, "status", launch.runToken(), "{\"state\":\"RECORDING\"}").andExpect(status().isNoContent());
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}).andExpect(status().isNoContent());
+        upload(run, "captions", 1, launch.runToken(), "[]".getBytes()).andExpect(status().isNoContent());
+        jdbc.update("update app_lm_meeting_recording_media set received_at = now() - interval '25 hours' "
+                + "where recording_id = ?::uuid", run);
+
+        scheduler.scheduleAt(Instant.now());
+
+        assertThat(pieceKeys(run)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a bot let in counts as a join on its platform, with how long it waited")
+    void joinsAreCounted() throws Exception {
+        executive("Priya Raman", "priya@" + domain);
+        changed(event("call-1", soon(), "priya@" + domain));
+        double before = joins("JOINED");
+        scheduler.scheduleAt(Instant.now());
+        NotetakerLaunch launch = launchesHere().getFirst();
+
+        botCall(launch.recordingId().toString(), "status", launch.runToken(), "{\"state\":\"RECORDING\"}")
+                .andExpect(status().isNoContent());
+        botCall(launch.recordingId().toString(), "status", launch.runToken(), "{\"state\":\"RECORDING\"}")
+                .andExpect(status().isNoContent());
+
+        assertThat(joins("JOINED")).isEqualTo(before + 1);
+        assertThat(meters.find("notetaker.time_to_admit").tag("platform", "GOOGLE_MEET").timer()).isNotNull();
+    }
+
+    @Test
     @DisplayName("a link the calendar calls Google Meet is joined only when it is an https link on Meet's own host")
     void onlyMeetsOwnHostIsJoined() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -386,6 +425,12 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         botCall(launch.recordingId().toString(), "status", launch.runToken(),
                 "{\"state\":\"FAILED\",\"reason\":\"NOT_ADMITTED\"}").andExpect(status().isNoContent());
         assertThat(recordingRow().get("end_reason")).isEqualTo("NOT_ADMITTED");
+    }
+
+    private double joins(String outcome) {
+        var counter = meters.find("notetaker.joins").tag("platform", "GOOGLE_MEET").tag("recorder", "OWN")
+                .tag("outcome", outcome).counter();
+        return counter == null ? 0 : counter.count();
     }
 
     private List<NotetakerLaunch> launchesHere() {

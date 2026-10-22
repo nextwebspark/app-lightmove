@@ -105,4 +105,6 @@ export interface BillingUsage {
   periodStart: string;
   periodEnd: string;
   members: MemberCreditSpend[];
+  /** Minutes the notetaker recorded this month, beside the fair-use ceiling; `ceiling` null where none is set. */
+  notetakerMinutes: { used: number; ceiling: number | null };
 }

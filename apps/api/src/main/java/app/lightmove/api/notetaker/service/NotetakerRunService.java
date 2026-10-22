@@ -51,6 +51,7 @@ public class NotetakerRunService {
     private final ApplicationEventPublisher events;
     private final NotetakerRunEndings endings;
     private final BotIdentityVerifier bots;
+    private final NotetakerMetrics metrics;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -84,7 +85,13 @@ public class NotetakerRunService {
         MeetingRecording recording = requireRun(runId, runToken, from);
         switch (request.state()) {
             case WAITING_ROOM -> recording.reportWaiting(clock.instant());
-            case RECORDING -> recording.reportRecording(clock.instant());
+            case RECORDING -> {
+                boolean admittedNow = recording.getJoinedAt() == null;
+                recording.reportRecording(clock.instant());
+                if (admittedNow && recording.getJoinedAt() != null) {
+                    metrics.joined(recording, recording.getJoinedAt());
+                }
+            }
             case FAILED -> {
                 if (request.reason() == null || !NotetakerEndReason.REPORTED_BY_BOT.contains(request.reason())) {
                     throw ApiException.of(ErrorCode.VALIDATION_FAILED);

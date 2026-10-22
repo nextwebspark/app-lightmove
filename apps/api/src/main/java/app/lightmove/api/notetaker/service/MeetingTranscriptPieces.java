@@ -81,6 +81,16 @@ class MeetingTranscriptPieces {
                 Timestamp.from(failedBefore));
     }
 
+    /**
+     * A transcript lives as long as its note: once {@code PersonNotePurge} has deleted the note for good, V153's
+     * {@code ON DELETE SET NULL} leaves the run done with no note, and its words go too.
+     */
+    void forgetWhereNoteIsGone() {
+        jdbc.update("""
+                UPDATE app_lm_meeting_recording SET transcript = NULL
+                WHERE status = 'DONE' AND note_id IS NULL AND transcript IS NOT NULL""");
+    }
+
     void keepTranscript(UUID recordingId, List<TranscriptLine> transcript) {
         List<StoredLine> stored = transcript.stream()
                 .map(line -> new StoredLine(line.at().toString(), line.speaker(), line.text(), line.named()))

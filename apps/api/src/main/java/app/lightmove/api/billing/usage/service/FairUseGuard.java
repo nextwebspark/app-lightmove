@@ -4,6 +4,7 @@ import app.lightmove.api.billing.plan.service.BillingSeats;
 import app.lightmove.api.billing.plan.service.TrialGate;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.FairUseAllowance;
+import app.lightmove.api.billing.usage.model.FairUseSpent;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -70,6 +71,14 @@ public class FairUseGuard {
         reportOnce(workspaceId, userId, kind, used, ceiling, allowance.periodEnd());
         throw ApiException.withProperties(ErrorCode.FAIR_USE_REACHED,
                 Map.of("kind", kind.name(), "resetsAt", allowance.periodEnd()));
+    }
+
+    /** What a workspace has used of one kind this billing month, beside its ceiling. */
+    public FairUseSpent spentOf(UUID workspaceId, UsageKind kind) {
+        FairUseAllowance allowance = seats.allowanceOf(workspaceId, clock.instant());
+        long used = events.unitsBetween(workspaceId, kind, allowance.periodStart(), allowance.periodEnd());
+        long perSeat = kind.perSeatIn(properties.billing().fairUse());
+        return new FairUseSpent(used, perSeat == 0 ? null : perSeat * allowance.staffSeats());
     }
 
     private void reportOnce(UUID workspaceId, UUID userId, UsageKind kind, long used, long ceiling, Instant resetsAt) {

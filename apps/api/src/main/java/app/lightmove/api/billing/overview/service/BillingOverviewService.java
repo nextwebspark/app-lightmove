@@ -26,6 +26,8 @@ import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.BillingPlanRepository;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.billing.plan.service.BillingSeats;
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.core.config.CreditPriceSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
@@ -56,6 +58,7 @@ public class BillingOverviewService {
     private final CreditGrantRepository grants;
     private final CreditSpendReport spend;
     private final BillingSeats seats;
+    private final FairUseGuard fairUse;
     private final PaymentGateway gateway;
     private final PlanPrices planPrices;
     private final LightMoveProperties properties;
@@ -105,7 +108,8 @@ public class BillingOverviewService {
         BillingMonth month = BillingMonth.of(subscriptions.findByWorkspaceId(workspaceId).orElse(null),
                 clock.instant());
         return new BillingUsageResponse(month.start(), month.end(),
-                spend.byMember(workspaceId, month.start(), month.end()));
+                spend.byMember(workspaceId, month.start(), month.end()),
+                fairUse.spentOf(workspaceId, UsageKind.MEETING_MINUTES));
     }
 
     /** Every figure is read off the grants spendable now, so {@code left} is always their sum. */

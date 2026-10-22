@@ -90,6 +90,18 @@ class MeetingMediaPieces {
                 Boolean.class, recordingId, recordingId));
     }
 
+    /** Pieces received before {@code receivedBefore}, whatever became of their run: nothing captured outlives a day. */
+    List<StoredPiece> receivedBefore(Instant receivedBefore, int limit) {
+        return jdbc.query("""
+                SELECT recording_id, storage_key FROM app_lm_meeting_recording_media
+                WHERE received_at < ? ORDER BY received_at LIMIT ?""",
+                (row, index) -> new StoredPiece(row.getObject("recording_id", UUID.class),
+                        row.getString("storage_key")),
+                Timestamp.from(receivedBefore), limit);
+    }
+
+    record StoredPiece(UUID recordingId, String storageKey) {}
+
     void forget(UUID recordingId, String storageKey) {
         jdbc.update("DELETE FROM app_lm_meeting_recording_media WHERE recording_id = ? AND storage_key = ?",
                 recordingId, storageKey);
