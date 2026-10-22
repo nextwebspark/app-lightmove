@@ -329,6 +329,40 @@ class GoogleMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("a moved call is patched with its new times and mails the attendees the update")
+    void aMovedCallIsPatched() throws Exception {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        CalendarEvent moved = gateway.moveEvent(grantId, "evt-meet", Instant.parse("2026-10-06T06:00:00Z"),
+                Instant.parse("2026-10-06T06:30:00Z"));
+
+        assertThat(moved.id()).isEqualTo("evt-meet");
+        assertThat(google.lastQueryOf("/api/calendar/v3/calendars/primary/events/evt-meet"))
+                .contains("sendUpdates=all");
+        JsonNode body = JSON.readTree(google.bodyOf("PATCH /api/calendar/v3/calendars/primary/events/evt-meet"));
+        assertThat(body.path("start").path("dateTime").asString("")).isEqualTo("2026-10-06T06:00:00Z");
+        assertThat(body.path("end").path("dateTime").asString("")).isEqualTo("2026-10-06T06:30:00Z");
+        assertThat(body.has("attendees")).isFalse();
+    }
+
+    @Test
+    @DisplayName("a cancelled call is deleted with the attendees told; one Google already deleted is no failure")
+    void aCancelledCallIsDeleted() {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        gateway.cancelEvent(grantId, "evt-meet");
+        assertThat(google.lastQueryOf("/api/calendar/v3/calendars/primary/events/evt-meet"))
+                .contains("sendUpdates=all");
+
+        google.cancelEventAnswers(410);
+        gateway.cancelEvent(grantId, "evt-meet");
+        google.cancelEventAnswers(503);
+        assertThatThrownBy(() -> gateway.cancelEvent(grantId, "evt-meet")).isInstanceOf(VendorException.class);
+    }
+
+    @Test
     @DisplayName("a call asking for Teams goes from Google without a video link, and a refused create is tried once")
     void aTeamsCallFromGoogleGoesWithoutALink() throws Exception {
         String grantId = MailboxGrants.mintDirect("google");
@@ -487,6 +521,7 @@ class GoogleMailboxGatewayTest {
         private volatile String refreshBody;
         private volatile int sendStatus = 200;
         private volatile int createEventStatus = 200;
+        private volatile int cancelEventStatus = 204;
         private volatile boolean freeBusyErrors;
 
         void answer(HttpExchange exchange) throws IOException {
@@ -560,6 +595,11 @@ class GoogleMailboxGatewayTest {
             } else if (key.equals("POST /api/calendar/v3/calendars/primary/events")) {
                 respond(exchange, createEventStatus,
                         createEventStatus == 200 ? MEET_EVENT : "{\"error\":{\"code\":" + createEventStatus + "}}");
+            } else if (key.equals("PATCH /api/calendar/v3/calendars/primary/events/evt-meet")) {
+                respond(exchange, 200, MEET_EVENT);
+            } else if (key.equals("DELETE /api/calendar/v3/calendars/primary/events/evt-meet")) {
+                respond(exchange, cancelEventStatus, cancelEventStatus == 204 ? ""
+                        : "{\"error\":{\"code\":" + cancelEventStatus + "}}");
             } else if (key.equals("POST /api/calendar/v3/freeBusy")) {
                 respond(exchange, 200, freeBusyErrors ? """
                         {"kind":"calendar#freeBusy","calendars":{"yara.haddad@meridian.example":
@@ -583,6 +623,10 @@ class GoogleMailboxGatewayTest {
 
         void createEventAnswers(int status) {
             this.createEventStatus = status;
+        }
+
+        void cancelEventAnswers(int status) {
+            this.cancelEventStatus = status;
         }
 
         void freeBusyAnswersErrors() {

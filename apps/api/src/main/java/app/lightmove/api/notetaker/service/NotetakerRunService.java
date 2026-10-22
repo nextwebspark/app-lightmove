@@ -37,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotetakerRunService {
 
-    /** V150's CHECK: three hours of 30-second pieces is 360, so this is room, not a target. */
+    /** V151's CHECK: three hours of 30-second pieces is 360, so this is room, not a target. */
     static final int MAX_SEQUENCE = 100_000;
 
     private final MeetingRecordingRepository recordings;

@@ -1,5 +1,6 @@
 package app.lightmove.api.dataexport.service;
 
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.text.service.CsvFormatter;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
@@ -17,8 +18,8 @@ public class CompaniesCsvWriter {
     /** Without a BOM Excel on Windows reads ANSI and mangles non-ASCII names; our importer strips it. */
     private static final String BYTE_ORDER_MARK = "﻿";
 
-    public String write(List<CustomColumnDto> customColumns, List<ExportRow> rows) {
-        List<ExportColumn> builtIns = ExportColumn.all();
+    public String write(ProjectAudience audience, List<CustomColumnDto> customColumns, List<ExportRow> rows) {
+        List<ExportColumn> builtIns = ExportColumn.readBy(audience);
         List<CustomColumnDto> extras = customColumns.stream().filter(column -> !column.hidden()).toList();
 
         StringBuilder csv = new StringBuilder(BYTE_ORDER_MARK);

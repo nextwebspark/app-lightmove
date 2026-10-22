@@ -59,6 +59,12 @@ public enum PersonActivityKind {
     /** A call was booked with the person; the line carries when, and whether they booked it themselves. */
     MEETING_BOOKED,
 
+    /** A call booked in Uncava was moved; the line carries the old and the new time. */
+    MEETING_RESCHEDULED,
+
+    /** A call booked in Uncava was cancelled; the line carries when it was to be. */
+    MEETING_CANCELLED,
+
     /** The line carries the document's id and version, never its name: the read names it while it exists. */
     DOCUMENT_ADDED,
     DOCUMENT_VERSION_ADDED,

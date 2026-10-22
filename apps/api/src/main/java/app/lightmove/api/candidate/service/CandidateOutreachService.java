@@ -246,6 +246,23 @@ public class CandidateOutreachService {
         });
     }
 
+    /** A booked call moved. No status moves: the call is still booked, only its time changed. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordMeetingRescheduled(UUID actor, UUID projectId, UUID candidateId, Instant previousStartsAt,
+                                         Instant startsAt) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate ->
+                activity.record(candidate, actor, PersonActivityKind.MEETING_RESCHEDULED, PersonActivityDetails
+                        .of("previousStartsAt", previousStartsAt.toString()).and("startsAt", startsAt.toString())));
+    }
+
+    /** A booked call was cancelled. The status stays: a pipeline moves forward only, and a call was booked. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordMeetingCancelled(UUID actor, UUID projectId, UUID candidateId, Instant startsAt) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate ->
+                activity.record(candidate, actor, PersonActivityKind.MEETING_CANCELLED,
+                        PersonActivityDetails.of("startsAt", startsAt.toString())));
+    }
+
     /** By person, not by mapping: someone removed from the position since they were enrolled can still reply. */
     private void recordAboutPerson(UUID workspaceId, UUID projectId, UUID personId, UUID actor,
                                    PersonActivityKind kind, PersonActivityDetails details) {

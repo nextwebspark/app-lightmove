@@ -14,6 +14,7 @@ export function ConfirmDialog({
   title,
   children,
   confirmLabel,
+  cancelLabel = "Cancel",
   pending = false,
   confirmDisabled = false,
   tone = "danger",
@@ -25,6 +26,8 @@ export function ConfirmDialog({
   /** What happens, and to whom. */
   children: ReactNode;
   confirmLabel: string;
+  /** Where "Cancel" would read as the action itself — cancelling a call — the way back says what it keeps. */
+  cancelLabel?: string;
   pending?: boolean;
   /** The action cannot go ahead as things stand; the body says why. */
   confirmDisabled?: boolean;
@@ -41,7 +44,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="secondary" disabled={pending} onClick={onClose}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button variant={tone} loading={pending} disabled={confirmDisabled} onClick={onConfirm}>
             {confirmLabel}

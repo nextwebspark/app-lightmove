@@ -108,6 +108,18 @@ class ZoomClientTest {
     }
 
     @Test
+    @DisplayName("a moved meeting is patched with its new start and length, keeping its link")
+    void aMeetingIsMoved() throws Exception {
+        zoom.moveMeeting("zoom-access", "85746065432", Instant.parse("2026-10-07T07:30:00.456Z"), 45);
+
+        JsonNode body = JSON.readTree(bodies.get("PATCH /api/v2/meetings/85746065432"));
+        assertThat(body.path("start_time").asString("")).isEqualTo("2026-10-07T07:30:00Z");
+        assertThat(body.path("duration").asInt()).isEqualTo(45);
+        assertThat(body.path("timezone").asString("")).isEqualTo("UTC");
+        assertThat(body.has("join_url")).isFalse();
+    }
+
+    @Test
     @DisplayName("a refused create is never tried again")
     void aRefusedCreateIsTriedOnce() {
         createStatus = 429;
@@ -144,7 +156,8 @@ class ZoomClientTest {
                      "type":2,"start_time":"2026-10-06T06:00:00Z","duration":30,"timezone":"UTC",
                      "join_url":"https://us05web.zoom.us/j/85746065432?pwd=abc123",
                      "start_url":"https://us05web.zoom.us/s/85746065432?zak=secret"}""");
-            case "DELETE /api/v2/meetings/85746065432", "POST /oauth-host/oauth/revoke" -> respond(exchange, 204, "");
+            case "DELETE /api/v2/meetings/85746065432", "PATCH /api/v2/meetings/85746065432",
+                 "POST /oauth-host/oauth/revoke" -> respond(exchange, 204, "");
             default -> respond(exchange, 404, "{\"code\":404}");
         }
     }

@@ -106,6 +106,21 @@ public class ZoomClient implements ZoomApi {
     }
 
     @Override
+    public void moveMeeting(String accessToken, String meetingId, Instant startsAt, int minutes) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("start_time", startsAt.truncatedTo(ChronoUnit.SECONDS).toString());
+        body.put("duration", minutes);
+        body.put("timezone", "UTC");
+        guard.call(VendorCall.of(VENDOR, "move-meeting"), () -> api.patch()
+                .uri("/v2/meetings/{id}", meetingId)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    @Override
     public void deleteMeeting(String accessToken, String meetingId) {
         guard.call(VendorCall.of(VENDOR, "delete-meeting"), () -> api.delete()
                 .uri("/v2/meetings/{id}", meetingId)

@@ -24,6 +24,7 @@ class VendorFailureKindTest {
         assertThat(VendorFailureKind.of(HttpStatus.FORBIDDEN)).isEqualTo(VendorFailureKind.CREDENTIALS);
         assertThat(VendorFailureKind.of(HttpStatus.PAYMENT_REQUIRED)).isEqualTo(VendorFailureKind.QUOTA_EXHAUSTED);
         assertThat(VendorFailureKind.of(HttpStatus.NOT_FOUND)).isEqualTo(VendorFailureKind.NOT_FOUND);
+        assertThat(VendorFailureKind.of(HttpStatus.GONE)).isEqualTo(VendorFailureKind.GONE);
         assertThat(VendorFailureKind.of(HttpStatus.TOO_MANY_REQUESTS)).isEqualTo(VendorFailureKind.RATE_LIMITED);
         assertThat(VendorFailureKind.of(HttpStatus.BAD_GATEWAY)).isEqualTo(VendorFailureKind.UNAVAILABLE);
         assertThat(VendorFailureKind.of(HttpStatus.BAD_REQUEST)).isEqualTo(VendorFailureKind.BAD_REQUEST);
@@ -59,6 +60,7 @@ class VendorFailureKindTest {
         assertThat(VendorFailureKind.QUOTA_EXHAUSTED.retryable()).isFalse();
         assertThat(VendorFailureKind.BAD_REQUEST.retryable()).isFalse();
         assertThat(VendorFailureKind.NOT_FOUND.retryable()).isFalse();
+        assertThat(VendorFailureKind.GONE.retryable()).isFalse();
         assertThat(VendorFailureKind.MALFORMED_RESPONSE.retryable()).isFalse();
     }
 }

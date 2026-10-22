@@ -93,6 +93,27 @@ class ClientVisibilityTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("staff read who filed each executive beside the rows; a client seat reads no attribution at all")
+    void whoFiledEachExecutiveIsStaffOnly() throws Exception {
+        String company = db.queryForObject("select triage_company_id::text from app_lm_project_candidate "
+                + "where id = ?::uuid", String.class, shown);
+        String saras = body(write(researcher, "POST", candidatesUrl(projectId), """
+                {"triageCompanyId":"%s","fullName":"Filed By Sara"}""".formatted(company))).get("id").asText();
+
+        JsonNode staffRead = tools.jackson.databind.json.JsonMapper.builder().build()
+                .readTree(read(researcher, candidatesUrl(projectId)));
+        assertThat(staffRead.at("/addedBy/" + shown + "/name").asText()).isEqualTo("Alok Kumar");
+        assertThat(staffRead.at("/addedBy/" + saras + "/name").asText()).isEqualTo("sara");
+        assertThat(staffRead.at("/addedBy/" + saras + "/userId").isNull()).isFalse();
+        assertThat(staffRead.at("/candidates/0").has("addedBy")).isFalse();
+
+        JsonNode clientRead = tools.jackson.databind.json.JsonMapper.builder().build()
+                .readTree(read(client, candidatesUrl(projectId)));
+        assertThat(clientRead.get("addedBy").isNull()).isTrue();
+        assertThat(read(client, candidatesUrl(projectId))).doesNotContain("Alok Kumar");
+    }
+
+    @Test
     @DisplayName("a hidden executive matches neither Companies filter and moves nobody's place in its status sort")
     void theCompaniesGridIgnoresAHiddenExecutiveForAClient() throws Exception {
         moveTo(projectId, shown, "interested");

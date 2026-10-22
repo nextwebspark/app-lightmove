@@ -44,6 +44,10 @@ export interface TriageCompany {
   /** This mandate's own extra columns for this company, keyed by each column's `fieldKey`. */
   customFields: CustomFieldValues;
   addedAt: string;
+  /** Who filed the company into this mandate. Staff reads only; a client seat's answers null for all three. */
+  addedByUserId?: string | null;
+  addedByName?: string | null;
+  addedByAvatarUrl?: string | null;
 }
 
 /** The sidebar's badge counts for the three Companies stages. */

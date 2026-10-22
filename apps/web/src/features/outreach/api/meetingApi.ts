@@ -8,8 +8,13 @@ import { request } from "../../../lib/apiClient";
 export const MEETINGS_KEY = (projectId: string, candidateId: string) =>
   ["outreach", projectId, "candidate", candidateId, "meetings"] as const;
 
-export const MEETING_SLOTS_KEY = (projectId: string, candidateId: string, minutes: number, from: string | null) =>
-  ["outreach", projectId, "candidate", candidateId, "slots", minutes, from] as const;
+export const MEETING_SLOTS_KEY = (
+  projectId: string,
+  candidateId: string,
+  minutes: number,
+  from: string | null,
+  excluding: string | null = null,
+) => ["outreach", projectId, "candidate", candidateId, "slots", minutes, from, excluding] as const;
 
 export type MeetingVideo = "GOOGLE_MEET" | "MICROSOFT_TEAMS" | "ZOOM" | "NONE";
 
@@ -26,6 +31,8 @@ export interface Meeting {
   videoProvider: string | null;
   viaLink: boolean;
   bookedInUncava: boolean;
+  /** Booked in Uncava, still to come, and on the caller's own calendar: they may move or cancel it. */
+  editable: boolean;
 }
 
 export interface PersonMeetings {
@@ -78,13 +85,29 @@ export function getMeetingSlots(
   candidateId: string,
   minutes: number,
   from: string | null,
+  excluding: string | null,
   signal?: AbortSignal,
 ): Promise<MeetingSlots> {
   const query = new URLSearchParams({ minutes: String(minutes) });
   if (from) query.set("from", from);
+  // The call being moved: its own time reads as free, so it can move within it.
+  if (excluding) query.set("excluding", excluding);
   return request<MeetingSlots>(`${meetingsPath(projectId, candidateId)}/slots?${query}`, { signal });
 }
 
 export function bookMeeting(projectId: string, candidateId: string, body: BookMeetingRequest): Promise<void> {
   return request<void>(meetingsPath(projectId, candidateId), { method: "POST", body });
+}
+
+export function rescheduleMeeting(
+  projectId: string,
+  candidateId: string,
+  meetingId: string,
+  body: { startsAt: string; minutes: number },
+): Promise<void> {
+  return request<void>(`${meetingsPath(projectId, candidateId)}/${meetingId}`, { method: "PUT", body });
+}
+
+export function cancelMeeting(projectId: string, candidateId: string, meetingId: string): Promise<void> {
+  return request<void>(`${meetingsPath(projectId, candidateId)}/${meetingId}`, { method: "DELETE" });
 }

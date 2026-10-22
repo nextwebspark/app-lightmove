@@ -17,7 +17,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One Notetaker bot on one call (V149). Inserted by {@code MeetingRecordingClaims}, whose unique call key is the
+ * One Notetaker bot on one call (V150). Inserted by {@code MeetingRecordingClaims}, whose unique call key is the
  * claim; every later step is a method here. The run token's hash is cleared once the bot can change nothing more.
  */
 @Entity

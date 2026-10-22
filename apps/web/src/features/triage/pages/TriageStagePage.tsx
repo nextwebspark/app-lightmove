@@ -559,7 +559,8 @@ function TriageStage() {
     };
     const people = (mappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
     const unmapped = (unmappedPage?.candidates ?? []).filter(matchesExecutiveFilters);
-    return toTriageRows(companies.data?.companies ?? [], people, unmapped);
+    const addedBy = { ...(mappedPage?.addedBy ?? {}), ...(unmappedPage?.addedBy ?? {}) };
+    return toTriageRows(companies.data?.companies ?? [], people, unmapped, addedBy);
   }, [companies.data, mappedPage, unmappedPage, executiveStatuses, executiveName]);
 
   /**
