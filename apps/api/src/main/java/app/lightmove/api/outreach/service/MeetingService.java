@@ -65,7 +65,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 public class MeetingService {
 
-    static final Set<Integer> LENGTHS = Set.of(15, 30, 45);
+    static final Set<Integer> LENGTHS = Set.of(15, 30, 45, 60, 90);
 
     /** The past is context, not a log: the newest of it is enough. */
     static final int PAST_SHOWN = 20;

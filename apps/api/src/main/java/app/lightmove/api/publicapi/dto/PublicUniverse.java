@@ -9,8 +9,7 @@ public record PublicUniverse(
                 example = "inUniverse")
         String stage,
         @Schema(description = "Every company of the stage, by name") List<PublicUniverseCompany> companies,
-        @Schema(description = "Executives at no company of the position. Filled on inUniverse only; empty on the "
-                + "other stages")
+        @Schema(description = "Executives of the stage at no company of the position")
         List<PublicCandidate> unassigned
 ) {
 

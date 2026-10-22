@@ -60,5 +60,7 @@ public record CandidateResponse(
         CandidatePipelineStageDto pipelineStage,
         Instant statusChangedAt,
         /** Whether a client seat on the position sees this executive at all; staff always do. */
-        boolean clientVisible
+        boolean clientVisible,
+        /** The Companies stage they are listed under — a {@code TriageCompanyStatus} wire token, their own (V150). */
+        String triageStatus
 ) {}

@@ -16,12 +16,15 @@ import type { TriageCompany } from "../api/types";
  */
 export function RemoveCompanyDialog({
   company,
+  executiveCount,
   removing,
   onCancel,
   onConfirm,
 }: {
   /** The company awaiting confirmation, or null when the dialog is closed. */
   company: TriageCompany | null;
+  /** Everyone mapped at it, on any stage; undefined until read. */
+  executiveCount?: number;
   removing: boolean;
   onCancel: () => void;
   onConfirm: (company: TriageCompany) => void;
@@ -34,6 +37,13 @@ export function RemoveCompanyDialog({
         This removes {company.companyName} from this mandate — the stage it reached and your team's notes on
         it go with it.
       </p>
+      {!!executiveCount && (
+        <p className="mt-2.5 text-[13px]/[1.6] text-u-text2">
+          {executiveCount === 1
+            ? "Its 1 executive stays on this position, with no company."
+            : `Its ${executiveCount} executives stay on this position, with no company.`}
+        </p>
+      )}
       <p className="mt-2.5 text-[13px]/[1.6] text-u-text2">
         The company itself is not deleted. It stays in the market, findable on Strategy, and untouched
         for every other mandate.

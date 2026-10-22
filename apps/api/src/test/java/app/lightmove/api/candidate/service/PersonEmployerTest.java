@@ -18,6 +18,7 @@ import app.lightmove.api.candidate.model.PersonEmployer;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -150,7 +151,8 @@ class PersonEmployerTest {
     }
 
     private static Candidate mappedAt(Person person, UUID triageCompanyId, String companyName) {
-        return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId, person,
+        return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId,
+                TriageCompanyStatus.IN_UNIVERSE, person,
                 CandidateSource.MANUAL, PipelineTestStatuses.identified(), details(companyName));
     }
 

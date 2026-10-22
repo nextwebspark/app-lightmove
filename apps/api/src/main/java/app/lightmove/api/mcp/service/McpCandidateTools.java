@@ -74,8 +74,9 @@ public class McpCandidateTools {
             McpTransportContext context,
             @McpToolParam(description = "The position's id, from uncava_search_positions") UUID positionId,
             @McpToolParam(description = "Text to find in a name, a title or an employer, ignoring case") String query,
-            @McpToolParam(description = "Only executives mapped at a company of this stage: inUniverse, shortlisted "
-                    + "or declined. An executive at no company is at no stage", required = false) String stage,
+            @McpToolParam(description = "Only executives listed at this stage: inUniverse, shortlisted or declined. "
+                    + "Each executive holds a stage of their own, their company's unless moved alone",
+                    required = false) String stage,
             @McpToolParam(description = "Only executives at this status key of the workspace's pipeline, such as "
                     + "identified, contacted, engaged, interested, notInterested, offLimits or outOfScope",
                     required = false) String status,

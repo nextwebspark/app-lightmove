@@ -38,6 +38,7 @@ vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   updateCandidate: vi.fn(),
   deleteCandidate: vi.fn(),
   changeCandidateStatus: vi.fn(),
+  moveCandidateToStage: vi.fn(),
 }));
 vi.mock("../../customcolumns/api/customColumnsApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
@@ -672,23 +673,43 @@ describe("TriageStagePage", () => {
     await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
 
     await waitFor(() =>
-      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", { status: "shortlisted" }),
+      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+        status: "shortlisted",
+        executiveIds: [],
+      }),
     );
   });
 
-  it("undoes a move by sending the company back to the stage it left", async () => {
+  it("undoes a move by sending the company back with exactly the people it carried", async () => {
     vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
+    // The grid's read names a query; the move's own read of who stands with the company does not.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.query === undefined && !scope.unmapped ? [{ ...yasmin, triageStatus: "inUniverse" }] : []),
+    );
     renderStage();
 
     await screen.findByText("ACWA Power");
     await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
-    expect(await screen.findByText("ACWA Power moved to the shortlist")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(candidatesApi.getCandidates).toHaveBeenCalledWith("p1", {
+        triageCompanyIds: ["u1"],
+        triageStatus: "inUniverse",
+      }),
+    );
+    expect(await screen.findByText("ACWA Power and 1 executive moved to the shortlist")).toBeInTheDocument();
+    expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+      status: "shortlisted",
+      executiveIds: ["c1"],
+    });
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
     await waitFor(() =>
-      expect(triageApi.updateTriageCompany).toHaveBeenLastCalledWith("p1", "u1", { status: "inUniverse" }),
+      expect(triageApi.updateTriageCompany).toHaveBeenLastCalledWith("p1", "u1", {
+        status: "inUniverse",
+        executiveIds: ["c1"],
+      }),
     );
-    expect(await screen.findByText("ACWA Power moved to the universe")).toBeInTheDocument();
+    expect(await screen.findByText("ACWA Power and 1 executive moved to the universe")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
 
@@ -833,6 +854,21 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
     await waitFor(() => expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1"));
+  });
+
+  it("says how many executives a removal leaves on the position with no company", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.query === undefined && !scope.unmapped && !scope.triageStatus
+        ? [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", triageStatus: "declined" }]
+        : []),
+    );
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: /Remove ACWA Power from this mandate/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Its 2 executives stay on this position, with no company.")).toBeInTheDocument();
   });
 
   it("takes a company the market already carries by its universe id", async () => {
@@ -1162,7 +1198,7 @@ describe("TriageStagePage", () => {
     expect(within(grid).getByText("Riyadh")).toBeInTheDocument();
   });
 
-  it("draws a repeated company the same on every line — logo, name and actions alike", async () => {
+  it("draws a repeated company the same on every line, each line's actions its own person's", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
       pageOf({ companies: [{ ...acwa, logoUrl: "https://logo.example/acwa.png" }] }),
     );
@@ -1184,8 +1220,49 @@ describe("TriageStagePage", () => {
         "https://logo.example/acwa.png",
       );
     }
-    expect(screen.getAllByRole("button", { name: /Shortlist: ACWA Power/i })).toHaveLength(2);
-    expect(screen.getAllByRole("button", { name: /Remove ACWA Power from this mandate/i })).toHaveLength(2);
+    // #903: a line's buttons used to be its company's, so declining one person declined everyone there.
+    expect(screen.getByRole("button", { name: "Shortlist: Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Shortlist: Omar Haddad" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Shortlist: ACWA Power/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Remove ACWA Power from this mandate/i })).not.toBeInTheDocument();
+  });
+
+  it("declines one executive at a company and leaves the company and their colleagues alone", async () => {
+    const omar = { ...yasmin, id: "c2", fullName: "Omar Haddad", title: "CFO" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+    );
+    vi.mocked(candidatesApi.moveCandidateToStage).mockResolvedValue({ ...omar, triageStatus: "declined" });
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Decline: Omar Haddad" }));
+
+    await waitFor(() => expect(candidatesApi.moveCandidateToStage).toHaveBeenCalledWith("p1", "c2", "declined"));
+    expect(candidatesApi.moveCandidateToStage).toHaveBeenCalledTimes(1);
+    expect(triageApi.updateTriageCompany).not.toHaveBeenCalled();
+    expect(await screen.findByText("Omar Haddad moved to declined")).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(candidatesApi.moveCandidateToStage).toHaveBeenLastCalledWith("p1", "c2", "inUniverse"),
+    );
+  });
+
+  it("removes one executive from their line, never their company", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin]),
+    );
+    vi.mocked(candidatesApi.deleteCandidate).mockResolvedValue(undefined);
+    renderStage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Remove Yasmin El-Sayed from this mandate/i }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: /Remove Yasmin El-Sayed/i });
+    await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
+
+    await waitFor(() => expect(candidatesApi.deleteCandidate).toHaveBeenCalledWith("p1", yasmin.id));
+    expect(triageApi.deleteTriageCompany).not.toHaveBeenCalled();
   });
 
   it("asks only for the people at the companies on this page", async () => {
@@ -1195,7 +1272,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"], query: "" },
+        { triageCompanyIds: ["u1"], query: "", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );
@@ -1229,7 +1306,12 @@ describe("TriageStagePage", () => {
     );
     renderStage();
 
-    await userEvent.click(await screen.findByRole("button", { name: (name) => /Yasmin El-Sayed/i.test(name) && !name.startsWith("Status for") }));
+    // The name's own button, not a row action that also names her.
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: (name) => /Yasmin El-Sayed/i.test(name) && !name.includes(":") && !name.startsWith("Remove"),
+      }),
+    );
 
     const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
     expect(within(drawer).getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
@@ -1283,7 +1365,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { unmapped: true, query: "Wei" },
+        { unmapped: true, query: "Wei", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );
@@ -1332,7 +1414,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"], query: "Alok" },
+        { triageCompanyIds: ["u1"], query: "Alok", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );
@@ -1383,10 +1465,8 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("Wei Ling Tan");
-    // No company to shortlist or decline, so the only move on the page is ACWA Power's own — but a
-    // row with nothing at all in Actions read as a row that was stuck. Removing the person is the
-    // mandate's to do.
-    expect(screen.getAllByRole("button", { name: /^Shortlist: /i })).toHaveLength(1);
+    // No company to act on, so the line's moves and removal are the person's own.
+    expect(screen.getByRole("button", { name: "Shortlist: Wei Ling Tan" })).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: /Remove Wei Ling Tan from this mandate/i }),
     );
@@ -1431,7 +1511,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"], query: "" },
+        { triageCompanyIds: ["u1"], query: "", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );

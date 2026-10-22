@@ -13,6 +13,7 @@ import app.lightmove.api.outreach.constant.SequenceStartMode;
 import app.lightmove.api.outreach.dto.EnrollPersonRequest;
 import app.lightmove.api.outreach.dto.EnrollmentCandidateResponse;
 import app.lightmove.api.outreach.dto.EnrollmentCandidatesRequest;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.outreach.dto.EnrollmentCandidatesResponse;
 import app.lightmove.api.outreach.dto.RecipientEmailResponse;
 import app.lightmove.api.outreach.dto.SequenceTokensResponse;
@@ -76,8 +77,10 @@ public class OutreachEnrollmentService {
     @Transactional(readOnly = true)
     public EnrollmentCandidatesResponse candidates(UUID userId, UUID workspaceId, UUID projectId,
                                                    EnrollmentCandidatesRequest request) {
+        TriageCompanyStatus stage = request.triageStatus() == null || request.triageStatus().isBlank()
+                ? null : TriageCompanyStatus.parseOrInUniverse(request.triageStatus());
         List<OutreachRecipient> recipients = people.recipientsOf(workspaceId, projectId,
-                request.candidateIdsOrEmpty(), request.triageCompanyIdsOrEmpty());
+                request.candidateIdsOrEmpty(), request.triageCompanyIdsOrEmpty(), stage);
         RecipientEligibility eligible = eligibility.of(projectId, recipients);
         Map<UUID, String> sequenceNames = sequences.findAllById(eligible.liveByPerson().values().stream()
                         .map(OutreachEnrollment::getSequenceId).distinct().toList()).stream()

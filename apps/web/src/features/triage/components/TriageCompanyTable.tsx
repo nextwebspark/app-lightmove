@@ -48,6 +48,7 @@ export function TriageCompanyTable({
   onChangeCandidateStatus,
   onEditCandidate,
   onRemoveCandidate,
+  onMoveCandidate,
   onOpenCompany,
   busyIds,
   canWrite,
@@ -79,6 +80,8 @@ export function TriageCompanyTable({
   onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
   onEditCandidate: (candidate: Candidate) => void;
   onRemoveCandidate: (candidate: Candidate) => void;
+  /** Moves one executive alone to another stage. */
+  onMoveCandidate: (candidate: Candidate, status: TriageCompanyStatus) => void;
   onOpenCompany: (company: TriageCompany) => void;
   busyIds: ReadonlySet<string>;
   canWrite: boolean;
@@ -126,6 +129,7 @@ export function TriageCompanyTable({
       onChangeCandidateStatus,
       onEditCandidate,
       onRemoveCandidate,
+      onMoveCandidate,
       onOpenCompany,
       busyIds,
       canWrite,

@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
+import app.lightmove.api.candidate.dto.UpdateCandidateTriageStatusRequest;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
@@ -65,10 +66,11 @@ public class CandidateController {
                                    @RequestParam(required = false) String q,
                                    @RequestParam(required = false) String status,
                                    @RequestParam(required = false) String pipelineStage,
+                                   @RequestParam(required = false) String triageStatus,
                                    @RequestParam(required = false) Integer page,
                                    @RequestParam(required = false) Integer size) {
         CandidateListCriteria criteria = new CandidateListCriteria(triageCompanyId, unmapped, q, null, null,
-                status, pipelineStage, page, size);
+                status, pipelineStage, triageStatus, page, size);
         ProjectAudience audience = audienceOf(principal, projectId);
         CandidatesResponse found = candidates.list(principal.requireWorkspaceId(), projectId, criteria, audience);
         return audience == ProjectAudience.STAFF ? candidates.withAddedBy(principal.requireWorkspaceId(), projectId, found) : found;
@@ -142,6 +144,19 @@ public class CandidateController {
             @Valid @RequestBody UpdateCandidateStatusRequest request,
             HttpServletRequest httpRequest) {
         return candidates.changeStatus(principal.userId(),
+                principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
+    }
+
+    /** Moves one executive to another Companies stage; their company and its other people stay put. */
+    @PutMapping("/{candidateId}/triage-status")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public CandidateResponse changeTriageStatus(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID projectId,
+            @PathVariable UUID candidateId,
+            @Valid @RequestBody UpdateCandidateTriageStatusRequest request,
+            HttpServletRequest httpRequest) {
+        return candidates.changeTriageStatus(principal.userId(),
                 principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
     }
 
