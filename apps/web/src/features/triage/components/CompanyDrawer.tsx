@@ -2,6 +2,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
+import { Avatar } from "../../../components/ui/Avatar";
 import { CompanyDrawerHeader } from "../../../components/ui/CompanyDrawerHeader";
 import { DetailGrid, DetailPill, DetailTile, DrawerSection } from "../../../components/ui/DetailList";
 import { Drawer } from "../../../components/ui/Drawer";
@@ -158,6 +159,7 @@ export function CompanyDrawer({
         website={company.website}
         linkedinUrl={company.companyLinkedinUrl}
         context={[company.industry, company.companyCity, company.companyCountry]}
+        byline={canWrite ? <AddedByLine company={company} /> : undefined}
         onClose={onClose}
         badges={
           <>
@@ -271,7 +273,6 @@ export function CompanyDrawer({
                 <DetailTile label="Stage" value={stageByStatus(company.status).label} />
                 <DetailTile label="Source" value={SOURCE_STYLES[company.source].label} />
                 <DetailTile label="Added" value={formatInstantDate(company.addedAt)} />
-                {canWrite && <DetailTile label="Added by" value={company.addedByName ?? null} />}
                 <DetailTile label="Country" value={company.companyCountry} />
               </DetailGrid>
               {!isMandateSupplied && (
@@ -368,5 +369,20 @@ function MandateColumnsSection({
     >
       <CustomFieldsFieldset columns={columns} values={values} onChange={onChange} />
     </DrawerSection>
+  );
+}
+
+/** "Added by Yara Haddad · 01 Aug 2026", with their photo: staff-only, as the read that carries it is. */
+function AddedByLine({ company }: { company: TriageCompany }) {
+  if (!company.addedByName || !company.addedByUserId) return null;
+  return (
+    <span className="flex items-center gap-2 text-meta text-u-text3">
+      <Avatar id={company.addedByUserId} name={company.addedByName} src={company.addedByAvatarUrl} size="sm" />
+      <span>
+        Added by <span className="font-medium text-u-text2">{company.addedByName}</span>
+        {" · "}
+        {formatInstantDate(company.addedAt)}
+      </span>
+    </span>
   );
 }

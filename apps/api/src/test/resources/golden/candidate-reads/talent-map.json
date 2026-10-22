@@ -128,7 +128,9 @@
   } ],
   "companies" : [ {
     "addedAt" : "<instant>",
+    "addedByAvatarUrl" : null,
     "addedByName" : "Alok Kumar",
+    "addedByUserId" : "<id>",
     "annualRevenue" : null,
     "apolloAccountId" : null,
     "companyCity" : "Goldenvale",

@@ -6,8 +6,8 @@ import java.util.UUID;
 
 /**
  * A triaged company from its stored snapshot. {@code id} is the triage row's, not the company's;
- * {@code apolloAccountId} is null for a mandate-supplied company. {@code noteCount} and {@code addedByName} are
- * the staff reads' alone: every other read, a client seat's included, answers null.
+ * {@code apolloAccountId} is null for a mandate-supplied company. {@code noteCount} and the three {@code addedBy*}
+ * fields are the staff reads' alone: every other read, a client seat's included, answers null.
  */
 public record TriageCompanyResponse(
         UUID id,
@@ -30,5 +30,7 @@ public record TriageCompanyResponse(
         String logoUrl,
         Map<String, String> customFields,
         Instant addedAt,
-        String addedByName
+        UUID addedByUserId,
+        String addedByName,
+        String addedByAvatarUrl
 ) {}

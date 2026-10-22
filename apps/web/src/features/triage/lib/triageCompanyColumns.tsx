@@ -9,6 +9,7 @@ import {
   type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { Avatar } from "../../../components/ui/Avatar";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { CompanyLink } from "../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
@@ -449,8 +450,17 @@ const BUILT_IN_COLUMNS = helper.columns([
     id: "addedBy",
     header: "Added by",
     enableSorting: false,
-    meta: { share: 8, min: 112 },
-    cell: (info) => <DataGridCell value={info.getValue()} />,
+    meta: { share: 8, min: 128 },
+    cell: (info) => {
+      const company = info.row.original.company;
+      if (!company?.addedByName || !company.addedByUserId) return <DataGridCell value={null} />;
+      return (
+        <span className="flex min-w-0 items-center gap-1.5" title={company.addedByName}>
+          <Avatar id={company.addedByUserId} name={company.addedByName} src={company.addedByAvatarUrl} size="xs" />
+          <span className="truncate">{shortNameOf(company.addedByName)}</span>
+        </span>
+      );
+    },
   }),
 
   helper.accessor((row) => row.company?.shortDescription ?? null, {
@@ -506,6 +516,12 @@ export function createTriageCompanyColumns(customColumns: readonly CustomColumn[
   // per-column value types into the one array shape `useTable` takes, which a spread loses.
   const builtIn = staff ? BUILT_IN_COLUMNS : BUILT_IN_COLUMNS.filter((column) => !STAFF_ONLY_COLUMNS.has(column.id ?? ""));
   return helper.columns([...builtIn, ...custom]);
+}
+
+/** "Yara Haddad" as "Yara H.": the photo carries who, the column stays narrow. */
+function shortNameOf(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return parts.length < 2 ? fullName : `${parts[0]} ${parts[parts.length - 1][0]}.`;
 }
 
 /** Columns a client seat never draws: a company's notes, and who at the firm filed it. */

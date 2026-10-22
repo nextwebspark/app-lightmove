@@ -75,6 +75,7 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
         assertThat(grid.at("/companies/0/noteCount").asInt()).isEqualTo(2);
         assertThat(grid.at("/companies/0").has("note")).isFalse();
         assertThat(grid.at("/companies/0/addedByName").asText()).isEqualTo("Alok Kumar");
+        assertThat(grid.at("/companies/0/addedByUserId").isNull()).isFalse();
     }
 
     @Test
@@ -247,6 +248,8 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
                 .andReturn());
         assertThat(grid.at("/companies/0/noteCount").isNull()).isTrue();
         assertThat(grid.at("/companies/0/addedByName").isNull()).isTrue();
+        assertThat(grid.at("/companies/0/addedByUserId").isNull()).isTrue();
+        assertThat(grid.at("/companies/0/addedByAvatarUrl").isNull()).isTrue();
         String export = mvc.perform(get("/api/v1/projects/" + projectId + "/export/companies?stage=inUniverse")
                         .header("Authorization", "Bearer " + client))
                 .andExpect(status().isOk())

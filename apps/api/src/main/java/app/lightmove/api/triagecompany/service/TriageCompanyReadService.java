@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -87,12 +88,12 @@ public class TriageCompanyReadService {
         Map<UUID, Integer> noteCounts = staff
                 ? companyNotes.countsOf(projectId, found.getContent().stream().map(TriageCompany::getId).toList())
                 : null;
-        Map<UUID, String> addedByNames = staff ? addedByNamesOf(found.getContent()) : Map.of();
+        Map<UUID, User> addedBy = staff ? addersOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(
                 found.getContent().stream()
                         .map(company -> TriageCompanyResponseMapper.toDto(company,
                                 noteCounts == null ? null : noteCounts.getOrDefault(company.getId(), 0),
-                                addedByNames.get(company.getAddedBy())))
+                                addedBy.get(company.getAddedBy())))
                         .toList(),
                 found.getTotalElements(), page, size, countsFor(projectId));
     }
@@ -190,12 +191,11 @@ public class TriageCompanyReadService {
         Page<TriageCompany> found = findWithFilters(projectId, status,
                 SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
                 resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()), wholeStage, audience);
-        Map<UUID, String> addedByNames = audience == ProjectAudience.STAFF
-                ? addedByNamesOf(found.getContent()) : Map.of();
+        Map<UUID, User> addedBy = audience == ProjectAudience.STAFF ? addersOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(
                 found.getContent().stream()
                         .map(company -> TriageCompanyResponseMapper.toDto(company, null,
-                                addedByNames.get(company.getAddedBy())))
+                                addedBy.get(company.getAddedBy())))
                         .toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));
     }
@@ -320,14 +320,12 @@ public class TriageCompanyReadService {
         return triaged.findIdsByProjectIdAndStatus(projectId, status);
     }
 
-    private Map<UUID, String> addedByNamesOf(List<TriageCompany> companies) {
+    private Map<UUID, User> addersOf(List<TriageCompany> companies) {
         Set<UUID> ids = companies.stream().map(TriageCompany::getAddedBy).collect(Collectors.toSet());
         if (ids.isEmpty()) {
             return Map.of();
         }
-        return users.findAllById(ids).stream()
-                .filter(user -> user.getFullName() != null)
-                .collect(Collectors.toMap(User::getId, User::getFullName));
+        return users.findAllById(ids).stream().collect(Collectors.toMap(User::getId, Function.identity()));
     }
 
     private TriageCountsDto countsFor(UUID projectId) {

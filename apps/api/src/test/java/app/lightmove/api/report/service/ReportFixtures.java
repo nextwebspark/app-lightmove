@@ -29,7 +29,7 @@ final class ReportFixtures {
 
     static TriageCompanyResponse company(String name, String industry) {
         return new TriageCompanyResponse(UUID.randomUUID(), null, "manual", "inUniverse", null, false, name,
-                industry, null, null, null, null, null, null, null, null, null, null, Map.of(), Instant.EPOCH, null);
+                industry, null, null, null, null, null, null, null, null, null, null, Map.of(), Instant.EPOCH, null, null, null);
     }
 
     /** An executive mapped at {@code company}, or at no universe company where it is null. */

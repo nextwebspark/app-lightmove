@@ -197,7 +197,7 @@ class CompaniesCsvWriterTest {
     private static CompanyBuilder company(String name) {
         return new CompanyBuilder(new TriageCompanyResponse(UUID.randomUUID(), null, "manual",
                 "inUniverse", null, false, name, null, null, null, null, null, null, null, null, null,
-                null, null, Map.of(), null, null));
+                null, null, Map.of(), null, null, null, null));
     }
 
     private static PersonBuilder person(String name) {
@@ -239,7 +239,8 @@ class CompaniesCsvWriterTest {
                     response.companyName(), response.industry(), response.companyCountry(), response.companyCity(),
                     response.numEmployees(), response.annualRevenue(), response.website(),
                     response.companyLinkedinUrl(), response.foundedYear(), description, response.sourceUrl(),
-                    response.logoUrl(), response.customFields(), response.addedAt(), response.addedByName()));
+                    response.logoUrl(), response.customFields(), response.addedAt(), response.addedByUserId(),
+                    response.addedByName(), response.addedByAvatarUrl()));
         }
 
         CompanyBuilder addedBy(String addedByName) {
@@ -249,7 +250,7 @@ class CompaniesCsvWriterTest {
                     response.numEmployees(), response.annualRevenue(), response.website(),
                     response.companyLinkedinUrl(), response.foundedYear(), response.shortDescription(),
                     response.sourceUrl(), response.logoUrl(), response.customFields(), response.addedAt(),
-                    addedByName));
+                    UUID.randomUUID(), addedByName, null));
         }
 
         CompanyBuilder added(Instant addedAt) {
@@ -271,7 +272,8 @@ class CompaniesCsvWriterTest {
                     source, response.status(), noteCount, response.noExecutiveFound(), response.companyName(),
                     response.industry(), country, city, employees, revenue, response.website(),
                     response.companyLinkedinUrl(), founded, response.shortDescription(),
-                    response.sourceUrl(), response.logoUrl(), customFields, addedAt, response.addedByName()));
+                    response.sourceUrl(), response.logoUrl(), customFields, addedAt, response.addedByUserId(),
+                    response.addedByName(), response.addedByAvatarUrl()));
         }
     }
 
