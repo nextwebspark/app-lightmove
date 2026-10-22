@@ -23,6 +23,8 @@ const LENGTHS: { value: Length; label: string }[] = [
   { value: "90", label: "1.5 hr" },
 ];
 
+const OFFERED_LENGTHS = new Intl.ListFormat("en", { type: "disjunction" }).format(LENGTHS.map((option) => option.label));
+
 const VIDEO_LINKS: { value: MeetingVideo; label: string }[] = [
   { value: "GOOGLE_MEET", label: "Google Meet" },
   { value: "MICROSOFT_TEAMS", label: "Microsoft Teams" },
@@ -276,7 +278,7 @@ export function BookCallDialog({
             <p className="text-note text-u-text3">
               Now {meetingWhenOf(meeting.startsAt, meeting.endsAt)}. {firstName} is sent the new time; the title
               {meeting.videoProvider ? ` and the ${meeting.videoProvider} link stay` : " stays"} as booked.
-              {!isOfferedLength(meeting) && ` It was booked for ${minutesOf(meeting)} min; a moved call is 15, 30 or 45 min, 1 hr or 1.5 hr.`}
+              {!isOfferedLength(meeting) && ` It was booked for ${minutesOf(meeting)} min; a moved call is ${OFFERED_LENGTHS}.`}
             </p>
           ) : (
             <>

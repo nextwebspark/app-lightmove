@@ -31,6 +31,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -194,8 +195,15 @@ class MeetingIntegrationTest extends FlowTestSupport {
 
         book(priya, slot, 90, "priya@" + domain).andExpect(status().isNoContent());
 
-        assertThat(gateway.created().getFirst().endsAt()).isEqualTo(slot.plus(Duration.ofMinutes(90)));
-        assertThat(firstFreeSlot(priya, 60)).isNotNull();
+        Instant callEnds = slot.plus(Duration.ofMinutes(90));
+        assertThat(gateway.created().getFirst().endsAt()).isEqualTo(callEnds);
+
+        gateway.busyAt(List.of(new BusyInterval(slot, callEnds)));
+        JsonNode hourLong = body(as(consultant, get(meetings(priya) + "/slots").param("minutes", "60")).andReturn());
+        List<Instant> offered = new ArrayList<>();
+        hourLong.get("days").forEach(day -> day.get("starts").forEach(start -> offered.add(Instant.parse(start.asText()))));
+        assertThat(offered).isNotEmpty().noneMatch(start ->
+                start.isBefore(callEnds) && start.plus(Duration.ofMinutes(60)).isAfter(slot));
     }
 
     @Test
