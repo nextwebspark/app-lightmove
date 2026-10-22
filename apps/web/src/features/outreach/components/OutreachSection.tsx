@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { cn } from "../../../lib/cn";
 import type { CandidateStatus } from "../../candidates/api/types";
@@ -17,7 +18,8 @@ const REPLY_CHOICES: CandidateStatus[] = ["engaged", "interested", "notIntereste
 /**
  * The executive drawer's Outreach fold (`Outreach.dc.html?drawer=`): their latest run on this position,
  * step by step — sent, scheduled, waiting, or not sent and why — with Stop while it runs and, once they
- * replied, the three statuses a reply can mean. Staff-only; drawn only for someone a sequence reached for.
+ * replied, their words and the three statuses a reply can mean. Staff-only; drawn only for someone a sequence reached
+ * for or who replied.
  */
 export function OutreachSection({
   projectId,
@@ -39,6 +41,7 @@ export function OutreachSection({
   isSettingStatus: boolean;
   onSetStatus: (status: CandidateStatus) => void;
 }) {
+  const location = useLocation();
   const outreach = useQuery({
     queryKey: runApi.CANDIDATE_OUTREACH_KEY(projectId, candidateId),
     queryFn: ({ signal }) => runApi.getCandidateOutreach(projectId, candidateId, signal),
@@ -53,10 +56,18 @@ export function OutreachSection({
   });
   const [isConfirmingStop, setIsConfirmingStop] = useState(false);
   const run = outreach.data?.run ?? null;
-  if (!run) {
+  const reply = outreach.data?.latestReply ?? null;
+  if (!run && !reply) {
     return null;
   }
-  const state = RUN_STATES[run.status];
+  const state = run ? RUN_STATES[run.status] : null;
+  const conversationPath = `/projects/${projectId}/outreach?candidate=${candidateId}`;
+  // Over the Outreach page itself the drawer opens on top of this very conversation: no link back to it.
+  const isOnOutreach = /\/projects\/[^/]+\/outreach\/?$/.test(location.pathname);
+  // A reply to an email sent by hand, or one after its run ended, is theirs to read here as much as a run's.
+  const repliedAt = reply?.at ?? (run?.status === "REPLIED" ? run.endedAt : null);
+  const hasReplied = reply !== null || run?.status === "REPLIED";
+  const replyText = reply?.text ?? null;
 
   return (
     <CollapsibleSection
@@ -64,15 +75,32 @@ export function OutreachSection({
       open={open}
       onToggle={onToggle}
       title="Outreach"
-      summary={`${state.label} · ${run.sentCount} of ${run.stepCount} sent`}
+      summary={run && state ? `${state.label} · ${run.sentCount} of ${run.stepCount} sent` : `${firstName} replied`}
+      action={
+        isOnOutreach ? undefined : (
+          <Link to={conversationPath} className="text-note font-medium text-u-accent hover:underline">
+            Open conversation
+          </Link>
+        )
+      }
     >
       <div className="pb-3">
-        {run.status === "REPLIED" && (
+        {hasReplied && (
           <div className="mb-3 rounded-[8px] bg-u-direct-tint px-3 py-2.5 text-[12.5px]/[1.5]">
             <b className="text-u-direct">
-              {firstName} replied{run.endedAt ? ` ${sendTimeOf(run.endedAt)}` : ""}.
+              {firstName} replied{repliedAt ? ` ${sendTimeOf(repliedAt)}` : ""}.
             </b>{" "}
-            Read it in your inbox{candidateStatus === "contacted" ? ", then record where they stand." : "."}
+            {replyText ? (
+              <>
+                <q className="mt-1 block whitespace-pre-wrap text-u-text2">{replyText}</q>
+                {candidateStatus === "contacted" ? "Record where they stand." : null}
+              </>
+            ) : (
+              <>
+                Read it in your inbox
+                {candidateStatus === "contacted" ? ", then record where they stand." : "."}
+              </>
+            )}
             {candidateStatus === "contacted" && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {replyChoices.map((choice) => (
@@ -90,49 +118,82 @@ export function OutreachSection({
             )}
           </div>
         )}
-        {run.status === "BOOKED" && (
-          <div className="mb-3 rounded-[8px] bg-u-direct-tint px-3 py-2.5 text-[12.5px]/[1.5]">
-            <b className="text-u-direct">
-              {run.bookedViaLink ? `${firstName} booked a call through your link.` : `A call was booked with ${firstName}.`}
-            </b>{" "}
-            {run.endedAt ? `${sendTimeOf(run.endedAt)}. ` : ""}Their sequence stopped.
-          </div>
+        {run && state && (
+          <RunSteps
+            run={run}
+            state={state}
+            steps={outreach.data?.steps ?? []}
+            firstName={firstName}
+            isStopping={stop.isPending}
+            onStop={() => setIsConfirmingStop(true)}
+          />
         )}
-        <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[12.5px] font-medium text-u-text2">
-          <span className={cn("rounded-full px-2 py-[2px] font-mono text-[10.5px] uppercase", state.className)}>
-            {state.label}
-          </span>
-          <span>
-            {run.sequenceName ?? "A sequence"}
-            {run.senderName ? ` · from ${run.senderName}` : ""}
-          </span>
-        </div>
-        <ol>
-          {outreach.data?.steps.map((step) => (
-            <StepLine key={step.number} step={step} />
-          ))}
-        </ol>
-        {isLive(run) && (
-          <button
-            type="button"
-            disabled={stop.isPending}
-            onClick={() => setIsConfirmingStop(true)}
-            className="mt-2 rounded-[6px] border border-u-border px-[11px] py-[5px] text-[12px] font-medium text-u-text2 hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-60"
-          >
-            Stop sequence
-          </button>
+        {run && (
+          <StopRunDialog
+            open={isConfirmingStop}
+            name={firstName}
+            pending={stop.isPending}
+            onConfirm={() =>
+              stop.mutate({ id: run.id, fullName: null }, { onSettled: () => setIsConfirmingStop(false) })
+            }
+            onClose={() => setIsConfirmingStop(false)}
+          />
         )}
-        <StopRunDialog
-          open={isConfirmingStop}
-          name={firstName}
-          pending={stop.isPending}
-          onConfirm={() =>
-            stop.mutate({ id: run.id, fullName: null }, { onSettled: () => setIsConfirmingStop(false) })
-          }
-          onClose={() => setIsConfirmingStop(false)}
-        />
       </div>
     </CollapsibleSection>
+  );
+}
+
+function RunSteps({
+  run,
+  state,
+  steps,
+  firstName,
+  isStopping,
+  onStop,
+}: {
+  run: runApi.OutreachRun;
+  state: { label: string; className: string };
+  steps: readonly OutreachStep[];
+  firstName: string;
+  isStopping: boolean;
+  onStop: () => void;
+}) {
+  return (
+    <>
+      {run.status === "BOOKED" && (
+        <div className="mb-3 rounded-[8px] bg-u-direct-tint px-3 py-2.5 text-[12.5px]/[1.5]">
+          <b className="text-u-direct">
+            {run.bookedViaLink ? `${firstName} booked a call through your link.` : `A call was booked with ${firstName}.`}
+          </b>{" "}
+          {run.endedAt ? `${sendTimeOf(run.endedAt)}. ` : ""}Their sequence stopped.
+        </div>
+      )}
+      <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[12.5px] font-medium text-u-text2">
+        <span className={cn("rounded-full px-2 py-[2px] font-mono text-[10.5px] uppercase", state.className)}>
+          {state.label}
+        </span>
+        <span>
+          {run.sequenceName ?? "A sequence"}
+          {run.senderName ? ` · from ${run.senderName}` : ""}
+        </span>
+      </div>
+      <ol>
+        {steps.map((step) => (
+          <StepLine key={step.number} step={step} />
+        ))}
+      </ol>
+      {isLive(run) && (
+        <button
+          type="button"
+          disabled={isStopping}
+          onClick={onStop}
+          className="mt-2 rounded-[6px] border border-u-border px-[11px] py-[5px] text-[12px] font-medium text-u-text2 hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-60"
+        >
+          Stop sequence
+        </button>
+      )}
+    </>
   );
 }
 

@@ -22,6 +22,10 @@ describe("help articles", () => {
     expect(articlesForPage("/projects/p1/companies/universe").map((article) => article.slug)).toContain(
       "find-executives",
     );
+    expect(articlesForPage("/projects/p1/outreach").map((article) => article.slug)).toEqual([
+      "outreach-conversations",
+      "outreach-mailbox",
+    ]);
     expect(articlesForPage("/team")).toEqual([]);
   });
 

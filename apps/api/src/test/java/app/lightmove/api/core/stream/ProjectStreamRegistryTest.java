@@ -19,7 +19,7 @@ class ProjectStreamRegistryTest {
     @DisplayName("a dead stream is dropped rather than breaking the broadcast")
     void aDeadStreamIsDroppedRatherThanBreakingTheBroadcast() {
         UUID projectId = UUID.randomUUID();
-        SseEmitter departed = registry.subscribe(projectId);
+        SseEmitter departed = registry.subscribe(projectId, true);
         departed.complete();
 
         assertThatCode(() -> {

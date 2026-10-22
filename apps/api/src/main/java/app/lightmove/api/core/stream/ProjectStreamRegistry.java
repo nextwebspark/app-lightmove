@@ -2,7 +2,6 @@ package app.lightmove.api.core.stream;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
@@ -16,11 +15,16 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Component
 public class ProjectStreamRegistry {
 
-    private final Map<UUID, Set<SseEmitter>> streams = new ConcurrentHashMap<>();
+    /** Each held stream, and whether its holder may hear the staff-only kinds, decided when it subscribed. */
+    private final Map<UUID, Map<SseEmitter, Boolean>> streams = new ConcurrentHashMap<>();
 
-    public SseEmitter subscribe(UUID projectId) {
+    /**
+     * @param hearsStaffKinds whether the holder may work the position: a client seat reads the mandate, and is never
+     *                        told when outreach or a task moved. Re-decided on every reconnect, at most 55 s apart.
+     */
+    public SseEmitter subscribe(UUID projectId, boolean hearsStaffKinds) {
         SseEmitter emitter = new SseEmitter(SseStreams.STREAM_TIMEOUT_MS);
-        streams.computeIfAbsent(projectId, id -> ConcurrentHashMap.newKeySet()).add(emitter);
+        streams.computeIfAbsent(projectId, id -> new ConcurrentHashMap<>()).put(emitter, hearsStaffKinds);
         emitter.onCompletion(() -> drop(projectId, emitter));
         emitter.onTimeout(emitter::complete);
         emitter.onError(error -> drop(projectId, emitter));
@@ -40,11 +44,15 @@ public class ProjectStreamRegistry {
      * silence. Parsing it back at the listener makes that unrepresentable here.
      */
     public void broadcast(UUID projectId, ProjectStreamKind kind) {
-        Set<SseEmitter> held = streams.get(projectId);
+        Map<SseEmitter, Boolean> held = streams.get(projectId);
         if (held == null) {
             return;
         }
-        for (SseEmitter emitter : held) {
+        for (Map.Entry<SseEmitter, Boolean> stream : held.entrySet()) {
+            if (kind.isStaffOnly() && !stream.getValue()) {
+                continue;
+            }
+            SseEmitter emitter = stream.getKey();
             try {
                 emitter.send(SseEmitter.event().name("change").data("{\"kind\":\"" + kind.wire() + "\"}"));
             } catch (IOException | IllegalStateException dead) {

@@ -121,6 +121,10 @@ class OutreachReplyLedgerIntegrationTest extends FlowTestSupport {
         JsonNode queue = body(as(consultant, get(outreach("/conversations")).param("view", "all"))
                 .andExpect(status().isOk()).andReturn());
         assertThat(queue.at("/rows/0/latest/preview").asText()).isEqualTo("Thursday works.");
+        JsonNode drawer = body(as(consultant, get(outreach("/candidates/" + priya))).andExpect(status().isOk())
+                .andReturn());
+        assertThat(drawer.at("/latestReply/text").asText()).isEqualTo("Thursday works.");
+        assertThat(drawer.at("/latestReply/at").isNull()).isFalse();
     }
 
     @Test

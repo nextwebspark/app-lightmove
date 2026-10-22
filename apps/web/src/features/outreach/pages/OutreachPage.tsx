@@ -5,9 +5,11 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { buttonClassName, EmptyState } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { useProjectStream } from "../../../lib/useProjectStream";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { rememberDrawerTab } from "../../candidates/lib/drawerTabs";
+import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as conversationApi from "../api/conversationApi";
 import type { ConversationList, ConversationScope, ConversationView } from "../api/conversationApi";
 import { ConversationListPane } from "../components/ConversationListPane";
@@ -18,11 +20,14 @@ import { MailboxSetupCard } from "../components/MailboxSetupCard";
 import { NewEmailButton } from "../components/NewEmailButton";
 import { OutreachHeader } from "../components/OutreachHeader";
 import { mailboxStateOf, type MailboxState } from "../lib/mailboxState";
+import { refreshOutreachActivity } from "../lib/outreachRefresh";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect, type MailboxConnect } from "../lib/useMailboxConnect";
 
 const VIEWS: readonly ConversationView[] = ["all", "needs", "scheduled", "sent"];
 const SEARCH_DELAY_MS = 250;
+/** While the stream is live: a read every five minutes catches what it does not announce. */
+export const LIVE_SAFETY_REFRESH_MS = 5 * 60_000;
 
 /**
  * A position's Outreach page (`claude-design/Outreach.dc.html`): everyone the team is in conversation with on the
@@ -46,11 +51,19 @@ export function OutreachPage() {
   // Whom New email opened, so their composer takes the caret; a row click opens someone to read.
   const [writingTo, setWritingTo] = useState<string | null>(null);
 
+  // Live, the server says when an email, a reply, a run or a task moved; the slow read is the safety net for what
+  // it does not announce (a note, a meeting, a status), and the minute's read stands in whenever the stream is down.
+  const streamIsLive = useProjectStream(project.id, (kinds) => {
+    if (kinds.includes("outreach") || kinds.includes("task")) refreshOutreachActivity(queryClient, project.id);
+    if (kinds.includes("task")) void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
+  });
+  const refreshMs = streamIsLive ? LIVE_SAFETY_REFRESH_MS : CONVERSATION_REFRESH_MS;
+
   const list = useQuery({
     queryKey: conversationApi.CONVERSATIONS_KEY(project.id, view, who, query),
     queryFn: ({ signal }) => conversationApi.listConversations(project.id, view, who, query, signal),
     placeholderData: keepPreviousData,
-    refetchInterval: CONVERSATION_REFRESH_MS,
+    refetchInterval: refreshMs,
   });
   const rows = list.data?.rows ?? [];
 
@@ -170,6 +183,7 @@ export function OutreachPage() {
             onOpenRecord={openRecord}
             onBack={() => select(null)}
             focusComposer={writingTo === candidateId}
+            refreshMs={refreshMs}
           />
         ) : (
           <div className="hidden min-h-0 overflow-y-auto bg-u-surface lg:flex xl:col-span-2">

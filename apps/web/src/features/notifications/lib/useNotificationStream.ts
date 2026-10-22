@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { streamEvents } from "../../../lib/apiClient";
+import { refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import { NOTIFICATIONS_KEY_PREFIX } from "../api/notificationsApi";
 
@@ -33,6 +34,8 @@ export function useNotificationStream(): boolean {
     const refresh = () => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY_PREFIX });
       void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
+      // A reply or a booking reaches the bell and the conversation together; only open reads refetch.
+      refreshOutreachActivity(queryClient);
     };
 
     const announceChange = () => {

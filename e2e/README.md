@@ -30,6 +30,7 @@ api/17-companies-...sh    companies and executives: triage doors, contacts ledge
 api/18-import-export.sh   the spreadsheet in (no model call) and the stage out, with its audit
 api/19-reports-...sh      the report's chapters, researcher performance, map, activity, templates
 api/20-workspace-...sh    several workspaces: found one in the app, switch, the tenant wall across it
+api/21-outreach-...sh     the conversation workspace: queue, history, a note, the composer refusing, a client seat
 spa/run.mjs               headless Chromium over the real SPA
 spa/roles.mjs             the same, once per workspace role
 spa/strategy.mjs          the Strategy screen over the company universe
