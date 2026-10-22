@@ -1,4 +1,5 @@
 import type { PersonTimelineEntry } from "../api/types";
+import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import { statusLabelOf } from "./pipelineStatus";
 
 /**
@@ -109,6 +110,18 @@ function phraseOf(
           ? `${statusLabel(details.from, details.fromLabel)} → ${statusLabel(details.to, details.toLabel)}`
           : null,
       };
+    case "TRIAGE_STATUS_CHANGED": {
+      const to = triageStageLabel(details.to);
+      return {
+        text: `moved${them || " them"} to ${to} on ${where}`,
+        detail: [
+          details.from ? `${triageStageLabel(details.from)} → ${to}` : null,
+          String(details.withCompany) === "true" ? "With their company" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ") || null,
+      };
+    }
     case "NEXT_ACTION_SET": {
       if (String(details.cleared) === "true") {
         return { text: `cleared the next action${forThem} on ${where}`, detail: null };
@@ -310,4 +323,9 @@ function statusLabel(value: string | undefined, snapshot: string | undefined): s
 
 function vendorOf(value: string | undefined): string | null {
   return value ? (VENDORS[value] ?? null) : null;
+}
+
+/** A Companies stage as the sub-nav names it; an unknown token as written. */
+function triageStageLabel(status: string | undefined): string {
+  return TRIAGE_STAGES.find((stage) => stage.status === status)?.label ?? status ?? "another stage";
 }

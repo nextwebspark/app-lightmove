@@ -1,10 +1,13 @@
 package app.lightmove.api.triagecompany.model;
 
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * A company of a mandate moved stage. Published inside the moving transaction, so whoever keeps people at that
- * company (#903: they move with it) writes in the same commit.
+ * A company of a mandate moved stage, published inside the moving transaction. {@code executiveIds} names exactly who
+ * moves with it — an Undo restoring the people the move carried — and null means everyone still at {@code from}, so a
+ * person moved on their own keeps their stage (#903).
  */
-public record TriageCompanyMoved(UUID projectId, UUID triageCompanyId, TriageCompanyStatus status) {}
+public record TriageCompanyMoved(UUID projectId, UUID triageCompanyId, TriageCompanyStatus from,
+                                 TriageCompanyStatus to, UUID movedBy, Set<UUID> executiveIds) {}

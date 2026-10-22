@@ -16,6 +16,10 @@ public enum PersonActivityKind {
     UNMAPPED,
 
     STATUS_CHANGED,
+
+    /** Moved to another Companies stage, on their own or carried by their company's move (#903). */
+    TRIAGE_STATUS_CHANGED,
+
     PROFILE_EDITED,
     CONTACTS_EDITED,
 

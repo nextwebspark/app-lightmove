@@ -347,15 +347,15 @@ public class TriageCompanyReadService {
     }
 
     private TriageCountsDto countsFor(UUID projectId, ProjectAudience audience) {
+        Map<TriageCompanyStatus, Long> movedHere = executives.companyCountsWithExecutivesMoved(projectId, audience);
         return new TriageCountsDto(
-                countListedAt(projectId, TriageCompanyStatus.IN_UNIVERSE, audience),
-                countListedAt(projectId, TriageCompanyStatus.SHORTLISTED, audience),
-                countListedAt(projectId, TriageCompanyStatus.DECLINED, audience));
+                countListedAt(projectId, TriageCompanyStatus.IN_UNIVERSE, movedHere),
+                countListedAt(projectId, TriageCompanyStatus.SHORTLISTED, movedHere),
+                countListedAt(projectId, TriageCompanyStatus.DECLINED, movedHere));
     }
 
-    private long countListedAt(UUID projectId, TriageCompanyStatus status, ProjectAudience audience) {
-        return triaged.countByProjectIdAndStatus(projectId, status)
-                + executives.triageCompanyIdsWithExecutivesMovedTo(projectId, status, audience).size();
+    private long countListedAt(UUID projectId, TriageCompanyStatus status, Map<TriageCompanyStatus, Long> movedHere) {
+        return triaged.countByProjectIdAndStatus(projectId, status) + movedHere.getOrDefault(status, 0L);
     }
 
     /**

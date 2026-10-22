@@ -4,6 +4,7 @@ import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,9 @@ public interface MappedExecutiveLookup {
      */
     Set<UUID> triageCompanyIdsWithExecutivesMovedTo(UUID projectId, TriageCompanyStatus stage,
                                                     ProjectAudience audience);
+
+    /** How many such companies each stage lists, in one read; a stage with none is absent. */
+    Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience);
 
     /** Which of these keys the workspace's pipeline does not hold — a filter naming one is a 400. */
     List<String> unknownExecutiveStatuses(UUID workspaceId, UUID projectId, Collection<String> executiveStatuses);

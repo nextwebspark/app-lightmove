@@ -19,7 +19,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 /**
@@ -287,15 +286,19 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     Set<UUID> findTriageCompanyIdsWithExecutivesMovedTo(UUID projectId, String triageStatus,
                                                        boolean clientVisibleOnly);
 
-    @Query(value = "select status from app_lm_project_triage_company where id = :triageCompanyId "
-            + "and project_id = :projectId", nativeQuery = true)
-    Optional<String> findTriageStatusOfCompany(UUID projectId, UUID triageCompanyId);
+    /** {@link #findTriageCompanyIdsWithExecutivesMovedTo}'s counts for every stage at once: the badges' read. */
+    @Query(value = "select c.triage_status as \"triageStatus\", count(distinct c.triage_company_id) as \"companies\" "
+            + "from app_lm_project_candidate c join app_lm_project_triage_company t on t.id = c.triage_company_id "
+            + "where c.project_id = :projectId and t.status <> c.triage_status "
+            + "and (:clientVisibleOnly = false or c.client_visible) group by c.triage_status", nativeQuery = true)
+    List<MovedCompanyCount> countCompaniesWithExecutivesMovedByStage(UUID projectId, boolean clientVisibleOnly);
 
-    /** A company's own move carries everyone mapped at it. */
-    @Modifying
-    @Query("update Candidate c set c.triageStatus = :triageStatus "
-            + "where c.projectId = :projectId and c.triageCompanyId = :triageCompanyId")
-    int moveEveryoneAtCompanyTo(UUID projectId, UUID triageCompanyId, TriageCompanyStatus triageStatus);
+    /** Who a company's move carries by default: the people still standing where the company stood. */
+    List<Candidate> findByProjectIdAndTriageCompanyIdAndTriageStatus(UUID projectId, UUID triageCompanyId,
+                                                                     TriageCompanyStatus triageStatus);
+
+    List<Candidate> findByProjectIdAndTriageCompanyIdAndIdIn(UUID projectId, UUID triageCompanyId,
+                                                             Collection<UUID> ids);
 
     /**
      * A page of one project's stage, ranked by each triaged company's best mapped executive status —

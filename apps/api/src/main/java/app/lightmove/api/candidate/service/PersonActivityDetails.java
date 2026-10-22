@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +29,12 @@ final class PersonActivityDetails {
     static PersonActivityDetails statusChange(CandidateStatusDefinition from, CandidateStatusDefinition to) {
         return of("from", from.getStatusKey()).and("to", to.getStatusKey())
                 .and("fromLabel", from.getLabel()).and("toLabel", to.getLabel());
+    }
+
+    /** Stages as their wire tokens; {@code withCompany} when the company's own move carried them. */
+    static PersonActivityDetails triageStatusChange(TriageCompanyStatus from, TriageCompanyStatus to,
+                                                    boolean withCompany) {
+        return of("from", from.value()).and("to", to.value()).and("withCompany", withCompany ? true : null);
     }
 
     PersonActivityDetails and(String key, Object value) {

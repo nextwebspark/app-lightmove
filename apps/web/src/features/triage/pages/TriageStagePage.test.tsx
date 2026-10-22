@@ -673,23 +673,43 @@ describe("TriageStagePage", () => {
     await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
 
     await waitFor(() =>
-      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", { status: "shortlisted" }),
+      expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+        status: "shortlisted",
+        executiveIds: [],
+      }),
     );
   });
 
-  it("undoes a move by sending the company back to the stage it left", async () => {
+  it("undoes a move by sending the company back with exactly the people it carried", async () => {
     vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
+    // The grid's read names a query; the move's own read of who stands with the company does not.
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.query === undefined && !scope.unmapped ? [{ ...yasmin, triageStatus: "inUniverse" }] : []),
+    );
     renderStage();
 
     await screen.findByText("ACWA Power");
     await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
-    expect(await screen.findByText("ACWA Power moved to the shortlist")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(candidatesApi.getCandidates).toHaveBeenCalledWith("p1", {
+        triageCompanyIds: ["u1"],
+        triageStatus: "inUniverse",
+      }),
+    );
+    expect(await screen.findByText("ACWA Power and 1 executive moved to the shortlist")).toBeInTheDocument();
+    expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
+      status: "shortlisted",
+      executiveIds: ["c1"],
+    });
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
     await waitFor(() =>
-      expect(triageApi.updateTriageCompany).toHaveBeenLastCalledWith("p1", "u1", { status: "inUniverse" }),
+      expect(triageApi.updateTriageCompany).toHaveBeenLastCalledWith("p1", "u1", {
+        status: "inUniverse",
+        executiveIds: ["c1"],
+      }),
     );
-    expect(await screen.findByText("ACWA Power moved to the universe")).toBeInTheDocument();
+    expect(await screen.findByText("ACWA Power and 1 executive moved to the universe")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
 
@@ -834,6 +854,21 @@ describe("TriageStagePage", () => {
 
     await userEvent.click(within(dialog).getByRole("button", { name: /Remove from mandate/i }));
     await waitFor(() => expect(triageApi.deleteTriageCompany).toHaveBeenCalledWith("p1", "u1"));
+  });
+
+  it("says how many executives a removal leaves on the position with no company", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.query === undefined && !scope.unmapped && !scope.triageStatus
+        ? [yasmin, { ...yasmin, id: "c2", fullName: "Omar Haddad", triageStatus: "declined" }]
+        : []),
+    );
+    renderStage();
+
+    await screen.findByText("ACWA Power");
+    await userEvent.click(screen.getByRole("button", { name: /Remove ACWA Power from this mandate/i }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Its 2 executives stay on this position, with no company.")).toBeInTheDocument();
   });
 
   it("takes a company the market already carries by its universe id", async () => {

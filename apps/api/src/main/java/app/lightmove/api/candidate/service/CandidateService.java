@@ -43,6 +43,7 @@ import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -488,11 +489,14 @@ public class CandidateService {
                                                 HttpServletRequest httpRequest) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        TriageCompanyStatus to = TriageCompanyStatus.fromValue(request.status());
-        if (to == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown stage: " + request.status());
+        TriageCompanyStatus to = ApiValueEnum.require(TriageCompanyStatus.class, request.status(), "stage");
+        TriageCompanyStatus from = candidate.getTriageStatus();
+        if (!candidate.moveToStage(to)) {
+            return responses.toDto(candidate);
         }
-        candidate.moveToStage(to);
+        activity.record(candidate, userId, PersonActivityKind.TRIAGE_STATUS_CHANGED,
+                PersonActivityDetails.triageStatusChange(from, to, false));
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_MOVED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -1054,17 +1058,16 @@ public class CandidateService {
         return new MapPeopleToPositionResponse(added.size(), persons.size() - added.size());
     }
 
-    /** A filing's row, and whether it mapped someone the workspace already knew. */
     /** The stage a person filed or remapped at this company starts at; In universe at none. */
     private TriageCompanyStatus triageStatusOfCompany(UUID projectId, UUID triageCompanyId) {
         if (triageCompanyId == null) {
             return TriageCompanyStatus.IN_UNIVERSE;
         }
-        return candidates.findTriageStatusOfCompany(projectId, triageCompanyId)
-                .map(TriageCompanyStatus::valueOf)
-                .orElse(TriageCompanyStatus.IN_UNIVERSE);
+        return TriageCompanyStatus.parseOrInUniverse(
+                triage.requireCompanyOfProject(projectId, triageCompanyId, false).status());
     }
 
+    /** A filing's row, and whether it mapped someone the workspace already knew. */
     private record Filed(Candidate candidate, boolean personWasKnown) {}
 
     /**

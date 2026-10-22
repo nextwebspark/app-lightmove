@@ -2,14 +2,17 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.candidate.repository.MovedCompanyCount;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.MappedExecutiveLookup;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -49,6 +52,13 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
                                                            ProjectAudience audience) {
         return candidates.findTriageCompanyIdsWithExecutivesMovedTo(projectId, stage.name(),
                 audience.clientVisibleOnly());
+    }
+
+    @Override
+    public Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience) {
+        return candidates.countCompaniesWithExecutivesMovedByStage(projectId, audience.clientVisibleOnly()).stream()
+                .collect(Collectors.toMap(count -> TriageCompanyStatus.valueOf(count.getTriageStatus()),
+                        MovedCompanyCount::getCompanies));
     }
 
     @Override

@@ -62,6 +62,7 @@ class ReportSourceLoader {
         TriageCompaniesResponse inUniverse = stage(workspaceId, projectId, TriageCompanyStatus.IN_UNIVERSE,
                 Math.max(budgetLeft, 1), audience);
         // A company is listed on both stages while one of its people was moved alone (#903); it is one company.
+        // The overlap is counted on the pages read, so past the cap the total may still count a few twice.
         Set<UUID> shortlistedIds = shortlisted.companies().stream().map(TriageCompanyResponse::id)
                 .collect(Collectors.toSet());
         List<TriageCompanyResponse> inUniverseOnly = inUniverse.companies().stream()

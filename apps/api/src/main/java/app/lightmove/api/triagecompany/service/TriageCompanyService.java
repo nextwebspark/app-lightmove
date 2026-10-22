@@ -430,8 +430,12 @@ public class TriageCompanyService {
             if (status == null) {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + request.status());
             }
+            TriageCompanyStatus from = company.getStatus();
             company.moveTo(status);
-            events.publishEvent(new TriageCompanyMoved(projectId, triageCompanyId, status));
+            if (from != status || request.executiveIds() != null) {
+                events.publishEvent(new TriageCompanyMoved(projectId, triageCompanyId, from, status, userId,
+                        request.executiveIds() == null ? null : Set.copyOf(request.executiveIds())));
+            }
         }
         if (request.noExecutiveFound() != null) {
             if (request.noExecutiveFound()) {

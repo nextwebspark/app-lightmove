@@ -46,8 +46,8 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("moving the company moves everyone mapped at it, and a person filed there later starts at its stage")
-    void theCompanyCarriesEveryone() throws Exception {
+    @DisplayName("moving the company carries the people still where it stood, never one moved on their own")
+    void theCompanyCarriesOnlyItsOwnStage() throws Exception {
         firm("Stage Company Firm");
         String projectId = mandate("Chief Financial Officer");
         String alshaya = capture(projectId, "Alshaya");
@@ -55,15 +55,56 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         executive(projectId, alshaya, "Rana Haddad");
         stage(admin, projectId, khaled, "declined");
 
-        assertThat(write(admin, "PATCH", "/api/v1/projects/" + projectId + "/triage/" + alshaya, """
-                {"status":"shortlisted"}""").getResponse().getStatus()).isEqualTo(200);
+        assertThat(moveCompany(projectId, alshaya, """
+                {"status":"shortlisted"}""")).isEqualTo(200);
 
-        assertThat(people(projectId, alshaya, "shortlisted")).containsExactlyInAnyOrder("Khaled Al Beirouty",
-                "Rana Haddad");
+        assertThat(people(projectId, alshaya, "shortlisted")).containsExactly("Rana Haddad");
+        assertThat(people(projectId, alshaya, "declined")).containsExactly("Khaled Al Beirouty");
         assertThat(companies(projectId, "inUniverse", null)).isEmpty();
-        assertThat(companies(projectId, "declined", null)).isEmpty();
         executive(projectId, alshaya, "Layla Haddad");
         assertThat(people(projectId, alshaya, "shortlisted")).contains("Layla Haddad");
+    }
+
+    @Test
+    @DisplayName("an Undo names who the move carried, so each goes back to where they were")
+    void anUndoRestoresExactlyWhoWasCarried() throws Exception {
+        firm("Stage Undo Firm");
+        String projectId = mandate("Chief Financial Officer");
+        String alshaya = capture(projectId, "Alshaya");
+        String khaled = executive(projectId, alshaya, "Khaled Al Beirouty");
+        String rana = executive(projectId, alshaya, "Rana Haddad");
+        stage(admin, projectId, khaled, "shortlisted");
+
+        moveCompany(projectId, alshaya, """
+                {"status":"shortlisted","executiveIds":["%s"]}""".formatted(rana));
+        moveCompany(projectId, alshaya, """
+                {"status":"inUniverse","executiveIds":["%s"]}""".formatted(rana));
+
+        assertThat(people(projectId, alshaya, "inUniverse")).containsExactly("Rana Haddad");
+        assertThat(people(projectId, alshaya, "shortlisted")).containsExactly("Khaled Al Beirouty");
+    }
+
+    @Test
+    @DisplayName("every move is one line on the person's timeline, and a move to where they stand writes none")
+    void movesAreTimelineLines() throws Exception {
+        firm("Stage Line Firm");
+        String projectId = mandate("Chief Financial Officer");
+        String alshaya = capture(projectId, "Alshaya");
+        String khaled = executive(projectId, alshaya, "Khaled Al Beirouty");
+
+        stage(admin, projectId, khaled, "declined");
+        stage(admin, projectId, khaled, "declined");
+        moveCompany(projectId, alshaya, """
+                {"status":"declined"}""");
+        moveCompany(projectId, alshaya, """
+                {"status":"shortlisted"}""");
+
+        List<JsonNode> lines = stageLines(projectId, khaled);
+        assertThat(lines).hasSize(2);
+        assertThat(lines.get(1).at("/details/from").asText()).isEqualTo("inUniverse");
+        assertThat(lines.get(1).at("/details/to").asText()).isEqualTo("declined");
+        assertThat(lines.get(0).at("/details/to").asText()).isEqualTo("shortlisted");
+        assertThat(lines.get(0).at("/details/withCompany").asText()).isEqualTo("true");
     }
 
     @Test
@@ -75,6 +116,9 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
         String khaled = executive(projectId, alshaya, "Khaled Al Beirouty");
 
         assertThat(stage(admin, projectId, khaled, "sideways").getResponse().getStatus()).isEqualTo(400);
+        assertThat(mvc.perform(get(candidatesUrl(projectId)).param("triageStatus", "archived")
+                        .header("Authorization", "Bearer " + admin))
+                .andReturn().getResponse().getStatus()).isEqualTo(400);
         assertThat(stage(clientOn(projectId), projectId, khaled, "declined").getResponse().getStatus())
                 .isEqualTo(403);
         assertThat(people(projectId, alshaya, "inUniverse")).containsExactly("Khaled Al Beirouty");
@@ -89,6 +133,26 @@ class CandidateTriageStatusIntegrationTest extends PipelineFlowSupport {
     private MvcResult stage(String token, String projectId, String candidateId, String stage) throws Exception {
         return write(token, "PUT", candidatesUrl(projectId) + "/" + candidateId + "/triage-status", """
                 {"status":"%s"}""".formatted(stage));
+    }
+
+    private int moveCompany(String projectId, String triageCompanyId, String json) throws Exception {
+        return write(admin, "PATCH", "/api/v1/projects/" + projectId + "/triage/" + triageCompanyId, json)
+                .getResponse().getStatus();
+    }
+
+    /** Newest first, as the timeline reads. */
+    private List<JsonNode> stageLines(String projectId, String candidateId) throws Exception {
+        JsonNode timeline = body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/timeline")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        List<JsonNode> lines = new ArrayList<>();
+        timeline.get("entries").forEach(entry -> {
+            if (entry.get("kind").asText().equals("TRIAGE_STATUS_CHANGED")) {
+                lines.add(entry);
+            }
+        });
+        return lines;
     }
 
     private JsonNode triage(String projectId, String stage, String executiveQuery) throws Exception {

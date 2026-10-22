@@ -321,6 +321,7 @@ export type PersonActivityKind =
   | "MAPPED"
   | "UNMAPPED"
   | "STATUS_CHANGED"
+  | "TRIAGE_STATUS_CHANGED"
   | "NEXT_ACTION_SET"
   | "CLIENT_VISIBILITY_CHANGED"
   | "PROFILE_EDITED"
