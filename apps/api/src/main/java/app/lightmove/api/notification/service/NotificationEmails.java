@@ -33,9 +33,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -78,7 +81,6 @@ public class NotificationEmails {
     private final TransactionTemplate transactions;
     private final NotificationRepository rows;
     private final NotificationPreferences preferences;
-    private final NotificationPreferenceService zones;
     private final TaskService tasks;
     private final CandidateTaskService people;
     private final ProjectRepository projects;
@@ -151,7 +153,7 @@ public class NotificationEmails {
                     position, link));
         }
         if (row.getKind() == NotificationKind.TASK_ASSIGNED && row.getTaskId() != null) {
-            ZoneId zone = zones.zoneOf(row.getRecipientUserId(), row.getWorkspaceId());
+            ZoneId zone = to.zone();
             return tasks.find(row.getWorkspaceId(), row.getTaskId())
                     .filter(task -> "open".equals(task.status())
                             && row.getRecipientUserId().equals(task.assignee().userId()))
@@ -172,10 +174,16 @@ public class NotificationEmails {
         for (NotificationRecipientRow mention : rows.findUnreadMentionRecipients()) {
             recipients.add(new TaskHolder(mention.getWorkspaceId(), mention.getUserId()));
         }
+        Map<UUID, User> people = users.findAllById(recipients.stream().map(TaskHolder::userId).distinct().toList())
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         int sent = 0;
         for (TaskHolder recipient : recipients) {
+            User user = people.get(recipient.userId());
+            if (user == null) {
+                continue;
+            }
             try {
-                sent += digestOne(recipient, now) ? 1 : 0;
+                sent += digestOne(recipient, user, now) ? 1 : 0;
             } catch (RuntimeException failure) {
                 log.error("The digest for user {} in workspace {} could not be sent", recipient.userId(),
                         recipient.workspaceId(), failure);
@@ -184,23 +192,22 @@ public class NotificationEmails {
         return sent;
     }
 
-    private boolean digestOne(TaskHolder recipient, Instant now) {
+    private boolean digestOne(TaskHolder recipient, User user, Instant now) {
         UUID userId = recipient.userId();
         UUID workspaceId = recipient.workspaceId();
-        ZoneId zone = zones.zoneOf(userId, workspaceId);
+        ZoneId zone = user.zone();
         ZonedDateTime local = now.atZone(zone);
         if (local.getHour() != properties.notifications().digestHour() || isWeekend(local.getDayOfWeek())
                 || !workspaceAccess.isStaff(userId, workspaceId) || !preferences.digest(userId, workspaceId)) {
             return false;
         }
-        Optional<User> user = users.findById(userId);
         DueDigest due = tasks.dueDigestOf(userId, workspaceId, zone, now, DIGEST_LINES);
         long mentions = rows.countUnreadOfKind(userId, workspaceId, NotificationKind.MENTIONED.name());
-        if (user.isEmpty() || (due.isEmpty() && mentions == 0) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
+        if ((due.isEmpty() && mentions == 0) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
             return false;
         }
         List<String> lines = due.lines().stream().map(line -> lineOf(line, zone)).toList();
-        emailSender.send(templates.buildNotificationDigestEmail(user.get().getEmail(), user.get().getFullName(),
+        emailSender.send(templates.buildNotificationDigestEmail(user.getEmail(), user.getFullName(),
                 DATE.format(local), due.dueToday(), due.overdue(), (int) mentions, lines,
                 properties.web().baseUrl() + "/"));
         return true;

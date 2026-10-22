@@ -155,6 +155,26 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an own email still waiting to go puts its person in All, and in its sender's Mine alone")
+    void aWaitingEmailIsAConversation() throws Exception {
+        inviteAndAccept(consultant, "Sara Al-Mansour", "sara@" + domain, "ADMIN");
+        String sara = login("sara@" + domain);
+        String hana = executive("Hana Aziz", "hana@" + domain);
+        as(consultant, post(outreach("/conversations/" + hana + "/messages")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"toAddress":"%s","subject":"Later","replyInThread":false,"body":"Hello","sendAt":"%s"}"""
+                        .formatted("hana@" + domain, Instant.now().plus(Duration.ofHours(2)))))
+                .andExpect(status().isCreated());
+
+        assertThat(candidateIdsOf(conversations("view", "all", "who", "team"))).containsExactly(hana);
+        assertThat(candidateIdsOf(conversations("view", "all", "who", "mine"))).containsExactly(hana);
+        assertThat(candidateIdsOf(conversations("view", "scheduled", "who", "mine"))).containsExactly(hana);
+        JsonNode sarasOwn = body(as(sara, get(outreach("/conversations")).param("view", "all").param("who", "mine"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(candidateIdsOf(sarasOwn)).isEmpty();
+    }
+
+    @Test
     @DisplayName("the search finds people by name, title or employer, and by the words of what was sent to them")
     void theSearchReadsNamesAndEmails() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);

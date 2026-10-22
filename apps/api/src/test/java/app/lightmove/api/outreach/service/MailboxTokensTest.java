@@ -64,7 +64,8 @@ class MailboxTokensTest {
         grantId = MailboxGrants.mintDirect("google");
         connection = MailboxConnection.connected(workspaceId, userId,
                 new GrantedMailbox(grantId, "yara@firm.example", "google", "refresh-1"),
-                cipher.encrypt("refresh-1", MailboxConnection.refreshTokenContext(workspaceId, userId)), 50, NOW);
+                cipher.encrypt("refresh-1", MailboxConnection.refreshTokenContext(workspaceId, userId)), 50,
+                MailboxConnection.DEFAULT_ZONE, NOW);
         ReflectionTestUtils.setField(connection, "id", UUID.randomUUID());
         connection.holdRecallCalendar("recall-calendar-1");
         when(connections.findByGrantId(grantId)).thenReturn(List.of(connection));

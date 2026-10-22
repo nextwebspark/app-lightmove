@@ -244,6 +244,8 @@ public class ConversationService {
                 });
         latestMessages.values().forEach(message -> senders
                 .computeIfAbsent(message.getPersonId(), person -> new HashSet<>()).add(message.getSenderUserId()));
+        messages.findScheduledSendersOfEachPerson(workspaceId, projectId).forEach(scheduled -> senders
+                .computeIfAbsent(scheduled.getPersonId(), person -> new HashSet<>()).add(scheduled.getSenderUserId()));
         Map<UUID, OutreachRunResponse> runResponses = monitor.runsOf(workspaceId, projectId,
                         List.copyOf(latestRuns.values())).stream()
                 .collect(Collectors.toMap(OutreachRunResponse::id, Function.identity()));
@@ -359,7 +361,7 @@ public class ConversationService {
         return haystack != null && haystack.toLowerCase(Locale.ROOT).contains(needle);
     }
 
-    /** One executive's standing in the queue, worked out once and read by every tab. */
+    /** One executive's standing in the queue, worked out once and read by every filter. */
     private record QueueEntry(PipelineRowResponse executive, ConversationGroup group, CandidateOpenTaskDto action,
                               OutreachEnrollment run, OutreachRunResponse runResponse, OutreachMessage latestMessage,
                               Instant lastSentAt, Instant scheduledAt, Instant lastActivityAt, Set<UUID> senders,
@@ -397,12 +399,12 @@ public class ConversationService {
                     lastActivityAt, senders, met, !tasks.isEmpty());
         }
 
-        /** Someone the conversation has something about: an email, a run, a meeting or a task. */
+        /** Someone the conversation has something about: an email, one still to go, a run, a meeting or a task. */
         boolean isInConversation() {
-            return run != null || latestMessage != null || met || hasTasks;
+            return run != null || latestMessage != null || scheduledAt != null || met || hasTasks;
         }
 
-        /** Mine in Needs action: the task is mine, or — with no task open — the failed email or run was mine. */
+        /** Mine in To do: the task is mine, or — with no task open — the failed email or run was mine. */
         boolean needsActionFrom(UUID userId) {
             if (action != null) {
                 return action.assignee() != null && userId.equals(action.assignee().userId());
@@ -413,7 +415,7 @@ public class ConversationService {
             return run != null && userId.equals(run.getSenderUserId());
         }
 
-        /** Mine on the other tabs: I sent them something, or hold a task on them. */
+        /** Mine off To do: I sent them something, have an email waiting for them, or hold a task on them. */
         boolean touchedBy(UUID userId) {
             return senders.contains(userId) || (action != null && action.assignee() != null
                     && userId.equals(action.assignee().userId()));

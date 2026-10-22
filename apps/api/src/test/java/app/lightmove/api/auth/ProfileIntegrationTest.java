@@ -9,15 +9,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /** Settings → Profile: the caller editing how they appear across the workspace. */
 @IntegrationTest
 class ProfileIntegrationTest extends FlowTestSupport {
+
+    @Autowired JdbcTemplate jdbc;
 
     private static final String EDIT = """
             {"fullName":"Alok B Kumar","title":"Managing Partner",
@@ -69,17 +74,37 @@ class ProfileIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a timezone the JDK cannot format a date in is refused, under that field")
+    @DisplayName("a timezone that is no region's own — unknown, or a legacy alias — is refused, under that field")
     void refusesUnknownTimezone() throws Exception {
         String token = adminOf("Alok Kumar", "Zone Firm");
 
-        MvcResult refused = mvc.perform(patchProfile(token, """
-                        {"fullName":"Alok Kumar","title":null,
-                         "timezone":"Mars/Olympus","locale":"en"}"""))
+        for (String refusedZone : List.of("Mars/Olympus", "EST", "Etc/GMT")) {
+            MvcResult refused = mvc.perform(patchProfile(token, """
+                            {"fullName":"Alok Kumar","title":null,
+                             "timezone":"%s","locale":"en"}""".formatted(refusedZone)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.fieldErrors.timezone").exists())
+                    .andReturn();
+            assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+        }
+    }
+
+    @Test
+    @DisplayName("a zone saved before the region rule saves unchanged with the rest; only a new choice must be a region's")
+    void keepsALegacyZoneUntilItIsChanged() throws Exception {
+        String token = adminOf("Alok Kumar", "Legacy Zone Firm");
+        jdbc.update("update app_lm_user set timezone = 'US/Pacific' where email = ?", "alok@" + domain);
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok B Kumar","title":null,"timezone":"US/Pacific","locale":"en"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Alok B Kumar"))
+                .andExpect(jsonPath("$.timezone").value("US/Pacific"));
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok B Kumar","title":null,"timezone":"US/Eastern","locale":"en"}"""))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fieldErrors.timezone").exists())
-                .andReturn();
-        assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
+                .andExpect(jsonPath("$.fieldErrors.timezone").exists());
     }
 
     @Test
@@ -128,7 +153,7 @@ class ProfileIntegrationTest extends FlowTestSupport {
 
         mvc.perform(patchProfile(login(sara), """
                         {"fullName":"Sara Mansour","title":"Consultant",
-                         "timezone":"Etc/GMT","locale":"fr"}"""))
+                         "timezone":"UTC","locale":"fr"}"""))
                 .andExpect(status().isOk());
 
         mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + admin))

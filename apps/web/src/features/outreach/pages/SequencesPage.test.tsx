@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
+import * as mailboxApi from "../api/mailboxApi";
 import * as runApi from "../api/runApi";
 import type { OutreachOverview, OutreachRun } from "../api/runApi";
 import * as sequenceApi from "../api/sequenceApi";
@@ -12,6 +13,11 @@ import { SequencesPage } from "./SequencesPage";
 vi.mock("../api/sequenceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/sequenceApi")>()),
   getSequences: vi.fn(),
+}));
+
+vi.mock("../api/mailboxApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/mailboxApi")>()),
+  getMailbox: vi.fn(),
 }));
 
 vi.mock("../api/runApi", async (importOriginal) => ({
@@ -70,14 +76,26 @@ const WITH_PEOPLE: OutreachOverview = {
   ],
 };
 
+function Where() {
+  return <output aria-label="Location">{useLocation().pathname}</output>;
+}
+
 function renderPage() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={["/projects/p1/outreach/sequences"]}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
           <Routes>
             <Route element={<Outlet context={{ project: PROJECT }} />}>
-              <Route path="*" element={<SequencesPage />} />
+              <Route
+                path="*"
+                element={
+                  <>
+                    <SequencesPage />
+                    <Where />
+                  </>
+                }
+              />
             </Route>
           </Routes>
         </ToastProvider>
@@ -91,12 +109,25 @@ describe("SequencesPage", () => {
     vi.resetAllMocks();
     vi.mocked(sequenceApi.getSequences).mockResolvedValue([]);
     vi.mocked(runApi.getOutreachPeople).mockResolvedValue(NOBODY);
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
+      offered: true,
+      providers: ["google"],
+      connection: null,
+      bookingLinkOffered: false,
+    });
   });
 
-  it("leads back to the conversations", async () => {
+  it("is the header's Sequences view, a click from the conversations and from writing a new one", async () => {
     renderPage();
 
-    expect(await screen.findByRole("link", { name: "← Conversations" })).toHaveAttribute("href", "/projects/p1/outreach");
+    const views = await screen.findByRole("radiogroup", { name: "Outreach view" });
+    expect(within(views).getByRole("radio", { name: "Sequences" })).toBeChecked();
+    expect(screen.getByRole("link", { name: "New sequence" })).toHaveAttribute("href", "/projects/p1/outreach/sequences/new");
+    expect(await screen.findByRole("button", { name: "Connect mailbox" })).toBeInTheDocument();
+
+    await userEvent.click(within(views).getByRole("radio", { name: "Conversations" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent(/^\/projects\/p1\/outreach$/));
   });
 
   it("counts the position's outreach and lists each run, narrowed by the filter chips", async () => {

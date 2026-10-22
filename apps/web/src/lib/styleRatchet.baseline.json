@@ -258,9 +258,6 @@
   "features/oauth/pages/OAuthConsentPage.tsx": {
     "arbitraryText": 11
   },
-  "features/outreach/components/AddToSequenceButton.tsx": {
-    "arbitraryText": 1
-  },
   "features/outreach/components/BookCallDialog.tsx": {
     "arbitraryText": 10,
     "arbitraryRadius": 1
@@ -277,10 +274,6 @@
     "arbitraryText": 34,
     "arbitraryRadius": 10
   },
-  "features/outreach/components/MailboxTimeZoneSelect.tsx": {
-    "arbitraryRadius": 1,
-    "arbitraryText": 1
-  },
   "features/outreach/components/MeetingsSection.tsx": {
     "arbitraryText": 14,
     "arbitraryRadius": 4
@@ -290,7 +283,7 @@
     "arbitraryText": 6
   },
   "features/outreach/components/PeopleInOutreach.tsx": {
-    "arbitraryText": 19,
+    "arbitraryText": 18,
     "arbitraryRadius": 4
   },
   "features/outreach/components/SequenceStatePill.tsx": {

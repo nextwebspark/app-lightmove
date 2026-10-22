@@ -8,7 +8,7 @@ import type { Sequence } from "../api/sequenceApi";
 import { scheduleLabelOf } from "../lib/sendSchedule";
 import { SequenceStatePill } from "./SequenceStatePill";
 
-/** A position's sequences as cards, each opening its editor, with the way to write a new one. */
+/** A position's sequences as cards, each opening its editor; the first one is written from here. */
 export function SequenceCards({ projectId }: { projectId: string }) {
   const sequences = useQuery({
     queryKey: sequenceApi.SEQUENCES_KEY(projectId),
@@ -31,7 +31,7 @@ export function SequenceCards({ projectId }: { projectId: string }) {
       <EmptyState
         icon={<Icon d={ICONS.outreach} size={22} />}
         title="No sequences on this position yet"
-        body="Write a sequence — a first email and up to two follow-ups in the same thread — then add people to it from In universe, Shortlisted or an executive's drawer."
+        body="Write one, then add people to it from In universe, Shortlisted or a conversation."
       >
         <Link to={newSequencePath} className={buttonClassName("primary", "px-3.5 py-2 text-body")}>
           Write your first sequence
@@ -41,12 +41,7 @@ export function SequenceCards({ projectId }: { projectId: string }) {
   }
   return (
     <section>
-      <div className="mb-2.5 flex items-center gap-3">
-        <h2 className="type-label text-u-text3">Sequences</h2>
-        <Link to={newSequencePath} className={buttonClassName("secondary", "ms-auto px-3 py-1.5 text-note")}>
-          New sequence
-        </Link>
-      </div>
+      <h2 className="mb-2.5 type-label text-u-text3">Sequences</h2>
       <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
         {sequences.data.map((sequence) => (
           <SequenceCard key={sequence.id} projectId={projectId} sequence={sequence} />

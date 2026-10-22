@@ -121,10 +121,6 @@ export function PeopleInOutreach({
               )}
             </div>
           </div>
-          <p className="mx-0.5 mt-2.5 font-mono text-[11.5px] text-u-text3">
-            The first email moves a person from Identified to Contacted. A reply stops their sequence and asks
-            you where they stand. Uncava never guesses from what they wrote.
-          </p>
         </section>
       )}
       <StopRunDialog

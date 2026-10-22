@@ -19,7 +19,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Candidate** | the same person on the workspace's Candidates page | — |
 | **Universe** | the companies a position has taken from the market (In universe / Shortlisted / Declined) | triage |
 | **Conversation** | everything with one executive on one position on the Outreach page: emails both ways, run events, notes, meetings | thread, inbox |
-| **Action queue** / **Needs action** | the Outreach page's list of people waiting on someone, and its first tab; its groups are Needs reply, Follow-ups, Preparation and Attention | inbox, to-do |
+| **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
 | **Archive** / **Restore** | putting a position or a business unit away, hidden from every list and picker, and bringing it back; nothing is deleted | delete, close |
 | **Uncava support** | who switches on a feature a workspace cannot | "this deployment" |

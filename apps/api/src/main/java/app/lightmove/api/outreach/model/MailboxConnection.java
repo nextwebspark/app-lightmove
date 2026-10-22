@@ -58,7 +58,7 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "connected_at", nullable = false)
     private Instant connectedAt;
 
-    /** The sender's zone, which the sending window and the daily cap are read in (V101). */
+    /** The sender's profile zone, copied (V148), which the sending window and the daily cap are read in. */
     @Column(name = "time_zone", nullable = false, length = 64)
     private String timeZone = DEFAULT_ZONE.getId();
 
@@ -107,11 +107,12 @@ public class MailboxConnection extends BaseEntity {
 
     /** {@code refreshTokenEncrypted}: the refresh token under {@link #refreshTokenContext}; null for Nylas. */
     public static MailboxConnection connected(UUID workspaceId, UUID userId, GrantedMailbox mailbox,
-                                              String refreshTokenEncrypted, int dailyCap, Instant now) {
+                                              String refreshTokenEncrypted, int dailyCap, ZoneId zone, Instant now) {
         MailboxConnection connection = new MailboxConnection();
         connection.workspaceId = workspaceId;
         connection.userId = userId;
         connection.dailyCap = dailyCap;
+        connection.timeZone = zone.getId();
         connection.reconnect(mailbox, refreshTokenEncrypted, now);
         return connection;
     }

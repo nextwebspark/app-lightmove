@@ -725,7 +725,6 @@ lightmove:
     digest-hour: ${NOTIFICATION_DIGEST_HOUR:8}
     due-scan: ${NOTIFICATION_DUE_SCAN_CRON:0 */5 * * * *}
     due-soon-window: ${NOTIFICATION_DUE_SOON_WINDOW:1h}
-    default-time-zone: ${NOTIFICATION_DEFAULT_TIME_ZONE:Asia/Dubai}
 
   # A deleted note can be restored until purge-after has passed; then it is deleted for good.
   notes:

@@ -25,7 +25,7 @@ export const CONVERSATION_REFRESH_MS = 60_000;
 
 /**
  * The middle pane of the Outreach page (`Outreach.dc.html`): one executive's conversation on the position — who
- * they are, the task the queue put them in for, everything that happened newest first, and the composer.
+ * they are, the task they are waiting on, everything that happened newest first, and the composer.
  */
 export function ConversationPane({
   projectId,
@@ -36,6 +36,7 @@ export function ConversationPane({
   onHandled,
   onOpenRecord,
   onBack,
+  focusComposer = false,
   refreshMs = CONVERSATION_REFRESH_MS,
 }: {
   projectId: string;
@@ -43,13 +44,15 @@ export function ConversationPane({
   isArchived: boolean;
   mailbox: MailboxState;
   connector: MailboxConnect;
+  /** Opened to write to them: the caret starts in the composer. */
+  focusComposer?: boolean;
   /** How often their history is read again: slowly while the page's stream says what moved. */
   refreshMs?: number;
-  /** After Mark handled: the queue moves on to the next person. */
+  /** After Mark handled: To do moves on to the next person. */
   onHandled: () => void;
   /** Opens the person's full record in place; `activity` lands on its Activity tab. */
   onOpenRecord: (tab: "activity" | null) => void;
-  /** Back to the queue, where only one pane fits. */
+  /** Back to the list, where only one pane fits. */
   onBack: () => void;
 }) {
   const conversation = useQuery({
@@ -86,6 +89,7 @@ export function ConversationPane({
       onHandled={onHandled}
       onOpenRecord={onOpenRecord}
       onBack={onBack}
+      focusComposer={focusComposer}
     />
   );
 }
@@ -100,6 +104,7 @@ function LoadedConversation({
   onHandled,
   onOpenRecord,
   onBack,
+  focusComposer,
 }: {
   projectId: string;
   conversation: Conversation;
@@ -111,6 +116,7 @@ function LoadedConversation({
   onHandled: () => void;
   onOpenRecord: (tab: "activity" | null) => void;
   onBack: () => void;
+  focusComposer: boolean;
 }) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -213,6 +219,7 @@ function LoadedConversation({
           mailbox={mailbox}
           connector={connector}
           isArchived={isArchived}
+          autoFocus={focusComposer}
         />
         <NoteComposerModal
           projectId={projectId}
@@ -236,12 +243,12 @@ function BackToQueue({ onBack }: { onBack: () => void }) {
       className="inline-flex items-center gap-1 self-start px-5 pt-3 text-note text-u-text3 hover:text-u-text2 lg:hidden"
     >
       <Icon d={ICONS.arrowLeft} size={13} />
-      Action queue
+      Conversations
     </button>
   );
 }
 
-/** The task the queue put them in for: a reply to write first, then a bounce to fix, then the soonest. */
+/** The task they are waiting on: a reply to write first, then a bounce to fix, then the soonest. */
 function nextActionOf(openTasks: readonly TaskResponse[]): TaskResponse | null {
   return (
     openTasks.find((task) => task.rule === "reply") ??

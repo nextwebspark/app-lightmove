@@ -70,60 +70,62 @@ export function PersonNotesTab({
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-[8px] border border-u-border p-2.5">
-        <NoteKindPicker value={kind} onChange={setKind} />
-        <div className="mt-2">
-          <NoteEditor
-            value={draft}
-            format="markdown"
-            onChange={setDraft}
-            teammates={about ? team.teammates : null}
-            ariaLabel="New note"
-            placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
-            onSubmit={save}
-            submitLabel="Save note"
-            canSubmit={canSave}
-            expandTitle="New note"
-          />
-        </div>
-        {tooLong && (
-          <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-            {NOTE_TOO_LONG}
-          </p>
-        )}
-        <div className="mt-2 flex items-center gap-2">
-          <Select
-            aria-label="Position this note is about"
-            value={about}
-            onChange={(event) => changeAbout(event.target.value)}
-            className="w-auto min-w-0 flex-1 py-1 text-[12.5px]"
-          >
-            <option value="">No position — about the person</option>
-            {person.positions.map((position) => (
-              <option key={position.projectId} value={position.projectId}>
-                {position.positionTitle ?? "A position"}
-              </option>
-            ))}
-          </Select>
-          {mapping && (
-            <Button
-              size="xs"
-              variant="secondary"
-              disabled={!canSave}
-              loading={saving.isPending && saving.variables.nextActionOn !== null}
-              onClick={() => saving.mutate({ nextActionOn: mapping })}
-            >
-              Save & set next action
-            </Button>
-          )}
-          <Button
-            size="xs"
-            disabled={!canSave}
-            loading={saving.isPending && saving.variables.nextActionOn === null}
-            onClick={() => saving.mutate({ nextActionOn: null })}
-          >
-            Save note
-          </Button>
-        </div>
+        <NoteEditor
+          value={draft}
+          format="markdown"
+          onChange={setDraft}
+          teammates={about ? team.teammates : null}
+          ariaLabel="New note"
+          placeholder={NOTE_KINDS.find((option) => option.value === kind)?.placeholder}
+          onSubmit={save}
+          submitLabel="Save note"
+          canSubmit={canSave}
+          expandTitle="New note"
+          header={<NoteKindPicker value={kind} onChange={setKind} />}
+          footer={
+            <>
+              {tooLong && (
+                <p role="alert" className="mb-2 text-meta text-u-offlimits">
+                  {NOTE_TOO_LONG}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <Select
+                  aria-label="Position this note is about"
+                  value={about}
+                  onChange={(event) => changeAbout(event.target.value)}
+                  className="w-auto min-w-0 flex-1 py-1 text-[12.5px]"
+                >
+                  <option value="">No position — about the person</option>
+                  {person.positions.map((position) => (
+                    <option key={position.projectId} value={position.projectId}>
+                      {position.positionTitle ?? "A position"}
+                    </option>
+                  ))}
+                </Select>
+                {mapping && (
+                  <Button
+                    size="xs"
+                    variant="secondary"
+                    disabled={!canSave}
+                    loading={saving.isPending && saving.variables.nextActionOn !== null}
+                    onClick={() => saving.mutate({ nextActionOn: mapping })}
+                  >
+                    Save & set next action
+                  </Button>
+                )}
+                <Button
+                  size="xs"
+                  disabled={!canSave}
+                  loading={saving.isPending && saving.variables.nextActionOn === null}
+                  onClick={() => saving.mutate({ nextActionOn: null })}
+                >
+                  Save note
+                </Button>
+              </div>
+            </>
+          }
+        />
       </div>
       <p className="text-[12px] text-u-text3">
         Shared with your whole team, on every position this person is in. Client contacts never see notes.

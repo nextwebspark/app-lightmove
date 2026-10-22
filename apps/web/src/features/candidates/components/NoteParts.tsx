@@ -198,26 +198,30 @@ export function NoteCard({
             canSubmit={canSave}
             expandTitle="Edit note"
             autoFocus
+            footer={
+              <>
+                {revisedTooLong && (
+                  <p role="alert" className="mb-2 text-meta text-u-offlimits">
+                    {NOTE_TOO_LONG}
+                  </p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" className="px-3 py-1 text-[12px]" onClick={() => setEditing(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="px-3 py-1 text-[12px]"
+                    disabled={!canSave}
+                    loading={actions.busy}
+                    onClick={saveRevision}
+                  >
+                    Save
+                  </Button>
+                </div>
+              </>
+            }
           />
-          {revisedTooLong && (
-            <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-              {NOTE_TOO_LONG}
-            </p>
-          )}
-          <div className="mt-2 flex justify-end gap-2">
-            <Button type="button" variant="secondary" className="px-3 py-1 text-[12px]" onClick={() => setEditing(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              className="px-3 py-1 text-[12px]"
-              disabled={!canSave}
-              loading={actions.busy}
-              onClick={saveRevision}
-            >
-              Save
-            </Button>
-          </div>
         </div>
       ) : (
         <NoteText body={note.body} format={note.format} className="mt-1.5 text-[13px]/[1.55] text-u-text2" />

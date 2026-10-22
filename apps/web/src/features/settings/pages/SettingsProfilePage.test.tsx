@@ -107,6 +107,28 @@ describe("SettingsProfilePage — your own profile", () => {
     expect(await screen.findByText("Profile saved")).toBeInTheDocument();
   });
 
+  it("offers every region's zone by city, and the computer's own clock in one click", async () => {
+    const computer = vi
+      .spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions")
+      .mockReturnValue({ timeZone: "Europe/London" } as Intl.ResolvedDateTimeFormatOptions);
+    const user = userEvent.setup();
+    renderPage();
+
+    const timezone = await screen.findByLabelText(/timezone/i);
+    expect(screen.getByRole("option", { name: /^New York \(GMT[−-]\d+\)$/ })).toHaveValue("America/New_York");
+    expect(screen.getByRole("option", { name: "UTC" })).toBeInTheDocument();
+    expect(screen.getByText("Sequences, scheduled emails and your daily digest follow this clock")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Use London" }));
+    expect(timezone).toHaveValue("Europe/London");
+    expect(screen.queryByRole("button", { name: "Use London" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() =>
+      expect(authApi.updateProfile).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Europe/London" })),
+    );
+    computer.mockRestore();
+  });
+
   it("sends an emptied title as null, not as an empty string", async () => {
     const user = userEvent.setup();
     renderPage();

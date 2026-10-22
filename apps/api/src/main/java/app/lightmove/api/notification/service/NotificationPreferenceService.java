@@ -1,13 +1,11 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
-import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.constant.NotificationPreferenceKind;
 import app.lightmove.api.notification.dto.NotificationKindPreferenceDto;
 import app.lightmove.api.notification.dto.NotificationPreferencesDto;
-import app.lightmove.api.outreach.service.MailboxService;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
@@ -31,8 +29,7 @@ public class NotificationPreferenceService {
             .collect(Collectors.toUnmodifiableSet());
 
     private final NotificationPreferences preferences;
-    private final MailboxService mailboxes;
-    private final LightMoveProperties properties;
+    private final UserTimezones timezones;
 
     @Transactional(readOnly = true)
     public NotificationPreferencesDto of(UUID userId, UUID workspaceId) {
@@ -40,7 +37,7 @@ public class NotificationPreferenceService {
         return new NotificationPreferencesDto(Arrays.stream(NotificationPreferenceKind.values())
                 .map(kind -> new NotificationKindPreferenceDto(kind.value(), chosen.get(kind).inApp(),
                         EMAILED.contains(kind) && chosen.get(kind).email()))
-                .toList(), preferences.digest(userId, workspaceId), zoneOf(userId, workspaceId).getId());
+                .toList(), preferences.digest(userId, workspaceId), timezones.zoneOf(userId).getId());
     }
 
     @Transactional
@@ -52,11 +49,5 @@ public class NotificationPreferenceService {
         }
         preferences.save(userId, workspaceId, NotificationPreferences.DIGEST, false, wanted.digest());
         return of(userId, workspaceId);
-    }
-
-    /** The zone a person's day is read in: their mailbox's, else the deployment's default. */
-    ZoneId zoneOf(UUID userId, UUID workspaceId) {
-        return mailboxes.timeZoneOf(userId, workspaceId)
-                .orElseGet(() -> ZoneId.of(properties.notifications().defaultTimeZone()));
     }
 }

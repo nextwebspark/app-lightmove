@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -128,6 +129,10 @@ public class User extends BaseEntity {
         user.termsAcceptedAt = verifiedAt;
         user.privacyPolicyVersion = privacyPolicyVersion;
         return user;
+    }
+
+    public ZoneId zone() {
+        return ZoneId.of(timezone);
     }
 
     public boolean hasPassword() {

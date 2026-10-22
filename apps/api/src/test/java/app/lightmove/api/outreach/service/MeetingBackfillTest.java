@@ -94,7 +94,7 @@ class MeetingBackfillTest {
     private static MailboxConnection direct(Instant calendarSyncedAt) {
         MailboxConnection mailbox = MailboxConnection.connected(WORKSPACE, UUID.randomUUID(),
                 new GrantedMailbox(MailboxGrants.mintDirect("google"), "yara@firm.example", "google", "refresh"),
-                "sealed-refresh-token", 50, NOW.minus(Duration.ofDays(1)));
+                "sealed-refresh-token", 50, MailboxConnection.DEFAULT_ZONE, NOW.minus(Duration.ofDays(1)));
         ReflectionTestUtils.setField(mailbox, "id", UUID.randomUUID());
         if (calendarSyncedAt != null) {
             mailbox.markCalendarSynced(calendarSyncedAt);

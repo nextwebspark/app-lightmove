@@ -53,7 +53,7 @@ const CATALOG: Omit<HelpArticle, "body">[] = [
   {
     slug: "outreach-conversations",
     title: "Work your conversations",
-    summary: "The action queue, one executive's history, and replying from it.",
+    summary: "Everyone in conversation, one executive's history, and writing from it.",
     pages: [/^\/projects\/[^/]+\/outreach\/?$/],
   },
   {

@@ -15,11 +15,12 @@ const GLYPHS = {
   quote: "M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1zM15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z",
   link: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
   expand: "M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7",
+  collapse: "M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7",
 } as const;
 
 /**
  * The note editor's formatting row: marks, two heading sizes, three kinds of list, a quote, a link, a mention and
- * Expand. Each button says whether it is on, and keeps the selection it acts on.
+ * Expand, which reads Collapse in the larger view. Each button says whether it is on, and keeps the selection it acts on.
  */
 export function NoteToolbar({
   editor,
@@ -76,11 +77,11 @@ export function NoteToolbar({
       {mentionsOffered && (
         <ToolButton label="Mention a teammate" shortcut="@" pressed={pickerOpen} text="@" onClick={onMention} />
       )}
-      {!expanded && (
-        <>
-          <span className="ms-auto" />
-          <ToolButton label="Expand" glyph={GLYPHS.expand} onClick={onExpand} />
-        </>
+      <span className="ms-auto" />
+      {expanded ? (
+        <ToolButton label="Collapse" glyph={GLYPHS.collapse} onClick={onExpand} />
+      ) : (
+        <ToolButton label="Expand" glyph={GLYPHS.expand} onClick={onExpand} />
       )}
     </div>
   );

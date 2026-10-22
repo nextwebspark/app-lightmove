@@ -61,7 +61,8 @@ there, never sent to that position's AI — while the Candidates page reads them
 The position drawer's composer offers This position or All positions, never another position. A note is
 formatted (bold, italic, underline, strike, two heading sizes, bulleted, numbered and checklist lists, a quote, a
 link, @mentions) in one shared editor — the composers, an edit in place, a business unit's or client's notes —
-which opens in a larger view on Expand without losing a word. A note a door
+which opens in a larger view on Expand without losing a word — the whole composer moves, its kind, who reads it
+and its save included, and Collapse sits where Expand was. A note a door
 sends (`SaveCandidateRequest.note`: the add form, the plugin, a sheet's
 Note column) is filed once as a note about that mandate; only its author or a `WORKSPACE_MANAGE` holder
 may change, remove or restore one (`PERSON_NOTE_NOT_YOURS`), and a note line on the timeline names the note,
@@ -573,14 +574,14 @@ instances never share a row, and a claim nobody released is stopped `SEND_UNCERT
 send re-checks what Start checked (do not contact, still mapped, still in the running, address still on the
 ledger, mailbox active) and stops the run with that reason rather than hooking `candidate`; it waits for
 the sequence's own sending days and hours (V113, `send_days`/`window_start`/`window_end`, Mon–Fri 08:00–18:00
-by default) in the mailbox's `time_zone` — which the consultant sets on the Outreach page
-(`PUT /outreach/mailbox/time-zone`) — and under its daily cap. A follow-up waits its delay in those days and
+by default) in the mailbox's `time_zone` — the consultant's own time zone, set in Settings → Profile and copied to
+each of their mailboxes (V148, `TimezoneChanged`) — and under its daily cap. A follow-up waits its delay in those days and
 goes at its step's `send_time`, or the time of day the step before went. Start chooses when the first emails
 go (`startMode`): `NOW` or `AT` a chosen instant (≤ 60 days) pins it (`first_send_pinned`), so the window
 never moves it though the cap still does, and `NEXT_WINDOW` waits for the window; each person after the
 first is due 1–3 minutes after the one before (`FirstSendSpacing`), and keeps that offset past any opening the
 window or the cap holds it for (`send_offset_seconds`), so a deferred batch never goes at once. A time-zone change
-is audited (`MAILBOX_TIME_ZONE_CHANGED`) and takes a region's zone or UTC only. Step 1 is the
+is audited with `PROFILE_UPDATED` and takes a region's zone or UTC only. Step 1 is the
 frozen email; a follow-up is rendered from the sequence as it stands and replies to the last message, which
 threads it. The first send moves Identified to Contacted, forward only. A reply or bounce arrives on the
 public `/api/v1/outreach/webhooks/mailbox`, whose HMAC signature is its credential
@@ -622,10 +623,13 @@ status automation, stops a live run in the same thread as `MANUAL`, and publishe
 `task` closes the person's open reply-rule tasks. Only a *sent* line says whose a thread is: one still waiting never
 takes a thread from the run in it.
 **Phase 4** is the screen: `/projects/:id/outreach` (`RequireStaff`, viewport-filling by an exact path match) draws
-`Outreach.dc.html`'s three panes — `ActionQueue`, `ConversationPane` (history and `ReplyComposer`) and
-`CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL and the mailbox as a chip in the tab row
-(`MailboxChip`; `lib/mailboxState.ts` is the one reading the banner, chip and composer share); the sequences and
-everyone in them moved to `…/outreach/sequences`. The conversation read gained `contact` and `composer`
+`Outreach.dc.html`'s three panes — `ConversationListPane`, `ConversationPane` (history and `ReplyComposer`) and
+`CandidateDetailsPane` — with `?view=&who=&q=&candidate=` in the URL; it lands on everyone (All, Team) and opens
+the top conversation where the list leaves room (the list alone on a phone), the tabs being chips in the list (All · To do · Scheduled · Sent). `OutreachHeader` is
+Conversations | Sequences (`…/outreach/sequences` and the sequence editor under it, the same frame), the mailbox chip (`MailboxChip`;
+`lib/mailboxState.ts` is the one reading the banner, chip, setup card and composer share) and the view's action —
+New email (anyone on the position) or New sequence. The executive drawer offers Write email (the same composer in
+`EmailComposerDialog`) beside Add to sequence. The conversation read gained `contact` and `composer`
 (`replySubject` and `replyStopsRun` for the caller's mailbox, `emailSentMovesTo`), the mailbox read `sentToday` and
 `scheduledEmails`.
 **Phase 5 (V147)**: an own email carries **files** — one of the person's documents, copied under the email's own storage
@@ -690,7 +694,7 @@ reply, a bounce, a booked call — once per event (`rule_key`, unique), each swi
 due) into `app_lm_notification` rows after commit, each recipient re-checked first; rows of one `group_key` fold
 while unread; a row names a note and never quotes it; `core/stream`'s per-user channel (`lm_user_stream`,
 `/me/notifications/stream`) nudges the open tabs. Email goes only for an assignment or a mention still unread
-after `lightmove.notifications.email-delay`, and a weekday digest at 08:00 in the person's mailbox zone, each
+after `lightmove.notifications.email-delay`, and a weekday digest at 08:00 in the person's profile time zone, each
 claimed once. All of it is staff-only and rides no `CandidateResponse`, report, public API or MCP read.
 
 **A position is archived, never deleted** (V137): its lead alone — `PROJECT_ARCHIVE`, the one project action a
@@ -1209,6 +1213,9 @@ per answered run and a bounce placeholder per bounced one, adds `app_lm_mailbox_
 it a consultant's own email's `send_at`, `sending_since` claim, `in_reply_to` and `fail_reason`, with the due index.
 V147 adds `app_lm_outreach_message_attachment` — an own email's files in order (name, read type, size, `sha256`, the
 bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
+V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
+the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
+the profile write, and taken by a new connection.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

@@ -56,31 +56,33 @@ export function CompanyNotesTab({
   return (
     <div className="flex flex-col gap-3 py-4">
       <div className="rounded-u-control border border-u-border p-2.5">
-        <NoteKindPicker value={kind} onChange={setKind} />
-        <div className="mt-2">
-          <NoteEditor
-            value={draft}
-            format="markdown"
-            onChange={setDraft}
-            teammates={null}
-            ariaLabel="New note"
-            placeholder={PLACEHOLDERS[kind]}
-            onSubmit={save}
-            submitLabel="Save note"
-            canSubmit={canSave}
-            expandTitle={`Note on ${company.companyName}`}
-          />
-        </div>
-        {tooLong && (
-          <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-            {NOTE_TOO_LONG}
-          </p>
-        )}
-        <div className="mt-2 flex justify-end">
-          <Button size="xs" disabled={!canSave} loading={saving.isPending} onClick={save}>
-            Save note
-          </Button>
-        </div>
+        <NoteEditor
+          value={draft}
+          format="markdown"
+          onChange={setDraft}
+          teammates={null}
+          ariaLabel="New note"
+          placeholder={PLACEHOLDERS[kind]}
+          onSubmit={save}
+          submitLabel="Save note"
+          canSubmit={canSave}
+          expandTitle={`Note on ${company.companyName}`}
+          header={<NoteKindPicker value={kind} onChange={setKind} />}
+          footer={
+            <>
+              {tooLong && (
+                <p role="alert" className="mb-2 text-meta text-u-offlimits">
+                  {NOTE_TOO_LONG}
+                </p>
+              )}
+              <div className="flex justify-end">
+                <Button size="xs" disabled={!canSave} loading={saving.isPending} onClick={save}>
+                  Save note
+                </Button>
+              </div>
+            </>
+          }
+        />
       </div>
 
       {notes.isError ? (

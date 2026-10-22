@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar, Toggle } from "../../../components/ui";
@@ -8,11 +8,14 @@ import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/p
 import { useClientVisibility } from "../../pipeline/lib/usePipelineWrites";
 import { CONVERSATION_KEY, type Conversation } from "../api/conversationApi";
 import { keyDateOf } from "../lib/conversationVocabulary";
+import { canSendFrom, mailboxStateOf } from "../lib/mailboxState";
 import { isLive, RUN_STATES, runNoteOf, sendTimeOf } from "../lib/runVocabulary";
+import { useMailbox } from "../lib/useMailbox";
+import { EnrolDialog } from "./EnrolDialog";
 
 /**
  * "Candidate details" beside the conversation (`Outreach.dc.html`): who they are, where they stand, whether the client
- * sees them, how to reach them, the dates that matter and the sequence they are in.
+ * sees them, how to reach them, the dates that matter and the sequence they are in — or the way into one.
  */
 export function CandidateDetailsPane({
   projectId,
@@ -26,9 +29,17 @@ export function CandidateDetailsPane({
 }) {
   const queryClient = useQueryClient();
   const clientVisibility = useClientVisibility(projectId);
+  const mailbox = useMailbox();
+  const [isEnrolling, setIsEnrolling] = useState(false);
   const { executive, contact, keyDates, currentRun } = conversation;
   const run = currentRun.run;
   const location = [contact.locationCity, contact.locationCountry].filter(Boolean).join(", ");
+  const canEnrol = canSendFrom(mailboxStateOf(mailbox)) && (!run || !isLive(run));
+  const enrolButton = canEnrol && (
+    <button type="button" className="font-medium text-u-accent hover:underline" onClick={() => setIsEnrolling(true)}>
+      Add to a sequence
+    </button>
+  );
   const clientVisible = clientVisibility.isPending
     ? (clientVisibility.variables?.clientVisible ?? executive.clientVisible)
     : executive.clientVisible;
@@ -147,7 +158,7 @@ export function CandidateDetailsPane({
               ))}
             </div>
             <DetailRow label="Send status">{sendStatusOf(run)}</DetailRow>
-            <div className="flex gap-4 text-note">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-note">
               <Link
                 to={`/projects/${projectId}/outreach/sequences/${run.sequenceId}`}
                 className="font-medium text-u-accent hover:underline"
@@ -157,12 +168,24 @@ export function CandidateDetailsPane({
               <button type="button" className="font-medium text-u-accent hover:underline" onClick={() => onOpenRecord("activity")}>
                 View history
               </button>
+              {enrolButton}
             </div>
           </>
         ) : (
-          <p className="text-note text-u-text3">Not in a sequence.</p>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-note">
+            <span className="text-u-text3">Not in a sequence.</span>
+            {enrolButton}
+          </div>
         )}
       </DetailBlock>
+      {isEnrolling && (
+        <EnrolDialog
+          projectId={projectId}
+          scope={{ candidateIds: [executive.candidateId] }}
+          source={executive.fullName}
+          onClose={() => setIsEnrolling(false)}
+        />
+      )}
 
       <button
         type="button"

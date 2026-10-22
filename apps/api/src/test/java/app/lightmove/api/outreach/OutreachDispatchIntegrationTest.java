@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -315,20 +316,16 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the window is read in the consultant's own zone, which only a region's zone can be, and is audited")
+    @DisplayName("the window is read in the consultant's profile zone, which only a region's zone can be, and is audited")
     void theWindowIsReadInTheSendersZone() throws Exception {
         for (String refused : List.of("Mars/Olympus", "EST", "SystemV/AST4")) {
-            as(consultant, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"timeZone\":\"%s\"}".formatted(refused)))
-                    .andExpect(status().isBadRequest());
+            as(consultant, profileIn(refused)).andExpect(status().isBadRequest());
         }
-        JsonNode mailbox = body(as(consultant, put("/api/v1/outreach/mailbox/time-zone")
-                .contentType(MediaType.APPLICATION_JSON).content("{\"timeZone\":\"Europe/London\"}"))
-                .andExpect(status().isOk())
-                .andReturn());
+        as(consultant, profileIn("Europe/London")).andExpect(status().isOk());
+        JsonNode mailbox = body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn());
         assertThat(mailbox.get("connection").get("timeZone").asText()).isEqualTo("Europe/London");
         assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where event_type = "
-                + "'MAILBOX_TIME_ZONE_CHANGED' and metadata ->> 'from' = 'Asia/Dubai' and metadata ->> 'to' = "
+                + "'PROFILE_UPDATED' and metadata ->> 'timezoneFrom' = 'Asia/Dubai' and metadata ->> 'timezoneTo' = "
                 + "'Europe/London' and workspace_id = (select workspace_id from app_lm_project where id = ?::uuid)",
                 Integer.class, projectId)).isEqualTo(1);
 
@@ -818,17 +815,15 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a time zone needs a connected mailbox, and a client seat may not set one")
-    void theTimeZoneNeedsAConnectedMailboxAndStaff() throws Exception {
-        String rep = clientSeat();
-        as(rep, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"timeZone\":\"Europe/London\"}"))
-                .andExpect(status().isForbidden());
-
+    @DisplayName("a zone set with no mailbox connected is the one the next connection sends by")
+    void aNewConnectionSendsByTheProfilesZone() throws Exception {
         as(consultant, delete("/api/v1/outreach/mailbox")).andExpect(status().isNoContent());
-        as(consultant, put("/api/v1/outreach/mailbox/time-zone").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"timeZone\":\"Europe/London\"}"))
-                .andExpect(status().isConflict());
+        as(consultant, profileIn("Europe/London")).andExpect(status().isOk());
+
+        connectMailbox();
+
+        JsonNode mailbox = body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn());
+        assertThat(mailbox.get("connection").get("timeZone").asText()).isEqualTo("Europe/London");
     }
 
     private Instant nextSendAt(String candidateId) {
@@ -925,6 +920,12 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/outreach/mailbox/callback").param("state", state).param("code", "code-1")
                         .cookie(cookie))
                 .andExpect(status().isFound());
+    }
+
+    private MockHttpServletRequestBuilder profileIn(String timezone) {
+        return patch("/api/v1/auth/me").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fullName\":\"Yara Haddad\",\"title\":null,\"timezone\":\"%s\",\"locale\":\"en\"}"
+                        .formatted(timezone));
     }
 
     private ResultActions as(String token, MockHttpServletRequestBuilder request) throws Exception {
