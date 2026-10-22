@@ -7,6 +7,7 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -16,6 +17,7 @@ import app.lightmove.api.outreach.dto.BookMeetingRequest;
 import app.lightmove.api.outreach.dto.MeetingResponse;
 import app.lightmove.api.outreach.dto.MeetingSlotsResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
+import app.lightmove.api.outreach.dto.RescheduleMeetingRequest;
 import app.lightmove.api.outreach.dto.SlotDayResponse;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -55,7 +57,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * An executive's meetings on the team's calendars, and Book a call: free times from the consultant's
  * own calendar, and an invite sent from it. A booked call moves the person to Engaged and ends their
- * run on this position, since a follow-up asking for a call that is already booked reads badly.
+ * run on this position, since a follow-up asking for a call that is already booked reads badly. A call booked in
+ * Uncava is moved or cancelled from the calendar it was booked on, by its holder alone.
  */
 @Service
 @RequiredArgsConstructor
@@ -84,7 +87,7 @@ public class MeetingService {
     private final Clock clock;
 
     @Transactional(readOnly = true)
-    public PersonMeetingsResponse ofCandidate(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public PersonMeetingsResponse ofCandidate(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         backfill.refreshUnpushed(workspaceId);
         List<PersonMeeting> rows = distinctMeetings(
@@ -96,13 +99,13 @@ public class MeetingService {
         Instant now = clock.instant();
         List<MeetingResponse> upcoming = rows.stream()
                 .filter(row -> row.getEndsAt().isAfter(now))
-                .map(row -> responseOf(row, owners, true))
+                .map(row -> responseOf(row, owners, true, isChangeableBy(userId, row, now)))
                 .toList();
         List<MeetingResponse> past = rows.stream()
                 .filter(row -> !row.getEndsAt().isAfter(now))
                 .sorted(Comparator.comparing(PersonMeeting::getStartsAt).reversed())
                 .limit(PAST_SHOWN)
-                .map(row -> responseOf(row, owners, false))
+                .map(row -> responseOf(row, owners, false, false))
                 .toList();
         return new PersonMeetingsResponse(upcoming, past);
     }
@@ -111,12 +114,17 @@ public class MeetingService {
      * A page of free times from {@code from}: today when absent or past, refused beyond {@link FreeSlots#HORIZON}.
      */
     public MeetingSlotsResponse slots(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, int minutes,
-                                      LocalDate from) {
+                                      LocalDate from, UUID excludingMeetingId) {
         Duration length = requireLength(minutes);
-        requireRecipient(workspaceId, projectId, candidateId);
+        OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        PersonMeeting moving = excludingMeetingId == null ? null
+                : requireChangeable(userId, workspaceId, recipient, excludingMeetingId);
         MailboxConnection mailbox = requireMailbox(userId, workspaceId);
+        if (moving != null) {
+            requireOnMailbox(moving, mailbox);
+        }
         SlotPage page = freeSlotsOf(mailbox)
-                .page(clock.instant(), from, length, (start, end) -> busyOf(mailbox, start, end))
+                .page(clock.instant(), from, length, (start, end) -> busyOf(mailbox, start, end, moving))
                 .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_SLOT_INVALID));
         return new MeetingSlotsResponse(mailbox.getAddress(), mailbox.getTimeZone(), mailbox.getProvider(), minutes,
                 page.earliestDate(), page.latestDate(), page.previousFrom(), SlotDayResponse.listOf(page.days()),
@@ -171,8 +179,8 @@ public class MeetingService {
         }
 
         try {
-            recordBooked(userId, workspaceId, projectId, candidateId, recipient, mailbox, created, request.minutes(),
-                    now, httpRequest);
+            recordBooked(userId, workspaceId, projectId, candidateId, recipient, mailbox, created,
+                    zoomMeeting == null ? null : zoomMeeting.id(), request.minutes(), now, httpRequest);
         } catch (RuntimeException failed) {
             // The invite has gone; without this line nothing would say that an event exists with no booking behind it.
             log.error("Invite {} went out from mailbox {} for candidate {} on project {} (user {}), but recording "
@@ -194,10 +202,10 @@ public class MeetingService {
 
     private void recordBooked(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                               OutreachRecipient recipient, MailboxConnection mailbox, CalendarEvent created,
-                              int minutes, Instant now, HttpServletRequest httpRequest) {
+                              String zoomMeetingId, int minutes, Instant now, HttpServletRequest httpRequest) {
         transactions.executeWithoutResult(status -> {
             MailboxConnection fresh = mailboxes.findById(mailbox.getId()).orElse(mailbox);
-            meetingSync.keep(fresh, created, recipient.personId(), userId, false);
+            meetingSync.keep(fresh, created, recipient.personId(), userId, false, zoomMeetingId);
             people.recordMeetingBooked(userId, projectId, candidateId, created.startsAt(), false);
             events.publishEvent(new OutreachCallBooked(workspaceId, projectId, candidateId, recipient.personId(),
                     userId, created.startsAt(), created.endsAt(), false));
@@ -210,6 +218,166 @@ public class MeetingService {
                     .detail("minutes", String.valueOf(minutes))
                     .record();
         });
+    }
+
+    /**
+     * Moves a call booked in Uncava to another free time, checked as a booking is, and sends the executive the update.
+     * Its Zoom meeting, where it has one, moves first and is put back if the calendar then refuses. No status moves
+     * and no run is touched: the call is still booked.
+     */
+    public void reschedule(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId,
+                           RescheduleMeetingRequest request, HttpServletRequest httpRequest) {
+        Duration length = requireLength(request.minutes());
+        OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        PersonMeeting meeting = requireChangeable(userId, workspaceId, recipient, meetingId);
+        if (recipient.doNotContact()) {
+            throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
+        }
+        MailboxConnection mailbox = requireMailbox(userId, workspaceId);
+        requireOnMailbox(meeting, mailbox);
+        Instant now = clock.instant();
+        Instant startsAt = request.startsAt();
+        Instant endsAt = startsAt.plus(length);
+        if (startsAt.equals(meeting.getStartsAt()) && endsAt.equals(meeting.getEndsAt())) {
+            return;
+        }
+        if (!freeSlotsOf(mailbox).books(now, startsAt, length)) {
+            throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
+        }
+        if (busyOf(mailbox, startsAt, endsAt, meeting).stream().anyMatch(taken -> taken.overlaps(startsAt, endsAt))) {
+            throw ApiException.of(ErrorCode.MEETING_SLOT_TAKEN);
+        }
+
+        String zoomMeetingId = meeting.getZoomMeetingId();
+        boolean zoomMoved = zoomMeetingId != null && movedAtZoom(userId, workspaceId, zoomMeetingId, startsAt, endsAt);
+        try {
+            gateway.moveEvent(mailbox.getGrantId(), meeting.getProviderEventId(), startsAt, endsAt);
+        } catch (VendorException failed) {
+            if (failed.getKind() != VendorFailureKind.MALFORMED_RESPONSE) {
+                if (zoomMoved) {
+                    zoom.moveBackQuietly(userId, workspaceId, zoomMeetingId, meeting.getStartsAt(), meeting.getEndsAt());
+                }
+                // An event the calendar no longer holds is not the mailbox's access withdrawn: read as that, one call
+                // deleted in Outlook would mark a healthy mailbox for reconnecting and stop every run it sends.
+                if (CalendarEventGone.isGone(failed)) {
+                    transactions.executeWithoutResult(status ->
+                            meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId()));
+                    throw ApiException.of(ErrorCode.MEETING_GONE);
+                }
+                throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_UPDATE_FAILED);
+            }
+            // A 2xx the gateway could not read back: the update went out, so the move is recorded and Zoom stays moved.
+            log.warn("The calendar moved event {} of mailbox {} but its answer could not be read",
+                    meeting.getProviderEventId(), mailbox.getId());
+        } catch (RuntimeException failed) {
+            if (zoomMoved) {
+                zoom.moveBackQuietly(userId, workspaceId, zoomMeetingId, meeting.getStartsAt(), meeting.getEndsAt());
+            }
+            throw failed;
+        }
+
+        Instant previousStartsAt = meeting.getStartsAt();
+        try {
+            transactions.executeWithoutResult(status -> {
+                meetings.moveEvent(mailbox.getId(), meeting.getProviderEventId(), startsAt, endsAt);
+                people.recordMeetingRescheduled(userId, projectId, candidateId, previousStartsAt, startsAt);
+                audit.projectEvent(ProjectEventType.OUTREACH_MEETING_RESCHEDULED, userId, workspaceId, projectId,
+                                httpRequest)
+                        .detail("candidateId", candidateId.toString())
+                        .detail("previousStartsAt", previousStartsAt.toString())
+                        .detail("startsAt", startsAt.toString())
+                        .detail("minutes", String.valueOf(request.minutes()))
+                        .record();
+            });
+        } catch (RuntimeException failed) {
+            // The update has gone; the next calendar read or push puts the row right, but nothing else would say so.
+            log.error("Event {} of mailbox {} was moved for candidate {} on project {} (user {}), but recording the "
+                            + "move failed", meeting.getProviderEventId(), mailbox.getId(), candidateId, projectId,
+                    userId, failed);
+            throw failed;
+        }
+    }
+
+    /**
+     * Cancels a call booked in Uncava: the executive is told, its Zoom meeting goes, and the row with it. The person's
+     * status stays where it is (a pipeline moves forward only) and no run that the booking ended starts again.
+     */
+    public void cancel(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId,
+                       HttpServletRequest httpRequest) {
+        OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        PersonMeeting meeting = requireChangeable(userId, workspaceId, recipient, meetingId);
+        MailboxConnection mailbox = requireMailbox(userId, workspaceId);
+        requireOnMailbox(meeting, mailbox);
+        try {
+            gateway.cancelEvent(mailbox.getGrantId(), meeting.getProviderEventId());
+        } catch (VendorException failed) {
+            throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_UPDATE_FAILED);
+        }
+        if (meeting.getZoomMeetingId() != null) {
+            zoom.deleteQuietly(userId, workspaceId, meeting.getZoomMeetingId());
+        }
+        try {
+            transactions.executeWithoutResult(status -> {
+                meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId());
+                people.recordMeetingCancelled(userId, projectId, candidateId, meeting.getStartsAt());
+                audit.projectEvent(ProjectEventType.OUTREACH_MEETING_CANCELLED, userId, workspaceId, projectId,
+                                httpRequest)
+                        .detail("candidateId", candidateId.toString())
+                        .detail("startsAt", meeting.getStartsAt().toString())
+                        .record();
+            });
+        } catch (RuntimeException failed) {
+            // The attendees have been told; the next calendar read drops the row, but nothing else would say so.
+            log.error("Event {} of mailbox {} was cancelled for candidate {} on project {} (user {}), but recording "
+                            + "the cancel failed", meeting.getProviderEventId(), mailbox.getId(), candidateId,
+                    projectId, userId, failed);
+            throw failed;
+        }
+    }
+
+    /**
+     * Moves the call's Zoom meeting first, so a calendar refusal can put it back. A Zoom account since disconnected or
+     * refused moves nothing there and does not hold up the invite: the link the executive holds still opens it.
+     */
+    private boolean movedAtZoom(UUID userId, UUID workspaceId, String zoomMeetingId, Instant startsAt,
+                                Instant endsAt) {
+        try {
+            zoom.moveMeeting(userId, workspaceId, zoomMeetingId, startsAt, endsAt);
+            return true;
+        } catch (VendorException failed) {
+            log.warn("Zoom would not move meeting {} for user {}: {}", zoomMeetingId, userId, failed.getKind());
+            throw ApiException.of(ErrorCode.MEETING_UPDATE_FAILED);
+        } catch (ApiException unusable) {
+            log.warn("Zoom meeting {} was not moved: user {}'s Zoom is not usable ({})", zoomMeetingId, userId,
+                    unusable.getCode());
+            return false;
+        }
+    }
+
+    /** The meeting, where its caller may change it: booked in Uncava, still to come, and on their own calendar. */
+    private PersonMeeting requireChangeable(UUID userId, UUID workspaceId, OutreachRecipient recipient,
+                                            UUID meetingId) {
+        PersonMeeting meeting = meetings.findByIdAndWorkspaceIdAndPersonId(meetingId, workspaceId,
+                        recipient.personId())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (!meeting.isBookedInUncava() || !meeting.getStartsAt().isAfter(clock.instant())) {
+            throw ApiException.of(ErrorCode.MEETING_NOT_EDITABLE);
+        }
+        if (!userId.equals(meeting.getUserId())) {
+            throw ApiException.of(ErrorCode.MEETING_NOT_YOURS);
+        }
+        return meeting;
+    }
+
+    /** A call booked through a mailbox since disconnected is that calendar's to change, not the one held now. */
+    private static void requireOnMailbox(PersonMeeting meeting, MailboxConnection mailbox) {
+        if (!mailbox.getId().equals(meeting.getMailboxConnectionId())) {
+            throw ApiException.of(ErrorCode.MEETING_NOT_EDITABLE);
+        }
+    }
+
+    private static boolean isChangeableBy(UUID userId, PersonMeeting row, Instant now) {
+        return row.isBookedInUncava() && row.getStartsAt().isAfter(now) && userId.equals(row.getUserId());
     }
 
     /**
@@ -229,10 +397,11 @@ public class MeetingService {
         return new ArrayList<>(byCall.values());
     }
 
-    private static MeetingResponse responseOf(PersonMeeting row, Map<UUID, String> owners, boolean upcoming) {
+    private static MeetingResponse responseOf(PersonMeeting row, Map<UUID, String> owners, boolean upcoming,
+                                              boolean editable) {
         return new MeetingResponse(row.getId(), row.getTitle(), row.getStartsAt(), row.getEndsAt(), row.getUserId(),
                 owners.get(row.getUserId()), upcoming ? row.getJoinUrl() : null, row.getConferencingProvider(),
-                row.isBookedViaLink(), row.getBookedByUserId() != null);
+                row.isBookedViaLink(), row.getBookedByUserId() != null, editable);
     }
 
     private List<BusyInterval> busyOf(MailboxConnection mailbox, Instant from, Instant to) {
@@ -241,6 +410,29 @@ public class MeetingService {
         } catch (VendorException failed) {
             throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_CALENDAR_UNAVAILABLE);
         }
+    }
+
+    /** The calendar's busy times, less the call being moved: its own time is free to move it within. */
+    private List<BusyInterval> busyOf(MailboxConnection mailbox, Instant from, Instant to, PersonMeeting moving) {
+        List<BusyInterval> busy = busyOf(mailbox, from, to);
+        return moving == null ? busy : withoutInterval(busy, moving.getStartsAt(), moving.getEndsAt());
+    }
+
+    static List<BusyInterval> withoutInterval(List<BusyInterval> busy, Instant start, Instant end) {
+        List<BusyInterval> left = new ArrayList<>();
+        for (BusyInterval interval : busy) {
+            if (!interval.overlaps(start, end)) {
+                left.add(interval);
+                continue;
+            }
+            if (interval.start().isBefore(start)) {
+                left.add(new BusyInterval(interval.start(), start));
+            }
+            if (interval.end().isAfter(end)) {
+                left.add(new BusyInterval(end, interval.end()));
+            }
+        }
+        return left;
     }
 
     private ApiException failedAtMailService(MailboxConnection mailbox, VendorException failed, ErrorCode otherwise) {

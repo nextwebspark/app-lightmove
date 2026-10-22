@@ -134,6 +134,16 @@ public class RoutingMailboxGateway implements MailboxGateway {
         return holding(grantId).createEvent(grantId, event);
     }
 
+    @Override
+    public CalendarEvent moveEvent(String grantId, String eventId, Instant startsAt, Instant endsAt) {
+        return holding(grantId).moveEvent(grantId, eventId, startsAt, endsAt);
+    }
+
+    @Override
+    public void cancelEvent(String grantId, String eventId) {
+        holding(grantId).cancelEvent(grantId, eventId);
+    }
+
     /** Booking pages are Nylas Scheduler's; nothing of ours offers them yet. */
     @Override
     public boolean isBookingPageOffered() {

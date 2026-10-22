@@ -1,4 +1,4 @@
-import type { Candidate } from "../../candidates/api/types";
+import type { AddedBy, Candidate } from "../../candidates/api/types";
 import type { TriageCompany } from "../api/types";
 
 /**
@@ -14,9 +14,13 @@ import type { TriageCompany } from "../api/types";
  * `company: null` is an executive whose employer is not in the mandate's universe at all, which the
  * In-universe stage shows after the companies rather than hiding.
  */
-export type TriageCompanyRow =
+export type TriageCompanyRow = (
   | { company: TriageCompany; candidate: Candidate | null }
-  | { company: null; candidate: Candidate };
+  | { company: null; candidate: Candidate }
+) & {
+  /** Who filed the line's executive, where a staff read said; never on a client seat's rows. */
+  candidateAddedBy?: AddedBy;
+};
 
 /** Stable and collision-free across both nullable sides — the empty slot needs an id of its own. */
 export function triageRowId(row: TriageCompanyRow): string {
@@ -35,6 +39,7 @@ export function toTriageRows(
   companies: TriageCompany[],
   candidates: Candidate[],
   unmappedCandidates: Candidate[] = [],
+  addedBy: Record<string, AddedBy> = {},
 ): TriageCompanyRow[] {
   const byCompany = new Map<string, Candidate[]>();
   for (const candidate of candidates) {
@@ -51,10 +56,12 @@ export function toTriageRows(
       rows.push({ company, candidate: null });
       continue;
     }
-    for (const candidate of mapped) rows.push({ company, candidate });
+    for (const candidate of mapped) rows.push({ company, candidate, candidateAddedBy: addedBy[candidate.id] });
   }
 
-  for (const candidate of unmappedCandidates) rows.push({ company: null, candidate });
+  for (const candidate of unmappedCandidates) {
+    rows.push({ company: null, candidate, candidateAddedBy: addedBy[candidate.id] });
+  }
 
   return rows;
 }

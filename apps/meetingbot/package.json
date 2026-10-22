@@ -1,0 +1,26 @@
+{
+  "name": "meetingbot",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Uncava Notetaker \u2014 the headless browser that joins a consultant's call, records it and hands the pieces to the API",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "test": "vitest run",
+    "try": "npm run build && node dist/tools/tryCall.js",
+    "test:browser": "vitest run --config vitest.browser.config.ts"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.43.1"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^24.13.2",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.71.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.11"
+  }
+}

@@ -121,6 +121,30 @@ jobs:
           docker push "${BASE}:${SHA}"
           echo "image=${BASE}:${VERSION}" >> "$GITHUB_OUTPUT"
 
+      # ── Meeting bot ──────────────────────────────────────────────────────────
+      # The Notetaker's browser (apps/meetingbot): its own image, deployed as a Cloud Run Job the API runs once per
+      # call. Off unless MEETINGBOT_ENABLED=true. It runs as MEETINGBOT_SA, which needs no role at all: the bot
+      # holds no Google credential and reaches Uncava only through its run's token. No retries: a second execution
+      # is a second bot in an executive's call.
+      - name: Deploy the meeting bot job
+        if: vars.MEETINGBOT_ENABLED == 'true'
+        env:
+          VERSION: ${{ inputs.ref }}
+        run: |
+          SHA="$(git rev-parse HEAD)"
+          BOT="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/lightmove-meetingbot"
+          docker build -f apps/meetingbot/Dockerfile -t "${BOT}:${VERSION}" -t "${BOT}:${SHA}" .
+          docker push "${BOT}:${VERSION}"
+          docker push "${BOT}:${SHA}"
+          gcloud run jobs deploy lightmove-meetingbot \
+            --image "${BOT}:${VERSION}" \
+            --region "$REGION" \
+            --service-account "${{ vars.MEETINGBOT_SA }}" \
+            --cpu 2 --memory 4Gi \
+            --task-timeout 4h \
+            --max-retries 0 \
+            --tasks 1
+
       # ── Migrate ──────────────────────────────────────────────────────────────
       # Before the new revision goes live, and never inside the container (FLYWAY_ENABLED=false there).
       #
@@ -409,6 +433,16 @@ jobs:
             MCP_SECRETS="${MCP_SECRETS},/secrets/mcp-jwt-public/public.pem=lightmove-mcp-jwt-public-key:latest"
           fi
 
+          # Uncava Notetaker (epic #949). Off unless MEETINGBOT_ENABLED=true; the step "Deploy the meeting bot job"
+          # above has deployed the job this names. The runtime service account needs run.jobs.runWithOverrides on it
+          # (roles/run.developer on the job), and the bot calls back to WEB_BASE_URL.
+          NOTETAKER_ENV=""
+          if [ "${{ vars.MEETINGBOT_ENABLED }}" = "true" ]; then
+            NOTETAKER_ENV="|NOTETAKER_ENABLED=true|NOTETAKER_RUNNER=cloud-run-job"
+            NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_CLOUD_RUN_JOB=projects/${{ vars.GCP_PROJECT }}/locations/${REGION}/jobs/lightmove-meetingbot"
+            NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_PLATFORMS=${{ vars.NOTETAKER_PLATFORMS || 'GOOGLE_MEET' }}"
+          fi
+
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both
           # comma-lists. It must be a character no value contains — @ is wrong, because EMAIL_FROM is an email
           # address and gcloud would split it mid-way and reject the domain half as a malformed entry.
@@ -433,7 +467,7 @@ jobs:
             --cpu 1 --memory 1Gi --cpu-boost \
             --concurrency 80 \
             --timeout 300s \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|BILLING_CONTACT_EMAIL=${{ vars.BILLING_CONTACT_EMAIL || 'billing@uncava.com' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|BILLING_CONTACT_EMAIL=${{ vars.BILLING_CONTACT_EMAIL || 'billing@uncava.com' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}${NOTETAKER_ENV}" \
             --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}"
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not

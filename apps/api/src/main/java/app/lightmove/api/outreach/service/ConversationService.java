@@ -187,7 +187,7 @@ public class ConversationService {
                 .forEach(line -> events.add(ConversationEventResponse.of(line)));
         notes.list(userId, workspaceId, personId, NoteViewpoint.position(projectId))
                 .forEach(note -> events.add(ConversationEventResponse.of(note)));
-        PersonMeetingsResponse held = meetings.ofCandidate(workspaceId, projectId, candidateId);
+        PersonMeetingsResponse held = meetings.ofCandidate(userId, workspaceId, projectId, candidateId);
         Stream.concat(held.upcoming().stream(), held.past().stream())
                 .forEach(meeting -> events.add(ConversationEventResponse.of(meeting)));
         events.sort(Comparator.comparing(ConversationEventResponse::at, LATEST_FIRST));

@@ -99,6 +99,33 @@ Then the repository variables `deploy.yml` reads, per environment:
 | `OUTREACH_GATEWAY` | stays `nylas` until rollout (#650) |
 | `*_OWN_APP_GUIDE_URL`, `*_SHARED_APP_GUIDE_URL` | where the guides in this folder are published |
 
+## Uncava Notetaker (epic #949)
+
+Our own bot needs no provider app — it joins as a guest — but its job does need setting up once per project:
+
+1. `MEETINGBOT_ENABLED=true` deploys the Cloud Run Job `lightmove-meetingbot` from `apps/meetingbot/Dockerfile`
+   and starts the API with `NOTETAKER_RUNNER=cloud-run-job`.
+2. Grant the API's runtime service account `roles/run.developer` **on that job alone** (it needs
+   `run.jobs.runWithOverrides`), never on the project:
+   ```bash
+   gcloud run jobs add-iam-policy-binding lightmove-meetingbot --region "$REGION" \
+     --member "serviceAccount:$GCP_RUNTIME_SA" --role roles/run.developer
+   ```
+3. **Keep execution viewers narrow.** Each execution carries its run's token as a container override, and anyone who
+   can read the execution (`run.executions.get`: `roles/run.viewer` and up on the project or the job) can read it
+   while the run lasts. The token opens only that run's own `/internal/notetaker/runs/{id}/*` routes and dies when the
+   run ends, but grant those roles to operators only.
+4. **A lifecycle rule on the documents bucket** as the backstop for the purge: delete objects under `notetaker/`
+   older than 30 days. The API deletes a removed run's pieces on its next pass and a failed run's after
+   `lightmove.notetaker.failed-media-retention` (7 days); the rule catches anything a purge never reached.
+   ```bash
+   cat > /tmp/notetaker-lifecycle.json <<'JSON'
+   {"rule":[{"action":{"type":"Delete"},"condition":{"age":30,"matchesPrefix":["notetaker/"]}}]}
+   JSON
+   gcloud storage buckets update "gs://$DOCUMENTS_BUCKET" --lifecycle-file=/tmp/notetaker-lifecycle.json
+   ```
+   A bucket that already has lifecycle rules: merge this one into them, since `--lifecycle-file` replaces the set.
+
 ## Legal
 
 The reviewers read the privacy policy, and the signup page already links `/privacy` — **which serves nothing yet**.
@@ -110,6 +137,9 @@ Publish it before submitting any review, and add:
   events and Zoom meetings the consultant books. Refresh tokens are stored encrypted and revoked on disconnect.
 - **Google's Limited Use** statement: use of data from Google APIs adheres to the Google API Services User Data
   Policy, including the Limited Use requirements.
+- **Uncava Notetaker records calls.** It joins as "Uncava Notetaker", posts in the call's chat that it is recording
+  before it records anything, and leaves without recording if it cannot post that notice; it never turns on a
+  microphone or camera. The policy should say so, and who may remove it (anyone on the position, from the drawer).
 - **Recall.ai as a sub-processor** that receives calendar access (the OAuth app's keys and a refresh token) for
   workspaces syncing calendars through Recall.
 

@@ -75,6 +75,16 @@ public class UnconfiguredMailboxGateway implements MailboxGateway {
     }
 
     @Override
+    public CalendarEvent moveEvent(String grantId, String eventId, Instant startsAt, Instant endsAt) {
+        throw unavailable();
+    }
+
+    @Override
+    public void cancelEvent(String grantId, String eventId) {
+        throw unavailable();
+    }
+
+    @Override
     public boolean isBookingPageOffered() {
         return false;
     }

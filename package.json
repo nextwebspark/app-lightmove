@@ -5,7 +5,8 @@
   "description": "LightMove — multi-tenant executive search & talent mapping platform",
   "workspaces": [
     "apps/web",
-    "apps/extension"
+    "apps/extension",
+    "apps/meetingbot"
   ],
   "engines": {
     "node": ">=20"
@@ -24,15 +25,17 @@
     "dev:db:seed-firm": "./ops/dev/db.sh seed-firm",
     "dev:cloud": "concurrently -n api,web -c yellow,cyan \"npm:dev:api:cloud\" \"npm:dev:web\"",
     "dev:api:cloud": "cd apps/api && ./mvnw spring-boot:run -Dspring-boot.run.profiles=local",
-    "build": "npm run build:api && npm run build:web && npm run build:extension",
+    "build": "npm run build:api && npm run build:web && npm run build:extension && npm run build:meetingbot",
     "build:api": "cd apps/api && ./mvnw -q clean package",
     "build:web": "npm run build --workspace=apps/web",
-    "test": "npm run test:api && npm run test:web && npm run test:extension",
+    "test": "npm run test:api && npm run test:web && npm run test:extension && npm run test:meetingbot",
     "test:api": "cd apps/api && ./mvnw test",
     "test:web": "npm run test --workspace=apps/web",
     "build:extension": "npm run build --workspace=apps/extension",
     "test:extension": "npm run test --workspace=apps/extension",
-    "audit": "npm audit --omit=dev --audit-level=high"
+    "audit": "npm audit --omit=dev --audit-level=high",
+    "build:meetingbot": "npm run build --workspace=apps/meetingbot",
+    "test:meetingbot": "npm run test --workspace=apps/meetingbot"
   },
   "devDependencies": {
     "concurrently": "^9.2.1"

@@ -32,6 +32,7 @@ public class NotetakerScheduler {
     private final MeetingRecordingClaims claims;
     private final NotetakerLauncher launcher;
     private final NotetakerSweeper sweeper;
+    private final NotetakerMediaPurge mediaPurge;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -50,6 +51,11 @@ public class NotetakerScheduler {
         } catch (RuntimeException failed) {
             // A call starting now must not wait a minute because an old run could not be closed.
             log.error("Notetaker sweep failed; launching anyway", failed);
+        }
+        try {
+            mediaPurge.purge(now);
+        } catch (RuntimeException failed) {
+            log.error("Notetaker media purge failed; launching anyway", failed);
         }
         for (PendingLaunch pending : claimDue(now)) {
             try {

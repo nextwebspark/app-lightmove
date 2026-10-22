@@ -10,6 +10,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -52,7 +53,9 @@ class NotetakerCallEligibility {
             KeptMeeting first = copies.getFirst();
             NotetakerPlatform platform = NotetakerPlatform.of(first.joinUrl(), first.conferencingProvider())
                     .orElse(null);
-            calls.add(new NotetakerCall(callKeyOf(first), List.copyOf(copies), platform, offered.offers(platform),
+            boolean joinable = platform != null && offered.offers(platform)
+                    && NotetakerPlatform.hostingAt(first.joinUrl()).equals(Optional.of(platform));
+            calls.add(new NotetakerCall(callKeyOf(first), List.copyOf(copies), platform, joinable,
                     !workspacesOff.contains(first.workspaceId()),
                     copies.stream().noneMatch(copy -> optedOut.contains(NotetakerSwitches.eventKeyOf(copy))),
                     copies.stream()

@@ -102,6 +102,18 @@ public interface MailboxGateway {
      */
     CalendarEvent createEvent(String grantId, NewCalendarEvent event);
 
+    /**
+     * Moves a call this mailbox's calendar holds to {@code startsAt}–{@code endsAt} and sends its attendees the
+     * update. Never retried, as {@link #createEvent} is not: a request that timed out may have moved it.
+     */
+    CalendarEvent moveEvent(String grantId, String eventId, Instant startsAt, Instant endsAt);
+
+    /**
+     * Takes a call off this mailbox's calendar and tells its attendees. An event the calendar no longer holds is
+     * already cancelled, never a failure. Never retried.
+     */
+    void cancelEvent(String grantId, String eventId);
+
     /** False where the service's plan carries no booking pages; {@code {{bookingLink}}} is then not offered. */
     boolean isBookingPageOffered();
 

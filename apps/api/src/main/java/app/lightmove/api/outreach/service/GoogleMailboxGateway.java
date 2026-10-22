@@ -272,6 +272,35 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
         return requireCreated(grantId, answer == null ? null : eventOf(answer));
     }
 
+    /** A patch keeps the event's Meet or Zoom link; {@code sendUpdates=all} mails the attendees the new time. */
+    @Override
+    public CalendarEvent moveEvent(String grantId, String eventId, Instant startsAt, Instant endsAt) {
+        String accessToken = accessTokenOf(grantId);
+        JsonNode answer = apiCall("move-event", accessToken, client -> client.patch()
+                .uri(builder -> builder.path("/calendar/v3/calendars/primary/events/{id}")
+                        .queryParam("sendUpdates", "all")
+                        .build(eventId))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("start", Map.of("dateTime", startsAt.toString()),
+                        "end", Map.of("dateTime", endsAt.toString()))));
+        return requireMoved(grantId, answer == null ? null : eventOf(answer));
+    }
+
+    @Override
+    public void cancelEvent(String grantId, String eventId) {
+        String accessToken = accessTokenOf(grantId);
+        try {
+            apiExchange("cancel-event", accessToken, client -> client.delete()
+                    .uri(builder -> builder.path("/calendar/v3/calendars/primary/events/{id}")
+                            .queryParam("sendUpdates", "all")
+                            .build(eventId)));
+        } catch (VendorException failed) {
+            if (!CalendarEventGone.isGone(failed)) {
+                throw failed;
+            }
+        }
+    }
+
     /**
      * Null for a cancelled event, one with no id, an all-day one ({@code start.date}, no call), or one of a recurring
      * series: kept at all, a series would be kept once per occurrence and never cleanly removed.

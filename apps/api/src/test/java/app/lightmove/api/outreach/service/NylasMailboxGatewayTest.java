@@ -106,6 +106,57 @@ class NylasMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("a moved call is a PUT of its new times, a cancelled one a DELETE, both telling the attendees")
+    void eventsAreMovedAndCancelled() throws Exception {
+        java.util.List<String> requests = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.List<String> bodies = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.concurrent.atomic.AtomicInteger deleteStatus = new java.util.concurrent.atomic.AtomicInteger(200);
+        com.sun.net.httpserver.HttpServer server = com.sun.net.httpserver.HttpServer.create(
+                new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/v3/grants/grant-1/events/evt-1", exchange -> {
+            requests.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getQuery());
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            int status = exchange.getRequestMethod().equals("DELETE") ? deleteStatus.get() : 200;
+            byte[] answer = (status == 200 ? """
+                    {"data":{"id":"evt-1","title":"Call","when":{"start_time":1790935200,"end_time":1790937000},
+                     "participants":[{"email":"priya@client.example"}]}}""" : "{\"error\":{}}")
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(status, answer.length);
+            exchange.getResponseBody().write(answer);
+            exchange.close();
+        });
+        server.start();
+        try {
+            app.lightmove.api.core.config.LightMoveProperties properties =
+                    mock(app.lightmove.api.core.config.LightMoveProperties.class);
+            org.mockito.Mockito.when(properties.resilience()).thenReturn(new app.lightmove.api.core.config.ResilienceSettings(
+                    java.time.Duration.ofSeconds(2), 0, java.time.Duration.ofMillis(1), 1.0, java.time.Duration.ZERO,
+                    java.time.Duration.ofMillis(1), java.time.Duration.ofSeconds(1)));
+            VendorRateLimiter limiter = new VendorRateLimiter();
+            NylasMailboxGateway live = new NylasMailboxGateway(
+                    new NylasSettings("nyk_secret", "client-123", "http://127.0.0.1:" + server.getAddress().getPort(),
+                            List.of("google"), 5, WEBHOOK_SECRET, false, false),
+                    new VendorClientFactory(properties), limiter, new VendorCallGuard(limiter, properties),
+                    RestClient.builder());
+
+            CalendarEvent moved = live.moveEvent("grant-1", "evt-1", java.time.Instant.ofEpochSecond(1790935200),
+                    java.time.Instant.ofEpochSecond(1790937000));
+            live.cancelEvent("grant-1", "evt-1");
+            deleteStatus.set(404);
+            live.cancelEvent("grant-1", "evt-1");
+
+            assertThat(moved.startsAt()).isEqualTo(java.time.Instant.ofEpochSecond(1790935200));
+            assertThat(requests.get(0)).startsWith("PUT ").contains("notify_participants=true")
+                    .contains("calendar_id=primary");
+            assertThat(JSON.readTree(bodies.get(0)).path("when").path("end_time").asLong()).isEqualTo(1790937000L);
+            assertThat(requests.get(1)).startsWith("DELETE ").contains("notify_participants=true");
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     @DisplayName("the sign-in link names our application, the host, the callback and the state, and never the key")
     void theSignInLinkCarriesWhatNylasAsksFor() {
         URI link = gateway.authorizationUri("google", "yara@firm.example", "state-abc",

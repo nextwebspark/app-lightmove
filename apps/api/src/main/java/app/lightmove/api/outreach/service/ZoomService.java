@@ -168,12 +168,31 @@ public class ZoomService {
 
     /** The call it was made for never reached the calendar: the meeting goes, so no orphan link is left at Zoom. */
     public void deleteQuietly(UUID userId, UUID workspaceId, ZoomMeeting meeting) {
+        deleteQuietly(userId, workspaceId, meeting.id());
+    }
+
+    public void deleteQuietly(UUID userId, UUID workspaceId, String meetingId) {
         try {
             ZoomConnection connection = requireUsable(userId, workspaceId);
-            zoom.deleteMeeting(tokens.accessToken(connection), meeting.id());
+            zoom.deleteMeeting(tokens.accessToken(connection), meetingId);
         } catch (RuntimeException failed) {
-            log.warn("Could not delete Zoom meeting {} after its call failed; it is left at Zoom", meeting.id(),
-                    failed);
+            log.warn("Could not delete Zoom meeting {}; it is left at Zoom", meetingId, failed);
+        }
+    }
+
+    /** Never retried, as a create is not. */
+    public void moveMeeting(UUID userId, UUID workspaceId, String meetingId, Instant startsAt, Instant endsAt) {
+        ZoomConnection connection = requireUsable(userId, workspaceId);
+        int minutes = (int) Duration.between(startsAt, endsAt).toMinutes();
+        zoom.moveMeeting(tokens.accessToken(connection), meetingId, startsAt, minutes);
+    }
+
+    /** A move the calendar then refused is put back, so the Zoom link keeps the time the invite still says. */
+    public void moveBackQuietly(UUID userId, UUID workspaceId, String meetingId, Instant startsAt, Instant endsAt) {
+        try {
+            moveMeeting(userId, workspaceId, meetingId, startsAt, endsAt);
+        } catch (RuntimeException failed) {
+            log.warn("Could not move Zoom meeting {} back after its calendar move failed", meetingId, failed);
         }
     }
 

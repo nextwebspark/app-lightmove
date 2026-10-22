@@ -460,6 +460,55 @@ class MicrosoftMailboxGatewayTest {
     }
 
     /** Microsoft's answers, as its documentation records them, and every request it was sent. */
+    @Test
+    @DisplayName("a moved call is found by its iCalUId and patched by Graph's own id, in UTC")
+    void aMovedCallIsFoundThenPatched() throws Exception {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        CalendarEvent moved = gateway.moveEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1",
+                Instant.parse("2026-10-06T06:00:00Z"), Instant.parse("2026-10-06T06:30:00Z"));
+
+        assertThat(moved.id()).isEqualTo("040000008200E00074C5B7101A82E0080000000075A1");
+        assertThat(URLDecoder.decode(microsoft.findEventQuery(), StandardCharsets.UTF_8))
+                .contains("$filter=iCalUId eq '040000008200E00074C5B7101A82E0080000000075A1'");
+        JsonNode body = JSON.readTree(microsoft.bodyOf("PATCH /graph/v1.0/me/events/AAMkTeams"));
+        assertThat(body.path("start").path("dateTime").asString("")).isEqualTo("2026-10-06T06:00:00");
+        assertThat(body.path("start").path("timeZone").asString("")).isEqualTo("UTC");
+    }
+
+    @Test
+    @DisplayName("a cancelled call is cancelled, so its attendees are told; one Graph no longer holds is no failure")
+    void aCancelledCallIsCancelled() {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        gateway.cancelEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1");
+        assertThat(microsoft.requested()).contains("POST /graph/v1.0/me/events/AAMkTeams/cancel")
+                .doesNotContain("DELETE /graph/v1.0/me/events/AAMkTeams");
+
+        microsoft.cancelEventAnswers(404);
+        gateway.cancelEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1");
+        microsoft.cancelEventAnswers(503);
+        assertThatThrownBy(() -> gateway.cancelEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1"))
+                .isInstanceOf(VendorException.class);
+    }
+
+    @Test
+    @DisplayName("an event its iCalUId no longer finds is gone: a cancel is done, a move answers not found")
+    void anEventGoneFromOutlookIsNotSentOnUnderItsICalUId() {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        microsoft.eventGone();
+
+        gateway.cancelEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1");
+        assertThatThrownBy(() -> gateway.moveEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1",
+                Instant.parse("2026-10-06T06:00:00Z"), Instant.parse("2026-10-06T06:30:00Z")))
+                .isInstanceOfSatisfying(VendorException.class,
+                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.NOT_FOUND));
+        assertThat(microsoft.requested()).noneMatch(request -> request.contains("040000008200E00074C5B7101A82E0080000000075A1"));
+    }
+
     private static final class RecordedMicrosoft {
 
         private static final String TEAMS_EVENT = """
@@ -485,6 +534,9 @@ class MicrosoftMailboxGatewayTest {
         private volatile int attachStatus = 201;
         private volatile String refreshBody;
         private volatile int createEventStatus = 201;
+        private volatile int cancelEventStatus = 202;
+        private volatile String findEventQuery = "";
+        private volatile boolean eventFound = true;
         private volatile boolean scheduleError;
         private volatile boolean offersTeams = true;
 
@@ -555,6 +607,14 @@ class MicrosoftMailboxGatewayTest {
                 respond(exchange, 200, offersTeams
                         ? "{\"allowedOnlineMeetingProviders\":[\"teamsForBusiness\"]}"
                         : "{\"allowedOnlineMeetingProviders\":[]}");
+            } else if (key.equals("GET /graph/v1.0/me/events")) {
+                findEventQuery = lastQuery;
+                respond(exchange, 200, eventFound ? "{\"value\":[{\"id\":\"AAMkTeams\"}]}" : "{\"value\":[]}");
+            } else if (key.equals("PATCH /graph/v1.0/me/events/AAMkTeams")) {
+                respond(exchange, 200, TEAMS_EVENT);
+            } else if (key.equals("POST /graph/v1.0/me/events/AAMkTeams/cancel")) {
+                respond(exchange, cancelEventStatus, cancelEventStatus == 202 ? ""
+                        : "{\"error\":{\"code\":\"ErrorItemNotFound\"}}");
             } else if (key.equals("POST /graph/v1.0/me/events")) {
                 respond(exchange, createEventStatus, createEventStatus == 201 ? TEAMS_EVENT
                         : "{\"error\":{\"code\":\"ServiceUnavailable\"}}");
@@ -607,6 +667,18 @@ class MicrosoftMailboxGatewayTest {
 
         void attachAnswers(int status) {
             this.attachStatus = status;
+        }
+
+        void cancelEventAnswers(int status) {
+            this.cancelEventStatus = status;
+        }
+
+        void eventGone() {
+            this.eventFound = false;
+        }
+
+        String findEventQuery() {
+            return findEventQuery;
         }
 
         void createEventAnswers(int status) {

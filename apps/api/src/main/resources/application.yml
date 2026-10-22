@@ -741,6 +741,10 @@ lightmove:
     bot-name: ${NOTETAKER_BOT_NAME:Uncava Notetaker}
     # How often the scheduler looks for calls about to start. Spelled out: @Scheduled reads it.
     schedule-interval: ${NOTETAKER_SCHEDULE_INTERVAL:PT1M}
+    # How a bot is started: log (nothing starts), local (npm run dev: a process on this machine) or cloud-run-job.
+    runner: ${NOTETAKER_RUNNER:log}
+    api-base-url: ${NOTETAKER_API_BASE_URL:}
+    cloud-run-job: ${NOTETAKER_CLOUD_RUN_JOB:}
 
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:

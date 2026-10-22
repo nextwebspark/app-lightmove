@@ -85,7 +85,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
 
         List<NotetakerLaunch> launches = launchesHere();
         assertThat(launches).hasSize(1);
-        assertThat(launches.getFirst().joinUrl()).isEqualTo("https://meet.example/call-1");
+        assertThat(launches.getFirst().joinUrl()).isEqualTo("https://meet.google.com/call-1");
         assertThat(launches.getFirst().botName()).isEqualTo("Uncava Notetaker");
         assertThat(launches.getFirst().toString()).doesNotContain(launches.getFirst().runToken());
         Map<String, Object> row = recordingRow();
@@ -127,7 +127,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         changed(new CalendarEvent("started", "Underway", Instant.now().minus(Duration.ofMinutes(5)),
                 Instant.now().plus(Duration.ofMinutes(25)), List.of(MAILBOX, "priya@" + domain),
-                "https://meet.example/started", "Google Meet"));
+                "https://meet.google.com/started", "Google Meet"));
         String meetingId = notetakerOf(priya).get("meetings").get(0).get("meetingId").asText();
         assertThat(codeOf(switchMeeting(priya, meetingId, false).andExpect(status().isConflict()).andReturn()))
                 .isEqualTo("NOTETAKER_MEETING_STARTED");
@@ -135,7 +135,8 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         changed(new CalendarEvent("zoom-1", "Zoom call", soon(), soon().plus(Duration.ofMinutes(30)),
                 List.of(MAILBOX, "priya@" + domain), "https://us05web.zoom.us/j/123", "Zoom"));
         scheduler.scheduleAt(Instant.now());
-        assertThat(launchesHere()).extracting(NotetakerLaunch::joinUrl).containsExactly("https://meet.example/started");
+        assertThat(launchesHere()).extracting(NotetakerLaunch::joinUrl)
+                .containsExactly("https://meet.google.com/started");
     }
 
     @Test
@@ -170,20 +171,21 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         assertThat(body(botCall(run, "heartbeat", launch.runToken(), "{}").andExpect(status().isOk()).andReturn())
                 .get("leave").asBoolean()).isFalse();
 
-        botCall(run, "complete", launch.runToken(), "{\"audioKeys\":[\"notetaker/someone-else/a.webm\"]}")
-                .andExpect(status().isBadRequest());
-        botCall(run, "complete", launch.runToken(),
-                "{\"audioKeys\":[\"notetaker/%s/../%s/a.webm\"]}".formatted(run, UUID.randomUUID()))
-                .andExpect(status().isBadRequest());
-        botCall(run, "complete", launch.runToken(), "{\"captionsKey\":\"notetaker/%s/..\"}".formatted(run))
-                .andExpect(status().isBadRequest());
-        botCall(run, "complete", launch.runToken(),
-                "{\"captionsKey\":\"notetaker/%s/c.json\"}".formatted(UUID.randomUUID()))
-                .andExpect(status().isBadRequest());
-        botCall(run, "complete", launch.runToken(), """
-                {"audioKeys":["notetaker/%1$s/0001.webm","notetaker/%1$s/0002.webm"],
-                 "captionsKey":"notetaker/%1$s/captions.json"}""".formatted(run))
-                .andExpect(status().isNoContent());
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}).andExpect(status().isNoContent());
+        upload(run, "audio", 2, launch.runToken(), new byte[] {4, 5}).andExpect(status().isNoContent());
+        upload(run, "captions", 1, launch.runToken(), "[]".getBytes()).andExpect(status().isNoContent());
+        // A retry of a piece that had landed replaces it rather than adding a second.
+        upload(run, "audio", 2, launch.runToken(), new byte[] {4, 5, 6}).andExpect(status().isNoContent());
+        upload(run, "audio", 3, "wrong-token", new byte[] {7}).andExpect(status().isNotFound());
+        upload(run, "video", 1, launch.runToken(), new byte[] {7}).andExpect(status().isNotFound());
+        upload(run, "audio", 0, launch.runToken(), new byte[] {7}).andExpect(status().isBadRequest());
+        upload(run, "audio", 4, launch.runToken(), new byte[0]).andExpect(status().isBadRequest());
+        assertThat(pieceKeys(run)).containsExactly(
+                "notetaker/%s/audio-00001.webm".formatted(run), "notetaker/%s/audio-00002.webm".formatted(run),
+                "notetaker/%s/captions-00001.json".formatted(run));
+        assertThat(jdbc.queryForObject("select size_bytes from app_lm_meeting_recording_media where recording_id = "
+                + "?::uuid and kind = 'AUDIO' and sequence = 2", Long.class, run)).isEqualTo(3L);
+        botCall(run, "complete", launch.runToken(), "").andExpect(status().isNoContent());
 
         Map<String, Object> row = recordingRow();
         assertThat(row.get("status")).isEqualTo("PROCESSING");
@@ -206,19 +208,61 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         NotetakerLaunch launch = launchesHere().getFirst();
         String run = launch.recordingId().toString();
         botCall(run, "status", launch.runToken(), "{\"state\":\"RECORDING\"}").andExpect(status().isNoContent());
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}).andExpect(status().isNoContent());
 
         remove(priya, meetingId).andExpect(status().isNoContent());
         assertThat(recorder.askedToLeave()).hasSize(1);
         assertThat(body(botCall(run, "heartbeat", launch.runToken(), "{}").andReturn()).get("leave").asBoolean())
                 .isTrue();
-        botCall(run, "complete", launch.runToken(), "{\"audioKeys\":[\"notetaker/%s/0001.webm\"]}".formatted(run))
-                .andExpect(status().isNoContent());
+        // A piece sent after the bot was asked to leave is dropped unread.
+        upload(run, "audio", 2, launch.runToken(), new byte[] {4}).andExpect(status().isNoContent());
+        assertThat(pieceKeys(run)).hasSize(1);
+        botCall(run, "complete", launch.runToken(), "").andExpect(status().isNoContent());
 
         Map<String, Object> row = recordingRow();
         assertThat(row.get("status")).isEqualTo("REMOVED");
-        assertThat(row.get("media")).isNull();
+        // The next pass deletes what it had captured, file and row.
+        scheduler.scheduleAt(Instant.now());
+        assertThat(pieceKeys(run)).isEmpty();
         assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where event_type = 'NOTETAKER_REMOVED' "
                 + "and workspace_id = ?::uuid", Integer.class, workspaceId)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a failed bot's pieces are kept to look into, then deleted once the retention has passed")
+    void failedPiecesAreKeptThenPurged() throws Exception {
+        executive("Priya Raman", "priya@" + domain);
+        changed(event("call-1", soon(), "priya@" + domain));
+        scheduler.scheduleAt(Instant.now());
+        NotetakerLaunch launch = launchesHere().getFirst();
+        String run = launch.recordingId().toString();
+        botCall(run, "status", launch.runToken(), "{\"state\":\"RECORDING\"}").andExpect(status().isNoContent());
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}).andExpect(status().isNoContent());
+        botCall(run, "status", launch.runToken(), "{\"state\":\"FAILED\",\"reason\":\"CONSENT_NOT_SHOWN\"}")
+                .andExpect(status().isNoContent());
+        assertThat(recordingRow().get("end_reason")).isEqualTo("CONSENT_NOT_SHOWN");
+
+        scheduler.scheduleAt(Instant.now());
+        assertThat(pieceKeys(run)).hasSize(1);
+        scheduler.scheduleAt(Instant.now().plus(Duration.ofDays(8)));
+        assertThat(pieceKeys(run)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a link the calendar calls Google Meet is joined only when it is an https link on Meet's own host")
+    void onlyMeetsOwnHostIsJoined() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        changed(eventWithLink("lookalike", soon(), "https://meet.google.com.example.net/abc", "priya@" + domain));
+        changed(eventWithLink("metadata", soon().plus(Duration.ofMinutes(1)), "http://169.254.169.254/computeMetadata",
+                "priya@" + domain));
+        changed(eventWithLink("plain", soon().plus(Duration.ofMinutes(2)), "http://meet.google.com/abc-defg-hij",
+                "priya@" + domain));
+
+        scheduler.scheduleAt(Instant.now());
+
+        assertThat(launchesHere()).isEmpty();
+        assertThat(notetakerOf(priya).get("meetings")).hasSize(3)
+                .allMatch(meeting -> !meeting.get("joinable").asBoolean());
     }
 
     @Test
@@ -243,8 +287,8 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     void copiesOfOneCallShareTheSwitch() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         Instant start = soon();
-        changed(eventWithLink("copy-a", start, "https://meet.example/shared-room", "priya@" + domain));
-        changed(eventWithLink("copy-b", start, "https://meet.example/shared-room?authuser=1", "priya@" + domain));
+        changed(eventWithLink("copy-a", start, "https://meet.google.com/shared-room", "priya@" + domain));
+        changed(eventWithLink("copy-b", start, "https://meet.google.com/shared-room?authuser=1", "priya@" + domain));
         JsonNode meetings = notetakerOf(priya).get("meetings");
         assertThat(meetings).hasSize(2);
 
@@ -271,8 +315,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
 
         assertThat(body(botCall(run, "heartbeat", launch.runToken(), "{}").andReturn()).get("leave").asBoolean())
                 .isTrue();
-        botCall(run, "complete", launch.runToken(), "{\"audioKeys\":[\"notetaker/%s/0001.webm\"]}".formatted(run))
-                .andExpect(status().isNoContent());
+        botCall(run, "complete", launch.runToken(), "").andExpect(status().isNoContent());
         assertThat(recordingRow().get("status")).isEqualTo("REMOVED");
     }
 
@@ -342,9 +385,20 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     }
 
     private Map<String, Object> recordingRow() {
-        return jdbc.queryForMap("select status, end_reason, platform, external_id, run_token_hash, joined_at, "
-                + "media::text as media from app_lm_meeting_recording where workspace_id = ?::uuid "
-                + "order by created_at limit 1", workspaceId);
+        return jdbc.queryForMap("select status, end_reason, platform, external_id, run_token_hash, joined_at "
+                + "from app_lm_meeting_recording where workspace_id = ?::uuid order by created_at limit 1", workspaceId);
+    }
+
+    private List<String> pieceKeys(String runId) {
+        return jdbc.queryForList("select storage_key from app_lm_meeting_recording_media where recording_id = ?::uuid "
+                + "order by kind, sequence", String.class, runId);
+    }
+
+    private ResultActions upload(String runId, String kind, int sequence, String token, byte[] content)
+            throws Exception {
+        return mvc.perform(put(NotetakerRunController.BASE + "/" + runId + "/media/" + kind + "/" + sequence)
+                .header(NotetakerRunController.RUN_TOKEN_HEADER, token)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM).content(content));
     }
 
     private static Instant soon() {
@@ -352,7 +406,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     }
 
     private static CalendarEvent event(String id, Instant start, String... executives) {
-        return eventWithLink(id, start, "https://meet.example/" + id, executives);
+        return eventWithLink(id, start, "https://meet.google.com/" + id, executives);
     }
 
     private static CalendarEvent eventWithLink(String id, Instant start, String joinUrl, String... executives) {

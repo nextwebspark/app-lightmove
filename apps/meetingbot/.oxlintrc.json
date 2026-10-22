@@ -1,0 +1,8 @@
+{
+  "$schema": "../web/node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc"],
+  "rules": {
+    "no-throw-literal": "error",
+    "no-duplicate-imports": "error"
+  }
+}

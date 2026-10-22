@@ -34,6 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -78,6 +79,8 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     private static final int EVENT_PAGE = 250;
 
     private static final String TEAMS = "teamsForBusiness";
+
+    private static final Pattern ICAL_UID = Pattern.compile("^[0-9A-Fa-f]+$");
 
     /**
      * The only statuses offered as free time. Everything else is taken — {@code unknown} and a missing status
@@ -315,6 +318,60 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body));
         return requireCreated(grantId, answer == null ? null : eventOf(answer));
+    }
+
+    /** Graph mails the attendees an update for a move made by the organizer. */
+    @Override
+    public CalendarEvent moveEvent(String grantId, String eventId, Instant startsAt, Instant endsAt) {
+        String accessToken = accessTokenOf(grantId);
+        String graphId = graphIdOf(accessToken, eventId);
+        JsonNode answer = apiCall("move-event", accessToken, client -> client.patch()
+                .uri("/v1.0/me/events/{id}", graphId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("start", graphTimeOf(startsAt), "end", graphTimeOf(endsAt))));
+        return requireMoved(grantId, answer == null ? null : eventOf(answer));
+    }
+
+    /** {@code cancel} rather than a delete: a delete takes the event off our calendar and tells nobody. */
+    @Override
+    public void cancelEvent(String grantId, String eventId) {
+        String accessToken = accessTokenOf(grantId);
+        try {
+            String graphId = graphIdOf(accessToken, eventId);
+            apiExchange("cancel-event", accessToken, client -> client.post()
+                    .uri("/v1.0/me/events/{id}/cancel", graphId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("comment", "This call has been cancelled.")));
+        } catch (VendorException failed) {
+            if (!CalendarEventGone.isGone(failed)) {
+                throw failed;
+            }
+        }
+    }
+
+    /**
+     * A meeting row keys on {@code iCalUId} (see {@link #eventOf}), which Graph's event routes do not take: the
+     * event is found by it first, and one it no longer finds is gone — sent on under the iCalUId, Graph would answer a
+     * malformed id rather than a missing one. A row keyed on Graph's own id, an event that carried no {@code iCalUId},
+     * is that id: an iCalUId is hex, a Graph id is not.
+     */
+    private String graphIdOf(String accessToken, String eventId) {
+        JsonNode found = apiCall("find-event", accessToken, client -> client.get()
+                .uri(builder -> builder.path("/v1.0/me/events")
+                        .queryParam("$filter", "{filter}")
+                        .queryParam("$select", "id")
+                        .queryParam("$top", 1)
+                        .build(Map.of("filter", "iCalUId eq '" + eventId.replace("'", "''") + "'")))
+                .accept(MediaType.APPLICATION_JSON));
+        JsonNode first = found == null ? null : found.path("value").get(0);
+        String graphId = first == null ? null : textOrNull(first.get("id"));
+        if (graphId != null) {
+            return graphId;
+        }
+        if (ICAL_UID.matcher(eventId).matches()) {
+            throw new VendorException(vendorCall("find-event"), VendorFailureKind.NOT_FOUND, null);
+        }
+        return eventId;
     }
 
     /** Read before the create rather than after a refusal: a create that failed is never tried again. */
