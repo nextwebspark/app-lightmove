@@ -72,7 +72,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         grantId = "grant-" + domain;
         gateway.grant(new GrantedMailbox(grantId, MAILBOX, "google"));
         String consultantEmail = "yara@" + domain;
-        createWorkspace(verifiedUser("Yara Haddad", consultantEmail), "Meridian Search");
+        createWorkspace(verifiedUser("Yara Haddad", consultantEmail), "Meridian Calls");
         consultant = login(consultantEmail);
         projectId = mandate();
         workspaceId = jdbc.queryForObject("select workspace_id::text from app_lm_project where id = ?::uuid",
