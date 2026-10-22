@@ -150,6 +150,6 @@ class CompanyDetailToolsTest {
 
     private static TriageCompanyResponse filed(String apolloAccountId, String name, String industry) {
         return new TriageCompanyResponse(UUID.randomUUID(), apolloAccountId, "manual", "shortlisted", null, false,
-                name, industry, UAE, "Dubai", 500, null, null, null, null, null, null, null, Map.of(), Instant.EPOCH);
+                name, industry, UAE, "Dubai", 500, null, null, null, null, null, null, null, Map.of(), Instant.EPOCH, null, null, null);
     }
 }

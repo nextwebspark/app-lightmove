@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.dto.CandidatePipelineStageDto;
 import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.dataexport.model.ExportRow;
 import app.lightmove.api.dataexport.service.CompaniesCsvWriter;
@@ -28,16 +29,25 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("writes the grid's own headers, in the grid's own order")
     void writesTheGridsHeaders() {
-        assertThat(headersOf(writer.write(List.of(), List.of())))
+        assertThat(headersOf(writer.write(ProjectAudience.STAFF, List.of(), List.of())))
                 .containsExactly("Company", "Website", "Company LinkedIn", "Country", "Executive",
                         "Title", "Email", "Phone", "Status", "Stage", "Sector", "City", "Revenue", "Employees",
-                        "Founded", "Added", "Description", "Source");
+                        "Founded", "Added", "Description", "Source", "Added by");
+    }
+
+    @Test
+    @DisplayName("names who added the company for staff, and leaves the column out of a client's file")
+    void addedByIsStaffOnly() {
+        List<ExportRow> rows = List.of(row(company("ACWA Power").addedBy("Sara Nasser"), null));
+
+        assertThat(cellsOf(writer.write(ProjectAudience.STAFF, List.of(), rows), 1)).endsWith("Sara Nasser");
+        assertThat(headersOf(writer.write(ProjectAudience.CLIENT, List.of(), rows))).doesNotContain("Added by");
     }
 
     @Test
     @DisplayName("appends this mandate's own columns after the built-ins, and leaves a hidden one out")
     void appendsCustomColumns() {
-        List<String> headers = headersOf(writer.write(List.of(
+        List<String> headers = headersOf(writer.write(ProjectAudience.STAFF, List.of(
                 new CustomColumnDto("c1", "candidate", "ethnicity", "Ethnicity", "text", 0, false),
                 new CustomColumnDto("c2", "company", "tier", "Tier", "text", 1, true)), List.of()));
 
@@ -47,7 +57,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("reads a custom value off whichever half of the row its column belongs to")
     void readsCustomValuesOffTheRightHalf() {
-        String csv = writer.write(
+        String csv = writer.write(ProjectAudience.STAFF, 
                 List.of(new CustomColumnDto("c1", "candidate", "ethnicity", "Ethnicity", "text", 0, false),
                         new CustomColumnDto("c2", "company", "tier", "Tier", "text", 1, false)),
                 List.of(row(company("ACWA Power").withCustom(Map.of("tier", "A")),
@@ -59,7 +69,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("a company with nobody mapped keeps a line, with the executive cells empty")
     void writesACompanyWithNoExecutive() {
-        List<String> cells = cellsOf(writer.write(List.of(),
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(),
                 List.of(row(company("ACWA Power"), null))), 1);
 
         assertThat(cells.get(0)).isEqualTo("ACWA Power");
@@ -70,7 +80,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("an executive with no company in the universe keeps their snapshotted employer name")
     void writesAnUnmappedExecutive() {
-        List<String> cells = cellsOf(writer.write(List.of(),
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(),
                 List.of(row(null, person("Yasmin Farouk").at("Masdar")))), 1);
 
         assertThat(cells.get(0)).isEqualTo("Masdar");
@@ -81,7 +91,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("the person's own location wins as a unit, so a city never borrows the employer's country")
     void takesTheLocationAsAUnit() {
-        List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(
                 company("ACWA Power").at("Saudi Arabia", "Riyadh"),
                 person("Layla Haddad").in(null, "Dubai")))), 1);
 
@@ -92,7 +102,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("falls back to the company's HQ where the person has no location at all")
     void fallsBackToTheCompanysHq() {
-        List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(
                 company("ACWA Power").at("Saudi Arabia", "Riyadh"),
                 person("Layla Haddad")))), 1);
 
@@ -103,7 +113,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("lists every email and phone in one cell — the grid's +N has no meaning in a file")
     void listsEveryContact() {
-        List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(
                 company("ACWA Power"),
                 person("Layla Haddad")
                         .withEmails("layla@acwapower.com", "layla.haddad@gmail.com")
@@ -116,7 +126,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("figures stay bare, so a spreadsheet can sum the column")
     void leavesFiguresUnformatted() {
-        List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(
                 company("ACWA Power").sized(3000, 2_400_000_000L, 2004), null))), 1);
 
         assertThat(cells.get(12)).isEqualTo("2400000000");
@@ -127,7 +137,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("prints the badges' labels rather than the wire tokens nobody wants in a file")
     void printsHumanLabels() {
-        List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(
                 company("ACWA Power").from("extension"),
                 person("Layla Haddad").standing("notInterested")))), 1);
 
@@ -138,7 +148,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("dates are ISO, so a spreadsheet reads them as dates whatever locale opens the file")
     void writesIsoDates() {
-        List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(
                 company("ACWA Power").added(Instant.parse("2026-09-16T22:30:00Z")), null))), 1);
 
         assertThat(cells.get(15)).isEqualTo("2026-09-16");
@@ -147,7 +157,7 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("quotes a value holding a comma, so Excel does not split it into two columns")
     void quotesWhereItMust() {
-        String csv = writer.write(List.of(), List.of(row(company("ACWA Power, Ltd"), null)));
+        String csv = writer.write(ProjectAudience.STAFF, List.of(), List.of(row(company("ACWA Power, Ltd"), null)));
 
         assertThat(csv).contains("\"ACWA Power, Ltd\"");
         assertThat(cellsOf(csv, 1).get(0)).isEqualTo("ACWA Power, Ltd");
@@ -158,7 +168,7 @@ class CompaniesCsvWriterTest {
     void defusesAFormula() {
         // A description can be free text a user typed. Opened in Excel, a leading `=` is executed — this file
         // leaves the product and is opened by clients, so the cell has to reach them as text.
-        List<String> cells = cellsOf(writer.write(List.of(), List.of(row(
+        List<String> cells = cellsOf(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(
                 company("ACWA Power").described("=HYPERLINK(\"http://evil.example\",\"Click\")"), null))), 1);
 
         assertThat(cells.get(16)).startsWith("'=HYPERLINK");
@@ -167,13 +177,13 @@ class CompaniesCsvWriterTest {
     @Test
     @DisplayName("opens with a BOM, or Excel on Windows renders every accented name as mojibake")
     void writesAByteOrderMark() {
-        assertThat(writer.write(List.of(), List.of())).startsWith("﻿");
+        assertThat(writer.write(ProjectAudience.STAFF, List.of(), List.of())).startsWith("﻿");
     }
 
     @Test
     @DisplayName("ends every line with CRLF, as RFC 4180 asks")
     void writesCrlf() {
-        assertThat(writer.write(List.of(), List.of(row(company("ACWA Power"), null))))
+        assertThat(writer.write(ProjectAudience.STAFF, List.of(), List.of(row(company("ACWA Power"), null))))
                 .endsWith("\r\n")
                 .containsPattern("ACWA Power[^\\n]*\\r\\n");
     }
@@ -187,7 +197,7 @@ class CompaniesCsvWriterTest {
     private static CompanyBuilder company(String name) {
         return new CompanyBuilder(new TriageCompanyResponse(UUID.randomUUID(), null, "manual",
                 "inUniverse", null, false, name, null, null, null, null, null, null, null, null, null,
-                null, null, Map.of(), null));
+                null, null, Map.of(), null, null, null, null));
     }
 
     private static PersonBuilder person(String name) {
@@ -229,7 +239,18 @@ class CompaniesCsvWriterTest {
                     response.companyName(), response.industry(), response.companyCountry(), response.companyCity(),
                     response.numEmployees(), response.annualRevenue(), response.website(),
                     response.companyLinkedinUrl(), response.foundedYear(), description, response.sourceUrl(),
-                    response.logoUrl(), response.customFields(), response.addedAt()));
+                    response.logoUrl(), response.customFields(), response.addedAt(), response.addedByUserId(),
+                    response.addedByName(), response.addedByAvatarUrl()));
+        }
+
+        CompanyBuilder addedBy(String addedByName) {
+            return new CompanyBuilder(new TriageCompanyResponse(response.id(), response.apolloAccountId(),
+                    response.source(), response.status(), response.noteCount(), response.noExecutiveFound(),
+                    response.companyName(), response.industry(), response.companyCountry(), response.companyCity(),
+                    response.numEmployees(), response.annualRevenue(), response.website(),
+                    response.companyLinkedinUrl(), response.foundedYear(), response.shortDescription(),
+                    response.sourceUrl(), response.logoUrl(), response.customFields(), response.addedAt(),
+                    UUID.randomUUID(), addedByName, null));
         }
 
         CompanyBuilder added(Instant addedAt) {
@@ -251,7 +272,8 @@ class CompaniesCsvWriterTest {
                     source, response.status(), noteCount, response.noExecutiveFound(), response.companyName(),
                     response.industry(), country, city, employees, revenue, response.website(),
                     response.companyLinkedinUrl(), founded, response.shortDescription(),
-                    response.sourceUrl(), response.logoUrl(), customFields, addedAt));
+                    response.sourceUrl(), response.logoUrl(), customFields, addedAt, response.addedByUserId(),
+                    response.addedByName(), response.addedByAvatarUrl()));
         }
     }
 

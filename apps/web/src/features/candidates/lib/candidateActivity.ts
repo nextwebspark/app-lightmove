@@ -205,6 +205,20 @@ function phraseOf(
           : `booked a call${forThem} on ${where}`,
         detail: details.startsAt ? callTimeOf(details.startsAt) : null,
       };
+    case "MEETING_RESCHEDULED":
+      return {
+        text: `moved a call${forThem} on ${where}`,
+        detail: details.startsAt
+          ? [details.previousStartsAt ? callTimeOf(details.previousStartsAt) : null, callTimeOf(details.startsAt)]
+              .filter(Boolean)
+              .join(" → ")
+          : null,
+      };
+    case "MEETING_CANCELLED":
+      return {
+        text: `cancelled a call${forThem} on ${where}`,
+        detail: details.startsAt ? callTimeOf(details.startsAt) : null,
+      };
     case "DOCUMENT_ADDED":
       return { text: `uploaded ${documentOf(details.category, "a")}${onThem}`, detail: details.document ?? null };
     case "DOCUMENT_VERSION_ADDED":

@@ -140,6 +140,10 @@ public enum ProjectEventType implements AuditEventType {
     /** A call booked with an executive from a consultant's own calendar. */
     OUTREACH_MEETING_BOOKED,
 
+    /** A call booked in Uncava, moved or cancelled from the consultant's own calendar. */
+    OUTREACH_MEETING_RESCHEDULED,
+    OUTREACH_MEETING_CANCELLED,
+
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
 

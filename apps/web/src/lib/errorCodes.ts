@@ -133,6 +133,10 @@ export type ApiErrorCode =
   | "MEETING_SLOT_INVALID"
   | "MEETING_BOOK_FAILED"
   | "MEETING_CALENDAR_UNAVAILABLE"
+  | "MEETING_NOT_EDITABLE"
+  | "MEETING_NOT_YOURS"
+  | "MEETING_UPDATE_FAILED"
+  | "MEETING_GONE"
   | "WORKSPACE_NAME_MISMATCH"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
@@ -278,6 +282,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
   MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
   MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again in a moment, or reconnect your mailbox if it keeps failing.",
+  MEETING_NOT_EDITABLE: "This call can only be changed from the calendar it's on.",
+  MEETING_NOT_YOURS: "Only the person whose calendar holds this call can change it.",
+  MEETING_UPDATE_FAILED: "The call couldn't be changed. Check your calendar before trying again.",
+  MEETING_GONE: "This call is no longer on your calendar.",
   WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",

@@ -5,7 +5,9 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -29,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -58,6 +61,7 @@ public class TriageCompanyReadService {
     private final LightMoveProperties properties;
     private final MappedExecutiveLookup executives;
     private final CompanyNoteService companyNotes;
+    private final UserRepository users;
 
     /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
     @Transactional(readOnly = true)
@@ -80,13 +84,16 @@ public class TriageCompanyReadService {
                 : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
                         PageRequest.of(page, size, resolveSort(criteria)), audience);
 
-        Map<UUID, Integer> noteCounts = audience == ProjectAudience.STAFF
+        boolean staff = audience == ProjectAudience.STAFF;
+        Map<UUID, Integer> noteCounts = staff
                 ? companyNotes.countsOf(projectId, found.getContent().stream().map(TriageCompany::getId).toList())
                 : null;
+        Map<UUID, User> addedBy = staff ? addersOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(
                 found.getContent().stream()
                         .map(company -> TriageCompanyResponseMapper.toDto(company,
-                                noteCounts == null ? null : noteCounts.getOrDefault(company.getId(), 0)))
+                                noteCounts == null ? null : noteCounts.getOrDefault(company.getId(), 0),
+                                addedBy.get(company.getAddedBy())))
                         .toList(),
                 found.getTotalElements(), page, size, countsFor(projectId));
     }
@@ -178,14 +185,31 @@ public class TriageCompanyReadService {
                                                   TriageCompanyStatus status,
                                                   TriageCompanyFilters filters, int cap,
                                                   ProjectAudience audience) {
+        return listAllOfStage(workspaceId, projectId, status, filters, cap, audience, false);
+    }
+
+    /**
+     * {@code withAddedBy} asks who filed each company too, for a staff reader alone: only the export draws it, and the
+     * other whole-stage reads (the report, People mode's declined companies) would pay the extra read for nothing.
+     */
+    @Transactional(readOnly = true)
+    public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
+                                                  TriageCompanyStatus status,
+                                                  TriageCompanyFilters filters, int cap,
+                                                  ProjectAudience audience, boolean withAddedBy) {
         projects.requireInWorkspace(projectId, workspaceId);
         PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
                 .and(NEWEST_FIRST));
         Page<TriageCompany> found = findWithFilters(projectId, status,
                 SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
                 resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()), wholeStage, audience);
+        Map<UUID, User> addedBy = withAddedBy && audience == ProjectAudience.STAFF
+                ? addersOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(
-                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
+                found.getContent().stream()
+                        .map(company -> TriageCompanyResponseMapper.toDto(company, null,
+                                addedBy.get(company.getAddedBy())))
+                        .toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));
     }
 
@@ -307,6 +331,14 @@ public class TriageCompanyReadService {
     public Set<UUID> idsOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status) {
         projects.requireInWorkspace(projectId, workspaceId);
         return triaged.findIdsByProjectIdAndStatus(projectId, status);
+    }
+
+    private Map<UUID, User> addersOf(List<TriageCompany> companies) {
+        Set<UUID> ids = companies.stream().map(TriageCompany::getAddedBy).collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return users.findAllById(ids).stream().collect(Collectors.toMap(User::getId, Function.identity()));
     }
 
     private TriageCountsDto countsFor(UUID projectId) {

@@ -34,6 +34,10 @@ the company drawer gains an Overview · Notes tab bar for staff, and the grid's 
 that opens it, its `noteCount` on the staff grid's read alone. A door's note (the add form, the plugin, a sheet's
 Company note) is filed once as a plain note, an already-held company's included; V32's single `note` column is
 frozen, and with it the leak that let a client seat read it through the grid, the talent map and the export.
+Who filed a company (`added_by`) is the staff grid's **Added by** column, the drawer's header and the export's — never
+a client seat's (`addedBy*`, null outside a staff read, as `noteCount` is); the cell adds the executive's adder's face
+where someone else filed them, read from the candidates list's staff-only `addedBy` map beside the rows, never on
+`CandidateResponse`.
 Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
@@ -660,6 +664,11 @@ each occurrence in a read. A free/busy answer with an error entry is a failure, 
 consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
 re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
 `MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
+A call booked in Uncava (Book a call or the link), still to come, is **moved or cancelled** from its row by whoever
+holds its calendar (`editable`; `PUT|DELETE …/meetings/{id}`, `MEETING_NOT_EDITABLE`, `MEETING_NOT_YOURS`): a move
+reads the call's own time as free (`…/slots?excluding=`), re-checks do not contact and the slot, moves its Zoom meeting
+first (V149 keeps its id; put back if the calendar refuses) and sends the update; a cancel tells the executive. Neither
+is retried, moves a status or restarts a run (`MEETING_RESCHEDULED` / `MEETING_CANCELLED`, audited).
 All `WORK_EXECUTE`. **The booking link (V104)** is `{{bookingLink}}`, offered only where the Nylas plan
 carries Scheduler (`lightmove.outreach.nylas.scheduler-enabled`; a sequence using it is refused otherwise,
 `OUTREACH_BOOKING_LINK_UNAVAILABLE`): `<web.base-url>/book/<slug>`, the slug the consultant's name **plus
@@ -1213,6 +1222,8 @@ per answered run and a bounce placeholder per bounced one, adds `app_lm_mailbox_
 it a consultant's own email's `send_at`, `sending_since` claim, `in_reply_to` and `fail_reason`, with the due index.
 V147 adds `app_lm_outreach_message_attachment` — an own email's files in order (name, read type, size, `sha256`, the
 bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
+V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
+`MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
 the profile write, and taken by a new connection.

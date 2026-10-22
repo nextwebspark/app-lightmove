@@ -36,6 +36,12 @@ public enum VendorFailureKind {
     /** 404, or a 200 carrying no rows. Not a failure but an answer, and answered as an empty result. */
     NOT_FOUND(false),
 
+    /**
+     * 410: the vendor held the thing and has deleted it, as Google answers for a deleted calendar event. Kept apart
+     * from {@link #NOT_FOUND}, which several callers read as a lookup's miss to record, or a mailbox's grant gone.
+     */
+    GONE(false),
+
     /** 429. Waiting is the fix. */
     RATE_LIMITED(true),
 
@@ -57,6 +63,7 @@ public enum VendorFailureKind {
             case 401, 403 -> CREDENTIALS;
             case 402 -> QUOTA_EXHAUSTED;
             case 404 -> NOT_FOUND;
+            case 410 -> GONE;
             case 429 -> RATE_LIMITED;
             default -> status.is5xxServerError() ? UNAVAILABLE : BAD_REQUEST;
         };

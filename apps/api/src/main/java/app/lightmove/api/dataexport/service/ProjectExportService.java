@@ -49,7 +49,8 @@ public class ProjectExportService {
                             HttpServletRequest httpRequest) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         PairedStage paired = pairing.pair(workspaceId, projectId, status, filters, caps.maxCompanies(),
-                caps.maxCandidates(), audience);
+                caps.maxCandidates(), audience,
+                audience == ProjectAudience.STAFF);
         refuseIfPast("companies", paired.companies().totalCount(), caps.maxCompanies());
         refuseIfPast("executives", paired.totalCandidates(), caps.maxCandidates());
 
@@ -63,7 +64,7 @@ public class ProjectExportService {
                 .detail("customColumns", String.valueOf(columns.size()))
                 .record();
 
-        return writer.write(columns, rows);
+        return writer.write(audience, columns, rows);
     }
 
     /** The grid's row model: one line per executive, and a company with none keeps its own line. */

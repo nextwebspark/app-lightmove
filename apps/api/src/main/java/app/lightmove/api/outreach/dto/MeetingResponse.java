@@ -6,7 +6,8 @@ import java.util.UUID;
 /**
  * One meeting with an executive, from a teammate's calendar. {@code joinUrl} is only on one still to
  * come; {@code videoProvider} is the calendar's own name for it, which the drawer prints as the link.
+ * {@code editable}: booked in Uncava, still to come, and on the caller's own calendar, so they may move or cancel it.
  */
 public record MeetingResponse(UUID id, String title, Instant startsAt, Instant endsAt, UUID ownerUserId,
                               String ownerName, String joinUrl, String videoProvider, boolean viaLink,
-                              boolean bookedInUncava) {}
+                              boolean bookedInUncava, boolean editable) {}

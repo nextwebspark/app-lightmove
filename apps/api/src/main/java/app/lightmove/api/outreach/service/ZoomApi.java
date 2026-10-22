@@ -18,6 +18,9 @@ public interface ZoomApi {
 
     ZoomMeeting createMeeting(String accessToken, String topic, Instant startsAt, int minutes);
 
+    /** Moves a meeting; its join link stays the same, so an invite already sent still opens it. */
+    void moveMeeting(String accessToken, String meetingId, Instant startsAt, int minutes);
+
     void deleteMeeting(String accessToken, String meetingId);
 
     /** Withdraws the refresh token at Zoom, which authenticates the app by HTTP Basic to do it. */

@@ -68,9 +68,16 @@ class MeetingSync {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void keep(MailboxConnection mailbox, CalendarEvent event, UUID personId, UUID bookedBy, boolean viaLink) {
+        keep(mailbox, event, personId, bookedBy, viaLink, null);
+    }
+
+    /** {@code zoomMeetingId} is the Zoom meeting a booking made, kept so a reschedule or a cancel reaches it. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void keep(MailboxConnection mailbox, CalendarEvent event, UUID personId, UUID bookedBy, boolean viaLink,
+                     String zoomMeetingId) {
         meetings.upsert(mailbox.getWorkspaceId(), personId, mailbox.getId(), mailbox.getUserId(), event.id(),
                 event.title(), event.startsAt(), event.endsAt(), event.joinUrl(), event.conferencingProvider(),
-                bookedBy, viaLink);
+                bookedBy, viaLink, zoomMeetingId);
     }
 
     /**
