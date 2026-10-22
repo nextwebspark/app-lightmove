@@ -17,7 +17,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Ends the runs whose bot is gone: one that never reported after being sent, and one that fell silent. Each run
+ * Ends the runs whose bot is gone: one that never reported after being sent, one that fell silent, and a backup bot
+ * never heard from again. Each run
  * is closed in its own transaction and read again inside it, so a heartbeat landing mid-sweep keeps its run and
  * one clash never rolls back the rest.
  */
@@ -30,6 +31,7 @@ class NotetakerSweeper {
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
     private final NotetakerRunEndings endings;
+    private final NotetakerBackups backups;
 
     void endStale(Instant now) {
         NotetakerSettings settings = properties.notetaker();
@@ -44,9 +46,33 @@ class NotetakerSweeper {
                         fresh -> fresh.getStatus().isInCall() && fresh.getLastHeartbeatAt() != null
                                 && fresh.getLastHeartbeatAt().isBefore(heardBefore)));
         Instant endedBefore = now.minus(settings.backupTimeout());
-        recordings.findBackupsLostSince(endedBefore).forEach(recording -> end(recording.getId(), now,
-                NotetakerEndReason.BACKUP_FAILED, fresh -> fresh.getStatus().isInCall()
-                        && fresh.getEndsAt().isBefore(endedBefore)));
+        recordings.findBackupsLostSince(endedBefore).forEach(recording -> endLostBackup(recording.getId(), now,
+                endedBefore));
+    }
+
+    /**
+     * A backup bot never heard from again: its run ends, and once that commits Recall is told to drop the bot and what
+     * it kept, since its webhook — the usual place that is done — never came. No transcript is waited for.
+     */
+    private void endLostBackup(UUID recordingId, Instant now, Instant endedBefore) {
+        String botId;
+        try {
+            botId = transactions.execute(status -> recordings.findById(recordingId)
+                    .filter(fresh -> fresh.getStatus().isInCall() && fresh.getEndsAt().isBefore(endedBefore))
+                    .map(recording -> {
+                        String externalId = recording.getExternalId();
+                        recording.backupTranscribed(now);
+                        endings.fail(recording, NotetakerEndReason.BACKUP_FAILED, now);
+                        return externalId;
+                    })
+                    .orElse(null));
+        } catch (ObjectOptimisticLockingFailureException moved) {
+            log.debug("Notetaker run {} moved while it was being swept; left for the next pass", recordingId);
+            return;
+        }
+        if (botId != null) {
+            backups.forget(botId);
+        }
     }
 
     private void end(UUID recordingId, Instant now, NotetakerEndReason reason, Predicate<MeetingRecording> stillStale) {

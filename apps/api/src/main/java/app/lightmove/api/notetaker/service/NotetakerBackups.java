@@ -35,7 +35,9 @@ class NotetakerBackups {
 
     /** After every piece our own bot could have sent, so the backup's transcript sorts as one more piece. */
     static final int BACKUP_SEQUENCE = 1_000_000;
-    private static final Set<String> RECORDING = Set.of("in_call_recording", "in_call_not_recording");
+    /** In the call but not yet allowed to record — Zoom asks its host first — is still waiting, not recording. */
+    private static final Set<String> WAITING = Set.of("in_waiting_room", "in_call_not_recording");
+    private static final String RECORDING_REFUSED = "recording_permission_denied";
     private static final Set<String> GONE = Set.of("done", "fatal");
 
     private final RecallBotApi recall;
@@ -60,29 +62,38 @@ class NotetakerBackups {
     private void statusChanged(RecallBotNotice.StatusChanged changed) {
         Instant now = clock.instant();
         Instant at = changed.at() != null && !changed.at().isAfter(now) ? changed.at() : now;
-        boolean removed = Boolean.TRUE.equals(transactions.execute(status -> runOf(changed.botId())
+        Cleanup cleanup = transactions.execute(status -> runOf(changed.botId())
                 .map(recording -> applyStatus(recording, changed, at, now))
-                .orElse(false)));
-        if (removed) {
+                .orElse(Cleanup.NONE));
+        if (cleanup == Cleanup.LEAVE_AND_DELETE) {
+            forget(changed.botId());
+        } else if (cleanup == Cleanup.DELETE) {
             deleteMediaQuietly(changed.botId());
         }
     }
 
-    /** Answers whether the run ended removed, whose recording Recall must not keep either. */
-    private boolean applyStatus(MeetingRecording recording, RecallBotNotice.StatusChanged changed, Instant at,
+    /** What Recall must still be told once the run's change is committed. */
+    private enum Cleanup { NONE, DELETE, LEAVE_AND_DELETE }
+
+    private Cleanup applyStatus(MeetingRecording recording, RecallBotNotice.StatusChanged changed, Instant at,
                                 Instant now) {
         if (!recording.getStatus().isInCall()) {
-            return false;
+            return Cleanup.NONE;
         }
-        if (changed.code().equals("in_waiting_room")) {
+        // The host refused to let it record: the run ends there, and the bot sitting in the call is sent out.
+        if (RECORDING_REFUSED.equals(changed.subCode()) && recording.getBackupJoinedAt() == null) {
+            endUnrecorded(recording, changed, NotetakerEndReason.RECORDING_NOT_ALLOWED, now);
+            return Cleanup.LEAVE_AND_DELETE;
+        }
+        if (WAITING.contains(changed.code())) {
             recording.reportWaiting(at);
-        } else if (RECORDING.contains(changed.code())) {
+        } else if (changed.code().equals("in_call_recording")) {
             recording.backupJoined(at);
         } else if (GONE.contains(changed.code())) {
             left(recording, changed, now);
-            return recording.getStatus() == NotetakerStatus.REMOVED;
+            return recording.getStatus() == NotetakerStatus.REMOVED ? Cleanup.DELETE : Cleanup.NONE;
         }
-        return false;
+        return Cleanup.NONE;
     }
 
     /**
@@ -95,14 +106,19 @@ class NotetakerBackups {
             return;
         }
         if (recording.getBackupJoinedAt() == null) {
-            log.warn("Notetaker run {}: the backup's bot left without recording ({} {})", recording.getId(),
-                    changed.code(), changed.subCode());
-            recording.backupTranscribed(now);
-            endings.failWithoutBackup(recording, NotetakerEndReason.BACKUP_FAILED, now);
+            endUnrecorded(recording, changed, NotetakerEndReason.BACKUP_FAILED, now);
             return;
         }
         recording.complete(now);
         events.publishEvent(new MeetingRecordingCompleted(recording.getWorkspaceId(), recording.getId()));
+    }
+
+    private void endUnrecorded(MeetingRecording recording, RecallBotNotice.StatusChanged changed,
+                               NotetakerEndReason reason, Instant now) {
+        log.warn("Notetaker run {}: the backup's bot recorded nothing ({} {})", recording.getId(), changed.code(),
+                changed.subCode());
+        recording.backupTranscribed(now);
+        endings.failWithoutBackup(recording, reason, now);
     }
 
     /** Read outside any transaction — two calls to Recall — then stored as the run's last piece, once. */
@@ -155,6 +171,16 @@ class NotetakerBackups {
                 .map(line -> new HeardLine(Duration.between(start, line.at()).toMillis(), line.speaker(), line.text(),
                         line.named()))
                 .toList());
+    }
+
+    /** A bot whose run ended without its webhook saying so: told to leave, and what Recall kept of it deleted. */
+    void forget(String botId) {
+        try {
+            recall.leave(botId);
+        } catch (RuntimeException failed) {
+            log.debug("Recall bot {} could not be told to leave, most likely gone: {}", botId, failed.toString());
+        }
+        deleteMediaQuietly(botId);
     }
 
     private void deleteMediaQuietly(String botId) {

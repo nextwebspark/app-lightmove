@@ -55,7 +55,7 @@ describe("Uncava Notetaker in Settings", () => {
     expect(screen.getByText("The notetaker is off for the workspace")).toBeInTheDocument();
   });
 
-  it("offers the backup recorder off, naming who receives the call, and turns it on only when asked", async () => {
+  it("offers Recall.ai off, saying who receives the call and what it cannot promise, and turns it on only when asked", async () => {
     vi.mocked(notetakerApi.getWorkspaceNotetaker).mockResolvedValue({
       offered: true,
       enabled: true,
@@ -72,20 +72,21 @@ describe("Uncava Notetaker in Settings", () => {
     });
     renderWith(<NotetakerCard />);
 
-    const backup = await screen.findByRole("switch", { name: "Backup recorder for the workspace" });
+    const backup = await screen.findByRole("switch", { name: "Recall.ai recording for the workspace" });
     expect(backup).not.toBeChecked();
     expect(screen.getByText(/pass through Recall\.ai, a third party/)).toBeInTheDocument();
+    expect(screen.getByText(/can't\s+confirm the notice was shown/)).toBeInTheDocument();
     await userEvent.click(backup);
 
     await waitFor(() => expect(notetakerApi.setWorkspaceNotetakerBackup).toHaveBeenCalledWith(true));
-    expect(await screen.findByText("The backup recorder is on")).toBeInTheDocument();
+    expect(await screen.findByText("Recall.ai recording is on")).toBeInTheDocument();
   });
 
   it("offers no backup recorder where the deployment has none", async () => {
     renderWith(<NotetakerCard />);
 
     expect(await screen.findByText("Joins Google Meet calls with executives.")).toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: "Backup recorder for the workspace" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Recall.ai recording for the workspace" })).not.toBeInTheDocument();
   });
 
   it("draws no card where the deployment sends no notetaker", async () => {

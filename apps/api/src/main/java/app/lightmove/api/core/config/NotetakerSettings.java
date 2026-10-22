@@ -10,8 +10,8 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * {@code NotetakerPlatform}'s spelling. {@code runner} is how a bot is started: {@code log} (nothing starts),
  * {@code local} (a process on this machine, for {@code npm run dev}) or {@code cloud-run-job} (one execution of
  * {@code cloudRunJob} per call). Where Recall.ai is configured it stands behind our bot (#955): {@code fallback} turns
- * that off, and {@code fallbackOnNotAdmitted} lets a bot nobody admitted be followed by Recall's, off by default since
- * the host may have chosen not to let it in.
+ * that off. {@code fallbackOnNotAdmitted} and {@code fallbackOnJoinBlocked} let a bot nobody admitted, or one the call's
+ * host or tenant keeps out, be followed by Recall's; both off by default, since each is a decision someone made.
  */
 public record NotetakerSettings(
         @DefaultValue("false") boolean enabled,
@@ -46,6 +46,7 @@ public record NotetakerSettings(
         @DefaultValue("5m") Duration transcribeEvery,
         @DefaultValue("true") boolean fallback,
         @DefaultValue("false") boolean fallbackOnNotAdmitted,
+        @DefaultValue("false") boolean fallbackOnJoinBlocked,
         /** A backup bot still unfinished this long past its call's end is taken as lost. */
         @DefaultValue("3h") Duration backupTimeout
 ) {}

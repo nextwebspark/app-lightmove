@@ -41,6 +41,7 @@ export type NotetakerEndReason =
   | "HEARTBEAT_LOST"
   | "PROCESSING_FAILED"
   | "BACKUP_FAILED"
+  | "RECORDING_NOT_ALLOWED"
   | "ZOOM_NOT_CONNECTED";
 
 export type NotetakerRecorder = "OWN" | "RECALL";
