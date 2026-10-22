@@ -32,17 +32,26 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
             UUID projectId, TriageCompanyStatus status, String companyName, Pageable pageable);
 
     /**
-     * {@code matchingIds} comes from {@code MappedExecutiveLookup} (no join to candidates) and is never
-     * empty — the caller short-circuits rather than send {@code in ()}. A null name is no filter.
+     * A stage's own companies plus {@code movedToStageIds}, those listed here for a person of theirs moved on their
+     * own (#903) — never empty, as above. A null name is no filter.
      */
     @Query("select t from TriageCompany t "
-            + "where t.projectId = :projectId and t.status = :status and t.id in :matchingIds "
+            + "where t.projectId = :projectId and (t.status = :status or t.id in :movedToStageIds) "
             + "and (:companyName is null or lower(t.companyName) like lower("
             + "  concat('%', cast(:companyName as string), '%')))")
-    Page<TriageCompany> findByProjectIdAndStatusAndIdInAndCompanyNameFilter(
+    Page<TriageCompany> findByProjectIdAndStatusOrIdInAndCompanyNameFilter(
             @Param("projectId") UUID projectId, @Param("status") TriageCompanyStatus status,
-            @Param("matchingIds") Set<UUID> matchingIds, @Param("companyName") String companyName,
+            @Param("movedToStageIds") Set<UUID> movedToStageIds, @Param("companyName") String companyName,
             Pageable pageable);
+
+    /** {@code ids} already holds the stage (each has an executive listed there); never empty. */
+    @Query("select t from TriageCompany t "
+            + "where t.projectId = :projectId and t.id in :ids "
+            + "and (:companyName is null or lower(t.companyName) like lower("
+            + "  concat('%', cast(:companyName as string), '%')))")
+    Page<TriageCompany> findByProjectIdAndIdInAndCompanyNameFilter(
+            @Param("projectId") UUID projectId, @Param("ids") Set<UUID> ids,
+            @Param("companyName") String companyName, Pageable pageable);
 
     Page<TriageCompany> findByProjectIdAndCompanyNameContainingIgnoreCase(
             UUID projectId, String companyName, Pageable pageable);

@@ -13,7 +13,9 @@ import java.util.UUID;
  * key of the workspace's catalog and {@code pipelineStage} a stage key; null is every one. {@code textQuery} matches a name, a title or an
  * employer, where {@code nameQuery} matches the name alone, and {@code withinTriageCompanyIds} holds the people to a
  * whole stage's companies — unlike the page of companies {@code triageCompanyIds} names, never capped.
+ * {@code triageStatus} is a Companies stage token: the people listed under that stage themselves (V150), null is all.
  */
 public record CandidateListCriteria(List<UUID> triageCompanyIds, Boolean unmapped, String nameQuery,
                                     String textQuery, Collection<UUID> withinTriageCompanyIds,
-                                    String status, String pipelineStage, Integer page, Integer size) {}
+                                    String status, String pipelineStage, String triageStatus,
+                                    Integer page, Integer size) {}

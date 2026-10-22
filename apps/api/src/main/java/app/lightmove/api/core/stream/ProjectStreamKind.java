@@ -8,6 +8,8 @@ import java.util.Optional;
 public enum ProjectStreamKind {
     CANDIDATE_CAPTURED,
     CANDIDATE_ENRICHED,
+    /** An executive changed Companies stage, alone or with their company: both halves of a stage page move. */
+    CANDIDATE_MOVED,
     COMPANY_CAPTURED,
     COMPANY_ENRICHED,
     /** A Find executives run moved: started, a company finished, or the run ended. */

@@ -1077,7 +1077,7 @@ class Component extends DCLogic {
     return {
       id, name: pp.name, first: firstOf(pp.name), days, groups,
       dayFull: activeTimes.length === 0, dayLabel: activeLabel,
-      lengths: [15, 30, 45].map((m) => ({ value: m, label: `${m} min`, style: segStyle(s.bookLength === m) })),
+      lengths: [15, 30, 45, 60, 90].map((m) => ({ value: m, label: m < 60 ? `${m} min` : `${m / 60} hr`, style: segStyle(s.bookLength === m) })),
       emails: pp.emails.map((label) => ({ label })),
       title: "Confidential: Chief Financial Officer, first conversation",
       summary: `${day} · ${time}–${end} · Asia/Dubai`,

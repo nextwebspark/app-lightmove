@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import type { ReportProgress } from "../api/types";
-import { ChartEmpty } from "../components/ChartEmpty";
 import { CoverageChart } from "../components/CoverageChart";
 import { KpiTile, KpiTileRow } from "../components/KpiTiles";
 import { DailyMomentumChart, WeeklyMomentumChart } from "../components/MomentumChart";
@@ -41,8 +40,8 @@ export function ProgressSection({
   const covered = projection.covered;
   const target = progress.targetDate ? formatShortDate(progress.targetDate) : null;
   const gap = progress.daysSinceLastExecutive;
-  // One closed week is a point, not a line, and a covered universe has nothing left to run forward
-  // to: either way the card says so rather than drawing a projection on top of today's own marker.
+  // The kickoff week has no pace yet, and a covered universe has nothing left to run forward to: either
+  // way the chart draws the line alone rather than a projection on top of today's own marker.
   const firstWeek = projection.lastWeek === 0;
   const complete = projection.remaining === 0;
   const projectedDate = firstWeek || complete ? null : projection.projectedDate;
@@ -93,27 +92,33 @@ export function ProgressSection({
             <SegmentedControl variant="uncava" label="Projection basis" options={BASIS_OPTIONS} value={basis} onChange={setBasis} />
           )
         }
-        note={firstWeek ? undefined : <CoverageNote basis={basis} projection={projection} complete={complete} />}
+        note={
+          firstWeek ? (
+            complete ? (
+              <>
+                Every company of the scoped universe already has an executive mapped, inside the kickoff week — there is
+                nothing to project.
+              </>
+            ) : (
+              <>
+                The line runs from kickoff to today. A pace needs two weeks to measure, so the completion date is{" "}
+                <b>projected from the second week on</b>.
+              </>
+            )
+          ) : (
+            <CoverageNote basis={basis} projection={projection} complete={complete} />
+          )
+        }
       >
-        {firstWeek ? (
-          <ChartEmpty>
-            {complete
-              ? "Every company of the scoped universe already has an executive mapped, inside the kickoff week — there is nothing to project."
-              : "Only the kickoff week has closed, and a pace needs two weeks to measure. Coverage is drawn as a line, and projected forward, from the second week on."}
-          </ChartEmpty>
-        ) : (
-          <>
-            <Legend
-              className="mb-1 mt-2.5"
-              items={[
-                { label: "Actual", swatchClass: "bg-u-accent", shape: "line" },
-                ...(projectedDate ? [{ label: "Projected", swatchClass: "bg-u-offlimits", shape: "dashed" as const }] : []),
-                { label: "Target", swatchClass: "bg-u-border-strong", shape: "line" },
-              ]}
-            />
-            <CoverageChart progress={progress} projection={projection} />
-          </>
-        )}
+        <Legend
+          className="mb-1 mt-2.5"
+          items={[
+            { label: "Actual", swatchClass: "bg-u-accent", shape: "line" },
+            ...(projectedDate ? [{ label: "Projected", swatchClass: "bg-u-offlimits", shape: "dashed" as const }] : []),
+            { label: "Target", swatchClass: "bg-u-border-strong", shape: "line" },
+          ]}
+        />
+        <CoverageChart progress={progress} projection={projection} />
       </ReportCard>
 
       <ReportCard

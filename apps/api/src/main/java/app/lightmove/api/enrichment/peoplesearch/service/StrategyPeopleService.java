@@ -6,7 +6,6 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.ContactOutSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
-import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimiter;
 import app.lightmove.api.core.resilience.model.VendorException;
@@ -23,7 +22,6 @@ import app.lightmove.api.enrichment.peoplesearch.model.PeoplePage;
 import app.lightmove.api.strategy.model.PeopleFilter;
 import app.lightmove.api.strategy.service.StrategyService;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
-import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
@@ -33,6 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -190,8 +189,9 @@ public class StrategyPeopleService {
     }
 
     private DeclinedEmployers declinedOf(UUID workspaceId, UUID projectId) {
-        return DeclinedEmployers.of(triage.listAllOfStage(workspaceId, projectId, TriageCompanyStatus.DECLINED,
-                TriageCompanyFilters.none(), MAX_DECLINED_READ, ProjectAudience.STAFF).companies());
+        // The company's own stage: one executive declined on their own leaves their company searchable (#903).
+        return DeclinedEmployers.of(triage.ofStageExcluding(workspaceId, projectId, TriageCompanyStatus.DECLINED,
+                Set.of(), MAX_DECLINED_READ).companies());
     }
 
     /** Per user, so one caller cannot script the pager down a whole result set. */

@@ -89,9 +89,12 @@ curl -s "$BASE/projects/$PROJECT_ID/universe?stage=inUniverse" -H "Authorization
 - `status` is `identified`, `contacted`, `engaged`, `interested`, `notInterested`, `offLimits` or `outOfScope`.
 - An executive's `companyId` is the `id` of a company from the companies route, or null when their employer is not in
   the position's universe.
-- In the universe read, those executives come back in `unassigned`, on `inUniverse` only.
-- On the candidates route, `q` matches a name, a title or an employer, ignoring case. `stage` keeps executives mapped
-  at a company of that stage, so an executive at no company is at no stage.
+- Every executive holds a stage of their own: their company's when mapped, then wherever they were moved on their own.
+  A stage lists its own companies, and a company of another stage that has an executive listed here, under that
+  executive alone.
+- In the universe read, executives of the stage whose employer is not in the universe come back in `unassigned`.
+- On the candidates route, `q` matches a name, a title or an employer, ignoring case. `stage` keeps the executives
+  listed at that stage.
 - The summary's `executives` names every status, zero included, and `mappedCompanies` counts the universe and
   shortlisted companies with at least one executive mapped.
 - A company or executive id from another position answers `404 NOT_FOUND`, as an unknown position does.

@@ -283,7 +283,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Only executives mapped at a company of this stage; an executive at no company is at no stage",
+          "description" : "Only executives listed at this stage. Each executive holds a stage of their own: their company's when mapped, then wherever they were moved",
           "in" : "query",
           "name" : "stage",
           "required" : false,
@@ -1649,7 +1649,7 @@
           },
           "unassigned" : {
             "type" : "array",
-            "description" : "Executives at no company of the position. Filled on inUniverse only; empty on the other stages",
+            "description" : "Executives of the stage at no company of the position",
             "items" : {
               "$ref" : "#/components/schemas/Candidate"
             }
