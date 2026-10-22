@@ -4,10 +4,12 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.NotetakerSettings;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.NotetakerEndReason;
+import app.lightmove.api.notetaker.constant.NotetakerPlatform;
 import app.lightmove.api.notetaker.model.ClaimedCall;
 import app.lightmove.api.notetaker.model.NotetakerCall;
 import app.lightmove.api.notetaker.model.PendingLaunch;
 import app.lightmove.api.outreach.service.KeptMeetings;
+import app.lightmove.api.outreach.service.ZoomService;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ public class NotetakerScheduler {
     private final NotetakerMediaPurge mediaPurge;
     private final NotetakerWorkClaims workClaims;
     private final MeetingNotesWorker notesWorker;
+    private final ZoomService zoom;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -92,10 +95,17 @@ public class NotetakerScheduler {
                 claims.claimSkipped(claimed, NotetakerEndReason.DO_NOT_CONTACT);
                 continue;
             }
+            // A Zoom call is joined on the consultant's own Zoom account; without a usable one it is never tried.
+            if (call.platform() == NotetakerPlatform.ZOOM
+                    && !zoom.isUsableBy(claimed.sentFrom().userId(), claimed.sentFrom().workspaceId())) {
+                claims.claimSkipped(claimed, NotetakerEndReason.ZOOM_NOT_CONNECTED);
+                continue;
+            }
             String runToken = Tokens.generate();
             claims.claimLaunching(claimed, Tokens.hash(runToken)).ifPresent(recordingId -> pending.add(
                     new PendingLaunch(recordingId, call.platform(), call.first().joinUrl(), runToken,
-                            call.first().endsAt())));
+                            call.first().endsAt(), claimed.sentFrom().workspaceId(), claimed.sentFrom().userId(),
+                            claimed.sentFrom().personId())));
         }
         return pending;
     }

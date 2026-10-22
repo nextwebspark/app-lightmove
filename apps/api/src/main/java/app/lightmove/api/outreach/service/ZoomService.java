@@ -166,6 +166,19 @@ public class ZoomService {
         return zoom.createMeeting(tokens.accessToken(connection), topic, startsAt, minutes);
     }
 
+    /**
+     * The consultant's on-behalf-of token for the Zoom meeting at {@code joinUrl}, which a backup bot joins with; empty
+     * when their Zoom is not usable or the link names no meeting.
+     */
+    public Optional<String> onBehalfTokenFor(UUID userId, UUID workspaceId, String joinUrl) {
+        Optional<String> meetingId = ZoomLinks.meetingIdOf(joinUrl);
+        if (meetingId.isEmpty() || !isUsableBy(userId, workspaceId)) {
+            return Optional.empty();
+        }
+        ZoomConnection connection = requireUsable(userId, workspaceId);
+        return Optional.of(zoom.onBehalfToken(tokens.accessToken(connection), meetingId.get()));
+    }
+
     /** The call it was made for never reached the calendar: the meeting goes, so no orphan link is left at Zoom. */
     public void deleteQuietly(UUID userId, UUID workspaceId, ZoomMeeting meeting) {
         deleteQuietly(userId, workspaceId, meeting.id());

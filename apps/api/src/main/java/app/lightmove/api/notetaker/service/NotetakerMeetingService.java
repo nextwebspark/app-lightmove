@@ -17,6 +17,7 @@ import app.lightmove.api.notetaker.dto.NotetakerMeetingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerMeetingsResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
 import app.lightmove.api.notetaker.dto.TranscriptLineResponse;
+import app.lightmove.api.notetaker.model.LaunchedBot;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.NotetakerCall;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
@@ -52,7 +53,7 @@ public class NotetakerMeetingService {
     private final NotetakerCallEligibility eligibility;
     private final NotetakerSwitches switches;
     private final MeetingRecordingRepository recordings;
-    private final MeetingRecorder recorder;
+    private final ChainedMeetingRecorder recorders;
     private final AuditService audit;
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
@@ -79,7 +80,7 @@ public class NotetakerMeetingService {
                 .findByWorkspaceIdAndPersonIdAndNoteIdIsNotNull(workspaceId, recipient.personId()).stream()
                 .filter(recording -> filedUnder(recording, projectId))
                 .map(recording -> new FiledRecordingResponse(recording.getId(), recording.getNoteId(),
-                        recording.getRecordedUntil()))
+                        recording.stoppedShortAt()))
                 .toList();
         return new NotetakerMeetingsResponse(properties.notetaker().enabled(), switches.workspaceAllows(workspaceId),
                 switches.userAllows(userId, workspaceId), responses, filed);
@@ -98,7 +99,7 @@ public class NotetakerMeetingService {
             throw ApiException.of(ErrorCode.NOTETAKER_MEETING_STARTED);
         }
         NotetakerCall call = requireCallOf(meeting);
-        Optional<String> told = transactions.execute(status -> {
+        Optional<LaunchedBot> told = transactions.execute(status -> {
             switches.setMeeting(call.copies(), enabled, userId);
             audit.projectEvent(ProjectEventType.NOTETAKER_MEETING_SWITCHED, userId, workspaceId, projectId,
                             httpRequest)
@@ -107,7 +108,7 @@ public class NotetakerMeetingService {
                     .detail("enabled", String.valueOf(enabled))
                     .record();
             if (enabled) {
-                return Optional.<String>empty();
+                return Optional.<LaunchedBot>empty();
             }
             return recordingInCall(workspaceId, call.callKey())
                     .map(recording -> requestRemoval(recording, userId, workspaceId, projectId, candidateId, now,
@@ -122,7 +123,7 @@ public class NotetakerMeetingService {
         requireOffered();
         KeptMeeting meeting = requireMeeting(workspaceId, projectId, candidateId, meetingId);
         Instant now = clock.instant();
-        Optional<String> told = transactions.execute(status -> {
+        Optional<LaunchedBot> told = transactions.execute(status -> {
             MeetingRecording recording = recordingInCall(workspaceId, NotetakerCallEligibility.callKeyOf(meeting))
                     .orElseThrow(() -> ApiException.of(ErrorCode.NOTETAKER_NOT_IN_CALL));
             return requestRemoval(recording, userId, workspaceId, projectId, candidateId, now, httpRequest);
@@ -131,15 +132,16 @@ public class NotetakerMeetingService {
     }
 
     /** Our bot hears it on its next heartbeat; Recall's is told at once, once the request is on file. */
-    private Optional<String> requestRemoval(MeetingRecording recording, UUID userId, UUID workspaceId,
-                                            UUID projectId, UUID candidateId, Instant now,
-                                            HttpServletRequest httpRequest) {
+    private Optional<LaunchedBot> requestRemoval(MeetingRecording recording, UUID userId, UUID workspaceId,
+                                                 UUID projectId, UUID candidateId, Instant now,
+                                                 HttpServletRequest httpRequest) {
         recording.requestRemoval(userId, now);
         audit.projectEvent(ProjectEventType.NOTETAKER_REMOVED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("recordingId", recording.getId().toString())
                 .record();
-        return Optional.ofNullable(recording.getExternalId());
+        return Optional.ofNullable(recording.getExternalId())
+                .map(externalId -> new LaunchedBot(recording.getRecorder(), externalId, null));
     }
 
     /**
@@ -166,7 +168,7 @@ public class NotetakerMeetingService {
         String consultant = users.findById(recording.getUserId()).map(User::getFullName).orElse(null);
         return new NotetakerTranscriptResponse(recording.getId(), recording.getStatus(),
                 recording.getStatus() == NotetakerStatus.DONE, recording.getTitle(), recording.getStartsAt(),
-                recording.getEndsAt(), recording.getJoinedAt(), consultant, recording.getRecordedUntil(), lines);
+                recording.getEndsAt(), recording.getJoinedAt(), consultant, recording.stoppedShortAt(), lines);
     }
 
     /** Try again, for a call whose note could not be made: a press, metered like any other model press. */
@@ -228,12 +230,12 @@ public class NotetakerMeetingService {
                 && (recording.getProjectId() == null || projectId.equals(recording.getProjectId()));
     }
 
-    private void tellToLeave(Optional<String> externalId) {
-        externalId.ifPresent(id -> {
+    private void tellToLeave(Optional<LaunchedBot> bot) {
+        bot.ifPresent(sent -> {
             try {
-                recorder.requestLeave(id);
+                recorders.requestLeave(sent.recorder(), sent.externalId());
             } catch (RuntimeException failed) {
-                log.warn("Notetaker {} could not be told to leave; its heartbeat will", id, failed);
+                log.warn("Notetaker {} could not be told to leave; its heartbeat will", sent.externalId(), failed);
             }
         });
     }
@@ -277,7 +279,7 @@ public class NotetakerMeetingService {
                 recording == null ? null : recording.getEndReason(),
                 recording == null ? null : recording.getRecorder(),
                 recording == null ? null : recording.getJoinedAt(),
-                recording == null ? null : recording.getRecordedUntil(),
+                recording == null ? null : recording.stoppedShortAt(),
                 filedHere, filedHere ? recording.getNoteId() : null, filed && !filedHere);
     }
 

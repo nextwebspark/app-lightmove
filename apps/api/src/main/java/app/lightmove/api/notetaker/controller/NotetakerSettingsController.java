@@ -19,8 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The Notetaker's two standing switches: the workspace's (Settings → Integrations, its admin's to change) and
- * the caller's own (Settings → Profile). Staff only; a pure client is not told the Notetaker exists.
+ * The Notetaker's standing switches: the workspace's and its backup recorder's (Settings → Integrations, its
+ * admin's to change), and the caller's own (Settings → Profile). Staff only; a pure client is not told the Notetaker
+ * exists.
  */
 @RestController
 @RequestMapping("/api/v1")
@@ -41,6 +42,15 @@ public class NotetakerSettingsController {
                                                       @Valid @RequestBody ChangeNotetakerRequest request,
                                                       HttpServletRequest httpRequest) {
         return settings.changeWorkspace(principal.userId(), principal.requireWorkspaceId(), request.enabled(),
+                httpRequest);
+    }
+
+    @PutMapping("/workspace/notetaker/backup")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceNotetakerResponse changeBackup(@AuthenticationPrincipal AuthPrincipal principal,
+                                                   @Valid @RequestBody ChangeNotetakerRequest request,
+                                                   HttpServletRequest httpRequest) {
+        return settings.changeBackup(principal.userId(), principal.requireWorkspaceId(), request.enabled(),
                 httpRequest);
     }
 

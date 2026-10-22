@@ -25,8 +25,16 @@ final class MeetingNoteMarkdown {
      * {@code missingMinutes} is how much of what was recorded could not be transcribed.
      */
     static String of(MeetingSummary summary, String stoppedAt, int missingMinutes) {
+        return of(summary, stoppedAt, null, missingMinutes);
+    }
+
+    /** {@code resumedAt}: our bot stopped at {@code stoppedAt} and the backup recorder picked the call up then. */
+    static String of(MeetingSummary summary, String stoppedAt, String resumedAt, int missingMinutes) {
         StringBuilder body = new StringBuilder();
-        if (stoppedAt != null) {
+        if (stoppedAt != null && resumedAt != null) {
+            body.append("**Partial — recording stopped at ").append(stoppedAt).append(" and resumed at ")
+                    .append(resumedAt).append(" by the backup recorder**\n\n");
+        } else if (stoppedAt != null) {
             body.append("**Partial — recording stopped at ").append(stoppedAt).append("**\n\n");
         }
         if (missingMinutes > 0) {

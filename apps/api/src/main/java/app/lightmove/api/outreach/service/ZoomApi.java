@@ -23,6 +23,12 @@ public interface ZoomApi {
 
     void deleteMeeting(String accessToken, String meetingId);
 
+    /**
+     * A short-lived on-behalf-of token for one meeting ({@code user:read:token}): what lets a bot into a Zoom call under
+     * the consultant's own account, while they are in it.
+     */
+    String onBehalfToken(String accessToken, String meetingId);
+
     /** Withdraws the refresh token at Zoom, which authenticates the app by HTTP Basic to do it. */
     void revoke(ProviderCredentials app, String refreshToken);
 }

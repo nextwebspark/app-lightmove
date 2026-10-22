@@ -399,6 +399,13 @@ jobs:
           if [ "${{ vars.RECALL_ENABLED }}" = "true" ]; then
             RECALL_SECRETS=",RECALL_API_KEY=lightmove-recall-api-key:latest,RECALL_WEBHOOK_SECRET=lightmove-recall-webhook-secret:latest"
             RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
+            # The Notetaker's backup recorder (#955): Recall's bots report on an endpoint of their own,
+            # /api/v1/notetaker/webhooks/recall, signed with that endpoint's secret. Off unless
+            # NOTETAKER_BACKUP_ENABLED=true; even then each workspace's admin turns it on for themselves.
+            #   gcloud secrets create lightmove-recall-bot-webhook-secret --data-file=-
+            if [ "${{ vars.NOTETAKER_BACKUP_ENABLED }}" = "true" ]; then
+              RECALL_SECRETS="${RECALL_SECRETS},RECALL_BOT_WEBHOOK_SECRET=lightmove-recall-bot-webhook-secret:latest"
+            fi
           fi
 
           # Stripe (epic #734). Off unless BILLING_ENABLED=true, for the secret-must-exist reason above; off, every

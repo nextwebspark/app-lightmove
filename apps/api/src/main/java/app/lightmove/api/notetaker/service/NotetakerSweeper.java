@@ -43,6 +43,10 @@ class NotetakerSweeper {
                 .forEach(recording -> end(recording.getId(), now, NotetakerEndReason.HEARTBEAT_LOST,
                         fresh -> fresh.getStatus().isInCall() && fresh.getLastHeartbeatAt() != null
                                 && fresh.getLastHeartbeatAt().isBefore(heardBefore)));
+        Instant endedBefore = now.minus(settings.backupTimeout());
+        recordings.findBackupsLostSince(endedBefore).forEach(recording -> end(recording.getId(), now,
+                NotetakerEndReason.BACKUP_FAILED, fresh -> fresh.getStatus().isInCall()
+                        && fresh.getEndsAt().isBefore(endedBefore)));
     }
 
     private void end(UUID recordingId, Instant now, NotetakerEndReason reason, Predicate<MeetingRecording> stillStale) {

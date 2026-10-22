@@ -25,7 +25,11 @@ public enum NotetakerEndReason {
     /** The bot fell silent. */
     HEARTBEAT_LOST,
     /** The call was recorded, but its transcript or note could not be made; a consultant may try again. */
-    PROCESSING_FAILED;
+    PROCESSING_FAILED,
+    /** The backup recorder standing behind ours failed too, or was never heard from again. */
+    BACKUP_FAILED,
+    /** A Zoom call, joined only by the backup recorder on the consultant's own Zoom account, which is not connected. */
+    ZOOM_NOT_CONNECTED;
 
     /** What a bot may report about itself; the rest are the server's own findings. */
     public static final Set<NotetakerEndReason> REPORTED_BY_BOT = EnumSet.of(LAUNCH_FAILED, JOIN_BLOCKED, NOT_ADMITTED,

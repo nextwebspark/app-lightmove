@@ -12,6 +12,7 @@ vi.mock("../../outreach/api/notetakerApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../outreach/api/notetakerApi")>()),
   getWorkspaceNotetaker: vi.fn(),
   setWorkspaceNotetaker: vi.fn(),
+  setWorkspaceNotetakerBackup: vi.fn(),
   getMyNotetaker: vi.fn(),
   setMyNotetaker: vi.fn(),
 }));
@@ -31,6 +32,8 @@ describe("Uncava Notetaker in Settings", () => {
       offered: true,
       enabled: true,
       platforms: ["GOOGLE_MEET"],
+      backupOffered: false,
+      backupEnabled: false,
     });
   });
 
@@ -39,6 +42,8 @@ describe("Uncava Notetaker in Settings", () => {
       offered: true,
       enabled: false,
       platforms: ["GOOGLE_MEET"],
+      backupOffered: false,
+      backupEnabled: false,
     });
     renderWith(<NotetakerCard />);
 
@@ -50,8 +55,47 @@ describe("Uncava Notetaker in Settings", () => {
     expect(screen.getByText("The notetaker is off for the workspace")).toBeInTheDocument();
   });
 
+  it("offers the backup recorder off, naming who receives the call, and turns it on only when asked", async () => {
+    vi.mocked(notetakerApi.getWorkspaceNotetaker).mockResolvedValue({
+      offered: true,
+      enabled: true,
+      platforms: ["GOOGLE_MEET"],
+      backupOffered: true,
+      backupEnabled: false,
+    });
+    vi.mocked(notetakerApi.setWorkspaceNotetakerBackup).mockResolvedValue({
+      offered: true,
+      enabled: true,
+      platforms: ["GOOGLE_MEET", "MICROSOFT_TEAMS", "ZOOM"],
+      backupOffered: true,
+      backupEnabled: true,
+    });
+    renderWith(<NotetakerCard />);
+
+    const backup = await screen.findByRole("switch", { name: "Backup recorder for the workspace" });
+    expect(backup).not.toBeChecked();
+    expect(screen.getByText(/pass through Recall\.ai, a third party/)).toBeInTheDocument();
+    await userEvent.click(backup);
+
+    await waitFor(() => expect(notetakerApi.setWorkspaceNotetakerBackup).toHaveBeenCalledWith(true));
+    expect(await screen.findByText("The backup recorder is on")).toBeInTheDocument();
+  });
+
+  it("offers no backup recorder where the deployment has none", async () => {
+    renderWith(<NotetakerCard />);
+
+    expect(await screen.findByText("Joins Google Meet calls with executives.")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Backup recorder for the workspace" })).not.toBeInTheDocument();
+  });
+
   it("draws no card where the deployment sends no notetaker", async () => {
-    vi.mocked(notetakerApi.getWorkspaceNotetaker).mockResolvedValue({ offered: false, enabled: true, platforms: [] });
+    vi.mocked(notetakerApi.getWorkspaceNotetaker).mockResolvedValue({
+      offered: false,
+      enabled: true,
+      platforms: [],
+      backupOffered: false,
+      backupEnabled: false,
+    });
     renderWith(<NotetakerCard />);
 
     await waitFor(() => expect(notetakerApi.getWorkspaceNotetaker).toHaveBeenCalled());

@@ -32,7 +32,7 @@ class NotetakerLaunchersTest {
 
     private final NotetakerLaunch launch = new NotetakerLaunch(UUID.randomUUID(), NotetakerPlatform.GOOGLE_MEET,
             "https://meet.google.com/abc-defg-hij", "Uncava Notetaker", "secret-run-token",
-            Instant.parse("2026-10-22T11:30:00Z"));
+            Instant.parse("2026-10-22T11:30:00Z"), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
     @Test
     void aCloudRunJobIsRunOnceWithTheRunsEnvironmentAsAnOverride() throws Exception {
@@ -120,7 +120,7 @@ class NotetakerLaunchersTest {
                 Duration.ofMinutes(2), Duration.ofMinutes(10), Duration.ofMinutes(5), Duration.ofMinutes(2),
                 Duration.ofMinutes(10), Duration.ofHours(3), "PT1M", runner, "https://beta.uncava.com/", job,
                 localCommand, 8_388_608L, Duration.ofDays(7),
-                Duration.ofMinutes(5));
+                Duration.ofMinutes(5), true, false, Duration.ofHours(3));
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, notetaker);
     }

@@ -39,7 +39,9 @@ export type NotetakerEndReason =
   | "DEVICES_NOT_OFF"
   | "CRASHED"
   | "HEARTBEAT_LOST"
-  | "PROCESSING_FAILED";
+  | "PROCESSING_FAILED"
+  | "BACKUP_FAILED"
+  | "ZOOM_NOT_CONNECTED";
 
 export type NotetakerRecorder = "OWN" | "RECALL";
 
@@ -107,6 +109,10 @@ export interface WorkspaceNotetaker {
   offered: boolean;
   enabled: boolean;
   platforms: NotetakerPlatform[];
+  /** The deployment has a backup recorder, a third party a call's audio goes to. */
+  backupOffered: boolean;
+  /** An admin turned the backup on for the workspace; off until they do. */
+  backupEnabled: boolean;
 }
 
 export interface MyNotetaker {
@@ -165,6 +171,10 @@ export function getWorkspaceNotetaker(signal?: AbortSignal): Promise<WorkspaceNo
 
 export function setWorkspaceNotetaker(enabled: boolean): Promise<WorkspaceNotetaker> {
   return request<WorkspaceNotetaker>("/workspace/notetaker", { method: "PUT", body: { enabled } });
+}
+
+export function setWorkspaceNotetakerBackup(enabled: boolean): Promise<WorkspaceNotetaker> {
+  return request<WorkspaceNotetaker>("/workspace/notetaker/backup", { method: "PUT", body: { enabled } });
 }
 
 export function getMyNotetaker(signal?: AbortSignal): Promise<MyNotetaker> {

@@ -21,6 +21,7 @@ public class RecordingZoomApi implements ZoomApi {
 
     private final List<String> created = new CopyOnWriteArrayList<>();
     private final List<String> deleted = new CopyOnWriteArrayList<>();
+    private final List<String> onBehalfAskedFor = new CopyOnWriteArrayList<>();
     private final List<ZoomMove> moved = new CopyOnWriteArrayList<>();
     private final List<String> revoked = new CopyOnWriteArrayList<>();
     private final List<String> accessTokensUsed = new CopyOnWriteArrayList<>();
@@ -64,6 +65,16 @@ public class RecordingZoomApi implements ZoomApi {
     }
 
     @Override
+    public String onBehalfToken(String accessToken, String meetingId) {
+        onBehalfAskedFor.add(meetingId);
+        return "obf-" + meetingId;
+    }
+
+    public List<String> onBehalfAskedFor() {
+        return List.copyOf(onBehalfAskedFor);
+    }
+
+    @Override
     public void revoke(ProviderCredentials app, String refreshToken) {
         revoked.add(refreshToken);
     }
@@ -104,6 +115,7 @@ public class RecordingZoomApi implements ZoomApi {
         moved.clear();
         revoked.clear();
         accessTokensUsed.clear();
+        onBehalfAskedFor.clear();
         userId = "zoom-user-1";
         failCreates = false;
     }

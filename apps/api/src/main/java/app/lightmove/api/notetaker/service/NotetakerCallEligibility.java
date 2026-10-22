@@ -3,7 +3,6 @@ package app.lightmove.api.notetaker.service;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.notetaker.constant.NotetakerPlatform;
 import app.lightmove.api.notetaker.model.NotetakerCall;
-import app.lightmove.api.notetaker.model.OfferedPlatforms;
 import app.lightmove.api.outreach.model.KeptMeeting;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -28,7 +27,7 @@ class NotetakerCallEligibility {
 
     private final NotetakerSwitches switches;
     private final CandidateOutreachService people;
-    private final OfferedPlatforms offered;
+    private final ChainedMeetingRecorder recorders;
 
     List<NotetakerCall> callsOf(List<KeptMeeting> meetings) {
         Map<String, List<KeptMeeting>> grouped = new LinkedHashMap<>();
@@ -44,6 +43,8 @@ class NotetakerCallEligibility {
         List<KeptMeeting> callCopies = grouped.values().stream().flatMap(List::stream).toList();
         Set<UUID> workspacesOff = switches.workspacesSwitchedOff(callCopies.stream()
                 .map(KeptMeeting::workspaceId).distinct().toList());
+        Set<UUID> withBackup = recorders.backupAllowedAmong(callCopies.stream()
+                .map(KeptMeeting::workspaceId).distinct().toList());
         Set<String> optedOut = switches.optedOutAmong(callCopies);
         Set<String> usersOff = switches.usersSwitchedOff(callCopies);
         Set<UUID> doNotContact = doNotContactAmong(callCopies);
@@ -53,7 +54,7 @@ class NotetakerCallEligibility {
             KeptMeeting first = copies.getFirst();
             NotetakerPlatform platform = NotetakerPlatform.of(first.joinUrl(), first.conferencingProvider())
                     .orElse(null);
-            boolean joinable = platform != null && offered.offers(platform)
+            boolean joinable = recorders.joins(platform, withBackup.contains(first.workspaceId()))
                     && NotetakerPlatform.hostingAt(first.joinUrl()).equals(Optional.of(platform));
             calls.add(new NotetakerCall(callKeyOf(first), List.copyOf(copies), platform, joinable,
                     !workspacesOff.contains(first.workspaceId()),
