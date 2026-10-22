@@ -97,6 +97,8 @@ export function sentenceOf(notification: NotificationResponse, now: Date = new D
     }
     case "added_to_team":
       return { parts: [strong(actor), plain(" added you to "), strong(position)], where: null, sub: null };
+    case "meeting_notes_ready":
+      return { parts: [plain("Notes from your call with "), strong(person), plain(" are ready")], where, sub: null };
     case "tasks_moved":
       return {
         parts: [

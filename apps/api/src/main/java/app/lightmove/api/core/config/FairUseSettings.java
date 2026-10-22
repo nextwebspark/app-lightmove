@@ -17,5 +17,8 @@ public record FairUseSettings(
         @DefaultValue("5000") long outreachOpenerPerSeat,
         @DefaultValue("2") long outreachOpenerCostFils,
         @DefaultValue("1500") long assistantAskPerSeat,
-        @DefaultValue("15") long assistantAskCostFils
+        @DefaultValue("15") long assistantAskCostFils,
+        /** No ceiling: a call already recorded is never left without its note. */
+        @DefaultValue("0") long meetingMinutePerSeat,
+        @DefaultValue("2") long meetingMinuteCostFils
 ) {}

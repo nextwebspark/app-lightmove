@@ -148,7 +148,8 @@ interface TaskPresetResponse {
 
 ```ts
 type NotificationKind = 'task_assigned' | 'task_due_soon' | 'task_overdue' | 'mentioned'
-  | 'outreach_replied' | 'outreach_bounced' | 'call_booked' | 'added_to_team' | 'tasks_moved';
+  | 'outreach_replied' | 'outreach_bounced' | 'call_booked' | 'added_to_team' | 'tasks_moved'
+  | 'meeting_notes_ready'; // a recorded call's Meeting note is filed (Notetaker, #952)
 interface NotificationResponse {
   id: string; kind: NotificationKind; count: number;
   actor: TaskPerson | null;                                 // null: Uncava did it
@@ -166,7 +167,7 @@ interface NotificationPreferences {
   digest: boolean; timeZone: string;                        // timeZone is read-only: the mailbox's
 }
 type NotificationPreferenceKind = 'task_assigned' | 'task_due' | 'mentioned' | 'outreach_replied'
-  | 'outreach_bounced' | 'call_booked' | 'added_to_team' | 'tasks_moved';
+  | 'outreach_bounced' | 'call_booked' | 'added_to_team' | 'tasks_moved' | 'meeting_notes';
 ```
 
 A snoozed row is left out of both lists until its time; an archived one is gone. `email` is honoured only for

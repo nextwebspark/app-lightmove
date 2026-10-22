@@ -15,7 +15,7 @@ describe("httpApi", () => {
     const { fetcher, requests } = fakeFetch(204);
     const api = httpApi("https://beta.uncava.com", "run-1", "token-1", fetcher);
     await api.report("FAILED", "NOT_ADMITTED");
-    await api.upload("audio", 3, new Uint8Array([1, 2]));
+    await api.upload("audio", 3, new Uint8Array([1, 2]), new Date("2026-10-22T10:00:30Z"));
 
     expect(requests[0].url).toBe("https://beta.uncava.com/api/v1/internal/notetaker/runs/run-1/status");
     expect(requests[0].init.body).toBe('{"state":"FAILED","reason":"NOT_ADMITTED"}');
@@ -24,6 +24,8 @@ describe("httpApi", () => {
     expect(headers.Authorization).toBeUndefined();
     expect(requests[1].url).toBe("https://beta.uncava.com/api/v1/internal/notetaker/runs/run-1/media/audio/3");
     expect(requests[1].init.method).toBe("PUT");
+    expect((requests[1].init.headers as Record<string, string>)["X-Notetaker-Piece-Started-At"])
+      .toBe("2026-10-22T10:00:30.000Z");
   });
 
   it("reads the heartbeat's answer", async () => {

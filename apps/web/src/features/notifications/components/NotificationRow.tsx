@@ -27,6 +27,7 @@ const KIND_BADGES: Record<NotificationKind, { label: string; glyph: string; clas
   call_booked: { label: "Call booked", glyph: ICONS.calendar, className: "bg-u-adjacent" },
   added_to_team: { label: "Team", glyph: ICONS.team, className: "bg-u-text2" },
   tasks_moved: { label: "Tasks moved", glyph: GLYPHS.task, className: "bg-u-accent-solid" },
+  meeting_notes_ready: { label: "Meeting notes", glyph: ICONS.calendar, className: "bg-u-direct" },
 };
 
 /** One bell row: who, the sentence, where and when; on hover or focus, read, snooze and archive. */

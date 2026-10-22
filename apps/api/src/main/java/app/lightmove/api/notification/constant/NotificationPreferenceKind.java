@@ -18,7 +18,8 @@ public enum NotificationPreferenceKind implements ApiValueEnum {
     OUTREACH_BOUNCED("outreach_bounced"),
     CALL_BOOKED("call_booked"),
     ADDED_TO_TEAM("added_to_team"),
-    TASKS_MOVED("tasks_moved");
+    TASKS_MOVED("tasks_moved"),
+    MEETING_NOTES("meeting_notes");
 
     private final String value;
 }

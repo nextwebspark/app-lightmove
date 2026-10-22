@@ -150,6 +150,12 @@ public enum ProjectEventType implements AuditEventType {
     /** A consultant sent the Notetaker out of a call it was in. */
     NOTETAKER_REMOVED,
 
+    /** A recorded call's transcript was read: what an executive said, word for word. */
+    NOTETAKER_TRANSCRIPT_READ,
+
+    /** A consultant asked for a failed call's note to be made again — recorded because it spends model money. */
+    NOTETAKER_RETRIED,
+
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
 

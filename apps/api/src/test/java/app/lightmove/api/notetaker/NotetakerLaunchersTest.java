@@ -119,7 +119,8 @@ class NotetakerLaunchersTest {
         NotetakerSettings notetaker = new NotetakerSettings(true, List.of("GOOGLE_MEET"), "Uncava Notetaker",
                 Duration.ofMinutes(2), Duration.ofMinutes(10), Duration.ofMinutes(5), Duration.ofMinutes(2),
                 Duration.ofMinutes(10), Duration.ofHours(3), "PT1M", runner, "https://beta.uncava.com/", job,
-                localCommand, 8_388_608L, Duration.ofDays(7));
+                localCommand, 8_388_608L, Duration.ofDays(7),
+                Duration.ofMinutes(5));
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, notetaker);
     }

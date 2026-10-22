@@ -5,6 +5,7 @@ import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.notetaker.dto.ChangeNotetakerRequest;
 import app.lightmove.api.notetaker.dto.NotetakerMeetingsResponse;
+import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
 import app.lightmove.api.notetaker.service.NotetakerMeetingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -44,6 +45,25 @@ public class NotetakerMeetingController {
                        @Valid @RequestBody ChangeNotetakerRequest request, HttpServletRequest httpRequest) {
         notetaker.setEnabled(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, meetingId,
                 request.enabled(), httpRequest);
+    }
+
+    @GetMapping("/{meetingId}/transcript")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public NotetakerTranscriptResponse transcript(@AuthenticationPrincipal AuthPrincipal principal,
+                                                  @PathVariable UUID projectId, @PathVariable UUID candidateId,
+                                                  @PathVariable UUID meetingId, HttpServletRequest httpRequest) {
+        return notetaker.transcript(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
+                meetingId, httpRequest);
+    }
+
+    /** Make a failed call's note again. */
+    @PostMapping("/{meetingId}/notetaker/retry")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void retry(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
+                      @PathVariable UUID candidateId, @PathVariable UUID meetingId, HttpServletRequest httpRequest) {
+        notetaker.retry(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, meetingId,
+                httpRequest);
     }
 
     @PostMapping("/{meetingId}/notetaker/remove")

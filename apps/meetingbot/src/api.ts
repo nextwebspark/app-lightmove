@@ -8,7 +8,8 @@ export interface NotetakerApi {
   report(state: BotState, reason?: FailureReason): Promise<void>;
   /** `true` when somebody pressed Remove notetaker, or the run is no longer ours to work. */
   heartbeat(): Promise<{ leave: boolean }>;
-  upload(kind: PieceKind, sequence: number, content: Uint8Array): Promise<void>;
+  /** `startedAt` is when an audio piece began, which the transcript is stitched on. */
+  upload(kind: PieceKind, sequence: number, content: Uint8Array, startedAt?: Date): Promise<void>;
   complete(): Promise<void>;
 }
 
@@ -16,13 +17,15 @@ export class RunGoneError extends Error {}
 
 export function httpApi(baseUrl: string, runId: string, runToken: string, fetcher: typeof fetch = fetch): NotetakerApi {
   const base = `${baseUrl}/api/v1/internal/notetaker/runs/${runId}`;
-  const send = async (method: string, path: string, body?: BodyInit, contentType?: string): Promise<Response> => {
+  const send = async (method: string, path: string, body?: BodyInit, contentType?: string,
+    extraHeaders: Record<string, string> = {}): Promise<Response> => {
     const response = await fetcher(`${base}${path}`, {
       method,
       body,
       headers: {
         "X-Notetaker-Run-Token": runToken,
         ...(contentType ? { "Content-Type": contentType } : {}),
+        ...extraHeaders,
       },
       signal: AbortSignal.timeout(30_000),
     });
@@ -44,8 +47,9 @@ export function httpApi(baseUrl: string, runId: string, runToken: string, fetche
       const answer = (await response.json()) as { leave?: boolean };
       return { leave: answer.leave === true };
     },
-    async upload(kind, sequence, content) {
-      await send("PUT", `/media/${kind}/${sequence}`, content as BodyInit, "application/octet-stream");
+    async upload(kind, sequence, content, startedAt) {
+      await send("PUT", `/media/${kind}/${sequence}`, content as BodyInit, "application/octet-stream",
+        startedAt ? { "X-Notetaker-Piece-Started-At": startedAt.toISOString() } : {});
     },
     async complete() {
       await send("POST", "/complete");

@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.model.PersonActivity;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -56,4 +57,13 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
             ORDER BY person_id, id DESC
             """, nativeQuery = true)
     List<PersonActivity> findLatestOfPeople(UUID workspaceId, Collection<UUID> personIds);
+
+    /** The position of the call booked, or moved, to start at {@code startsAt}: its latest booking line. */
+    @Query(value = """
+            SELECT project_id FROM app_lm_person_activity
+            WHERE workspace_id = :workspaceId AND person_id = :personId AND project_id IS NOT NULL
+              AND kind IN ('MEETING_BOOKED', 'MEETING_RESCHEDULED') AND details ->> 'startsAt' = :startsAt
+            ORDER BY id DESC LIMIT 1
+            """, nativeQuery = true)
+    Optional<UUID> findPositionOfCallAt(UUID workspaceId, UUID personId, String startsAt);
 }

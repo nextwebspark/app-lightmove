@@ -1241,6 +1241,22 @@ own run), in rows of their own so an upload never contends with the same bot's h
 V150's `media`. A removed bot's pieces are deleted by `NotetakerMediaPurge`, file before row, on each scheduler pass.
 The bot is started by `lightmove.notetaker.runner`: `log`, `local` (`npm run dev`) or `cloud-run-job`
 (`CloudRunJobMeetingRecorder`, the run's environment as a container override, never retried).
+V152 is the call's note (#952): an audio piece's `started_at` (the bot's `X-Notetaker-Piece-Started-At`; pieces
+overlap by a second and may arrive out of order, so stitching keys on it), `app_lm_meeting_transcript_piece` — what
+`MeetingTranscriber` (one Gemini call per piece, audio in, timed lines out under per-piece voice labels) heard, written
+every `transcribe-every` (5m) while the call goes, its audio deleted once stored — and on the recording the note's
+`project_id` and `note_id`, the whole `transcript`, `recorded_until` (a bot that crashed or fell silent mid-call:
+`NotetakerRunEndings` sends what it captured on as a partial note) and the `working_since` claim. Once the bot leaves,
+`MeetingNotesWorker` → `MeetingNotesProcessor` (every step its own transaction, no model inside one) transcribes the
+rest, stitches and names the voices from the captions (`MeetingTranscriptAssembly`), files under a position by the
+rule — the position a call was booked on (its `MEETING_BOOKED` line), else the one live position the consultant works
+that maps the person, else about the person — summarises against that position's `AssessmentBrief`
+(`MeetingSummariser`, `ContactRedaction` first; Markdown written by code, `MeetingNoteMarkdown`) and files one
+`MEETING` note through `candidate`'s `CandidateMeetingNotes` with a `MEETING_RECORDED` line (grouped with notes), a
+`MEETING_NOTES_READY` bell and `MEETING_MINUTES` usage (no ceiling). Three failed tries leave it `FAILED`
+(`PROCESSING_FAILED`) for `POST …/meetings/{meetingId}/notetaker/retry` (`LlmBudget.MEETING_SUMMARY`);
+`GET …/meetings/{meetingId}/transcript` reads it (`WORK_EXECUTE`, audited, so far while it is being made, not found
+from another position). A removed run's transcript goes with its pieces; a done run's captions on the next pass.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

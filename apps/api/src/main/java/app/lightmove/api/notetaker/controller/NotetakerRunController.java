@@ -32,6 +32,7 @@ public class NotetakerRunController {
 
     public static final String BASE = "/api/v1/internal/notetaker/runs";
     public static final String RUN_TOKEN_HEADER = "X-Notetaker-Run-Token";
+    public static final String PIECE_STARTED_AT_HEADER = "X-Notetaker-Piece-Started-At";
 
     private final NotetakerRunService runs;
 
@@ -49,15 +50,19 @@ public class NotetakerRunController {
         return runs.heartbeat(runId, token, httpRequest);
     }
 
-    /** One 30-second piece as the raw body: audio as WebM, captions as the bot's JSON lines. */
+    /**
+     * One 30-second piece as the raw body: audio as WebM, captions as the bot's JSON lines. An audio piece says when
+     * it began; one that does not is taken to have begun as it arrived.
+     */
     @PutMapping("/media/{kind}/{sequence}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void storeMedia(@PathVariable UUID runId, @PathVariable String kind, @PathVariable int sequence,
                            @RequestHeader(name = RUN_TOKEN_HEADER, required = false) String token,
+                           @RequestHeader(name = PIECE_STARTED_AT_HEADER, required = false) String startedAt,
                            HttpServletRequest httpRequest) throws IOException {
         MeetingMediaKind mediaKind = MeetingMediaKind.fromPath(kind)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        runs.storeMedia(runId, token, mediaKind, sequence, httpRequest.getInputStream(),
+        runs.storeMedia(runId, token, mediaKind, sequence, startedAt, httpRequest.getInputStream(),
                 httpRequest.getContentLengthLong(), httpRequest);
     }
 

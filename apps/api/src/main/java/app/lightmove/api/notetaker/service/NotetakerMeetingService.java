@@ -7,8 +7,13 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
+import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.dto.NotetakerMeetingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerMeetingsResponse;
+import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
+import app.lightmove.api.notetaker.dto.TranscriptLineResponse;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.NotetakerCall;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
@@ -48,6 +53,9 @@ public class NotetakerMeetingService {
     private final AuditService audit;
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
+    private final MeetingNotesProcessor notesProcessor;
+    private final MeetingNotesWorker notesWorker;
+    private final LlmBudgetGuard llmBudget;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -120,6 +128,57 @@ public class NotetakerMeetingService {
                 .detail("recordingId", recording.getId().toString())
                 .record();
         return Optional.ofNullable(recording.getExternalId());
+    }
+
+    /**
+     * The call's transcript, read from the executive's drawer on a position. A call filed under another position
+     * reads as not found here, as that position's note does.
+     */
+    public NotetakerTranscriptResponse transcript(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                                  UUID meetingId, HttpServletRequest httpRequest) {
+        MeetingRecording recording = requireRecordingOf(workspaceId, projectId, candidateId, meetingId);
+        List<TranscriptLineResponse> lines = notesProcessor.transcriptOf(recording.getId()).stream()
+                .map(line -> new TranscriptLineResponse(line.at(), line.speaker(), line.text()))
+                .toList();
+        audit.projectEvent(ProjectEventType.NOTETAKER_TRANSCRIPT_READ, userId, workspaceId, projectId, httpRequest)
+                .detail("candidateId", candidateId.toString())
+                .detail("recordingId", recording.getId().toString())
+                .record();
+        return new NotetakerTranscriptResponse(recording.getId(), recording.getStatus(),
+                recording.getStatus() == NotetakerStatus.DONE, recording.getRecordedUntil(), lines);
+    }
+
+    /** Try again, for a call whose note could not be made: a press, metered like any other model press. */
+    public void retry(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId,
+                      HttpServletRequest httpRequest) {
+        requireOffered();
+        MeetingRecording found = requireRecordingOf(workspaceId, projectId, candidateId, meetingId);
+        if (!found.isRetryable()) {
+            throw ApiException.of(ErrorCode.NOTETAKER_NOT_RETRYABLE);
+        }
+        llmBudget.require(LlmBudget.MEETING_SUMMARY, userId);
+        transactions.executeWithoutResult(status -> {
+            MeetingRecording recording = recordings.findById(found.getId())
+                    .filter(MeetingRecording::isRetryable)
+                    .orElseThrow(() -> ApiException.of(ErrorCode.NOTETAKER_NOT_RETRYABLE));
+            recording.retryProcessing();
+            audit.projectEvent(ProjectEventType.NOTETAKER_RETRIED, userId, workspaceId, projectId, httpRequest)
+                    .detail("candidateId", candidateId.toString())
+                    .detail("recordingId", recording.getId().toString())
+                    .record();
+        });
+        notesWorker.workOn(found.getId());
+    }
+
+    private MeetingRecording requireRecordingOf(UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId) {
+        KeptMeeting meeting = requireMeeting(workspaceId, projectId, candidateId, meetingId);
+        if (meeting.joinUrl() == null) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return recordings.findByWorkspaceIdAndCallKey(workspaceId, NotetakerCallEligibility.callKeyOf(meeting))
+                .filter(recording -> recording.getProjectId() == null || recording.getProjectId().equals(projectId))
+                .filter(recording -> recording.getJoinedAt() != null)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
     private void tellToLeave(Optional<String> externalId) {

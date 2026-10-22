@@ -23,7 +23,9 @@ public enum NotetakerEndReason {
     /** The bot stopped working mid-run. */
     CRASHED,
     /** The bot fell silent. */
-    HEARTBEAT_LOST;
+    HEARTBEAT_LOST,
+    /** The call was recorded, but its transcript or note could not be made; a consultant may try again. */
+    PROCESSING_FAILED;
 
     /** What a bot may report about itself; the rest are the server's own findings. */
     public static final Set<NotetakerEndReason> REPORTED_BY_BOT = EnumSet.of(LAUNCH_FAILED, JOIN_BLOCKED, NOT_ADMITTED,

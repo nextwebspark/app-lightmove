@@ -8,7 +8,9 @@ public enum UsageKind {
     SOURCING_RUN,
     AI_ENRICH,
     OUTREACH_OPENER,
-    ASSISTANT_ASK;
+    ASSISTANT_ASK,
+    /** A recorded call's minutes, transcribed and summarised by the Notetaker. */
+    MEETING_MINUTES;
 
     public long perSeatIn(FairUseSettings settings) {
         return switch (this) {
@@ -17,6 +19,7 @@ public enum UsageKind {
             case AI_ENRICH -> settings.aiEnrichPerSeat();
             case OUTREACH_OPENER -> settings.outreachOpenerPerSeat();
             case ASSISTANT_ASK -> settings.assistantAskPerSeat();
+            case MEETING_MINUTES -> settings.meetingMinutePerSeat();
         };
     }
 
@@ -27,6 +30,7 @@ public enum UsageKind {
             case AI_ENRICH -> settings.aiEnrichCostFils();
             case OUTREACH_OPENER -> settings.outreachOpenerCostFils();
             case ASSISTANT_ASK -> settings.assistantAskCostFils();
+            case MEETING_MINUTES -> settings.meetingMinuteCostFils();
         };
     }
 }

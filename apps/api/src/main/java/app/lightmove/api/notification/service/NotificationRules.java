@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.service.CandidateTaskService;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.notetaker.model.MeetingNotesFiled;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.model.NotificationDraft;
 import app.lightmove.api.project.model.ProjectSeatTaken;
@@ -94,6 +95,17 @@ public class NotificationRules {
         deliver(new NotificationDraft(followUp.workspaceId(), followUp.recipientUserId(), kind, null,
                 followUp.projectId(), followUp.personId(), followUp.candidateId(), followUp.taskId(), null, groupKey,
                 name, kind == NotificationKind.CALL_BOOKED ? followUp.dueAt() : null, 1, null));
+    }
+
+    /** The consultant whose calendar sent the bot is told the call's note is filed. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onMeetingNotesFiled(MeetingNotesFiled filed) {
+        String name = people.personNamesOf(filed.workspaceId(), List.of(filed.personId())).get(filed.personId());
+        deliver(new NotificationDraft(filed.workspaceId(), filed.userId(), NotificationKind.MEETING_NOTES_READY, null,
+                filed.projectId(), filed.personId(), filed.candidateId(), null, filed.noteId(),
+                NotificationKind.MEETING_NOTES_READY.value() + ":" + filed.recordingId(), name, null, 1, null));
     }
 
     /** Nobody is told they seated themselves. */

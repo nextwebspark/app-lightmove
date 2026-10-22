@@ -334,6 +334,7 @@ export const FAIR_USE_FEATURES: Record<FairUseKind, string> = {
   AI_ENRICH: "AI assistance",
   OUTREACH_OPENER: "Writing outreach openers",
   ASSISTANT_ASK: "The assistant",
+  MEETING_MINUTES: "Notetaker minutes",
 };
 
 /** A refusal one of the billing sheets answers, read off the problem the server sent. */

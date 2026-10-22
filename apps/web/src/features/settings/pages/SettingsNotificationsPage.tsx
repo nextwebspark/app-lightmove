@@ -10,7 +10,7 @@ import type { NotificationPreferenceKind, NotificationPreferences } from "../../
 import * as tasksApi from "../../tasks/api/tasksApi";
 import type { TaskRules } from "../../tasks/api/types";
 
-/** The eight events, in the mockup's order, and the words each is switched under. */
+/** The nine events, in the mockup's order, and the words each is switched under. */
 const EVENTS: readonly { kind: NotificationPreferenceKind; label: string }[] = [
   { kind: "task_assigned", label: "A task is assigned to me" },
   { kind: "task_due", label: "A task of mine is due soon or overdue" },
@@ -20,6 +20,7 @@ const EVENTS: readonly { kind: NotificationPreferenceKind; label: string }[] = [
   { kind: "call_booked", label: "A call is booked through my link" },
   { kind: "added_to_team", label: "I'm added to a position's team" },
   { kind: "tasks_moved", label: "Tasks are moved to me" },
+  { kind: "meeting_notes", label: "Notes from my recorded call are ready" },
 ];
 
 /** Only these are ever emailed one by one; the rest reach an inbox in the daily digest. */

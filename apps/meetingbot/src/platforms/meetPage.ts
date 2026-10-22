@@ -24,7 +24,7 @@ const CHROME_ARGUMENTS = [
 export class MeetLinkRefused extends Error {}
 
 /** Google Meet in headless Chromium, driven through Puppeteer. */
-export async function openMeet(joinUrl: string, onAudioPiece: (piece: Uint8Array) => void,
+export async function openMeet(joinUrl: string, onAudioPiece: (piece: Uint8Array, startedAt: Date) => void,
                                executablePath: string): Promise<MeetingPage> {
   if (!isMeetLink(joinUrl)) {
     throw new MeetLinkRefused("the join link is not a Google Meet link");
@@ -43,8 +43,8 @@ export async function openMeet(joinUrl: string, onAudioPiece: (piece: Uint8Array
     const agent = (await browser.userAgent()).replace("HeadlessChrome", "Chrome");
     await page.setUserAgent(agent);
     await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-    await page.exposeFunction("__uncavaAudioPiece", (encoded: string) => {
-      onAudioPiece(new Uint8Array(Buffer.from(encoded, "base64")));
+    await page.exposeFunction("__uncavaAudioPiece", (encoded: string, startedAtMs: number) => {
+      onAudioPiece(new Uint8Array(Buffer.from(encoded, "base64")), new Date(startedAtMs));
     });
     await page.evaluateOnNewDocument(`(${installAudioRecorder.toString()})()`);
     // Never "networkidle": Meet keeps connections open for as long as the page lives.

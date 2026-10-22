@@ -17,7 +17,7 @@ export type RunOutcome = "completed" | "removed" | "failed";
 
 export interface RunnerDeps {
   api: NotetakerApi;
-  openPage(onAudioPiece: (piece: Uint8Array) => void): Promise<MeetingPage>;
+  openPage(onAudioPiece: (piece: Uint8Array, startedAt: Date) => void): Promise<MeetingPage>;
   now(): number;
   sleep(ms: number): Promise<void>;
   log(message: string): void;
@@ -47,7 +47,7 @@ export async function runBot(config: BotConfig, deps: RunnerDeps): Promise<RunOu
 
   let page: MeetingPage;
   try {
-    page = await deps.openPage((piece) => uploader.enqueue("audio", piece));
+    page = await deps.openPage((piece, startedAt) => uploader.enqueue("audio", piece, startedAt));
   } catch (error) {
     log(`the browser could not open the call: ${error}`);
     return fail("LAUNCH_FAILED");

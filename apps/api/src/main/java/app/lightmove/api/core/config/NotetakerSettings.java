@@ -39,5 +39,7 @@ public record NotetakerSettings(
         /** One captured piece, at most: 30 seconds of Opus audio is about 120 KB. */
         @DefaultValue("8388608") long maxMediaBytes,
         /** How long a failed run's pieces are kept to look into before they are deleted. */
-        @DefaultValue("7d") Duration failedMediaRetention
+        @DefaultValue("7d") Duration failedMediaRetention,
+        /** How often a call's audio is transcribed while it goes, so its note comes soon after it ends. */
+        @DefaultValue("5m") Duration transcribeEvery
 ) {}

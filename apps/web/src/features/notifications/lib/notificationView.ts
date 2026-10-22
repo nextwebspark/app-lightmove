@@ -50,7 +50,13 @@ const CONTACT_SECTION_OF: Partial<Record<NotificationKind, DrawerSection>> = {
  * Candidates page; else My positions.
  */
 export function notificationHref(notification: NotificationResponse): string {
-  if (!notification.projectId) return "/";
+  if (!notification.projectId) {
+    // A recorded call's note about no position lives on the person, on the Candidates page.
+    if (notification.personId && notification.note) {
+      return `/candidates?person=${encodeURIComponent(notification.personId)}&tab=notes`;
+    }
+    return "/";
+  }
   const pipeline = `/projects/${notification.projectId}/pipeline`;
   if (!notification.candidateId) {
     if (!notification.personId) return pipeline;
