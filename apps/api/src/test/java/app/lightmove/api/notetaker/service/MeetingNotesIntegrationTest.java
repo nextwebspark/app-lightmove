@@ -139,13 +139,31 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
         assertThat(told).contains("Title: Group CFO", "Capital markets", "[email removed]")
                 .doesNotContain("priya.private@example.com");
 
-        String meetingId = meetingIdOf(priya);
-        JsonNode transcript = body(as(consultant, get(meetings(priya) + "/" + meetingId + "/transcript"))
+        JsonNode transcript = body(as(consultant, get(transcript(projectId, priya, run)))
                 .andExpect(status().isOk()).andReturn());
         assertThat(transcript.get("complete").asBoolean()).isTrue();
+        assertThat(transcript.get("joinedAt").isNull()).isFalse();
+        assertThat(transcript.get("consultantName").isNull()).isFalse();
         assertThat(transcript.get("lines").findValuesAsString("speaker")).contains("Priya Raman", "Yara Haddad");
+        assertThat(transcript.get("lines").get(0).get("named").asBoolean()).isTrue();
+        JsonNode onTheCall = body(as(consultant, get(meetings(priya) + "/notetaker")).andExpect(status().isOk())
+                .andReturn()).get("meetings").get(0);
+        assertThat(onTheCall.get("transcriptHere").asBoolean()).isTrue();
+        assertThat(onTheCall.get("notesElsewhere").asBoolean()).isFalse();
+        assertThat(onTheCall.get("noteId").asText()).isEqualTo(recording.get("note_id").toString());
+        assertThat(onTheCall.get("joinedAt").isNull()).isFalse();
+
+        // A calendar read that deletes the meeting row leaves the note's transcript where the note can still reach it.
+        jdbc.update("delete from app_lm_person_meeting where person_id = ?::uuid", personId);
+        JsonNode afterTheRead = body(as(consultant, get(meetings(priya) + "/notetaker")).andExpect(status().isOk())
+                .andReturn());
+        assertThat(afterTheRead.get("meetings")).isEmpty();
+        assertThat(afterTheRead.get("recordings").get(0).get("noteId").asText())
+                .isEqualTo(recording.get("note_id").toString());
+        as(consultant, get(transcript(projectId, priya, run))).andExpect(status().isOk());
+        // Every read is audited, the second as the first.
         assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where workspace_id = ?::uuid "
-                + "and event_type = 'NOTETAKER_TRANSCRIPT_READ'", Integer.class, workspaceId)).isEqualTo(1);
+                + "and event_type = 'NOTETAKER_TRANSCRIPT_READ'", Integer.class, workspaceId)).isEqualTo(2);
 
         // Handed the same run again, nothing new is written.
         processor.work(UUID.fromString(run));
@@ -275,11 +293,25 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
         botCall(launch.recordingId().toString(), "status", launch.runToken(), "{\"state\":\"RECORDING\"}")
                 .andExpect(status().isNoContent());
 
-        as(consultant, get(meetings(priya) + "/" + meetingIdOf(priya) + "/transcript")).andExpect(status().isOk());
+        String run = launch.recordingId().toString();
+        as(consultant, get(transcript(projectId, priya, run))).andExpect(status().isOk());
         String elsewhere = "/api/v1/projects/" + otherProject + "/outreach/candidates/" + priyaThere + "/meetings";
-        String meetingThere = body(as(consultant, get(elsewhere + "/notetaker")).andExpect(status().isOk())
-                .andReturn()).get("meetings").get(0).get("meetingId").asText();
-        as(consultant, get(elsewhere + "/" + meetingThere + "/transcript")).andExpect(status().isNotFound());
+        as(consultant, get(transcript(otherProject, priyaThere, run))).andExpect(status().isNotFound());
+
+        // Filed on the booked position, the other one hears that a note exists and never which, nor its words.
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}, start).andExpect(status().isNoContent());
+        botCall(run, "complete", launch.runToken(), "").andExpect(status().isNoContent());
+        assertThat(recordingRow(run).get("project_id").toString()).isEqualTo(projectId);
+        JsonNode there = body(as(consultant, get(elsewhere + "/notetaker")).andExpect(status().isOk()).andReturn())
+                .get("meetings").get(0);
+        assertThat(there.get("notesElsewhere").asBoolean()).isTrue();
+        assertThat(there.get("transcriptHere").asBoolean()).isFalse();
+        assertThat(there.get("noteId").isNull()).isTrue();
+        assertThat(body(as(consultant, get(elsewhere + "/notetaker")).andReturn()).get("recordings")).isEmpty();
+        as(consultant, get(transcript(otherProject, priyaThere, run))).andExpect(status().isNotFound());
+        // Nor may another person's drawer on this position read it.
+        String someoneElse = executive(projectId, "Omar Khalil", "omar@" + domain, "omar-khalil-" + System.nanoTime());
+        as(consultant, get(transcript(projectId, someoneElse, run))).andExpect(status().isNotFound());
     }
 
     @Test
@@ -399,6 +431,11 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
     private String personOf(String candidateId) throws Exception {
         return body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + candidateId))
                 .andReturn()).get("personId").asText();
+    }
+
+    private static String transcript(String onProject, String candidateId, String runId) {
+        return "/api/v1/projects/" + onProject + "/outreach/candidates/" + candidateId + "/notetaker/recordings/"
+                + runId + "/transcript";
     }
 
     private String meetings(String candidateId) {

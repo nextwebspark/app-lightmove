@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -160,13 +161,22 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     void theBotReportsThroughItsToken() throws Exception {
         executive("Priya Raman", "priya@" + domain);
         changed(event("call-1", soon(), "priya@" + domain));
+        MvcResult stream = openStream("/api/v1/projects/" + projectId + "/stream", consultant);
+        awaitContent(stream, "event:connected");
         scheduler.scheduleAt(Instant.now());
         NotetakerLaunch launch = launchesHere().getFirst();
         String run = launch.recordingId().toString();
+        // Sending the bot is the first move the open drawer hears of: its switch stops meaning anything.
+        awaitContent(stream, "\"notetaker\"");
+        int announcedAtLaunch = stream.getResponse().getContentAsString().split("\"notetaker\"", -1).length - 1;
 
         botCall(run, "status", "wrong-token", "{\"state\":\"WAITING_ROOM\"}").andExpect(status().isNotFound());
         botCall(run, "status", launch.runToken(), "{\"state\":\"WAITING_ROOM\"}").andExpect(status().isNoContent());
         assertThat(recordingRow().get("status")).isEqualTo("WAITING_ROOM");
+        // The open drawer's chip follows the bot: its position's stream hears every move of its status.
+        Awaitility.await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(
+                stream.getResponse().getContentAsString().split("\"notetaker\"", -1).length - 1)
+                .isGreaterThan(announcedAtLaunch));
         botCall(run, "status", launch.runToken(), "{\"state\":\"RECORDING\"}").andExpect(status().isNoContent());
         assertThat(body(botCall(run, "heartbeat", launch.runToken(), "{}").andExpect(status().isOk()).andReturn())
                 .get("leave").asBoolean()).isFalse();

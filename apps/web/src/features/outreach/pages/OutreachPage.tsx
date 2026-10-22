@@ -20,7 +20,7 @@ import { MailboxSetupCard } from "../components/MailboxSetupCard";
 import { NewEmailButton } from "../components/NewEmailButton";
 import { OutreachHeader } from "../components/OutreachHeader";
 import { mailboxStateOf, type MailboxState } from "../lib/mailboxState";
-import { refreshOutreachActivity } from "../lib/outreachRefresh";
+import { refreshNotetaker, refreshOutreachActivity } from "../lib/outreachRefresh";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect, type MailboxConnect } from "../lib/useMailboxConnect";
 
@@ -56,6 +56,7 @@ export function OutreachPage() {
   const streamIsLive = useProjectStream(project.id, (kinds) => {
     if (kinds.includes("outreach") || kinds.includes("task")) refreshOutreachActivity(queryClient, project.id);
     if (kinds.includes("task")) void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
+    if (kinds.includes("notetaker")) refreshNotetaker(queryClient, project.id);
   });
   const refreshMs = streamIsLive ? LIVE_SAFETY_REFRESH_MS : CONVERSATION_REFRESH_MS;
 

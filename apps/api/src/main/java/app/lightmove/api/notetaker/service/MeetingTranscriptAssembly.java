@@ -57,7 +57,8 @@ final class MeetingTranscriptAssembly {
         Map<String, String> names = namesOf(piece.startedAt(), kept, captions);
         return kept.stream()
                 .map(line -> new TranscriptLine(piece.startedAt().plusMillis(line.offsetMillis()),
-                        names.getOrDefault(line.speakerLabel(), line.speakerLabel()), line.text()))
+                        names.getOrDefault(line.speakerLabel(), line.speakerLabel()), line.text(),
+                        names.containsKey(line.speakerLabel())))
                 .toList();
     }
 

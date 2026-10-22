@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +43,7 @@ public class CandidateMeetingNotes {
     private final ProjectRepository projects;
     private final ProjectAccess projectAccess;
     private final PersonActivityRecorder recorder;
+    private final JdbcTemplate jdbc;
 
     /**
      * The position a call booked through Book a call (or its link) was booked on, read off the booking's timeline
@@ -52,6 +54,18 @@ public class CandidateMeetingNotes {
         return activity.findPositionOfCallAt(workspaceId, personId, startsAt)
                 .filter(projectId -> workable(userId, workspaceId, List.of(projectId)).contains(projectId))
                 .filter(this::isLive);
+    }
+
+    /**
+     * Every live position mapping this person, whoever works it: where a call's bot is announced. Plain SQL, since an
+     * entity listener asks it in the middle of a flush, where a JPA query would flush again.
+     */
+    public List<UUID> livePositionsMapping(UUID workspaceId, UUID personId) {
+        return jdbc.queryForList("""
+                SELECT DISTINCT candidate.project_id FROM app_lm_project_candidate candidate
+                JOIN app_lm_project project ON project.id = candidate.project_id
+                WHERE candidate.person_id = ? AND project.workspace_id = ? AND project.archived_at IS NULL""",
+                UUID.class, personId, workspaceId);
     }
 
     /** The live positions mapping this person that the consultant may work. */

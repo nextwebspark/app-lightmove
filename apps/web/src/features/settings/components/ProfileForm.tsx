@@ -24,12 +24,15 @@ export function ProfileForm({
   roles,
   defaultValues,
   onSave,
+  beforeSave = null,
 }: {
   /** Read-only: the address is the identity, and changing it is a flow rather than a field. */
   email: string;
   roles: WorkspaceRole[];
   defaultValues: ProfileValues;
   onSave: (values: ProfileValues) => Promise<void>;
+  /** A setting that saves itself, drawn above Save changes: it is the profile's, but no field of this form. */
+  beforeSave?: ReactNode;
 }) {
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -140,6 +143,8 @@ export function ProfileForm({
           </Select>
         </Field>
       </div>
+
+      {beforeSave}
 
       <div className="mt-5 flex justify-end">
         <Button type="submit" loading={isSubmitting}>

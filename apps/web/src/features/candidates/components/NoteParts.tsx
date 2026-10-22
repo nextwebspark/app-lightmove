@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui";
@@ -125,6 +125,7 @@ export function NoteCard({
   actions,
   teammates = null,
   flashAt = null,
+  footer = null,
 }: {
   note: NoteCardNote;
   actions?: NoteCardActions;
@@ -135,6 +136,8 @@ export function NoteCard({
    * wash is its own element so the card keeps its identity, and with it the keyboard focus it was given.
    */
   flashAt?: number | null;
+  /** Drawn under the words: what filed the note, where something did (a recorded call's transcript). */
+  footer?: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
@@ -226,6 +229,7 @@ export function NoteCard({
       ) : (
         <NoteText body={note.body} format={note.format} className="mt-1.5 text-[13px]/[1.55] text-u-text2" />
       )}
+      {!editing && footer}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
         {note.projectTitle ? (
           <span>About {note.projectTitle}</span>

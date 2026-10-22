@@ -24,20 +24,20 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** The Notetaker on an executive's meetings. {@code WORK_EXECUTE}, like the meetings themselves. */
 @RestController
-@RequestMapping("/api/v1/projects/{projectId}/outreach/candidates/{candidateId}/meetings")
+@RequestMapping("/api/v1/projects/{projectId}/outreach/candidates/{candidateId}")
 @RequiredArgsConstructor
 public class NotetakerMeetingController {
 
     private final NotetakerMeetingService notetaker;
 
-    @GetMapping("/notetaker")
+    @GetMapping("/meetings/notetaker")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public NotetakerMeetingsResponse list(@AuthenticationPrincipal AuthPrincipal principal,
                                           @PathVariable UUID projectId, @PathVariable UUID candidateId) {
         return notetaker.of(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId);
     }
 
-    @PutMapping("/{meetingId}/notetaker")
+    @PutMapping("/meetings/{meetingId}/notetaker")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void change(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
@@ -47,17 +47,18 @@ public class NotetakerMeetingController {
                 request.enabled(), httpRequest);
     }
 
-    @GetMapping("/{meetingId}/transcript")
+    /** By the recording, not its meeting: a calendar read may delete the meeting row while the note stands. */
+    @GetMapping("/notetaker/recordings/{recordingId}/transcript")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public NotetakerTranscriptResponse transcript(@AuthenticationPrincipal AuthPrincipal principal,
                                                   @PathVariable UUID projectId, @PathVariable UUID candidateId,
-                                                  @PathVariable UUID meetingId, HttpServletRequest httpRequest) {
+                                                  @PathVariable UUID recordingId, HttpServletRequest httpRequest) {
         return notetaker.transcript(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                meetingId, httpRequest);
+                recordingId, httpRequest);
     }
 
     /** Make a failed call's note again. */
-    @PostMapping("/{meetingId}/notetaker/retry")
+    @PostMapping("/meetings/{meetingId}/notetaker/retry")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     @ResponseStatus(HttpStatus.ACCEPTED)
     public void retry(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
@@ -66,7 +67,7 @@ public class NotetakerMeetingController {
                 httpRequest);
     }
 
-    @PostMapping("/{meetingId}/notetaker/remove")
+    @PostMapping("/meetings/{meetingId}/notetaker/remove")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void remove(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,

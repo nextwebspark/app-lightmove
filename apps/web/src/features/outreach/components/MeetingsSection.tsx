@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -11,14 +11,17 @@ import * as meetingApi from "../api/meetingApi";
 import type { Meeting } from "../api/meetingApi";
 import { dateTileOf, meetingWhenOf, shortDateOf } from "../lib/meetingTimes";
 import { useMailbox } from "../lib/useMailbox";
+import { useNotetaker } from "../lib/useNotetaker";
 import { BookCallDialog } from "./BookCallDialog";
+import { NotetakerOffNotice, PastNotetaker, UpcomingNotetaker } from "./NotetakerControls";
 import { ZoomConnectControl } from "./ZoomConnectControl";
 
 /**
  * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
  * connected calendars, and Book a call from the consultant's own. Always open, unlike the folds below
  * it. Staff-only; Book a call is never offered for someone marked do not contact. A call booked in Uncava on
- * the consultant's own calendar can be moved or cancelled from its row (`editable`, the server's say).
+ * the consultant's own calendar can be moved or cancelled from its row (`editable`, the server's say). Uncava
+ * Notetaker rides each call where the deployment offers it (`Position.dc.html`'s Meetings).
  */
 export function MeetingsSection({
   projectId,
@@ -44,6 +47,7 @@ export function MeetingsSection({
     queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
   });
   const mailbox = useMailbox();
+  const notetaker = useNotetaker(projectId, candidateId, meetings.data?.upcoming ?? []);
   const queryClient = useQueryClient();
   const toast = useToast();
   const [isBooking, setIsBooking] = useState(false);
@@ -57,6 +61,10 @@ export function MeetingsSection({
   const hasActiveMailbox = mailbox.data?.offered === true && mailbox.data.connection?.status === "ACTIVE";
   const canBook = hasActiveMailbox && record.isSuccess && !record.data.doNotContact && emails.length > 0;
   const canReschedule = hasActiveMailbox && record.isSuccess && !record.data.doNotContact;
+  const hasJoinableCall = upcoming.some((meeting) => {
+    const call = notetaker.of(meeting.id);
+    return call !== null && call.joinable && call.status === null && new Date(meeting.startsAt).getTime() > Date.now();
+  });
 
   const cancel = useMutation({
     mutationFn: (meeting: Meeting) => meetingApi.cancelMeeting(projectId, candidateId, meeting.id),
@@ -99,6 +107,8 @@ export function MeetingsSection({
         <p className="text-[12.5px]/[1.5] text-u-text3">No meetings with {firstName} on your team's calendars yet.</p>
       ) : null}
 
+      {notetaker.data && <NotetakerOffNotice notetaker={notetaker.data} hasJoinableCall={hasJoinableCall} />}
+
       {upcoming.length > 0 && (
         <>
           <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">Upcoming</div>
@@ -108,6 +118,18 @@ export function MeetingsSection({
               meeting={meeting}
               onReschedule={meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined}
               onCancel={meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined}
+              notetaker={
+                notetaker.data && (
+                  <UpcomingNotetaker
+                    projectId={projectId}
+                    candidateId={candidateId}
+                    meeting={meeting}
+                    notetaker={notetaker.of(meeting.id)}
+                    standing={notetaker.data}
+                    joinsLine={notetaker.joinsLine}
+                  />
+                )
+              }
             />
           ))}
         </>
@@ -129,6 +151,14 @@ export function MeetingsSection({
                   <span className="font-mono text-[11.5px] text-u-text3"> · {meeting.ownerName}</span>
                 )}
               </span>
+              {notetaker.data && (
+                <PastNotetaker
+                  projectId={projectId}
+                  candidateId={candidateId}
+                  meeting={meeting}
+                  notetaker={notetaker.of(meeting.id)}
+                />
+              )}
             </div>
           ))}
         </>
@@ -188,10 +218,12 @@ function UpcomingMeeting({
   meeting,
   onReschedule,
   onCancel,
+  notetaker,
 }: {
   meeting: Meeting;
   onReschedule?: () => void;
   onCancel?: () => void;
+  notetaker?: ReactNode;
 }) {
   const tile = dateTileOf(meeting.startsAt);
   const when = meetingWhenOf(meeting.startsAt, meeting.endsAt);
@@ -226,6 +258,7 @@ function UpcomingMeeting({
             )}
           </span>
         )}
+        {notetaker}
       </span>
       {meeting.joinUrl && (
         <a

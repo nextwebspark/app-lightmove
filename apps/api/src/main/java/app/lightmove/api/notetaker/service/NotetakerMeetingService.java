@@ -9,7 +9,10 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
+import app.lightmove.api.notetaker.dto.FiledRecordingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerMeetingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerMeetingsResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
@@ -58,6 +61,7 @@ public class NotetakerMeetingService {
     private final LlmBudgetGuard llmBudget;
     private final MeetingPositionRule positionRule;
     private final MeetingMediaPieces pieces;
+    private final UserRepository users;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -69,10 +73,16 @@ public class NotetakerMeetingService {
                 : recordings.findByWorkspaceIdAndCallKeyIn(workspaceId, calls.keySet()).stream()
                         .collect(Collectors.toMap(MeetingRecording::getCallKey, Function.identity()));
         List<NotetakerMeetingResponse> responses = rows.stream()
-                .map(row -> responseOf(row, calls, recordingsByCall))
+                .map(row -> responseOf(row, projectId, calls, recordingsByCall))
+                .toList();
+        List<FiledRecordingResponse> filed = recordings
+                .findByWorkspaceIdAndPersonIdAndNoteIdIsNotNull(workspaceId, recipient.personId()).stream()
+                .filter(recording -> filedUnder(recording, projectId))
+                .map(recording -> new FiledRecordingResponse(recording.getId(), recording.getNoteId(),
+                        recording.getRecordedUntil()))
                 .toList();
         return new NotetakerMeetingsResponse(properties.notetaker().enabled(), switches.workspaceAllows(workspaceId),
-                switches.userAllows(userId, workspaceId), responses);
+                switches.userAllows(userId, workspaceId), responses, filed);
     }
 
     /**
@@ -133,21 +143,30 @@ public class NotetakerMeetingService {
     }
 
     /**
-     * The call's transcript, read from the executive's drawer on a position. A call filed under another position
-     * reads as not found here, as that position's note does.
+     * A call's transcript, read from the executive's drawer on a position by the recording — never through its meeting
+     * row, which a calendar read may delete while the note stands. A call filed under another position reads as not
+     * found here, as that position's note does.
      */
     public NotetakerTranscriptResponse transcript(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
-                                                  UUID meetingId, HttpServletRequest httpRequest) {
-        MeetingRecording recording = requireRecordingOf(userId, workspaceId, projectId, candidateId, meetingId);
+                                                  UUID recordingId, HttpServletRequest httpRequest) {
+        OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        MeetingRecording recording = recordings.findById(recordingId)
+                .filter(found -> found.getWorkspaceId().equals(workspaceId))
+                .filter(found -> recipient.personId().equals(found.getPersonId()))
+                .filter(found -> found.getJoinedAt() != null)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        requireReadable(recording, userId, projectId);
         List<TranscriptLineResponse> lines = notesProcessor.transcriptOf(recording.getId()).stream()
-                .map(line -> new TranscriptLineResponse(line.at(), line.speaker(), line.text()))
+                .map(line -> new TranscriptLineResponse(line.at(), line.speaker(), line.text(), line.named()))
                 .toList();
         audit.projectEvent(ProjectEventType.NOTETAKER_TRANSCRIPT_READ, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("recordingId", recording.getId().toString())
                 .record();
+        String consultant = users.findById(recording.getUserId()).map(User::getFullName).orElse(null);
         return new NotetakerTranscriptResponse(recording.getId(), recording.getStatus(),
-                recording.getStatus() == NotetakerStatus.DONE, recording.getRecordedUntil(), lines);
+                recording.getStatus() == NotetakerStatus.DONE, recording.getTitle(), recording.getStartsAt(),
+                recording.getEndsAt(), recording.getJoinedAt(), consultant, recording.getRecordedUntil(), lines);
     }
 
     /** Try again, for a call whose note could not be made: a press, metered like any other model press. */
@@ -188,6 +207,11 @@ public class NotetakerMeetingService {
                         NotetakerCallEligibility.callKeyOf(meeting))
                 .filter(found -> found.getJoinedAt() != null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        requireReadable(recording, userId, projectId);
+        return recording;
+    }
+
+    private void requireReadable(MeetingRecording recording, UUID userId, UUID projectId) {
         boolean filed = recording.getNoteId() != null;
         UUID belongsTo = filed ? recording.getProjectId()
                 : transactions.execute(status -> positionRule.positionOf(recording)).orElse(null);
@@ -196,7 +220,12 @@ public class NotetakerMeetingService {
         if (!readable) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
-        return recording;
+    }
+
+    /** Its note is filed under this position, or about the person, which every position reads. */
+    private static boolean filedUnder(MeetingRecording recording, UUID projectId) {
+        return recording.getNoteId() != null
+                && (recording.getProjectId() == null || projectId.equals(recording.getProjectId()));
     }
 
     private void tellToLeave(Optional<String> externalId) {
@@ -232,18 +261,24 @@ public class NotetakerMeetingService {
         return callsAround(meeting.workspaceId(), List.of(meeting)).get(NotetakerCallEligibility.callKeyOf(meeting));
     }
 
-    private static NotetakerMeetingResponse responseOf(KeptMeeting row, Map<String, NotetakerCall> calls,
+    private static NotetakerMeetingResponse responseOf(KeptMeeting row, UUID projectId,
+                                                       Map<String, NotetakerCall> calls,
                                                        Map<String, MeetingRecording> recordingsByCall) {
         String callKey = row.joinUrl() == null ? null : NotetakerCallEligibility.callKeyOf(row);
         NotetakerCall call = callKey == null ? null : calls.get(callKey);
         MeetingRecording recording = callKey == null ? null : recordingsByCall.get(callKey);
+        boolean filed = recording != null && recording.getNoteId() != null;
+        boolean filedHere = recording != null && filedUnder(recording, projectId);
         return new NotetakerMeetingResponse(row.id(), call == null ? null : call.platform(),
                 call != null && call.joinable(),
                 call == null || call.meetingAllows(),
                 recording == null ? null : recording.getId(),
                 recording == null ? null : recording.getStatus(),
                 recording == null ? null : recording.getEndReason(),
-                recording == null ? null : recording.getRecorder());
+                recording == null ? null : recording.getRecorder(),
+                recording == null ? null : recording.getJoinedAt(),
+                recording == null ? null : recording.getRecordedUntil(),
+                filedHere, filedHere ? recording.getNoteId() : null, filed && !filedHere);
     }
 
     private KeptMeeting requireMeeting(UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId) {
