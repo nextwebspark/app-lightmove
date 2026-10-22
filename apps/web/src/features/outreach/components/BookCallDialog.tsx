@@ -13,13 +13,17 @@ import type { Meeting, MeetingVideo } from "../api/meetingApi";
 import { meetingWhenOf, slotDayLabelOf, slotTimeOf } from "../lib/meetingTimes";
 import { SlotDayTiles, SlotGroup, SlotPager } from "./BookCallTimes";
 
-type Length = "15" | "30" | "45";
+type Length = "15" | "30" | "45" | "60" | "90";
 
 const LENGTHS: { value: Length; label: string }[] = [
   { value: "15", label: "15 min" },
   { value: "30", label: "30 min" },
   { value: "45", label: "45 min" },
+  { value: "60", label: "1 hr" },
+  { value: "90", label: "1.5 hr" },
 ];
+
+const OFFERED_LENGTHS = new Intl.ListFormat("en", { type: "disjunction" }).format(LENGTHS.map((option) => option.label));
 
 const VIDEO_LINKS: { value: MeetingVideo; label: string }[] = [
   { value: "GOOGLE_MEET", label: "Google Meet" },
@@ -262,13 +266,19 @@ export function BookCallDialog({
             <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
               Length
             </span>
-            <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={handleLengthChange} />
+            <SegmentedControl
+              label="Length"
+              options={LENGTHS}
+              value={length}
+              onChange={handleLengthChange}
+              className="max-w-full flex-wrap"
+            />
           </div>
           {meeting ? (
             <p className="text-note text-u-text3">
               Now {meetingWhenOf(meeting.startsAt, meeting.endsAt)}. {firstName} is sent the new time; the title
               {meeting.videoProvider ? ` and the ${meeting.videoProvider} link stay` : " stays"} as booked.
-              {!isOfferedLength(meeting) && ` It was booked for ${minutesOf(meeting)} min; a moved call is 15, 30 or 45.`}
+              {!isOfferedLength(meeting) && ` It was booked for ${minutesOf(meeting)} min; a moved call is ${OFFERED_LENGTHS}.`}
             </p>
           ) : (
             <>

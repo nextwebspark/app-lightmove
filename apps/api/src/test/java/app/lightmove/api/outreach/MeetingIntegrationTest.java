@@ -31,6 +31,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -186,6 +187,26 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an interview may run an hour or an hour and a half")
+    void aCallMayRunUpToAnHourAndAHalf() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = firstFreeSlot(priya, 90);
+
+        book(priya, slot, 90, "priya@" + domain).andExpect(status().isNoContent());
+
+        Instant callEnds = slot.plus(Duration.ofMinutes(90));
+        assertThat(gateway.created().getFirst().endsAt()).isEqualTo(callEnds);
+
+        gateway.busyAt(List.of(new BusyInterval(slot, callEnds)));
+        JsonNode hourLong = body(as(consultant, get(meetings(priya) + "/slots").param("minutes", "60")).andReturn());
+        List<Instant> offered = new ArrayList<>();
+        hourLong.get("days").forEach(day -> day.get("starts").forEach(start -> offered.add(Instant.parse(start.asText()))));
+        assertThat(offered).isNotEmpty().noneMatch(start ->
+                start.isBefore(callEnds) && start.plus(Duration.ofMinutes(60)).isAfter(slot));
+    }
+
+    @Test
     @DisplayName("nothing is booked for someone marked do not contact, at an address not on file, or in a taken slot")
     void bookingRefusesWhatItShouldNot() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -196,6 +217,8 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(book(priya, slot, 30, "someone@else.example").andExpect(status().isBadRequest())
                 .andReturn())).isEqualTo("OUTREACH_ADDRESS_NOT_ON_FILE");
         assertThat(codeOf(book(priya, slot, 20, "priya@" + domain).andExpect(status().isBadRequest())
+                .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
+        assertThat(codeOf(book(priya, slot, 120, "priya@" + domain).andExpect(status().isBadRequest())
                 .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
         assertThat(codeOf(book(priya, slot.plus(Duration.ofMinutes(10)), 30, "priya@" + domain)
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("MEETING_SLOT_INVALID");
