@@ -3,7 +3,10 @@
 -- When each audio piece began, by the bot's clock: pieces overlap by a second and may arrive out of order, so the
 -- transcript is stitched on this rather than on the upload's number. Null on a captions piece.
 ALTER TABLE app_lm_meeting_recording_media
-    ADD COLUMN started_at timestamptz;
+    ADD COLUMN started_at timestamptz,
+    -- Passes that could not transcribe this piece; past a few it is given up as a gap, so one bad piece never
+    -- holds back the call's note.
+    ADD COLUMN transcribe_attempts integer NOT NULL DEFAULT 0;
 
 -- What the transcriber heard in each audio piece, written as the call goes (every few minutes) and kept with its
 -- own voice labels, so speakers are named from the captions again whenever the transcript is assembled. Its audio
@@ -13,6 +16,8 @@ CREATE TABLE app_lm_meeting_transcript_piece (
     sequence       integer     NOT NULL,
     started_at     timestamptz NOT NULL,
     lines          jsonb       NOT NULL,
+    -- A piece given up after its tries: no lines, and the note says part of the call is missing.
+    skipped        boolean     NOT NULL DEFAULT false,
     transcribed_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (recording_id, sequence)
 );

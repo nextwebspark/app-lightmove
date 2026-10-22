@@ -64,7 +64,8 @@ public class NotetakerScheduler {
             log.error("Notetaker media purge failed; launching anyway", failed);
         }
         try {
-            notesDue(now).forEach(notesWorker::workOn);
+            Instant claim = NotetakerWorkClaims.claimOf(now);
+            notesDue(now).forEach(recordingId -> notesWorker.workOnClaimed(recordingId, claim));
         } catch (RuntimeException failed) {
             log.error("Notetaker transcription pass failed; launching anyway", failed);
         }
@@ -100,7 +101,7 @@ public class NotetakerScheduler {
     }
 
     private List<UUID> notesDue(Instant now) {
-        return workClaims.due(now.minus(properties.notetaker().transcribeEvery()),
+        return workClaims.claimDue(now, now.minus(properties.notetaker().transcribeEvery()),
                 now.minus(MeetingNotesProcessor.STALE_CLAIM), RUNS_WORKED_PER_PASS);
     }
 }

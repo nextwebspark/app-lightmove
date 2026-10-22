@@ -3,6 +3,7 @@ package app.lightmove.api.notetaker.service;
 import app.lightmove.api.notetaker.model.CompetencyEvidence;
 import app.lightmove.api.notetaker.model.MeetingSummary;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * The Meeting note's body, written from the summary by code rather than by the model: the headings are always the
@@ -12,15 +13,26 @@ final class MeetingNoteMarkdown {
 
     /** {@code PersonNote}'s limit, less room for the marker that says the note was cut. */
     static final int LONGEST_BODY = 9_900;
+    private static final String WORD_JOINER = "\u2060";
+    /** {@code ://}, {@code www.} and {@code @}: what GFM's extended autolinks start from. */
+    private static final Pattern LINK_TRIGGER = Pattern.compile("(?i)(:|www|@)(//|\\.|(?<=@))");
 
     private MeetingNoteMarkdown() {
     }
 
-    /** {@code stoppedAt} is the local time a partial recording stopped, null for a whole call. */
-    static String of(MeetingSummary summary, String stoppedAt) {
+    /**
+     * {@code stoppedAt} is the local time a recording that stopped early stopped, null for a whole call;
+     * {@code missingMinutes} is how much of what was recorded could not be transcribed.
+     */
+    static String of(MeetingSummary summary, String stoppedAt, int missingMinutes) {
         StringBuilder body = new StringBuilder();
         if (stoppedAt != null) {
             body.append("**Partial — recording stopped at ").append(stoppedAt).append("**\n\n");
+        }
+        if (missingMinutes > 0) {
+            body.append("**Partial — about ").append(missingMinutes)
+                    .append(missingMinutes == 1 ? " minute" : " minutes")
+                    .append(" of the call could not be transcribed**\n\n");
         }
         body.append(escape(summary.overview())).append("\n");
         section(body, "Key points", summary.keyPoints());
@@ -71,17 +83,27 @@ final class MeetingNoteMarkdown {
         }
     }
 
-    /** Brackets make links and mentions, and a line-leading mark makes a heading or a list. */
+    /**
+     * Brackets make links and mentions, and a line-leading mark or number makes a heading or a list. GFM also links
+     * a bare {@code https://…}, {@code www.…} or address with no brackets at all, and reads its triggers after
+     * escapes are resolved, so each is broken with a word joiner instead: the words read the same, and link nowhere.
+     */
     static String escape(String text) {
         String flat = text.replace('\n', ' ').replace('\r', ' ').strip();
         StringBuilder escaped = new StringBuilder(flat.length());
+        int leadingDigits = 0;
+        while (leadingDigits < flat.length() && Character.isDigit(flat.charAt(leadingDigits))) {
+            leadingDigits++;
+        }
         for (int index = 0; index < flat.length(); index++) {
             char character = flat.charAt(index);
-            if ("\\[]<>*_`~|".indexOf(character) >= 0 || (index == 0 && "#+-=>".indexOf(character) >= 0)) {
+            boolean listNumberEnd = index > 0 && index == leadingDigits && (character == '.' || character == ')');
+            if ("\\[]<>*_`~|".indexOf(character) >= 0 || (index == 0 && "#+-=>".indexOf(character) >= 0)
+                    || listNumberEnd) {
                 escaped.append('\\');
             }
             escaped.append(character);
         }
-        return escaped.toString();
+        return LINK_TRIGGER.matcher(escaped).replaceAll("$1" + WORD_JOINER + "$2");
     }
 }

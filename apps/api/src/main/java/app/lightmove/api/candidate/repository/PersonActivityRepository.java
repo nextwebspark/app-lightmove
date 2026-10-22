@@ -62,8 +62,9 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
     @Query(value = """
             SELECT project_id FROM app_lm_person_activity
             WHERE workspace_id = :workspaceId AND person_id = :personId AND project_id IS NOT NULL
-              AND kind IN ('MEETING_BOOKED', 'MEETING_RESCHEDULED') AND details ->> 'startsAt' = :startsAt
+              AND kind IN ('MEETING_BOOKED', 'MEETING_RESCHEDULED')
+              AND (details ->> 'startsAt')::timestamptz = :startsAt
             ORDER BY id DESC LIMIT 1
             """, nativeQuery = true)
-    Optional<UUID> findPositionOfCallAt(UUID workspaceId, UUID personId, String startsAt);
+    Optional<UUID> findPositionOfCallAt(UUID workspaceId, UUID personId, Instant startsAt);
 }

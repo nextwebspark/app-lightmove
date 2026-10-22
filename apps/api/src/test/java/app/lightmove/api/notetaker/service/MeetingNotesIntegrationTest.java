@@ -11,6 +11,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingMeetingRecorder;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.core.storage.service.DocumentStore;
 import app.lightmove.api.notetaker.controller.NotetakerRunController;
 import app.lightmove.api.notetaker.model.NotetakerLaunch;
 import app.lightmove.api.outreach.model.CalendarEvent;
@@ -65,6 +66,7 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
     @Autowired private MeetingNotesProcessor processor;
     @Autowired private StubChatModel chat;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private DocumentStore store;
 
     private String grantId;
     private String consultant;
@@ -223,6 +225,78 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
 
         assertThat(recordingRow(run).get("status")).isEqualTo("DONE");
         assertThat(codeOf(as(consultant, post(meetings(priya) + "/" + meetingId + "/notetaker/retry"))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("NOTETAKER_NOT_RETRYABLE");
+    }
+
+    @Test
+    @DisplayName("a piece no pass can hear is given up as a gap, and the note still goes out, saying so")
+    void anUnheardPieceIsAGap() throws Exception {
+        executive(projectId, "Priya Raman", "priya@" + domain, "priya-raman-" + System.nanoTime());
+        Instant start = soon();
+        changed(event("call-1", start, "priya@" + domain));
+        scheduler.scheduleAt(start.minus(Duration.ofMinutes(1)));
+        NotetakerLaunch launch = launchesHere().getLast();
+        String run = launch.recordingId().toString();
+        botCall(run, "status", launch.runToken(), "{\"state\":\"RECORDING\"}").andExpect(status().isNoContent());
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}, start).andExpect(status().isNoContent());
+        upload(run, "audio", 2, launch.runToken(), new byte[] {4, 5, 6}, start.plusSeconds(30))
+                .andExpect(status().isNoContent());
+        // The second piece's file is unreadable from here on: every pass fails on it.
+        store.delete("notetaker/%s/audio-00002.webm".formatted(run));
+        botCall(run, "complete", launch.runToken(), "").andExpect(status().isNoContent());
+
+        for (int pass = 0; pass < MeetingNotesProcessor.PIECE_ATTEMPTS; pass++) {
+            assertThat(recordingRow(run).get("status")).isEqualTo("PROCESSING");
+            scheduler.scheduleAt(Instant.now());
+        }
+
+        Map<String, Object> recording = recordingRow(run);
+        assertThat(recording.get("status")).isEqualTo("DONE");
+        assertThat(jdbc.queryForObject("select body from app_lm_person_note where id = ?::uuid", String.class,
+                recording.get("note_id").toString()))
+                .startsWith("**Partial — about 1 minute of the call could not be transcribed**");
+    }
+
+    @Test
+    @DisplayName("until its note is filed, a call's transcript reads only from the position the rule gives it")
+    void theTranscriptStaysOnItsPosition() throws Exception {
+        String slug = "priya-raman-" + System.nanoTime();
+        String priya = executive(projectId, "Priya Raman", "priya@" + domain, slug);
+        String otherProject = mandate("Group Treasurer");
+        String priyaThere = executive(otherProject, "Priya Raman", "priya@" + domain, slug);
+        Instant start = soon();
+        jdbc.update("""
+                insert into app_lm_person_activity (workspace_id, person_id, project_id, kind, details)
+                values (?::uuid, ?::uuid, ?::uuid, 'MEETING_BOOKED', jsonb_build_object('startsAt', ?::text))""",
+                workspaceId, personOf(priya), projectId, start.toString());
+        changed(event("call-1", start, "priya@" + domain));
+        scheduler.scheduleAt(Instant.now());
+        NotetakerLaunch launch = launchesHere().getFirst();
+        botCall(launch.recordingId().toString(), "status", launch.runToken(), "{\"state\":\"RECORDING\"}")
+                .andExpect(status().isNoContent());
+
+        as(consultant, get(meetings(priya) + "/" + meetingIdOf(priya) + "/transcript")).andExpect(status().isOk());
+        String elsewhere = "/api/v1/projects/" + otherProject + "/outreach/candidates/" + priyaThere + "/meetings";
+        String meetingThere = body(as(consultant, get(elsewhere + "/notetaker")).andExpect(status().isOk())
+                .andReturn()).get("meetings").get(0).get("meetingId").asText();
+        as(consultant, get(elsewhere + "/" + meetingThere + "/transcript")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Try again is refused once a failed call's pieces are past their retention")
+    void tryAgainNeedsSomethingToHear() throws Exception {
+        String priya = executive(projectId, "Priya Raman", "priya@" + domain, "priya-raman-" + System.nanoTime());
+        chat.answerWhenSystemContains("writing the note of a call", "{\"keyPoints\":[]}");
+        Instant start = soon();
+        changed(event("call-1", start, "priya@" + domain));
+        String run = recordAndLeave(start);
+        scheduler.scheduleAt(Instant.now());
+        scheduler.scheduleAt(Instant.now());
+        assertThat(recordingRow(run).get("status")).isEqualTo("FAILED");
+
+        scheduler.scheduleAt(Instant.now().plus(Duration.ofDays(8)));
+
+        assertThat(codeOf(as(consultant, post(meetings(priya) + "/" + meetingIdOf(priya) + "/notetaker/retry"))
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("NOTETAKER_NOT_RETRYABLE");
     }
 

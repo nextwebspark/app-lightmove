@@ -56,6 +56,8 @@ public class NotetakerMeetingService {
     private final MeetingNotesProcessor notesProcessor;
     private final MeetingNotesWorker notesWorker;
     private final LlmBudgetGuard llmBudget;
+    private final MeetingPositionRule positionRule;
+    private final MeetingMediaPieces pieces;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -136,7 +138,7 @@ public class NotetakerMeetingService {
      */
     public NotetakerTranscriptResponse transcript(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                                   UUID meetingId, HttpServletRequest httpRequest) {
-        MeetingRecording recording = requireRecordingOf(workspaceId, projectId, candidateId, meetingId);
+        MeetingRecording recording = requireRecordingOf(userId, workspaceId, projectId, candidateId, meetingId);
         List<TranscriptLineResponse> lines = notesProcessor.transcriptOf(recording.getId()).stream()
                 .map(line -> new TranscriptLineResponse(line.at(), line.speaker(), line.text()))
                 .toList();
@@ -152,8 +154,9 @@ public class NotetakerMeetingService {
     public void retry(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId,
                       HttpServletRequest httpRequest) {
         requireOffered();
-        MeetingRecording found = requireRecordingOf(workspaceId, projectId, candidateId, meetingId);
-        if (!found.isRetryable()) {
+        MeetingRecording found = requireRecordingOf(userId, workspaceId, projectId, candidateId, meetingId);
+        // Past the retention its pieces are gone, and a try would spend a unit to file nothing.
+        if (!found.isRetryable() || !pieces.holdsSpeech(found.getId())) {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_RETRYABLE);
         }
         llmBudget.require(LlmBudget.MEETING_SUMMARY, userId);
@@ -170,15 +173,30 @@ public class NotetakerMeetingService {
         notesWorker.workOn(found.getId());
     }
 
-    private MeetingRecording requireRecordingOf(UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId) {
+    /**
+     * A recorded call read from {@code projectId}: the position its note was filed under, or — until it is — the one
+     * the position rule gives it. A call the rule gives no position is its consultant's alone until its note is filed
+     * about the person; read from any other position it is not found, as a note filed there would be.
+     */
+    private MeetingRecording requireRecordingOf(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                                UUID meetingId) {
         KeptMeeting meeting = requireMeeting(workspaceId, projectId, candidateId, meetingId);
         if (meeting.joinUrl() == null) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
-        return recordings.findByWorkspaceIdAndCallKey(workspaceId, NotetakerCallEligibility.callKeyOf(meeting))
-                .filter(recording -> recording.getProjectId() == null || recording.getProjectId().equals(projectId))
-                .filter(recording -> recording.getJoinedAt() != null)
+        MeetingRecording recording = recordings.findByWorkspaceIdAndCallKey(workspaceId,
+                        NotetakerCallEligibility.callKeyOf(meeting))
+                .filter(found -> found.getJoinedAt() != null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        boolean filed = recording.getNoteId() != null;
+        UUID belongsTo = filed ? recording.getProjectId()
+                : transactions.execute(status -> positionRule.positionOf(recording)).orElse(null);
+        boolean readable = belongsTo != null ? belongsTo.equals(projectId)
+                : filed || recording.getUserId().equals(userId);
+        if (!readable) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return recording;
     }
 
     private void tellToLeave(Optional<String> externalId) {

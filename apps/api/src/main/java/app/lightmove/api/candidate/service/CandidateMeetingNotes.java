@@ -45,12 +45,13 @@ public class CandidateMeetingNotes {
 
     /**
      * The position a call booked through Book a call (or its link) was booked on, read off the booking's timeline
-     * line — a moved call's latest line carries its new time.
+     * line — a moved call's latest line carries its new time — while it is live and the consultant still works it.
      */
     @Transactional(readOnly = true)
-    public Optional<UUID> positionOfBookedCall(UUID workspaceId, UUID personId, Instant startsAt) {
-        return activity.findPositionOfCallAt(workspaceId, personId, startsAt.toString())
-                .filter(projectId -> projects.findById(projectId).filter(project -> !project.isArchived()).isPresent());
+    public Optional<UUID> positionOfBookedCall(UUID userId, UUID workspaceId, UUID personId, Instant startsAt) {
+        return activity.findPositionOfCallAt(workspaceId, personId, startsAt)
+                .filter(projectId -> workable(userId, workspaceId, List.of(projectId)).contains(projectId))
+                .filter(this::isLive);
     }
 
     /** The live positions mapping this person that the consultant may work. */
@@ -60,16 +61,23 @@ public class CandidateMeetingNotes {
                 .map(Candidate::getProjectId)
                 .distinct()
                 .toList();
-        Set<UUID> workable;
-        try {
-            workable = projectAccess.projectsWithAction(userId, workspaceId, mapping, ProjectAction.WORK_EXECUTE);
-        } catch (ApiException noLongerAMember) {
-            return List.of();
-        }
+        Set<UUID> workable = workable(userId, workspaceId, mapping);
         return mapping.stream()
                 .filter(workable::contains)
-                .filter(projectId -> projects.findById(projectId).filter(project -> !project.isArchived()).isPresent())
+                .filter(this::isLive)
                 .toList();
+    }
+
+    private Set<UUID> workable(UUID userId, UUID workspaceId, List<UUID> projectIds) {
+        try {
+            return projectAccess.projectsWithAction(userId, workspaceId, projectIds, ProjectAction.WORK_EXECUTE);
+        } catch (ApiException noLongerAMember) {
+            return Set.of();
+        }
+    }
+
+    private boolean isLive(UUID projectId) {
+        return projects.findById(projectId).filter(project -> !project.isArchived()).isPresent();
     }
 
     /**

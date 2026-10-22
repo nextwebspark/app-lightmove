@@ -27,11 +27,27 @@ class MeetingTranscriptPieces {
 
     /** Transcribing a piece twice — two passes racing — keeps the first answer. */
     void store(UUID recordingId, TranscribedPiece piece) {
+        insert(recordingId, piece, false);
+    }
+
+    /** A piece no pass could hear: a gap in the transcript, which the note owns up to. */
+    void storeSkipped(UUID recordingId, int sequence, Instant startedAt) {
+        insert(recordingId, new TranscribedPiece(sequence, startedAt, List.of()), true);
+    }
+
+    int skippedCountOf(UUID recordingId) {
+        Integer skipped = jdbc.queryForObject("SELECT count(*) FROM app_lm_meeting_transcript_piece "
+                + "WHERE recording_id = ? AND skipped", Integer.class, recordingId);
+        return skipped == null ? 0 : skipped;
+    }
+
+    private void insert(UUID recordingId, TranscribedPiece piece, boolean skipped) {
         jdbc.update("""
-                INSERT INTO app_lm_meeting_transcript_piece (recording_id, sequence, started_at, lines)
-                VALUES (?, ?, ?, ?::jsonb)
+                INSERT INTO app_lm_meeting_transcript_piece (recording_id, sequence, started_at, lines, skipped)
+                VALUES (?, ?, ?, ?::jsonb, ?)
                 ON CONFLICT (recording_id, sequence) DO NOTHING""",
-                recordingId, piece.sequence(), Timestamp.from(piece.startedAt()), json.writeValueAsString(piece.lines()));
+                recordingId, piece.sequence(), Timestamp.from(piece.startedAt()), json.writeValueAsString(piece.lines()),
+                skipped);
     }
 
     List<TranscribedPiece> piecesOf(UUID recordingId) {

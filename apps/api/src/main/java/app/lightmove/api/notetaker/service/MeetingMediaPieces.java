@@ -54,15 +54,21 @@ class MeetingMediaPieces {
     /** Audio pieces no transcript piece covers yet, in the order they began. */
     List<AudioPiece> untranscribedAudioOf(UUID recordingId) {
         return jdbc.query("""
-                SELECT media.sequence, media.storage_key, coalesce(media.started_at, media.received_at) AS started_at
+                SELECT media.sequence, media.storage_key, coalesce(media.started_at, media.received_at) AS started_at,
+                       media.transcribe_attempts
                 FROM app_lm_meeting_recording_media media
                 WHERE media.recording_id = ? AND media.kind = 'AUDIO'
                   AND NOT EXISTS (SELECT 1 FROM app_lm_meeting_transcript_piece piece
                                   WHERE piece.recording_id = media.recording_id AND piece.sequence = media.sequence)
                 ORDER BY 3, media.sequence""",
                 (row, index) -> new AudioPiece(row.getInt("sequence"), row.getString("storage_key"),
-                        row.getTimestamp("started_at").toInstant()),
+                        row.getTimestamp("started_at").toInstant(), row.getInt("transcribe_attempts")),
                 recordingId);
+    }
+
+    void countFailedAttempt(UUID recordingId, int sequence) {
+        jdbc.update("UPDATE app_lm_meeting_recording_media SET transcribe_attempts = transcribe_attempts + 1 "
+                + "WHERE recording_id = ? AND kind = 'AUDIO' AND sequence = ?", recordingId, sequence);
     }
 
     List<String> captionKeysOf(UUID recordingId) {
