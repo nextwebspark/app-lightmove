@@ -25,7 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 class NotetakerRunEndings {
 
     private static final Set<NotetakerEndReason> STOPPED_MID_CALL = EnumSet.of(NotetakerEndReason.CRASHED,
-            NotetakerEndReason.HEARTBEAT_LOST, NotetakerEndReason.BACKUP_FAILED);
+            NotetakerEndReason.HEARTBEAT_LOST, NotetakerEndReason.BACKUP_FAILED,
+            NotetakerEndReason.RECORDING_NOT_ALLOWED);
 
     private final MeetingMediaPieces pieces;
     private final ChainedMeetingRecorder recorders;

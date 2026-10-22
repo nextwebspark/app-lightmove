@@ -60,17 +60,34 @@ class NotetakerLauncher {
                     .ifPresent(recording -> endings.failWithoutBackup(recording, failed.reason(), clock.instant())));
             return;
         }
-        transactions.executeWithoutResult(status -> recordings.findById(pending.recordingId())
-                .ifPresent(recording -> marked(recording, launched)));
+        boolean removedMeanwhile = Boolean.TRUE.equals(transactions.execute(status -> recordings
+                .findById(pending.recordingId())
+                .map(recording -> {
+                    marked(recording, launched);
+                    return recording.isToLeave();
+                })
+                .orElse(true)));
+        if (removedMeanwhile) {
+            leaveQuietly(launched);
+        }
     }
 
-    /** The backup's bot for a run ours gave up mid-way, sent once the handover is committed. */
+    /**
+     * The backup's bot for a run ours gave up mid-way, sent once the handover is committed. Remove notetaker pressed in
+     * between has no bot to tell, so the run ends removed here and nothing is sent.
+     */
     @TransactionalEventListener
     void onBackupNeeded(BackupBotNeeded needed) {
-        MeetingRecording recording = transactions.execute(status ->
-                recordings.findById(needed.recordingId()).orElse(null));
+        MeetingRecording recording = transactions.execute(status -> recordings.findById(needed.recordingId())
+                .map(fresh -> {
+                    if (fresh.isToLeave()) {
+                        fresh.complete(clock.instant());
+                    }
+                    return fresh;
+                })
+                .orElse(null));
         if (recording == null || recording.getRecorder() != MeetingRecorderKind.RECALL
-                || recording.getExternalId() != null) {
+                || recording.getExternalId() != null || !recording.getStatus().isInCall()) {
             return;
         }
         LaunchedBot launched;
@@ -86,8 +103,26 @@ class NotetakerLauncher {
                     .ifPresent(fresh -> endings.failWithoutBackup(fresh, failed.reason(), clock.instant())));
             return;
         }
-        transactions.executeWithoutResult(status -> recordings.findById(recording.getId())
-                .ifPresent(fresh -> fresh.markLaunched(launched.externalId(), clock.instant())));
+        boolean removedMeanwhile = Boolean.TRUE.equals(transactions.execute(status -> recordings
+                .findById(recording.getId())
+                .map(fresh -> {
+                    fresh.markLaunched(launched.externalId(), clock.instant());
+                    return fresh.isToLeave();
+                })
+                .orElse(true)));
+        if (removedMeanwhile) {
+            leaveQuietly(launched);
+        }
+    }
+
+    /** Removed while the bot was being sent: nobody else will tell it, since the removal found no bot to tell. */
+    private void leaveQuietly(LaunchedBot launched) {
+        try {
+            recorders.requestLeave(launched.recorder(), launched.externalId());
+        } catch (RuntimeException failed) {
+            log.warn("Notetaker bot {} removed while being sent could not be told to leave: {}",
+                    launched.externalId(), failed.toString());
+        }
     }
 
     private void marked(MeetingRecording recording, LaunchedBot launched) {

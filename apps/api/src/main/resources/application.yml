@@ -752,6 +752,7 @@ lightmove:
     # Recall stands behind our bot where lightmove.recall is configured (#955); a bot nobody admitted is not followed.
     fallback: ${NOTETAKER_FALLBACK:true}
     fallback-on-not-admitted: ${NOTETAKER_FALLBACK_ON_NOT_ADMITTED:false}
+    fallback-on-join-blocked: ${NOTETAKER_FALLBACK_ON_JOIN_BLOCKED:false}
 
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:

@@ -14,6 +14,7 @@ import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.RecordingZoomApi;
 import app.lightmove.api.StubChatModel;
 import app.lightmove.api.notetaker.controller.NotetakerRunController;
+import app.lightmove.api.notetaker.model.BackupBotNeeded;
 import app.lightmove.api.notetaker.model.NotetakerLaunch;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.TranscriptLine;
@@ -65,6 +66,7 @@ class NotetakerBackupIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingRecallBotApi recall;
     @Autowired private RecordingZoomApi zoom;
     @Autowired private NotetakerScheduler scheduler;
+    @Autowired private NotetakerLauncher launcher;
     @Autowired private StubChatModel chat;
     @Autowired private MeterRegistry meters;
     @Autowired private JdbcTemplate jdbc;
@@ -300,6 +302,65 @@ class NotetakerBackupIntegrationTest extends FlowTestSupport {
 
         assertThat(recordingRow().get("status")).isEqualTo("REMOVED");
         assertThat(recall.mediaDeleted()).containsExactly(recall.lastBotId());
+    }
+
+    @Test
+    @DisplayName("Remove pressed while the backup is being handed the call sends no bot at all")
+    void removeDuringTheHandoverSendsNothing() throws Exception {
+        executive("Priya Raman", "priya@" + domain);
+        changed(event("call-1", soon(), "https://meet.google.com/call-1", "Google Meet", "priya@" + domain));
+        scheduler.scheduleAt(Instant.now());
+        String run = recordingRow().get("id").toString();
+        // The state a handover leaves, with Remove landing before its bot is sent: nobody to tell yet.
+        jdbc.update("update app_lm_meeting_recording set recorder = 'RECALL', status = 'REMOVE_REQUESTED', "
+                + "external_id = null, run_token_hash = null where id = ?::uuid", run);
+
+        launcher.onBackupNeeded(new BackupBotNeeded(UUID.fromString(run)));
+
+        assertThat(recall.sent()).isEmpty();
+        assertThat(recordingRow().get("status")).isEqualTo("REMOVED");
+    }
+
+    @Test
+    @DisplayName("in the call but not let to record is waiting, and a host's refusal ends the run and sends the bot out")
+    void notAllowedToRecord() throws Exception {
+        executive("Priya Raman", "priya@" + domain);
+        changed(event("call-1", soon(), "https://meet.google.com/call-1", "Google Meet", "priya@" + domain));
+        recorder.failLaunches(true);
+        scheduler.scheduleAt(Instant.now());
+
+        botStatus(recall.lastBotId(), "in_call_not_recording").andExpect(status().isOk());
+        assertThat(recordingRow().get("status")).isEqualTo("WAITING_ROOM");
+        deliver("""
+                {"event":"bot.status_change","data":{"bot":{"id":"%s"},
+                 "status":{"code":"in_call_not_recording","sub_code":"recording_permission_denied"}}}"""
+                .formatted(recall.lastBotId())).andExpect(status().isOk());
+
+        Map<String, Object> row = recordingRow();
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("end_reason")).isEqualTo("RECORDING_NOT_ALLOWED");
+        assertThat(recall.askedToLeave()).containsExactly(recall.lastBotId());
+        assertThat(recall.mediaDeleted()).containsExactly(recall.lastBotId());
+    }
+
+    @Test
+    @DisplayName("a backup bot never heard from again is ended, told to leave, and what Recall kept is deleted")
+    void aLostBackupIsForgotten() throws Exception {
+        executive("Priya Raman", "priya@" + domain);
+        changed(event("call-1", soon(), "https://meet.google.com/call-1", "Google Meet", "priya@" + domain));
+        recorder.failLaunches(true);
+        scheduler.scheduleAt(Instant.now());
+        String bot = recall.lastBotId();
+        botStatus(bot, "in_call_recording").andExpect(status().isOk());
+
+        scheduler.scheduleAt(Instant.now().plus(Duration.ofHours(4)));
+
+        Map<String, Object> row = recordingRow();
+        assertThat(row.get("status")).isEqualTo("FAILED");
+        assertThat(row.get("end_reason")).isEqualTo("BACKUP_FAILED");
+        // Other tests' backups in the shared database are swept by the same pass.
+        assertThat(recall.askedToLeave()).contains(bot);
+        assertThat(recall.mediaDeleted()).contains(bot);
     }
 
     @Test

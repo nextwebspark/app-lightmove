@@ -28,7 +28,7 @@ export function NotetakerCard() {
     mutationFn: (next: boolean) => notetakerApi.setWorkspaceNotetakerBackup(next),
     onSuccess: (saved) => {
       queryClient.setQueryData(notetakerApi.WORKSPACE_NOTETAKER_KEY, saved);
-      toast(saved.backupEnabled ? "The backup recorder is on" : "The backup recorder is off");
+      toast(saved.backupEnabled ? "Recall.ai recording is on" : "Recall.ai recording is off");
     },
     onError: (error) => toast.error(messageFor(error)),
   });
@@ -73,18 +73,22 @@ export function NotetakerCard() {
       {backupOffered && (
         <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-u-border pt-4">
           <div className="min-w-[12rem] flex-1">
-            <div className="text-note font-semibold">Backup recorder</div>
+            <div className="text-note font-semibold">Recall.ai: backup on Meet and Teams, the recorder for Zoom</div>
             <p className="mt-1 text-note text-u-text2">
-              When the notetaker can't join or drops out, a Recall.ai bot records the call instead, and joins Zoom
-              calls. The call's audio and transcript then pass through Recall.ai, a third party, so it stays off until
-              you turn it on.
+              When the notetaker can't start or drops out of a Meet or Teams call, a Recall.ai bot records the rest
+              of it, and it records every Zoom call, which the notetaker doesn't join yet. Those calls' audio and
+              transcripts pass through Recall.ai, a third party, so it stays off until you turn it on.
+            </p>
+            <p className="mt-1.5 text-note text-u-text2">
+              Recall.ai's bot posts the same recording notice in the call's chat, but unlike the notetaker it can't
+              confirm the notice was shown, and records either way.
             </p>
           </div>
           <span className="inline-flex items-center gap-2 text-note font-medium text-u-text2">
             {backupEnabled ? "On" : "Off"}
             <Toggle
               checked={backupEnabled}
-              label="Backup recorder for the workspace"
+              label="Recall.ai recording for the workspace"
               disabled={changeBackup.isPending}
               onChange={(next) => changeBackup.mutate(next)}
             />

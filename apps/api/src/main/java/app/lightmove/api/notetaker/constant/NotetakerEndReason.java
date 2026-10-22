@@ -27,6 +27,8 @@ public enum NotetakerEndReason {
     /** The call was recorded, but its transcript or note could not be made; a consultant may try again. */
     PROCESSING_FAILED,
     /** The backup recorder standing behind ours failed too, or was never heard from again. */
+    /** The backup recorder's bot was let into the call, but the host never let it record. */
+    RECORDING_NOT_ALLOWED,
     BACKUP_FAILED,
     /** A Zoom call, joined only by the backup recorder on the consultant's own Zoom account, which is not connected. */
     ZOOM_NOT_CONNECTED;

@@ -46,6 +46,7 @@ const END_REASONS: Record<NotetakerEndReason, string> = {
   DO_NOT_CONTACT: "Someone on the call is marked do not contact, so the notetaker stayed away.",
   PROCESSING_FAILED: "The call was recorded, but its transcript or note couldn't be made.",
   BACKUP_FAILED: "The notetaker stopped, and the backup recorder couldn't record the call either.",
+  RECORDING_NOT_ALLOWED: "The call's host didn't allow the backup recorder to record.",
   ZOOM_NOT_CONNECTED: "Your Zoom account isn't connected, so the notetaker couldn't join this Zoom call.",
 };
 
