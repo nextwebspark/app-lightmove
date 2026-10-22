@@ -40,9 +40,6 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "person_id")
     private UUID personId;
 
-    @Column(name = "project_id")
-    private UUID projectId;
-
     @Column(name = "mailbox_connection_id")
     private UUID mailboxConnectionId;
 

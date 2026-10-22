@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.outreach.model.KeptMeeting;
 import app.lightmove.api.outreach.repository.PersonMeetingRepository;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,14 +40,13 @@ public class KeptMeetings {
                 .toList();
     }
 
-    /** Every calendar's row of the same call: the same link at the same time, teammates' copies included. */
+    /** Every calendar's rows starting at these instants: where a call's copies on teammates' calendars are. */
     @Transactional(readOnly = true)
-    public List<KeptMeeting> sameCallAs(KeptMeeting meeting) {
-        if (meeting.joinUrl() == null) {
-            return List.of(meeting);
+    public List<KeptMeeting> inWorkspaceStartingAt(UUID workspaceId, Collection<Instant> startsAt) {
+        if (startsAt.isEmpty()) {
+            return List.of();
         }
-        return meetings.findByWorkspaceIdAndJoinUrlAndStartsAt(meeting.workspaceId(), meeting.joinUrl(),
-                        meeting.startsAt()).stream()
+        return meetings.findByWorkspaceIdAndStartsAtInAndJoinUrlIsNotNull(workspaceId, startsAt).stream()
                 .map(KeptMeeting::of)
                 .toList();
     }

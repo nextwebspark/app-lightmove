@@ -509,8 +509,8 @@ public enum ErrorCode {
     /** A Stripe webhook whose signature does not verify, or any delivery while no webhook secret is configured. */
     BILLING_WEBHOOK_REJECTED(HttpStatus.BAD_REQUEST, "Bad Request"),
 
-    /** A Notetaker route on a deployment that does not send one. */
-    NOTETAKER_UNAVAILABLE(HttpStatus.CONFLICT, "The Notetaker isn't available"),
+    /** A Notetaker route on a deployment that does not send one: a 404, as a public API or MCP turned off is. */
+    NOTETAKER_UNAVAILABLE(HttpStatus.NOT_FOUND, "The Notetaker isn't available"),
 
     /** The Notetaker switched for a call already under way: what joins it was settled when it started. */
     NOTETAKER_MEETING_STARTED(HttpStatus.CONFLICT, "This meeting has already started"),

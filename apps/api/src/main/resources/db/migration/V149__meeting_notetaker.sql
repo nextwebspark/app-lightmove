@@ -46,7 +46,6 @@ CREATE TABLE app_lm_meeting_recording (
     -- The consultant whose calendar the bot was sent from.
     user_id                uuid         NOT NULL REFERENCES app_lm_user (id) ON DELETE CASCADE,
     person_id              uuid         REFERENCES app_lm_person (id) ON DELETE SET NULL,
-    project_id             uuid         REFERENCES app_lm_project (id) ON DELETE SET NULL,
     mailbox_connection_id  uuid         REFERENCES app_lm_mailbox_connection (id) ON DELETE SET NULL,
     provider_event_id      varchar(255) NOT NULL,
     platform               varchar(16)  NOT NULL

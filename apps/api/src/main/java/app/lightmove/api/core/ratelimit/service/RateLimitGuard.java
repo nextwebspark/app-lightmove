@@ -10,6 +10,7 @@ import app.lightmove.api.core.security.service.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -78,6 +79,15 @@ public class RateLimitGuard {
     /** Booking through the public page, keyed like opening it: on the caller's IP and the link. */
     public void checkBookingPageBook(String slug, HttpServletRequest request) {
         checkRateLimit("booking-page-book", slug, request, config.bookingPageBookingsPerHour(), Duration.ofHours(1));
+    }
+
+    /**
+     * A Notetaker bot's call about its run, keyed on the run and the caller's IP — spent before the run is read, so
+     * a stranger's guesses cost them the budget rather than us a query each.
+     */
+    public void checkNotetakerRun(UUID runId, HttpServletRequest request) {
+        checkRateLimit("notetaker-run", runId.toString(), request, config.notetakerRunCallsPerMinute(),
+                config.notetakerRunCallsPerMinutePerIp(), Duration.ofMinutes(1));
     }
 
     private void checkRateLimit(String action, String email, HttpServletRequest request, int limit, Duration window) {

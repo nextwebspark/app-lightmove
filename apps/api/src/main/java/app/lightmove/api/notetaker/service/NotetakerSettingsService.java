@@ -8,6 +8,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.notetaker.dto.MyNotetakerResponse;
 import app.lightmove.api.notetaker.dto.WorkspaceNotetakerResponse;
+import app.lightmove.api.notetaker.model.OfferedPlatforms;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -22,11 +23,12 @@ public class NotetakerSettingsService {
     private final NotetakerSwitches switches;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final OfferedPlatforms offered;
 
     @Transactional(readOnly = true)
     public WorkspaceNotetakerResponse workspace(UUID workspaceId) {
         return new WorkspaceNotetakerResponse(properties.notetaker().enabled(), switches.workspaceAllows(workspaceId),
-                NotetakerScheduler.offeredPlatforms(properties.notetaker()));
+                offered.platforms());
     }
 
     @Transactional

@@ -1,7 +1,9 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.NotetakerEndReason;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
@@ -12,9 +14,11 @@ import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingRecordingCompleted;
 import app.lightmove.api.notetaker.model.RecordedMedia;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -34,12 +38,14 @@ public class NotetakerRunService {
     static final String MEDIA_PREFIX = "notetaker/";
 
     private final MeetingRecordingRepository recordings;
+    private final CandidateOutreachService people;
+    private final RateLimitGuard rateLimit;
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
     @Transactional
-    public void report(UUID runId, String runToken, NotetakerRunReportRequest request) {
-        MeetingRecording recording = requireRun(runId, runToken);
+    public void report(UUID runId, String runToken, NotetakerRunReportRequest request, HttpServletRequest from) {
+        MeetingRecording recording = requireRun(runId, runToken, from);
         switch (request.state()) {
             case WAITING_ROOM -> recording.reportWaiting(clock.instant());
             case RECORDING -> recording.reportRecording(clock.instant());
@@ -53,15 +59,21 @@ public class NotetakerRunService {
     }
 
     @Transactional
-    public NotetakerHeartbeatResponse heartbeat(UUID runId, String runToken) {
-        MeetingRecording recording = requireRun(runId, runToken);
-        recording.heartbeat(clock.instant());
+    public NotetakerHeartbeatResponse heartbeat(UUID runId, String runToken, HttpServletRequest from) {
+        MeetingRecording recording = requireRun(runId, runToken, from);
+        Instant now = clock.instant();
+        recording.heartbeat(now);
+        // Marked do not contact after the bot went in: it leaves as if removed, and keeps nothing.
+        if (!recording.isToLeave() && recording.getPersonId() != null && !people.doNotContactAmong(
+                recording.getWorkspaceId(), List.of(recording.getPersonId())).isEmpty()) {
+            recording.requestRemoval(null, now);
+        }
         return new NotetakerHeartbeatResponse(recording.isToLeave());
     }
 
     @Transactional
-    public void complete(UUID runId, String runToken, NotetakerRunCompleteRequest request) {
-        MeetingRecording recording = requireRun(runId, runToken);
+    public void complete(UUID runId, String runToken, NotetakerRunCompleteRequest request, HttpServletRequest from) {
+        MeetingRecording recording = requireRun(runId, runToken, from);
         String ownPrefix = MEDIA_PREFIX + runId + "/";
         List<String> audioKeys = request.audioKeys() == null ? List.of() : request.audioKeys();
         boolean outsideOwnPrefix = audioKeys.stream().anyMatch(key -> !key.startsWith(ownPrefix))
@@ -75,7 +87,8 @@ public class NotetakerRunService {
         }
     }
 
-    private MeetingRecording requireRun(UUID runId, String runToken) {
+    private MeetingRecording requireRun(UUID runId, String runToken, HttpServletRequest from) {
+        rateLimit.checkNotetakerRun(runId, from);
         if (runToken == null || runToken.isBlank()) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }

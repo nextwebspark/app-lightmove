@@ -4,6 +4,7 @@ import app.lightmove.api.notetaker.dto.NotetakerHeartbeatResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRunCompleteRequest;
 import app.lightmove.api.notetaker.dto.NotetakerRunReportRequest;
 import app.lightmove.api.notetaker.service.NotetakerRunService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -33,21 +34,22 @@ public class NotetakerRunController {
     @PostMapping("/status")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void report(@PathVariable UUID runId, @RequestHeader(name = RUN_TOKEN_HEADER, required = false) String token,
-                       @Valid @RequestBody NotetakerRunReportRequest request) {
-        runs.report(runId, token, request);
+                       @Valid @RequestBody NotetakerRunReportRequest request, HttpServletRequest httpRequest) {
+        runs.report(runId, token, request, httpRequest);
     }
 
     @PostMapping("/heartbeat")
     public NotetakerHeartbeatResponse heartbeat(@PathVariable UUID runId,
-                                                @RequestHeader(name = RUN_TOKEN_HEADER, required = false) String token) {
-        return runs.heartbeat(runId, token);
+                                                @RequestHeader(name = RUN_TOKEN_HEADER, required = false) String token,
+                                                HttpServletRequest httpRequest) {
+        return runs.heartbeat(runId, token, httpRequest);
     }
 
     @PostMapping("/complete")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void complete(@PathVariable UUID runId,
                          @RequestHeader(name = RUN_TOKEN_HEADER, required = false) String token,
-                         @Valid @RequestBody NotetakerRunCompleteRequest request) {
-        runs.complete(runId, token, request);
+                         @Valid @RequestBody NotetakerRunCompleteRequest request, HttpServletRequest httpRequest) {
+        runs.complete(runId, token, request, httpRequest);
     }
 }

@@ -1,6 +1,5 @@
 package app.lightmove.api.notetaker.service;
 
-import app.lightmove.api.notetaker.constant.MeetingRecorderKind;
 import app.lightmove.api.notetaker.model.NotetakerLaunch;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -11,11 +10,6 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class LogMeetingRecorder implements MeetingRecorder {
-
-    @Override
-    public MeetingRecorderKind kind() {
-        return MeetingRecorderKind.OWN;
-    }
 
     @Override
     public String launch(NotetakerLaunch launch) {

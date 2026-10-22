@@ -4,28 +4,53 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.NotetakerSettings;
 import app.lightmove.api.notetaker.constant.NotetakerEndReason;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
+import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.UUID;
+import java.util.function.Predicate;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
-/** Ends the runs whose bot is gone: one that never reported after being sent, and one that fell silent. */
+/**
+ * Ends the runs whose bot is gone: one that never reported after being sent, and one that fell silent. Each run
+ * is closed in its own transaction and read again inside it, so a heartbeat landing mid-sweep keeps its run and
+ * one clash never rolls back the rest.
+ */
 @Component
 @RequiredArgsConstructor
-public class NotetakerSweeper {
+@Slf4j
+class NotetakerSweeper {
 
     private final MeetingRecordingRepository recordings;
+    private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
 
-    @Transactional
-    public void failStale(Instant now) {
+    void endStale(Instant now) {
         NotetakerSettings settings = properties.notetaker();
-        recordings.findNeverReported(now.minus(settings.launchTimeout()))
-                .forEach(recording -> recording.fail(NotetakerEndReason.LAUNCH_TIMEOUT, now));
+        Instant sentBefore = now.minus(settings.launchTimeout());
+        Instant heardBefore = now.minus(settings.heartbeatTimeout());
+        recordings.findNeverReported(sentBefore).forEach(recording -> end(recording.getId(), now,
+                NotetakerEndReason.LAUNCH_TIMEOUT,
+                fresh -> fresh.getLastHeartbeatAt() == null && fresh.getStatus().isInCall()));
         recordings.findSilentSince(EnumSet.of(NotetakerStatus.WAITING_ROOM, NotetakerStatus.RECORDING,
-                        NotetakerStatus.REMOVE_REQUESTED), now.minus(settings.heartbeatTimeout()))
-                .forEach(recording -> recording.fail(NotetakerEndReason.HEARTBEAT_LOST, now));
+                        NotetakerStatus.REMOVE_REQUESTED), heardBefore)
+                .forEach(recording -> end(recording.getId(), now, NotetakerEndReason.HEARTBEAT_LOST,
+                        fresh -> fresh.getStatus().isInCall() && fresh.getLastHeartbeatAt() != null
+                                && fresh.getLastHeartbeatAt().isBefore(heardBefore)));
+    }
+
+    private void end(UUID recordingId, Instant now, NotetakerEndReason reason, Predicate<MeetingRecording> stillStale) {
+        try {
+            transactions.executeWithoutResult(status -> recordings.findById(recordingId)
+                    .filter(stillStale)
+                    .ifPresent(recording -> recording.fail(reason, now)));
+        } catch (ObjectOptimisticLockingFailureException moved) {
+            log.debug("Notetaker run {} moved while it was being swept; left for the next pass", recordingId);
+        }
     }
 }

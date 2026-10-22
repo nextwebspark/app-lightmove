@@ -16,7 +16,8 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
 
     List<PersonMeeting> findByStartsAtGreaterThanEqualAndStartsAtLessThanAndJoinUrlIsNotNull(Instant from, Instant to);
 
-    List<PersonMeeting> findByWorkspaceIdAndJoinUrlAndStartsAt(UUID workspaceId, String joinUrl, Instant startsAt);
+    List<PersonMeeting> findByWorkspaceIdAndStartsAtInAndJoinUrlIsNotNull(UUID workspaceId,
+                                                                         Collection<Instant> startsAt);
 
     /** Which of these people a teammate's calendar holds a meeting with. */
     @Query("select distinct m.personId from PersonMeeting m where m.workspaceId = :workspaceId "

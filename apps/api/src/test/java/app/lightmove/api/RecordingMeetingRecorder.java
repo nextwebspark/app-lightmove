@@ -1,6 +1,5 @@
 package app.lightmove.api;
 
-import app.lightmove.api.notetaker.constant.MeetingRecorderKind;
 import app.lightmove.api.notetaker.model.NotetakerLaunch;
 import app.lightmove.api.notetaker.service.MeetingRecorder;
 import java.util.List;
@@ -17,11 +16,6 @@ public class RecordingMeetingRecorder implements MeetingRecorder {
     private final List<String> askedToLeave = new CopyOnWriteArrayList<>();
     private final AtomicInteger sequence = new AtomicInteger();
     private volatile boolean failLaunches;
-
-    @Override
-    public MeetingRecorderKind kind() {
-        return MeetingRecorderKind.OWN;
-    }
 
     @Override
     public String launch(NotetakerLaunch launch) {
