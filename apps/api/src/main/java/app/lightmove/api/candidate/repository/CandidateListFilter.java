@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import java.util.ArrayList;
@@ -29,7 +30,8 @@ public final class CandidateListFilter {
                                               @Nullable Collection<UUID> statusIds,
                                               @Nullable Collection<UUID> triageCompanyIds, boolean unmapped,
                                               String nameQuery, String textQuery,
-                                              @Nullable Collection<UUID> withinTriageCompanyIds) {
+                                              @Nullable Collection<UUID> withinTriageCompanyIds,
+                                              @Nullable TriageCompanyStatus triageStatus) {
         return (root, query, cb) -> {
             List<Predicate> where = new ArrayList<>();
             where.add(cb.equal(root.get("projectId"), projectId));
@@ -43,6 +45,9 @@ public final class CandidateListFilter {
                 where.add(root.get("triageCompanyId").in(triageCompanyIds));
             } else if (unmapped) {
                 where.add(cb.isNull(root.get("triageCompanyId")));
+            }
+            if (triageStatus != null) {
+                where.add(cb.equal(root.get("triageStatus"), triageStatus));
             }
             if (withinTriageCompanyIds != null) {
                 where.add(root.get("triageCompanyId").in(withinTriageCompanyIds));

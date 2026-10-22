@@ -27,7 +27,7 @@ import { StatusPicker } from "../../candidates/components/StatusPicker";
 import { statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
-import { MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
+import { candidateMoveTooltip, MOVES, removeTooltip, SOURCE_STYLES } from "./triageVocabulary";
 import type { TriageCompanyRow } from "./triageRows";
 
 /**
@@ -53,8 +53,11 @@ function rowLocation(row: TriageCompanyRow): { country: string | null; city: str
 interface TriageTableMeta {
   /** The mandate whose grid this is — the executive avatars fetch their photos under it. */
   projectId: string;
+  /** Moves the company and everyone mapped at it — offered on a company's row with nobody listed here. */
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
+  /** Moves one executive to another stage; their company and its other people stay where they are (#903). */
+  onMoveCandidate: (candidate: Candidate, status: TriageCompanyStatus) => void;
   /** Opens the drawer to map someone new at this company. */
   onAddExecutive: (company: TriageCompany) => void;
   /** Opens the company's panel on its Notes tab. */
@@ -63,7 +66,7 @@ interface TriageTableMeta {
   onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
   /** Opens the drawer on an executive already mapped. */
   onEditCandidate: (candidate: Candidate) => void;
-  /** Asks to remove an executive — the one action a row with no company in the universe offers. */
+  /** Asks to remove one executive from the mandate; their company and its other people stay. */
   onRemoveCandidate: (candidate: Candidate) => void;
   /** Opens the company's own panel — read-only, whatever the reader is allowed to do to it. */
   onOpenCompany: (company: TriageCompany) => void;
@@ -171,26 +174,45 @@ const BUILT_IN_COLUMNS = helper.columns([
       if (!meta?.canWrite) {
         return <span className="font-sans text-[13px] text-u-text3">—</span>;
       }
-      // A row's actions are its company's — a mapped executive is removed from their own profile. An
-      // executive whose employer is not in the universe has no company to move, so their one action
-      // is the person's: a row with no action at all reads as a row that is stuck.
-      if (!row.company) {
+      // A line with a person on it acts on that person alone (#903): moving or removing Khaled at Alshaya
+      // leaves his colleagues where they stand. The company's own moves and removal are its drawer's, and
+      // the line of a company with nobody listed on this stage.
+      if (row.candidate) {
         const { candidate } = row;
+        const candidateBusy = meta.busyIds.has(candidate.id);
+        const stage = candidate.triageStatus ?? row.company?.status ?? "inUniverse";
         return (
           <span className="flex justify-start gap-1.5">
+            {MOVES[stage].map((move) => (
+              <button
+                key={move.status}
+                type="button"
+                title={candidateMoveTooltip(move)}
+                aria-label={`${move.label}: ${candidate.fullName}`}
+                disabled={candidateBusy}
+                onClick={() => meta.onMoveCandidate(candidate, move.status)}
+                className={`${GRID_ICON_BUTTON} disabled:opacity-40`}
+              >
+                <Icon d={move.icon} size={14} />
+              </button>
+            ))}
+            <span aria-hidden className="mx-0.5 w-px self-stretch bg-u-border" />
             <button
               type="button"
-              title={`Remove ${candidate.fullName} from this mandate — not remembered; use "Out of scope" to keep a record`}
+              title={removeTooltip(candidate.fullName)}
               aria-label={`Remove ${candidate.fullName} from this mandate`}
+              disabled={candidateBusy}
               onClick={() => meta.onRemoveCandidate(candidate)}
-              className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits")}
+              className={cn(GRID_ICON_BUTTON, "hover:text-u-offlimits disabled:opacity-40")}
             >
               <Icon d={ICONS.trash} size={14} />
             </button>
           </span>
         );
       }
+      // What is left is the "Add executive" slot, which is always a company's.
       const { company } = row;
+      if (!company) return null;
       const busy = meta.busyIds.has(company.id);
       return (
         <span className="flex justify-start gap-1.5">

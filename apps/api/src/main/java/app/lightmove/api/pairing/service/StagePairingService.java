@@ -23,8 +23,9 @@ import org.springframework.stereotype.Service;
 
 /**
  * Pairs a stage's companies with their executives as the Companies grid does, for the talent map, the
- * export and the public API alike. An executive at no company rides the universe stage only, and not
- * under a company-name search. The executive filters are applied per person, because the stage read's
+ * export and the public API alike: an executive rides the stage they are listed at, which is their own
+ * (#903), under their company wherever that company stands; one at no company is left out under a
+ * company-name search. The executive filters are applied per person, because the stage read's
  * own are company-level. Not {@code @Transactional}: the two reads open their own.
  */
 @Service
@@ -50,13 +51,13 @@ public class StagePairingService {
 
         Set<UUID> stageCompanyIds = new HashSet<>();
         stage.companies().stream().map(TriageCompanyResponse::id).forEach(stageCompanyIds::add);
-        boolean keepsUnassigned = status == TriageCompanyStatus.IN_UNIVERSE && blank(filters.companyName());
+        boolean keepsUnassigned = blank(filters.companyName());
 
         Map<UUID, List<CandidateResponse>> byCompany = new LinkedHashMap<>();
         List<CandidateResponse> unassigned = new ArrayList<>();
         List<CandidateResponse> people = new ArrayList<>();
         for (CandidateResponse person : everyone.candidates()) {
-            if (!matchesExecutiveFilters(person, filters)) {
+            if (!status.value().equals(person.triageStatus()) || !matchesExecutiveFilters(person, filters)) {
                 continue;
             }
             if (person.triageCompanyId() == null) {

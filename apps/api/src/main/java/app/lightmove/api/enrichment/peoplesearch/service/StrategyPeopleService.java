@@ -190,8 +190,11 @@ public class StrategyPeopleService {
     }
 
     private DeclinedEmployers declinedOf(UUID workspaceId, UUID projectId) {
+        // The company's own stage: one executive declined on their own leaves their company searchable (#903).
         return DeclinedEmployers.of(triage.listAllOfStage(workspaceId, projectId, TriageCompanyStatus.DECLINED,
-                TriageCompanyFilters.none(), MAX_DECLINED_READ, ProjectAudience.STAFF).companies());
+                        TriageCompanyFilters.none(), MAX_DECLINED_READ, ProjectAudience.STAFF).companies().stream()
+                .filter(company -> TriageCompanyStatus.DECLINED.value().equals(company.status()))
+                .toList());
     }
 
     /** Per user, so one caller cannot script the pager down a whole result set. */

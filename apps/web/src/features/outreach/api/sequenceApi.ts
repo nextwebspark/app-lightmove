@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { TriageCompanyStatus } from "../../triage/api/types";
 
 /**
  * A position's outreach sequences and the Add to sequence dialog's reads and press. Every route is the
@@ -103,6 +104,8 @@ export interface EnrollmentCandidate {
 export interface EnrollmentScope {
   candidateIds?: string[];
   triageCompanyIds?: string[];
+  /** The stage those companies were ticked on: only their people listed there. */
+  triageStatus?: TriageCompanyStatus;
 }
 
 export interface DraftedOpener {

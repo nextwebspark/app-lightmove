@@ -30,17 +30,24 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     private final CandidatePipelineCatalog pipeline;
 
     @Override
-    public Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, String executiveName,
-                                                           ProjectAudience audience) {
+    public Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, TriageCompanyStatus stage,
+                                                           String executiveName, ProjectAudience audience) {
         return candidates.findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
-                projectId, executiveName, audience.clientVisibleOnly());
+                projectId, stage, executiveName, audience.clientVisibleOnly());
     }
 
     /** Status keys of the project's own workspace catalog; a key it does not hold matches nobody. */
     @Override
-    public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses,
+    public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, TriageCompanyStatus stage,
+                                                           List<String> executiveStatuses, ProjectAudience audience) {
+        return candidates.findTriageCompanyIdsByProjectIdAndStatusKeyIn(projectId, stage, executiveStatuses,
+                audience.clientVisibleOnly());
+    }
+
+    @Override
+    public Set<UUID> triageCompanyIdsWithExecutivesMovedTo(UUID projectId, TriageCompanyStatus stage,
                                                            ProjectAudience audience) {
-        return candidates.findTriageCompanyIdsByProjectIdAndStatusKeyIn(projectId, executiveStatuses,
+        return candidates.findTriageCompanyIdsWithExecutivesMovedTo(projectId, stage.name(),
                 audience.clientVisibleOnly());
     }
 

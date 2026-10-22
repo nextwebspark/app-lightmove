@@ -37,7 +37,7 @@ public class McpUniverseTool {
 
     @McpTool(name = GET, generateOutputSchema = true, title = "Read a stage with its executives",
             description = "Read one stage of a position — inUniverse (the default), shortlisted or declined — as its "
-                    + "companies, each with the executives mapped at it, in one call; on inUniverse, executives at no "
+                    + "companies, each with its executives listed at that stage, in one call; executives at no "
                     + "company come back as unassigned. Use it to summarise or compare a whole market at once; for a "
                     + "stage too large for one answer, page through uncava_list_companies and uncava_list_candidates "
                     + "instead. Example: stage \"shortlisted\" with response_format \"detailed\" for a shortlist "

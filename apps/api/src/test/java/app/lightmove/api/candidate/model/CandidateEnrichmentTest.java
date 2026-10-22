@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -254,10 +255,11 @@ class CandidateEnrichmentTest {
         Candidate candidate = onMandate(null, details("Sample Person", null, null, null, null, null));
         UUID companyId = UUID.randomUUID();
 
-        candidate.employBy(companyId, "Al Rawabi Dairy");
+        candidate.employBy(companyId, "Al Rawabi Dairy", TriageCompanyStatus.SHORTLISTED);
 
         assertThat(candidate.getTriageCompanyId()).isEqualTo(companyId);
         assertThat(candidate.getCompanyName()).isEqualTo("Al Rawabi Dairy");
+        assertThat(candidate.getTriageStatus()).isEqualTo(TriageCompanyStatus.SHORTLISTED);
     }
 
     private static Person captured(CandidateDetails details) {
@@ -265,7 +267,8 @@ class CandidateEnrichmentTest {
     }
 
     private static Candidate onMandate(UUID triageCompanyId, CandidateDetails details) {
-        return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId, captured(details),
+        return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), triageCompanyId,
+                TriageCompanyStatus.IN_UNIVERSE, captured(details),
                 CandidateSource.EXTENSION, PipelineTestStatuses.identified(), details);
     }
 

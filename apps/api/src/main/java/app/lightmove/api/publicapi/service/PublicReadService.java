@@ -101,7 +101,7 @@ public class PublicReadService {
 
     /**
      * A position's executives, narrowed by status, by company, by text in a name, title or employer, and by the stage
-     * of the company they are mapped at — an executive at no company is at no stage.
+     * they are listed at, which is their own (#903).
      */
     public PublicPage<PublicCandidate> candidates(PublicReader reader, UUID projectId, String status,
                                                   UUID companyId, String query, String stage, Integer page,
@@ -114,10 +114,10 @@ public class PublicReadService {
                                                    UUID companyId, String query, String stage, Integer page,
                                                    Integer size, ProjectAudience audience) {
         int pageSize = size == null ? properties.company().list().defaultPageSize() : size;
-        Set<UUID> stageCompanies = stage == null || stage.isBlank() ? null
-                : companies.idsOfStage(reader.workspaceId(), projectId, TriageCompanyStatus.parseOrInUniverse(stage));
+        String triageStatus = stage == null || stage.isBlank() ? null
+                : TriageCompanyStatus.parseOrInUniverse(stage).value();
         CandidatesResponse found = candidates.list(reader.workspaceId(), projectId, new CandidateListCriteria(
-                companyId == null ? null : List.of(companyId), null, null, query, stageCompanies, status, null,
+                companyId == null ? null : List.of(companyId), null, null, query, null, status, null, triageStatus,
                 page, pageSize), audience);
         boolean withContacts = reader.holds(ApiKeyScope.CANDIDATE_CONTACTS_READ);
         boolean withCompensation = reader.holds(ApiKeyScope.CANDIDATE_COMPENSATION_READ);
@@ -131,7 +131,7 @@ public class PublicReadService {
     public PublicPositionSummary summary(PublicReader reader, UUID projectId) {
         ProjectAudience audience = audienceOf(reader, projectId);
         ProjectResponse project = projects.get(reader.workspaceId(), projectId, audience);
-        TriageCountsDto stages = companies.stageCountsOf(reader.workspaceId(), projectId);
+        TriageCountsDto stages = companies.stageCountsOf(reader.workspaceId(), projectId, audience);
         Map<String, Long> executives = new LinkedHashMap<>();
         Map<String, Long> pipelineStages = new LinkedHashMap<>();
         candidates.statusCountsOf(reader.workspaceId(), projectId, audience).forEach((status, total) -> {

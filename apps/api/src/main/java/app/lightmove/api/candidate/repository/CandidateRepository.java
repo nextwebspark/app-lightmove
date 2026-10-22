@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.model.CandidateStatusCount;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 /**
@@ -251,11 +253,11 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
      * {@code null} in it.
      */
     @Query("select distinct c.triageCompanyId from Candidate c "
-            + "where c.projectId = :projectId and c.triageCompanyId is not null "
+            + "where c.projectId = :projectId and c.triageCompanyId is not null and c.triageStatus = :triageStatus "
             + "and (:clientVisibleOnly = false or c.clientVisible = true) "
             + "and lower(c.person.fullName) like lower(concat('%', cast(:executiveName as string), '%'))")
     Set<UUID> findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
-            UUID projectId, String executiveName, boolean clientVisibleOnly);
+            UUID projectId, TriageCompanyStatus triageStatus, String executiveName, boolean clientVisibleOnly);
 
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null")
@@ -269,9 +271,31 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
      */
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null and c.status.statusKey in :statusKeys "
+            + "and c.triageStatus = :triageStatus "
             + "and (:clientVisibleOnly = false or c.clientVisible = true)")
-    Set<UUID> findTriageCompanyIdsByProjectIdAndStatusKeyIn(UUID projectId, Collection<String> statusKeys,
-                                                           boolean clientVisibleOnly);
+    Set<UUID> findTriageCompanyIdsByProjectIdAndStatusKeyIn(UUID projectId, TriageCompanyStatus triageStatus,
+                                                           Collection<String> statusKeys, boolean clientVisibleOnly);
+
+    /**
+     * Companies sitting at another stage with someone of theirs moved to this one (#903): each is listed on this
+     * stage too, under that person alone.
+     */
+    @Query(value = "select distinct c.triage_company_id from app_lm_project_candidate c "
+            + "join app_lm_project_triage_company t on t.id = c.triage_company_id "
+            + "where c.project_id = :projectId and c.triage_status = :triageStatus and t.status <> :triageStatus "
+            + "and (:clientVisibleOnly = false or c.client_visible)", nativeQuery = true)
+    Set<UUID> findTriageCompanyIdsWithExecutivesMovedTo(UUID projectId, String triageStatus,
+                                                       boolean clientVisibleOnly);
+
+    @Query(value = "select status from app_lm_project_triage_company where id = :triageCompanyId "
+            + "and project_id = :projectId", nativeQuery = true)
+    Optional<String> findTriageStatusOfCompany(UUID projectId, UUID triageCompanyId);
+
+    /** A company's own move carries everyone mapped at it. */
+    @Modifying
+    @Query("update Candidate c set c.triageStatus = :triageStatus "
+            + "where c.projectId = :projectId and c.triageCompanyId = :triageCompanyId")
+    int moveEveryoneAtCompanyTo(UUID projectId, UUID triageCompanyId, TriageCompanyStatus triageStatus);
 
     /**
      * A page of one project's stage, ranked by each triaged company's best mapped executive status —
@@ -299,25 +323,31 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
                     + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
-                    + "  and (:clientVisibleOnly = false or c.client_visible) "
+                    + "  and c.triage_status = :status and (:clientVisibleOnly = false or c.client_visible) "
                     + "left join app_lm_workspace_candidate_status cs on cs.id = c.status_id "
                     + "left join app_lm_workspace_candidate_stage cg on cg.id = cs.stage_id "
-                    + "where t.project_id = :projectId and t.status = :status "
+                    + "where t.project_id = :projectId and (t.status = :status or exists ("
+                    + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  where x.triage_company_id = t.id and x.triage_status = :status "
+                    + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "group by t.id "
                     + "order by (case when :ascending then 1 else -1 end) * min(cg.position * 1000 + cs.position) "
                     + "asc nulls last, t.created_at desc",
             countQuery = "select count(*) from app_lm_project_triage_company t "
-                    + "where t.project_id = :projectId and t.status = :status "
+                    + "where t.project_id = :projectId and (t.status = :status or exists ("
+                    + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  where x.triage_company_id = t.id and x.triage_status = :status "
+                    + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + "))",
             nativeQuery = true)
@@ -333,37 +363,43 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
                     + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
-                    + "  and (:clientVisibleOnly = false or c.client_visible) "
+                    + "  and c.triage_status = :status and (:clientVisibleOnly = false or c.client_visible) "
                     + "left join app_lm_workspace_candidate_status cs on cs.id = c.status_id "
                     + "left join app_lm_workspace_candidate_stage cg on cg.id = cs.stage_id "
-                    + "where t.project_id = :projectId and t.status = :status "
+                    + "where t.project_id = :projectId and (t.status = :status or exists ("
+                    + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  where x.triage_company_id = t.id and x.triage_status = :status "
+                    + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
-                    + "  where y.triage_company_id = t.id and ys.key in (:executiveStatuses) "
+                    + "  where y.triage_company_id = t.id and y.triage_status = :status and ys.key in (:executiveStatuses) "
                     + "  and (:clientVisibleOnly = false or y.client_visible)"
                     + ") "
                     + "group by t.id "
                     + "order by (case when :ascending then 1 else -1 end) * min(cg.position * 1000 + cs.position) "
                     + "asc nulls last, t.created_at desc",
             countQuery = "select count(*) from app_lm_project_triage_company t "
-                    + "where t.project_id = :projectId and t.status = :status "
+                    + "where t.project_id = :projectId and (t.status = :status or exists ("
+                    + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
-                    + "  where x.triage_company_id = t.id and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  where x.triage_company_id = t.id and x.triage_status = :status "
+                    + "  and (:clientVisibleOnly = false or x.client_visible) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and exists ("
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
-                    + "  where y.triage_company_id = t.id and ys.key in (:executiveStatuses) "
+                    + "  where y.triage_company_id = t.id and y.triage_status = :status and ys.key in (:executiveStatuses) "
                     + "  and (:clientVisibleOnly = false or y.client_visible)"
                     + ")",
             nativeQuery = true)

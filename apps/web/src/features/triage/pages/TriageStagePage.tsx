@@ -433,7 +433,9 @@ function TriageStage() {
    * someone it has.
    */
   const executiveName = debouncedExecutiveQuery.trim();
-  const mappedScope = { triageCompanyIds: companyIds, query: executiveName };
+  // Only the people listed at this stage: a company carries its people across stages since #903, and a
+  // colleague moved to Declined is a line on Declined, not here.
+  const mappedScope = { triageCompanyIds: companyIds, query: executiveName, triageStatus: stage.status };
   const mappedPeople = useQuery({
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, mappedScope),
     queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, mappedScope, signal),
@@ -458,19 +460,18 @@ function TriageStage() {
    * page kept being merged into every filtered view. A company-name filter hides them; the Executive
    * and Status filters narrow them.
    */
-  const showsUnmappedPeople =
-    view === "table" && stage.status === "inUniverse" && !debouncedQuery.trim() && page === lastPage;
+  const showsUnmappedPeople = view === "table" && !debouncedQuery.trim() && page === lastPage;
 
   /**
    * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
-   * rather than to any company, so they sit after the companies on the universe's last page — the one
+   * rather than to any company, so they sit after the companies on their stage's last page — the one
    * place a reader reaches by scrolling to the end of the mapping. Grouping the grid by company is
    * where they eventually get a heading of their own; until then, invisible would be worse.
    *
    * <p>The name filter goes to the server: the read is capped there, so matching it on the arrived
    * page alone would miss everyone past the cap.
    */
-  const unmappedScope = { unmapped: true, query: executiveName };
+  const unmappedScope = { unmapped: true, query: executiveName, triageStatus: stage.status };
   const unmappedPeople = useQuery({
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, unmappedScope),
     queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, unmappedScope, signal),
@@ -576,11 +577,12 @@ function TriageStage() {
     peopleNotShown(unmappedPage, "with no company in this mandate"),
   ].filter((line): line is string => line !== null);
 
+  // A company's move carries everyone mapped at it, so both halves of the grid refresh.
   const move = useMutation({
     mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus; isUndo?: boolean }) =>
       triageApi.updateTriageCompany(project.id, company.id, { status }),
     onSuccess: (_result, { company, status, isUndo }) => {
-      refreshEveryStage();
+      void rowsChanged(project.id);
       const message = `${company.companyName} moved to ${MOVE_LABELS[status]}`;
       if (isUndo) {
         toast(message);
@@ -595,6 +597,29 @@ function TriageStage() {
     },
     onError: (error) => toast.error(messageFor(error)),
     onSettled: (_data, _error, { company }) => clearBusy(company.id),
+  });
+
+  /** One executive alone (#903): their company, and everyone else at it, stay where they stand. */
+  const moveCandidate = useMutation({
+    mutationFn: ({ candidate, status }: { candidate: Candidate; status: TriageCompanyStatus; isUndo?: boolean }) =>
+      candidatesApi.moveCandidateToStage(project.id, candidate.id, status),
+    onSuccess: (_result, { candidate, status, isUndo }) => {
+      void rowsChanged(project.id);
+      const message = `${candidate.fullName} moved to ${MOVE_LABELS[status]}`;
+      if (isUndo) {
+        toast(message);
+        return;
+      }
+      const previous = candidate.triageStatus ?? stage.status;
+      toast.success(message, {
+        undo: () => {
+          markBusy(candidate.id);
+          moveCandidate.mutate({ candidate: { ...candidate, triageStatus: status }, status: previous, isUndo: true });
+        },
+      });
+    },
+    onError: (error) => toast.error(messageFor(error)),
+    onSettled: (_data, _error, { candidate }) => clearBusy(candidate.id),
   });
 
   const remove = useMutation({
@@ -810,6 +835,10 @@ function TriageStage() {
           }}
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
           onRemoveCandidate={setPendingCandidateRemoval}
+          onMoveCandidate={(candidate, status) => {
+            markBusy(candidate.id);
+            moveCandidate.mutate({ candidate, status });
+          }}
           onOpenCompany={(company) => setOpenCompany({ company })}
           busyIds={busyIds}
           canWrite={canWrite}
@@ -853,7 +882,7 @@ function TriageStage() {
         {enrollingCompanyIds && (
           <EnrolDialog
             projectId={project.id}
-            scope={{ triageCompanyIds: enrollingCompanyIds }}
+            scope={{ triageCompanyIds: enrollingCompanyIds, triageStatus: stage.status }}
             source={`From the ${companiesOf(enrollingCompanyIds.length)} you ticked on ${stage.label}`}
             onClose={() => setEnrollingCompanyIds(null)}
           />

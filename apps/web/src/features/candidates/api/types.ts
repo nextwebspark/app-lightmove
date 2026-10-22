@@ -1,5 +1,6 @@
 import type { CustomFieldValues } from "../../customcolumns/api/types";
 import type { NoteFormat } from "../../notes/lib/noteFormat";
+import type { TriageCompanyStatus } from "../../triage/api/types";
 
 import type { SeniorityToken } from "../../../lib/seniority";
 /**
@@ -101,6 +102,8 @@ export interface Candidate {
   statusChangedAt?: string;
   /** Whether a client seat on the position sees this executive. */
   clientVisible?: boolean;
+  /** The Companies stage they are listed at — their own since #903, their company's when filed. */
+  triageStatus?: TriageCompanyStatus;
   linkedinUrl: string | null;
   locationCountry: string | null;
   locationCity: string | null;

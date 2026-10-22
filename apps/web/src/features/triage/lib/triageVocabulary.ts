@@ -47,11 +47,18 @@ export const MOVES: Record<TriageCompanyStatus, TriageMove[]> = {
   ],
 };
 
+/** A move on one executive's line, read on hover: Decline rules out the person, never their company. */
+export function candidateMoveTooltip(move: TriageMove): string {
+  return move.status === "declined"
+    ? "Decline — kept as a record that this executive was assessed and ruled out"
+    : move.label;
+}
+
 /**
  * What the trash bin means, for the grid's row action and the drawer's footer button alike — read on
  * hover beside {@link MOVES}' own Decline tooltip, so the two explain the difference between them
  * rather than each explaining only itself.
  */
-export function removeTooltip(companyName: string): string {
-  return `Remove ${companyName} from this mandate — not remembered; use Decline to keep a record`;
+export function removeTooltip(name: string): string {
+  return `Remove ${name} from this mandate — not remembered; use Decline to keep a record`;
 }

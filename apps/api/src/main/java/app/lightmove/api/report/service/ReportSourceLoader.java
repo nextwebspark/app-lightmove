@@ -19,6 +19,7 @@ import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -60,16 +61,23 @@ class ReportSourceLoader {
         int budgetLeft = caps.maxCompanies() - shortlisted.companies().size();
         TriageCompaniesResponse inUniverse = stage(workspaceId, projectId, TriageCompanyStatus.IN_UNIVERSE,
                 Math.max(budgetLeft, 1), audience);
+        // A company is listed on both stages while one of its people was moved alone (#903); it is one company.
+        Set<UUID> shortlistedIds = shortlisted.companies().stream().map(TriageCompanyResponse::id)
+                .collect(Collectors.toSet());
+        List<TriageCompanyResponse> inUniverseOnly = inUniverse.companies().stream()
+                .filter(company -> !shortlistedIds.contains(company.id()))
+                .toList();
         List<TriageCompanyResponse> universe = new ArrayList<>(
-                inUniverse.companies().stream().limit(Math.max(budgetLeft, 0)).toList());
+                inUniverseOnly.stream().limit(Math.max(budgetLeft, 0)).toList());
         universe.addAll(shortlisted.companies());
+        long listedTwice = inUniverse.companies().size() - inUniverseOnly.size();
 
         CandidatesResponse people = candidates.listAllOfProject(workspaceId, projectId, caps.maxCandidates(),
                 audience);
         int interestedFrom = pipeline.progressAnchors(workspaceId).interestedFrom();
         List<ExecutiveRow> executives = pair(people, universe, interestedFrom);
 
-        return new ReportSources(project, universe, inUniverse.totalCount() + shortlisted.totalCount(),
+        return new ReportSources(project, universe, inUniverse.totalCount() + shortlisted.totalCount() - listedTwice,
                 executives, people.totalCount(), positions.compensationOf(workspaceId, projectId));
     }
 

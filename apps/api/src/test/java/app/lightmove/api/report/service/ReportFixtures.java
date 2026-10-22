@@ -39,7 +39,8 @@ final class ReportFixtures {
                 company == null ? "Somewhere Untriaged" : company.companyName(), fullName, null, seniority,
                 "identified", null, country, null, nationality, null, null, Set.of(), null, null,
                 List.of(), List.of(), List.of(), List.of(), "manual", null, Map.of(), addedAt, null, null, null,
-                false, "Identified", "neutral", IDENTIFIED, addedAt, true);
+                false, "Identified", "neutral", IDENTIFIED, addedAt, true,
+                "inUniverse");
         return new ExecutiveRow(person, company);
     }
 
