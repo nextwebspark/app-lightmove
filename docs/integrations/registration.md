@@ -113,10 +113,13 @@ Our own bot needs no provider app — it joins as a guest — but its job does n
    gcloud run jobs add-iam-policy-binding lightmove-meetingbot --region "$REGION" \
      --member "serviceAccount:$GCP_RUNTIME_SA" --role roles/run.developer
    ```
-3. **Keep execution viewers narrow.** Each execution carries its run's token as a container override, and anyone who
-   can read the execution (`run.executions.get`: `roles/run.viewer` and up on the project or the job) can read it
-   while the run lasts. The token opens only that run's own `/internal/notetaker/runs/{id}/*` routes and dies when the
-   run ends, but grant those roles to operators only.
+3. **No run token rides the execution (#956).** With `NOTETAKER_BOT_SERVICE_ACCOUNT` set (deploy.yml sets it to
+   `MEETINGBOT_SA`), the API starts each execution with `NOTETAKER_TOKEN_AUDIENCE` in place of the token. The bot asks
+   the metadata server for an ID token of its own service account for that audience (`WEB_BASE_URL` unless
+   `NOTETAKER_BOT_TOKEN_AUDIENCE` says otherwise), and exchanges it once at `/internal/notetaker/runs/{id}/token`. The
+   API checks Google's signature, the issuer, the audience, the lifetime and the account's email before it answers,
+   and hands a run's token out only once. `MEETINGBOT_SA` still needs no role: every service account can mint its own
+   ID token. Execution viewers can no longer read a token, though the join link is still in the override.
 4. **A lifecycle rule on the documents bucket** as the backstop for the purge: delete objects under `notetaker/`
    older than 30 days. The API deletes a removed run's pieces on its next pass and a failed run's after
    `lightmove.notetaker.failed-media-retention` (7 days); the rule catches anything a purge never reached.

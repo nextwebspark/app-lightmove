@@ -24,6 +24,10 @@ describe("readConfig", () => {
 
   it("refuses to start without a run token or with a platform it does not join", () => {
     expect(() => readConfig({ ...environment, NOTETAKER_RUN_TOKEN: " " })).toThrow("NOTETAKER_RUN_TOKEN");
+    const exchanging = readConfig({ ...environment, NOTETAKER_RUN_TOKEN: undefined,
+      NOTETAKER_TOKEN_AUDIENCE: "https://beta.uncava.com" });
+    expect(exchanging.runToken).toBeNull();
+    expect(exchanging.tokenAudience).toBe("https://beta.uncava.com");
     expect(() => readConfig({ ...environment, NOTETAKER_PLATFORM: "ZOOM" })).toThrow("ZOOM");
   });
 

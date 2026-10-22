@@ -48,5 +48,12 @@ public record NotetakerSettings(
         @DefaultValue("false") boolean fallbackOnNotAdmitted,
         @DefaultValue("false") boolean fallbackOnJoinBlocked,
         /** A backup bot still unfinished this long past its call's end is taken as lost. */
-        @DefaultValue("3h") Duration backupTimeout
+        @DefaultValue("3h") Duration backupTimeout,
+        /**
+         * The bot's own service account ({@code MEETINGBOT_SA}). Set, a Cloud Run bot is started without its run token
+         * and exchanges a Google ID token of this account for it (#956); blank, the token rides the environment.
+         */
+        String botServiceAccount,
+        /** The audience that ID token is minted for; blank is the API's base URL the bot calls. */
+        String botTokenAudience
 ) {}

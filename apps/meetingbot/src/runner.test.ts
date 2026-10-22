@@ -6,7 +6,7 @@ import type { MeetingPage } from "./platforms/platform.js";
 import { ALONE_MS, OVERRUN_MS, PIECE_MS, consentLine, runBot, type RunnerDeps } from "./runner.js";
 
 const config: BotConfig = {
-  runId: "run-1", runToken: "token-1", joinUrl: "https://meet.google.com/abc-defg-hij", platform: "GOOGLE_MEET",
+  runId: "run-1", runToken: "token-1", tokenAudience: null, joinUrl: "https://meet.google.com/abc-defg-hij", platform: "GOOGLE_MEET",
   botName: "Uncava Notetaker", apiBaseUrl: "http://api", lobbyTimeoutMs: 10 * 60_000, maxDurationMs: 60 * 60_000,
   endsAtMs: null,
 };

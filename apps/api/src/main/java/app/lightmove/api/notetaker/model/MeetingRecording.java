@@ -116,6 +116,10 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "processed_at")
     private Instant processedAt;
 
+    /** When a bot exchanged its identity for the run token (#956); a run hands its token out once. */
+    @Column(name = "run_token_issued_at")
+    private Instant runTokenIssuedAt;
+
     /** Why our bot was followed by the backup recorder; null while ours answers, and for a Zoom call it never joins. */
     @Enumerated(EnumType.STRING)
     @Column(name = "fallback_reason", length = 32)
@@ -145,6 +149,17 @@ public class MeetingRecording extends BaseEntity {
         }
         statusAnnounced = status;
         return true;
+    }
+
+    /** Our bot, sent and not yet started, may take its token once; an ended run's is gone. */
+    public boolean canIssueRunToken() {
+        return recorder == MeetingRecorderKind.OWN && status.isInCall() && status != NotetakerStatus.REMOVE_REQUESTED
+                && runTokenHash != null && runTokenIssuedAt == null;
+    }
+
+    public void issueRunToken(String tokenHash, Instant now) {
+        runTokenHash = tokenHash;
+        runTokenIssuedAt = now;
     }
 
     public void markLaunched(String externalId, Instant now) {

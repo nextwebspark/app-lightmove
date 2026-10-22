@@ -124,8 +124,9 @@ jobs:
       # ── Meeting bot ──────────────────────────────────────────────────────────
       # The Notetaker's browser (apps/meetingbot): its own image, deployed as a Cloud Run Job the API runs once per
       # call. Off unless MEETINGBOT_ENABLED=true. It runs as MEETINGBOT_SA, which needs no role at all: the bot
-      # holds no Google credential and reaches Uncava only through its run's token. No retries: a second execution
-      # is a second bot in an executive's call.
+      # reaches Uncava only through its run's token, which it takes once by showing that account's ID token (#956),
+      # so no token is in the execution's environment. No retries: a second execution is a second bot in an
+      # executive's call.
       - name: Deploy the meeting bot job
         if: vars.MEETINGBOT_ENABLED == 'true'
         env:
@@ -448,6 +449,7 @@ jobs:
             NOTETAKER_ENV="|NOTETAKER_ENABLED=true|NOTETAKER_RUNNER=cloud-run-job"
             NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_CLOUD_RUN_JOB=projects/${{ vars.GCP_PROJECT }}/locations/${REGION}/jobs/lightmove-meetingbot"
             NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_PLATFORMS=${{ vars.NOTETAKER_PLATFORMS || 'GOOGLE_MEET' }}"
+            NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_BOT_SERVICE_ACCOUNT=${{ vars.MEETINGBOT_SA }}"
           fi
 
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both

@@ -753,6 +753,8 @@ lightmove:
     fallback: ${NOTETAKER_FALLBACK:true}
     fallback-on-not-admitted: ${NOTETAKER_FALLBACK_ON_NOT_ADMITTED:false}
     fallback-on-join-blocked: ${NOTETAKER_FALLBACK_ON_JOIN_BLOCKED:false}
+    bot-service-account: ${NOTETAKER_BOT_SERVICE_ACCOUNT:}
+    bot-token-audience: ${NOTETAKER_BOT_TOKEN_AUDIENCE:}
 
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:

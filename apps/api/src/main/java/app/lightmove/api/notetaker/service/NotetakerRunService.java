@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A bot's calls back about its own run. The run token is the whole credential and names one run: a wrong token,
@@ -49,7 +50,34 @@ public class NotetakerRunService {
     private final LightMoveProperties properties;
     private final ApplicationEventPublisher events;
     private final NotetakerRunEndings endings;
+    private final BotIdentityVerifier bots;
+    private final TransactionTemplate transactions;
     private final Clock clock;
+
+    /**
+     * A Cloud Run bot's first call (#956): its service account's ID token, verified against Google's keys before the
+     * database is asked, buys its run's token once. Every refusal reads as a run that does not exist.
+     */
+    public String exchangeToken(UUID runId, String identityToken, HttpServletRequest from) {
+        rateLimit.checkNotetakerRun(runId, from);
+        String expected = properties.notetaker().botServiceAccount();
+        if (expected == null || expected.isBlank() || identityToken == null || identityToken.isBlank()
+                || bots.serviceAccountOf(identityToken.strip()).filter(expected.strip()::equalsIgnoreCase).isEmpty()) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        String runToken = Tokens.generate();
+        boolean issued = Boolean.TRUE.equals(transactions.execute(status -> recordings.findById(runId)
+                .filter(MeetingRecording::canIssueRunToken)
+                .map(recording -> {
+                    recording.issueRunToken(Tokens.hash(runToken), clock.instant());
+                    return true;
+                })
+                .orElse(false)));
+        if (!issued) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return runToken;
+    }
 
     @Transactional
     public void report(UUID runId, String runToken, NotetakerRunReportRequest request, HttpServletRequest from) {

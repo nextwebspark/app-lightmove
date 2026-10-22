@@ -11,11 +11,14 @@ export class PieceUploader {
   private readonly api: NotetakerApi;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly attempts: number;
+  private readonly warn: (message: string) => void;
 
-  constructor(api: NotetakerApi, sleep: (ms: number) => Promise<void>, attempts = 4) {
+  constructor(api: NotetakerApi, sleep: (ms: number) => Promise<void>, attempts = 4,
+    warn: (message: string) => void = console.warn) {
     this.api = api;
     this.sleep = sleep;
     this.attempts = attempts;
+    this.warn = warn;
   }
 
   enqueue(kind: PieceKind, content: Uint8Array, startedAt?: Date): void {
@@ -41,7 +44,7 @@ export class PieceUploader {
       } catch (error) {
         if (error instanceof RunGoneError || attempt === this.attempts) {
           this.failed++;
-          console.warn(`piece ${kind} ${sequence} not delivered: ${(error as Error).message}`);
+          this.warn(`piece ${kind} ${sequence} not delivered: ${(error as Error).message}`);
           return;
         }
         await this.sleep(1_000 * 2 ** (attempt - 1));
