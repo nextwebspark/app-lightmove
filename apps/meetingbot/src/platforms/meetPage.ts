@@ -1,25 +1,10 @@
-import puppeteer, { type Browser, type Page } from "puppeteer-core";
-import { installAudioRecorder } from "../capture/audioRecorderScript.js";
+import type { Browser, Page } from "puppeteer-core";
+import { delay, openCallTab } from "./callBrowser.js";
 import { inPage } from "./inPage.js";
-import { BLOCKED_HOSTS, isAllowedNavigation, isMeetLink } from "./meetLink.js";
+import { isAllowedNavigation, isMeetLink } from "./meetLink.js";
 import { fillMeetName, pressMeetButton, readMeetCaptions, readMeetDevices, readMeetScreen,
   writeMeetChat } from "./meetScreen.js";
 import type { MeetingPage } from "./platform.js";
-
-const CHROME_ARGUMENTS = [
-  // English labels: the screen readers match on what the page says.
-  "--lang=en-US",
-  // No fake camera or microphone: Chromium's fake ones are a test card and a beep, and Meet would put both in the
-  // executive's call. The page is denied both, and the bot joins as a guest with neither.
-  "--autoplay-policy=no-user-gesture-required",
-  "--disable-blink-features=AutomationControlled",
-  "--no-first-run",
-  "--no-default-browser-check",
-  "--window-size=1280,800",
-  // The container runs one call in one throwaway browser, as an unprivileged user.
-  "--no-sandbox",
-  "--disable-dev-shm-usage",
-];
 
 export class MeetLinkRefused extends Error {}
 
@@ -29,54 +14,9 @@ export async function openMeet(joinUrl: string, onAudioPiece: (piece: Uint8Array
   if (!isMeetLink(joinUrl)) {
     throw new MeetLinkRefused("the join link is not a Google Meet link");
   }
-  const browser: Browser = await puppeteer.launch({
-    executablePath,
-    headless: true,
-    args: CHROME_ARGUMENTS,
-    defaultViewport: { width: 1280, height: 800 },
-  });
-  try {
-    await browser.defaultBrowserContext().overridePermissions("https://meet.google.com", []);
-    const page = await browser.newPage();
-    await keepToMeet(page);
-    // Meet refuses a browser that calls itself HeadlessChrome.
-    const agent = (await browser.userAgent()).replace("HeadlessChrome", "Chrome");
-    await page.setUserAgent(agent);
-    await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });
-    await page.exposeFunction("__uncavaAudioPiece", (encoded: string, startedAtMs: number) => {
-      onAudioPiece(new Uint8Array(Buffer.from(encoded, "base64")), new Date(startedAtMs));
-    });
-    await page.evaluateOnNewDocument(`(${installAudioRecorder.toString()})()`);
-    // Never "networkidle": Meet keeps connections open for as long as the page lives.
-    await page.goto(joinUrl, { waitUntil: "domcontentloaded", timeout: 60_000 });
-    return meetPage(browser, page);
-  } catch (error) {
-    await browser.close().catch(() => undefined);
-    throw error;
-  }
-}
-
-/** The page reaches no metadata server, and the tab is never taken off Meet and Google's sign-in. */
-async function keepToMeet(page: Page): Promise<void> {
-  await page.setRequestInterception(true);
-  page.on("request", (request) => {
-    if (request.isInterceptResolutionHandled()) {
-      return;
-    }
-    let host = "";
-    try {
-      host = new URL(request.url()).hostname;
-    } catch {
-      // A data: or blob: address has no host to check.
-    }
-    const leavesMeet = request.isNavigationRequest() && request.frame() === page.mainFrame()
-      && !isAllowedNavigation(request.url());
-    if (BLOCKED_HOSTS.has(host) || leavesMeet) {
-      void request.abort("blockedbyclient");
-      return;
-    }
-    void request.continue();
-  });
+  const { browser, page } = await openCallTab(joinUrl, ["https://meet.google.com"], isAllowedNavigation, onAudioPiece,
+    executablePath);
+  return meetPage(browser, page);
 }
 
 function meetPage(browser: Browser, page: Page): MeetingPage {
@@ -153,6 +93,3 @@ function meetPage(browser: Browser, page: Page): MeetingPage {
   };
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}

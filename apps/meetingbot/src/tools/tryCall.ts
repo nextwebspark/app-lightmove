@@ -3,7 +3,8 @@ import { createServer } from "node:http";
 import { join } from "node:path";
 import { httpApi } from "../api.js";
 import type { BotConfig } from "../config.js";
-import { openMeet } from "../platforms/meetPage.js";
+import { openCall } from "../platforms/openCall.js";
+import { isTeamsLink } from "../platforms/teamsLink.js";
 import { runBot } from "../runner.js";
 
 /**
@@ -50,12 +51,14 @@ await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 const port = (server.address() as { port: number }).port;
 
 const config: BotConfig = {
-  runId: "try", runToken: "try", joinUrl, platform: "GOOGLE_MEET", botName: "Uncava Notetaker (try)",
+  runId: "try", runToken: "try", joinUrl, platform: isTeamsLink(joinUrl) ? "MICROSOFT_TEAMS" : "GOOGLE_MEET",
+  botName: "Uncava Notetaker (try)",
   apiBaseUrl: `http://127.0.0.1:${port}`, lobbyTimeoutMs: 10 * 60_000, maxDurationMs: 60 * 60_000, endsAtMs: null,
 };
 const outcome = await runBot(config, {
   api: httpApi(config.apiBaseUrl, config.runId, config.runToken),
-  openPage: (onAudioPiece) => openMeet(joinUrl, onAudioPiece, process.env.CHROME_PATH ?? "/usr/bin/chromium"),
+  openPage: (onAudioPiece) =>
+    openCall(config.platform, joinUrl, onAudioPiece, process.env.CHROME_PATH ?? "/usr/bin/chromium"),
   now: () => Date.now(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   log: (message) => console.log(message),

@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { installAudioRecorder } from "./capture/audioRecorderScript.js";
 import { inPage } from "./platforms/inPage.js";
 import { readMeetCaptions, readMeetScreen } from "./platforms/meetScreen.js";
+import { readTeamsCaptions, readTeamsScreen, teamsChatShows } from "./platforms/teamsScreen.js";
+import { consentLine } from "./runner.js";
 
 /**
  * What jsdom cannot run, in a real Chromium: the recorder must turn a peer connection's remote audio into WebM
@@ -85,6 +87,17 @@ describe("in a real browser", () => {
     expect(await inPage(page, readMeetScreen)).toEqual({ stage: "in-call", participants: 3 });
     expect((await inPage(page, readMeetCaptions)).map((entry) => entry.speaker)).toEqual(["Yara Haddad",
       "Priya Raman"]);
+    await page.close();
+  }, 30_000);
+
+  it("reads a Teams call the same way, its readers sent as source text", async () => {
+    const page = await browser.newPage();
+    await page.setContent(readFileSync(new URL("./platforms/fixtures/teams-in-call.html", import.meta.url), "utf8"));
+
+    expect(await inPage(page, readTeamsScreen)).toEqual({ stage: "in-call", participants: 3 });
+    expect((await inPage(page, readTeamsCaptions)).map((entry) => entry.speaker)).toEqual(["Priya Raman",
+      "Yara Haddad"]);
+    expect(await inPage(page, teamsChatShows, consentLine("Uncava Notetaker"))).toBe(true);
     await page.close();
   }, 30_000);
 });
