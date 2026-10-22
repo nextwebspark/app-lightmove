@@ -240,7 +240,7 @@ describe("MeetingsSection", () => {
         minutes: 30,
       }),
     );
-    expect(meetingApi.getMeetingSlots).toHaveBeenCalledWith("p1", "c1", 30, null, expect.anything(), "m1");
+    expect(meetingApi.getMeetingSlots).toHaveBeenCalledWith("p1", "c1", 30, null, "m1", expect.anything());
     expect(await screen.findByText(/Call with Priya moved to Wed 7 Oct, 11:00\./)).toBeInTheDocument();
   });
 
@@ -256,6 +256,7 @@ describe("MeetingsSection", () => {
     expect(await screen.findAllByRole("button", { name: "Cancel call" })).toHaveLength(1);
     await userEvent.click(screen.getByRole("button", { name: "Cancel call" }));
     expect(await screen.findByText("Cancel the call with Priya Raman?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Keep call" })).toBeInTheDocument();
     await userEvent.click(screen.getAllByRole("button", { name: "Cancel call" }).at(-1) as HTMLElement);
 
     await waitFor(() => expect(meetingApi.cancelMeeting).toHaveBeenCalledWith("p1", "c1", "m1"));
@@ -266,6 +267,10 @@ describe("MeetingsSection", () => {
     renderSection({ doNotContact: true });
 
     expect(await screen.findByRole("button", { name: "Cancel call" })).toBeInTheDocument();
+    // Absence proves nothing until the person record, which decides it, has landed.
+    await waitFor(() => expect(poolApi.getPerson).toHaveBeenCalled());
+    await vi.mocked(poolApi.getPerson).mock.results[0].value;
+    await new Promise((resolve) => setTimeout(resolve, 0));
     expect(screen.queryByRole("button", { name: "Reschedule" })).not.toBeInTheDocument();
   });
 
@@ -350,7 +355,7 @@ describe("MeetingsSection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Later days" }));
 
     expect(await screen.findByRole("button", { name: "Wed 7 Oct, 1 free" })).toBeInTheDocument();
-    expect(meetingApi.getMeetingSlots).toHaveBeenLastCalledWith("p1", "c1", 30, "2026-10-07", expect.anything(), null);
+    expect(meetingApi.getMeetingSlots).toHaveBeenLastCalledWith("p1", "c1", 30, "2026-10-07", null, expect.anything());
     expect(screen.getByRole("button", { name: "Earlier days" })).toBeEnabled();
   });
 });

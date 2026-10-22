@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
@@ -66,7 +66,13 @@ export function MeetingsSection({
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
       setCancelling(null);
     },
-    onError: (error) => toast.error(messageFor(error)),
+    onError: (error) => {
+      toast.error(messageFor(error));
+      if (codeOf(error) === "MEETING_GONE") {
+        void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
+        setCancelling(null);
+      }
+    },
   });
 
   return (
@@ -162,6 +168,7 @@ export function MeetingsSection({
         open={cancelling !== null}
         title={`Cancel the call with ${fullName}?`}
         confirmLabel="Cancel call"
+        cancelLabel="Keep call"
         pending={cancel.isPending}
         onConfirm={() => cancelling && cancel.mutate(cancelling)}
         onClose={() => setCancelling(null)}

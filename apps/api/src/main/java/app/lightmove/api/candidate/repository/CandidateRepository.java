@@ -34,6 +34,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query("select c.id as candidateId, c.addedBy as addedBy from Candidate c where c.projectId = :projectId")
     List<CandidateAttribution> findAttributionByProjectId(UUID projectId);
 
+    @Query("select c.id as candidateId, c.addedBy as addedBy from Candidate c "
+            + "where c.projectId = :projectId and c.id in :ids")
+    List<CandidateAttribution> findAttributionByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
+
     /** Named rows of one mandate. */
     List<Candidate> findByProjectIdAndIdIn(UUID projectId, Collection<UUID> ids);
 

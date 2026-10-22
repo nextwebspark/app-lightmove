@@ -7,6 +7,7 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -248,22 +249,29 @@ public class MeetingService {
         }
 
         String zoomMeetingId = meeting.getZoomMeetingId();
-        if (zoomMeetingId != null) {
-            try {
-                zoom.moveMeeting(userId, workspaceId, zoomMeetingId, startsAt, endsAt);
-            } catch (VendorException failed) {
-                log.warn("Zoom would not move meeting {} for user {}: {}", zoomMeetingId, userId, failed.getKind());
-                throw ApiException.of(ErrorCode.MEETING_UPDATE_FAILED);
-            }
-        }
+        boolean zoomMoved = zoomMeetingId != null && movedAtZoom(userId, workspaceId, zoomMeetingId, startsAt, endsAt);
         try {
             gateway.moveEvent(mailbox.getGrantId(), meeting.getProviderEventId(), startsAt, endsAt);
-        } catch (RuntimeException failed) {
-            if (zoomMeetingId != null) {
-                zoom.moveBackQuietly(userId, workspaceId, zoomMeetingId, meeting.getStartsAt(), meeting.getEndsAt());
+        } catch (VendorException failed) {
+            if (failed.getKind() != VendorFailureKind.MALFORMED_RESPONSE) {
+                if (zoomMoved) {
+                    zoom.moveBackQuietly(userId, workspaceId, zoomMeetingId, meeting.getStartsAt(), meeting.getEndsAt());
+                }
+                // An event the calendar no longer holds is not the mailbox's access withdrawn: read as that, one call
+                // deleted in Outlook would mark a healthy mailbox for reconnecting and stop every run it sends.
+                if (CalendarEventGone.isGone(failed)) {
+                    transactions.executeWithoutResult(status ->
+                            meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId()));
+                    throw ApiException.of(ErrorCode.MEETING_GONE);
+                }
+                throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_UPDATE_FAILED);
             }
-            if (failed instanceof VendorException vendorFailed) {
-                throw failedAtMailService(mailbox, vendorFailed, ErrorCode.MEETING_UPDATE_FAILED);
+            // A 2xx the gateway could not read back: the update went out, so the move is recorded and Zoom stays moved.
+            log.warn("The calendar moved event {} of mailbox {} but its answer could not be read",
+                    meeting.getProviderEventId(), mailbox.getId());
+        } catch (RuntimeException failed) {
+            if (zoomMoved) {
+                zoom.moveBackQuietly(userId, workspaceId, zoomMeetingId, meeting.getStartsAt(), meeting.getEndsAt());
             }
             throw failed;
         }
@@ -308,15 +316,42 @@ public class MeetingService {
         if (meeting.getZoomMeetingId() != null) {
             zoom.deleteQuietly(userId, workspaceId, meeting.getZoomMeetingId());
         }
-        transactions.executeWithoutResult(status -> {
-            meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId());
-            people.recordMeetingCancelled(userId, projectId, candidateId, meeting.getStartsAt());
-            audit.projectEvent(ProjectEventType.OUTREACH_MEETING_CANCELLED, userId, workspaceId, projectId,
-                            httpRequest)
-                    .detail("candidateId", candidateId.toString())
-                    .detail("startsAt", meeting.getStartsAt().toString())
-                    .record();
-        });
+        try {
+            transactions.executeWithoutResult(status -> {
+                meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId());
+                people.recordMeetingCancelled(userId, projectId, candidateId, meeting.getStartsAt());
+                audit.projectEvent(ProjectEventType.OUTREACH_MEETING_CANCELLED, userId, workspaceId, projectId,
+                                httpRequest)
+                        .detail("candidateId", candidateId.toString())
+                        .detail("startsAt", meeting.getStartsAt().toString())
+                        .record();
+            });
+        } catch (RuntimeException failed) {
+            // The attendees have been told; the next calendar read drops the row, but nothing else would say so.
+            log.error("Event {} of mailbox {} was cancelled for candidate {} on project {} (user {}), but recording "
+                            + "the cancel failed", meeting.getProviderEventId(), mailbox.getId(), candidateId,
+                    projectId, userId, failed);
+            throw failed;
+        }
+    }
+
+    /**
+     * Moves the call's Zoom meeting first, so a calendar refusal can put it back. A Zoom account since disconnected or
+     * refused moves nothing there and does not hold up the invite: the link the executive holds still opens it.
+     */
+    private boolean movedAtZoom(UUID userId, UUID workspaceId, String zoomMeetingId, Instant startsAt,
+                                Instant endsAt) {
+        try {
+            zoom.moveMeeting(userId, workspaceId, zoomMeetingId, startsAt, endsAt);
+            return true;
+        } catch (VendorException failed) {
+            log.warn("Zoom would not move meeting {} for user {}: {}", zoomMeetingId, userId, failed.getKind());
+            throw ApiException.of(ErrorCode.MEETING_UPDATE_FAILED);
+        } catch (ApiException unusable) {
+            log.warn("Zoom meeting {} was not moved: user {}'s Zoom is not usable ({})", zoomMeetingId, userId,
+                    unusable.getCode());
+            return false;
+        }
     }
 
     /** The meeting, where its caller may change it: booked in Uncava, still to come, and on their own calendar. */

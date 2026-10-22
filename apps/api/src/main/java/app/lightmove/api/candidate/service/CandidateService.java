@@ -295,14 +295,15 @@ public class CandidateService {
 
     /** Who filed each of {@code found}'s executives, for a staff read of the Companies grid. */
     @Transactional(readOnly = true)
-    public CandidatesResponse withAddedBy(UUID projectId, CandidatesResponse found) {
+    public CandidatesResponse withAddedBy(UUID workspaceId, UUID projectId, CandidatesResponse found) {
+        projects.requireInWorkspace(projectId, workspaceId);
         List<UUID> ids = found.candidates().stream().map(CandidateResponse::id).toList();
         if (ids.isEmpty()) {
             return found.withAddedBy(Map.of());
         }
-        Map<UUID, UUID> adderOf = candidates.findAllById(ids).stream()
-                .filter(candidate -> projectId.equals(candidate.getProjectId()) && candidate.getAddedBy() != null)
-                .collect(Collectors.toMap(Candidate::getId, Candidate::getAddedBy));
+        Map<UUID, UUID> adderOf = candidates.findAttributionByProjectIdAndIdIn(projectId, ids).stream()
+                .filter(attribution -> attribution.getAddedBy() != null)
+                .collect(Collectors.toMap(CandidateAttribution::getCandidateId, CandidateAttribution::getAddedBy));
         Map<UUID, User> adders = users.findAllById(Set.copyOf(adderOf.values())).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, AddedByResponse> attribution = new HashMap<>();

@@ -529,8 +529,8 @@ function AddedByCell({ row }: { row: TriageCompanyRow }) {
     .filter(Boolean)
     .join("\n");
   return (
-    <span className="flex min-w-0 items-center gap-1.5" title={tooltip}>
-      <span className="flex flex-none items-center">
+    <span className="flex min-w-0 items-center gap-1.5" title={tooltip} aria-label={tooltip.replace("\n", ", ")}>
+      <span aria-hidden="true" className="flex flex-none items-center">
         <Avatar id={lead.userId} name={lead.name} src={lead.avatarUrl} size="xs" />
         {second?.name && (
           <Avatar

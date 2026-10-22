@@ -34,6 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -78,6 +79,8 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     private static final int EVENT_PAGE = 250;
 
     private static final String TEAMS = "teamsForBusiness";
+
+    private static final Pattern ICAL_UID = Pattern.compile("^[0-9A-Fa-f]+$");
 
     /**
      * The only statuses offered as free time. Everything else is taken — {@code unknown} and a missing status
@@ -340,7 +343,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("comment", "This call has been cancelled.")));
         } catch (VendorException failed) {
-            if (failed.getKind() != VendorFailureKind.NOT_FOUND) {
+            if (!CalendarEventGone.isGone(failed)) {
                 throw failed;
             }
         }
@@ -348,7 +351,9 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     /**
      * A meeting row keys on {@code iCalUId} (see {@link #eventOf}), which Graph's event routes do not take: the
-     * event is found by it first. A row keyed on Graph's own id, an event that carried no {@code iCalUId}, is that id.
+     * event is found by it first, and one it no longer finds is gone — sent on under the iCalUId, Graph would answer a
+     * malformed id rather than a missing one. A row keyed on Graph's own id, an event that carried no {@code iCalUId},
+     * is that id: an iCalUId is hex, a Graph id is not.
      */
     private String graphIdOf(String accessToken, String eventId) {
         JsonNode found = apiCall("find-event", accessToken, client -> client.get()
@@ -360,7 +365,13 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                 .accept(MediaType.APPLICATION_JSON));
         JsonNode first = found == null ? null : found.path("value").get(0);
         String graphId = first == null ? null : textOrNull(first.get("id"));
-        return graphId == null ? eventId : graphId;
+        if (graphId != null) {
+            return graphId;
+        }
+        if (ICAL_UID.matcher(eventId).matches()) {
+            throw new VendorException(vendorCall("find-event"), VendorFailureKind.NOT_FOUND, null);
+        }
+        return eventId;
     }
 
     /** Read before the create rather than after a refusal: a create that failed is never tried again. */

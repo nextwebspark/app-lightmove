@@ -185,13 +185,26 @@ public class TriageCompanyReadService {
                                                   TriageCompanyStatus status,
                                                   TriageCompanyFilters filters, int cap,
                                                   ProjectAudience audience) {
+        return listAllOfStage(workspaceId, projectId, status, filters, cap, audience, false);
+    }
+
+    /**
+     * {@code withAddedBy} asks who filed each company too, for a staff reader alone: only the export draws it, and the
+     * other whole-stage reads (the report, People mode's declined companies) would pay the extra read for nothing.
+     */
+    @Transactional(readOnly = true)
+    public TriageCompaniesResponse listAllOfStage(UUID workspaceId, UUID projectId,
+                                                  TriageCompanyStatus status,
+                                                  TriageCompanyFilters filters, int cap,
+                                                  ProjectAudience audience, boolean withAddedBy) {
         projects.requireInWorkspace(projectId, workspaceId);
         PageRequest wholeStage = PageRequest.of(0, cap, Sort.by(Sort.Direction.ASC, "companyName")
                 .and(NEWEST_FIRST));
         Page<TriageCompany> found = findWithFilters(projectId, status,
                 SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
                 resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()), wholeStage, audience);
-        Map<UUID, User> addedBy = audience == ProjectAudience.STAFF ? addersOf(found.getContent()) : Map.of();
+        Map<UUID, User> addedBy = withAddedBy && audience == ProjectAudience.STAFF
+                ? addersOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(
                 found.getContent().stream()
                         .map(company -> TriageCompanyResponseMapper.toDto(company, null,

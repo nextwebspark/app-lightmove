@@ -354,7 +354,7 @@ public class NylasMailboxGateway implements MailboxGateway {
                 .body(JsonNode.class));
         CalendarEvent moved = answer == null ? null : eventOf(answer.path("data"));
         if (moved == null) {
-            throw new IllegalStateException("The mail service answered an event move with no timed event");
+            throw new VendorException(VendorCall.of(VENDOR, "move-event"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return moved;
     }
@@ -370,7 +370,7 @@ public class NylasMailboxGateway implements MailboxGateway {
                     .retrieve()
                     .toBodilessEntity());
         } catch (VendorException failed) {
-            if (failed.getKind() != VendorFailureKind.NOT_FOUND) {
+            if (!CalendarEventGone.isGone(failed)) {
                 throw failed;
             }
         }

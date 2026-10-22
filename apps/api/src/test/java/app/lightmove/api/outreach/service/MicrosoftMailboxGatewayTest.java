@@ -494,6 +494,21 @@ class MicrosoftMailboxGatewayTest {
                 .isInstanceOf(VendorException.class);
     }
 
+    @Test
+    @DisplayName("an event its iCalUId no longer finds is gone: a cancel is done, a move answers not found")
+    void anEventGoneFromOutlookIsNotSentOnUnderItsICalUId() {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        microsoft.eventGone();
+
+        gateway.cancelEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1");
+        assertThatThrownBy(() -> gateway.moveEvent(grantId, "040000008200E00074C5B7101A82E0080000000075A1",
+                Instant.parse("2026-10-06T06:00:00Z"), Instant.parse("2026-10-06T06:30:00Z")))
+                .isInstanceOfSatisfying(VendorException.class,
+                        failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.NOT_FOUND));
+        assertThat(microsoft.requested()).noneMatch(request -> request.contains("040000008200E00074C5B7101A82E0080000000075A1"));
+    }
+
     private static final class RecordedMicrosoft {
 
         private static final String TEAMS_EVENT = """
@@ -521,6 +536,7 @@ class MicrosoftMailboxGatewayTest {
         private volatile int createEventStatus = 201;
         private volatile int cancelEventStatus = 202;
         private volatile String findEventQuery = "";
+        private volatile boolean eventFound = true;
         private volatile boolean scheduleError;
         private volatile boolean offersTeams = true;
 
@@ -593,7 +609,7 @@ class MicrosoftMailboxGatewayTest {
                         : "{\"allowedOnlineMeetingProviders\":[]}");
             } else if (key.equals("GET /graph/v1.0/me/events")) {
                 findEventQuery = lastQuery;
-                respond(exchange, 200, "{\"value\":[{\"id\":\"AAMkTeams\"}]}");
+                respond(exchange, 200, eventFound ? "{\"value\":[{\"id\":\"AAMkTeams\"}]}" : "{\"value\":[]}");
             } else if (key.equals("PATCH /graph/v1.0/me/events/AAMkTeams")) {
                 respond(exchange, 200, TEAMS_EVENT);
             } else if (key.equals("POST /graph/v1.0/me/events/AAMkTeams/cancel")) {
@@ -655,6 +671,10 @@ class MicrosoftMailboxGatewayTest {
 
         void cancelEventAnswers(int status) {
             this.cancelEventStatus = status;
+        }
+
+        void eventGone() {
+            this.eventFound = false;
         }
 
         String findEventQuery() {

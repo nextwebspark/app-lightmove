@@ -295,7 +295,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
                             .queryParam("sendUpdates", "all")
                             .build(eventId)));
         } catch (VendorException failed) {
-            if (failed.getKind() != VendorFailureKind.NOT_FOUND) {
+            if (!CalendarEventGone.isGone(failed)) {
                 throw failed;
             }
         }

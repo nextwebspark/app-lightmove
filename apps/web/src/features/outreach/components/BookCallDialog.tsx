@@ -82,7 +82,7 @@ export function BookCallDialog({
   const slots = useQuery({
     queryKey: meetingApi.MEETING_SLOTS_KEY(projectId, candidateId, minutes, from, meeting?.id ?? null),
     queryFn: ({ signal }) =>
-      meetingApi.getMeetingSlots(projectId, candidateId, minutes, from, signal, meeting?.id ?? null),
+      meetingApi.getMeetingSlots(projectId, candidateId, minutes, from, meeting?.id ?? null, signal),
     placeholderData: (previous) => previous,
   });
   const timeZone = slots.data?.timeZone;
@@ -113,7 +113,8 @@ export function BookCallDialog({
           }),
     onSuccess: () => {
       const day = slots.data?.days.find((candidate) => candidate.starts.includes(slot as string));
-      const when = `${day ? slotDayLabelOf(day.date) : "the new time"}, ${slotTimeOf(slot as string, timeZone ?? "UTC")}`;
+      const time = slotTimeOf(slot as string, timeZone ?? "UTC");
+      const when = day ? `${slotDayLabelOf(day.date)}, ${time}` : time;
       if (isRescheduling) {
         toast(`Call with ${firstName} moved to ${when}. They've been sent the new time.`);
       } else {
@@ -130,6 +131,10 @@ export function BookCallDialog({
         void slots.refetch();
       }
       toast.error(messageFor(error));
+      if (codeOf(error) === "MEETING_GONE") {
+        void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
+        onClose();
+      }
     },
   });
 
@@ -263,6 +268,7 @@ export function BookCallDialog({
             <p className="text-note text-u-text3">
               Now {meetingWhenOf(meeting.startsAt, meeting.endsAt)}. {firstName} is sent the new time; the title
               {meeting.videoProvider ? ` and the ${meeting.videoProvider} link stay` : " stays"} as booked.
+              {!isOfferedLength(meeting) && ` It was booked for ${minutesOf(meeting)} min; a moved call is 15, 30 or 45.`}
             </p>
           ) : (
             <>
@@ -321,10 +327,17 @@ export function BookCallDialog({
   );
 }
 
-/** The call's own length where the dialog offers it; a call of any other length starts on 30. */
+/** The call's own length where the dialog offers it; a call of any other length starts on 30, and the note says so. */
 function lengthOf(meeting: Meeting): Length {
-  const minutes = String(Math.round((Date.parse(meeting.endsAt) - Date.parse(meeting.startsAt)) / 60_000));
-  return LENGTHS.some((option) => option.value === minutes) ? (minutes as Length) : "30";
+  return isOfferedLength(meeting) ? (String(minutesOf(meeting)) as Length) : "30";
+}
+
+function isOfferedLength(meeting: Meeting): boolean {
+  return LENGTHS.some((option) => option.value === String(minutesOf(meeting)));
+}
+
+function minutesOf(meeting: Meeting): number {
+  return Math.round((Date.parse(meeting.endsAt) - Date.parse(meeting.startsAt)) / 60_000);
 }
 
 function endOf(start: string, minutes: number): string {

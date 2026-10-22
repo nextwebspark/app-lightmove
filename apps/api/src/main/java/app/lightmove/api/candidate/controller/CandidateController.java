@@ -71,7 +71,7 @@ public class CandidateController {
                 status, pipelineStage, page, size);
         ProjectAudience audience = audienceOf(principal, projectId);
         CandidatesResponse found = candidates.list(principal.requireWorkspaceId(), projectId, criteria, audience);
-        return audience == ProjectAudience.STAFF ? candidates.withAddedBy(projectId, found) : found;
+        return audience == ProjectAudience.STAFF ? candidates.withAddedBy(principal.requireWorkspaceId(), projectId, found) : found;
     }
 
     /** One executive whole — the report opens a person from a figure that carries only their id. */

@@ -409,6 +409,9 @@ public enum ErrorCode {
     /** The call is on a teammate's calendar, which only they can change. */
     MEETING_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person whose calendar holds this call can change it"),
 
+    /** The calendar no longer holds the call (deleted or moved there); the drawer reads its meetings again. */
+    MEETING_GONE(HttpStatus.CONFLICT, "This call is no longer on your calendar"),
+
     /** Never retried: the calendar may have sent the update, so the consultant checks before trying again. */
     MEETING_UPDATE_FAILED(HttpStatus.BAD_GATEWAY,
             "The call could not be changed. Check your calendar before trying again"),

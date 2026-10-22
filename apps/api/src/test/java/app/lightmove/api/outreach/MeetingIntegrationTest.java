@@ -429,6 +429,26 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(activityKinds(priya)).doesNotContain("MEETING_RESCHEDULED", "MEETING_CANCELLED");
     }
 
+    @Test
+    @DisplayName("a call the calendar no longer holds is said so and dropped, and the mailbox stays connected")
+    void aCallGoneFromTheCalendarLeavesTheMailboxAlone() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = firstFreeSlot(priya, 30);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+
+        gateway.failChangingEvents(new VendorException(VendorCall.of("nylas", "move-event"),
+                VendorFailureKind.NOT_FOUND, null));
+        assertThat(codeOf(reschedule(priya, meetingId, slotAfter(priya, slot, 30), 30)
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_GONE");
+
+        assertThat(jdbc.queryForObject("select status from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId)).isEqualTo("ACTIVE");
+        assertThat(meetingsOf(priya).get("upcoming")).isEmpty();
+        assertThat(activityKinds(priya)).doesNotContain("MEETING_RESCHEDULED");
+    }
+
     private static VendorException unavailable(String operation) {
         return new VendorException(VendorCall.of("nylas", operation), VendorFailureKind.UNAVAILABLE, null);
     }

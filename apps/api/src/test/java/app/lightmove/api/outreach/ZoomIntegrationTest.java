@@ -171,6 +171,26 @@ class ZoomIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a Zoom call still moves on the calendar once Zoom is disconnected; its link keeps opening it")
+    void aZoomCallMovesWithoutZoom() throws Exception {
+        ownZoomApp();
+        connectZoom("zoom-code-1");
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        JsonNode slots = slotsOf(priya);
+        Instant slot = firstStartIn(slots);
+        book(priya, slot, "ZOOM").andExpect(status().isNoContent());
+        String meetingId = body(as(consultant, get(meetings(priya))).andReturn()).get("upcoming").get(0).get("id")
+                .asText();
+        as(consultant, delete("/api/v1/outreach/zoom")).andExpect(status().isNoContent());
+
+        reschedule(priya, meetingId, laterStartIn(slots, slot)).andExpect(status().isNoContent());
+
+        assertThat(zoom.moved()).isEmpty();
+        assertThat(gateway.moves()).hasSize(1);
+    }
+
+    @Test
     @DisplayName("a token Zoom refuses marks the connection for reconnecting, and books nothing")
     void aRefusedTokenNeedsReconnecting() throws Exception {
         ownZoomApp();

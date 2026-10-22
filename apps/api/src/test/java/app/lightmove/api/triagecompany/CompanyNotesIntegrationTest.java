@@ -240,7 +240,7 @@ class CompanyNotesIntegrationTest extends FlowTestSupport {
             String seen = mvc.perform(get("/api/v1/projects/" + projectId + read)
                             .header("Authorization", "Bearer " + client))
                     .andReturn().getResponse().getContentAsString();
-            assertThat(seen).as(read).doesNotContain("their board is split");
+            assertThat(seen).as(read).doesNotContain("their board is split").doesNotContain("addedByName\":\"");
         }
         JsonNode grid = body(mvc.perform(get("/api/v1/projects/" + projectId + "/triage")
                         .header("Authorization", "Bearer " + client))

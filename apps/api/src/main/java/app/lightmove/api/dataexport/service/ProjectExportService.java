@@ -49,7 +49,8 @@ public class ProjectExportService {
                             HttpServletRequest httpRequest) {
         TriageCompanyStatus status = TriageCompanyStatus.parseOrInUniverse(statusToken);
         PairedStage paired = pairing.pair(workspaceId, projectId, status, filters, caps.maxCompanies(),
-                caps.maxCandidates(), audience);
+                caps.maxCandidates(), audience,
+                audience == ProjectAudience.STAFF);
         refuseIfPast("companies", paired.companies().totalCount(), caps.maxCompanies());
         refuseIfPast("executives", paired.totalCandidates(), caps.maxCandidates());
 

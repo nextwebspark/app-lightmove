@@ -85,8 +85,8 @@ export function getMeetingSlots(
   candidateId: string,
   minutes: number,
   from: string | null,
+  excluding: string | null,
   signal?: AbortSignal,
-  excluding: string | null = null,
 ): Promise<MeetingSlots> {
   const query = new URLSearchParams({ minutes: String(minutes) });
   if (from) query.set("from", from);

@@ -37,8 +37,15 @@ public class StagePairingService {
     public PairedStage pair(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
                             TriageCompanyFilters filters, int maxCompanies, int maxCandidates,
                             ProjectAudience audience) {
+        return pair(workspaceId, projectId, status, filters, maxCompanies, maxCandidates, audience, false);
+    }
+
+    /** {@code withAddedBy}: who filed each company, which only the export's staff file carries. */
+    public PairedStage pair(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
+                            TriageCompanyFilters filters, int maxCompanies, int maxCandidates,
+                            ProjectAudience audience, boolean withAddedBy) {
         TriageCompaniesResponse stage = triage.listAllOfStage(workspaceId, projectId, status, filters, maxCompanies,
-                audience);
+                audience, withAddedBy);
         CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, maxCandidates, audience);
 
         Set<UUID> stageCompanyIds = new HashSet<>();
