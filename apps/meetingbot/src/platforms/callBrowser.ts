@@ -2,7 +2,7 @@ import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { installAudioRecorder } from "../capture/audioRecorderScript.js";
 import { BLOCKED_HOSTS } from "./meetLink.js";
 
-const CHROME_ARGUMENTS = [
+export const CHROME_ARGUMENTS = [
   // English labels: the screen readers match on what the page says.
   "--lang=en-US",
   // No fake camera or microphone: Chromium's fake ones are a test card and a beep, and the service would put both in
@@ -60,7 +60,7 @@ export async function openCallTab(joinUrl: string, deniedOrigins: string[], allo
 }
 
 /** The page reaches no metadata server, and the tab is never taken off the service's own hosts. */
-async function keepTo(page: Page, allowedNavigation: (url: string) => boolean): Promise<void> {
+export async function keepTo(page: Page, allowedNavigation: (url: string) => boolean): Promise<void> {
   await page.setRequestInterception(true);
   page.on("request", (request) => {
     if (request.isInterceptResolutionHandled()) {

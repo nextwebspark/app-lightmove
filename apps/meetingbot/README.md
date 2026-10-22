@@ -58,11 +58,14 @@ each piece, and `complete`. The server names every storage key.
 | `src/capture/audioRecorderScript.ts` | Installed before Meet's code: mixes the remote audio, records WebM pieces |
 | `src/capture/captionTracker.ts` | Turns repeated readings of the captions into lines |
 | `src/pieces.ts` | Uploads pieces in order, retrying one that failed |
+| `src/canary.ts`, `src/canaryMain.ts` | The daily canary (#956, #978): speaker, bot, loudness, phrase, report |
+| `src/canary/` | The canary's speaker (fake microphone looping `assets/canary-phrase.wav`), loudness, hearing and phrase |
 
 ```bash
 npm run test --workspace=apps/meetingbot                                          # jsdom, no browser
 CHROME_PATH=/path/to/chrome npm run test:browser --workspace=apps/meetingbot     # the recorder in a real Chromium
 CHROME_PATH=/path/to/chrome npm run try --workspace=apps/meetingbot -- <meet or teams link> # a real call, no Uncava behind it
+CHROME_PATH=/path/to/chrome npm run try:canary --workspace=apps/meetingbot -- <test meeting link> # the canary, unreported
 ```
 
 `npm run try` stands up a stub of the run's API on this machine and saves every piece under `try-output/`; somebody in

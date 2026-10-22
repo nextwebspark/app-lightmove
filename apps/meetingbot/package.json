@@ -10,6 +10,7 @@
     "lint": "oxlint",
     "test": "vitest run",
     "try": "npm run build && node dist/tools/tryCall.js",
+    "try:canary": "npm run build && node dist/tools/tryCanary.js",
     "test:browser": "vitest run --config vitest.browser.config.ts"
   },
   "dependencies": {

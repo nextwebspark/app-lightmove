@@ -1300,7 +1300,11 @@ instead, asks the metadata server for its own ID token and trades it once at `PO
 checks Google's keys, issuer, audience, lifetime and verified email before the run is read, and V155's
 `run_token_issued_at` refuses a second exchange; every refusal is a run that does not exist. **A daily canary**
 (`lightmove-meetingbot-canary`, `dist/canaryMain.js`, Cloud Scheduler) runs the real bot against standing test
-meetings on Meet and Teams with an in-memory API and reports to `POST /api/v1/internal/notetaker/canary` under an
+meetings on Meet and Teams with an in-memory API, beside a second guest whose fake microphone loops a committed clip
+(#978, `assets/canary-phrase.wav`): the bot's pieces must be audible (decoded and measured in Chromium) and, sent to
+`POST …/canary/hearing` for the notes' own `MeetingTranscriber`, must say the phrase — else `NO_SPEECH`,
+`WRONG_SPEECH` or `SPEAKER_NOT_JOINED`, while a transcriber out of reach leaves an audible run passing. It reports to
+`POST /api/v1/internal/notetaker/canary` under an
 identity of its own (`canary-service-account`, never a meeting bot's, which runs on a third party's page); V156's `app_lm_notetaker_platform_health` (not tenant data) keeps each platform's latest finding, a failure
 is an ERROR line (the alert) and, under `platform-health`, routes that platform's calls straight to the backup where a
 workspace has it (`PLATFORM_UNHEALTHY`) until a canary passes. **Nothing captured outlives a day**
