@@ -424,6 +424,26 @@ After this, Cloud Logging alone can already answer "what did this user do and wh
 
 ---
 
+## 8. Notetaker
+
+The Notetaker (`docs/notetaker.md`) registers four meters. They are readable once gap 4's scrape exists; until then
+its log lines carry the same facts. The dashboard is three panels and two alerts.
+
+| Panel | Query (PromQL over the scraped meters) |
+|---|---|
+| Join success rate per platform | `sum by (platform) (rate(notetaker_joins_total{outcome="JOINED"}[1d])) / sum by (platform) (rate(notetaker_joins_total[1d]))` |
+| Time to admit, p50 / p95 | `histogram_quantile(0.95, sum by (le, platform) (rate(notetaker_time_to_admit_seconds_bucket[1d])))` |
+| Fallback rate per platform | `sum by (platform) (rate(notetaker_fallbacks_total[1d])) / sum by (platform) (rate(notetaker_joins_total[1d]))` |
+
+- **Canary failed.** This alert is log-based, so it works today. It fires on `Notetaker canary FAILED` at ERROR.
+  `docs/notetaker.md` has the runbook.
+- **Canary missing.** This alert fires when no `Notetaker canary passed` line has appeared for 26 hours.
+
+The bot writes one JSON entry per line, carrying `component: "meetingbot"`, `runId`, `severity` and `message`, and
+nothing a call said.
+
+---
+
 ## Sources
 
 - [OpenTelemetry with Spring Boot — spring.io](https://spring.io/blog/2025/11/18/opentelemetry-with-spring-boot/)
