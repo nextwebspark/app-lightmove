@@ -445,6 +445,14 @@ const BUILT_IN_COLUMNS = helper.columns([
     cell: (info) => <DataGridCell value={formatInstantDate(info.getValue())} />,
   }),
 
+  helper.accessor((row) => row.company?.addedByName ?? null, {
+    id: "addedBy",
+    header: "Added by",
+    enableSorting: false,
+    meta: { share: 8, min: 112 },
+    cell: (info) => <DataGridCell value={info.getValue()} />,
+  }),
+
   helper.accessor((row) => row.company?.shortDescription ?? null, {
     id: "description",
     header: "Description",
@@ -496,9 +504,12 @@ export function createTriageCompanyColumns(customColumns: readonly CustomColumn[
     );
   // Back through `helper.columns` rather than a bare spread: it is what re-widens the tuple of
   // per-column value types into the one array shape `useTable` takes, which a spread loses.
-  const builtIn = staff ? BUILT_IN_COLUMNS : BUILT_IN_COLUMNS.filter((column) => column.id !== "note");
+  const builtIn = staff ? BUILT_IN_COLUMNS : BUILT_IN_COLUMNS.filter((column) => !STAFF_ONLY_COLUMNS.has(column.id ?? ""));
   return helper.columns([...builtIn, ...custom]);
 }
+
+/** Columns a client seat never draws: a company's notes, and who at the firm filed it. */
+const STAFF_ONLY_COLUMNS = new Set(["note", "addedBy"]);
 
 /** The grid id for a custom column. Prefixed so it cannot collide with a built-in's id. */
 export function customColumnId(column: CustomColumn): string {

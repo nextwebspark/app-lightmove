@@ -5,7 +5,9 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.SortDirection;
@@ -58,6 +60,7 @@ public class TriageCompanyReadService {
     private final LightMoveProperties properties;
     private final MappedExecutiveLookup executives;
     private final CompanyNoteService companyNotes;
+    private final UserRepository users;
 
     /** One stage, with all three counts: the stage switcher is always visible, so a badge cannot lag. */
     @Transactional(readOnly = true)
@@ -80,13 +83,16 @@ public class TriageCompanyReadService {
                 : findWithFilters(projectId, status, companyName, executiveName, executiveStatuses,
                         PageRequest.of(page, size, resolveSort(criteria)), audience);
 
-        Map<UUID, Integer> noteCounts = audience == ProjectAudience.STAFF
+        boolean staff = audience == ProjectAudience.STAFF;
+        Map<UUID, Integer> noteCounts = staff
                 ? companyNotes.countsOf(projectId, found.getContent().stream().map(TriageCompany::getId).toList())
                 : null;
+        Map<UUID, String> addedByNames = staff ? addedByNamesOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(
                 found.getContent().stream()
                         .map(company -> TriageCompanyResponseMapper.toDto(company,
-                                noteCounts == null ? null : noteCounts.getOrDefault(company.getId(), 0)))
+                                noteCounts == null ? null : noteCounts.getOrDefault(company.getId(), 0),
+                                addedByNames.get(company.getAddedBy())))
                         .toList(),
                 found.getTotalElements(), page, size, countsFor(projectId));
     }
@@ -184,8 +190,13 @@ public class TriageCompanyReadService {
         Page<TriageCompany> found = findWithFilters(projectId, status,
                 SuppliedText.blankToNull(filters.companyName()), SuppliedText.blankToNull(filters.executiveName()),
                 resolveExecutiveStatuses(workspaceId, projectId, filters.executiveStatuses()), wholeStage, audience);
+        Map<UUID, String> addedByNames = audience == ProjectAudience.STAFF
+                ? addedByNamesOf(found.getContent()) : Map.of();
         return new TriageCompaniesResponse(
-                found.getContent().stream().map(TriageCompanyResponseMapper::toDto).toList(),
+                found.getContent().stream()
+                        .map(company -> TriageCompanyResponseMapper.toDto(company, null,
+                                addedByNames.get(company.getAddedBy())))
+                        .toList(),
                 found.getTotalElements(), 0, cap, countsFor(projectId));
     }
 
@@ -307,6 +318,16 @@ public class TriageCompanyReadService {
     public Set<UUID> idsOfStage(UUID workspaceId, UUID projectId, TriageCompanyStatus status) {
         projects.requireInWorkspace(projectId, workspaceId);
         return triaged.findIdsByProjectIdAndStatus(projectId, status);
+    }
+
+    private Map<UUID, String> addedByNamesOf(List<TriageCompany> companies) {
+        Set<UUID> ids = companies.stream().map(TriageCompany::getAddedBy).collect(Collectors.toSet());
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        return users.findAllById(ids).stream()
+                .filter(user -> user.getFullName() != null)
+                .collect(Collectors.toMap(User::getId, User::getFullName));
     }
 
     private TriageCountsDto countsFor(UUID projectId) {

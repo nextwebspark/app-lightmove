@@ -157,7 +157,7 @@ class PersonEmployerTest {
     private static TriageCompanyResponse companyRow(UUID id) {
         return new TriageCompanyResponse(id, "a42", "extension", "inUniverse", null, false, "Al Rawabi Dairy",
                 null, null, null, null, null, null, COMPANY_PAGE, null, null, null, COMPANY_LOGO, Map.of(),
-                Instant.now());
+                Instant.now(), null);
     }
 
     private static CandidateDetails details(String employerName) {

@@ -9,11 +9,14 @@ final class TriageCompanyResponseMapper {
     private TriageCompanyResponseMapper() {}
 
     static TriageCompanyResponse toDto(TriageCompany company) {
-        return toDto(company, null);
+        return toDto(company, null, null);
     }
 
-    /** {@code noteCount} only for a staff read: a company's notes are staff-only, their number included. */
-    static TriageCompanyResponse toDto(TriageCompany company, Integer noteCount) {
+    /**
+     * {@code noteCount} and {@code addedByName} only for a staff read: a company's notes are staff-only, their
+     * number included, and who filed it is the firm's own attribution, as an executive's {@code added_by} is.
+     */
+    static TriageCompanyResponse toDto(TriageCompany company, Integer noteCount, String addedByName) {
         return new TriageCompanyResponse(company.getId(), company.getApolloAccountId(),
                 company.getSource().value(), company.getStatus().value(), noteCount,
                 company.isNoExecutiveFound(),
@@ -21,6 +24,6 @@ final class TriageCompanyResponseMapper {
                 company.getCompanyCity(), company.getNumEmployees(), company.getAnnualRevenue(),
                 company.getWebsite(), company.getCompanyLinkedinUrl(), company.getFoundedYear(),
                 company.getShortDescription(), company.getSourceUrl(), company.getLogoUrl(),
-                company.getCustomFields().asMap(), company.getCreatedAt());
+                company.getCustomFields().asMap(), company.getCreatedAt(), addedByName);
     }
 }

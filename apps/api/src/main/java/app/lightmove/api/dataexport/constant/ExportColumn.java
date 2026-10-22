@@ -3,6 +3,7 @@ package app.lightmove.api.dataexport.constant;
 import app.lightmove.api.candidate.dto.CandidateEmailDto;
 import app.lightmove.api.candidate.dto.CandidatePhoneDto;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.dataexport.model.ExportRow;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
@@ -13,15 +14,14 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 
 /**
  * Every data column of the Companies grid, in grid order, under the grid's headers. {@code links} is
  * expanded into {@link #WEBSITE} and {@link #COMPANY_LINKEDIN}; figures leave unformatted so a
- * spreadsheet can sum them.
+ * spreadsheet can sum them. {@link #ADDED_BY} is staff-only, as the grid's column is: a client seat may export the
+ * mandate, never the firm's own attribution.
  */
-@RequiredArgsConstructor
 public enum ExportColumn {
 
     COMPANY("Company", row -> row.company() != null
@@ -65,7 +65,9 @@ public enum ExportColumn {
 
     DESCRIPTION("Description", row -> company(row, TriageCompanyResponse::shortDescription)),
 
-    SOURCE("Source", row -> row.company() == null ? "" : sourceLabel(row.company().source()));
+    SOURCE("Source", row -> row.company() == null ? "" : sourceLabel(row.company().source())),
+
+    ADDED_BY("Added by", row -> company(row, TriageCompanyResponse::addedByName), true);
 
     /** ISO-8601 UTC, which a spreadsheet reads as a date in any locale. */
     private static final DateTimeFormatter DATE = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneOffset.UTC);
@@ -77,13 +79,26 @@ public enum ExportColumn {
     @Accessors(fluent = true)
     private final String header;
     private final Function<ExportRow, String> extractor;
+    private final boolean staffOnly;
+
+    ExportColumn(String header, Function<ExportRow, String> extractor) {
+        this(header, extractor, false);
+    }
+
+    ExportColumn(String header, Function<ExportRow, String> extractor, boolean staffOnly) {
+        this.header = header;
+        this.extractor = extractor;
+        this.staffOnly = staffOnly;
+    }
 
     public String valueOf(ExportRow row) {
         return text(extractor.apply(row));
     }
 
-    public static List<ExportColumn> all() {
-        return List.of(values());
+    public static List<ExportColumn> readBy(ProjectAudience audience) {
+        return Stream.of(values())
+                .filter(column -> !column.staffOnly || audience == ProjectAudience.STAFF)
+                .toList();
     }
 
     /**

@@ -63,7 +63,7 @@ public class ProjectExportService {
                 .detail("customColumns", String.valueOf(columns.size()))
                 .record();
 
-        return writer.write(columns, rows);
+        return writer.write(audience, columns, rows);
     }
 
     /** The grid's row model: one line per executive, and a company with none keeps its own line. */

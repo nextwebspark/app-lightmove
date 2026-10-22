@@ -271,6 +271,7 @@ export function CompanyDrawer({
                 <DetailTile label="Stage" value={stageByStatus(company.status).label} />
                 <DetailTile label="Source" value={SOURCE_STYLES[company.source].label} />
                 <DetailTile label="Added" value={formatInstantDate(company.addedAt)} />
+                {canWrite && <DetailTile label="Added by" value={company.addedByName ?? null} />}
                 <DetailTile label="Country" value={company.companyCountry} />
               </DetailGrid>
               {!isMandateSupplied && (
