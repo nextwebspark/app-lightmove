@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-/** The pieces a bot has uploaded (V151): one row each, written without touching the recording's own row. */
+/** The pieces a bot has uploaded (V152): one row each, written without touching the recording's own row. */
 @Component
 @RequiredArgsConstructor
 class MeetingMediaPieces {

@@ -1234,20 +1234,20 @@ V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kin
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
 the profile write, and taken by a new connection.
-V150 is the Notetaker's first (epic #949): `app_lm_meeting_recording` — one bot per call, the call keyed on a SHA-256
+V151 is the Notetaker's first (epic #949): `app_lm_meeting_recording` — one bot per call, the call keyed on a SHA-256
 of its join link and start so two calendars' copies are one claim (`MeetingRecordingClaims`), its run token stored as
 SHA-256 only — and its three switches, each on with no row: `app_lm_workspace_notetaker`,
 `app_lm_notetaker_user_preference` and `app_lm_notetaker_meeting_opt_out` (keyed on the calendar event, so a moved
 meeting stays switched off). `notetaker` reads meetings through `outreach`'s `KeptMeetings` and do not contact through
 `CandidateOutreachService.doNotContactAmong`; nothing depends back. The bot calls only
 `/api/v1/internal/notetaker/runs/{id}/*`, its run token in `X-Notetaker-Run-Token` the whole credential.
-V151 is the bot's pieces (#951): `app_lm_meeting_recording_media`, one row per 30-second audio or caption piece the bot
+V152 is the bot's pieces (#951): `app_lm_meeting_recording_media`, one row per 30-second audio or caption piece the bot
 uploads through `PUT …/runs/{id}/media/{audio|captions}/{n}` (the server names the key, so a bot writes only under its
 own run), in rows of their own so an upload never contends with the same bot's heartbeat on the recording; it drops
-V150's `media`. A removed bot's pieces are deleted by `NotetakerMediaPurge`, file before row, on each scheduler pass.
+V151's `media`. A removed bot's pieces are deleted by `NotetakerMediaPurge`, file before row, on each scheduler pass.
 The bot is started by `lightmove.notetaker.runner`: `log`, `local` (`npm run dev`) or `cloud-run-job`
 (`CloudRunJobMeetingRecorder`, the run's environment as a container override, never retried).
-V152 is the call's note (#952): an audio piece's `started_at` (the bot's `X-Notetaker-Piece-Started-At`; pieces
+V153 is the call's note (#952): an audio piece's `started_at` (the bot's `X-Notetaker-Piece-Started-At`; pieces
 overlap by a second and may arrive out of order, so stitching keys on it), `app_lm_meeting_transcript_piece` — what
 `MeetingTranscriber` (an interface, so Chirp can replace `GeminiMeetingTranscriber`: one call per piece, audio in,
 timed lines out under per-piece voice labels) heard, written every `transcribe-every` (5m) while the call goes, its
