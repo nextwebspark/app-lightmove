@@ -1,7 +1,10 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.NotetakerSettings;
+import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.NotetakerEndReason;
 import app.lightmove.api.notetaker.constant.NotetakerPlatform;
@@ -14,6 +17,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +46,7 @@ public class NotetakerScheduler {
     private final NotetakerWorkClaims workClaims;
     private final MeetingNotesWorker notesWorker;
     private final ZoomService zoom;
+    private final FairUseGuard fairUse;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -90,24 +95,48 @@ public class NotetakerScheduler {
             if (!call.isSwitchedOn() || !call.first().endsAt().isAfter(now)) {
                 continue;
             }
-            ClaimedCall claimed = new ClaimedCall(call.callKey(), call.platform(), call.sentFrom().orElseThrow());
-            if (call.doNotContact()) {
-                claims.claimSkipped(claimed, NotetakerEndReason.DO_NOT_CONTACT);
-                continue;
+            // One call that cannot be claimed is skipped this pass; it never stops the rest from getting their bots.
+            try {
+                claim(call).ifPresent(pending::add);
+            } catch (RuntimeException failed) {
+                log.error("Notetaker call {} could not be claimed this pass", call.callKey(), failed);
             }
-            // A Zoom call is joined on the consultant's own Zoom account; without a usable one it is never tried.
-            if (call.platform() == NotetakerPlatform.ZOOM
-                    && !zoom.isUsableBy(claimed.sentFrom().userId(), claimed.sentFrom().workspaceId())) {
-                claims.claimSkipped(claimed, NotetakerEndReason.ZOOM_NOT_CONNECTED);
-                continue;
-            }
-            String runToken = Tokens.generate();
-            claims.claimLaunching(claimed, Tokens.hash(runToken)).ifPresent(recordingId -> pending.add(
-                    new PendingLaunch(recordingId, call.platform(), call.first().joinUrl(), runToken,
-                            call.first().endsAt(), claimed.sentFrom().workspaceId(), claimed.sentFrom().userId(),
-                            claimed.sentFrom().personId())));
         }
         return pending;
+    }
+
+    private Optional<PendingLaunch> claim(NotetakerCall call) {
+        ClaimedCall claimed = new ClaimedCall(call.callKey(), call.platform(), call.sentFrom().orElseThrow());
+        Optional<NotetakerEndReason> skipped = skipReasonOf(call, claimed);
+        if (skipped.isPresent()) {
+            claims.claimSkipped(claimed, skipped.get());
+            return Optional.empty();
+        }
+        String runToken = Tokens.generate();
+        return claims.claimLaunching(claimed, Tokens.hash(runToken)).map(recordingId -> new PendingLaunch(recordingId,
+                call.platform(), call.first().joinUrl(), runToken, call.first().endsAt(),
+                claimed.sentFrom().workspaceId(), claimed.sentFrom().userId(), claimed.sentFrom().personId()));
+    }
+
+    /**
+     * Why a call gets no bot. Recorded minutes are a fair-use kind (#956), asked before a bot is sent: a workspace with
+     * any minute left this billing month gets its bot, and the minutes it records count once its note is filed. A Zoom
+     * call is joined on the consultant's own Zoom account; without a usable one it is never tried.
+     */
+    private Optional<NotetakerEndReason> skipReasonOf(NotetakerCall call, ClaimedCall claimed) {
+        if (call.doNotContact()) {
+            return Optional.of(NotetakerEndReason.DO_NOT_CONTACT);
+        }
+        Optional<ErrorCode> refused = fairUse.refusalOf(claimed.sentFrom().workspaceId(), UsageKind.MEETING_MINUTES, 1);
+        if (refused.isPresent()) {
+            return Optional.of(refused.get() == ErrorCode.TRIAL_ENDED ? NotetakerEndReason.TRIAL_ENDED
+                    : NotetakerEndReason.FAIR_USE_REACHED);
+        }
+        if (call.platform() == NotetakerPlatform.ZOOM
+                && !zoom.isUsableBy(claimed.sentFrom().userId(), claimed.sentFrom().workspaceId())) {
+            return Optional.of(NotetakerEndReason.ZOOM_NOT_CONNECTED);
+        }
+        return Optional.empty();
     }
 
     private List<UUID> notesDue(Instant now) {

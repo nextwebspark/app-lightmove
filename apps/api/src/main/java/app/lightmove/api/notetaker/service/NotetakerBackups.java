@@ -46,6 +46,7 @@ class NotetakerBackups {
     private final MeetingTranscriptPieces transcripts;
     private final MeetingNotesWorker notesWorker;
     private final ApplicationEventPublisher events;
+    private final NotetakerMetrics metrics;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -88,6 +89,9 @@ class NotetakerBackups {
         if (WAITING.contains(changed.code())) {
             recording.reportWaiting(at);
         } else if (changed.code().equals("in_call_recording")) {
+            if (recording.getBackupJoinedAt() == null) {
+                metrics.joined(recording, at);
+            }
             recording.backupJoined(at);
         } else if (GONE.contains(changed.code())) {
             left(recording, changed, now);

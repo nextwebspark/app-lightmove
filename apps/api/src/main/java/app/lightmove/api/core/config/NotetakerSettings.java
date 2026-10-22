@@ -40,13 +40,29 @@ public record NotetakerSettings(
         @DefaultValue("node apps/meetingbot/dist/main.js") String localCommand,
         /** One captured piece, at most: 30 seconds of Opus audio is about 120 KB. */
         @DefaultValue("8388608") long maxMediaBytes,
-        /** How long a failed run's pieces are kept to look into before they are deleted. */
+        /** How long a failed run's transcribed text is kept for Try again before it is deleted. */
         @DefaultValue("7d") Duration failedMediaRetention,
+        /** The longest any captured piece is kept, whatever became of its run (#956). */
+        @DefaultValue("24h") Duration mediaMaxAge,
         /** How often a call's audio is transcribed while it goes, so its note comes soon after it ends. */
         @DefaultValue("5m") Duration transcribeEvery,
         @DefaultValue("true") boolean fallback,
         @DefaultValue("false") boolean fallbackOnNotAdmitted,
         @DefaultValue("false") boolean fallbackOnJoinBlocked,
         /** A backup bot still unfinished this long past its call's end is taken as lost. */
-        @DefaultValue("3h") Duration backupTimeout
+        @DefaultValue("3h") Duration backupTimeout,
+        /**
+         * The bot's own service account ({@code MEETINGBOT_SA}). Set, a Cloud Run bot is started without its run token
+         * and exchanges a Google ID token of this account for it (#956); blank, the token rides the environment.
+         */
+        String botServiceAccount,
+        /** The audience that ID token is minted for; blank is the API's base URL the bot calls. */
+        String botTokenAudience,
+        /**
+         * The canary job's own service account, apart from the meeting bots': a bot on a third party's meeting page
+         * must not be able to say a platform is down, or that it is up. Blank, no canary report is taken.
+         */
+        String canaryServiceAccount,
+        /** A platform whose latest canary failed has its calls sent to the backup recorder, where a workspace has it. */
+        @DefaultValue("true") boolean platformHealth
 ) {}

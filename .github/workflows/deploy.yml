@@ -124,8 +124,9 @@ jobs:
       # ── Meeting bot ──────────────────────────────────────────────────────────
       # The Notetaker's browser (apps/meetingbot): its own image, deployed as a Cloud Run Job the API runs once per
       # call. Off unless MEETINGBOT_ENABLED=true. It runs as MEETINGBOT_SA, which needs no role at all: the bot
-      # holds no Google credential and reaches Uncava only through its run's token. No retries: a second execution
-      # is a second bot in an executive's call.
+      # reaches Uncava only through its run's token, which it takes once by showing that account's ID token (#956),
+      # so no token is in the execution's environment. No retries: a second execution is a second bot in an
+      # executive's call.
       - name: Deploy the meeting bot job
         if: vars.MEETINGBOT_ENABLED == 'true'
         env:
@@ -144,6 +145,28 @@ jobs:
             --task-timeout 4h \
             --max-retries 0 \
             --tasks 1
+
+      # The Notetaker's daily canary (#956): the same image, run once a day by Cloud Scheduler (registration.md), joins
+      # the standing test meetings these variables name, records a minute and reports to the API, which routes a
+      # failing platform's calls to the backup recorder. Off unless NOTETAKER_CANARY_ENABLED=true; needs
+      # PUBLIC_BASE_URL, since the API's own URL is not known until the service deploys below, and
+      # NOTETAKER_CANARY_SA: an account of its own, never MEETINGBOT_SA, since only it may report a platform's health.
+      - name: Deploy the notetaker canary job
+        if: vars.MEETINGBOT_ENABLED == 'true' && vars.NOTETAKER_CANARY_ENABLED == 'true'
+        env:
+          VERSION: ${{ inputs.ref }}
+        run: |
+          BOT="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/lightmove-meetingbot"
+          gcloud run jobs deploy lightmove-meetingbot-canary \
+            --image "${BOT}:${VERSION}" \
+            --region "$REGION" \
+            --service-account "${{ vars.NOTETAKER_CANARY_SA }}" \
+            --command node --args dist/canaryMain.js \
+            --cpu 2 --memory 4Gi \
+            --task-timeout 30m \
+            --max-retries 0 \
+            --tasks 1 \
+            --set-env-vars "^|^NOTETAKER_API_BASE_URL=${{ vars.PUBLIC_BASE_URL }}|CANARY_MEET_URL=${{ vars.NOTETAKER_CANARY_MEET_URL }}|CANARY_TEAMS_URL=${{ vars.NOTETAKER_CANARY_TEAMS_URL }}"
 
       # ── Migrate ──────────────────────────────────────────────────────────────
       # Before the new revision goes live, and never inside the container (FLYWAY_ENABLED=false there).
@@ -448,6 +471,8 @@ jobs:
             NOTETAKER_ENV="|NOTETAKER_ENABLED=true|NOTETAKER_RUNNER=cloud-run-job"
             NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_CLOUD_RUN_JOB=projects/${{ vars.GCP_PROJECT }}/locations/${REGION}/jobs/lightmove-meetingbot"
             NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_PLATFORMS=${{ vars.NOTETAKER_PLATFORMS || 'GOOGLE_MEET' }}"
+            NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_BOT_SERVICE_ACCOUNT=${{ vars.MEETINGBOT_SA }}"
+            NOTETAKER_ENV="${NOTETAKER_ENV}|NOTETAKER_CANARY_SERVICE_ACCOUNT=${{ vars.NOTETAKER_CANARY_SA }}"
           fi
 
           # ^|^ separates on | rather than a comma, because WEB_CORS_ORIGINS and the OAuth scope are both

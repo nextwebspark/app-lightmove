@@ -5,6 +5,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.notetaker.constant.MeetingMediaKind;
 import app.lightmove.api.notetaker.dto.NotetakerHeartbeatResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRunReportRequest;
+import app.lightmove.api.notetaker.dto.NotetakerRunTokenResponse;
 import app.lightmove.api.notetaker.service.NotetakerRunService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -33,8 +34,18 @@ public class NotetakerRunController {
     public static final String BASE = "/api/v1/internal/notetaker/runs";
     public static final String RUN_TOKEN_HEADER = "X-Notetaker-Run-Token";
     public static final String PIECE_STARTED_AT_HEADER = "X-Notetaker-Piece-Started-At";
+    /** The bot's Google ID token, in a header of its own for the run token's reason. */
+    public static final String BOT_IDENTITY_HEADER = "X-Notetaker-Bot-Identity";
 
     private final NotetakerRunService runs;
+
+    @PostMapping("/token")
+    public NotetakerRunTokenResponse exchangeToken(@PathVariable UUID runId,
+                                                   @RequestHeader(name = BOT_IDENTITY_HEADER, required = false)
+                                                   String identity,
+                                                   HttpServletRequest httpRequest) {
+        return new NotetakerRunTokenResponse(runs.exchangeToken(runId, identity, httpRequest));
+    }
 
     @PostMapping("/status")
     @ResponseStatus(HttpStatus.NO_CONTENT)

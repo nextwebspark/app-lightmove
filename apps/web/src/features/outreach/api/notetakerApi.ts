@@ -42,6 +42,8 @@ export type NotetakerEndReason =
   | "PROCESSING_FAILED"
   | "BACKUP_FAILED"
   | "RECORDING_NOT_ALLOWED"
+  | "FAIR_USE_REACHED"
+  | "TRIAL_ENDED"
   | "ZOOM_NOT_CONNECTED";
 
 export type NotetakerRecorder = "OWN" | "RECALL";

@@ -90,6 +90,29 @@ class MeetingMediaPieces {
                 Boolean.class, recordingId, recordingId));
     }
 
+    /**
+     * Pieces received before {@code receivedBefore}, whatever became of their run: nothing captured outlives a day.
+     * {@code unheard} marks audio of a run still to be noted that no pass transcribed, which goes as a gap.
+     */
+    List<StoredPiece> receivedBefore(Instant receivedBefore, int limit) {
+        return jdbc.query("""
+                SELECT media.recording_id, media.storage_key, media.sequence,
+                       coalesce(media.started_at, media.received_at) AS started_at,
+                       (media.kind = 'AUDIO' AND recording.status IN ('RECORDING', 'PROCESSING', 'FAILED')
+                        AND NOT EXISTS (SELECT 1 FROM app_lm_meeting_transcript_piece piece
+                                        WHERE piece.recording_id = media.recording_id
+                                          AND piece.sequence = media.sequence)) AS unheard
+                FROM app_lm_meeting_recording_media media
+                JOIN app_lm_meeting_recording recording ON recording.id = media.recording_id
+                WHERE media.received_at < ? ORDER BY media.received_at LIMIT ?""",
+                (row, index) -> new StoredPiece(row.getObject("recording_id", UUID.class),
+                        row.getString("storage_key"), row.getInt("sequence"),
+                        row.getTimestamp("started_at").toInstant(), row.getBoolean("unheard")),
+                Timestamp.from(receivedBefore), limit);
+    }
+
+    record StoredPiece(UUID recordingId, String storageKey, int sequence, Instant startedAt, boolean unheard) {}
+
     void forget(UUID recordingId, String storageKey) {
         jdbc.update("DELETE FROM app_lm_meeting_recording_media WHERE recording_id = ? AND storage_key = ?",
                 recordingId, storageKey);

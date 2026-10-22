@@ -51,12 +51,12 @@ await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
 const port = (server.address() as { port: number }).port;
 
 const config: BotConfig = {
-  runId: "try", runToken: "try", joinUrl, platform: isTeamsLink(joinUrl) ? "MICROSOFT_TEAMS" : "GOOGLE_MEET",
+  runId: "try", runToken: "try", tokenAudience: null, joinUrl, platform: isTeamsLink(joinUrl) ? "MICROSOFT_TEAMS" : "GOOGLE_MEET",
   botName: "Uncava Notetaker (try)",
   apiBaseUrl: `http://127.0.0.1:${port}`, lobbyTimeoutMs: 10 * 60_000, maxDurationMs: 60 * 60_000, endsAtMs: null,
 };
 const outcome = await runBot(config, {
-  api: httpApi(config.apiBaseUrl, config.runId, config.runToken),
+  api: httpApi(config.apiBaseUrl, config.runId, "try"),
   openPage: (onAudioPiece) =>
     openCall(config.platform, joinUrl, onAudioPiece, process.env.CHROME_PATH ?? "/usr/bin/chromium"),
   now: () => Date.now(),

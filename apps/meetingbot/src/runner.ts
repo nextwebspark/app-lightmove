@@ -20,7 +20,7 @@ export interface RunnerDeps {
   openPage(onAudioPiece: (piece: Uint8Array, startedAt: Date) => void): Promise<MeetingPage>;
   now(): number;
   sleep(ms: number): Promise<void>;
-  log(message: string): void;
+  log(message: string, severity?: "INFO" | "WARNING" | "ERROR"): void;
 }
 
 /** Said in the call's chat as the bot is let in, before it records anything. */
@@ -36,10 +36,10 @@ export function consentLine(botName: string): string {
  */
 export async function runBot(config: BotConfig, deps: RunnerDeps): Promise<RunOutcome> {
   const { api, log } = deps;
-  const uploader = new PieceUploader(api, deps.sleep);
+  const uploader = new PieceUploader(api, deps.sleep, 4, (message) => log(message, "WARNING"));
   const call = <T>(what: string, attempt: () => Promise<T>) => withRetries(deps, what, attempt);
   const fail = async (reason: FailureReason): Promise<RunOutcome> => {
-    log(`failing: ${reason}`);
+    log(`failing: ${reason}`, "WARNING");
     await call("report the failure", () => api.report("FAILED", reason))
       .catch((error) => log(`could not report the failure: ${error}`));
     return "failed";

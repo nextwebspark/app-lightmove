@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A bot's calls back about its own run. The run token is the whole credential and names one run: a wrong token,
@@ -49,14 +50,41 @@ public class NotetakerRunService {
     private final LightMoveProperties properties;
     private final ApplicationEventPublisher events;
     private final NotetakerRunEndings endings;
+    private final NotetakerBotIdentity bots;
+    private final NotetakerMetrics metrics;
+    private final TransactionTemplate transactions;
     private final Clock clock;
+
+    /**
+     * A Cloud Run bot's first call (#956): its service account's ID token, verified against Google's keys before the
+     * database is asked, buys its run's token once. Every refusal reads as a run that does not exist.
+     */
+    public String exchangeToken(UUID runId, String identityToken, HttpServletRequest from) {
+        rateLimit.checkNotetakerRun(runId, from);
+        if (!bots.isOurBot(identityToken)) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        String runToken = Tokens.generate();
+        Integer issued = transactions.execute(status ->
+                recordings.issueRunToken(runId, Tokens.hash(runToken), clock.instant()));
+        if (issued == null || issued != 1) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return runToken;
+    }
 
     @Transactional
     public void report(UUID runId, String runToken, NotetakerRunReportRequest request, HttpServletRequest from) {
         MeetingRecording recording = requireRun(runId, runToken, from);
         switch (request.state()) {
             case WAITING_ROOM -> recording.reportWaiting(clock.instant());
-            case RECORDING -> recording.reportRecording(clock.instant());
+            case RECORDING -> {
+                boolean admittedNow = recording.getJoinedAt() == null;
+                recording.reportRecording(clock.instant());
+                if (admittedNow && recording.getJoinedAt() != null) {
+                    metrics.joined(recording, recording.getJoinedAt());
+                }
+            }
             case FAILED -> {
                 if (request.reason() == null || !NotetakerEndReason.REPORTED_BY_BOT.contains(request.reason())) {
                     throw ApiException.of(ErrorCode.VALIDATION_FAILED);

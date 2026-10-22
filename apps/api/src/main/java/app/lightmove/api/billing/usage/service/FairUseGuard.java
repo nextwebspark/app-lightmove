@@ -4,6 +4,7 @@ import app.lightmove.api.billing.plan.service.BillingSeats;
 import app.lightmove.api.billing.plan.service.TrialGate;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.FairUseAllowance;
+import app.lightmove.api.billing.usage.model.FairUseSpent;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -15,6 +16,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -57,19 +59,43 @@ public class FairUseGuard {
      */
     public void check(UUID workspaceId, UUID userId, UsageKind kind, long units) {
         trialGate.requireOpen(workspaceId);
-        long perSeat = kind.perSeatIn(properties.billing().fairUse());
-        if (perSeat == 0) {
+        if (kind.perSeatIn(properties.billing().fairUse()) == 0) {
             return;
         }
         FairUseAllowance allowance = seats.allowanceOf(workspaceId, clock.instant());
-        long ceiling = perSeat * allowance.staffSeats();
-        long used = events.unitsBetween(workspaceId, kind, allowance.periodStart(), allowance.periodEnd());
-        if (used + units <= ceiling) {
+        FairUseSpent spent = spentIn(workspaceId, kind, allowance);
+        if (!spent.passedBy(units)) {
             return;
         }
-        reportOnce(workspaceId, userId, kind, used, ceiling, allowance.periodEnd());
+        reportOnce(workspaceId, userId, kind, spent.used(), spent.ceiling(), allowance.periodEnd());
         throw ApiException.withProperties(ErrorCode.FAIR_USE_REACHED,
                 Map.of("kind", kind.name(), "resetsAt", allowance.periodEnd()));
+    }
+
+    /**
+     * Why {@link #check} would refuse, without refusing: for a caller that skips the work rather than failing a
+     * request (the Notetaker's scheduler). Nothing is audited.
+     */
+    public Optional<ErrorCode> refusalOf(UUID workspaceId, UsageKind kind, long units) {
+        if (trialGate.hasEnded(workspaceId)) {
+            return Optional.of(ErrorCode.TRIAL_ENDED);
+        }
+        if (kind.perSeatIn(properties.billing().fairUse()) == 0) {
+            return Optional.empty();
+        }
+        return spentOf(workspaceId, kind).passedBy(units) ? Optional.of(ErrorCode.FAIR_USE_REACHED)
+                : Optional.empty();
+    }
+
+    /** What a workspace has used of one kind this billing month, beside its ceiling. */
+    public FairUseSpent spentOf(UUID workspaceId, UsageKind kind) {
+        return spentIn(workspaceId, kind, seats.allowanceOf(workspaceId, clock.instant()));
+    }
+
+    private FairUseSpent spentIn(UUID workspaceId, UsageKind kind, FairUseAllowance allowance) {
+        long used = events.unitsBetween(workspaceId, kind, allowance.periodStart(), allowance.periodEnd());
+        long perSeat = kind.perSeatIn(properties.billing().fairUse());
+        return new FairUseSpent(used, perSeat == 0 ? null : perSeat * allowance.staffSeats());
     }
 
     private void reportOnce(UUID workspaceId, UUID userId, UsageKind kind, long used, long ceiling, Instant resetsAt) {

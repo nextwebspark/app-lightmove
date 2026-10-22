@@ -1293,6 +1293,24 @@ deleted (`delete_media`, as on a removal). The note waits for that transcript (`
 hour), and one ours began says where it stopped and the backup resumed. A backup that never got in leaves ours as a
 partial note, or `BACKUP_FAILED`; one still in a call `backup-timeout` after its end is swept the same way, and Recall
 told to drop the bot and delete what it kept, since the webhook that usually does never came.
+V155 and V156 harden it (#956, `docs/notetaker.md` is the runbook). **No run token rides a Cloud Run execution**:
+with `lightmove.notetaker.bot-service-account` set (`MEETINGBOT_SA`) the bot is started with `NOTETAKER_TOKEN_AUDIENCE`
+instead, asks the metadata server for its own ID token and trades it once at `POST …/runs/{id}/token`
+(`X-Notetaker-Bot-Identity`, never `Authorization`, which the resource server would read): `GoogleBotIdentityVerifier`
+checks Google's keys, issuer, audience, lifetime and verified email before the run is read, and V155's
+`run_token_issued_at` refuses a second exchange; every refusal is a run that does not exist. **A daily canary**
+(`lightmove-meetingbot-canary`, `dist/canaryMain.js`, Cloud Scheduler) runs the real bot against standing test
+meetings on Meet and Teams with an in-memory API and reports to `POST /api/v1/internal/notetaker/canary` under an
+identity of its own (`canary-service-account`, never a meeting bot's, which runs on a third party's page); V156's `app_lm_notetaker_platform_health` (not tenant data) keeps each platform's latest finding, a failure
+is an ERROR line (the alert) and, under `platform-health`, routes that platform's calls straight to the backup where a
+workspace has it (`PLATFORM_UNHEALTHY`) until a canary passes. **Nothing captured outlives a day**
+(`media-max-age`, whatever the run; audio nobody transcribed in it is a gap the note owns up to), and a transcript
+goes once its note is purged. **Recorded minutes are fair use**
+(`meeting-minute-per-seat`, 3,000): asked before a bot is sent (`FAIR_USE_REACHED` / `TRIAL_ENDED` skip the call) and
+shown on Settings → Billing (`notetakerMinutes` on `GET /billing/usage`). `notetaker.joins`, `notetaker.time_to_admit`,
+`notetaker.fallbacks` and `notetaker.canary` are the platform dashboards, the bot logs one JSON entry per line with no
+word of a call, and `MeetingSummaryEval` (`@Tag("eval")`) scores the summary against golden calls kept outside the
+repository.
 **The drawer (#953)** draws it all in the executive drawer's Meetings (`features/outreach`'s `NotetakerControls`): a
 call to come carries its switch (greyed, and said so, while the workspace's or the consultant's own is off), a call
 the bot does not join says which it does (the workspace read's `platforms`), and a call a bot went to carries a chip

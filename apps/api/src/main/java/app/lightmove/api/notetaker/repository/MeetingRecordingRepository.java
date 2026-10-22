@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 /** Recordings. A staff read carries the workspace; the bot's calls are keyed on the run id and its token. */
@@ -41,4 +42,16 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     List<MeetingRecording> findBackupsLostSince(Instant endedBefore);
 
     Optional<MeetingRecording> findByRecorderAndExternalId(MeetingRecorderKind recorder, String externalId);
+
+    /**
+     * Hands our bot's run its token once (#956): only while the run is open and no token was issued, in one
+     * conditional write, so two exchanges racing see one row changed and one none. Answers the rows changed.
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE app_lm_meeting_recording
+            SET run_token_hash = :tokenHash, run_token_issued_at = :now, version = version + 1
+            WHERE id = :recordingId AND recorder = 'OWN' AND status IN ('LAUNCHING', 'WAITING_ROOM', 'RECORDING')
+              AND run_token_hash IS NOT NULL AND run_token_issued_at IS NULL""", nativeQuery = true)
+    int issueRunToken(UUID recordingId, String tokenHash, Instant now);
 }

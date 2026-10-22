@@ -1,7 +1,9 @@
 /** What the API started this bot with (`NotetakerBotEnvironment` on the server side). */
 export interface BotConfig {
   runId: string;
-  runToken: string;
+  /** Null on Cloud Run: the bot exchanges its own ID token, minted for `tokenAudience`, for it (`runToken.ts`). */
+  runToken: string | null;
+  tokenAudience: string | null;
   joinUrl: string;
   platform: "GOOGLE_MEET" | "MICROSOFT_TEAMS";
   botName: string;
@@ -26,9 +28,15 @@ export function readConfig(environment: Record<string, string | undefined>): Bot
   if (!(PLATFORMS as readonly string[]).includes(platform)) {
     throw new Error(`NOTETAKER_PLATFORM ${platform} is not one this bot joins`);
   }
+  const runToken = environment.NOTETAKER_RUN_TOKEN?.trim() || null;
+  const tokenAudience = environment.NOTETAKER_TOKEN_AUDIENCE?.trim() || null;
+  if (!runToken && !tokenAudience) {
+    throw new Error("NOTETAKER_RUN_TOKEN is not set, and neither is NOTETAKER_TOKEN_AUDIENCE to exchange for it");
+  }
   return {
     runId: required("NOTETAKER_RUN_ID"),
-    runToken: required("NOTETAKER_RUN_TOKEN"),
+    runToken,
+    tokenAudience,
     joinUrl: required("NOTETAKER_JOIN_URL"),
     platform: platform as BotConfig["platform"],
     botName: environment.NOTETAKER_BOT_NAME?.trim() || "Uncava Notetaker",

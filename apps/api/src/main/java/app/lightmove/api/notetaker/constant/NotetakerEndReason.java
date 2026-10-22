@@ -29,6 +29,12 @@ public enum NotetakerEndReason {
     /** The backup recorder standing behind ours failed too, or was never heard from again. */
     /** The backup recorder's bot was let into the call, but the host never let it record. */
     RECORDING_NOT_ALLOWED,
+    /** The workspace has used this billing month's notetaker minutes. */
+    FAIR_USE_REACHED,
+    /** The workspace's trial has ended unpaid. */
+    TRIAL_ENDED,
+    /** Why a call went to the backup recorder without trying ours: the platform's latest canary failed. */
+    PLATFORM_UNHEALTHY,
     BACKUP_FAILED,
     /** A Zoom call, joined only by the backup recorder on the consultant's own Zoom account, which is not connected. */
     ZOOM_NOT_CONNECTED;

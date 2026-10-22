@@ -48,7 +48,7 @@ public class CloudRunJobMeetingRecorder implements MeetingRecorder {
 
     @Override
     public String launch(NotetakerLaunch launch) {
-        List<Map<String, String>> environment = NotetakerBotEnvironment.of(launch, properties).entrySet().stream()
+        List<Map<String, String>> environment = NotetakerBotEnvironment.forCloudRun(launch, properties).entrySet().stream()
                 .map(entry -> Map.of("name", entry.getKey(), "value", entry.getValue()))
                 .toList();
         Duration timeout = properties.notetaker().lobbyTimeout().plus(properties.notetaker().maxDuration())

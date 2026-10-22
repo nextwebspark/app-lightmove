@@ -23,6 +23,8 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
 | **Archive** / **Restore** | putting a position or a business unit away, hidden from every list and picker, and bringing it back; nothing is deleted | delete, close |
 | **Uncava support** | who switches on a feature a workspace cannot | "this deployment" |
+| **Notetaker** | Uncava's bot that joins a call and files its note ("Uncava Notetaker" where it is named in full) | recorder, bot, Recall (unless it is Recall's bot) |
+| **Backup recorder** | Recall.ai's bot standing behind the notetaker, where a workspace turns it on | fallback |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
 
 ## Never on screen

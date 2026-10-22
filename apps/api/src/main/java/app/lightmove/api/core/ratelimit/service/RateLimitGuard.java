@@ -85,6 +85,12 @@ public class RateLimitGuard {
      * A Notetaker bot's call about its run, keyed on the run and the caller's IP — spent before the run is read, so
      * a stranger's guesses cost them the budget rather than us a query each.
      */
+    /** The Notetaker canary's report: one caller, once a day, so the run routes' per-address budget is ample. */
+    public void checkNotetakerCanary(HttpServletRequest request) {
+        checkRateLimit("notetaker-canary", "canary", request, config.notetakerRunCallsPerMinute(),
+                config.notetakerRunCallsPerMinute(), Duration.ofMinutes(1));
+    }
+
     public void checkNotetakerRun(UUID runId, HttpServletRequest request) {
         checkRateLimit("notetaker-run", runId.toString(), request, config.notetakerRunCallsPerMinute(),
                 config.notetakerRunCallsPerMinutePerIp(), Duration.ofMinutes(1));

@@ -9,7 +9,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { formatNumber } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import * as billingApi from "../api/billingApi";
-import type { Billing, MemberCreditSpend } from "../api/types";
+import type { Billing, BillingUsage, MemberCreditSpend } from "../api/types";
 import { BuyCreditsDialog } from "../components/BuyCreditsDialog";
 import { PlansDialog } from "../components/PlansDialog";
 import {
@@ -91,7 +91,11 @@ export function SettingsBillingPage() {
                 onBuy={() => setDialog("buy")}
                 onPlans={() => setDialog("plans")}
               />
-              <UsedThisMonth members={usage.data?.members} failed={usage.isError} />
+              <UsedThisMonth
+                members={usage.data?.members}
+                notetakerMinutes={usage.data?.notetakerMinutes}
+                failed={usage.isError}
+              />
             </>
           ) : (
             <NoPlan billing={billing.data} isAdmin={isAdmin} onPlans={() => setDialog("plans")} />
@@ -356,7 +360,13 @@ function CreditMeter({
   );
 }
 
-function UsedThisMonth({ members, failed }: { members: MemberCreditSpend[] | undefined; failed: boolean }) {
+interface UsedThisMonthProps {
+  members: MemberCreditSpend[] | undefined;
+  notetakerMinutes: BillingUsage["notetakerMinutes"] | undefined;
+  failed: boolean;
+}
+
+function UsedThisMonth({ members, notetakerMinutes, failed }: UsedThisMonthProps) {
   const { user } = useAuth();
 
   return (
@@ -404,6 +414,13 @@ function UsedThisMonth({ members, failed }: { members: MemberCreditSpend[] | und
         A credit is spent only when an email or phone is found. A lookup that finds nothing, or a contact already on
         file, is free.
       </p>
+      {notetakerMinutes && notetakerMinutes.used > 0 && (
+        <p className="mx-0.5 mt-1.5 font-mono text-[11.5px]/[1.55] text-u-text3">
+          Notetaker: {formatNumber(notetakerMinutes.used)}
+          {notetakerMinutes.ceiling !== null && ` of ${formatNumber(notetakerMinutes.ceiling)}`} minutes recorded this
+          month, held to fair use.
+        </p>
+      )}
     </section>
   );
 }

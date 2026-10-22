@@ -5,11 +5,14 @@ import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
+import app.lightmove.api.notetaker.service.BotIdentityVerifier;
 import app.lightmove.api.notetaker.service.CloudRunJobMeetingRecorder;
 import app.lightmove.api.notetaker.service.GoogleAccessTokens;
+import app.lightmove.api.notetaker.service.GoogleBotIdentityVerifier;
 import app.lightmove.api.notetaker.service.LocalProcessMeetingRecorder;
 import app.lightmove.api.notetaker.service.LogMeetingRecorder;
 import app.lightmove.api.notetaker.service.MeetingRecorder;
+import app.lightmove.api.notetaker.service.NotetakerBotEnvironment;
 import app.lightmove.api.notetaker.service.RecallBotApi;
 import app.lightmove.api.notetaker.service.RecallBotClient;
 import app.lightmove.api.notetaker.service.UnconfiguredRecallBotApi;
@@ -19,6 +22,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Fallback;
@@ -59,6 +63,18 @@ public class NotetakerConfig {
             return new UnconfiguredRecallBotApi();
         }
         return new RecallBotClient(recall, clientFactory, rateLimiter, guard, RestClient.builder(), clock);
+    }
+
+    /** Where neither our bots' nor the canary's service account is configured, no ID token is ever taken. */
+    @Bean
+    @Fallback
+    BotIdentityVerifier botIdentityVerifier(LightMoveProperties properties) {
+        String bot = properties.notetaker().botServiceAccount();
+        String canary = properties.notetaker().canaryServiceAccount();
+        if ((bot == null || bot.isBlank()) && (canary == null || canary.isBlank())) {
+            return idToken -> Optional.empty();
+        }
+        return new GoogleBotIdentityVerifier(NotetakerBotEnvironment.tokenAudienceOf(properties));
     }
 
     /** {@code npm run dev} starts the API in {@code apps/api}; the bot's command runs from the repository root. */

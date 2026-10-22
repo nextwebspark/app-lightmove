@@ -31,14 +31,16 @@ class NotetakerRunEndings {
     private final MeetingMediaPieces pieces;
     private final ChainedMeetingRecorder recorders;
     private final ApplicationEventPublisher events;
+    private final NotetakerMetrics metrics;
 
     @Transactional(propagation = Propagation.MANDATORY)
     void fail(MeetingRecording recording, NotetakerEndReason reason, Instant now) {
+        count(recording, reason);
         boolean coverable = recording.getRecorder() == MeetingRecorderKind.OWN && recording.getStatus().isInCall()
                 && !recording.isToLeave() && now.isBefore(recording.getEndsAt())
                 && recorders.fallsBack(reason, recording.getWorkspaceId());
         if (!coverable) {
-            failWithoutBackup(recording, reason, now);
+            end(recording, reason, now);
             return;
         }
         Instant ownStoppedAt = recording.getJoinedAt() != null && pieces.holdsSpeech(recording.getId())
@@ -49,6 +51,18 @@ class NotetakerRunEndings {
 
     @Transactional(propagation = Propagation.MANDATORY)
     void failWithoutBackup(MeetingRecording recording, NotetakerEndReason reason, Instant now) {
+        count(recording, reason);
+        end(recording, reason, now);
+    }
+
+    /** A removal ending the run is somebody's choice, not the bot failing, and is not counted. */
+    private void count(MeetingRecording recording, NotetakerEndReason reason) {
+        if (!recording.isToLeave()) {
+            metrics.failed(recording, reason);
+        }
+    }
+
+    private void end(MeetingRecording recording, NotetakerEndReason reason, Instant now) {
         if (STOPPED_MID_CALL.contains(reason) && recording.getJoinedAt() != null && !recording.isToLeave()
                 && pieces.holdsSpeech(recording.getId())) {
             recording.stopEarly(recording.getRecordedUntil() != null ? recording.getRecordedUntil()
