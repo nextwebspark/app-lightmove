@@ -186,6 +186,19 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an interview may run an hour or an hour and a half")
+    void aCallMayRunUpToAnHourAndAHalf() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = firstFreeSlot(priya, 90);
+
+        book(priya, slot, 90, "priya@" + domain).andExpect(status().isNoContent());
+
+        assertThat(gateway.created().getFirst().endsAt()).isEqualTo(slot.plus(Duration.ofMinutes(90)));
+        assertThat(firstFreeSlot(priya, 60)).isNotNull();
+    }
+
+    @Test
     @DisplayName("nothing is booked for someone marked do not contact, at an address not on file, or in a taken slot")
     void bookingRefusesWhatItShouldNot() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -196,6 +209,8 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(book(priya, slot, 30, "someone@else.example").andExpect(status().isBadRequest())
                 .andReturn())).isEqualTo("OUTREACH_ADDRESS_NOT_ON_FILE");
         assertThat(codeOf(book(priya, slot, 20, "priya@" + domain).andExpect(status().isBadRequest())
+                .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
+        assertThat(codeOf(book(priya, slot, 120, "priya@" + domain).andExpect(status().isBadRequest())
                 .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
         assertThat(codeOf(book(priya, slot.plus(Duration.ofMinutes(10)), 30, "priya@" + domain)
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("MEETING_SLOT_INVALID");
