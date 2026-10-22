@@ -122,6 +122,19 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("writing an email tells the position's open screens, from the line's own write")
+    void writingAnEmailAnnouncesIt() throws Exception {
+        MvcResult stream = openStream("/api/v1/projects/" + projectId + "/stream", consultant);
+        awaitContent(stream, "event:connected");
+
+        send("""
+                {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello"}"""
+                .formatted(priyaAddress));
+
+        awaitContent(stream, "\"outreach\"");
+    }
+
+    @Test
     @DisplayName("the conversation tells the composer what an email would do, and the mailbox what it has sent")
     void theComposerIsToldBeforeSending() throws Exception {
         JsonNode before = conversation();

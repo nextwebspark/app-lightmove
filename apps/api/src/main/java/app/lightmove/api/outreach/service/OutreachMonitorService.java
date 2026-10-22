@@ -7,9 +7,11 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
+import app.lightmove.api.outreach.constant.MessageDirection;
 import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.OutreachStepState;
 import app.lightmove.api.outreach.dto.CandidateOutreachResponse;
+import app.lightmove.api.outreach.dto.LatestReplyResponse;
 import app.lightmove.api.outreach.dto.OutreachCountsResponse;
 import app.lightmove.api.outreach.dto.OutreachOverviewResponse;
 import app.lightmove.api.outreach.dto.OutreachRunResponse;
@@ -42,6 +44,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OutreachMonitorService {
 
+    /** As much of a reply as the drawer's notice shows; the whole of it is the conversation's. */
+    private static final int REPLY_EXCERPT_LENGTH = 300;
+
     /** A position's outreach is tens of people, hundreds at most; past this the page shows the newest. */
     static final int MAX_PEOPLE = 500;
 
@@ -66,14 +71,33 @@ public class OutreachMonitorService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         List<OutreachEnrollment> runs = enrollments.findByWorkspaceIdAndProjectIdAndPersonIdOrderByEnrolledAtDesc(
                 workspaceId, projectId, recipient.personId());
+        LatestReplyResponse latestReply = messages
+                .findFirstByWorkspaceIdAndProjectIdAndPersonIdAndDirectionAndKindOrderByOccurredAtDesc(workspaceId,
+                        projectId, recipient.personId(), MessageDirection.INBOUND, MessageKind.REPLY)
+                .map(reply -> new LatestReplyResponse(reply.getOccurredAt(), excerptOf(reply.getBodyText())))
+                .orElse(null);
         if (runs.isEmpty()) {
-            return new CandidateOutreachResponse(null, List.of());
+            return new CandidateOutreachResponse(null, List.of(), latestReply);
         }
         OutreachEnrollment latest = runs.getFirst();
         OutreachRunResponse run = runsOf(workspaceId, projectId, List.of(latest)).getFirst();
         List<OutreachMessage> sent = messages.findByWorkspaceIdAndEnrollmentIdInAndKindOrderBySentAtAsc(workspaceId,
                 List.of(latest.getId()), MessageKind.SEQUENCE_STEP);
-        return new CandidateOutreachResponse(run, stepsOf(latest, run.stepCount(), sent));
+        return new CandidateOutreachResponse(run, stepsOf(latest, run.stepCount(), sent), latestReply);
+    }
+
+    private static String excerptOf(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        String trimmed = text.strip();
+        if (trimmed.length() <= REPLY_EXCERPT_LENGTH) {
+            return trimmed;
+        }
+        // Never between the two halves of an emoji: a lone surrogate reaches the browser as a replacement character.
+        int end = Character.isHighSurrogate(trimmed.charAt(REPLY_EXCERPT_LENGTH - 1)) ? REPLY_EXCERPT_LENGTH - 1
+                : REPLY_EXCERPT_LENGTH;
+        return trimmed.substring(0, end).stripTrailing() + "…";
     }
 
     private static OutreachCountsResponse countsOf(List<OutreachRunTally> tallies) {

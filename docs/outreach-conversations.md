@@ -1,7 +1,8 @@
 # Outreach conversations — design and build plan
 
-Status: **phases 1–5 built** (the ledger, the reads, replies, own sends, the screen and attachments); phase 6
-planned (approved 2026-10-21).
+Status: **built** — all six phases (approved 2026-10-21): the ledger and its reads, replies, own sends, the screen,
+attachments, and live refresh with the drawer's link back. Section H records, phase by phase, where what shipped
+differs from the plan above it.
 This is the design the Outreach workspace in `claude-design/Outreach.dc.html` is built from; each phase is one PR.
 Until a phase ships, the tables, routes and entities it names do not exist.
 
@@ -347,12 +348,20 @@ details pane and composer.
 
 ## D. Live refresh
 
-`ProjectStreamKind` gains `OUTREACH` and `TASK`; published (inside the recording transactions —
-`ProjectStreamPublisher` is `MANDATORY`) from `OutreachMessageService`, `OutreachInboxService`, `OutreachOutcomes`,
-`TaskService` and `TaskRuleService.file`. SPA: move `features/triage/lib/useProjectStream.ts` to
-`lib/useProjectStream.ts`, extend the union; `OutreachPage` invalidates `["outreach", projectId]` (and
-`TASKS_KEY_PREFIX` on `task`), polling 60 s only while the stream is not live; `useNotificationStream` also
-invalidates `["outreach"]`. Ship the enum and the TS union in the same PR (an unknown kind refetches everything).
+`ProjectStreamKind` gains `OUTREACH` and `TASK`, both **staff-only**: the project stream is `WORK_VIEW`, so a client
+seat holds one, and is never told when outreach or a task moved. As built (phase 6) they are published by entity
+listeners on every JPA write of an outreach message, an enrollment and a task (`OutreachStreamAnnouncer`,
+`TaskStreamAnnouncer`), not by each service, during the flush, inside the writing transaction (`ProjectStreamPublisher`
+is `MANDATORY`, and publishes each mandate and kind once per transaction, so an archive stopping forty runs is one
+round trip). The JDBC writes announce nothing: the claims and the due scan's stamps change nothing on screen, and the
+sent-but-unrecorded fallbacks (`recordDelivered`) are rare enough to wait for the slow read. SPA: `useProjectStream`
+moved to `lib/`; `OutreachPage` refreshes its outreach reads on `outreach` or `task` (and `TASKS_KEY_PREFIX` on
+`task`), and so do the Companies pages (`TriageStagePage`), for an executive drawer opened there — never a call's free
+slots, which ask the mail provider (`refreshOutreachActivity`). It polls every 60 s while the stream is down and every
+five minutes while it is live — notes, meetings and status changes are not announced, nor is a change that lands in the
+moment between the server's 55-second close and the reconnect, and the slow read is their safety net;
+`useNotificationStream` refreshes the same reads. The enum and the TS union ship together (an
+unknown kind refetches everything).
 
 ## E. The SPA
 
@@ -419,7 +428,8 @@ invalidates `["outreach"]`. Ship the enum and the TS union in the same PR (an un
 
 `OutreachSection.tsx`: an "Open conversation" link to `/projects/{p}/outreach?candidate={c}` in the fold header,
 and the latest reply's text (first 300 chars) inside the existing "replied" notice; `CandidateOutreachResponse`
-gains `latestReply{at, text}|null` from `OutreachMonitorService.ofCandidate`.
+gains `latestReply{at, text}|null` from `OutreachMonitorService.ofCandidate`. As built, the notice is dated by the
+reply and drawn whenever there is one — after a run ended, or to an email sent by hand with no run at all.
 
 ## G. Security and privacy
 
@@ -494,7 +504,7 @@ person merge is built, message and attachment rows move with the enrollments.
    - Three panes (`ActionQueue`, `ConversationPane`, `CandidateDetailsPane`): side by side at `xl`; at `lg` the
      details sit under the history; below `lg` one pane at a time, the conversation with a back link. URL state
      `?view=&who=&q=&candidate=`; the first row opens itself only where the panes sit side by side. Both reads poll
-     every minute until phase 6's stream.
+     every minute; phase 6 made them live.
    - The backend added what the composer and chip lacked: `ConversationResponse.contact` (the ledger, location, do
      not contact) and `.composer` (`replySubject` for the caller's mailbox — `OutreachMessageService` answers it with
      the same thread choice it sends with — `replyStopsRun`, whether a run of the caller's is still live in that
@@ -553,12 +563,20 @@ person merge is built, message and attachment rows move with the enrollments.
    - Tests: `RawEmailTest`, `GoogleMailboxGatewayTest`, `MicrosoftMailboxGatewayTest`, `NylasMailboxGatewayTest`,
      `OutreachAttachmentIntegrationTest`, `composerAttachments.test.ts`, `ReplyComposer.test.tsx`. A real send through
      each provider needs their credentials and is not run here.
-6. **Live refresh, drawer parity, docs** — stream kinds + publish sites, `useProjectStream` move, subscriptions;
-   `OutreachSection` link + `latestReply`; `docs/outreach-conversations.md` (tables, routes, groups, listening
-   rule, channel seam, what AI never reads), `docs/help/outreach-conversations.md`, `docs/tasks-notifications.md`
-   (reply key, resolution on send), `CLAUDE.md` outreach paragraph + V144–V146 lines, `e2e/api/21-outreach-
-   conversations.sh` (reads, a note, a client-seat 403; sends unreachable without a gateway). Verify
-   `cd e2e && PROFILE=e2e ./run-all.sh`.
+6. **Live refresh, drawer parity, docs — built.** What shipped, where it differs:
+   - The two kinds are announced by entity listeners rather than by each service (section D), and are delivered only
+     to a stream whose holder may work the position: `ProjectStreamRegistry` keeps, per emitter, whether its holder
+     held `WORK_EXECUTE` when it subscribed — re-decided on every reconnect, at most 55 s apart.
+   - The Triage page hears the new kinds and refreshes neither its grid nor its map for them.
+   - The drawer's Outreach fold: **Open conversation** in its header (not drawn over the Outreach page itself, where
+     the drawer opens on top of that conversation), and the latest reply's first 300 characters in the replied
+     notice — `CandidateOutreachResponse.latestReply {at, text}`, the person's newest `REPLY` line on the position,
+     whichever thread it came back in; `text` null where the mailbox does not read replies.
+   - `docs/help/outreach-conversations.md` is the in-app help for the page; `docs/tasks-notifications.md` names the
+     reply key and the send that closes a reply task.
+   - `e2e/api/21-outreach-conversations.sh`: the queue, a conversation, a note in it, the composer refusing without a
+     mailbox (attachments included, leaving nothing), the drawer's read and a client seat refused. Sends and replies
+     stay in `@IntegrationTest` with the recording gateway.
 
 ## I. Traps
 

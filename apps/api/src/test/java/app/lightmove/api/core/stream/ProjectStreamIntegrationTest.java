@@ -23,8 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * The live half of a project screen, end to end through Postgres: a publish rides its transaction's
  * commit through {@code NOTIFY}, the listener thread hands it to this instance's emitters, and the
  * bytes land on the open response. What must hold: a commit reaches the stream, a rollback never
- * does, events stay inside their mandate, and holding a stream takes the same WORK_VIEW as reading
- * the mandate.
+ * does, events stay inside their mandate, holding a stream takes the same WORK_VIEW as reading
+ * the mandate, and the staff-only kinds reach only those who may work it.
  */
 @IntegrationTest
 class ProjectStreamIntegrationTest extends FlowTestSupport {
@@ -89,6 +89,55 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("outreach and tasks reach the team's streams and never a client seat's, which still hears the rest")
+    void staffKindsStayWithTheTeam() throws Exception {
+        String projectId = mandate("Staff Stream Firm");
+        String client = clientSeat(projectId);
+        MvcResult staffStream = openStream(streamUrl(projectId), adminToken);
+        MvcResult clientStream = openStream(streamUrl(projectId), client);
+        awaitContent(clientStream, "event:connected");
+
+        inTransaction(() -> {
+            publisher.publish(UUID.fromString(projectId), ProjectStreamKind.OUTREACH);
+            publisher.publish(UUID.fromString(projectId), ProjectStreamKind.TASK);
+        });
+        // Delivered in commit order: once this lands on the client's stream, the two before it had their chance.
+        inTransaction(() -> publisher.publish(UUID.fromString(projectId), ProjectStreamKind.CANDIDATE_ENRICHED));
+
+        awaitContent(staffStream, "candidate-enriched");
+        awaitContent(clientStream, "candidate-enriched");
+        assertThat(staffStream.getResponse().getContentAsString()).contains("\"outreach\"").contains("\"task\"");
+        assertThat(clientStream.getResponse().getContentAsString()).doesNotContain("outreach")
+                .doesNotContain("\"task\"");
+    }
+
+    @Test
+    @DisplayName("filing a task announces itself, from the row's own write")
+    void filingATaskAnnouncesItself() throws Exception {
+        String projectId = mandate("Task Stream Firm");
+        String candidateId = body(mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Tasked Person"}"""))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String adminId = body(mvc.perform(get("/api/v1/auth/me").header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk()).andReturn()).get("id").asText();
+        MvcResult stream = openStream(streamUrl(projectId), adminToken);
+        awaitContent(stream, "event:connected");
+
+        mvc.perform(post("/api/v1/projects/" + projectId + "/candidates/" + candidateId + "/tasks")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"Call them","kind":"call","assigneeUserId":"%s","dueAt":"2026-11-02T09:00:00Z"}"""
+                                .formatted(adminId)))
+                .andExpect(status().isCreated());
+
+        awaitContent(stream, "\"task\"");
+    }
+
+    @Test
     @DisplayName("a publish outside a transaction is refused rather than delivered early")
     void aPublishOutsideATransactionIsRefused() {
         assertThatThrownBy(() -> publisher.publish(UUID.randomUUID(),
@@ -123,6 +172,24 @@ class ProjectStreamIntegrationTest extends FlowTestSupport {
         mvc.perform(get(streamUrl(projectId))
                         .header("Authorization", "Bearer " + login(colleague)))
                 .andExpect(status().isForbidden());
+    }
+
+    private String clientSeat(String projectId) throws Exception {
+        String clientEmail = "client@stream-client-" + domain;
+        mvc.perform(post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"A Client","position":"Chair","email":"%s"}
+                                """.formatted(clientEmail)))
+                .andExpect(status().isOk());
+        return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"token":"%s","fullName":"A Client","password":"%s"}
+                                """.formatted(email.latestTokenFor(clientEmail), PASSWORD)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("accessToken").asText();
     }
 
     private void inTransaction(Runnable work) {

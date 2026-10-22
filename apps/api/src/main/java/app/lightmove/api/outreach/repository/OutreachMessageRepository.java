@@ -17,6 +17,10 @@ import org.springframework.data.jpa.repository.Query;
 
 public interface OutreachMessageRepository extends JpaRepository<OutreachMessage, UUID> {
 
+    /** The person's newest reply on a position, whichever thread or run it came back in. */
+    Optional<OutreachMessage> findFirstByWorkspaceIdAndProjectIdAndPersonIdAndDirectionAndKindOrderByOccurredAtDesc(
+            UUID workspaceId, UUID projectId, UUID personId, MessageDirection direction, MessageKind kind);
+
     /** The daily cap: one sender's sends in one workspace since their local midnight. Only a sent email has a {@code sentAt}. */
     long countByWorkspaceIdAndSenderUserIdAndSentAtGreaterThanEqual(UUID workspaceId, UUID senderUserId,
                                                                     Instant since);

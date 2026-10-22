@@ -590,9 +590,9 @@ grants them (phase 2, below). A mail daemon's message is a bounce. Every email i
 `EMAIL_REPLIED` / `OUTREACH_STOPPED` line and an audit event (`OutreachOutcomes`). The Outreach page reads
 `…/outreach/people` (counts and runs, filtered in the SPA), the drawer's Outreach fold
 `…/outreach/candidates/{id}`, and Stop is `…/enrollments/{id}/stop`, all `WORK_EXECUTE`.
-**Conversations (`docs/outreach-conversations.md`, phase 1 of 6)**: the message table is becoming one
+**Conversations (`docs/outreach-conversations.md`, six phases, all built)**: the message table is one
 executive's conversation on one position (V144) — every line carries person, position, `direction` and `channel`
-(email only so far; WhatsApp, SMS and calls reserved) — and `ConversationService` answers the coming three-pane
+(email only so far; WhatsApp, SMS and calls reserved) — and `ConversationService` answers the three-pane
 Outreach page: `…/outreach/conversations` (the action queue — Needs reply, Follow-ups, Preparation, Attention, read
 off each executive's open tasks through `NextActionLookup.openTasksOf` and their latest run — by tab, Mine or Team,
 and a search over names and what was sent) and `…/outreach/conversations/{candidateId}` (emails, run events, this
@@ -628,7 +628,6 @@ takes a thread from the run in it.
 everyone in them moved to `…/outreach/sequences`. The conversation read gained `contact` and `composer`
 (`replySubject` and `replyStopsRun` for the caller's mailbox, `emailSentMovesTo`), the mailbox read `sentToday` and
 `scheduledEmails`.
-Both reads poll every minute until phase 6 pushes.
 **Phase 5 (V147)**: an own email carries **files** — one of the person's documents, copied under the email's own storage
 key when it is written (so a version removed later neither changes nor breaks it), or one uploaded in the composer
 (`multipart/form-data`: the request a `message` part, each file a `files` part), its bytes matched to its name
@@ -640,6 +639,13 @@ multipart send (its JSON send caps the whole request at 3 MB). Bytes are read at
 (`EmailAttachment.toString`); a document that went is audited `PERSON_DOCUMENT_SENT` by ids alone (a CV's name is its
 person's), a download from the history `OUTREACH_ATTACHMENT_DOWNLOADED`, and a cancel or a definite failure deletes the
 files once it commits (`OutreachMessage.keepsAttachmentFiles`).
+**Phase 6** is live: every JPA write of an outreach message, an enrollment or a task announces `outreach` / `task` on
+the position's project stream from an entity listener inside the writing transaction (`OutreachStreamAnnouncer`,
+`TaskStreamAnnouncer`; once per mandate and kind per transaction), and those two kinds are **staff-only** — `ProjectStreamRegistry` sends them only to a stream
+whose holder held `WORK_EXECUTE` when it subscribed, since the stream itself is `WORK_VIEW`. The page refreshes on them,
+reading every minute while the stream is down and every five while it is live (a note, a meeting or a status is not
+announced), never a call's free slots, which ask the mail provider. The drawer's Outreach fold links to the
+conversation and quotes the latest reply (`CandidateOutreachResponse.latestReply`), a run or none.
 **Meetings (V102, #628)** read the same grant's calendar: an event is kept (`app_lm_person_meeting`, one row
 per matching person) only when an attendee's address is on a person's ledger — nothing else of anyone's
 calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-day read either side of today

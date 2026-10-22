@@ -28,6 +28,7 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
+import { refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
@@ -35,6 +36,7 @@ import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type * as talentMapTypes from "../../talentmap/api/types";
 import { TalentMapView } from "../../talentmap/components/TalentMapView";
 import { useTalentMapPreferences } from "../../talentmap/lib/useTalentMapPreferences";
+import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as exportApi from "../api/exportApi";
 import * as sourcingApi from "../api/sourcingApi";
 import * as triageApi from "../api/triageApi";
@@ -59,7 +61,7 @@ import { stageBySlug, TRIAGE_STAGES } from "../lib/triageStages";
 import { companiesOf } from "../lib/sourcingSummary";
 import { useCompanySelection } from "../lib/useCompanySelection";
 import { useExecutiveSourcing } from "../lib/useExecutiveSourcing";
-import { useProjectStream, type ProjectStreamKind } from "../lib/useProjectStream";
+import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
 /**
  * The grid's built-in columns for the layout hook. A mandate's own custom columns are deliberately
@@ -315,9 +317,19 @@ function TriageStage() {
     if (kinds.includes("executive-sourcing")) {
       void queryClient.invalidateQueries({ queryKey: sourcingApi.SOURCING_LATEST_KEY(project.id) });
     }
+    // An executive's drawer opened here carries their Outreach fold and next action.
+    if (kinds.includes("outreach") || kinds.includes("task")) {
+      refreshOutreachActivity(queryClient, project.id);
+    }
+    if (kinds.includes("task")) {
+      void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
+    }
     // Both halves are points on the globe. Free while the grid is the view: the map's reads are
-    // disabled there, and an inactive query is marked stale rather than refetched.
-    refreshMap();
+    // disabled there, and an inactive query is marked stale rather than refetched. Outreach and tasks
+    // move neither half.
+    if (kinds.some((kind) => kind !== "outreach" && kind !== "task")) {
+      refreshMap();
+    }
   };
 
   const streamIsLive = useProjectStream(project.id, refreshWhatMoved);

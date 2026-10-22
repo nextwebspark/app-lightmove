@@ -1,10 +1,13 @@
 package app.lightmove.api.core.stream;
 
+import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,10 +25,12 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class ProjectStreamController {
 
     private final ProjectStreamRegistry registry;
+    private final ProjectAccess access;
 
     @GetMapping(produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RequireProjectPermission(ProjectAction.WORK_VIEW)
-    public SseEmitter stream(@PathVariable UUID projectId) {
-        return registry.subscribe(projectId);
+    public SseEmitter stream(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId) {
+        return registry.subscribe(projectId, access.allows(principal.userId(), principal.requireWorkspaceId(),
+                projectId, ProjectAction.WORK_EXECUTE));
     }
 }

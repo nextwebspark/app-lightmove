@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
@@ -114,6 +115,7 @@ const readingSettled = () =>
 
 const renderDrawer = (canWrite = true, candidate: Candidate = yasmin, onSaved = () => {}) =>
   render(
+    <MemoryRouter>
     <QueryClientProvider client={client}>
       <ToastProvider>
         <CandidateDrawer
@@ -127,7 +129,8 @@ const renderDrawer = (canWrite = true, candidate: Candidate = yasmin, onSaved = 
           onSaved={onSaved}
         />
       </ToastProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+    </MemoryRouter>,
   );
 
 /**

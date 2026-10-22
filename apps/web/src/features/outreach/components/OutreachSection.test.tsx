@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as runApi from "../api/runApi";
@@ -36,9 +37,15 @@ const RUN: OutreachRun = {
   bookedViaLink: false,
 };
 
-function renderSection(outreach: CandidateOutreach, onSetStatus = vi.fn(), candidateStatus: CandidateStatus = "contacted") {
+function renderSection(
+  outreach: CandidateOutreach,
+  onSetStatus = vi.fn(),
+  candidateStatus: CandidateStatus = "contacted",
+  path = "/projects/p1/universe",
+) {
   vi.mocked(runApi.getCandidateOutreach).mockResolvedValue(outreach);
   render(
+    <MemoryRouter initialEntries={[path]}>
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
         <OutreachSection
@@ -52,7 +59,8 @@ function renderSection(outreach: CandidateOutreach, onSetStatus = vi.fn(), candi
           onSetStatus={onSetStatus}
         />
       </ToastProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
+    </MemoryRouter>,
   );
   return onSetStatus;
 }
@@ -123,5 +131,51 @@ describe("OutreachSection", () => {
 
     await waitFor(() => expect(runApi.getCandidateOutreach).toHaveBeenCalled());
     expect(screen.queryByText("Outreach")).not.toBeInTheDocument();
+  });
+
+  it("quotes their latest reply and links to the conversation, except from the conversation itself", async () => {
+    const replied: CandidateOutreach = {
+      run: { ...RUN, status: "REPLIED", endedAt: "2026-10-06T08:00:00Z" },
+      steps: [],
+      latestReply: { at: "2026-10-06T08:00:00Z", text: "Thursday works for me." },
+    };
+    renderSection(replied);
+
+    expect(await screen.findByText("Thursday works for me.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open conversation" })).toHaveAttribute(
+      "href",
+      "/projects/p1/outreach?candidate=c1",
+    );
+  });
+
+  it("offers no link back from the Outreach page, and sends to the inbox where the words are not kept", async () => {
+    renderSection(
+      { run: { ...RUN, status: "REPLIED", endedAt: "2026-10-06T08:00:00Z" }, steps: [], latestReply: { at: "2026-10-06T08:00:00Z", text: null } },
+      vi.fn(),
+      "contacted",
+      "/projects/p1/outreach",
+    );
+
+    expect(await screen.findByText(/Read it in your inbox/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open conversation" })).not.toBeInTheDocument();
+  });
+
+  it("quotes a reply to an email sent by hand, with no sequence behind it", async () => {
+    renderSection({ run: null, steps: [], latestReply: { at: "2026-10-06T08:00:00Z", text: "Happy to talk." } });
+
+    expect(await screen.findByText("Happy to talk.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open conversation" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop sequence" })).not.toBeInTheDocument();
+  });
+
+  it("quotes a reply that came after the sequence ended", async () => {
+    renderSection({
+      run: { ...RUN, status: "COMPLETED", sentCount: 3, endedAt: "2026-10-02T08:00:00Z" },
+      steps: [],
+      latestReply: { at: "2026-10-09T08:00:00Z", text: "Sorry for the slow answer." },
+    });
+
+    expect(await screen.findByText("Sorry for the slow answer.")).toBeInTheDocument();
+    expect(screen.getByText(/Fatima replied/)).toBeInTheDocument();
   });
 });
