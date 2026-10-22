@@ -1265,7 +1265,7 @@ live position the consultant works that maps the person, else about the person �
 `MEETING` note through `candidate`'s `CandidateMeetingNotes` with a `MEETING_RECORDED` line (grouped with notes), a
 `MEETING_NOTES_READY` bell and `MEETING_MINUTES` usage (no ceiling). Three failed tries leave it `FAILED`
 (`PROCESSING_FAILED`) for `POST …/meetings/{meetingId}/notetaker/retry` (`LlmBudget.MEETING_SUMMARY`);
-`GET …/meetings/{meetingId}/transcript` reads it (`WORK_EXECUTE`, audited, so far while it is being made): from the
+`GET …/notetaker/recordings/{recordingId}/transcript` reads it (`WORK_EXECUTE`, audited, so far while it is being made): from the
 position its note was filed under, or until then the one `MeetingPositionRule` gives it — a call it gives none is its
 consultant's alone until filed — and not found from any other. Try again is refused once the pieces are past retention;
 the note's Markdown breaks GFM's bare-link triggers with a word joiner, since the words are anyone's on the call. A removed run's transcript goes with its pieces; a done run's captions on the next pass.
@@ -1276,7 +1276,10 @@ read off its status and end reason (`lib/notetakerChip.ts`) — Remove notetaker
 hears it), Try again on Notes failed, View transcript where its note is filed here (`transcriptHere`; never while the
 call goes), and "On another position" for one filed elsewhere, never named. A bot's status moving announces the
 staff-only `notetaker` stream kind on every live position mapping the executive (`NotetakerStreamAnnouncer`, a
-heartbeat announcing nothing), and a Meeting note the bot filed links its transcript (`noteId` on the meetings read).
+heartbeat announcing nothing, a claim announcing the bot's launch from its own transaction), and a Meeting note the
+bot filed links its transcript through the meetings read's `recordings`. The transcript is read by the recording
+(`…/candidates/{id}/notetaker/recordings/{recordingId}/transcript`), never its meeting row, which a calendar read may
+delete while the note stands; its times count from when the bot was let in, as the note's evidence does.
 A transcript line says whether its speaker is a caption's name (`named`); a voice only numbered is drawn apart. Settings
 → Profile's switch saves as it is flipped; Settings → Integrations carries the workspace's.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and

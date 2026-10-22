@@ -10,8 +10,8 @@ export const NOTETAKER_KEY_PREFIX = (projectId: string) => ["outreach", projectI
 export const NOTETAKER_MEETINGS_KEY = (projectId: string, candidateId: string) =>
   [...NOTETAKER_KEY_PREFIX(projectId), candidateId] as const;
 
-export const NOTETAKER_TRANSCRIPT_KEY = (projectId: string, candidateId: string, meetingId: string) =>
-  [...NOTETAKER_KEY_PREFIX(projectId), candidateId, "transcript", meetingId] as const;
+export const NOTETAKER_TRANSCRIPT_KEY = (projectId: string, candidateId: string, recordingId: string) =>
+  [...NOTETAKER_KEY_PREFIX(projectId), candidateId, "transcript", recordingId] as const;
 
 export const WORKSPACE_NOTETAKER_KEY = ["notetaker", "workspace"] as const;
 export const MY_NOTETAKER_KEY = ["notetaker", "mine"] as const;
@@ -65,11 +65,19 @@ export interface NotetakerMeeting {
   notesElsewhere: boolean;
 }
 
+/** A call whose note this position may read, found by its note: its meeting row may be gone. */
+export interface FiledRecording {
+  recordingId: string;
+  noteId: string;
+  recordedUntil: string | null;
+}
+
 export interface NotetakerMeetings {
   offered: boolean;
   workspaceEnabled: boolean;
   myMeetingsEnabled: boolean;
   meetings: NotetakerMeeting[];
+  recordings: FiledRecording[];
 }
 
 export interface TranscriptLine {
@@ -84,6 +92,13 @@ export interface NotetakerTranscript {
   recordingId: string;
   status: NotetakerStatus;
   complete: boolean;
+  /** The call as it was when the bot went in. */
+  title: string | null;
+  startsAt: string;
+  endsAt: string;
+  /** Elapsed times count from here, as the note's evidence does. */
+  joinedAt: string | null;
+  consultantName: string | null;
   recordedUntil: string | null;
   lines: TranscriptLine[];
 }
@@ -131,13 +146,17 @@ export function retryNotes(projectId: string, candidateId: string, meetingId: st
   return request<void>(`${meetingsPath(projectId, candidateId)}/${meetingId}/notetaker/retry`, { method: "POST" });
 }
 
+/** By the recording, never its meeting: a calendar read may delete the meeting row while the note stands. */
 export function getTranscript(
   projectId: string,
   candidateId: string,
-  meetingId: string,
+  recordingId: string,
   signal?: AbortSignal,
 ): Promise<NotetakerTranscript> {
-  return request<NotetakerTranscript>(`${meetingsPath(projectId, candidateId)}/${meetingId}/transcript`, { signal });
+  return request<NotetakerTranscript>(
+    `/projects/${projectId}/outreach/candidates/${candidateId}/notetaker/recordings/${recordingId}/transcript`,
+    { signal },
+  );
 }
 
 export function getWorkspaceNotetaker(signal?: AbortSignal): Promise<WorkspaceNotetaker> {

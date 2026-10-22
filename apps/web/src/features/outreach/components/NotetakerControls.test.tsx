@@ -113,6 +113,7 @@ function renderSection({
     offered: true,
     workspaceEnabled: true,
     myMeetingsEnabled: true,
+    recordings: [],
     ...notetaker,
   });
   vi.mocked(notetakerApi.getWorkspaceNotetaker).mockResolvedValue({
@@ -234,10 +235,15 @@ describe("Uncava Notetaker in Meetings", () => {
       recordingId: "r1",
       status: "DONE",
       complete: true,
+      title: "First conversation",
+      startsAt: "2026-09-18T06:00:00Z",
+      endsAt: "2026-09-18T06:45:00Z",
+      joinedAt: "2026-09-18T06:04:00Z",
+      consultantName: "Yara Haddad",
       recordedUntil: "2026-09-18T06:31:00Z",
       lines: [
-        { at: "2026-09-18T06:00:04Z", speaker: "Yara Haddad", text: "Thanks for making the time.", named: true },
-        { at: "2026-09-18T06:00:19Z", speaker: "Priya Raman", text: "Of course, the portfolio interests me.", named: true },
+        { at: "2026-09-18T06:04:04Z", speaker: "Yara Haddad", text: "Thanks for making the time.", named: true },
+        { at: "2026-09-18T06:04:19Z", speaker: "Priya Raman", text: "Of course, the portfolio interests me.", named: true },
         { at: "2026-09-18T06:08:47Z", speaker: "Speaker 3", text: "The vesting schedule is in the pack.", named: false },
       ],
     });
@@ -245,7 +251,13 @@ describe("Uncava Notetaker in Meetings", () => {
       meetings: { upcoming: [], past: [PAST] },
       notetaker: {
         meetings: [
-          onCall("m-past", { status: "DONE", recordedUntil: "2026-09-18T06:31:00Z", transcriptHere: true, noteId: "n1" }),
+          onCall("m-past", {
+            status: "DONE",
+            recordingId: "r1",
+            recordedUntil: "2026-09-18T06:31:00Z",
+            transcriptHere: true,
+            noteId: "n1",
+          }),
         ],
       },
     });
@@ -256,7 +268,11 @@ describe("Uncava Notetaker in Meetings", () => {
     const sheet = await screen.findByRole("dialog", { name: "Transcript" });
     expect(await within(sheet).findByText("The vesting schedule is in the pack.")).toBeInTheDocument();
     expect(within(sheet).getByText("Speaker 3")).toHaveClass("italic");
-    expect(within(sheet).getByText("00:08:47")).toBeInTheDocument();
+    expect(notetakerApi.getTranscript).toHaveBeenCalledWith("p1", "c1", "r1", expect.anything());
+    // Counted from when the bot was let in, as the note's evidence is, not from the calendar's start.
+    expect(within(sheet).getByText("00:04:47")).toBeInTheDocument();
+    expect(within(sheet).getByText("3 lines · 27 minutes")).toBeInTheDocument();
+    expect(within(sheet).getByText("Yara Haddad")).toHaveClass("text-u-accent");
     expect(within(sheet).getByText(/^Partial: the notetaker stopped at/)).toBeInTheDocument();
     expect(within(sheet).getByText(/Hiring managers never see it\./)).toBeInTheDocument();
 
@@ -283,16 +299,15 @@ describe("Uncava Notetaker in Meetings", () => {
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
   });
 
-  it("marks a Meeting note the notetaker filed, and nothing on one somebody typed", async () => {
-    vi.mocked(meetingApi.getMeetings).mockResolvedValue({ upcoming: [], past: [PAST] });
+  it("marks a Meeting note the notetaker filed, its transcript reachable with its meeting row gone", async () => {
     vi.mocked(notetakerApi.getNotetakerMeetings).mockResolvedValue({
       offered: true,
       workspaceEnabled: true,
       myMeetingsEnabled: true,
-      meetings: [
-        onCall("m-past", { status: "DONE", recordedUntil: "2026-09-18T06:31:00Z", transcriptHere: true, noteId: "n1" }),
-      ],
+      meetings: [],
+      recordings: [{ recordingId: "r1", noteId: "n1", recordedUntil: "2026-09-18T06:31:00Z" }],
     });
+    vi.mocked(notetakerApi.getTranscript).mockReturnValue(new Promise(() => {}));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { unmount } = render(
       <QueryClientProvider client={client}>
@@ -302,7 +317,8 @@ describe("Uncava Notetaker in Meetings", () => {
 
     expect(await screen.findByText("Recorded by Uncava Notetaker")).toBeInTheDocument();
     expect(screen.getByText(/^Partial · stopped at/)).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "View transcript" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "View transcript" }));
+    expect(notetakerApi.getTranscript).toHaveBeenCalledWith("p1", "c1", "r1", expect.anything());
     unmount();
 
     render(

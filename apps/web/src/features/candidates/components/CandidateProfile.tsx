@@ -18,6 +18,7 @@ import { CustomFieldsFieldset } from "../../customcolumns/components/CustomField
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
+import { MeetingNoteRecording } from "../../outreach/components/NotetakerControls";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { NextActionBar } from "../../tasks/components/NextActionBar";
 import type { TaskNote } from "../../tasks/api/types";
@@ -713,6 +714,11 @@ export function CandidateProfile({
                 candidateId={candidate.id}
                 focus={noteFocus}
                 onSetNextAction={(note) => openNextAction(null, note)}
+                renderNoteFooter={(note) =>
+                  note.kind === "meeting" && (
+                    <MeetingNoteRecording projectId={projectId} candidateId={candidate.id} noteId={note.id} />
+                  )
+                }
               />
             </div>
             <div {...panelProps("assessment")}>

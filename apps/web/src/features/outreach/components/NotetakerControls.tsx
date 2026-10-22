@@ -5,7 +5,6 @@ import { Toggle, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import * as meetingApi from "../api/meetingApi";
 import type { Meeting } from "../api/meetingApi";
 import * as notetakerApi from "../api/notetakerApi";
 import type { NotetakerMeeting, NotetakerMeetings } from "../api/notetakerApi";
@@ -209,15 +208,11 @@ function NotetakerChipRow({
       >
         <p>The notetaker leaves the call; nothing recorded is kept.</p>
       </ConfirmDialog>
-      {reading && (
+      {reading && notetaker.recordingId && (
         <TranscriptSheet
           projectId={projectId}
           candidateId={candidateId}
-          meetingId={meeting.id}
-          title={meeting.title}
-          startsAt={meeting.startsAt}
-          endsAt={meeting.endsAt}
-          ownerName={meeting.ownerName}
+          recordingId={notetaker.recordingId}
           onClose={() => setReading(false)}
         />
       )}
@@ -242,8 +237,8 @@ function NotetakerChipLabel({ chip }: { chip: NotetakerChip }) {
 }
 
 /**
- * A Meeting note's foot when the Notetaker filed it: who recorded it, whether it is partial, and its transcript.
- * Nothing for a note anybody typed.
+ * A Meeting note's foot when the Notetaker filed it: who recorded it, whether it is partial, and its transcript —
+ * found by the note, so a call whose meeting row a calendar read deleted still opens. Nothing for a typed note.
  */
 export function MeetingNoteRecording({
   projectId,
@@ -259,16 +254,8 @@ export function MeetingNoteRecording({
     queryKey: notetakerApi.NOTETAKER_MEETINGS_KEY(projectId, candidateId),
     queryFn: ({ signal }) => notetakerApi.getNotetakerMeetings(projectId, candidateId, signal),
   });
-  const recorded = notetaker.data?.meetings.find((meeting) => meeting.noteId === noteId);
-  const meetings = useQuery({
-    queryKey: meetingApi.MEETINGS_KEY(projectId, candidateId),
-    queryFn: ({ signal }) => meetingApi.getMeetings(projectId, candidateId, signal),
-    enabled: recorded !== undefined,
-  });
+  const recorded = notetaker.data?.recordings.find((recording) => recording.noteId === noteId);
   if (!recorded) return null;
-  const meeting = [...(meetings.data?.past ?? []), ...(meetings.data?.upcoming ?? [])].find(
-    (candidate) => candidate.id === recorded.meetingId,
-  );
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-2.5 text-meta text-u-text3">
       <span>Recorded by Uncava Notetaker</span>
@@ -280,20 +267,14 @@ export function MeetingNoteRecording({
           Partial · stopped at {clockTimeOf(recorded.recordedUntil)}
         </span>
       )}
-      {meeting && (
-        <button type="button" onClick={() => setReading(true)} className={LINK}>
-          View transcript
-        </button>
-      )}
-      {reading && meeting && (
+      <button type="button" onClick={() => setReading(true)} className={LINK}>
+        View transcript
+      </button>
+      {reading && (
         <TranscriptSheet
           projectId={projectId}
           candidateId={candidateId}
-          meetingId={meeting.id}
-          title={meeting.title}
-          startsAt={meeting.startsAt}
-          endsAt={meeting.endsAt}
-          ownerName={meeting.ownerName}
+          recordingId={recorded.recordingId}
           onClose={() => setReading(false)}
         />
       )}

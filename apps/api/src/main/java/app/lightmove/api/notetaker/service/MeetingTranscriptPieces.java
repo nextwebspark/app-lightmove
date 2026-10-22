@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,8 @@ class MeetingTranscriptPieces {
 
     private static final TypeReference<List<HeardLine>> HEARD_LINES = new TypeReference<>() {};
     private static final TypeReference<List<StoredLine>> STORED_LINES = new TypeReference<>() {};
+    /** How a transcript kept before lines said whether they were named tells an unmatched voice: its label. */
+    private static final Pattern UNNAMED_VOICE = Pattern.compile("Speaker( \\d+)?");
 
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
@@ -93,7 +96,8 @@ class MeetingTranscriptPieces {
                 .findFirst()
                 .map(text -> json.readValue(text, STORED_LINES).stream()
                         .map(line -> new TranscriptLine(Instant.parse(line.at()), line.speaker(), line.text(),
-                                !Boolean.FALSE.equals(line.named())))
+                                line.named() != null ? line.named()
+                                        : !UNNAMED_VOICE.matcher(line.speaker()).matches()))
                         .toList());
     }
 

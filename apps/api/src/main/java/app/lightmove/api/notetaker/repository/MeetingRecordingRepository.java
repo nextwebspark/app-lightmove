@@ -17,6 +17,9 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
 
     List<MeetingRecording> findByWorkspaceIdAndCallKeyIn(UUID workspaceId, Collection<String> callKeys);
 
+    /** A person's calls whose note is filed, whatever became of the meeting rows they were found through. */
+    List<MeetingRecording> findByWorkspaceIdAndPersonIdAndNoteIdIsNotNull(UUID workspaceId, UUID personId);
+
     /** Runs a bot is sent on but has never reported from, one removed before it did included. */
     @Query("select r from MeetingRecording r where r.status in ('LAUNCHING', 'REMOVE_REQUESTED') "
             + "and r.lastHeartbeatAt is null and r.createdAt < :sentBefore")

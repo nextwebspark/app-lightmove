@@ -13,7 +13,6 @@ import * as poolApi from "../api/poolApi";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
-import { MeetingNoteRecording } from "../../outreach/components/NotetakerControls";
 import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
 
 /**
@@ -70,10 +69,13 @@ export function NotesSection({
   candidateId,
   focus = null,
   onSetNextAction,
+  renderNoteFooter,
 }: PersonSectionProps & {
   focus?: NoteFocus | null;
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
+  /** What a note's card adds under its words, from whoever composes the drawer (a recorded call's transcript). */
+  renderNoteFooter?: (note: PersonNote) => ReactNode;
 }) {
   const notes = useQuery({
     queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
@@ -112,6 +114,7 @@ export function NotesSection({
                 candidateId={candidateId}
                 note={note}
                 flashAt={focus?.noteId === note.id ? focus.at : null}
+                footer={renderNoteFooter?.(note)}
               />
             ))}
           </ul>
@@ -253,7 +256,8 @@ function PositionNoteCard({
   candidateId,
   note,
   flashAt,
-}: PersonSectionProps & { note: PersonNote; flashAt: number | null }) {
+  footer,
+}: PersonSectionProps & { note: PersonNote; flashAt: number | null; footer?: ReactNode }) {
   const queryClient = useQueryClient();
   const actions = useNoteCardActions(
     note,
@@ -280,11 +284,7 @@ function PositionNoteCard({
       actions={actions}
       teammates={note.projectId ? team.teammates : null}
       flashAt={flashAt}
-      footer={
-        note.kind === "meeting" && (
-          <MeetingNoteRecording projectId={projectId} candidateId={candidateId} noteId={note.id} />
-        )
-      }
+      footer={footer}
     />
   );
 }

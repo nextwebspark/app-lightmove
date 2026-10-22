@@ -10,47 +10,42 @@ import * as notetakerApi from "../api/notetakerApi";
 import { clockTimeOf, elapsedOf, meetingWhenOf } from "../lib/meetingTimes";
 
 /**
- * A recorded call's transcript, from its row in Meetings or its Meeting note (`Position.dc.html`, `showTranscript`).
- * Portalled: the executive drawer animates with a transform, which would pin a fixed panel inside it.
+ * A recorded call's transcript, from its row in Meetings or its Meeting note (`Position.dc.html`, `showTranscript`),
+ * read by the recording, so a note whose meeting a calendar read deleted still opens it. Times count from when the
+ * bot was let in, as the note's evidence does. Portalled: the executive drawer animates with a transform, which would
+ * pin a fixed panel inside it.
  */
 export function TranscriptSheet({
   projectId,
   candidateId,
-  meetingId,
-  title,
-  startsAt,
-  endsAt,
-  ownerName,
+  recordingId,
   onClose,
 }: {
   projectId: string;
   candidateId: string;
-  meetingId: string;
-  title: string | null;
-  startsAt: string;
-  endsAt: string;
-  /** The consultant whose call it was: their lines are drawn apart from everyone else's. */
-  ownerName: string | null;
+  recordingId: string;
   onClose: () => void;
 }) {
   const vocabulary = useWorkspaceVocabulary();
   const [query, setQuery] = useState("");
   const transcript = useQuery({
-    queryKey: notetakerApi.NOTETAKER_TRANSCRIPT_KEY(projectId, candidateId, meetingId),
-    queryFn: ({ signal }) => notetakerApi.getTranscript(projectId, candidateId, meetingId, signal),
+    queryKey: notetakerApi.NOTETAKER_TRANSCRIPT_KEY(projectId, candidateId, recordingId),
+    queryFn: ({ signal }) => notetakerApi.getTranscript(projectId, candidateId, recordingId, signal),
   });
-  const lines = transcript.data?.lines ?? [];
+  const call = transcript.data;
+  // Keyed by place: one voice can say two things at one offset when the transcriber splits a turn.
+  const lines = (call?.lines ?? []).map((line, index) => ({ ...line, index }));
   const needle = query.trim().toLowerCase();
   const shown = needle ? lines.filter((line) => line.text.toLowerCase().includes(needle)) : lines;
-  const minutes = Math.max(1, Math.round((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60_000));
-  const recordedUntil = transcript.data?.recordedUntil ?? null;
+  const countsFrom = call ? (call.joinedAt ?? call.startsAt) : null;
+  const recordedUntil = call?.recordedUntil ?? null;
 
   return createPortal(
     <Drawer open onClose={onClose} wide label="Transcript">
       <header className="relative border-b border-u-border px-5 pb-3.5 pt-[18px]">
         <PanelCloseButton onClose={onClose} />
-        <div className="pe-10 text-subhead font-semibold">{title ?? "Untitled"}</div>
-        <div className="mt-0.5 font-mono text-meta text-u-text3">{meetingWhenOf(startsAt, endsAt)}</div>
+        <div className="pe-10 text-subhead font-semibold">{call ? (call.title ?? "Untitled") : "Transcript"}</div>
+        {call && <div className="mt-0.5 font-mono text-meta text-u-text3">{meetingWhenOf(call.startsAt, call.endsAt)}</div>}
         <input
           type="search"
           value={query}
@@ -59,9 +54,11 @@ export function TranscriptSheet({
           aria-label="Search the transcript"
           className="mt-3 w-full rounded-u-control border border-u-border bg-u-raised px-2.5 py-2 text-body text-u-text outline-none focus:border-u-accent"
         />
-        {transcript.isSuccess && (
+        {call && countsFrom && (
           <div className="mt-2 font-mono text-meta text-u-text3">
-            {needle ? `${shown.length} of ${lines.length} lines` : `${lines.length} lines · ${minutes} minutes`}
+            {needle
+              ? `${shown.length} of ${lines.length} lines`
+              : `${lines.length} lines · ${recordedMinutesOf(countsFrom, recordedUntil ?? lines.at(-1)?.at ?? countsFrom)} minutes`}
           </div>
         )}
         {recordedUntil && (
@@ -81,9 +78,9 @@ export function TranscriptSheet({
         ) : (
           <ol>
             {shown.map((line) => (
-              <li key={`${line.at}-${line.speaker}`} className="flex gap-3 border-b border-u-border py-[9px]">
+              <li key={line.index} className="flex gap-3 border-b border-u-border py-[9px]">
                 <span className="w-[58px] flex-none font-mono text-meta/[1.9] text-u-text3">
-                  {elapsedOf(startsAt, line.at)}
+                  {countsFrom && elapsedOf(countsFrom, line.at)}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span
@@ -91,7 +88,7 @@ export function TranscriptSheet({
                       "text-note",
                       !line.named
                         ? "font-medium italic text-u-text3"
-                        : line.speaker === ownerName
+                        : line.speaker === call?.consultantName
                           ? "font-semibold text-u-accent"
                           : "font-semibold text-u-direct",
                     )}
@@ -115,4 +112,9 @@ export function TranscriptSheet({
     </Drawer>,
     document.body,
   );
+}
+
+/** How much of the call was recorded: from the bot being let in to where it stopped, or its last line. */
+function recordedMinutesOf(from: string, until: string): number {
+  return Math.max(1, Math.round((new Date(until).getTime() - new Date(from).getTime()) / 60_000));
 }

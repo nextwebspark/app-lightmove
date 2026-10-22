@@ -47,7 +47,7 @@ export function MeetingsSection({
     queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
   });
   const mailbox = useMailbox();
-  const notetaker = useNotetaker(projectId, candidateId);
+  const notetaker = useNotetaker(projectId, candidateId, meetings.data?.upcoming ?? []);
   const queryClient = useQueryClient();
   const toast = useToast();
   const [isBooking, setIsBooking] = useState(false);
