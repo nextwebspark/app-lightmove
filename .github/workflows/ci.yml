@@ -119,3 +119,37 @@ jobs:
       # that skipped that pass would ship a manifest pointing at nothing and fail silently at runtime.
       - name: Build
         run: npm run build --workspace=apps/extension
+
+  meetingbot:
+    name: Meeting bot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace=apps/meetingbot
+
+      # The state machine, the uploader and the Meet screen readers against saved pages under jsdom.
+      - name: Test
+        run: npm run test --workspace=apps/meetingbot
+
+      # What jsdom cannot run: the recorder turning a peer connection's audio into WebM pieces, and the readers
+      # sent into a real page as source text. The runner image carries Chrome.
+      - name: Test in a real browser
+        run: npm run test:browser --workspace=apps/meetingbot
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+
+      - name: Build
+        run: npm run build --workspace=apps/meetingbot
+
+      # The image deploy.yml pushes when MEETINGBOT_ENABLED is on; built here so a broken Dockerfile fails the PR.
+      - name: Build the image
+        run: docker build -f apps/meetingbot/Dockerfile -t meetingbot:ci .
