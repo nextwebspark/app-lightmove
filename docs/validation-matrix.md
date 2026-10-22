@@ -45,7 +45,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 |---|---|---|---|
 | ☐ Default region / currency | select | unchecked | toast |
 | ☐ Persona chips | ≤ 20 items, no item length | ≤ 20 × 96/160/64 | toast |
-| Profile timezone | a region's zone or UTC, from the grouped list (the saved value kept if the browser lists none) | `@NotBlank @Size(64)`; a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) | field |
+| Profile timezone | a region's zone or UTC, from the grouped list; the saved value passes unchanged (kept in the list if the browser lists none) | `@NotBlank @Size(64)`; a new choice must be a region's own zone or `UTC` the JDK knows, never a legacy alias like `EST` (`VALIDATION_FAILED` on `timezone`) — a zone saved before V148 saves unchanged | field |
 | Candidate tag label | trimmed, ≤ 40 | `@NotBlank @Size(40)` | toast |
 | API key name | trimmed, ≤ 80 | `@NotBlank @Size(80)` | banner |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |

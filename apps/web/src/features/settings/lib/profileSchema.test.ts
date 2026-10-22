@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { profileSchema } from "./profileSchema";
+import { profileSchema, profileSchemaFor } from "./profileSchema";
 
 const valid = {
   fullName: "Alok Kumar",
@@ -47,6 +47,12 @@ describe("profileSchema", () => {
 
     const language = profileSchema.safeParse({ ...valid, locale: "zz" });
     expect(issueFor(language, "locale")).toBe("Pick a language from the list");
+  });
+
+  it("keeps a zone saved before the region rule, while a new choice must be a region's", () => {
+    const saved = profileSchemaFor("US/Pacific");
+    expect(saved.safeParse({ ...valid, timezone: "US/Pacific" }).success).toBe(true);
+    expect(issueFor(saved.safeParse({ ...valid, timezone: "EST" }), "timezone")).toBe("Pick a timezone from the list");
   });
 });
 

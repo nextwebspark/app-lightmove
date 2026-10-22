@@ -12,13 +12,17 @@ import app.lightmove.api.IntegrationTest;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /** Settings → Profile: the caller editing how they appear across the workspace. */
 @IntegrationTest
 class ProfileIntegrationTest extends FlowTestSupport {
+
+    @Autowired JdbcTemplate jdbc;
 
     private static final String EDIT = """
             {"fullName":"Alok B Kumar","title":"Managing Partner",
@@ -83,6 +87,24 @@ class ProfileIntegrationTest extends FlowTestSupport {
                     .andReturn();
             assertThat(codeOf(refused)).isEqualTo("VALIDATION_FAILED");
         }
+    }
+
+    @Test
+    @DisplayName("a zone saved before the region rule saves unchanged with the rest; only a new choice must be a region's")
+    void keepsALegacyZoneUntilItIsChanged() throws Exception {
+        String token = adminOf("Alok Kumar", "Legacy Zone Firm");
+        jdbc.update("update app_lm_user set timezone = 'US/Pacific' where email = ?", "alok@" + domain);
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok B Kumar","title":null,"timezone":"US/Pacific","locale":"en"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Alok B Kumar"))
+                .andExpect(jsonPath("$.timezone").value("US/Pacific"));
+
+        mvc.perform(patchProfile(token, """
+                        {"fullName":"Alok B Kumar","title":null,"timezone":"US/Eastern","locale":"en"}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.timezone").exists());
     }
 
     @Test

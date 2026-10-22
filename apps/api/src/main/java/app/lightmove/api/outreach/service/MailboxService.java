@@ -10,8 +10,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.TimezoneChanged;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageKind;
@@ -36,7 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -79,7 +77,7 @@ public class MailboxService {
     private final MailboxTokens tokens;
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
-    private final UserRepository users;
+    private final UserTimezones timezones;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -243,14 +241,10 @@ public class MailboxService {
                 .orElseGet(() -> {
                     MailboxConnection connected = connections.save(MailboxConnection.connected(
                             started.getWorkspaceId(), started.getUserId(), granted, refreshTokenEncrypted,
-                            settings().dailyCap(), zoneOf(started.getUserId()), now));
+                            settings().dailyCap(), timezones.zoneOf(started.getUserId()), now));
                     events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });
-    }
-
-    private ZoneId zoneOf(UUID userId) {
-        return users.findById(userId).map(User::getTimezone).map(ZoneId::of).orElse(MailboxConnection.DEFAULT_ZONE);
     }
 
     /** Our own gateway's refresh token, sealed before it reaches the row; Nylas's grants carry none. */

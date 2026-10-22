@@ -7,7 +7,7 @@ import { titleCase } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import type { WorkspaceRole } from "../../auth/api/types";
 import { browserTimeZone, cityOf, LANGUAGE_OPTIONS, timezoneGroups } from "../lib/profileOptions";
-import { profileSchema, type ProfileValues } from "../lib/profileSchema";
+import { profileSchemaFor, type ProfileValues } from "../lib/profileSchema";
 
 /**
  * The mockup's two-column profile form.
@@ -40,7 +40,7 @@ export function ProfileForm({
     setValue,
     watch,
     formState: { errors, isSubmitting },
-  } = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), defaultValues });
+  } = useForm<ProfileValues>({ resolver: zodResolver(profileSchemaFor(defaultValues.timezone)), defaultValues });
   const timezone = watch("timezone");
   const timezones = useMemo(() => timezoneGroups(defaultValues.timezone), [defaultValues.timezone]);
   const computerZone = useMemo(browserTimeZone, []);

@@ -28,6 +28,7 @@ public enum WorkspaceEventType implements AuditEventType {
 
     MAILBOX_CONNECTED,
     MAILBOX_DISCONNECTED,
+    /** Written until V148 made the time zone the profile's ({@code PROFILE_UPDATED} now); kept so older rows read. */
     MAILBOX_TIME_ZONE_CHANGED,
 
     ZOOM_CONNECTED,

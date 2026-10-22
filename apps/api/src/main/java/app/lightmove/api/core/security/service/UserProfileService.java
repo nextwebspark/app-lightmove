@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.service;
 
+import app.lightmove.api.common.time.service.RegionZones;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -9,10 +10,8 @@ import app.lightmove.api.core.security.model.TimezoneChanged;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
-import java.time.ZoneId;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -36,9 +35,6 @@ public class UserProfileService {
      */
     private static final Set<String> SUPPORTED_LOCALES = Set.of("en", "ar", "fr");
 
-    private static final Pattern REGION_ZONE = Pattern.compile(
-            "UTC|(Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific)/[A-Za-z0-9_+\\-/]+");
-
     private final UserRepository users;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
@@ -50,11 +46,12 @@ public class UserProfileService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
         String previousTimezone = user.getTimezone();
+        String timezone = command.timezone().trim();
+        boolean isMoved = !previousTimezone.equals(timezone);
         user.setFullName(command.fullName().trim());
         user.setTitle(normaliseTitle(command.title()));
-        user.setTimezone(requireRegionZone(command.timezone()));
+        user.setTimezone(isMoved ? requireRegionZone(timezone) : timezone);
         user.setLocale(requireSupportedLocale(command.locale()));
-        boolean isMoved = !previousTimezone.equals(user.getTimezone());
 
         audit.event(AuthEventType.PROFILE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
@@ -63,7 +60,7 @@ public class UserProfileService {
                 .detailIfPresent("timezoneTo", isMoved ? user.getTimezone() : null)
                 .record();
         if (isMoved) {
-            events.publishEvent(new TimezoneChanged(actorId, ZoneId.of(user.getTimezone())));
+            events.publishEvent(new TimezoneChanged(actorId, user.zone()));
         }
 
         return user;
@@ -78,16 +75,15 @@ public class UserProfileService {
     }
 
     /**
-     * A region's own zone ({@code Europe/London}) or {@code UTC}, never a legacy alias like {@code EST}: sending
-     * hours, scheduled emails and the digest are all read in it.
+     * Asked of a new choice only: a zone saved before the rule (one the old check took, like {@code US/Pacific}) still
+     * saves unchanged with the rest of the profile, and still reads correctly.
      */
     private static String requireRegionZone(String timezone) {
-        String candidate = timezone.trim();
-        if (!REGION_ZONE.matcher(candidate).matches() || !ZoneId.getAvailableZoneIds().contains(candidate)) {
+        if (!RegionZones.isRegionZone(timezone)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timezone",
                     "Pick a timezone from the list");
         }
-        return candidate;
+        return timezone;
     }
 
     private static String requireSupportedLocale(String locale) {
