@@ -80,7 +80,9 @@ because the platform's canary had failed.
 
 **What it checks.** Once a day the job `lightmove-meetingbot-canary` (the same image, `dist/canaryMain.js`) runs the
 real bot against two standing test meetings, one on Meet and one on Teams. The bot joins, posts its notice, records a
-minute and leaves. It reports to `POST /api/v1/internal/notetaker/canary`, signed with `MEETINGBOT_SA`'s ID token.
+minute and leaves. It reports to `POST /api/v1/internal/notetaker/canary`, signed with the ID token of a service
+account of its own (`NOTETAKER_CANARY_SA`). It is never `MEETINGBOT_SA`, because a meeting bot runs on a third party's
+page and must not be able to report a platform down, or hide an outage.
 The report says whether the bot got in, said what it was and heard audio. If not, it gives the failure: a bot end
 reason, `NOT_RECORDING` or `NO_AUDIO`. A Meet or Teams page change that breaks joining is caught within a day.
 
@@ -98,7 +100,8 @@ has the backup on. Elsewhere our bot is still sent, since an attempt beats none.
      and meeting chat on for guests.
 
    Put their links in the deploy variables `NOTETAKER_CANARY_MEET_URL` and `NOTETAKER_CANARY_TEAMS_URL`, with
-   `NOTETAKER_CANARY_ENABLED=true` and `PUBLIC_BASE_URL`.
+   `NOTETAKER_CANARY_ENABLED=true`, `PUBLIC_BASE_URL`, and `NOTETAKER_CANARY_SA`. The canary's service account is made
+   like `MEETINGBOT_SA`: no role, just an identity.
 2. **The trigger.** Cloud Scheduler runs the job daily, as a service account allowed to run it:
    ```bash
    gcloud scheduler jobs create http notetaker-canary --location "$REGION" --schedule "15 6 * * *" \
@@ -146,7 +149,8 @@ errors only (`log.ts`), and the API logs ids.
 ## Keeping nothing longer than needed
 
 - **Audio** is deleted as soon as its piece is transcribed. Every piece of every run, audio and captions, is deleted
-  once it is a day old (`media-max-age`), whatever became of the run.
+  once it is a day old (`media-max-age`), whatever became of the run. Audio no pass transcribed in that day becomes
+  a gap the note owns up to, as a piece three passes could not hear does.
 - **Remove notetaker** deletes what was captured on the next pass, and Recall's copy at once.
 - **A failed run's transcribed text** is kept `failed-media-retention` (7 days) for Try again.
 - **A transcript** lives as long as its note. Once `PersonNotePurge` has deleted the note for good (30 days after it

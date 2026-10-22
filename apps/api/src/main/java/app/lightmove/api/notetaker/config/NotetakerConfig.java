@@ -65,12 +65,13 @@ public class NotetakerConfig {
         return new RecallBotClient(recall, clientFactory, rateLimiter, guard, RestClient.builder(), clock);
     }
 
-    /** Where no bot service account is configured nobody can exchange, and every bot carries its token. */
+    /** Where neither our bots' nor the canary's service account is configured, no ID token is ever taken. */
     @Bean
     @Fallback
     BotIdentityVerifier botIdentityVerifier(LightMoveProperties properties) {
-        String account = properties.notetaker().botServiceAccount();
-        if (account == null || account.isBlank()) {
+        String bot = properties.notetaker().botServiceAccount();
+        String canary = properties.notetaker().canaryServiceAccount();
+        if ((bot == null || bot.isBlank()) && (canary == null || canary.isBlank())) {
             return idToken -> Optional.empty();
         }
         return new GoogleBotIdentityVerifier(NotetakerBotEnvironment.tokenAudienceOf(properties));

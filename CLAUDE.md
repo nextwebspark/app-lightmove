@@ -1300,11 +1300,12 @@ instead, asks the metadata server for its own ID token and trades it once at `PO
 checks Google's keys, issuer, audience, lifetime and verified email before the run is read, and V155's
 `run_token_issued_at` refuses a second exchange; every refusal is a run that does not exist. **A daily canary**
 (`lightmove-meetingbot-canary`, `dist/canaryMain.js`, Cloud Scheduler) runs the real bot against standing test
-meetings on Meet and Teams with an in-memory API and reports to `POST /api/v1/internal/notetaker/canary` under the same
-identity; V156's `app_lm_notetaker_platform_health` (not tenant data) keeps each platform's latest finding, a failure
+meetings on Meet and Teams with an in-memory API and reports to `POST /api/v1/internal/notetaker/canary` under an
+identity of its own (`canary-service-account`, never a meeting bot's, which runs on a third party's page); V156's `app_lm_notetaker_platform_health` (not tenant data) keeps each platform's latest finding, a failure
 is an ERROR line (the alert) and, under `platform-health`, routes that platform's calls straight to the backup where a
 workspace has it (`PLATFORM_UNHEALTHY`) until a canary passes. **Nothing captured outlives a day**
-(`media-max-age`, whatever the run), and a transcript goes once its note is purged. **Recorded minutes are fair use**
+(`media-max-age`, whatever the run; audio nobody transcribed in it is a gap the note owns up to), and a transcript
+goes once its note is purged. **Recorded minutes are fair use**
 (`meeting-minute-per-seat`, 3,000): asked before a bot is sent (`FAIR_USE_REACHED` / `TRIAL_ENDED` skip the call) and
 shown on Settings → Billing (`notetakerMinutes` on `GET /billing/usage`). `notetaker.joins`, `notetaker.time_to_admit`,
 `notetaker.fallbacks` and `notetaker.canary` are the platform dashboards, the bot logs one JSON entry per line with no

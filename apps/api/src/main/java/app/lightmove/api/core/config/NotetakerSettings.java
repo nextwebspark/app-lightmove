@@ -58,6 +58,11 @@ public record NotetakerSettings(
         String botServiceAccount,
         /** The audience that ID token is minted for; blank is the API's base URL the bot calls. */
         String botTokenAudience,
+        /**
+         * The canary job's own service account, apart from the meeting bots': a bot on a third party's meeting page
+         * must not be able to say a platform is down, or that it is up. Blank, no canary report is taken.
+         */
+        String canaryServiceAccount,
         /** A platform whose latest canary failed has its calls sent to the backup recorder, where a workspace has it. */
         @DefaultValue("true") boolean platformHealth
 ) {}

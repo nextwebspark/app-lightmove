@@ -47,6 +47,10 @@ class NotetakerMediaPurge {
         }
         Instant receivedBefore = now.minus(properties.notetaker().mediaMaxAge());
         for (MeetingMediaPieces.StoredPiece piece : pieces.receivedBefore(receivedBefore, OLD_PIECES_PER_PASS)) {
+            // Audio no pass could hear before its day was up is a gap the note owns up to, as a given-up piece is.
+            if (piece.unheard()) {
+                transcripts.storeSkipped(piece.recordingId(), piece.sequence(), piece.startedAt());
+            }
             try {
                 store.delete(piece.storageKey());
                 pieces.forget(piece.recordingId(), piece.storageKey());

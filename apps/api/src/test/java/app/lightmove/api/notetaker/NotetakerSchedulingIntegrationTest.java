@@ -277,6 +277,9 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         scheduler.scheduleAt(Instant.now());
 
         assertThat(pieceKeys(run)).isEmpty();
+        // The audio nobody transcribed in its day is a gap the note owns up to, never silently shorter.
+        assertThat(jdbc.queryForObject("select skipped from app_lm_meeting_transcript_piece where recording_id = "
+                + "?::uuid and sequence = 1", Boolean.class, run)).isTrue();
     }
 
     @Test

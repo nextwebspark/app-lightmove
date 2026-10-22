@@ -21,3 +21,8 @@ COMMENT ON TABLE app_lm_notetaker_platform_health IS
 -- The day's sweep of captured pieces past their age (media-max-age), whatever their run.
 CREATE INDEX app_lm_meeting_recording_media_received_idx
     ON app_lm_meeting_recording_media (received_at);
+
+-- A transcript whose note has been purged: the purge's scan, which runs every pass, finds them without a table scan.
+CREATE INDEX app_lm_meeting_recording_noteless_transcript_idx
+    ON app_lm_meeting_recording (id)
+    WHERE status = 'DONE' AND note_id IS NULL AND transcript IS NOT NULL;

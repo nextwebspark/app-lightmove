@@ -25,6 +25,8 @@ class MeetingTranscriptPieces {
     /** How a transcript kept before lines said whether they were named tells an unmatched voice: its label. */
     private static final Pattern UNNAMED_VOICE = Pattern.compile("Speaker( \\d+)?");
 
+    private static final int TRANSCRIPTS_FORGOTTEN_PER_PASS = 200;
+
     private final JdbcTemplate jdbc;
     private final JsonMapper json;
 
@@ -88,7 +90,9 @@ class MeetingTranscriptPieces {
     void forgetWhereNoteIsGone() {
         jdbc.update("""
                 UPDATE app_lm_meeting_recording SET transcript = NULL
-                WHERE status = 'DONE' AND note_id IS NULL AND transcript IS NOT NULL""");
+                WHERE id IN (SELECT id FROM app_lm_meeting_recording
+                             WHERE status = 'DONE' AND note_id IS NULL AND transcript IS NOT NULL
+                             LIMIT ?)""", TRANSCRIPTS_FORGOTTEN_PER_PASS);
     }
 
     void keepTranscript(UUID recordingId, List<TranscriptLine> transcript) {

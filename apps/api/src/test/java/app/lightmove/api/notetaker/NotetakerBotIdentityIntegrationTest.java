@@ -50,11 +50,14 @@ import org.springframework.web.util.UriComponentsBuilder;
  * same identity, steers a failing platform's calls to the backup recorder where a workspace has it on.
  */
 @IntegrationTest
-@TestPropertySource(properties = "lightmove.notetaker.bot-service-account=" + NotetakerBotIdentityIntegrationTest.BOT)
+@TestPropertySource(properties = {
+        "lightmove.notetaker.bot-service-account=" + NotetakerBotIdentityIntegrationTest.BOT,
+        "lightmove.notetaker.canary-service-account=" + NotetakerBotIdentityIntegrationTest.CANARY})
 @Import(NotetakerBotIdentityIntegrationTest.Identities.class)
 class NotetakerBotIdentityIntegrationTest extends FlowTestSupport {
 
     static final String BOT = "meetingbot@uncava-prod.iam.gserviceaccount.com";
+    static final String CANARY = "notetaker-canary@uncava-prod.iam.gserviceaccount.com";
     private static final String MAILBOX = "consultant@firm.example";
 
     @Autowired private RecordingMailboxGateway gateway;
@@ -92,6 +95,7 @@ class NotetakerBotIdentityIntegrationTest extends FlowTestSupport {
 
         exchange(run, "id-token-for:someone-else@evil.example").andExpect(status().isNotFound());
         exchange(run, null).andExpect(status().isNotFound());
+        exchange(run, "id-token-for:" + CANARY).andExpect(status().isNotFound());
         String token = body(exchange(run, "id-token-for:" + BOT).andExpect(status().isOk()).andReturn())
                 .get("runToken").asText();
 
@@ -115,14 +119,16 @@ class NotetakerBotIdentityIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("only our bot reports a canary, and a failed one sends the platform's calls to the backup until one passes")
+    @DisplayName("only the canary's own account reports, and a failure sends the platform's calls to the backup until a pass")
     void aFailedCanaryRoutesAroundOurBot() throws Exception {
         canary("id-token-for:someone-else@evil.example", false).andExpect(status().isNotFound());
+        // A meeting bot, on a third party's page, may not say a platform is down.
+        canary("id-token-for:" + BOT, false).andExpect(status().isNotFound());
         recall.offer(true);
         as(consultant, put("/api/v1/workspace/notetaker/backup").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"enabled\":true}")).andExpect(status().isOk());
         try {
-            canary("id-token-for:" + BOT, false).andExpect(status().isNoContent());
+            canary("id-token-for:" + CANARY, false).andExpect(status().isNoContent());
             assertThat(jdbc.queryForMap("select healthy, reason, failing_since from app_lm_notetaker_platform_health "
                     + "where platform = 'GOOGLE_MEET'"))
                     .containsEntry("healthy", false).containsEntry("reason", "JOIN_BLOCKED");
@@ -135,7 +141,7 @@ class NotetakerBotIdentityIntegrationTest extends FlowTestSupport {
                     String.class, recall.sent().getFirst().metadata().get("recording_id")))
                     .isEqualTo("PLATFORM_UNHEALTHY");
         } finally {
-            canary("id-token-for:" + BOT, true).andExpect(status().isNoContent());
+            canary("id-token-for:" + CANARY, true).andExpect(status().isNoContent());
             recall.clear();
         }
         assertThat(jdbc.queryForObject("select failing_since is null from app_lm_notetaker_platform_health "

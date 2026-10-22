@@ -131,7 +131,8 @@ Our own bot needs no provider app — it joins as a guest — but its job does n
    ```
    A bucket that already has lifecycle rules: merge this one into them, since `--lifecycle-file` replaces the set.
 5. **The daily canary (#956)**, once the job is: two standing test meetings, the deploy variables
-   `NOTETAKER_CANARY_ENABLED=true`, `NOTETAKER_CANARY_MEET_URL`, `NOTETAKER_CANARY_TEAMS_URL` and `PUBLIC_BASE_URL`,
+   `NOTETAKER_CANARY_ENABLED=true`, `NOTETAKER_CANARY_MEET_URL`, `NOTETAKER_CANARY_TEAMS_URL`, `PUBLIC_BASE_URL` and
+   `NOTETAKER_CANARY_SA` (a service account of its own, no role),
    a Cloud Scheduler trigger and an alert. The meetings, the trigger and the alert are `docs/notetaker.md`'s
    "Canary" runbook.
 
