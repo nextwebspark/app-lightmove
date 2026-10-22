@@ -19,9 +19,9 @@ import org.springframework.stereotype.Component;
 /**
  * Our own bot first and Recall's behind it, in the shape of {@code PeopleSearchChain}: a call ours joins goes to ours,
  * and to Recall only when ours could not be started and {@link FallbackPolicy} says so; a call only Recall joins (Zoom)
- * goes straight to it, as does any call on a platform whose canary failed (#956). Recall is a third party that receives the call's audio, so it stands behind ours only in a
- * workspace whose admin turned it on. Every fallback is logged and counted by platform and reason — the measure of how
- * much ours can be trusted.
+ * goes straight to it, as does any call on a platform whose canary failed (#956). Recall is a third party that receives
+ * the call's audio, so it stands behind ours only in a workspace whose admin turned it on. Every fallback is logged and
+ * counted by platform and reason — the measure of how much ours can be trusted.
  */
 @Component
 @Slf4j

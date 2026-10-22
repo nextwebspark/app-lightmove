@@ -16,15 +16,19 @@ public final class NotetakerBotEnvironment {
     }
 
     public static Map<String, String> of(NotetakerLaunch launch, LightMoveProperties properties) {
-        return of(launch, properties, false);
+        return environmentOf(launch, properties, false);
     }
 
     /**
-     * {@code exchangesToken}: the bot takes its token from the API with its own ID token, so none is in its
-     * environment — on Cloud Run anyone who may read the execution could read it there.
+     * On Cloud Run, where anyone who may read the execution could read its environment: with the bot's service
+     * account configured, no token is in it, and the bot takes one from the API with its own ID token.
      */
-    public static Map<String, String> of(NotetakerLaunch launch, LightMoveProperties properties,
-                                         boolean exchangesToken) {
+    public static Map<String, String> forCloudRun(NotetakerLaunch launch, LightMoveProperties properties) {
+        return environmentOf(launch, properties, exchangesToken(properties));
+    }
+
+    private static Map<String, String> environmentOf(NotetakerLaunch launch, LightMoveProperties properties,
+                                                     boolean exchangesToken) {
         NotetakerSettings settings = properties.notetaker();
         Map<String, String> environment = new LinkedHashMap<>();
         environment.put("NOTETAKER_RUN_ID", launch.recordingId().toString());
@@ -43,8 +47,7 @@ public final class NotetakerBotEnvironment {
         return environment;
     }
 
-    /** Whether a bot is started without its token, to exchange its own identity for it. */
-    public static boolean exchangesToken(LightMoveProperties properties) {
+    private static boolean exchangesToken(LightMoveProperties properties) {
         String account = properties.notetaker().botServiceAccount();
         return account != null && !account.isBlank();
     }

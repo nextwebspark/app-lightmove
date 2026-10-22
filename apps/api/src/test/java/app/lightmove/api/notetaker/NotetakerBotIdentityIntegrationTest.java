@@ -88,7 +88,7 @@ class NotetakerBotIdentityIntegrationTest extends FlowTestSupport {
     @DisplayName("the bot's environment carries no token, and its own ID token buys the run's token once")
     void exchangesOnce() throws Exception {
         NotetakerLaunch launch = sendBot();
-        assertThat(NotetakerBotEnvironment.of(launch, properties, NotetakerBotEnvironment.exchangesToken(properties)))
+        assertThat(NotetakerBotEnvironment.forCloudRun(launch, properties))
                 .doesNotContainKey("NOTETAKER_RUN_TOKEN")
                 .containsKey("NOTETAKER_TOKEN_AUDIENCE");
         String run = launch.recordingId().toString();

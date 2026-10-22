@@ -2,6 +2,7 @@ package app.lightmove.api.notetaker.controller;
 
 import app.lightmove.api.notetaker.dto.NotetakerCanaryReportRequest;
 import app.lightmove.api.notetaker.service.NotetakerCanaryReports;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,7 +28,8 @@ public class NotetakerCanaryController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void report(@RequestHeader(name = NotetakerRunController.BOT_IDENTITY_HEADER, required = false)
                        String identity,
-                       @Valid @RequestBody NotetakerCanaryReportRequest request) {
-        reports.receive(identity, request);
+                       @Valid @RequestBody NotetakerCanaryReportRequest request,
+                       HttpServletRequest httpRequest) {
+        reports.receive(identity, request, httpRequest);
     }
 }

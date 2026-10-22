@@ -4,9 +4,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
-import org.springframework.security.oauth2.core.OAuth2Error;
-import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
@@ -20,7 +20,6 @@ public class GoogleBotIdentityVerifier implements BotIdentityVerifier {
 
     static final String GOOGLE_KEYS = "https://www.googleapis.com/oauth2/v3/certs";
     private static final Set<String> GOOGLE_ISSUERS = Set.of("https://accounts.google.com", "accounts.google.com");
-    private static final OAuth2Error REFUSED = new OAuth2Error("invalid_token");
 
     private final JwtDecoder decoder;
 
@@ -31,10 +30,9 @@ public class GoogleBotIdentityVerifier implements BotIdentityVerifier {
     GoogleBotIdentityVerifier(NimbusJwtDecoder decoder, String audience) {
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(List.of(
                 new JwtTimestampValidator(),
-                jwt -> GOOGLE_ISSUERS.contains(String.valueOf(jwt.getClaims().get("iss")))
-                        ? OAuth2TokenValidatorResult.success() : OAuth2TokenValidatorResult.failure(REFUSED),
-                jwt -> jwt.getAudience() != null && jwt.getAudience().contains(audience)
-                        ? OAuth2TokenValidatorResult.success() : OAuth2TokenValidatorResult.failure(REFUSED))));
+                new JwtClaimValidator<String>(JwtClaimNames.ISS, GOOGLE_ISSUERS::contains),
+                new JwtClaimValidator<List<String>>(JwtClaimNames.AUD,
+                        audiences -> audiences != null && audiences.contains(audience)))));
         this.decoder = decoder;
     }
 

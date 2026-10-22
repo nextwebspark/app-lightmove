@@ -151,17 +151,6 @@ public class MeetingRecording extends BaseEntity {
         return true;
     }
 
-    /** Our bot, sent and not yet started, may take its token once; an ended run's is gone. */
-    public boolean canIssueRunToken() {
-        return recorder == MeetingRecorderKind.OWN && status.isInCall() && status != NotetakerStatus.REMOVE_REQUESTED
-                && runTokenHash != null && runTokenIssuedAt == null;
-    }
-
-    public void issueRunToken(String tokenHash, Instant now) {
-        runTokenHash = tokenHash;
-        runTokenIssuedAt = now;
-    }
-
     public void markLaunched(String externalId, Instant now) {
         this.externalId = externalId;
         this.launchedAt = now;

@@ -23,6 +23,14 @@ public class TrialGate {
     private final LightMoveProperties properties;
     private final Clock clock;
 
+    /** Whether a use would be refused {@code TRIAL_ENDED}, for a caller that skips rather than fails. */
+    @Transactional(readOnly = true)
+    public boolean hasEnded(UUID workspaceId) {
+        return properties.billing().enforce() && subscriptions.findByWorkspaceId(workspaceId)
+                .filter(subscription -> subscription.trialEndedAt(clock.instant()))
+                .isPresent();
+    }
+
     /** @throws ApiException {@code TRIAL_ENDED}, carrying {@code trialEndedAt} */
     @Transactional(readOnly = true)
     public void requireOpen(UUID workspaceId) {

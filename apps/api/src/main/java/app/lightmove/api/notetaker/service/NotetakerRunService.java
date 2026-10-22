@@ -65,14 +65,9 @@ public class NotetakerRunService {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         String runToken = Tokens.generate();
-        boolean issued = Boolean.TRUE.equals(transactions.execute(status -> recordings.findById(runId)
-                .filter(MeetingRecording::canIssueRunToken)
-                .map(recording -> {
-                    recording.issueRunToken(Tokens.hash(runToken), clock.instant());
-                    return true;
-                })
-                .orElse(false)));
-        if (!issued) {
+        Integer issued = transactions.execute(status ->
+                recordings.issueRunToken(runId, Tokens.hash(runToken), clock.instant()));
+        if (issued == null || issued != 1) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         return runToken;

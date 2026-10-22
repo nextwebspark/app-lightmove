@@ -23,7 +23,6 @@ import org.springframework.stereotype.Component;
 public class NotetakerPlatformHealth {
 
     static final String CANARY = "notetaker.canary";
-    private static final int LONGEST_REASON = 64;
 
     private final JdbcTemplate jdbc;
     private final LightMoveProperties properties;
@@ -41,7 +40,7 @@ public class NotetakerPlatformHealth {
 
     public void record(NotetakerPlatform platform, boolean healthy, String reason) {
         Instant now = clock.instant();
-        String why = healthy ? null : reasonOf(reason);
+        String why = healthy ? null : reason == null || reason.isBlank() ? "UNKNOWN" : reason.strip();
         jdbc.update("""
                 INSERT INTO app_lm_notetaker_platform_health (platform, healthy, reason, checked_at, failing_since)
                 VALUES (?, ?, ?, ?, ?)
@@ -70,10 +69,5 @@ public class NotetakerPlatformHealth {
     private Boolean readUnhealthy(NotetakerPlatform platform) {
         return jdbc.query("SELECT NOT healthy FROM app_lm_notetaker_platform_health WHERE platform = ?",
                 (row, index) -> row.getBoolean(1), platform.name()).stream().findFirst().orElse(false);
-    }
-
-    private static String reasonOf(String reason) {
-        String text = reason == null || reason.isBlank() ? "UNKNOWN" : reason.strip();
-        return text.length() <= LONGEST_REASON ? text : text.substring(0, LONGEST_REASON);
     }
 }

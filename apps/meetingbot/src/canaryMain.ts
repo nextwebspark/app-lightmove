@@ -13,7 +13,7 @@ import { identityToken } from "./runToken.js";
 const environment = process.env;
 const apiBaseUrl = (environment.NOTETAKER_API_BASE_URL ?? "").trim().replace(/\/+$/, "");
 const audience = environment.NOTETAKER_TOKEN_AUDIENCE?.trim() || apiBaseUrl;
-const recordMs = Number(environment.CANARY_RECORD_SECONDS ?? "60") * 1_000;
+const recordSeconds = Number(environment.CANARY_RECORD_SECONDS ?? "60");
 const executablePath = environment.CHROME_PATH ?? "/usr/bin/chromium";
 const meetings: { platform: BotConfig["platform"]; joinUrl: string | undefined }[] = [
   { platform: "GOOGLE_MEET", joinUrl: environment.CANARY_MEET_URL?.trim() },
@@ -23,6 +23,11 @@ const meetings: { platform: BotConfig["platform"]; joinUrl: string | undefined }
 if (!apiBaseUrl) {
   throw new Error("NOTETAKER_API_BASE_URL is not set");
 }
+// A number that is not one would leave the bot in the call until the job's own timeout, reporting nothing.
+if (!Number.isFinite(recordSeconds) || recordSeconds <= 0) {
+  throw new Error(`CANARY_RECORD_SECONDS must be a positive number of seconds, not ${environment.CANARY_RECORD_SECONDS}`);
+}
+const recordMs = recordSeconds * 1_000;
 let unreported = 0;
 for (const { platform, joinUrl } of meetings) {
   if (!joinUrl) {
