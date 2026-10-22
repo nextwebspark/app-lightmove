@@ -16,5 +16,5 @@ CREATE TABLE app_lm_meeting_recording_media (
 COMMENT ON TABLE app_lm_meeting_recording_media IS
     'A Notetaker bot''s captured pieces (bytes in the document bucket). Staff-only tenant data, read through its recording.';
 
--- V150's list of keys, which a bot handed over at the end, is replaced by the rows above.
+-- V151's list of keys, which a bot handed over at the end, is replaced by the rows above.
 ALTER TABLE app_lm_meeting_recording DROP COLUMN media;
