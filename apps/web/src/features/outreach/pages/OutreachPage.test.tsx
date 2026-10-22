@@ -485,8 +485,10 @@ describe("OutreachPage", () => {
     });
     renderPage(OPEN);
 
-    const composer = await screen.findByRole("region", { name: "Reply" });
-    expect(await within(composer).findByText("Reply to Fatima")).toBeInTheDocument();
+    // The composer's own Send now: until the mailbox is read, a locked composer stands in its place.
+    await screen.findByRole("button", { name: "Send now" });
+    const composer = screen.getByRole("region", { name: "Reply" });
+    expect(within(composer).getByText("Reply to Fatima")).toBeInTheDocument();
     expect(within(composer).getByText("Re: A confidential conversation")).toBeInTheDocument();
     expect(within(composer).getByText("Sending resolves this reply task. Pipeline stage stays Interested.")).toBeInTheDocument();
     await typeInto(await within(composer).findByRole("textbox", { name: "Message" }), "Thursday at 10?");
@@ -518,8 +520,9 @@ describe("OutreachPage", () => {
     });
     renderPage(OPEN);
 
-    const composer = await screen.findByRole("region", { name: "Reply" });
-    expect(await within(composer).findByText("First email to Fatima")).toBeInTheDocument();
+    await screen.findByRole("button", { name: "Send now" });
+    const composer = screen.getByRole("region", { name: "Reply" });
+    expect(within(composer).getByText("First email to Fatima")).toBeInTheDocument();
     expect(within(composer).getByText(/Moves to Contacted\. Nothing is sent until you press Send now or Schedule\./)).toBeInTheDocument();
     await typeInto(await within(composer).findByRole("textbox", { name: "Message" }), "Hello");
     expect(within(composer).getByRole("button", { name: "Send now" })).toBeDisabled();
@@ -542,7 +545,8 @@ describe("OutreachPage", () => {
     );
     renderPage(OPEN);
 
-    const composer = await screen.findByRole("region", { name: "Reply" });
+    await screen.findByText("Fatima is marked do not contact.");
+    const composer = screen.getByRole("region", { name: "Reply" });
     expect(within(composer).getByText("Fatima is marked do not contact.")).toBeInTheDocument();
     expect(within(composer).queryByRole("button", { name: "Send now" })).not.toBeInTheDocument();
   });
@@ -572,8 +576,8 @@ describe("OutreachPage", () => {
     vi.stubGlobal("open", open);
     renderPage();
 
-    const composer = await screen.findByRole("region", { name: "Reply" });
-    expect(within(composer).getByText("Connect your mailbox to write from here. Emails go from your own address.")).toBeInTheDocument();
+    await screen.findByText("Connect your mailbox to write from here. Emails go from your own address.");
+    const composer = screen.getByRole("region", { name: "Reply" });
     await userEvent.click(within(composer).getByRole("button", { name: "Connect Gmail" }));
 
     expect(open).toHaveBeenCalledWith("about:blank", "_blank", expect.any(String));
