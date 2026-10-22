@@ -4,7 +4,7 @@ import { inPage } from "./inPage.js";
 import type { MeetingPage } from "./platform.js";
 import { isAllowedTeamsNavigation, isTeamsLink } from "./teamsLink.js";
 import { fillTeamsName, focusTeamsChat, pressTeamsButton, readTeamsCaptions, readTeamsDevices, readTeamsScreen,
-  teamsChatShows, turnOffTeamsDevices } from "./teamsScreen.js";
+  teamsChatShows, turnOffTeamsDevice } from "./teamsScreen.js";
 
 export class TeamsLinkRefused extends Error {}
 
@@ -55,13 +55,20 @@ function teamsPage(browser: Browser, page: Page): MeetingPage {
       // Denied both devices, Teams asks once whether to go on without them.
       await inPage(page, pressTeamsButton, ["continue without audio or video"]);
       await delay(500);
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const devices = await inPage(page, readTeamsDevices);
-        if (!devices.microphoneOn && !devices.cameraOn) {
+      // One device a pass, and the next pass only once Teams has redrawn it as off: pressing a switch whose redraw
+      // has not landed yet would turn it back on.
+      for (let pass = 0; pass < 4; pass++) {
+        const device = await inPage(page, turnOffTeamsDevice);
+        if (device === "none") {
           break;
         }
-        await inPage(page, turnOffTeamsDevices);
-        await delay(500);
+        for (let wait = 0; wait < 8; wait++) {
+          await delay(250);
+          const devices = await inPage(page, readTeamsDevices);
+          if (!(device === "microphone" ? devices.microphoneOn : devices.cameraOn)) {
+            break;
+          }
+        }
       }
       const devices = await inPage(page, readTeamsDevices);
       if (devices.microphoneOn || devices.cameraOn) {

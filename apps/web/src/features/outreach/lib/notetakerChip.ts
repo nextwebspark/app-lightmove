@@ -47,6 +47,17 @@ const END_REASONS: Record<NotetakerEndReason, string> = {
   PROCESSING_FAILED: "The call was recorded, but its transcript or note couldn't be made.",
 };
 
+/**
+ * Why a bot couldn't record. On Teams a chat it could not write in is most often the organiser's tenant turning chat
+ * off for guests, which the consultant cannot fix from here, so the sentence says so.
+ */
+function failedReasonOf(meeting: NotetakerMeeting): string {
+  if (meeting.endReason === "CONSENT_NOT_SHOWN" && meeting.platform === "MICROSOFT_TEAMS") {
+    return "This meeting doesn't let guests chat, so the notetaker couldn't say it was recording and left without recording.";
+  }
+  return END_REASONS[meeting.endReason ?? "NOT_ADMITTED"];
+}
+
 const PLATFORM_NAMES: Record<NotetakerPlatform, string> = {
   GOOGLE_MEET: "Google Meet",
   MICROSOFT_TEAMS: "Microsoft Teams",
@@ -111,7 +122,7 @@ export function notetakerChipOf(meeting: NotetakerMeeting, timeOf: (instant: str
     case "FAILED":
       return meeting.endReason === "PROCESSING_FAILED"
         ? chip("notesFailed", "Notes failed", "problem", END_REASONS.PROCESSING_FAILED, { retryable: true })
-        : chip("failed", "Couldn't record", "neutral", END_REASONS[meeting.endReason ?? "NOT_ADMITTED"]);
+        : chip("failed", "Couldn't record", "neutral", failedReasonOf(meeting));
     case "REMOVED":
       return chip("removed", "Removed", "neutral", "Removed from the call. Nothing it recorded was kept.");
     case "SKIPPED":

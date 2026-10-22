@@ -16,31 +16,27 @@ export interface TeamsScreen {
 }
 
 export function readTeamsScreen(doc: Document): TeamsScreen {
-  const controls = Array.from(doc.querySelectorAll("button, [role='button'], [data-tid]"));
-  const labelOf = (element: Element) =>
-    `${element.getAttribute("aria-label") ?? ""} ${element.getAttribute("title") ?? ""} ${element.getAttribute("data-tid") ?? ""}`
-      .toLowerCase();
-  const hasControl = (...needles: string[]) =>
-    controls.some((element) => needles.some((needle) => labelOf(element).includes(needle)));
+  // Controls only, never a container: a pane's test id (`chat-pane`, `people-pane`) is on the page in the lobby too.
+  const controls = Array.from(doc.querySelectorAll("button, [role='button']"));
+  const idOf = (element: Element) => (element.getAttribute("data-tid") ?? element.id ?? "").toLowerCase();
+  const labelOf = (element: Element) => (element.getAttribute("aria-label") ?? "").trim().toLowerCase();
+  const isControl = (element: Element, ids: string[], labels: RegExp) =>
+    ids.includes(idOf(element)) || labels.test(labelOf(element));
+  const hangup = (element: Element) => isControl(element, ["hangup-main-btn", "hangup-button"], /^(leave|hang up)$/);
+  const chat = (element: Element) => isControl(element, ["chat-button"], /^(chat|show conversation)$/);
+  const people = (element: Element) => isControl(element, ["roster-button"], /^(people|participants|show participants)\b/);
 
-  // In the call first, and only from the controls, as on Meet: a sentence anyone says or types is on the page too.
-  // The lobby has a Leave of its own, so the call is Leave beside the call's own Chat or People.
-  const hangsUp = hasControl("hangup", "leave");
-  if (hangsUp && hasControl("chat", "people", "roster")) {
+  // In the call first, and only from its own controls, as on Meet: a sentence anyone says or types is on the page
+  // too. The lobby has a Leave of its own, so the call is Leave beside the call's own Chat or People button.
+  if (controls.some(hangup) && controls.some((element) => chat(element) || people(element))) {
     let participants: number | null = null;
-    for (const element of controls) {
-      const label = labelOf(element);
-      if (!/people|participant|roster/.test(label)) {
-        continue;
-      }
+    const roster = controls.find(people);
+    if (roster) {
       // The People button's badge is its own text, a bare number; a label may spell it out instead.
-      const badge = (element.textContent ?? "").trim();
+      const badge = (roster.textContent ?? "").trim();
       const match = /^\d+$/.test(badge) ? [badge, badge]
-        : /(\d+)\s*(?:people|participants)|(?:people|participants)\D{0,3}(\d+)/.exec(label);
-      if (match) {
-        participants = Number(match[1] ?? match[2]);
-        break;
-      }
+        : /(\d+)\s*(?:people|participants)|(?:people|participants)\D{0,3}(\d+)/.exec(labelOf(roster));
+      participants = match ? Number(match[1] ?? match[2]) : null;
     }
     return { stage: "in-call", participants };
   }
@@ -68,7 +64,8 @@ export function readTeamsScreen(doc: Document): TeamsScreen {
   if (says("continue on this browser", "join on the web instead", "how do you want to join")) {
     return { stage: "launcher", participants: null };
   }
-  if (hasControl("prejoin-join-button", "join now") || says("join now", "type your name", "enter your name")) {
+  if (controls.some((element) => idOf(element) === "prejoin-join-button")
+      || says("join now", "type your name", "enter your name")) {
     return { stage: "prejoin", participants: null };
   }
   return { stage: "unknown", participants: null };
@@ -80,14 +77,15 @@ export function readTeamsScreen(doc: Document): TeamsScreen {
  */
 export function readTeamsDevices(doc: Document): { microphoneOn: boolean; cameraOn: boolean } {
   const controls = Array.from(doc.querySelectorAll("[role='switch'], input[type='checkbox'], button, [role='button']"));
+  // A switch says its state by being checked, whatever its title still reads; a button by what pressing it does.
   const isOn = (element: Element, device: RegExp, pressToTurnOff: RegExp) => {
     const label = `${element.getAttribute("aria-label") ?? ""} ${element.getAttribute("title") ?? ""}`.toLowerCase();
-    if (pressToTurnOff.test(label)) {
-      return true;
-    }
     const switched = element.getAttribute("role") === "switch" || (element as HTMLInputElement).type === "checkbox";
-    return switched && device.test(label)
-      && (element.getAttribute("aria-checked") === "true" || (element as HTMLInputElement).checked === true);
+    if (switched) {
+      return device.test(label)
+        && (element.getAttribute("aria-checked") === "true" || (element as HTMLInputElement).checked === true);
+    }
+    return pressToTurnOff.test(label);
   };
   return {
     microphoneOn: controls.some((element) => isOn(element, /\bmic|microphone|audio/,
@@ -97,23 +95,28 @@ export function readTeamsDevices(doc: Document): { microphoneOn: boolean; camera
   };
 }
 
-/** Switches off every device the pre-join screen still has on; answers how many it pressed. */
-export function turnOffTeamsDevices(doc: Document): number {
-  let pressed = 0;
+/**
+ * Switches off the first device the pre-join screen still has on, one per call, and answers which ("none" when both
+ * are off): the caller waits for the switch to read off before the next, so a slow redraw is never pressed twice.
+ */
+export function turnOffTeamsDevice(doc: Document): "microphone" | "camera" | "none" {
   const controls = Array.from(doc.querySelectorAll("[role='switch'], input[type='checkbox'], button, [role='button']"));
-  for (const element of controls as HTMLElement[]) {
-    const label = `${element.getAttribute("aria-label") ?? ""} ${element.getAttribute("title") ?? ""}`.toLowerCase();
-    const switched = element.getAttribute("role") === "switch" || (element as HTMLInputElement).type === "checkbox";
-    const on = element.getAttribute("aria-checked") === "true" || (element as HTMLInputElement).checked === true;
-    const deviceSwitchOn = switched && on && /\bmic|microphone|camera|video/.test(label);
-    const pressToTurnOff = /\bmute mic|\bmute microphone|turn off microphone|turn microphone off|turn mic off|turn off camera|turn camera off|stop video|turn off video/
-      .test(label);
-    if (deviceSwitchOn || pressToTurnOff) {
-      element.click();
-      pressed++;
+  const devices: ["microphone" | "camera", RegExp, RegExp][] = [
+    ["microphone", /\bmic|microphone/, /\bmute mic|\bmute microphone|turn off microphone|turn microphone off|turn mic off/],
+    ["camera", /camera|video/, /turn off camera|turn camera off|stop video|turn off video/],
+  ];
+  for (const [device, named, pressToTurnOff] of devices) {
+    for (const element of controls as HTMLElement[]) {
+      const label = `${element.getAttribute("aria-label") ?? ""} ${element.getAttribute("title") ?? ""}`.toLowerCase();
+      const switched = element.getAttribute("role") === "switch" || (element as HTMLInputElement).type === "checkbox";
+      const on = element.getAttribute("aria-checked") === "true" || (element as HTMLInputElement).checked === true;
+      if (switched ? on && named.test(label) : pressToTurnOff.test(label)) {
+        element.click();
+        return device;
+      }
     }
   }
-  return pressed;
+  return "none";
 }
 
 /**
@@ -211,13 +214,12 @@ export function focusTeamsChat(doc: Document): boolean {
 }
 
 /**
- * Whether the chat now shows the line as sent, outside the box it was typed in: the consent notice is only taken as
- * given once anyone in the call could read it.
+ * Whether the chat now shows the line as sent: in the conversation's own message list, and never inside any editable
+ * box — a line typed and not yet sent sits in one, and the notice is only given once anyone in the call could read it.
  */
 export function teamsChatShows(doc: Document, message: string): boolean {
   const needle = message.replace(/\s+/g, " ").trim().slice(0, 60).toLowerCase();
-  const box = doc.querySelector("[contenteditable='true']");
-  return Array.from(doc.querySelectorAll("[data-tid*='chat-pane-message'], [data-tid*='message-body'], [role='listitem'], [role='document'] p"))
-    .some((element) => !box?.contains(element)
+  return Array.from(doc.querySelectorAll("[data-tid='chat-pane-message'], [data-tid='message-body']"))
+    .some((element) => !element.closest("[contenteditable='true'], [role='textbox']")
       && (element.textContent ?? "").replace(/\s+/g, " ").toLowerCase().includes(needle));
 }

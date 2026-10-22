@@ -3,7 +3,7 @@ import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
 import { consentLine } from "../runner.js";
 import { fillTeamsName, focusTeamsChat, pressTeamsButton, readTeamsCaptions, readTeamsDevices, readTeamsScreen,
-  teamsChatShows, turnOffTeamsDevices } from "./teamsScreen.js";
+  teamsChatShows, turnOffTeamsDevice } from "./teamsScreen.js";
 
 const page = (name: string) =>
   new JSDOM(readFileSync(new URL(`./fixtures/${name}.html`, import.meta.url), "utf8")).window.document;
@@ -21,7 +21,7 @@ describe("readTeamsScreen", () => {
     expect(readTeamsScreen(page(fixture)).stage).toBe(stage);
   });
 
-  it("never reads the lobby's own Leave as being in the call", () => {
+  it("never reads the lobby's own Leave, nor a pane's test id, as being in the call", () => {
     expect(readTeamsScreen(page("teams-lobby")).stage).toBe("lobby");
   });
 
@@ -50,16 +50,18 @@ describe("the pre-join screen", () => {
     expect(readTeamsDevices(page("teams-prejoin-devices-off"))).toEqual({ microphoneOn: false, cameraOn: false });
   });
 
-  it("switches off every device still on, and nothing already off", () => {
+  it("switches off one device a call, and nothing already off", () => {
     const doc = page("teams-prejoin");
     const pressed: string[] = [];
     doc.querySelectorAll("[role='switch']").forEach((element) => element.addEventListener("click", () => {
       pressed.push(element.getAttribute("aria-label") ?? "");
       element.setAttribute("aria-checked", "false");
     }));
-    expect(turnOffTeamsDevices(doc)).toBe(2);
-    expect(pressed).toEqual(["Camera", "Microphone"]);
-    expect(turnOffTeamsDevices(page("teams-prejoin-devices-off"))).toBe(0);
+    expect(turnOffTeamsDevice(doc)).toBe("microphone");
+    expect(turnOffTeamsDevice(doc)).toBe("camera");
+    expect(turnOffTeamsDevice(doc)).toBe("none");
+    expect(pressed).toEqual(["Microphone", "Camera"]);
+    expect(turnOffTeamsDevice(page("teams-prejoin-devices-off"))).toBe("none");
   });
 
   it("types the guest name so the page notices", () => {
@@ -112,6 +114,15 @@ describe("in the call", () => {
     const doc = page("teams-in-call");
     doc.querySelector("[data-tid='message-pane-list-runway']")!.remove();
     doc.querySelector("[data-tid='ckeditor']")!.textContent = consentLine("Uncava Notetaker");
+    expect(teamsChatShows(doc, consentLine("Uncava Notetaker"))).toBe(false);
+  });
+
+  it("nor while it sits unsent in a second editable box, wrapped as a message", () => {
+    const doc = page("teams-in-call");
+    doc.querySelector("[data-tid='message-pane-list-runway']")!.remove();
+    doc.body.insertAdjacentHTML("afterbegin", "<div contenteditable='true' aria-label='Reply'></div>");
+    doc.querySelector("[data-tid='ckeditor']")!.innerHTML =
+      `<div role="document"><div data-tid="message-body"><p>${consentLine("Uncava Notetaker")}</p></div></div>`;
     expect(teamsChatShows(doc, consentLine("Uncava Notetaker"))).toBe(false);
   });
 });

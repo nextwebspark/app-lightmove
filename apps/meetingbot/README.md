@@ -27,6 +27,18 @@ unnamed. The consent line counts as said only once the chat shows it outside the
 joins Teams calls once `NOTETAKER_PLATFORMS` lists `MICROSOFT_TEAMS` — kept off until a manual run against a real work
 and personal meeting has passed, since the screen fixtures are hand-trimmed.
 
+The Teams acceptance run, with `npm run try`, before `MICROSOFT_TEAMS` is switched on:
+
+- a work-tenant meeting and a personal (teams.live.com) one: join, record, leave, complete;
+- a tenant that lets no guest in: the run fails `JOIN_BLOCKED` fast;
+- a tenant with meeting chat off for guests: every run ends `CONSENT_NOT_SHOWN`, which the drawer explains as the
+  meeting not letting guests chat;
+- a Teams link that an Outlook calendar under Defender stored wrapped in Safe Links
+  (`*.safelinks.protection.outlook.com/?url=…`): today both the server and the bot refuse it, so if such links appear
+  the server should unwrap them when a meeting is kept — the `url` parameter only, only under an exact Safe Links host,
+  then the same host rule — while the bot stays strict;
+- any screen that does not read: save it over its fixture and make the test pass again.
+
 Pieces overlap by a second (the next one starts before the last stops), so a word at a boundary is in one of them
 whole. Each audio piece says when it began (`X-Notetaker-Piece-Started-At`): two ending together may be handed over
 in either order, and the transcript (#952) is stitched on those times. Every API call is retried with backoff before the run gives up on it.
