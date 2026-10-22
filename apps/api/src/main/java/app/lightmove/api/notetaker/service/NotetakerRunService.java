@@ -1,20 +1,23 @@
 package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.core.storage.service.DocumentStore;
+import app.lightmove.api.notetaker.constant.MeetingMediaKind;
 import app.lightmove.api.notetaker.constant.NotetakerEndReason;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.dto.NotetakerHeartbeatResponse;
-import app.lightmove.api.notetaker.dto.NotetakerRunCompleteRequest;
 import app.lightmove.api.notetaker.dto.NotetakerRunReportRequest;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingRecordingCompleted;
-import app.lightmove.api.notetaker.model.RecordedMedia;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -34,12 +37,15 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class NotetakerRunService {
 
-    /** A bot writes only under its own run's prefix, so it cannot hand us another run's files to read. */
-    static final String MEDIA_PREFIX = "notetaker/";
+    /** V150's CHECK: three hours of 30-second pieces is 360, so this is room, not a target. */
+    static final int MAX_SEQUENCE = 100_000;
 
     private final MeetingRecordingRepository recordings;
     private final CandidateOutreachService people;
     private final RateLimitGuard rateLimit;
+    private final MeetingMediaPieces pieces;
+    private final DocumentStore store;
+    private final LightMoveProperties properties;
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
@@ -71,17 +77,34 @@ public class NotetakerRunService {
         return new NotetakerHeartbeatResponse(recording.isToLeave());
     }
 
-    @Transactional
-    public void complete(UUID runId, String runToken, NotetakerRunCompleteRequest request, HttpServletRequest from) {
+    /**
+     * One 30-second piece, stored under a key the server names. Outside any transaction: the bytes go to the bucket,
+     * and a database connection must not wait on them. A piece from a bot asked to leave is dropped unread, since
+     * nothing of a removed call is kept.
+     */
+    public void storeMedia(UUID runId, String runToken, MeetingMediaKind kind, int sequence, InputStream content,
+                           long sizeBytes, HttpServletRequest from) {
         MeetingRecording recording = requireRun(runId, runToken, from);
-        String ownPrefix = MEDIA_PREFIX + runId + "/";
-        List<String> audioKeys = request.audioKeys() == null ? List.of() : request.audioKeys();
-        boolean outsideOwnPrefix = audioKeys.stream().anyMatch(key -> !key.startsWith(ownPrefix))
-                || (request.captionsKey() != null && !request.captionsKey().startsWith(ownPrefix));
-        if (outsideOwnPrefix) {
+        if (sequence < 1 || sequence > MAX_SEQUENCE || sizeBytes <= 0
+                || sizeBytes > properties.notetaker().maxMediaBytes()) {
             throw ApiException.of(ErrorCode.VALIDATION_FAILED);
         }
-        recording.complete(new RecordedMedia(audioKeys, request.captionsKey()), clock.instant());
+        if (recording.isToLeave()) {
+            return;
+        }
+        String key = kind.storageKeyOf(runId, sequence);
+        try {
+            store.put(key, content, sizeBytes, kind.contentType());
+        } catch (IOException failed) {
+            throw new IllegalStateException("Notetaker piece " + key + " could not be stored", failed);
+        }
+        pieces.record(runId, kind, sequence, key, sizeBytes);
+    }
+
+    @Transactional
+    public void complete(UUID runId, String runToken, HttpServletRequest from) {
+        MeetingRecording recording = requireRun(runId, runToken, from);
+        recording.complete(clock.instant());
         if (recording.getStatus() == NotetakerStatus.PROCESSING) {
             events.publishEvent(new MeetingRecordingCompleted(recording.getWorkspaceId(), recording.getId()));
         }

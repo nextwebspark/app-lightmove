@@ -7,7 +7,9 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /**
  * Uncava Notetaker — {@code lightmove.notetaker.*}. {@code enabled} is the deployment's switch: off, nothing is
  * joined and no workspace is offered the setting. {@code platforms} names the calls our own bot can join, by
- * {@code NotetakerPlatform}'s spelling.
+ * {@code NotetakerPlatform}'s spelling. {@code runner} is how a bot is started: {@code log} (nothing starts),
+ * {@code local} (a process on this machine, for {@code npm run dev}) or {@code cloud-run-job} (one execution of
+ * {@code cloudRunJob} per call).
  */
 public record NotetakerSettings(
         @DefaultValue("false") boolean enabled,
@@ -26,5 +28,14 @@ public record NotetakerSettings(
         /** The longest a bot stays in a call, whatever the calendar said. Handed to the bot. */
         @DefaultValue("3h") Duration maxDuration,
         /** Spelled out in yml: {@code @Scheduled} reads it. */
-        @DefaultValue("PT1M") String scheduleInterval
+        @DefaultValue("PT1M") String scheduleInterval,
+        @DefaultValue("log") String runner,
+        /** Where the bot calls back; blank is {@code lightmove.web.base-url}. */
+        String apiBaseUrl,
+        /** {@code projects/<project>/locations/<region>/jobs/<job>}, for the {@code cloud-run-job} runner. */
+        String cloudRunJob,
+        /** The command the {@code local} runner starts, run from the repository root. */
+        @DefaultValue("node apps/meetingbot/dist/main.js") String localCommand,
+        /** One captured piece, at most: 30 seconds of Opus audio is about 120 KB. */
+        @DefaultValue("8388608") long maxMediaBytes
 ) {}

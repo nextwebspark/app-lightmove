@@ -389,6 +389,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 |---|---|
 | `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (epic #949, our own meeting bot) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
+| `apps/meetingbot` | Uncava Notetaker's bot (epic #949) — Node 22, Puppeteer and Chromium, one Cloud Run Job execution per call. Its own workspace; shares no code with the others. |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
 | `ops/cloudsql/` | Database bootstrap and hardening scripts |
@@ -1223,6 +1224,12 @@ SHA-256 only — and its three switches, each on with no row: `app_lm_workspace_
 meeting stays switched off). `notetaker` reads meetings through `outreach`'s `KeptMeetings` and do not contact through
 `CandidateOutreachService.doNotContactAmong`; nothing depends back. The bot calls only
 `/api/v1/internal/notetaker/runs/{id}/*`, its run token in `X-Notetaker-Run-Token` the whole credential.
+V150 is the bot's pieces (#951): `app_lm_meeting_recording_media`, one row per 30-second audio or caption piece the bot
+uploads through `PUT …/runs/{id}/media/{audio|captions}/{n}` (the server names the key, so a bot writes only under its
+own run), in rows of their own so an upload never contends with the same bot's heartbeat on the recording; it drops
+V149's `media`. A removed bot's pieces are deleted by `NotetakerMediaPurge`, file before row, on each scheduler pass.
+The bot is started by `lightmove.notetaker.runner`: `log`, `local` (`npm run dev`) or `cloud-run-job`
+(`CloudRunJobMeetingRecorder`, the run's environment as a container override, never retried).
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

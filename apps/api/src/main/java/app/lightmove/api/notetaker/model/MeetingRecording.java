@@ -15,8 +15,6 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 /**
  * One Notetaker bot on one call (V149). Inserted by {@code MeetingRecordingClaims}, whose unique call key is the
@@ -98,10 +96,6 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "remove_requested_at")
     private Instant removeRequestedAt;
 
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "media")
-    private RecordedMedia media;
-
     public void markLaunched(String externalId, Instant now) {
         this.externalId = externalId;
         this.launchedAt = now;
@@ -138,17 +132,16 @@ public class MeetingRecording extends BaseEntity {
     }
 
     /**
-     * The bot has left. Asked to, what it captured is kept by nobody (the epic's default until decided otherwise);
-     * otherwise its media goes to be transcribed.
+     * The bot has left. Asked to, what it captured is kept by nobody ({@code NotetakerMediaPurge} deletes it);
+     * otherwise its pieces go to be transcribed.
      */
-    public void complete(RecordedMedia captured, Instant now) {
+    public void complete(Instant now) {
         leftAt = now;
         runTokenHash = null;
         if (status == NotetakerStatus.REMOVE_REQUESTED) {
             status = NotetakerStatus.REMOVED;
             return;
         }
-        media = captured;
         status = NotetakerStatus.PROCESSING;
     }
 

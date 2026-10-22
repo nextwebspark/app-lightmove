@@ -1,16 +1,20 @@
 package app.lightmove.api.notetaker.controller;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.notetaker.constant.MeetingMediaKind;
 import app.lightmove.api.notetaker.dto.NotetakerHeartbeatResponse;
-import app.lightmove.api.notetaker.dto.NotetakerRunCompleteRequest;
 import app.lightmove.api.notetaker.dto.NotetakerRunReportRequest;
 import app.lightmove.api.notetaker.service.NotetakerRunService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,11 +49,23 @@ public class NotetakerRunController {
         return runs.heartbeat(runId, token, httpRequest);
     }
 
+    /** One 30-second piece as the raw body: audio as WebM, captions as the bot's JSON lines. */
+    @PutMapping("/media/{kind}/{sequence}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void storeMedia(@PathVariable UUID runId, @PathVariable String kind, @PathVariable int sequence,
+                           @RequestHeader(name = RUN_TOKEN_HEADER, required = false) String token,
+                           HttpServletRequest httpRequest) throws IOException {
+        MeetingMediaKind mediaKind = MeetingMediaKind.fromPath(kind)
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        runs.storeMedia(runId, token, mediaKind, sequence, httpRequest.getInputStream(),
+                httpRequest.getContentLengthLong(), httpRequest);
+    }
+
     @PostMapping("/complete")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void complete(@PathVariable UUID runId,
                          @RequestHeader(name = RUN_TOKEN_HEADER, required = false) String token,
-                         @Valid @RequestBody NotetakerRunCompleteRequest request, HttpServletRequest httpRequest) {
-        runs.complete(runId, token, request, httpRequest);
+                         HttpServletRequest httpRequest) {
+        runs.complete(runId, token, httpRequest);
     }
 }
