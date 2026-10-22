@@ -409,9 +409,10 @@ describe("OutreachPage", () => {
     vi.stubGlobal("open", vi.fn(() => ({ location: { href: "about:blank" }, closed: false, close: vi.fn() })));
     renderPage();
 
-    const newEmail = await screen.findByRole("button", { name: "New email" });
-    expect(newEmail).toHaveAttribute("title", "Connect your mailbox first");
-    await userEvent.click(newEmail);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "New email" })).toHaveAttribute("title", "Connect your mailbox first"),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "New email" }));
     const connect = await screen.findByRole("group", { name: "Connect your mailbox first" });
     await userEvent.click(within(connect).getByRole("button", { name: "Connect Gmail" }));
 
@@ -485,7 +486,7 @@ describe("OutreachPage", () => {
     renderPage(OPEN);
 
     const composer = await screen.findByRole("region", { name: "Reply" });
-    expect(within(composer).getByText("Reply to Fatima")).toBeInTheDocument();
+    expect(await within(composer).findByText("Reply to Fatima")).toBeInTheDocument();
     expect(within(composer).getByText("Re: A confidential conversation")).toBeInTheDocument();
     expect(within(composer).getByText("Sending resolves this reply task. Pipeline stage stays Interested.")).toBeInTheDocument();
     await typeInto(await within(composer).findByRole("textbox", { name: "Message" }), "Thursday at 10?");
@@ -518,7 +519,7 @@ describe("OutreachPage", () => {
     renderPage(OPEN);
 
     const composer = await screen.findByRole("region", { name: "Reply" });
-    expect(within(composer).getByText("First email to Fatima")).toBeInTheDocument();
+    expect(await within(composer).findByText("First email to Fatima")).toBeInTheDocument();
     expect(within(composer).getByText(/Moves to Contacted\. Nothing is sent until you press Send now or Schedule\./)).toBeInTheDocument();
     await typeInto(await within(composer).findByRole("textbox", { name: "Message" }), "Hello");
     expect(within(composer).getByRole("button", { name: "Send now" })).toBeDisabled();
