@@ -34,8 +34,10 @@ the company drawer gains an Overview · Notes tab bar for staff, and the grid's 
 that opens it, its `noteCount` on the staff grid's read alone. A door's note (the add form, the plugin, a sheet's
 Company note) is filed once as a plain note, an already-held company's included; V32's single `note` column is
 frozen, and with it the leak that let a client seat read it through the grid, the talent map and the export.
-Who filed a company (`added_by`) is the staff grid's **Added by** column, the drawer's and the export's — never a
-client seat's (`addedByName`, null outside a staff read, as `noteCount` is).
+Who filed a company (`added_by`) is the staff grid's **Added by** column, the drawer's header and the export's — never
+a client seat's (`addedBy*`, null outside a staff read, as `noteCount` is); the cell adds the executive's adder's face
+where someone else filed them, read from the candidates list's staff-only `addedBy` map beside the rows, never on
+`CandidateResponse`.
 Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company

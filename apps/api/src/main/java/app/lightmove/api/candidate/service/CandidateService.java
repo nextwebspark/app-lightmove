@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
+import app.lightmove.api.candidate.dto.AddedByResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
@@ -47,7 +48,9 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.service.LinkedInUrls;
@@ -67,6 +70,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -120,6 +124,7 @@ public class CandidateService {
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
     private final PersonEmployerResolver employerResolver;
+    private final UserRepository users;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -129,7 +134,7 @@ public class CandidateService {
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
-                            LightMoveProperties properties) {
+                            UserRepository users, LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -147,6 +152,7 @@ public class CandidateService {
         this.listConfig = properties.company().list();
         this.pipeline = pipeline;
         this.employerResolver = employerResolver;
+        this.users = users;
     }
 
     /**
@@ -285,6 +291,28 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         return candidates.findAttributionByProjectId(projectId).stream()
                 .collect(Collectors.toMap(CandidateAttribution::getCandidateId, CandidateAttribution::getAddedBy));
+    }
+
+    /** Who filed each of {@code found}'s executives, for a staff read of the Companies grid. */
+    @Transactional(readOnly = true)
+    public CandidatesResponse withAddedBy(UUID projectId, CandidatesResponse found) {
+        List<UUID> ids = found.candidates().stream().map(CandidateResponse::id).toList();
+        if (ids.isEmpty()) {
+            return found.withAddedBy(Map.of());
+        }
+        Map<UUID, UUID> adderOf = candidates.findAllById(ids).stream()
+                .filter(candidate -> projectId.equals(candidate.getProjectId()) && candidate.getAddedBy() != null)
+                .collect(Collectors.toMap(Candidate::getId, Candidate::getAddedBy));
+        Map<UUID, User> adders = users.findAllById(Set.copyOf(adderOf.values())).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+        Map<UUID, AddedByResponse> attribution = new HashMap<>();
+        adderOf.forEach((candidateId, userId) -> {
+            User adder = adders.get(userId);
+            if (adder != null) {
+                attribution.put(candidateId, new AddedByResponse(userId, adder.getFullName(), adder.getAvatarUrl()));
+            }
+        });
+        return found.withAddedBy(attribution);
     }
 
     /**

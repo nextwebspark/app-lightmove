@@ -446,21 +446,12 @@ const BUILT_IN_COLUMNS = helper.columns([
     cell: (info) => <DataGridCell value={formatInstantDate(info.getValue())} />,
   }),
 
-  helper.accessor((row) => row.company?.addedByName ?? null, {
+  helper.accessor((row) => row.company?.addedByName ?? row.candidateAddedBy?.name ?? null, {
     id: "addedBy",
     header: "Added by",
     enableSorting: false,
-    meta: { share: 8, min: 128 },
-    cell: (info) => {
-      const company = info.row.original.company;
-      if (!company?.addedByName || !company.addedByUserId) return <DataGridCell value={null} />;
-      return (
-        <span className="flex min-w-0 items-center gap-1.5" title={company.addedByName}>
-          <Avatar id={company.addedByUserId} name={company.addedByName} src={company.addedByAvatarUrl} size="xs" />
-          <span className="truncate">{shortNameOf(company.addedByName)}</span>
-        </span>
-      );
-    },
+    meta: { share: 9, min: 150 },
+    cell: (info) => <AddedByCell row={info.row.original} />,
   }),
 
   helper.accessor((row) => row.company?.shortDescription ?? null, {
@@ -516,6 +507,45 @@ export function createTriageCompanyColumns(customColumns: readonly CustomColumn[
   // per-column value types into the one array shape `useTable` takes, which a spread loses.
   const builtIn = staff ? BUILT_IN_COLUMNS : BUILT_IN_COLUMNS.filter((column) => !STAFF_ONLY_COLUMNS.has(column.id ?? ""));
   return helper.columns([...builtIn, ...custom]);
+}
+
+/**
+ * Who brought the line in: the company's adder by name, and the executive's face beside theirs when someone else
+ * filed the person (the tooltip names both). One face when it is the same colleague; a line with no company in the
+ * mandate shows the executive's adder alone.
+ */
+function AddedByCell({ row }: { row: TriageCompanyRow }) {
+  const company = row.company?.addedByUserId && row.company.addedByName
+    ? { userId: row.company.addedByUserId, name: row.company.addedByName, avatarUrl: row.company.addedByAvatarUrl ?? null }
+    : null;
+  const executive = row.candidateAddedBy?.name ? row.candidateAddedBy : null;
+  const lead = company ?? executive;
+  if (!lead?.name) return <DataGridCell value={null} />;
+  const second = company && executive && executive.userId !== company.userId ? executive : null;
+  const tooltip = [
+    company ? `Company: ${company.name}` : null,
+    executive && row.candidate ? `Executive: ${executive.name}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  return (
+    <span className="flex min-w-0 items-center gap-1.5" title={tooltip}>
+      <span className="flex flex-none items-center">
+        <Avatar id={lead.userId} name={lead.name} src={lead.avatarUrl} size="xs" />
+        {second?.name && (
+          <Avatar
+            id={second.userId}
+            name={second.name}
+            src={second.avatarUrl}
+            size="xs"
+            title={`Executive added by ${second.name}`}
+            className="-ms-1.5 ring-2 ring-u-surface"
+          />
+        )}
+      </span>
+      <span className="truncate">{shortNameOf(lead.name)}</span>
+    </span>
+  );
 }
 
 /** "Yara Haddad" as "Yara H.": the photo carries who, the column stays narrow. */

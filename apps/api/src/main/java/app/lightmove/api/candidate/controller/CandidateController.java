@@ -69,8 +69,9 @@ public class CandidateController {
                                    @RequestParam(required = false) Integer size) {
         CandidateListCriteria criteria = new CandidateListCriteria(triageCompanyId, unmapped, q, null, null,
                 status, pipelineStage, page, size);
-        return candidates.list(principal.requireWorkspaceId(), projectId, criteria,
-                audienceOf(principal, projectId));
+        ProjectAudience audience = audienceOf(principal, projectId);
+        CandidatesResponse found = candidates.list(principal.requireWorkspaceId(), projectId, criteria, audience);
+        return audience == ProjectAudience.STAFF ? candidates.withAddedBy(projectId, found) : found;
     }
 
     /** One executive whole — the report opens a person from a figure that carries only their id. */

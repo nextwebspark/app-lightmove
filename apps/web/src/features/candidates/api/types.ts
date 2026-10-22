@@ -191,6 +191,15 @@ export interface CandidatesPage {
   totalCount: number;
   page: number;
   size: number;
+  /** Who filed each executive, by candidate id: the Companies grid's staff read alone, null for a client seat. */
+  addedBy?: Record<string, AddedBy> | null;
+}
+
+/** A colleague who filed someone into a position. */
+export interface AddedBy {
+  userId: string;
+  name: string | null;
+  avatarUrl: string | null;
 }
 
 /**
