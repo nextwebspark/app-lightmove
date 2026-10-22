@@ -12,13 +12,15 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Every minute: ends the runs whose bot is gone, then sends a bot to each kept call about to start that
+ * Every minute: ends the runs whose bot is gone, deletes what nobody will read, hands the calls whose audio or note
+ * is waiting to {@link MeetingNotesWorker}, then sends a bot to each kept call about to start that
  * {@link NotetakerCallEligibility} reads as switched on. Safe on several instances at once — see
  * {@link MeetingRecordingClaims}.
  */
@@ -27,12 +29,16 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class NotetakerScheduler {
 
+    private static final int RUNS_WORKED_PER_PASS = 20;
+
     private final KeptMeetings meetings;
     private final NotetakerCallEligibility eligibility;
     private final MeetingRecordingClaims claims;
     private final NotetakerLauncher launcher;
     private final NotetakerSweeper sweeper;
     private final NotetakerMediaPurge mediaPurge;
+    private final NotetakerWorkClaims workClaims;
+    private final MeetingNotesWorker notesWorker;
     private final LightMoveProperties properties;
     private final Clock clock;
 
@@ -56,6 +62,12 @@ public class NotetakerScheduler {
             mediaPurge.purge(now);
         } catch (RuntimeException failed) {
             log.error("Notetaker media purge failed; launching anyway", failed);
+        }
+        try {
+            Instant claim = NotetakerWorkClaims.claimOf(now);
+            notesDue(now).forEach(recordingId -> notesWorker.workOnClaimed(recordingId, claim));
+        } catch (RuntimeException failed) {
+            log.error("Notetaker transcription pass failed; launching anyway", failed);
         }
         for (PendingLaunch pending : claimDue(now)) {
             try {
@@ -86,5 +98,10 @@ public class NotetakerScheduler {
                             call.first().endsAt())));
         }
         return pending;
+    }
+
+    private List<UUID> notesDue(Instant now) {
+        return workClaims.claimDue(now, now.minus(properties.notetaker().transcribeEvery()),
+                now.minus(MeetingNotesProcessor.STALE_CLAIM), RUNS_WORKED_PER_PASS);
     }
 }

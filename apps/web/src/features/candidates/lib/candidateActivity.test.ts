@@ -106,6 +106,13 @@ describe("timelineLines", () => {
     expect(lastActivityOf(entry(unknown)).text).toBe("Updated the record");
   });
 
+  it("says a call was recorded, with its note's opening words", () => {
+    expect(lineOf({ kind: "MEETING_RECORDED", details: {}, noteExcerpt: "Walked through her remit." })).toMatchObject({
+      text: "recorded a call about this position",
+      detail: "Walked through her remit.",
+    });
+  });
+
   it("phrases each kind of note by what it records, with its opening words", () => {
     expect(
       lineOf({ kind: "NOTE_ADDED", details: { kind: "CALL" }, noteExcerpt: "Open to a move." }),

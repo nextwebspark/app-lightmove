@@ -91,7 +91,12 @@ describe("notificationHref", () => {
 
   it("opens the position's pipeline otherwise, and My positions when there is no position", () => {
     expect(notificationHref(aNotification("a", at(14, 9), { personId: null }))).toBe("/projects/p1/pipeline");
-    expect(notificationHref(aNotification("a", at(14, 9), { projectId: null }))).toBe("/");
+    expect(notificationHref(aNotification("a", at(14, 9), { projectId: null, note: null }))).toBe("/");
+  });
+
+  it("opens a recorded call's note about no position on the person's notes", () => {
+    expect(notificationHref(aNotification("a", at(14, 9), { kind: "meeting_notes_ready", projectId: null })))
+      .toBe("/candidates?person=pe1&tab=notes");
   });
 });
 

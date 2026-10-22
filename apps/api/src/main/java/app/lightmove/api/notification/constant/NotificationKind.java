@@ -22,7 +22,8 @@ public enum NotificationKind implements ApiValueEnum {
     OUTREACH_BOUNCED("outreach_bounced", NotificationPreferenceKind.OUTREACH_BOUNCED, false),
     CALL_BOOKED("call_booked", NotificationPreferenceKind.CALL_BOOKED, false),
     ADDED_TO_TEAM("added_to_team", NotificationPreferenceKind.ADDED_TO_TEAM, false),
-    TASKS_MOVED("tasks_moved", NotificationPreferenceKind.TASKS_MOVED, false);
+    TASKS_MOVED("tasks_moved", NotificationPreferenceKind.TASKS_MOVED, false),
+    MEETING_NOTES_READY("meeting_notes_ready", NotificationPreferenceKind.MEETING_NOTES, false);
 
     private final String value;
     private final NotificationPreferenceKind preference;

@@ -96,6 +96,21 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "remove_requested_at")
     private Instant removeRequestedAt;
 
+    @Column(name = "project_id")
+    private UUID projectId;
+
+    @Column(name = "note_id")
+    private UUID noteId;
+
+    @Column(name = "recorded_until")
+    private Instant recordedUntil;
+
+    @Column(name = "processing_attempts", nullable = false)
+    private int processingAttempts;
+
+    @Column(name = "processed_at")
+    private Instant processedAt;
+
     public void markLaunched(String externalId, Instant now) {
         this.externalId = externalId;
         this.launchedAt = now;
@@ -143,6 +158,58 @@ public class MeetingRecording extends BaseEntity {
             return;
         }
         status = NotetakerStatus.PROCESSING;
+    }
+
+    /**
+     * The bot stopped mid-call — it crashed or fell silent — having captured something: what it got is still
+     * turned into a note, marked as stopping at {@code recordedUntil}. Removal still wins, keeping nothing.
+     */
+    public void stopEarly(Instant recordedUntil, Instant now) {
+        if (status == NotetakerStatus.REMOVE_REQUESTED) {
+            fail(NotetakerEndReason.CRASHED, now);
+            return;
+        }
+        this.recordedUntil = recordedUntil;
+        if (leftAt == null) {
+            leftAt = now;
+        }
+        runTokenHash = null;
+        status = NotetakerStatus.PROCESSING;
+    }
+
+    public boolean isProcessing() {
+        return status == NotetakerStatus.PROCESSING;
+    }
+
+    /** The note is filed; {@code noteId} is null for a call in which nobody was heard. */
+    public void noted(UUID projectId, UUID noteId, Instant now) {
+        this.projectId = projectId;
+        this.noteId = noteId;
+        processedAt = now;
+        status = NotetakerStatus.DONE;
+    }
+
+    /** Answers whether the run has used its tries and now waits for a consultant to press Try again. */
+    public boolean processingFailed(int allowedAttempts, Instant now) {
+        processingAttempts++;
+        if (processingAttempts < allowedAttempts) {
+            return false;
+        }
+        status = NotetakerStatus.FAILED;
+        endReason = NotetakerEndReason.PROCESSING_FAILED;
+        processedAt = now;
+        return true;
+    }
+
+    public boolean isRetryable() {
+        return status == NotetakerStatus.FAILED && endReason == NotetakerEndReason.PROCESSING_FAILED;
+    }
+
+    public void retryProcessing() {
+        status = NotetakerStatus.PROCESSING;
+        endReason = null;
+        processingAttempts = 0;
+        processedAt = null;
     }
 
     /** A bot asked to leave that then fails has still left: the removal is what the call saw. */

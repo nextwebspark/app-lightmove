@@ -160,6 +160,8 @@ function phraseOf(
         text: `${NOTE_VERBS[details.kind ?? "GENERAL"] ?? NOTE_VERBS.GENERAL}${onThem}${aboutOf(entry, here)}`,
         detail: entry.noteExcerpt,
       };
+    case "MEETING_RECORDED":
+      return { text: `recorded a call${forThem}${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
     case "NOTE_EDITED":
       return { text: `edited a note${onThem}${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
     case "NOTE_REMOVED":

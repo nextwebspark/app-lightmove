@@ -75,12 +75,12 @@ describe("SettingsNotificationsPage", () => {
     renderPage();
     const events = await screen.findByRole("region", { name: "Events" });
 
-    expect(within(events).getAllByRole("switch", { name: /, in app$/ })).toHaveLength(8);
+    expect(within(events).getAllByRole("switch", { name: /, in app$/ })).toHaveLength(9);
     expect(within(events).getAllByRole("switch", { name: /, by email$/ }).map((toggle) => toggle.getAttribute("aria-label"))).toEqual([
       "A task is assigned to me, by email",
       "Someone @mentions me, by email",
     ]);
-    expect(within(events).getAllByText("Daily digest")).toHaveLength(6);
+    expect(within(events).getAllByText("Daily digest")).toHaveLength(7);
     expect(screen.getByText("Emailed only if still unread after 10 minutes.")).toBeInTheDocument();
   });
 

@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class NotetakerRunService {
     private final DocumentStore store;
     private final LightMoveProperties properties;
     private final ApplicationEventPublisher events;
+    private final NotetakerRunEndings endings;
     private final Clock clock;
 
     @Transactional
@@ -59,7 +61,7 @@ public class NotetakerRunService {
                 if (request.reason() == null || !NotetakerEndReason.REPORTED_BY_BOT.contains(request.reason())) {
                     throw ApiException.of(ErrorCode.VALIDATION_FAILED);
                 }
-                recording.fail(request.reason(), clock.instant());
+                endings.fail(recording, request.reason(), clock.instant());
             }
         }
     }
@@ -82,9 +84,10 @@ public class NotetakerRunService {
      * and a database connection must not wait on them. A piece from a bot asked to leave is dropped unread, since
      * nothing of a removed call is kept.
      */
-    public void storeMedia(UUID runId, String runToken, MeetingMediaKind kind, int sequence, InputStream content,
-                           long sizeBytes, HttpServletRequest from) {
+    public void storeMedia(UUID runId, String runToken, MeetingMediaKind kind, int sequence, String startedAt,
+                           InputStream content, long sizeBytes, HttpServletRequest from) {
         MeetingRecording recording = requireRun(runId, runToken, from);
+        Instant began = kind == MeetingMediaKind.AUDIO ? startOf(startedAt) : null;
         if (sequence < 1 || sequence > MAX_SEQUENCE || sizeBytes <= 0
                 || sizeBytes > properties.notetaker().maxMediaBytes()) {
             throw ApiException.of(ErrorCode.VALIDATION_FAILED);
@@ -100,7 +103,7 @@ public class NotetakerRunService {
         } catch (IOException failed) {
             throw new IllegalStateException("Notetaker piece " + key + " could not be stored", failed);
         }
-        pieces.record(runId, kind, sequence, key, sizeBytes);
+        pieces.record(runId, kind, sequence, key, sizeBytes, began);
     }
 
     @Transactional
@@ -109,6 +112,18 @@ public class NotetakerRunService {
         recording.complete(clock.instant());
         if (recording.getStatus() == NotetakerStatus.PROCESSING) {
             events.publishEvent(new MeetingRecordingCompleted(recording.getWorkspaceId(), recording.getId()));
+        }
+    }
+
+    /** When an audio piece began, by the bot's word; one that does not say is taken to have begun as it arrived. */
+    private Instant startOf(String startedAt) {
+        if (startedAt == null || startedAt.isBlank()) {
+            return clock.instant();
+        }
+        try {
+            return Instant.parse(startedAt.strip());
+        } catch (DateTimeParseException unreadable) {
+            throw ApiException.of(ErrorCode.VALIDATION_FAILED);
         }
     }
 

@@ -31,8 +31,10 @@ describe("in a real browser", () => {
   it("records a call's remote audio as self-contained WebM pieces", async () => {
     const page = await browser.newPage();
     const pieces: Uint8Array[] = [];
-    await page.exposeFunction("__uncavaAudioPiece", (encoded: string) => {
+    const starts: number[] = [];
+    await page.exposeFunction("__uncavaAudioPiece", (encoded: string, startedAtMs: number) => {
       pieces.push(new Uint8Array(Buffer.from(encoded, "base64")));
+      starts.push(startedAtMs);
     });
     await page.evaluateOnNewDocument(`(${installAudioRecorder.toString()})()`);
     await page.goto("about:blank");
@@ -61,6 +63,13 @@ describe("in a real browser", () => {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(pieces.length).toBeGreaterThanOrEqual(3);
+    // Each began about one piece's length after the last. Pieces ending together may be handed over in either
+    // order, which is why the server stitches on these times rather than on the upload's number.
+    const ordered = [...starts].sort((first, second) => first - second);
+    for (let index = 1; index < ordered.length; index++) {
+      expect(ordered[index] - ordered[index - 1]).toBeGreaterThan(800);
+      expect(ordered[index] - ordered[index - 1]).toBeLessThan(1_500);
+    }
     for (const piece of pieces) {
       // Every piece opens with the EBML header, so each can be decoded on its own.
       expect(Array.from(piece.subarray(0, 4))).toEqual([0x1a, 0x45, 0xdf, 0xa3]);

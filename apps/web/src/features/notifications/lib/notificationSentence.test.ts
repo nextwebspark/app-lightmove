@@ -112,6 +112,13 @@ describe("sentenceOf", () => {
     expect(sentence.sub).toBeNull();
   });
 
+  it("says a recorded call's notes are ready", () => {
+    const sentence = sentenceOf(aNotification({ kind: "meeting_notes_ready", actor: null, taskId: null }), NOW);
+
+    expect(spoken(sentence)).toBe("Notes from your call with **Ahmed Saleh** are ready · CFO Search");
+    expect(sentence.sub).toBeNull();
+  });
+
   it("says a booked call, with the debrief it put on the caller's tasks", () => {
     const sentence = sentenceOf(
       aNotification({ kind: "call_booked", actor: null, dueAt: new Date(2026, 9, 15, 11, 0).toISOString() }),

@@ -140,6 +140,7 @@ export type ApiErrorCode =
   | "NOTETAKER_UNAVAILABLE"
   | "NOTETAKER_MEETING_STARTED"
   | "NOTETAKER_NOT_IN_CALL"
+  | "NOTETAKER_NOT_RETRYABLE"
   | "WORKSPACE_NAME_MISMATCH"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
@@ -292,6 +293,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOTETAKER_UNAVAILABLE: "The Notetaker isn't available for your workspace yet.",
   NOTETAKER_MEETING_STARTED: "This meeting has already started, so the Notetaker can't be changed for it now.",
   NOTETAKER_NOT_IN_CALL: "The Notetaker isn't in this meeting.",
+  NOTETAKER_NOT_RETRYABLE: "There is nothing to try again for this meeting.",
   WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",

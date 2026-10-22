@@ -17,7 +17,8 @@ Three things it will not do, each a failed run rather than a degraded one:
   only navigate to Meet and Google's sign-in pages; the cloud metadata hosts are blocked outright.
 
 Pieces overlap by a second (the next one starts before the last stops), so a word at a boundary is in one of them
-whole. Every API call is retried with backoff before the run gives up on it.
+whole. Each audio piece says when it began (`X-Notetaker-Piece-Started-At`): two ending together may be handed over
+in either order, and the transcript (#952) is stitched on those times. Every API call is retried with backoff before the run gives up on it.
 
 It holds no credential but its run's token (`NOTETAKER_RUN_TOKEN`), and it only ever calls
 `/api/v1/internal/notetaker/runs/{id}/*`: `status`, `heartbeat` every five seconds, `media/{audio|captions}/{n}` for

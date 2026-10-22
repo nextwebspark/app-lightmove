@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "lines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "offsetSeconds": {
+            "type": "number"
+          },
+          "speaker": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "offsetSeconds",
+          "speaker",
+          "text"
+        ]
+      }
+    }
+  },
+  "required": [
+    "lines"
+  ]
+}

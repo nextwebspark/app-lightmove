@@ -18,12 +18,12 @@ export class PieceUploader {
     this.attempts = attempts;
   }
 
-  enqueue(kind: PieceKind, content: Uint8Array): void {
+  enqueue(kind: PieceKind, content: Uint8Array, startedAt?: Date): void {
     if (content.byteLength === 0) {
       return;
     }
     const sequence = this.next[kind]++;
-    this.queue = this.queue.then(() => this.uploadWithRetries(kind, sequence, content));
+    this.queue = this.queue.then(() => this.uploadWithRetries(kind, sequence, content, startedAt));
   }
 
   /** Waits for every piece queued so far; answers how many could not be delivered. */
@@ -32,10 +32,11 @@ export class PieceUploader {
     return this.failed;
   }
 
-  private async uploadWithRetries(kind: PieceKind, sequence: number, content: Uint8Array): Promise<void> {
+  private async uploadWithRetries(kind: PieceKind, sequence: number, content: Uint8Array, startedAt?: Date):
+      Promise<void> {
     for (let attempt = 1; attempt <= this.attempts; attempt++) {
       try {
-        await this.api.upload(kind, sequence, content);
+        await this.api.upload(kind, sequence, content, startedAt);
         return;
       } catch (error) {
         if (error instanceof RunGoneError || attempt === this.attempts) {

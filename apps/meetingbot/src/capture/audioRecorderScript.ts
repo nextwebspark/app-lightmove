@@ -4,7 +4,7 @@
  * a new recorder per piece, so any piece can be transcribed alone and a crash loses only the one being made. Each
  * recorder starts a second before the last one stops, so no word is cut at a boundary; the transcript (#952)
  * drops the overlap on its timestamps.
- * Each finished piece is handed to Node through the exposed `__uncavaAudioPiece` as base64.
+ * Each finished piece is handed to Node through the exposed `__uncavaAudioPiece` as base64, with when it began.
  *
  * Self-contained like the screen readers: it is sent to the page as its source text.
  */
@@ -61,6 +61,7 @@ export function installAudioRecorder(): void {
   const startPiece = () => {
     const mixer = ensureMixer();
     const chunks: Blob[] = [];
+    const startedAt = Date.now();
     const current = new MediaRecorder(mixer.destination.stream, { mimeType: "audio/webm;codecs=opus" });
     current.ondataavailable = (event) => {
       if (event.data.size > 0) {
@@ -69,9 +70,9 @@ export function installAudioRecorder(): void {
     };
     current.onstop = async () => {
       const bytes = new Uint8Array(await new Blob(chunks, { type: "audio/webm" }).arrayBuffer());
-      const send = page.__uncavaAudioPiece as ((encoded: string) => Promise<void>) | undefined;
+      const send = page.__uncavaAudioPiece as ((encoded: string, startedAtMs: number) => Promise<void>) | undefined;
       if (bytes.byteLength > 0 && send) {
-        await send(toBase64(bytes));
+        await send(toBase64(bytes), startedAt);
       }
     };
     current.start();

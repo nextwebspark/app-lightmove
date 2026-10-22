@@ -29,7 +29,7 @@ function harness(script: Script) {
   const uploads: Array<[PieceKind, number]> = [];
   const chat: string[] = [];
   const events: string[] = [];
-  let onAudio: (piece: Uint8Array) => void = () => undefined;
+  let onAudio: (piece: Uint8Array, startedAt: Date) => void = () => undefined;
   let recording: ReturnType<typeof setInterval> | null = null;
 
   let callFailuresLeft = script.callFailures ?? 0;
@@ -77,7 +77,7 @@ function harness(script: Script) {
       recording = null;
     },
     async stopAudio() {
-      onAudio(new Uint8Array(4));
+      onAudio(new Uint8Array(4), new Date(0));
       events.push("audio stopped");
     },
     leave: async () => {
@@ -103,7 +103,7 @@ function harness(script: Script) {
       // A piece every 30 s, as the page's recorder would hand one over.
       if (events.includes("audio started") && !events.includes("audio stopped")
           && Math.floor(now / PIECE_MS) > Math.floor(before / PIECE_MS)) {
-        onAudio(new Uint8Array(8));
+        onAudio(new Uint8Array(8), new Date(0));
       }
     },
     log: () => undefined,

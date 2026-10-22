@@ -531,6 +531,9 @@ public enum ErrorCode {
     /** Remove notetaker for a call no bot is in. */
     NOTETAKER_NOT_IN_CALL(HttpStatus.CONFLICT, "The Notetaker isn't in this meeting"),
 
+    /** Try again on a call whose note was made, is being made, or was never recorded. */
+    NOTETAKER_NOT_RETRYABLE(HttpStatus.CONFLICT, "There is nothing to try again for this meeting"),
+
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong on our end");
 
     private final HttpStatus status;

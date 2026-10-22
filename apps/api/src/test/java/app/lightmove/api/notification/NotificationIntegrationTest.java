@@ -313,7 +313,7 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
     @DisplayName("a kind switched off in Settings rings no bell, and a client has no bell at all")
     void preferencesAndClients() throws Exception {
         JsonNode preferences = read(researcher, "/api/v1/me/notification-preferences");
-        assertThat(preferences.get("kinds")).hasSize(8);
+        assertThat(preferences.get("kinds")).hasSize(9);
         assertThat(preferences.get("timeZone").asText()).isEqualTo("Asia/Dubai");
         write(researcher, "PUT", "/api/v1/me/notification-preferences", """
                 {"digest":false,"kinds":[{"kind":"task_assigned","inApp":false,"email":false}]}""");

@@ -29,6 +29,7 @@ class NotetakerSweeper {
     private final MeetingRecordingRepository recordings;
     private final TransactionTemplate transactions;
     private final LightMoveProperties properties;
+    private final NotetakerRunEndings endings;
 
     void endStale(Instant now) {
         NotetakerSettings settings = properties.notetaker();
@@ -48,7 +49,7 @@ class NotetakerSweeper {
         try {
             transactions.executeWithoutResult(status -> recordings.findById(recordingId)
                     .filter(stillStale)
-                    .ifPresent(recording -> recording.fail(reason, now)));
+                    .ifPresent(recording -> endings.fail(recording, reason, now)));
         } catch (ObjectOptimisticLockingFailureException moved) {
             log.debug("Notetaker run {} moved while it was being swept; left for the next pass", recordingId);
         }

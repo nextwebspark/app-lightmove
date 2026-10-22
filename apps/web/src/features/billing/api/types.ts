@@ -7,7 +7,13 @@ export type SubscriptionStatus = "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELLED
 export type PaymentMethodKind = "INVOICED" | "CARD" | "NONE";
 
 /** Mirrors the API's `UsageKind`: the uses held to fair use rather than priced. */
-export type FairUseKind = "PEOPLE_SEARCH_PAGE" | "SOURCING_RUN" | "AI_ENRICH" | "OUTREACH_OPENER" | "ASSISTANT_ASK";
+export type FairUseKind =
+  | "PEOPLE_SEARCH_PAGE"
+  | "SOURCING_RUN"
+  | "AI_ENRICH"
+  | "OUTREACH_OPENER"
+  | "ASSISTANT_ASK"
+  | "MEETING_MINUTES";
 
 /**
  * `monthly` is this billing month's plan grant; `left` is everything spendable now, of which `bought` was purchased

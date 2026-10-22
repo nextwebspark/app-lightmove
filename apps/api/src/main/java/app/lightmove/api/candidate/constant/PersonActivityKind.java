@@ -64,6 +64,8 @@ public enum PersonActivityKind {
 
     /** A call booked in Uncava was cancelled; the line carries when it was to be. */
     MEETING_CANCELLED,
+    /** The Notetaker recorded a call with them and filed its Meeting note. */
+    MEETING_RECORDED,
 
     /** The line carries the document's id and version, never its name: the read names it while it exists. */
     DOCUMENT_ADDED,

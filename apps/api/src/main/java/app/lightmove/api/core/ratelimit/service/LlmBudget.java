@@ -47,7 +47,10 @@ public enum LlmBudget {
     EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** One press drafting outreach openers — a batch of people or a single redraft. */
-    OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute);
+    OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** A consultant's press to process a recorded call again; the automatic pass after a call is not metered. */
+    MEETING_SUMMARY("meeting-summary", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;
