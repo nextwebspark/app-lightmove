@@ -144,6 +144,13 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk()).andReturn());
         assertThat(transcript.get("complete").asBoolean()).isTrue();
         assertThat(transcript.get("lines").findValuesAsString("speaker")).contains("Priya Raman", "Yara Haddad");
+        assertThat(transcript.get("lines").get(0).get("named").asBoolean()).isTrue();
+        JsonNode onTheCall = body(as(consultant, get(meetings(priya) + "/notetaker")).andExpect(status().isOk())
+                .andReturn()).get("meetings").get(0);
+        assertThat(onTheCall.get("transcriptHere").asBoolean()).isTrue();
+        assertThat(onTheCall.get("notesElsewhere").asBoolean()).isFalse();
+        assertThat(onTheCall.get("noteId").asText()).isEqualTo(recording.get("note_id").toString());
+        assertThat(onTheCall.get("joinedAt").isNull()).isFalse();
         assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where workspace_id = ?::uuid "
                 + "and event_type = 'NOTETAKER_TRANSCRIPT_READ'", Integer.class, workspaceId)).isEqualTo(1);
 
@@ -279,6 +286,18 @@ class MeetingNotesIntegrationTest extends FlowTestSupport {
         String elsewhere = "/api/v1/projects/" + otherProject + "/outreach/candidates/" + priyaThere + "/meetings";
         String meetingThere = body(as(consultant, get(elsewhere + "/notetaker")).andExpect(status().isOk())
                 .andReturn()).get("meetings").get(0).get("meetingId").asText();
+        as(consultant, get(elsewhere + "/" + meetingThere + "/transcript")).andExpect(status().isNotFound());
+
+        // Filed on the booked position, the other one hears that a note exists and never which, nor its words.
+        String run = launch.recordingId().toString();
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}, start).andExpect(status().isNoContent());
+        botCall(run, "complete", launch.runToken(), "").andExpect(status().isNoContent());
+        assertThat(recordingRow(run).get("project_id").toString()).isEqualTo(projectId);
+        JsonNode there = body(as(consultant, get(elsewhere + "/notetaker")).andExpect(status().isOk()).andReturn())
+                .get("meetings").get(0);
+        assertThat(there.get("notesElsewhere").asBoolean()).isTrue();
+        assertThat(there.get("transcriptHere").asBoolean()).isFalse();
+        assertThat(there.get("noteId").isNull()).isTrue();
         as(consultant, get(elsewhere + "/" + meetingThere + "/transcript")).andExpect(status().isNotFound());
     }
 

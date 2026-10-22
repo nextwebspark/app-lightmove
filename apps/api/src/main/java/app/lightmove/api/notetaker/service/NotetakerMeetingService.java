@@ -69,7 +69,7 @@ public class NotetakerMeetingService {
                 : recordings.findByWorkspaceIdAndCallKeyIn(workspaceId, calls.keySet()).stream()
                         .collect(Collectors.toMap(MeetingRecording::getCallKey, Function.identity()));
         List<NotetakerMeetingResponse> responses = rows.stream()
-                .map(row -> responseOf(row, calls, recordingsByCall))
+                .map(row -> responseOf(row, projectId, calls, recordingsByCall))
                 .toList();
         return new NotetakerMeetingsResponse(properties.notetaker().enabled(), switches.workspaceAllows(workspaceId),
                 switches.userAllows(userId, workspaceId), responses);
@@ -140,7 +140,7 @@ public class NotetakerMeetingService {
                                                   UUID meetingId, HttpServletRequest httpRequest) {
         MeetingRecording recording = requireRecordingOf(userId, workspaceId, projectId, candidateId, meetingId);
         List<TranscriptLineResponse> lines = notesProcessor.transcriptOf(recording.getId()).stream()
-                .map(line -> new TranscriptLineResponse(line.at(), line.speaker(), line.text()))
+                .map(line -> new TranscriptLineResponse(line.at(), line.speaker(), line.text(), line.named()))
                 .toList();
         audit.projectEvent(ProjectEventType.NOTETAKER_TRANSCRIPT_READ, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -232,18 +232,26 @@ public class NotetakerMeetingService {
         return callsAround(meeting.workspaceId(), List.of(meeting)).get(NotetakerCallEligibility.callKeyOf(meeting));
     }
 
-    private static NotetakerMeetingResponse responseOf(KeptMeeting row, Map<String, NotetakerCall> calls,
+    private static NotetakerMeetingResponse responseOf(KeptMeeting row, UUID projectId,
+                                                       Map<String, NotetakerCall> calls,
                                                        Map<String, MeetingRecording> recordingsByCall) {
         String callKey = row.joinUrl() == null ? null : NotetakerCallEligibility.callKeyOf(row);
         NotetakerCall call = callKey == null ? null : calls.get(callKey);
         MeetingRecording recording = callKey == null ? null : recordingsByCall.get(callKey);
+        boolean filed = recording != null && recording.getNoteId() != null;
+        // A note about the person, under no position, reads from every position, as the transcript read allows.
+        boolean filedHere = filed
+                && (recording.getProjectId() == null || projectId.equals(recording.getProjectId()));
         return new NotetakerMeetingResponse(row.id(), call == null ? null : call.platform(),
                 call != null && call.joinable(),
                 call == null || call.meetingAllows(),
                 recording == null ? null : recording.getId(),
                 recording == null ? null : recording.getStatus(),
                 recording == null ? null : recording.getEndReason(),
-                recording == null ? null : recording.getRecorder());
+                recording == null ? null : recording.getRecorder(),
+                recording == null ? null : recording.getJoinedAt(),
+                recording == null ? null : recording.getRecordedUntil(),
+                filedHere, filedHere ? recording.getNoteId() : null, filed && !filedHere);
     }
 
     private KeptMeeting requireMeeting(UUID workspaceId, UUID projectId, UUID candidateId, UUID meetingId) {

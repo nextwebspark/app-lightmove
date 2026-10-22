@@ -164,9 +164,13 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         NotetakerLaunch launch = launchesHere().getFirst();
         String run = launch.recordingId().toString();
 
+        MvcResult stream = openStream("/api/v1/projects/" + projectId + "/stream", consultant);
+        awaitContent(stream, "event:connected");
         botCall(run, "status", "wrong-token", "{\"state\":\"WAITING_ROOM\"}").andExpect(status().isNotFound());
         botCall(run, "status", launch.runToken(), "{\"state\":\"WAITING_ROOM\"}").andExpect(status().isNoContent());
         assertThat(recordingRow().get("status")).isEqualTo("WAITING_ROOM");
+        // The open drawer's chip follows the bot: its position's stream hears every move of its status.
+        awaitContent(stream, "\"notetaker\"");
         botCall(run, "status", launch.runToken(), "{\"state\":\"RECORDING\"}").andExpect(status().isNoContent());
         assertThat(body(botCall(run, "heartbeat", launch.runToken(), "{}").andExpect(status().isOk()).andReturn())
                 .get("leave").asBoolean()).isFalse();

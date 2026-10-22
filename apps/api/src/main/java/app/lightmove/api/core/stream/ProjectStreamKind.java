@@ -17,11 +17,13 @@ public enum ProjectStreamKind {
     /** An email, a reply or a sequence run moved. Staff-only: a client seat is never told outreach happened. */
     OUTREACH,
     /** A task was filed, changed or closed. Staff-only, as outreach is. */
-    TASK;
+    TASK,
+    /** A Notetaker bot on a call with an executive moved: joined, recording, left, or its note filed. Staff-only. */
+    NOTETAKER;
 
     /** Sent only to a stream whose holder may work the position, never to one that may only read it. */
     public boolean isStaffOnly() {
-        return this == OUTREACH || this == TASK;
+        return this == OUTREACH || this == TASK || this == NOTETAKER;
     }
 
     /**

@@ -5,11 +5,15 @@ import app.lightmove.api.notetaker.constant.MeetingRecorderKind;
 import app.lightmove.api.notetaker.constant.NotetakerEndReason;
 import app.lightmove.api.notetaker.constant.NotetakerPlatform;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
+import app.lightmove.api.notetaker.service.NotetakerStreamAnnouncer;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.PostLoad;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -21,6 +25,7 @@ import lombok.NoArgsConstructor;
  * claim; every later step is a method here. The run token's hash is cleared once the bot can change nothing more.
  */
 @Entity
+@EntityListeners(NotetakerStreamAnnouncer.class)
 @Table(name = "app_lm_meeting_recording")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -110,6 +115,24 @@ public class MeetingRecording extends BaseEntity {
 
     @Column(name = "processed_at")
     private Instant processedAt;
+
+    @Transient
+    @Getter(AccessLevel.NONE)
+    private NotetakerStatus statusAnnounced;
+
+    @PostLoad
+    void rememberStatus() {
+        statusAnnounced = status;
+    }
+
+    /** Whether the status moved since it was loaded or last announced, marking it announced. */
+    public boolean takeStatusMove() {
+        if (status == statusAnnounced) {
+            return false;
+        }
+        statusAnnounced = status;
+        return true;
+    }
 
     public void markLaunched(String externalId, Instant now) {
         this.externalId = externalId;

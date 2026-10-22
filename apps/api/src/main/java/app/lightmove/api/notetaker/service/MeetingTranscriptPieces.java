@@ -80,7 +80,7 @@ class MeetingTranscriptPieces {
 
     void keepTranscript(UUID recordingId, List<TranscriptLine> transcript) {
         List<StoredLine> stored = transcript.stream()
-                .map(line -> new StoredLine(line.at().toString(), line.speaker(), line.text()))
+                .map(line -> new StoredLine(line.at().toString(), line.speaker(), line.text(), line.named()))
                 .toList();
         jdbc.update("UPDATE app_lm_meeting_recording SET transcript = ?::jsonb WHERE id = ?",
                 json.writeValueAsString(stored), recordingId);
@@ -92,10 +92,11 @@ class MeetingTranscriptPieces {
                 .filter(text -> text != null)
                 .findFirst()
                 .map(text -> json.readValue(text, STORED_LINES).stream()
-                        .map(line -> new TranscriptLine(Instant.parse(line.at()), line.speaker(), line.text()))
+                        .map(line -> new TranscriptLine(Instant.parse(line.at()), line.speaker(), line.text(),
+                                !Boolean.FALSE.equals(line.named())))
                         .toList());
     }
 
     /** The stored shape: an instant as its ISO text, so the column reads the same whoever wrote it. */
-    private record StoredLine(String at, String speaker, String text) {}
+    private record StoredLine(String at, String speaker, String text, Boolean named) {}
 }
