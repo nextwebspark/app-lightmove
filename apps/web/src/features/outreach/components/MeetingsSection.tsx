@@ -1,6 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { useToast } from "../../../components/ui";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { messageFor } from "../../../lib/errorCodes";
+import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
 import * as meetingApi from "../api/meetingApi";
@@ -13,7 +17,8 @@ import { ZoomConnectControl } from "./ZoomConnectControl";
 /**
  * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
  * connected calendars, and Book a call from the consultant's own. Always open, unlike the folds below
- * it. Staff-only; Book a call is never offered for someone marked do not contact.
+ * it. Staff-only; Book a call is never offered for someone marked do not contact. A call booked in Uncava on
+ * the consultant's own calendar can be moved or cancelled from its row (`editable`, the server's say).
  */
 export function MeetingsSection({
   projectId,
@@ -39,18 +44,30 @@ export function MeetingsSection({
     queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
   });
   const mailbox = useMailbox();
+  const queryClient = useQueryClient();
+  const toast = useToast();
   const [isBooking, setIsBooking] = useState(false);
+  const [rescheduling, setRescheduling] = useState<Meeting | null>(null);
+  const [cancelling, setCancelling] = useState<Meeting | null>(null);
 
   const firstName = fullName.trim().split(/\s+/)[0];
   const upcoming = meetings.data?.upcoming ?? [];
   const past = meetings.data?.past ?? [];
   const count = upcoming.length + past.length;
-  const canBook =
-    mailbox.data?.offered === true &&
-    mailbox.data.connection?.status === "ACTIVE" &&
-    record.isSuccess &&
-    !record.data.doNotContact &&
-    emails.length > 0;
+  const hasActiveMailbox = mailbox.data?.offered === true && mailbox.data.connection?.status === "ACTIVE";
+  const canBook = hasActiveMailbox && record.isSuccess && !record.data.doNotContact && emails.length > 0;
+  const canReschedule = hasActiveMailbox && record.isSuccess && !record.data.doNotContact;
+
+  const cancel = useMutation({
+    mutationFn: (meeting: Meeting) => meetingApi.cancelMeeting(projectId, candidateId, meeting.id),
+    onSuccess: () => {
+      toast(`Call with ${firstName} cancelled. They've been told.`);
+      void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
+      void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
+      setCancelling(null);
+    },
+    onError: (error) => toast.error(messageFor(error)),
+  });
 
   return (
     <section aria-label="Meetings" className="border-b border-u-border py-3.5">
@@ -80,7 +97,12 @@ export function MeetingsSection({
         <>
           <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">Upcoming</div>
           {upcoming.map((meeting) => (
-            <UpcomingMeeting key={meeting.id} meeting={meeting} />
+            <UpcomingMeeting
+              key={meeting.id}
+              meeting={meeting}
+              onReschedule={meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined}
+              onCancel={meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined}
+            />
           ))}
         </>
       )}
@@ -123,11 +145,47 @@ export function MeetingsSection({
           onClose={() => setIsBooking(false)}
         />
       )}
+
+      {rescheduling && (
+        <BookCallDialog
+          projectId={projectId}
+          candidateId={candidateId}
+          fullName={fullName}
+          candidateStatus={candidateStatus}
+          emails={emails}
+          meeting={rescheduling}
+          onClose={() => setRescheduling(null)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={cancelling !== null}
+        title={`Cancel the call with ${fullName}?`}
+        confirmLabel="Cancel call"
+        pending={cancel.isPending}
+        onConfirm={() => cancelling && cancel.mutate(cancelling)}
+        onClose={() => setCancelling(null)}
+      >
+        {cancelling && (
+          <p>
+            {meetingWhenOf(cancelling.startsAt, cancelling.endsAt)} comes off your calendar, and {firstName} is told the
+            call is cancelled. Their status stays where it is.
+          </p>
+        )}
+      </ConfirmDialog>
     </section>
   );
 }
 
-function UpcomingMeeting({ meeting }: { meeting: Meeting }) {
+function UpcomingMeeting({
+  meeting,
+  onReschedule,
+  onCancel,
+}: {
+  meeting: Meeting;
+  onReschedule?: () => void;
+  onCancel?: () => void;
+}) {
   const tile = dateTileOf(meeting.startsAt);
   const when = meetingWhenOf(meeting.startsAt, meeting.endsAt);
   return (
@@ -147,6 +205,20 @@ function UpcomingMeeting({ meeting }: { meeting: Meeting }) {
             Booked through your link
           </span>
         )}
+        {(onReschedule || onCancel) && (
+          <span className="mt-1 flex gap-3">
+            {onReschedule && (
+              <button type="button" onClick={onReschedule} className={ROW_ACTION}>
+                Reschedule
+              </button>
+            )}
+            {onCancel && (
+              <button type="button" onClick={onCancel} className={ROW_ACTION}>
+                Cancel call
+              </button>
+            )}
+          </span>
+        )}
       </span>
       {meeting.joinUrl && (
         <a
@@ -162,3 +234,5 @@ function UpcomingMeeting({ meeting }: { meeting: Meeting }) {
     </div>
   );
 }
+
+const ROW_ACTION = "font-mono text-meta font-medium text-u-text3 underline-offset-2 hover:text-u-text hover:underline";

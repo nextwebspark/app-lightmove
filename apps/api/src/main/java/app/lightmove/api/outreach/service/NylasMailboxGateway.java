@@ -341,6 +341,42 @@ public class NylasMailboxGateway implements MailboxGateway {
     }
 
     @Override
+    public CalendarEvent moveEvent(String grantId, String eventId, Instant startsAt, Instant endsAt) {
+        JsonNode answer = guard.call(VendorCall.of(VENDOR, "move-event"), () -> client.put()
+                .uri(builder -> builder.path("/v3/grants/{grantId}/events/{eventId}")
+                        .queryParam("calendar_id", PRIMARY_CALENDAR)
+                        .queryParam("notify_participants", true)
+                        .build(grantId, eventId))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("when", Map.of("start_time", startsAt.getEpochSecond(),
+                        "end_time", endsAt.getEpochSecond())))
+                .retrieve()
+                .body(JsonNode.class));
+        CalendarEvent moved = answer == null ? null : eventOf(answer.path("data"));
+        if (moved == null) {
+            throw new IllegalStateException("The mail service answered an event move with no timed event");
+        }
+        return moved;
+    }
+
+    @Override
+    public void cancelEvent(String grantId, String eventId) {
+        try {
+            guard.call(VendorCall.of(VENDOR, "cancel-event"), () -> client.delete()
+                    .uri(builder -> builder.path("/v3/grants/{grantId}/events/{eventId}")
+                            .queryParam("calendar_id", PRIMARY_CALENDAR)
+                            .queryParam("notify_participants", true)
+                            .build(grantId, eventId))
+                    .retrieve()
+                    .toBodilessEntity());
+        } catch (VendorException failed) {
+            if (failed.getKind() != VendorFailureKind.NOT_FOUND) {
+                throw failed;
+            }
+        }
+    }
+
+    @Override
     public boolean isBookingPageOffered() {
         return config.schedulerEnabled();
     }

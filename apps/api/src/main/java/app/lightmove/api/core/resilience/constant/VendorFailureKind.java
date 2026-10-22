@@ -33,7 +33,7 @@ public enum VendorFailureKind {
     /** 400/422. Malformed, which makes it our bug rather than a bad minute. */
     BAD_REQUEST(false),
 
-    /** 404, or a 200 carrying no rows. Not a failure but an answer, and answered as an empty result. */
+    /** 404 or 410, or a 200 carrying no rows. Not a failure but an answer, and answered as an empty result. */
     NOT_FOUND(false),
 
     /** 429. Waiting is the fix. */
@@ -56,7 +56,7 @@ public enum VendorFailureKind {
         return switch (status.value()) {
             case 401, 403 -> CREDENTIALS;
             case 402 -> QUOTA_EXHAUSTED;
-            case 404 -> NOT_FOUND;
+            case 404, 410 -> NOT_FOUND;
             case 429 -> RATE_LIMITED;
             default -> status.is5xxServerError() ? UNAVAILABLE : BAD_REQUEST;
         };

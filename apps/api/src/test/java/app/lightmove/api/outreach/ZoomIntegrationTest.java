@@ -142,6 +142,35 @@ class ZoomIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("moving a Zoom call moves its meeting, put back if the calendar refuses; cancelling deletes it")
+    void aZoomCallMovesAndGoesWithItsMeeting() throws Exception {
+        ownZoomApp();
+        connectZoom("zoom-code-1");
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        JsonNode slots = slotsOf(priya);
+        Instant slot = firstStartIn(slots);
+        book(priya, slot, "ZOOM").andExpect(status().isNoContent());
+        String zoomId = zoom.created().getFirst();
+        String meetingId = body(as(consultant, get(meetings(priya))).andReturn()).get("upcoming").get(0).get("id")
+                .asText();
+        Instant later = laterStartIn(slots, slot);
+
+        gateway.failChangingEvents(new VendorException(VendorCall.of("nylas", "move-event"),
+                VendorFailureKind.UNAVAILABLE, null));
+        reschedule(priya, meetingId, later).andExpect(status().isBadGateway());
+        assertThat(zoom.moved()).extracting(RecordingZoomApi.ZoomMove::startsAt).containsExactly(later, slot);
+
+        gateway.failChangingEvents(null);
+        reschedule(priya, meetingId, later).andExpect(status().isNoContent());
+        assertThat(zoom.moved().getLast()).isEqualTo(new RecordingZoomApi.ZoomMove(zoomId, later, 30));
+
+        as(consultant, delete(meetings(priya) + "/" + meetingId)).andExpect(status().isNoContent());
+        assertThat(zoom.deleted()).containsExactly(zoomId);
+        assertThat(meetingRows()).isZero();
+    }
+
+    @Test
     @DisplayName("a token Zoom refuses marks the connection for reconnecting, and books nothing")
     void aRefusedTokenNeedsReconnecting() throws Exception {
         ownZoomApp();
@@ -221,11 +250,30 @@ class ZoomIntegrationTest extends FlowTestSupport {
         throw new AssertionError("No free slot offered");
     }
 
+    private static Instant laterStartIn(JsonNode slots, Instant taken) {
+        for (JsonNode day : slots.get("days")) {
+            for (JsonNode start : day.get("starts")) {
+                Instant offered = Instant.parse(start.asText());
+                if (offered.isAfter(taken.plusSeconds(3600))) {
+                    return offered;
+                }
+            }
+        }
+        throw new AssertionError("No later free slot offered");
+    }
+
     private ResultActions book(String candidateId, Instant start, String video) throws Exception {
         return as(consultant, post(meetings(candidateId)).contentType(MediaType.APPLICATION_JSON).content("""
                 {"startsAt":"%s","minutes":30,"video":"%s","inviteAddress":"priya@%s",
                  "title":"Confidential: first conversation"}
                 """.formatted(start, video, domain)));
+    }
+
+    private ResultActions reschedule(String candidateId, String meetingId, Instant start) throws Exception {
+        return as(consultant, put(meetings(candidateId) + "/" + meetingId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"startsAt":"%s","minutes":30}
+                        """.formatted(start)));
     }
 
     private int meetingRows() {

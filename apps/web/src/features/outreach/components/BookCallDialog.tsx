@@ -9,8 +9,8 @@ import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types
 import { statusById, useStatusAutomations, wouldMoveForward } from "../../workspace/lib/statusAutomation";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as meetingApi from "../api/meetingApi";
-import type { MeetingVideo } from "../api/meetingApi";
-import { slotDayLabelOf, slotTimeOf } from "../lib/meetingTimes";
+import type { Meeting, MeetingVideo } from "../api/meetingApi";
+import { meetingWhenOf, slotDayLabelOf, slotTimeOf } from "../lib/meetingTimes";
 import { SlotDayTiles, SlotGroup, SlotPager } from "./BookCallTimes";
 
 type Length = "15" | "30" | "45";
@@ -43,13 +43,17 @@ function videoLinksFor(provider: string | undefined, isZoomOffered: boolean) {
 
 const DEFAULT_TITLE = "Confidential: first conversation";
 
-/** Book a call (`Outreach.dc.html?dialog=bookCall`): a free time off the consultant's own calendar, and an invite from it. */
+/**
+ * Book a call (`Outreach.dc.html?dialog=bookCall`): a free time off the consultant's own calendar, and an invite from it.
+ * Given a booked `meeting`, the same grid moves that call instead: its link, address and title stay as booked.
+ */
 export function BookCallDialog({
   projectId,
   candidateId,
   fullName,
   candidateStatus,
   emails,
+  meeting,
   onClose,
 }: {
   projectId: string;
@@ -58,12 +62,15 @@ export function BookCallDialog({
   /** Only someone still Identified or Contacted moves to Engaged; the toast says so only then. */
   candidateStatus: CandidateStatus;
   emails: CandidateEmail[];
+  /** The call to move, where this is a reschedule rather than a booking. */
+  meeting?: Meeting;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const firstName = fullName.trim().split(/\s+/)[0];
-  const [length, setLength] = useState<Length>("30");
+  const isRescheduling = meeting !== undefined;
+  const [length, setLength] = useState<Length>(meeting ? lengthOf(meeting) : "30");
   const [chosenVideo, setChosenVideo] = useState<MeetingVideo | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
   const [from, setFrom] = useState<string | null>(null);
@@ -73,8 +80,9 @@ export function BookCallDialog({
 
   const minutes = Number(length);
   const slots = useQuery({
-    queryKey: meetingApi.MEETING_SLOTS_KEY(projectId, candidateId, minutes, from),
-    queryFn: ({ signal }) => meetingApi.getMeetingSlots(projectId, candidateId, minutes, from, signal),
+    queryKey: meetingApi.MEETING_SLOTS_KEY(projectId, candidateId, minutes, from, meeting?.id ?? null),
+    queryFn: ({ signal }) =>
+      meetingApi.getMeetingSlots(projectId, candidateId, minutes, from, signal, meeting?.id ?? null),
     placeholderData: (previous) => previous,
   });
   const timeZone = slots.data?.timeZone;
@@ -94,20 +102,24 @@ export function BookCallDialog({
 
   const book = useMutation({
     mutationFn: () =>
-      meetingApi.bookMeeting(projectId, candidateId, {
-        startsAt: slot as string,
-        minutes,
-        video,
-        inviteAddress,
-        title: title.trim(),
-      }),
+      meeting
+        ? meetingApi.rescheduleMeeting(projectId, candidateId, meeting.id, { startsAt: slot as string, minutes })
+        : meetingApi.bookMeeting(projectId, candidateId, {
+            startsAt: slot as string,
+            minutes,
+            video,
+            inviteAddress,
+            title: title.trim(),
+          }),
     onSuccess: () => {
       const day = slots.data?.days.find((candidate) => candidate.starts.includes(slot as string));
-      const movesForward = bookedTarget !== null && wouldMoveForward(catalog, candidateStatus, bookedTarget.id);
-      toast(
-        `Invite sent to ${firstName} for ${day ? slotDayLabelOf(day.date) : "the call"}, ${slotTimeOf(slot as string, timeZone ?? "UTC")}.` +
-          (movesForward ? ` They moved to ${bookedTarget.label}.` : ""),
-      );
+      const when = `${day ? slotDayLabelOf(day.date) : "the new time"}, ${slotTimeOf(slot as string, timeZone ?? "UTC")}`;
+      if (isRescheduling) {
+        toast(`Call with ${firstName} moved to ${when}. They've been sent the new time.`);
+      } else {
+        const movesForward = bookedTarget !== null && wouldMoveForward(catalog, candidateStatus, bookedTarget.id);
+        toast(`Invite sent to ${firstName} for ${when}.` + (movesForward ? ` They moved to ${bookedTarget.label}.` : ""));
+      }
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
       onClose();
@@ -157,7 +169,7 @@ export function BookCallDialog({
           <>
             <div className="truncate text-[13px] font-semibold text-u-text">{summary}</div>
             <div className="truncate font-mono text-[11.5px] text-u-text3">
-              {minutes} min · invite from {slots.data?.address}
+              {minutes} min · {isRescheduling ? "update" : "invite"} from {slots.data?.address}
             </div>
           </>
         ) : (
@@ -169,11 +181,11 @@ export function BookCallDialog({
       </Button>
       <Button
         type="button"
-        disabled={!isSlotOffered || inviteAddress === "" || title.trim() === ""}
+        disabled={!isSlotOffered || (!isRescheduling && (inviteAddress === "" || title.trim() === ""))}
         loading={book.isPending}
         onClick={() => book.mutate()}
       >
-        Send invite
+        {isRescheduling ? "Move call" : "Send invite"}
       </Button>
     </div>
   );
@@ -182,7 +194,7 @@ export function BookCallDialog({
     <Modal
       open
       onClose={onClose}
-      title={`Book a call with ${fullName}`}
+      title={isRescheduling ? `Reschedule call with ${fullName}` : `Book a call with ${fullName}`}
       subtitle={slots.data ? `Free times on ${slots.data.address} · ${slots.data.timeZone}` : " "}
       closeButton
       footer={footer}
@@ -247,57 +259,72 @@ export function BookCallDialog({
             </span>
             <SegmentedControl label="Length" options={LENGTHS} value={length} onChange={handleLengthChange} />
           </div>
-          <Field
-            label="Video"
-            hint={
-              video === "MICROSOFT_TEAMS"
-                ? "Where your organisation doesn't offer Teams, the invite goes without a link."
-                : undefined
-            }
-          >
-            <Select
-              aria-label="Video link"
-              value={video}
-              onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
-              className="px-2.5 py-2 text-[12.5px]"
-            >
-              {videoLinks.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Invite">
-            <Select
-              aria-label="Invite address"
-              value={inviteAddress}
-              onChange={(event) => setInviteAddress(event.target.value)}
-              className="px-2.5 py-2 text-[12.5px]"
-            >
-              {emails.map((email) => (
-                <option key={email.address} value={email.address}>
-                  {email.kind ? `${email.address} · ${email.kind}` : email.address}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field
-            label="Title"
-            hint={`What ${firstName} sees. Keep the business unit out of it unless you mean to name it.`}
-          >
-            <Input
-              aria-label="Meeting title"
-              value={title}
-              maxLength={200}
-              onChange={(event) => setTitle(event.target.value)}
-              className="px-2.5 py-2 font-sans text-[13px]"
-            />
-          </Field>
+          {meeting ? (
+            <p className="text-note text-u-text3">
+              Now {meetingWhenOf(meeting.startsAt, meeting.endsAt)}. {firstName} is sent the new time; the title
+              {meeting.videoProvider ? ` and the ${meeting.videoProvider} link stay` : " stays"} as booked.
+            </p>
+          ) : (
+            <>
+              <Field
+                label="Video"
+                hint={
+                  video === "MICROSOFT_TEAMS"
+                    ? "Where your organisation doesn't offer Teams, the invite goes without a link."
+                    : undefined
+                }
+              >
+                <Select
+                  aria-label="Video link"
+                  value={video}
+                  onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
+                  className="px-2.5 py-2 text-[12.5px]"
+                >
+                  {videoLinks.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Invite">
+                <Select
+                  aria-label="Invite address"
+                  value={inviteAddress}
+                  onChange={(event) => setInviteAddress(event.target.value)}
+                  className="px-2.5 py-2 text-[12.5px]"
+                >
+                  {emails.map((email) => (
+                    <option key={email.address} value={email.address}>
+                      {email.kind ? `${email.address} · ${email.kind}` : email.address}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                label="Title"
+                hint={`What ${firstName} sees. Keep the business unit out of it unless you mean to name it.`}
+              >
+                <Input
+                  aria-label="Meeting title"
+                  value={title}
+                  maxLength={200}
+                  onChange={(event) => setTitle(event.target.value)}
+                  className="px-2.5 py-2 font-sans text-[13px]"
+                />
+              </Field>
+            </>
+          )}
         </section>
       </div>
     </Modal>
   );
+}
+
+/** The call's own length where the dialog offers it; a call of any other length starts on 30. */
+function lengthOf(meeting: Meeting): Length {
+  const minutes = String(Math.round((Date.parse(meeting.endsAt) - Date.parse(meeting.startsAt)) / 60_000));
+  return LENGTHS.some((option) => option.value === minutes) ? (minutes as Length) : "30";
 }
 
 function endOf(start: string, minutes: number): string {

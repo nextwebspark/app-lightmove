@@ -57,4 +57,12 @@ public class PersonMeeting extends BaseEntity {
 
     @Column(name = "booked_via_link", nullable = false)
     private boolean bookedViaLink;
+
+    @Column(name = "zoom_meeting_id")
+    private String zoomMeetingId;
+
+    /** Booked in Uncava, from Book a call or the booking link: an event this calendar made for us to move. */
+    public boolean isBookedInUncava() {
+        return bookedByUserId != null || bookedViaLink;
+    }
 }

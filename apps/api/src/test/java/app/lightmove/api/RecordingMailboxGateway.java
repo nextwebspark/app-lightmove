@@ -56,6 +56,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private final AtomicInteger calendarReads = new AtomicInteger();
     private volatile RuntimeException calendarFailure;
     private volatile RuntimeException createEventFailure;
+    private volatile RuntimeException changeEventFailure;
+    private final List<EventMove> moves = new CopyOnWriteArrayList<>();
+    private final List<String> cancelled = new CopyOnWriteArrayList<>();
     private volatile RuntimeException busyFailure;
     private volatile boolean bookingPagesOffered = true;
     private final List<BookingPageSpec> bookingPages = new CopyOnWriteArrayList<>();
@@ -162,6 +165,41 @@ public class RecordingMailboxGateway implements MailboxGateway {
                 linkFromElsewhere ? event.joinUrl() : "https://meet.example/" + created.size(),
                 linkFromElsewhere ? "Zoom" : "Google Meet");
     }
+
+    @Override
+    public CalendarEvent moveEvent(String grantId, String eventId, Instant startsAt, Instant endsAt) {
+        if (changeEventFailure != null) {
+            throw changeEventFailure;
+        }
+        moves.add(new EventMove(eventId, startsAt, endsAt));
+        NewCalendarEvent booked = created.isEmpty() ? null : created.getLast();
+        return new CalendarEvent(eventId, booked == null ? "Call" : booked.title(), startsAt, endsAt,
+                booked == null ? List.of(granted.address()) : List.of(granted.address(), booked.inviteeAddress()),
+                null, null);
+    }
+
+    @Override
+    public void cancelEvent(String grantId, String eventId) {
+        if (changeEventFailure != null) {
+            throw changeEventFailure;
+        }
+        cancelled.add(eventId);
+    }
+
+    /** The calendar refuses to move or cancel events from here on; null lets it again. */
+    public void failChangingEvents(RuntimeException failure) {
+        this.changeEventFailure = failure;
+    }
+
+    public List<EventMove> moves() {
+        return List.copyOf(moves);
+    }
+
+    public List<String> cancelled() {
+        return List.copyOf(cancelled);
+    }
+
+    public record EventMove(String eventId, Instant startsAt, Instant endsAt) {}
 
     /** The calendar refuses to make the next events, as a definite refusal or an outage would. */
     public void failCreatingEvents(RuntimeException failure) {
@@ -300,6 +338,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
         calendarReads.set(0);
         calendarFailure = null;
         createEventFailure = null;
+        changeEventFailure = null;
+        moves.clear();
+        cancelled.clear();
         busyFailure = null;
         bookingPagesOffered = true;
         bookingPages.clear();

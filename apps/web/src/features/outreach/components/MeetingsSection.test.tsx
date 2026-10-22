@@ -18,6 +18,8 @@ vi.mock("../api/meetingApi", async (importOriginal) => ({
   getMeetings: vi.fn(),
   getMeetingSlots: vi.fn(),
   bookMeeting: vi.fn(),
+  rescheduleMeeting: vi.fn(),
+  cancelMeeting: vi.fn(),
 }));
 vi.mock("../api/zoomApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/zoomApi")>()),
@@ -54,6 +56,7 @@ const MEETINGS: PersonMeetings = {
       videoProvider: "Google Meet",
       viaLink: false,
       bookedInUncava: true,
+      editable: true,
     },
   ],
   past: [
@@ -68,6 +71,7 @@ const MEETINGS: PersonMeetings = {
       videoProvider: null,
       viaLink: false,
       bookedInUncava: false,
+      editable: false,
     },
   ],
 };
@@ -209,6 +213,62 @@ describe("MeetingsSection", () => {
     expect(await screen.findByText(/Invite sent to Priya for Mon 5 Oct, 10:30\. They moved to Engaged\./)).toBeInTheDocument();
   });
 
+  it("moves a call booked in Uncava to a free time, its own time read as free", async () => {
+    vi.mocked(meetingApi.getMeetingSlots).mockResolvedValue({
+      address: "yara@firm.example",
+      timeZone: "Asia/Dubai",
+      provider: "google",
+      minutes: 30,
+      zoomOffered: false,
+      earliestDate: "2026-10-05",
+      latestDate: "2027-04-05",
+      previousFrom: null,
+      days: [{ date: "2026-10-07", starts: ["2026-10-07T06:00:00Z", "2026-10-07T07:00:00Z"] }],
+    });
+    vi.mocked(meetingApi.rescheduleMeeting).mockResolvedValue(undefined);
+    renderSection();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Reschedule" }));
+    expect(await screen.findByText("Reschedule call with Priya Raman")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Video link" })).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "11:00" }));
+    await userEvent.click(screen.getByRole("button", { name: "Move call" }));
+
+    await waitFor(() =>
+      expect(meetingApi.rescheduleMeeting).toHaveBeenCalledWith("p1", "c1", "m1", {
+        startsAt: "2026-10-07T07:00:00Z",
+        minutes: 30,
+      }),
+    );
+    expect(meetingApi.getMeetingSlots).toHaveBeenCalledWith("p1", "c1", 30, null, expect.anything(), "m1");
+    expect(await screen.findByText(/Call with Priya moved to Wed 7 Oct, 11:00\./)).toBeInTheDocument();
+  });
+
+  it("cancels a call booked in Uncava once asked, and offers nothing on a call found on a calendar", async () => {
+    vi.mocked(meetingApi.cancelMeeting).mockResolvedValue(undefined);
+    renderSection({
+      meetings: {
+        upcoming: [MEETINGS.upcoming[0], { ...MEETINGS.upcoming[0], id: "m3", title: "Lunch", editable: false }],
+        past: [],
+      },
+    });
+
+    expect(await screen.findAllByRole("button", { name: "Cancel call" })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel call" }));
+    expect(await screen.findByText("Cancel the call with Priya Raman?")).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("button", { name: "Cancel call" }).at(-1) as HTMLElement);
+
+    await waitFor(() => expect(meetingApi.cancelMeeting).toHaveBeenCalledWith("p1", "c1", "m1"));
+    expect(await screen.findByText("Call with Priya cancelled. They've been told.")).toBeInTheDocument();
+  });
+
+  it("offers no Reschedule for someone marked do not contact, though the call can still be cancelled", async () => {
+    renderSection({ doNotContact: true });
+
+    expect(await screen.findByRole("button", { name: "Cancel call" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reschedule" })).not.toBeInTheDocument();
+  });
+
   it("offers only the video link the connected calendar can make", async () => {
     vi.mocked(meetingApi.getMeetingSlots).mockResolvedValue({
       address: "yara@firm.example",
@@ -290,7 +350,7 @@ describe("MeetingsSection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Later days" }));
 
     expect(await screen.findByRole("button", { name: "Wed 7 Oct, 1 free" })).toBeInTheDocument();
-    expect(meetingApi.getMeetingSlots).toHaveBeenLastCalledWith("p1", "c1", 30, "2026-10-07", expect.anything());
+    expect(meetingApi.getMeetingSlots).toHaveBeenLastCalledWith("p1", "c1", 30, "2026-10-07", expect.anything(), null);
     expect(screen.getByRole("button", { name: "Earlier days" })).toBeEnabled();
   });
 });

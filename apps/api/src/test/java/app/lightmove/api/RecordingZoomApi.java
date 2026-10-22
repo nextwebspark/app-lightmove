@@ -21,6 +21,7 @@ public class RecordingZoomApi implements ZoomApi {
 
     private final List<String> created = new CopyOnWriteArrayList<>();
     private final List<String> deleted = new CopyOnWriteArrayList<>();
+    private final List<ZoomMove> moved = new CopyOnWriteArrayList<>();
     private final List<String> revoked = new CopyOnWriteArrayList<>();
     private final List<String> accessTokensUsed = new CopyOnWriteArrayList<>();
     private final AtomicInteger sequence = new AtomicInteger();
@@ -53,6 +54,11 @@ public class RecordingZoomApi implements ZoomApi {
     }
 
     @Override
+    public void moveMeeting(String accessToken, String meetingId, Instant startsAt, int minutes) {
+        moved.add(new ZoomMove(meetingId, startsAt, minutes));
+    }
+
+    @Override
     public void deleteMeeting(String accessToken, String meetingId) {
         deleted.add(meetingId);
     }
@@ -78,6 +84,12 @@ public class RecordingZoomApi implements ZoomApi {
         return List.copyOf(deleted);
     }
 
+    public List<ZoomMove> moved() {
+        return List.copyOf(moved);
+    }
+
+    public record ZoomMove(String meetingId, Instant startsAt, int minutes) {}
+
     public List<String> revoked() {
         return List.copyOf(revoked);
     }
@@ -89,6 +101,7 @@ public class RecordingZoomApi implements ZoomApi {
     public void clear() {
         created.clear();
         deleted.clear();
+        moved.clear();
         revoked.clear();
         accessTokensUsed.clear();
         userId = "zoom-user-1";

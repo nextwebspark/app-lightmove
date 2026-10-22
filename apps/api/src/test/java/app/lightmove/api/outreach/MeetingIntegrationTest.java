@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -314,6 +315,120 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(gateway.created()).isEmpty();
     }
 
+    @Test
+    @DisplayName("a call booked in Uncava is moved to another free time: the executive is told, and nothing else moves")
+    void reschedulingMovesTheCall() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        startSequence(priya, "priya@" + domain);
+        Instant slot = firstFreeSlot(priya, 30);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
+        JsonNode booked = meetingsOf(priya).get("upcoming").get(0);
+        assertThat(booked.get("editable").asBoolean()).isTrue();
+        String meetingId = booked.get("id").asText();
+
+        Instant later = slotAfter(priya, slot, 30);
+        reschedule(priya, meetingId, later, 30).andExpect(status().isNoContent());
+
+        assertThat(gateway.moves()).containsExactly(new RecordingMailboxGateway.EventMove(createdEventId(), later,
+                later.plus(Duration.ofMinutes(30))));
+        JsonNode moved = meetingsOf(priya).get("upcoming").get(0);
+        assertThat(Instant.parse(moved.get("startsAt").asText())).isEqualTo(later);
+        assertThat(moved.get("bookedInUncava").asBoolean()).isTrue();
+        assertThat(activityKinds(priya)).endsWith("MEETING_RESCHEDULED");
+        assertThat(candidateStatus(priya)).isEqualTo("engaged");
+        assertThat(jdbc.queryForObject("select status from app_lm_outreach_enrollment where candidate_id = ?::uuid",
+                String.class, priya)).isEqualTo("BOOKED");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where event_type = "
+                + "'OUTREACH_MEETING_RESCHEDULED' and workspace_id = ?::uuid", Integer.class, workspaceId)).isOne();
+    }
+
+    @Test
+    @DisplayName("a call's own time is free to move it within, and the calendar is still asked for the rest")
+    void reschedulingTreatsItsOwnTimeAsFree() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = firstFreeSlot(priya, 30);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+        gateway.busyAt(List.of(new BusyInterval(slot, slot.plus(Duration.ofMinutes(30))),
+                new BusyInterval(slot.plus(Duration.ofMinutes(30)), slot.plus(Duration.ofMinutes(45)))));
+        assertThat(codeOf(reschedule(priya, meetingId, slot, 45).andExpect(status().isConflict()).andReturn()))
+                .isEqualTo("MEETING_SLOT_TAKEN");
+        assertThat(gateway.moves()).isEmpty();
+
+        gateway.busyAt(List.of(new BusyInterval(slot, slot.plus(Duration.ofMinutes(30)))));
+        assertThat(firstFreeSlotExcluding(priya, 45, meetingId)).isEqualTo(slot);
+        reschedule(priya, meetingId, slot, 45).andExpect(status().isNoContent());
+        assertThat(gateway.moves()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("cancelling a call booked in Uncava tells the executive and takes it off the drawer; the status stays")
+    void cancellingRemovesTheCall() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        book(priya, firstFreeSlot(priya, 30), 30, "priya@" + domain).andExpect(status().isNoContent());
+        String eventId = createdEventId();
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+
+        as(consultant, delete(meetings(priya) + "/" + meetingId)).andExpect(status().isNoContent());
+
+        assertThat(gateway.cancelled()).containsExactly(eventId);
+        assertThat(meetingsOf(priya).get("upcoming")).isEmpty();
+        assertThat(meetingRows()).isZero();
+        assertThat(activityKinds(priya)).endsWith("MEETING_CANCELLED");
+        assertThat(candidateStatus(priya)).isEqualTo("engaged");
+    }
+
+    @Test
+    @DisplayName("only an upcoming call booked in Uncava, by whoever holds its calendar, is moved or cancelled here")
+    void onlyTheHolderChangesAnUncavaCall() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant start = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofDays(2));
+        changed(event("found", "Lunch", start, MAILBOX, "priya@" + domain));
+        JsonNode found = meetingsOf(priya).get("upcoming").get(0);
+        assertThat(found.get("editable").asBoolean()).isFalse();
+        assertThat(codeOf(as(consultant, delete(meetings(priya) + "/" + found.get("id").asText()))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_NOT_EDITABLE");
+
+        Instant slot = firstFreeSlot(priya, 30);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
+        String booked = meetingIdBookedInUncava();
+        inviteAndAccept(consultant, "Omar Saleh", "omar@" + domain, "ADMIN");
+        String teammate = login("omar@" + domain);
+        assertThat(codeOf(mvc.perform(delete(meetings(priya) + "/" + booked)
+                        .header("Authorization", "Bearer " + teammate))
+                .andExpect(status().isForbidden()).andReturn())).isEqualTo("MEETING_NOT_YOURS");
+
+        markDoNotContact(priya);
+        assertThat(codeOf(reschedule(priya, booked, slotAfter(priya, slot, 30), 30)
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_DO_NOT_CONTACT");
+        assertThat(gateway.moves()).isEmpty();
+        assertThat(gateway.cancelled()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a calendar that refuses the change leaves the call as it was, and says to check the calendar")
+    void aRefusedChangeLeavesTheCall() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = firstFreeSlot(priya, 30);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+
+        gateway.failChangingEvents(unavailable("move-event"));
+        assertThat(codeOf(reschedule(priya, meetingId, slotAfter(priya, slot, 30), 30)
+                .andExpect(status().isBadGateway()).andReturn())).isEqualTo("MEETING_UPDATE_FAILED");
+        assertThat(codeOf(as(consultant, delete(meetings(priya) + "/" + meetingId))
+                .andExpect(status().isBadGateway()).andReturn())).isEqualTo("MEETING_UPDATE_FAILED");
+
+        JsonNode still = meetingsOf(priya).get("upcoming").get(0);
+        assertThat(Instant.parse(still.get("startsAt").asText())).isEqualTo(slot);
+        assertThat(activityKinds(priya)).doesNotContain("MEETING_RESCHEDULED", "MEETING_CANCELLED");
+    }
+
     private static VendorException unavailable(String operation) {
         return new VendorException(VendorCall.of("nylas", operation), VendorFailureKind.UNAVAILABLE, null);
     }
@@ -351,6 +466,45 @@ class MeetingIntegrationTest extends FlowTestSupport {
             }
         }
         throw new AssertionError("No free slot offered");
+    }
+
+    private Instant slotAfter(String candidateId, Instant taken, int minutes) throws Exception {
+        JsonNode slots = body(as(consultant, get(meetings(candidateId) + "/slots")
+                .param("minutes", String.valueOf(minutes))).andExpect(status().isOk()).andReturn());
+        for (JsonNode day : slots.get("days")) {
+            for (JsonNode start : day.get("starts")) {
+                Instant offered = Instant.parse(start.asText());
+                if (!offered.isBefore(taken.plus(Duration.ofMinutes(minutes)))) {
+                    return offered;
+                }
+            }
+        }
+        throw new AssertionError("No later free slot offered");
+    }
+
+    private Instant firstFreeSlotExcluding(String candidateId, int minutes, String meetingId) throws Exception {
+        JsonNode slots = body(as(consultant, get(meetings(candidateId) + "/slots")
+                .param("minutes", String.valueOf(minutes)).param("excluding", meetingId))
+                .andExpect(status().isOk()).andReturn());
+        for (JsonNode day : slots.get("days")) {
+            if (!day.get("starts").isEmpty()) {
+                return Instant.parse(day.get("starts").get(0).asText());
+            }
+        }
+        throw new AssertionError("No free slot offered");
+    }
+
+    private String meetingIdBookedInUncava() {
+        return jdbc.queryForObject("select id::text from app_lm_person_meeting where workspace_id = ?::uuid "
+                + "and booked_by_user_id is not null", String.class, workspaceId);
+    }
+
+    private ResultActions reschedule(String candidateId, String meetingId, Instant start, int minutes)
+            throws Exception {
+        return as(consultant, put(meetings(candidateId) + "/" + meetingId).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"startsAt":"%s","minutes":%d}
+                        """.formatted(start, minutes)));
     }
 
     private ResultActions book(String candidateId, Instant start, int minutes, String address) throws Exception {

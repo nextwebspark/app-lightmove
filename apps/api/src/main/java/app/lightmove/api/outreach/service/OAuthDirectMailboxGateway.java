@@ -288,6 +288,16 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
         return created;
     }
 
+    /** {@link #requireCreated} for a move: the update went out, and the row is told nothing it cannot read. */
+    protected CalendarEvent requireMoved(String grantId, CalendarEvent moved) {
+        if (moved == null) {
+            log.error("The {} calendar moved an event for grant {} that could not be read; its update went out",
+                    providerName, grantId);
+            throw new VendorException(vendorCall("move-event"), VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return moved;
+    }
+
     /** Every attendee's address the provider gave, then the organizer's. */
     protected static List<String> participantsOf(JsonNode attendees, Function<JsonNode, JsonNode> addressOf,
                                                   String organizer) {

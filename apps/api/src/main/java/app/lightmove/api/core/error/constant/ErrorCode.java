@@ -403,6 +403,16 @@ public enum ErrorCode {
     /** Never retried on our side: the calendar may still hold the invite, so the consultant checks before trying again. */
     MEETING_BOOK_FAILED(HttpStatus.BAD_GATEWAY, "The invite could not be sent. Check your calendar before trying again"),
 
+    /** Only a call booked in Uncava, still to come, is moved or cancelled here; any other is the calendar's own. */
+    MEETING_NOT_EDITABLE(HttpStatus.CONFLICT, "This call can only be changed from the calendar it is on"),
+
+    /** The call is on a teammate's calendar, which only they can change. */
+    MEETING_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person whose calendar holds this call can change it"),
+
+    /** Never retried: the calendar may have sent the update, so the consultant checks before trying again. */
+    MEETING_UPDATE_FAILED(HttpStatus.BAD_GATEWAY,
+            "The call could not be changed. Check your calendar before trying again"),
+
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
 
