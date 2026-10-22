@@ -371,7 +371,9 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void reschedulingTreatsItsOwnTimeAsFree() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        Instant slot = firstFreeSlot(priya, 30);
+        // A slot only 30 minutes long can be the window's last half hour, where moving to 45 overruns the close
+        // and is refused as an invalid slot (400) before the busy check this test is about.
+        Instant slot = firstFreeSlot(priya, 45);
         book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
         gateway.busyAt(List.of(new BusyInterval(slot, slot.plus(Duration.ofMinutes(30))),
