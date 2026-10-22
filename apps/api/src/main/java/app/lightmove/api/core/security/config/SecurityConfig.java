@@ -332,6 +332,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, API + "/internal/notetaker/runs/*/media/*/*").permitAll()
                         // The canary bot likewise: its service account's Google ID token, checked before anything.
                         .requestMatchers(HttpMethod.POST, API + "/internal/notetaker/canary").permitAll()
+                        .requestMatchers(HttpMethod.POST, API + "/internal/notetaker/canary/hearing").permitAll()
 
                         // Tenant data: an unverified user may not read a single candidate record.
                         .requestMatchers(API + "/**").access(verified)

@@ -30,9 +30,16 @@ export function installAudioRecorder(): void {
     const source = mixer.context.createMediaStreamSource(new MediaStream([track]));
     source.connect(mixer.destination);
     sources.set(track.id, source);
+    // Chromium gives Web Audio a remote WebRTC track's sound only while a media element plays it as well (#978):
+    // without this muted one, the pieces are silent wherever the service does not play the track through an element.
+    const sink = new Audio();
+    sink.muted = true;
+    sink.srcObject = new MediaStream([track]);
+    void sink.play().catch(() => undefined);
     track.addEventListener("ended", () => {
       source.disconnect();
       sources.delete(track.id);
+      sink.srcObject = null;
     });
   };
 

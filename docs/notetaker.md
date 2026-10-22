@@ -79,12 +79,32 @@ because the platform's canary had failed.
 ## The daily canary (#956)
 
 **What it checks.** Once a day the job `lightmove-meetingbot-canary` (the same image, `dist/canaryMain.js`) runs the
-real bot against two standing test meetings, one on Meet and one on Teams. The bot joins, posts its notice, records a
-minute and leaves. It reports to `POST /api/v1/internal/notetaker/canary`, signed with the ID token of a service
-account of its own (`NOTETAKER_CANARY_SA`). It is never `MEETINGBOT_SA`, because a meeting bot runs on a third party's
-page and must not be able to report a platform down, or hide an outage.
-The report says whether the bot got in, said what it was and heard audio. If not, it gives the failure: a bot end
-reason, `NOT_RECORDING` or `NO_AUDIO`. A Meet or Teams page change that breaks joining is caught within a day.
+real bot against two standing test meetings, one on Meet and one on Teams. First a second guest, "Uncava Canary
+Speaker", joins with its microphone on: a Chromium whose fake microphone loops `apps/meetingbot/assets/canary-phrase.wav`
+("Purple giraffes read quiet library books every morning."). Then the bot joins, posts its notice, records a minute
+and leaves. Its pieces are decoded and measured in Chromium, and the most audible two are sent to
+`POST /api/v1/internal/notetaker/canary/hearing`, which runs them through the notes' own transcriber. The canary
+reports to `POST /api/v1/internal/notetaker/canary`. Both calls are signed with the ID token of a service account of its
+own (`NOTETAKER_CANARY_SA`). It is never `MEETINGBOT_SA`, because a meeting bot runs on a third party's page and must
+not be able to report a platform down, or hide an outage.
+
+The report passes only when the bot got in, said what it was, and its pieces say the phrase. Otherwise it gives the
+failure:
+
+| Reason | Means |
+|---|---|
+| A bot end reason | The bot itself failed: `JOIN_BLOCKED`, `NOT_ADMITTED`, `CONSENT_NOT_SHOWN`, … |
+| `NOT_RECORDING` | The bot never reached recording |
+| `NO_AUDIO` | No audio piece came out at all |
+| `SPEAKER_NOT_JOINED` | The canary's own speaker never got in (after two tries), or stopped sending sound before the bot left |
+| `NO_SPEECH` | The pieces are silent, or the transcriber heard no words: a capture regression (a muted or wrong track) |
+| `WRONG_SPEECH` | The transcriber heard words, but not the phrase |
+
+A transcriber that cannot be reached (a 502 from the hearing route, say) does not fail the canary when the pieces were
+audible: the platform is not routed around for our own model's outage, and the bot logs a WARNING. The bot's log names
+how many seconds of each piece were audible and never a word it heard.
+
+A Meet or Teams page change that breaks joining, or a capture change that records silence, is caught within a day.
 
 **What a failure does.** It is written to `app_lm_notetaker_platform_health` (V156) and logged at ERROR:
 `Notetaker canary FAILED on <platform>`. While it stands, that platform's calls go to Recall in every workspace that
@@ -95,9 +115,11 @@ has the backup on. Elsewhere our bot is still sent, since an attempt beats none.
 
 1. **Two test meetings that let a guest in with nobody there.**
    - Meet: a recurring event on a Google Workspace test account with Access type **Open**, so anyone with the link
-     joins without knocking.
+     joins without knocking, and host management leaving guests able to turn on their microphone.
    - Teams: a recurring meeting on a test tenant with **Who can bypass the lobby: Everyone**, anonymous join allowed,
-     and meeting chat on for guests.
+     meeting chat on for guests, and **Allow mic for attendees** on.
+
+   Two guests join each meeting, the speaker and the bot, so the job runs two Chromiums at once.
 
    Put their links in the deploy variables `NOTETAKER_CANARY_MEET_URL` and `NOTETAKER_CANARY_TEAMS_URL`, with
    `NOTETAKER_CANARY_ENABLED=true`, `PUBLIC_BASE_URL`, and `NOTETAKER_CANARY_SA`. The canary's service account is made
@@ -117,7 +139,11 @@ has the backup on. Elsewhere our bot is still sent, since an attempt beats none.
 
 **When it fires**, follow this runbook:
 1. Read the failing reason, in the bot's log for the canary execution (`jsonPayload.runId="canary-<PLATFORM>"`).
-2. Reproduce locally with `npm run try -- <test meeting link>` in `apps/meetingbot`.
+2. Reproduce locally with `npm run try:canary -- <test meeting link>` in `apps/meetingbot`: the speaker and the bot
+   join, the pieces land in `try-output/` with their audible seconds printed. The phrase is checked too with
+   `NOTETAKER_API_BASE_URL` and `CANARY_ID_TOKEN` set, the latter from
+   `gcloud auth print-identity-token --impersonate-service-account="$NOTETAKER_CANARY_SA" --audiences="$PUBLIC_BASE_URL" --include-email`.
+   `npm run try` is the bot alone, admitted by hand.
 3. Fix the page driver (`meetPage.ts`, `teamsPage.ts`, and the screen readers) against a fresh fixture.
 4. Deploy, then run the job by hand:
 

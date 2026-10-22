@@ -147,7 +147,8 @@ jobs:
             --tasks 1
 
       # The Notetaker's daily canary (#956): the same image, run once a day by Cloud Scheduler (registration.md), joins
-      # the standing test meetings these variables name, records a minute and reports to the API, which routes a
+      # the standing test meetings these variables name with a speaker beside the bot (two Chromiums, hence the size,
+      # #978), records a minute and reports to the API, which routes a
       # failing platform's calls to the backup recorder. Off unless NOTETAKER_CANARY_ENABLED=true; needs
       # PUBLIC_BASE_URL, since the API's own URL is not known until the service deploys below, and
       # NOTETAKER_CANARY_SA: an account of its own, never MEETINGBOT_SA, since only it may report a platform's health.
@@ -162,7 +163,7 @@ jobs:
             --region "$REGION" \
             --service-account "${{ vars.NOTETAKER_CANARY_SA }}" \
             --command node --args dist/canaryMain.js \
-            --cpu 2 --memory 4Gi \
+            --cpu 4 --memory 8Gi \
             --task-timeout 30m \
             --max-retries 0 \
             --tasks 1 \

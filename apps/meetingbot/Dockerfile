@@ -18,6 +18,7 @@ ENV CHROME_PATH=/usr/bin/chromium NODE_ENV=production
 WORKDIR /bot
 COPY --from=build /repo/node_modules ./node_modules
 COPY --from=build /repo/apps/meetingbot/dist ./dist
+COPY --from=build /repo/apps/meetingbot/assets ./assets
 COPY --from=build /repo/apps/meetingbot/package.json ./
 USER node
 CMD ["node", "dist/main.js"]

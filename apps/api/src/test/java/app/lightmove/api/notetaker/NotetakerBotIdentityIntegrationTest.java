@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -11,7 +12,9 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingMeetingRecorder;
 import app.lightmove.api.RecordingRecallBotApi;
+import app.lightmove.api.StubChatModel;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.notetaker.controller.NotetakerCanaryController;
 import app.lightmove.api.notetaker.controller.NotetakerRunController;
 import app.lightmove.api.notetaker.model.NotetakerLaunch;
@@ -47,7 +50,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 /**
  * #956: a Cloud Run bot is started without its run token and takes it once, for its own service account's ID token —
  * never another account's, never twice, and never for a run that has ended; and the daily canary, reporting with the
- * same identity, steers a failing platform's calls to the backup recorder where a workspace has it on.
+ * same identity, steers a failing platform's calls to the backup recorder where a workspace has it on, and (#978) has
+ * its bot's pieces heard by the notes' transcriber.
  */
 @IntegrationTest
 @TestPropertySource(properties = {
@@ -66,6 +70,7 @@ class NotetakerBotIdentityIntegrationTest extends FlowTestSupport {
     @Autowired private NotetakerScheduler scheduler;
     @Autowired private LightMoveProperties properties;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private StubChatModel chat;
 
     private String grantId;
     private String consultant;
@@ -146,6 +151,41 @@ class NotetakerBotIdentityIntegrationTest extends FlowTestSupport {
         }
         assertThat(jdbc.queryForObject("select failing_since is null from app_lm_notetaker_platform_health "
                 + "where platform = 'GOOGLE_MEET'", Boolean.class)).isTrue();
+    }
+
+    @Test
+    @DisplayName("only the canary's own account has a piece heard, before anything is read or asked, and a model that fails says so")
+    void theCanaryHasItsPieceHeard() throws Exception {
+        byte[] piece = {0x1a, 0x45, (byte) 0xdf, (byte) 0xa3, 1, 2, 3};
+        chat.reset();
+        try {
+            chat.answerWhenSystemContains("You transcribe one piece", """
+                    {"lines":[{"offsetSeconds":0.5,"speaker":"Speaker 1","text":"Purple giraffes read"},
+                              {"offsetSeconds":2.0,"speaker":"Speaker 1","text":"quiet library books every morning."}]}""");
+            hear("id-token-for:someone-else@evil.example", piece).andExpect(status().isNotFound());
+            hear("id-token-for:" + BOT, piece).andExpect(status().isNotFound());
+            hear("id-token-for:" + CANARY, new byte[0]).andExpect(status().isBadRequest());
+            hear("id-token-for:" + CANARY, new byte[(int) properties.notetaker().maxMediaBytes() + 1])
+                    .andExpect(status().isBadRequest());
+            assertThat(chat.prompts()).isEmpty();
+
+            hear("id-token-for:" + CANARY, piece).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.heard").value("Purple giraffes read quiet library books every morning."));
+
+            chat.answerWhenSystemContains("You transcribe one piece",
+                    "{\"lines\":[{\"offsetSeconds\":0,\"speaker\":\"" + BlockedAnswer.MARKER + "\",\"text\":\"\"}]}");
+            hear("id-token-for:" + CANARY, piece).andExpect(status().isBadGateway())
+                    .andExpect(jsonPath("$.code").value("AI_UNAVAILABLE"));
+        } finally {
+            chat.reset();
+        }
+    }
+
+    private ResultActions hear(String identity, byte[] piece) throws Exception {
+        return mvc.perform(post(NotetakerCanaryController.HEARING_PATH)
+                .header(NotetakerRunController.BOT_IDENTITY_HEADER, identity)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .content(piece));
     }
 
     private ResultActions canary(String identity, boolean healthy) throws Exception {

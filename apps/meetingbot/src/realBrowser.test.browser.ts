@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import puppeteer, { type Browser } from "puppeteer-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { audibleSecondsOf } from "./canary/loudness.js";
 import { installAudioRecorder } from "./capture/audioRecorderScript.js";
 import { inPage } from "./platforms/inPage.js";
 import { readMeetCaptions, readMeetScreen } from "./platforms/meetScreen.js";
@@ -77,6 +78,9 @@ describe("in a real browser", () => {
       expect(Array.from(piece.subarray(0, 4))).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
       expect(piece.byteLength).toBeGreaterThan(200);
     }
+    // Bytes alone are no proof: Chromium encodes silence too, and did while no media element played the track.
+    const audible = await audibleSecondsOf(executablePath as string, pieces);
+    expect(audible.reduce<number>((total, seconds) => total + (seconds ?? 0), 0)).toBeGreaterThan(2);
     await page.close();
   }, 30_000);
 
