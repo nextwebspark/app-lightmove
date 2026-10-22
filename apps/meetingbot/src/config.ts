@@ -8,6 +8,8 @@ export interface BotConfig {
   apiBaseUrl: string;
   lobbyTimeoutMs: number;
   maxDurationMs: number;
+  /** When the calendar says the call ends; null when it did not say. */
+  endsAtMs: number | null;
 }
 
 const PLATFORMS = ["GOOGLE_MEET", "MICROSOFT_TEAMS"] as const;
@@ -33,7 +35,13 @@ export function readConfig(environment: Record<string, string | undefined>): Bot
     apiBaseUrl: required("NOTETAKER_API_BASE_URL").replace(/\/+$/, ""),
     lobbyTimeoutMs: positiveNumber(environment.NOTETAKER_LOBBY_TIMEOUT_MS, 10 * 60_000),
     maxDurationMs: positiveNumber(environment.NOTETAKER_MAX_DURATION_MS, 3 * 60 * 60_000),
+    endsAtMs: instant(environment.NOTETAKER_ENDS_AT),
   };
+}
+
+function instant(value: string | undefined): number | null {
+  const parsed = value ? Date.parse(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function positiveNumber(value: string | undefined, fallback: number): number {

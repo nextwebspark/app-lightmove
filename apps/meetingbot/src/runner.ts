@@ -8,6 +8,10 @@ export const TICK_MS = 2_000;
 export const HEARTBEAT_MS = 5_000;
 export const PIECE_MS = 30_000;
 export const ALONE_MS = 3 * 60_000;
+/** How long past the calendar's end a bot that cannot count the room stays. */
+export const OVERRUN_MS = 30 * 60_000;
+const CONSENT_ATTEMPTS = 3;
+const CALL_ATTEMPTS = 4;
 
 export type RunOutcome = "completed" | "removed" | "failed";
 
@@ -33,9 +37,11 @@ export function consentLine(botName: string): string {
 export async function runBot(config: BotConfig, deps: RunnerDeps): Promise<RunOutcome> {
   const { api, log } = deps;
   const uploader = new PieceUploader(api, deps.sleep);
+  const call = <T>(what: string, attempt: () => Promise<T>) => withRetries(deps, what, attempt);
   const fail = async (reason: FailureReason): Promise<RunOutcome> => {
     log(`failing: ${reason}`);
-    await api.report("FAILED", reason).catch((error) => log(`could not report the failure: ${error}`));
+    await call("report the failure", () => api.report("FAILED", reason))
+      .catch((error) => log(`could not report the failure: ${error}`));
     return "failed";
   };
 
@@ -48,22 +54,30 @@ export async function runBot(config: BotConfig, deps: RunnerDeps): Promise<RunOu
   }
 
   try {
-    if ((await page.requestToJoin(config.botName)) === "blocked") {
+    const asked = await page.requestToJoin(config.botName);
+    if (asked === "blocked") {
       return await fail("JOIN_BLOCKED");
     }
-    await api.report("WAITING_ROOM");
+    if (asked === "devices-on") {
+      return await fail("DEVICES_NOT_OFF");
+    }
+    await call("report the lobby", () => api.report("WAITING_ROOM"));
 
     const admitted = await waitToBeLetIn(config, deps, page);
     if (admitted === "removed") {
-      await api.complete();
+      await call("complete", () => api.complete());
       return "removed";
     }
     if (admitted !== "in-call") {
       return await fail(admitted);
     }
 
-    await api.report("RECORDING");
-    await page.announce(consentLine(config.botName)).catch((error) => log(`no consent line in the chat: ${error}`));
+    // Nobody is recorded without being told: a bot that cannot say what it is in the chat leaves before recording.
+    if (!(await announceConsent(config, deps, page))) {
+      await page.leave();
+      return await fail("CONSENT_NOT_SHOWN");
+    }
+    await call("report recording", () => api.report("RECORDING"));
     await page.turnOnCaptions().catch((error) => log(`captions could not be turned on: ${error}`));
     await page.startAudio(PIECE_MS);
 
@@ -75,7 +89,7 @@ export async function runBot(config: BotConfig, deps: RunnerDeps): Promise<RunOu
     if (undelivered > 0) {
       log(`${undelivered} pieces could not be delivered`);
     }
-    await api.complete();
+    await call("complete", () => api.complete());
     return ending === "removed" ? "removed" : "completed";
   } catch (error) {
     if (error instanceof RunGoneError) {
@@ -116,7 +130,7 @@ async function waitToBeLetIn(config: BotConfig, deps: RunnerDeps, page: MeetingP
 }
 
 async function recordUntilTheEnd(config: BotConfig, deps: RunnerDeps, page: MeetingPage, uploader: PieceUploader):
-    Promise<"ended" | "alone" | "removed" | "cap"> {
+    Promise<"ended" | "alone" | "removed" | "cap" | "overran"> {
   const captions = new CaptionTracker();
   const started = deps.now();
   let lastHeartbeat = started;
@@ -134,6 +148,10 @@ async function recordUntilTheEnd(config: BotConfig, deps: RunnerDeps, page: Meet
       const screen = await page.screen();
       if (screen.stage === "ended" || screen.stage === "denied") {
         return "ended";
+      }
+      // A room it cannot count is never "alone", so the calendar bounds it instead of the three-hour cap.
+      if (screen.participants === null && config.endsAtMs !== null && now >= config.endsAtMs + OVERRUN_MS) {
+        return "overran";
       }
       if (screen.participants === 1) {
         aloneSince ??= now;
@@ -159,6 +177,38 @@ async function recordUntilTheEnd(config: BotConfig, deps: RunnerDeps, page: Meet
     }
   } finally {
     uploader.enqueue("captions", captions.takePiece());
+  }
+}
+
+async function announceConsent(config: BotConfig, deps: RunnerDeps, page: MeetingPage): Promise<boolean> {
+  for (let attempt = 1; attempt <= CONSENT_ATTEMPTS; attempt++) {
+    try {
+      if (await page.announce(consentLine(config.botName))) {
+        return true;
+      }
+    } catch (error) {
+      deps.log(`the consent line could not be written: ${error}`);
+    }
+    await deps.sleep(TICK_MS);
+  }
+  return false;
+}
+
+/**
+ * The run's own reports and its end, retried as the pieces are: the server takes each again unchanged, and one
+ * lost answer at the end of an hour's call must not throw the call away. A run the server closed is final.
+ */
+async function withRetries<T>(deps: RunnerDeps, what: string, attempt: () => Promise<T>): Promise<T> {
+  for (let tries = 1; ; tries++) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (error instanceof RunGoneError || tries >= CALL_ATTEMPTS) {
+        throw error;
+      }
+      deps.log(`${what} failed, trying again: ${error}`);
+      await deps.sleep(1_000 * 2 ** (tries - 1));
+    }
   }
 }
 

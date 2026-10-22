@@ -3,15 +3,19 @@ import { RunGoneError, type BotState, type FailureReason, type NotetakerApi, typ
 import type { BotConfig } from "./config.js";
 import type { MeetScreen } from "./platforms/meetScreen.js";
 import type { MeetingPage } from "./platforms/platform.js";
-import { ALONE_MS, PIECE_MS, consentLine, runBot, type RunnerDeps } from "./runner.js";
+import { ALONE_MS, OVERRUN_MS, PIECE_MS, consentLine, runBot, type RunnerDeps } from "./runner.js";
 
 const config: BotConfig = {
   runId: "run-1", runToken: "token-1", joinUrl: "https://meet.google.com/abc-defg-hij", platform: "GOOGLE_MEET",
   botName: "Uncava Notetaker", apiBaseUrl: "http://api", lobbyTimeoutMs: 10 * 60_000, maxDurationMs: 60 * 60_000,
+  endsAtMs: null,
 };
 
 interface Script {
-  join?: "requested" | "blocked";
+  join?: "requested" | "blocked" | "devices-on";
+  chatWorks?: boolean;
+  /** How many of the run's own calls (reports, complete) fail before one goes through. */
+  callFailures?: number;
   /** What the page shows at each moment of the run, in milliseconds from its start. */
   screen: (elapsed: number) => MeetScreen;
   leaveAt?: number;
@@ -28,8 +32,16 @@ function harness(script: Script) {
   let onAudio: (piece: Uint8Array) => void = () => undefined;
   let recording: ReturnType<typeof setInterval> | null = null;
 
+  let callFailuresLeft = script.callFailures ?? 0;
+  const flaky = () => {
+    if (callFailuresLeft > 0) {
+      callFailuresLeft--;
+      throw new Error("502 Bad Gateway");
+    }
+  };
   const api: NotetakerApi = {
     async report(state, reason) {
+      flaky();
       reports.push([state, reason]);
     },
     async heartbeat() {
@@ -39,6 +51,7 @@ function harness(script: Script) {
       uploads.push([kind, sequence]);
     },
     async complete() {
+      flaky();
       events.push("complete");
     },
   };
@@ -51,7 +64,11 @@ function harness(script: Script) {
       return script.screen(now);
     },
     announce: async (message) => {
+      if (script.chatWorks === false) {
+        return false;
+      }
       chat.push(message);
+      return true;
     },
     turnOnCaptions: async () => undefined,
     captions: async () => [{ speaker: "Priya", text: `said something at ${Math.floor(now / 10_000)}` }],
@@ -145,6 +162,36 @@ describe("runBot", () => {
     const run = harness({ screen: () => inCall(4) });
     expect(await runBot({ ...config, maxDurationMs: 90_000 }, run.deps)).toBe("completed");
     expect(run.elapsed()).toBeLessThan(100_000);
+  });
+
+  it("never records a call it could not tell it is recording: no consent line, no recording", async () => {
+    const run = harness({ chatWorks: false, screen: () => inCall(3) });
+    expect(await runBot(config, run.deps)).toBe("failed");
+    expect(run.reports.map(([state]) => state)).not.toContain("RECORDING");
+    expect(run.reports.at(-1)).toEqual(["FAILED", "CONSENT_NOT_SHOWN"]);
+    expect(run.events).not.toContain("audio started");
+    expect(run.events).toContain("left");
+  });
+
+  it("never joins with a microphone or camera it could not turn off", async () => {
+    const run = harness({ join: "devices-on", screen: () => lobby });
+    expect(await runBot(config, run.deps)).toBe("failed");
+    expect(run.reports).toEqual([["FAILED", "DEVICES_NOT_OFF"]]);
+  });
+
+  it("rides out a lost answer to its own reports and its end, rather than losing the call", async () => {
+    const run = harness({ callFailures: 3, screen: (t) => (t < 60_000 ? inCall(3) : { stage: "ended",
+      participants: null }) });
+    expect(await runBot(config, run.deps)).toBe("completed");
+    expect(run.reports.map(([state]) => state)).toEqual(["WAITING_ROOM", "RECORDING"]);
+    expect(run.events).toContain("complete");
+  });
+
+  it("leaves half an hour past the calendar's end when it cannot count the room", async () => {
+    const run = harness({ screen: () => ({ stage: "in-call", participants: null }) });
+    expect(await runBot({ ...config, endsAtMs: 20 * 60_000 }, run.deps)).toBe("completed");
+    expect(run.elapsed()).toBeGreaterThanOrEqual(20 * 60_000 + OVERRUN_MS);
+    expect(run.elapsed()).toBeLessThan(20 * 60_000 + OVERRUN_MS + 10_000);
   });
 
   it("reports a browser that never opened as a failed launch", async () => {

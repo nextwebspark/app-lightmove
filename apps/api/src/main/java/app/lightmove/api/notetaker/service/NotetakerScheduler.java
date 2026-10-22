@@ -53,7 +53,7 @@ public class NotetakerScheduler {
             log.error("Notetaker sweep failed; launching anyway", failed);
         }
         try {
-            mediaPurge.purgeRemoved();
+            mediaPurge.purge(now);
         } catch (RuntimeException failed) {
             log.error("Notetaker media purge failed; launching anyway", failed);
         }

@@ -1,15 +1,16 @@
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { installAudioRecorder } from "../capture/audioRecorderScript.js";
 import { inPage } from "./inPage.js";
-import { fillMeetName, pressMeetButton, readMeetCaptions, readMeetScreen, writeMeetChat } from "./meetScreen.js";
+import { BLOCKED_HOSTS, isAllowedNavigation, isMeetLink } from "./meetLink.js";
+import { fillMeetName, pressMeetButton, readMeetCaptions, readMeetDevices, readMeetScreen,
+  writeMeetChat } from "./meetScreen.js";
 import type { MeetingPage } from "./platform.js";
 
 const CHROME_ARGUMENTS = [
   // English labels: the screen readers match on what the page says.
   "--lang=en-US",
-  // A guest with no camera or microphone, granted without a prompt nobody could answer.
-  "--use-fake-ui-for-media-stream",
-  "--use-fake-device-for-media-stream",
+  // No fake camera or microphone: Chromium's fake ones are a test card and a beep, and Meet would put both in the
+  // executive's call. The page is denied both, and the bot joins as a guest with neither.
   "--autoplay-policy=no-user-gesture-required",
   "--disable-blink-features=AutomationControlled",
   "--no-first-run",
@@ -20,9 +21,14 @@ const CHROME_ARGUMENTS = [
   "--disable-dev-shm-usage",
 ];
 
+export class MeetLinkRefused extends Error {}
+
 /** Google Meet in headless Chromium, driven through Puppeteer. */
 export async function openMeet(joinUrl: string, onAudioPiece: (piece: Uint8Array) => void,
                                executablePath: string): Promise<MeetingPage> {
+  if (!isMeetLink(joinUrl)) {
+    throw new MeetLinkRefused("the join link is not a Google Meet link");
+  }
   const browser: Browser = await puppeteer.launch({
     executablePath,
     headless: true,
@@ -30,7 +36,9 @@ export async function openMeet(joinUrl: string, onAudioPiece: (piece: Uint8Array
     defaultViewport: { width: 1280, height: 800 },
   });
   try {
+    await browser.defaultBrowserContext().overridePermissions("https://meet.google.com", []);
     const page = await browser.newPage();
+    await keepToMeet(page);
     // Meet refuses a browser that calls itself HeadlessChrome.
     const agent = (await browser.userAgent()).replace("HeadlessChrome", "Chrome");
     await page.setUserAgent(agent);
@@ -48,6 +56,29 @@ export async function openMeet(joinUrl: string, onAudioPiece: (piece: Uint8Array
   }
 }
 
+/** The page reaches no metadata server, and the tab is never taken off Meet and Google's sign-in. */
+async function keepToMeet(page: Page): Promise<void> {
+  await page.setRequestInterception(true);
+  page.on("request", (request) => {
+    if (request.isInterceptResolutionHandled()) {
+      return;
+    }
+    let host = "";
+    try {
+      host = new URL(request.url()).hostname;
+    } catch {
+      // A data: or blob: address has no host to check.
+    }
+    const leavesMeet = request.isNavigationRequest() && request.frame() === page.mainFrame()
+      && !isAllowedNavigation(request.url());
+    if (BLOCKED_HOSTS.has(host) || leavesMeet) {
+      void request.abort("blockedbyclient");
+      return;
+    }
+    void request.continue();
+  });
+}
+
 function meetPage(browser: Browser, page: Page): MeetingPage {
   return {
     async requestToJoin(botName) {
@@ -62,6 +93,25 @@ function meetPage(browser: Browser, page: Page): MeetingPage {
         }
         await delay(1_000);
       }
+      // Denied both devices, Meet asks once whether to go on without them.
+      await inPage(page, pressMeetButton, ["continue without microphone and camera"]);
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const devices = await inPage(page, readMeetDevices);
+        if (!devices.microphoneOn && !devices.cameraOn) {
+          break;
+        }
+        if (devices.microphoneOn) {
+          await inPage(page, pressMeetButton, ["turn off microphone"]);
+        }
+        if (devices.cameraOn) {
+          await inPage(page, pressMeetButton, ["turn off camera"]);
+        }
+        await delay(500);
+      }
+      const devices = await inPage(page, readMeetDevices);
+      if (devices.microphoneOn || devices.cameraOn) {
+        return "devices-on";
+      }
       await inPage(page, fillMeetName, botName);
       await delay(500);
       const asked = await inPage(page, pressMeetButton, ["ask to join", "join now"]);
@@ -74,11 +124,13 @@ function meetPage(browser: Browser, page: Page): MeetingPage {
     async announce(message) {
       await inPage(page, pressMeetButton, ["chat with everyone", "open chat", "chat"]);
       await delay(1_000);
-      if (await inPage(page, writeMeetChat, message)) {
+      const written = await inPage(page, writeMeetChat, message);
+      if (written) {
         await page.keyboard.press("Enter");
       }
       await delay(500);
       await inPage(page, pressMeetButton, ["close"]);
+      return written;
     },
     async turnOnCaptions() {
       if (!(await inPage(page, pressMeetButton, ["turn on captions"]))) {

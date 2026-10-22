@@ -17,24 +17,13 @@ export interface MeetScreen {
 }
 
 export function readMeetScreen(doc: Document): MeetScreen {
-  const text = (doc.body?.textContent ?? "").replace(/\s+/g, " ").toLowerCase();
   const labelled = (needle: string) =>
     Array.from(doc.querySelectorAll("[aria-label]")).some((element) =>
       (element.getAttribute("aria-label") ?? "").toLowerCase().includes(needle),
     );
-  const says = (...phrases: string[]) => phrases.some((phrase) => text.includes(phrase));
 
-  if (says("you've been removed from the meeting", "you left the meeting", "the call ended", "call has ended",
-      "this meeting has ended")) {
-    return { stage: "ended", participants: null };
-  }
-  if (says("denied your request to join", "no one responded to your request", "you were removed")) {
-    return { stage: "denied", participants: null };
-  }
-  if (says("you can't join this video call", "you can’t join this video call", "this meeting code is invalid",
-      "check your meeting code")) {
-    return { stage: "blocked", participants: null };
-  }
+  // In the call first, and only from the controls: the captions and the chat are on the page too, so a sentence
+  // anyone says or types ("…before the call ended…") must never be read as the screen's own.
   if (labelled("leave call")) {
     let participants: number | null = null;
     for (const element of Array.from(doc.querySelectorAll("[aria-label]"))) {
@@ -52,6 +41,20 @@ export function readMeetScreen(doc: Document): MeetScreen {
     }
     return { stage: "in-call", participants };
   }
+
+  const text = (doc.body?.textContent ?? "").replace(/\s+/g, " ").toLowerCase();
+  const says = (...phrases: string[]) => phrases.some((phrase) => text.includes(phrase));
+  if (says("you've been removed from the meeting", "you left the meeting", "the call ended", "call has ended",
+      "this meeting has ended")) {
+    return { stage: "ended", participants: null };
+  }
+  if (says("denied your request to join", "no one responded to your request", "you were removed")) {
+    return { stage: "denied", participants: null };
+  }
+  if (says("you can't join this video call", "you can’t join this video call", "this meeting code is invalid",
+      "check your meeting code")) {
+    return { stage: "blocked", participants: null };
+  }
   if (says("asking to be let in", "you'll join the call when someone lets you in",
       "please wait until a meeting host brings you into the call", "waiting for the host")) {
     return { stage: "lobby", participants: null };
@@ -60,6 +63,19 @@ export function readMeetScreen(doc: Document): MeetScreen {
     return { stage: "prejoin", participants: null };
   }
   return { stage: "unknown", participants: null };
+}
+
+/**
+ * Whether the pre-join screen still has a microphone or camera on: Meet labels the toggle by what pressing it
+ * does, so "Turn off microphone" means the microphone is on.
+ */
+export function readMeetDevices(doc: Document): { microphoneOn: boolean; cameraOn: boolean } {
+  const labels = Array.from(doc.querySelectorAll("[aria-label]"))
+    .map((element) => (element.getAttribute("aria-label") ?? "").toLowerCase());
+  return {
+    microphoneOn: labels.some((label) => label.includes("turn off microphone")),
+    cameraOn: labels.some((label) => label.includes("turn off camera")),
+  };
 }
 
 /** Clicks the first enabled button whose label or text is one of these; answers whether one was found. */

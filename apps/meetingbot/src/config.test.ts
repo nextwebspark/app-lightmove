@@ -9,6 +9,7 @@ const environment = {
   NOTETAKER_BOT_NAME: "Uncava Notetaker",
   NOTETAKER_API_BASE_URL: "https://beta.uncava.com/",
   NOTETAKER_LOBBY_TIMEOUT_MS: "600000",
+  NOTETAKER_ENDS_AT: "2026-10-22T11:30:00Z",
 };
 
 describe("readConfig", () => {
@@ -17,6 +18,8 @@ describe("readConfig", () => {
     expect(config.apiBaseUrl).toBe("https://beta.uncava.com");
     expect(config.lobbyTimeoutMs).toBe(600_000);
     expect(config.maxDurationMs).toBe(3 * 60 * 60_000);
+    expect(config.endsAtMs).toBe(Date.parse("2026-10-22T11:30:00Z"));
+    expect(readConfig({ ...environment, NOTETAKER_ENDS_AT: "soon" }).endsAtMs).toBeNull();
   });
 
   it("refuses to start without a run token or with a platform it does not join", () => {

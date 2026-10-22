@@ -51,7 +51,7 @@ const port = (server.address() as { port: number }).port;
 
 const config: BotConfig = {
   runId: "try", runToken: "try", joinUrl, platform: "GOOGLE_MEET", botName: "Uncava Notetaker (try)",
-  apiBaseUrl: `http://127.0.0.1:${port}`, lobbyTimeoutMs: 10 * 60_000, maxDurationMs: 60 * 60_000,
+  apiBaseUrl: `http://127.0.0.1:${port}`, lobbyTimeoutMs: 10 * 60_000, maxDurationMs: 60 * 60_000, endsAtMs: null,
 };
 const outcome = await runBot(config, {
   api: httpApi(config.apiBaseUrl, config.runId, config.runToken),

@@ -85,7 +85,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
 
         List<NotetakerLaunch> launches = launchesHere();
         assertThat(launches).hasSize(1);
-        assertThat(launches.getFirst().joinUrl()).isEqualTo("https://meet.example/call-1");
+        assertThat(launches.getFirst().joinUrl()).isEqualTo("https://meet.google.com/call-1");
         assertThat(launches.getFirst().botName()).isEqualTo("Uncava Notetaker");
         assertThat(launches.getFirst().toString()).doesNotContain(launches.getFirst().runToken());
         Map<String, Object> row = recordingRow();
@@ -127,7 +127,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         changed(new CalendarEvent("started", "Underway", Instant.now().minus(Duration.ofMinutes(5)),
                 Instant.now().plus(Duration.ofMinutes(25)), List.of(MAILBOX, "priya@" + domain),
-                "https://meet.example/started", "Google Meet"));
+                "https://meet.google.com/started", "Google Meet"));
         String meetingId = notetakerOf(priya).get("meetings").get(0).get("meetingId").asText();
         assertThat(codeOf(switchMeeting(priya, meetingId, false).andExpect(status().isConflict()).andReturn()))
                 .isEqualTo("NOTETAKER_MEETING_STARTED");
@@ -135,7 +135,8 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
         changed(new CalendarEvent("zoom-1", "Zoom call", soon(), soon().plus(Duration.ofMinutes(30)),
                 List.of(MAILBOX, "priya@" + domain), "https://us05web.zoom.us/j/123", "Zoom"));
         scheduler.scheduleAt(Instant.now());
-        assertThat(launchesHere()).extracting(NotetakerLaunch::joinUrl).containsExactly("https://meet.example/started");
+        assertThat(launchesHere()).extracting(NotetakerLaunch::joinUrl)
+                .containsExactly("https://meet.google.com/started");
     }
 
     @Test
@@ -228,6 +229,43 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a failed bot's pieces are kept to look into, then deleted once the retention has passed")
+    void failedPiecesAreKeptThenPurged() throws Exception {
+        executive("Priya Raman", "priya@" + domain);
+        changed(event("call-1", soon(), "priya@" + domain));
+        scheduler.scheduleAt(Instant.now());
+        NotetakerLaunch launch = launchesHere().getFirst();
+        String run = launch.recordingId().toString();
+        botCall(run, "status", launch.runToken(), "{\"state\":\"RECORDING\"}").andExpect(status().isNoContent());
+        upload(run, "audio", 1, launch.runToken(), new byte[] {1, 2, 3}).andExpect(status().isNoContent());
+        botCall(run, "status", launch.runToken(), "{\"state\":\"FAILED\",\"reason\":\"CONSENT_NOT_SHOWN\"}")
+                .andExpect(status().isNoContent());
+        assertThat(recordingRow().get("end_reason")).isEqualTo("CONSENT_NOT_SHOWN");
+
+        scheduler.scheduleAt(Instant.now());
+        assertThat(pieceKeys(run)).hasSize(1);
+        scheduler.scheduleAt(Instant.now().plus(Duration.ofDays(8)));
+        assertThat(pieceKeys(run)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a link the calendar calls Google Meet is joined only when it is an https link on Meet's own host")
+    void onlyMeetsOwnHostIsJoined() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        changed(eventWithLink("lookalike", soon(), "https://meet.google.com.example.net/abc", "priya@" + domain));
+        changed(eventWithLink("metadata", soon().plus(Duration.ofMinutes(1)), "http://169.254.169.254/computeMetadata",
+                "priya@" + domain));
+        changed(eventWithLink("plain", soon().plus(Duration.ofMinutes(2)), "http://meet.google.com/abc-defg-hij",
+                "priya@" + domain));
+
+        scheduler.scheduleAt(Instant.now());
+
+        assertThat(launchesHere()).isEmpty();
+        assertThat(notetakerOf(priya).get("meetings")).hasSize(3)
+                .allMatch(meeting -> !meeting.get("joinable").asBoolean());
+    }
+
+    @Test
     @DisplayName("switching a call off after its bot was sent, ahead of the start, sends the bot out too")
     void switchingOffASentBotRemovesIt() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -249,8 +287,8 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     void copiesOfOneCallShareTheSwitch() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         Instant start = soon();
-        changed(eventWithLink("copy-a", start, "https://meet.example/shared-room", "priya@" + domain));
-        changed(eventWithLink("copy-b", start, "https://meet.example/shared-room?authuser=1", "priya@" + domain));
+        changed(eventWithLink("copy-a", start, "https://meet.google.com/shared-room", "priya@" + domain));
+        changed(eventWithLink("copy-b", start, "https://meet.google.com/shared-room?authuser=1", "priya@" + domain));
         JsonNode meetings = notetakerOf(priya).get("meetings");
         assertThat(meetings).hasSize(2);
 
@@ -368,7 +406,7 @@ class NotetakerSchedulingIntegrationTest extends FlowTestSupport {
     }
 
     private static CalendarEvent event(String id, Instant start, String... executives) {
-        return eventWithLink(id, start, "https://meet.example/" + id, executives);
+        return eventWithLink(id, start, "https://meet.google.com/" + id, executives);
     }
 
     private static CalendarEvent eventWithLink(String id, Instant start, String joinUrl, String... executives) {

@@ -30,12 +30,10 @@ public class NotetakerConfig {
     @Fallback
     MeetingRecorder ownMeetingRecorder(LightMoveProperties properties) {
         return switch (properties.notetaker().runner()) {
-            case "log" -> new LogMeetingRecorder();
-            case "local" -> new LocalProcessMeetingRecorder(properties, repositoryRoot());
-            case "cloud-run-job" -> new CloudRunJobMeetingRecorder(properties, applicationDefaultTokens(),
+            case LOG -> new LogMeetingRecorder();
+            case LOCAL -> new LocalProcessMeetingRecorder(properties, repositoryRoot());
+            case CLOUD_RUN_JOB -> new CloudRunJobMeetingRecorder(properties, applicationDefaultTokens(),
                     RestClient.builder(), CLOUD_RUN_BASE_URL);
-            default -> throw new IllegalStateException(
-                    "lightmove.notetaker.runner must be log, local or cloud-run-job, not " + properties.notetaker().runner());
         };
     }
 

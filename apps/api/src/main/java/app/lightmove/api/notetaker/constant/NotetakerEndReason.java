@@ -16,6 +16,10 @@ public enum NotetakerEndReason {
     JOIN_BLOCKED,
     /** Nobody admitted the bot from the lobby in time. */
     NOT_ADMITTED,
+    /** The bot could not post its recording notice in the call's chat, so it left rather than record unannounced. */
+    CONSENT_NOT_SHOWN,
+    /** The bot could not be sure its microphone and camera were off, so it never asked to join. */
+    DEVICES_NOT_OFF,
     /** The bot stopped working mid-run. */
     CRASHED,
     /** The bot fell silent. */
@@ -23,5 +27,5 @@ public enum NotetakerEndReason {
 
     /** What a bot may report about itself; the rest are the server's own findings. */
     public static final Set<NotetakerEndReason> REPORTED_BY_BOT = EnumSet.of(LAUNCH_FAILED, JOIN_BLOCKED, NOT_ADMITTED,
-            CRASHED);
+            CONSENT_NOT_SHOWN, DEVICES_NOT_OFF, CRASHED);
 }

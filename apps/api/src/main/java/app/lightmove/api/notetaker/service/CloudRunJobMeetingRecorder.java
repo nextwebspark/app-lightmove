@@ -2,11 +2,13 @@ package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.notetaker.model.NotetakerLaunch;
+import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 
@@ -20,6 +22,9 @@ public class CloudRunJobMeetingRecorder implements MeetingRecorder {
 
     /** Past the call's own cap: the lobby wait and the upload at the end come on top of it. */
     static final Duration TASK_HEADROOM = Duration.ofMinutes(20);
+    /** The scheduler's pass waits on this call; a hung one would hold every other call's bot. */
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
 
     private final LightMoveProperties properties;
     private final GoogleAccessTokens tokens;
@@ -35,7 +40,10 @@ public class CloudRunJobMeetingRecorder implements MeetingRecorder {
             throw new IllegalStateException(
                     "lightmove.notetaker.cloud-run-job must be projects/<project>/locations/<region>/jobs/<job>");
         }
-        this.client = builder.baseUrl(baseUrl).build();
+        JdkClientHttpRequestFactory requests = new JdkClientHttpRequestFactory(
+                HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build());
+        requests.setReadTimeout(READ_TIMEOUT);
+        this.client = builder.baseUrl(baseUrl).requestFactory(requests).build();
     }
 
     @Override

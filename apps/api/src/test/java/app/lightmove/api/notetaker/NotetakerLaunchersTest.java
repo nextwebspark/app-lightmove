@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.NotetakerRunner;
 import app.lightmove.api.core.config.NotetakerSettings;
 import app.lightmove.api.notetaker.constant.NotetakerPlatform;
 import app.lightmove.api.notetaker.model.NotetakerLaunch;
@@ -54,8 +55,8 @@ class NotetakerLaunchersTest {
         });
         server.start();
         try {
-            CloudRunJobMeetingRecorder recorder = new CloudRunJobMeetingRecorder(properties("cloud-run-job", JOB, null),
-                    () -> "google-token", RestClient.builder(),
+            CloudRunJobMeetingRecorder recorder = new CloudRunJobMeetingRecorder(
+                    properties(NotetakerRunner.CLOUD_RUN_JOB, JOB, null), () -> "google-token", RestClient.builder(),
                     "http://127.0.0.1:" + server.getAddress().getPort());
 
             String externalId = recorder.launch(launch);
@@ -78,15 +79,15 @@ class NotetakerLaunchersTest {
 
     @Test
     void aMisnamedJobFailsTheStartRatherThanTheFirstCall() {
-        assertThatThrownBy(() -> new CloudRunJobMeetingRecorder(properties("cloud-run-job", "lightmove-meetingbot",
-                null), () -> "token", RestClient.builder(), "http://127.0.0.1:1"))
+        assertThatThrownBy(() -> new CloudRunJobMeetingRecorder(
+                properties(NotetakerRunner.CLOUD_RUN_JOB, "lightmove-meetingbot", null), () -> "token", RestClient.builder(), "http://127.0.0.1:1"))
                 .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     void theLocalRunnerStartsTheBotWithTheSameEnvironment(@TempDir Path root) throws Exception {
         LocalProcessMeetingRecorder recorder = new LocalProcessMeetingRecorder(
-                properties("local", null, "sh -c env"), root);
+                properties(NotetakerRunner.LOCAL, null, "sh -c env"), root);
 
         String externalId = recorder.launch(launch);
 
@@ -114,11 +115,11 @@ class NotetakerLaunchersTest {
         return null;
     }
 
-    private static LightMoveProperties properties(String runner, String job, String localCommand) {
+    private static LightMoveProperties properties(NotetakerRunner runner, String job, String localCommand) {
         NotetakerSettings notetaker = new NotetakerSettings(true, List.of("GOOGLE_MEET"), "Uncava Notetaker",
                 Duration.ofMinutes(2), Duration.ofMinutes(10), Duration.ofMinutes(5), Duration.ofMinutes(2),
                 Duration.ofMinutes(10), Duration.ofHours(3), "PT1M", runner, "https://beta.uncava.com/", job,
-                localCommand, 8_388_608L);
+                localCommand, 8_388_608L, Duration.ofDays(7));
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null, null, null, null, null,
                 null, null, null, null, null, null, null, null, null, null, null, null, notetaker);
     }

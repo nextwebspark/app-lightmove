@@ -92,6 +92,8 @@ public class NotetakerRunService {
         if (recording.isToLeave()) {
             return;
         }
+        // A removal landing while this piece is stored still wins: the row recorded below lists the file, and the
+        // purge deletes every REMOVED run's listed pieces on its next pass.
         String key = kind.storageKeyOf(runId, sequence);
         try {
             store.put(key, content, sizeBytes, kind.contentType());

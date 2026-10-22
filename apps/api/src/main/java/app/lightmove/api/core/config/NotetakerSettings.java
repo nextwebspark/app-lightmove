@@ -29,7 +29,7 @@ public record NotetakerSettings(
         @DefaultValue("3h") Duration maxDuration,
         /** Spelled out in yml: {@code @Scheduled} reads it. */
         @DefaultValue("PT1M") String scheduleInterval,
-        @DefaultValue("log") String runner,
+        @DefaultValue("log") NotetakerRunner runner,
         /** Where the bot calls back; blank is {@code lightmove.web.base-url}. */
         String apiBaseUrl,
         /** {@code projects/<project>/locations/<region>/jobs/<job>}, for the {@code cloud-run-job} runner. */
@@ -37,5 +37,7 @@ public record NotetakerSettings(
         /** The command the {@code local} runner starts, run from the repository root. */
         @DefaultValue("node apps/meetingbot/dist/main.js") String localCommand,
         /** One captured piece, at most: 30 seconds of Opus audio is about 120 KB. */
-        @DefaultValue("8388608") long maxMediaBytes
+        @DefaultValue("8388608") long maxMediaBytes,
+        /** How long a failed run's pieces are kept to look into before they are deleted. */
+        @DefaultValue("7d") Duration failedMediaRetention
 ) {}

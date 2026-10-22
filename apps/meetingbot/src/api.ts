@@ -1,6 +1,7 @@
 /** The bot's side of `/api/v1/internal/notetaker/runs/{id}`: its run token is its only credential. */
 export type BotState = "WAITING_ROOM" | "RECORDING" | "FAILED";
-export type FailureReason = "LAUNCH_FAILED" | "JOIN_BLOCKED" | "NOT_ADMITTED" | "CRASHED";
+export type FailureReason = "LAUNCH_FAILED" | "JOIN_BLOCKED" | "NOT_ADMITTED" | "CRASHED" | "CONSENT_NOT_SHOWN"
+  | "DEVICES_NOT_OFF";
 export type PieceKind = "audio" | "captions";
 
 export interface NotetakerApi {

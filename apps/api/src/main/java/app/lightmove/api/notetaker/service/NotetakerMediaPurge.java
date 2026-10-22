@@ -1,15 +1,18 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.storage.service.DocumentStore;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Deletes what a removed bot captured: Remove notetaker keeps nothing. Each file goes before its row, so a purge
- * cut short leaves a row to find again, never a file nobody knows of. The scheduler runs it every pass.
+ * Deletes what nobody will read: a removed bot's pieces at once (Remove notetaker keeps nothing), a failed one's
+ * after {@code lightmove.notetaker.failed-media-retention}. Each file goes before its row, so a purge cut short
+ * leaves a row to find again, never a file nobody knows of. The scheduler runs it every pass.
  */
 @Component
 @RequiredArgsConstructor
@@ -20,15 +23,17 @@ class NotetakerMediaPurge {
 
     private final MeetingMediaPieces pieces;
     private final DocumentStore store;
+    private final LightMoveProperties properties;
 
-    void purgeRemoved() {
-        for (UUID recordingId : pieces.removedStillHoldingPieces(RECORDINGS_PER_PASS)) {
+    void purge(Instant now) {
+        Instant failedBefore = now.minus(properties.notetaker().failedMediaRetention());
+        for (UUID recordingId : pieces.unwantedStillHoldingPieces(failedBefore, RECORDINGS_PER_PASS)) {
             for (String key : pieces.storageKeysOf(recordingId)) {
                 try {
                     store.delete(key);
                     pieces.forget(recordingId, key);
                 } catch (IOException failed) {
-                    log.warn("A removed Notetaker run's piece {} could not be deleted; next pass tries again", key,
+                    log.warn("An unwanted Notetaker run's piece {} could not be deleted; next pass tries again", key,
                             failed);
                 }
             }

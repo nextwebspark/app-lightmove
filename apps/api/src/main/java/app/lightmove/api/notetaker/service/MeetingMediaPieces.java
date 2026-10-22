@@ -1,6 +1,8 @@
 package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.notetaker.constant.MeetingMediaKind;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -29,14 +31,19 @@ class MeetingMediaPieces {
                 + "ORDER BY kind, sequence", String.class, recordingId);
     }
 
-    /** Recordings a consultant removed the bot from that still hold pieces. */
-    List<UUID> removedStillHoldingPieces(int limit) {
+    /**
+     * Recordings whose pieces nobody will read that still hold some: a removed bot's at once, a failed one's once
+     * it has been kept {@code failedBefore} to look into. A failed run is final, so its {@code updated_at} is when
+     * it failed.
+     */
+    List<UUID> unwantedStillHoldingPieces(Instant failedBefore, int limit) {
         return jdbc.queryForList("""
                 SELECT DISTINCT media.recording_id
                 FROM app_lm_meeting_recording_media media
                 JOIN app_lm_meeting_recording recording ON recording.id = media.recording_id
                 WHERE recording.status = 'REMOVED'
-                LIMIT ?""", UUID.class, limit);
+                   OR (recording.status = 'FAILED' AND recording.updated_at < ?)
+                LIMIT ?""", UUID.class, Timestamp.from(failedBefore), limit);
     }
 
     void forget(UUID recordingId, String storageKey) {

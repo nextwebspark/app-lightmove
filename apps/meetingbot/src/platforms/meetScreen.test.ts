@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { JSDOM } from "jsdom";
 import { describe, expect, it } from "vitest";
-import { fillMeetName, pressMeetButton, readMeetCaptions, readMeetScreen, writeMeetChat } from "./meetScreen.js";
+import { fillMeetName, pressMeetButton, readMeetCaptions, readMeetDevices, readMeetScreen, writeMeetChat } from
+  "./meetScreen.js";
 
 const page = (name: string) =>
   new JSDOM(readFileSync(new URL(`./fixtures/${name}.html`, import.meta.url), "utf8")).window.document;
@@ -27,6 +28,10 @@ describe("readMeetScreen", () => {
     expect(readMeetScreen(doc).participants).toBe(3);
   });
 
+  it("never reads what someone said or typed in the call as the call's own screen", () => {
+    expect(readMeetScreen(page("meet-in-call-ended-said"))).toEqual({ stage: "in-call", participants: 3 });
+  });
+
   it("answers unknown for a page it cannot read, rather than guessing", () => {
     expect(readMeetScreen(new JSDOM("<p>Loading</p>").window.document).stage).toBe("unknown");
   });
@@ -41,6 +46,11 @@ describe("the pre-join screen", () => {
     });
     expect(fillMeetName(doc, "Uncava Notetaker")).toBe(true);
     expect(heard).toBe("Uncava Notetaker");
+  });
+
+  it("reads whether the microphone and camera are still on", () => {
+    expect(readMeetDevices(page("meet-prejoin"))).toEqual({ microphoneOn: true, cameraOn: true });
+    expect(readMeetDevices(page("meet-prejoin-devices-off"))).toEqual({ microphoneOn: false, cameraOn: false });
   });
 
   it("does not press a disabled button", () => {
