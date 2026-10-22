@@ -60,7 +60,8 @@ class CandidateResponseMapper {
                 candidate.getStatus().getColour().value(),
                 stageOf(candidate.getStatus()),
                 candidate.getStatusChangedAt(),
-                candidate.isClientVisible());
+                candidate.isClientVisible(),
+                candidate.getTriageStatus().value());
     }
 
     static CandidatePipelineStageDto stageOf(CandidateStatusDefinition status) {

@@ -7,6 +7,7 @@ import type {
   SaveCandidatePayload,
   SaveContactsPayload,
 } from "./types";
+import type { TriageCompanyStatus } from "../../triage/api/types";
 
 /**
  * A mandate's mapped executives — the people half of a talent map.
@@ -26,6 +27,8 @@ export interface CandidateQuery {
   /** The other side: people whose employer is not one of the mandate's companies. */
   unmapped?: boolean;
   query?: string;
+  /** The Companies stage the people are listed at — their own, not their company's (#903). */
+  triageStatus?: TriageCompanyStatus;
 }
 
 export const CANDIDATES_KEY = (projectId: string, scope: CandidateQuery) =>
@@ -34,6 +37,7 @@ export const CANDIDATES_KEY = (projectId: string, scope: CandidateQuery) =>
     scope.triageCompanyIds ?? null,
     scope.unmapped ?? false,
     scope.query ?? "",
+    scope.triageStatus ?? null,
   ] as const;
 
 /**
@@ -56,6 +60,7 @@ export function getCandidates(
   scope.triageCompanyIds?.forEach((id) => params.append("triageCompanyId", id));
   if (scope.unmapped) params.set("unmapped", "true");
   if (scope.query) params.set("q", scope.query);
+  if (scope.triageStatus) params.set("triageStatus", scope.triageStatus);
   return request<CandidatesPage>(`/projects/${projectId}/candidates?${params}`, { signal });
 }
 
@@ -122,6 +127,18 @@ export function changeCandidateStatus(
 ): Promise<Candidate> {
   return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}`, {
     method: "PATCH",
+    body: { status },
+  });
+}
+
+/** Moves one executive to another Companies stage; their company and its other people stay where they are. */
+export function moveCandidateToStage(
+  projectId: string,
+  candidateId: string,
+  status: TriageCompanyStatus,
+): Promise<Candidate> {
+  return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}/triage-status`, {
+    method: "PUT",
     body: { status },
   });
 }

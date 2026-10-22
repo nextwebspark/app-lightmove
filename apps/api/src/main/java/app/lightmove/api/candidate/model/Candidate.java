@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.model;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -51,6 +53,14 @@ public class Candidate extends BaseEntity {
 
     @Column(name = "company_name")
     private String companyName;
+
+    /**
+     * The Companies stage this person is listed under (V150): their company's when filed or remapped, then their
+     * own, so moving one executive at a company leaves the colleagues where they stand.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "triage_status", nullable = false, length = 16)
+    private TriageCompanyStatus triageStatus = TriageCompanyStatus.IN_UNIVERSE;
 
     /** The one fact this row holds about where they stand; the stage is read through it (V131). */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -91,7 +101,8 @@ public class Candidate extends BaseEntity {
     @Column(name = "client_visible", nullable = false)
     private boolean clientVisible = true;
 
-    public static Candidate mapped(UUID projectId, UUID addedBy, UUID triageCompanyId, Person person,
+    public static Candidate mapped(UUID projectId, UUID addedBy, UUID triageCompanyId,
+                                   TriageCompanyStatus companyStatus, Person person,
                                    CandidateSource source, CandidateStatusDefinition status,
                                    CandidateDetails details) {
         Candidate candidate = new Candidate();
@@ -103,6 +114,7 @@ public class Candidate extends BaseEntity {
         candidate.source = source;
         candidate.sourceUrl = details.sourceUrl();
         candidate.triageCompanyId = triageCompanyId;
+        candidate.triageStatus = companyStatus;
         candidate.describe(details);
         return candidate;
     }
@@ -159,15 +171,29 @@ public class Candidate extends BaseEntity {
         return changed;
     }
 
-    /** Moves the person to another of the mandate's companies, or off the universe altogether. */
-    public void remapTo(UUID newTriageCompanyId) {
+    /**
+     * Moves the person to another of the mandate's companies, or off the universe altogether. A new company lends
+     * them its stage; staying at the same one keeps the stage they were moved to.
+     */
+    public void remapTo(UUID newTriageCompanyId, TriageCompanyStatus newCompanyStatus) {
+        if (!Objects.equals(triageCompanyId, newTriageCompanyId)) {
+            this.triageStatus = newCompanyStatus;
+        }
         this.triageCompanyId = newTriageCompanyId;
     }
 
-    /** Research resolved the employer into one of the mandate's companies — map and snapshot it. */
-    public void employBy(UUID resolvedTriageCompanyId, String resolvedEmployerName) {
-        this.triageCompanyId = resolvedTriageCompanyId;
+    /** Research resolved the employer into one of the mandate's companies — map, snapshot and stage it. */
+    public void employBy(UUID resolvedTriageCompanyId, String resolvedEmployerName,
+                         TriageCompanyStatus resolvedCompanyStatus) {
+        remapTo(resolvedTriageCompanyId, resolvedCompanyStatus);
         this.companyName = resolvedEmployerName;
+    }
+
+    /** Answers whether anything changed. Only this person moves; their company and its other people stay. */
+    public boolean moveToStage(TriageCompanyStatus newTriageStatus) {
+        boolean changed = triageStatus != newTriageStatus;
+        this.triageStatus = newTriageStatus;
+        return changed;
     }
 
     /**

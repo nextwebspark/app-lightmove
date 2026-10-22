@@ -95,7 +95,7 @@ public class TriageCompanyReadService {
                                 noteCounts == null ? null : noteCounts.getOrDefault(company.getId(), 0),
                                 addedBy.get(company.getAddedBy())))
                         .toList(),
-                found.getTotalElements(), page, size, countsFor(projectId));
+                found.getTotalElements(), page, size, countsFor(projectId, audience));
     }
 
     private Page<TriageCompany> findWithFilters(UUID projectId, TriageCompanyStatus status,
@@ -103,26 +103,31 @@ public class TriageCompanyReadService {
                                                 List<String> executiveStatuses,
                                                 PageRequest pageRequest, ProjectAudience audience) {
         if (executiveName == null && executiveStatuses.isEmpty()) {
+            Set<UUID> movedHere = executives.triageCompanyIdsWithExecutivesMovedTo(projectId, status, audience);
+            if (!movedHere.isEmpty()) {
+                return triaged.findByProjectIdAndStatusOrIdInAndCompanyNameFilter(
+                        projectId, status, movedHere, companyName, pageRequest);
+            }
             return companyName == null
                     ? triaged.findByProjectIdAndStatus(projectId, status, pageRequest)
                     : triaged.findByProjectIdAndStatusAndCompanyNameContainingIgnoreCase(
                             projectId, status, companyName, pageRequest);
         }
-        Set<UUID> matchingIds = matchingExecutiveIds(projectId, executiveName, executiveStatuses, audience);
+        // Every match is a company with someone listed at this stage, so each belongs on it whatever its own stage.
+        Set<UUID> matchingIds = matchingExecutiveIds(projectId, status, executiveName, executiveStatuses, audience);
         if (matchingIds.isEmpty()) {
             return Page.empty(pageRequest);
         }
-        return triaged.findByProjectIdAndStatusAndIdInAndCompanyNameFilter(
-                projectId, status, matchingIds, companyName, pageRequest);
+        return triaged.findByProjectIdAndIdInAndCompanyNameFilter(projectId, matchingIds, companyName, pageRequest);
     }
 
     /** Both filters are independent: each resolves to a company set and the two are intersected. */
-    private Set<UUID> matchingExecutiveIds(UUID projectId, String executiveName, List<String> executiveStatuses,
-                                           ProjectAudience audience) {
-        Set<UUID> byName = executiveName == null
-                ? null : executives.triageCompanyIdsMatchingExecutiveName(projectId, executiveName, audience);
-        Set<UUID> byStatus = executiveStatuses.isEmpty()
-                ? null : executives.triageCompanyIdsWithExecutiveStatusIn(projectId, executiveStatuses, audience);
+    private Set<UUID> matchingExecutiveIds(UUID projectId, TriageCompanyStatus status, String executiveName,
+                                           List<String> executiveStatuses, ProjectAudience audience) {
+        Set<UUID> byName = executiveName == null ? null
+                : executives.triageCompanyIdsMatchingExecutiveName(projectId, status, executiveName, audience);
+        Set<UUID> byStatus = executiveStatuses.isEmpty() ? null
+                : executives.triageCompanyIdsWithExecutiveStatusIn(projectId, status, executiveStatuses, audience);
         if (byName == null) {
             return byStatus;
         }
@@ -210,7 +215,7 @@ public class TriageCompanyReadService {
                         .map(company -> TriageCompanyResponseMapper.toDto(company, null,
                                 addedBy.get(company.getAddedBy())))
                         .toList(),
-                found.getTotalElements(), 0, cap, countsFor(projectId));
+                found.getTotalElements(), 0, cap, countsFor(projectId, audience));
     }
 
     /** Every stage's companies whose name contains {@code companyName}, in name order, one query. */
@@ -312,11 +317,11 @@ public class TriageCompanyReadService {
                 .collect(Collectors.toMap(TriageCompanyLogo::id, TriageCompanyLogo::logoUrl));
     }
 
-    /** How many companies sit at each stage, in three counts. */
+    /** How many companies each stage lists, in three counts — one listed for a person of its moved there included. */
     @Transactional(readOnly = true)
-    public TriageCountsDto stageCountsOf(UUID workspaceId, UUID projectId) {
+    public TriageCountsDto stageCountsOf(UUID workspaceId, UUID projectId, ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
-        return countsFor(projectId);
+        return countsFor(projectId, audience);
     }
 
     /** One company of the mandate; another mandate's id is not found, as a foreign mandate is. */
@@ -341,11 +346,16 @@ public class TriageCompanyReadService {
         return users.findAllById(ids).stream().collect(Collectors.toMap(User::getId, Function.identity()));
     }
 
-    private TriageCountsDto countsFor(UUID projectId) {
+    private TriageCountsDto countsFor(UUID projectId, ProjectAudience audience) {
+        Map<TriageCompanyStatus, Long> movedHere = executives.companyCountsWithExecutivesMoved(projectId, audience);
         return new TriageCountsDto(
-                triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.IN_UNIVERSE),
-                triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.SHORTLISTED),
-                triaged.countByProjectIdAndStatus(projectId, TriageCompanyStatus.DECLINED));
+                countListedAt(projectId, TriageCompanyStatus.IN_UNIVERSE, movedHere),
+                countListedAt(projectId, TriageCompanyStatus.SHORTLISTED, movedHere),
+                countListedAt(projectId, TriageCompanyStatus.DECLINED, movedHere));
+    }
+
+    private long countListedAt(UUID projectId, TriageCompanyStatus status, Map<TriageCompanyStatus, Long> movedHere) {
+        return triaged.countByProjectIdAndStatus(projectId, status) + movedHere.getOrDefault(status, 0L);
     }
 
     /**

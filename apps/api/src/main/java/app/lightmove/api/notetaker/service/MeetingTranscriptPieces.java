@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
-/** A run's transcript (V152): what each audio piece was heard to say as the call goes, then the whole of it. */
+/** A run's transcript (V153): what each audio piece was heard to say as the call goes, then the whole of it. */
 @Component
 @RequiredArgsConstructor
 class MeetingTranscriptPieces {

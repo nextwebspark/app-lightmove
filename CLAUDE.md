@@ -41,7 +41,11 @@ where someone else filed them, read from the candidates list's staff-only `added
 Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
+with three of them is three lines and one with none keeps its "Add executive" slot. **Each executive holds a stage
+of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own Shortlist /
+Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
+person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
+(its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
@@ -1223,25 +1227,27 @@ per answered run and a bounce placeholder per bounced one, adds `app_lm_mailbox_
 it a consultant's own email's `send_at`, `sending_since` claim, `in_reply_to` and `fail_reason`, with the due index.
 V147 adds `app_lm_outreach_message_attachment` — an own email's files in order (name, read type, size, `sha256`, the
 bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
+V150 gives `app_lm_project_candidate` `triage_status` (`IN_UNIVERSE | SHORTLISTED | DECLINED`, backfilled from each
+row's company): the Companies stage the executive is listed at, their own.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
 the profile write, and taken by a new connection.
-V150 is the Notetaker's first (epic #949): `app_lm_meeting_recording` — one bot per call, the call keyed on a SHA-256
+V151 is the Notetaker's first (epic #949): `app_lm_meeting_recording` — one bot per call, the call keyed on a SHA-256
 of its join link and start so two calendars' copies are one claim (`MeetingRecordingClaims`), its run token stored as
 SHA-256 only — and its three switches, each on with no row: `app_lm_workspace_notetaker`,
 `app_lm_notetaker_user_preference` and `app_lm_notetaker_meeting_opt_out` (keyed on the calendar event, so a moved
 meeting stays switched off). `notetaker` reads meetings through `outreach`'s `KeptMeetings` and do not contact through
 `CandidateOutreachService.doNotContactAmong`; nothing depends back. The bot calls only
 `/api/v1/internal/notetaker/runs/{id}/*`, its run token in `X-Notetaker-Run-Token` the whole credential.
-V151 is the bot's pieces (#951): `app_lm_meeting_recording_media`, one row per 30-second audio or caption piece the bot
+V152 is the bot's pieces (#951): `app_lm_meeting_recording_media`, one row per 30-second audio or caption piece the bot
 uploads through `PUT …/runs/{id}/media/{audio|captions}/{n}` (the server names the key, so a bot writes only under its
 own run), in rows of their own so an upload never contends with the same bot's heartbeat on the recording; it drops
-V150's `media`. A removed bot's pieces are deleted by `NotetakerMediaPurge`, file before row, on each scheduler pass.
+V151's `media`. A removed bot's pieces are deleted by `NotetakerMediaPurge`, file before row, on each scheduler pass.
 The bot is started by `lightmove.notetaker.runner`: `log`, `local` (`npm run dev`) or `cloud-run-job`
 (`CloudRunJobMeetingRecorder`, the run's environment as a container override, never retried).
-V152 is the call's note (#952): an audio piece's `started_at` (the bot's `X-Notetaker-Piece-Started-At`; pieces
+V153 is the call's note (#952): an audio piece's `started_at` (the bot's `X-Notetaker-Piece-Started-At`; pieces
 overlap by a second and may arrive out of order, so stitching keys on it), `app_lm_meeting_transcript_piece` — what
 `MeetingTranscriber` (an interface, so Chirp can replace `GeminiMeetingTranscriber`: one call per piece, audio in,
 timed lines out under per-piece voice labels) heard, written every `transcribe-every` (5m) while the call goes, its
