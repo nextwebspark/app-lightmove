@@ -261,6 +261,8 @@ lightmove:
       workspace-creations-per-hour-per-ip: ${AUTH_WORKSPACE_CREATIONS_PER_HOUR_PER_IP:60}
       booking-page-opens-per-minute: ${AUTH_BOOKING_PAGE_OPENS_PER_MINUTE:30}
       booking-page-bookings-per-hour: ${AUTH_BOOKING_PAGE_BOOKINGS_PER_HOUR:5}
+      notetaker-run-calls-per-minute: ${AUTH_NOTETAKER_RUN_CALLS_PER_MINUTE:60}
+      notetaker-run-calls-per-minute-per-ip: ${AUTH_NOTETAKER_RUN_CALLS_PER_MINUTE_PER_IP:1200}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth
@@ -730,6 +732,15 @@ lightmove:
   notes:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
+
+  # Uncava Notetaker (epic #949): our own bot joins a kept meeting's call. Off until a deployment can launch one;
+  # platforms are the ones our own bot can join (GOOGLE_MEET, MICROSOFT_TEAMS).
+  notetaker:
+    enabled: ${NOTETAKER_ENABLED:false}
+    platforms: ${NOTETAKER_PLATFORMS:GOOGLE_MEET}
+    bot-name: ${NOTETAKER_BOT_NAME:Uncava Notetaker}
+    # How often the scheduler looks for calls about to start. Spelled out: @Scheduled reads it.
+    schedule-interval: ${NOTETAKER_SCHEDULE_INTERVAL:PT1M}
 
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:

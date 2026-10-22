@@ -387,7 +387,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (epic #949, our own meeting bot) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -1216,6 +1216,13 @@ bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied versi
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
 the profile write, and taken by a new connection.
+V149 is the Notetaker's first (epic #949): `app_lm_meeting_recording` — one bot per call, the call keyed on a SHA-256
+of its join link and start so two calendars' copies are one claim (`MeetingRecordingClaims`), its run token stored as
+SHA-256 only — and its three switches, each on with no row: `app_lm_workspace_notetaker`,
+`app_lm_notetaker_user_preference` and `app_lm_notetaker_meeting_opt_out` (keyed on the calendar event, so a moved
+meeting stays switched off). `notetaker` reads meetings through `outreach`'s `KeptMeetings` and do not contact through
+`CandidateOutreachService.doNotContactAmong`; nothing depends back. The bot calls only
+`/api/v1/internal/notetaker/runs/{id}/*`, its run token in `X-Notetaker-Run-Token` the whole credential.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

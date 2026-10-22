@@ -29,5 +29,9 @@ public record RateLimitSettings(
         @DefaultValue("30") int bookingPageOpensPerMinute,
 
         /** Booking through a link: each one is an invite on a consultant's calendar, so a tight brake. */
-        @DefaultValue("5") int bookingPageBookingsPerHour
+        @DefaultValue("5") int bookingPageBookingsPerHour,
+
+        /** A Notetaker bot's calls: a heartbeat every five seconds and a few reports, per run and per address. */
+        @DefaultValue("60") int notetakerRunCallsPerMinute,
+        @DefaultValue("1200") int notetakerRunCallsPerMinutePerIp
 ) {}
