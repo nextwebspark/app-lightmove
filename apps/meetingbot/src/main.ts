@@ -1,6 +1,6 @@
 import { httpApi } from "./api.js";
 import { describe, readConfig } from "./config.js";
-import { openMeet } from "./platforms/meetPage.js";
+import { openCall } from "./platforms/openCall.js";
 import { runBot } from "./runner.js";
 
 /** The bot's entry point: one process, one call, started by the API's runner with its run in the environment. */
@@ -10,16 +10,10 @@ const log = (message: string) => console.log(`[notetaker ${config.runId}] ${mess
 
 const api = httpApi(config.apiBaseUrl, config.runId, config.runToken);
 
-if (config.platform !== "GOOGLE_MEET") {
-  log(`${config.platform} is not joined by this bot yet`);
-  await api.report("FAILED", "LAUNCH_FAILED").catch(() => undefined);
-  process.exit(1);
-}
-
 log(`starting ${describe(config)}`);
 const outcome = await runBot(config, {
   api,
-  openPage: (onAudioPiece) => openMeet(config.joinUrl, onAudioPiece, executablePath),
+  openPage: (onAudioPiece) => openCall(config.platform, config.joinUrl, onAudioPiece, executablePath),
   now: () => Date.now(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   log,

@@ -1247,6 +1247,9 @@ own run), in rows of their own so an upload never contends with the same bot's h
 V151's `media`. A removed bot's pieces are deleted by `NotetakerMediaPurge`, file before row, on each scheduler pass.
 The bot is started by `lightmove.notetaker.runner`: `log`, `local` (`npm run dev`) or `cloud-run-job`
 (`CloudRunJobMeetingRecorder`, the run's environment as a container override, never retried).
+The bot joins Google Meet and, since #954, Microsoft Teams' web client as a guest (`apps/meetingbot`'s `teamsPage.ts`,
+never the app, never a sign-in: a tenant that lets no guest in fails `JOIN_BLOCKED`); a deployment offers Teams once
+`NOTETAKER_PLATFORMS` lists `MICROSOFT_TEAMS`, which stays off until a manual run against real meetings has passed.
 V153 is the call's note (#952): an audio piece's `started_at` (the bot's `X-Notetaker-Piece-Started-At`; pieces
 overlap by a second and may arrive out of order, so stitching keys on it), `app_lm_meeting_transcript_piece` — what
 `MeetingTranscriber` (an interface, so Chirp can replace `GeminiMeetingTranscriber`: one call per piece, audio in,
