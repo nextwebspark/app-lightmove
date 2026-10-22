@@ -110,7 +110,8 @@ export function getTriageCounts(projectId: string, signal?: AbortSignal): Promis
 export function updateTriageCompany(
   projectId: string,
   triageCompanyId: string,
-  changes: { status?: TriageCompanyStatus; noExecutiveFound?: boolean },
+  /** `executiveIds` names who a move carries; absent, everyone still at the company's old stage. */
+  changes: { status?: TriageCompanyStatus; noExecutiveFound?: boolean; executiveIds?: string[] },
 ): Promise<TriageCompany> {
   return request<TriageCompany>(`/projects/${projectId}/triage/${triageCompanyId}`, {
     method: "PATCH",

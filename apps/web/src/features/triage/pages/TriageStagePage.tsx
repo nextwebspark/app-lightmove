@@ -308,7 +308,8 @@ function TriageStage() {
    * entirely: only an import defines one, and the import dialog refreshes them itself.
    */
   const refreshWhatMoved = (kinds: ProjectStreamKind[]) => {
-    if (kinds.some((kind) => kind.startsWith("company-"))) {
+    // A move changes which companies a stage lists and its badges, not only its people.
+    if (kinds.some((kind) => kind.startsWith("company-") || kind === "candidate-moved")) {
       refreshEveryStage();
     }
     if (kinds.some((kind) => kind.startsWith("candidate-"))) {
@@ -433,7 +434,9 @@ function TriageStage() {
    * someone it has.
    */
   const executiveName = debouncedExecutiveQuery.trim();
-  const mappedScope = { triageCompanyIds: companyIds, query: executiveName };
+  // Only the people listed at this stage: a company carries its people across stages since #903, and a
+  // colleague moved to Declined is a line on Declined, not here.
+  const mappedScope = { triageCompanyIds: companyIds, query: executiveName, triageStatus: stage.status };
   const mappedPeople = useQuery({
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, mappedScope),
     queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, mappedScope, signal),
@@ -458,19 +461,18 @@ function TriageStage() {
    * page kept being merged into every filtered view. A company-name filter hides them; the Executive
    * and Status filters narrow them.
    */
-  const showsUnmappedPeople =
-    view === "table" && stage.status === "inUniverse" && !debouncedQuery.trim() && page === lastPage;
+  const showsUnmappedPeople = view === "table" && !debouncedQuery.trim() && page === lastPage;
 
   /**
    * Executives whose employer is not in the mandate's universe at all. They belong to the mandate
-   * rather than to any company, so they sit after the companies on the universe's last page — the one
+   * rather than to any company, so they sit after the companies on their stage's last page — the one
    * place a reader reaches by scrolling to the end of the mapping. Grouping the grid by company is
    * where they eventually get a heading of their own; until then, invisible would be worse.
    *
    * <p>The name filter goes to the server: the read is capped there, so matching it on the arrived
    * page alone would miss everyone past the cap.
    */
-  const unmappedScope = { unmapped: true, query: executiveName };
+  const unmappedScope = { unmapped: true, query: executiveName, triageStatus: stage.status };
   const unmappedPeople = useQuery({
     queryKey: candidatesApi.CANDIDATES_KEY(project.id, unmappedScope),
     queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, unmappedScope, signal),
@@ -576,12 +578,20 @@ function TriageStage() {
     peopleNotShown(unmappedPage, "with no company in this mandate"),
   ].filter((line): line is string => line !== null);
 
+  /**
+   * A company's move carries the people still where it stood, and someone moved on their own stays put (#903). The
+   * page reads who those are first and names them, so the toast can count them and Undo brings back exactly them.
+   */
   const move = useMutation({
-    mutationFn: ({ company, status }: { company: TriageCompany; status: TriageCompanyStatus; isUndo?: boolean }) =>
-      triageApi.updateTriageCompany(project.id, company.id, { status }),
-    onSuccess: (_result, { company, status, isUndo }) => {
-      refreshEveryStage();
-      const message = `${company.companyName} moved to ${MOVE_LABELS[status]}`;
+    mutationFn: async ({ company, status, executiveIds }: CompanyMove) => {
+      const carried = executiveIds ?? (await executivesStandingWith(company));
+      await triageApi.updateTriageCompany(project.id, company.id, { status, executiveIds: carried });
+      return carried;
+    },
+    onSuccess: (carried, { company, status, isUndo }) => {
+      void rowsChanged(project.id);
+      const withThem = carried && carried.length > 0 ? ` and ${executivesOf(carried.length)}` : "";
+      const message = `${company.companyName}${withThem} moved to ${MOVE_LABELS[status]}`;
       if (isUndo) {
         toast(message);
         return;
@@ -589,12 +599,59 @@ function TriageStage() {
       toast.success(message, {
         undo: () => {
           markBusy(company.id);
-          move.mutate({ company: { ...company, status }, status: company.status, isUndo: true });
+          move.mutate({
+            company: { ...company, status },
+            status: company.status,
+            executiveIds: carried,
+            isUndo: true,
+          });
         },
       });
     },
     onError: (error) => toast.error(messageFor(error)),
     onSettled: (_data, _error, { company }) => clearBusy(company.id),
+  });
+
+  /** Undefined when the read could not fit them all: the server then carries everyone at the old stage itself. */
+  const executivesStandingWith = async (company: TriageCompany): Promise<string[] | undefined> => {
+    const standing = await candidatesApi.getCandidates(project.id, {
+      triageCompanyIds: [company.id],
+      triageStatus: company.status,
+    });
+    return standing.totalCount > standing.candidates.length
+      ? undefined
+      : standing.candidates.map((candidate) => candidate.id);
+  };
+
+  /** Who a removal leaves on the position with no company, read only while its dialog is open. */
+  const removalScope = { triageCompanyIds: pendingRemoval ? [pendingRemoval.id] : [] };
+  const peopleAtRemoval = useQuery({
+    queryKey: candidatesApi.CANDIDATES_KEY(project.id, removalScope),
+    queryFn: ({ signal }) => candidatesApi.getCandidates(project.id, removalScope, signal),
+    enabled: pendingRemoval !== null,
+  });
+
+  /** One executive alone (#903): their company, and everyone else at it, stay where they stand. */
+  const moveCandidate = useMutation({
+    mutationFn: ({ candidate, status }: { candidate: Candidate; status: TriageCompanyStatus; isUndo?: boolean }) =>
+      candidatesApi.moveCandidateToStage(project.id, candidate.id, status),
+    onSuccess: (_result, { candidate, status, isUndo }) => {
+      void rowsChanged(project.id);
+      const message = `${candidate.fullName} moved to ${MOVE_LABELS[status]}`;
+      if (isUndo) {
+        toast(message);
+        return;
+      }
+      const previous = candidate.triageStatus ?? stage.status;
+      toast.success(message, {
+        undo: () => {
+          markBusy(candidate.id);
+          moveCandidate.mutate({ candidate: { ...candidate, triageStatus: status }, status: previous, isUndo: true });
+        },
+      });
+    },
+    onError: (error) => toast.error(messageFor(error)),
+    onSettled: (_data, _error, { candidate }) => clearBusy(candidate.id),
   });
 
   const remove = useMutation({
@@ -810,6 +867,10 @@ function TriageStage() {
           }}
           onEditCandidate={(candidate) => setProfile({ candidate, company: null })}
           onRemoveCandidate={setPendingCandidateRemoval}
+          onMoveCandidate={(candidate, status) => {
+            markBusy(candidate.id);
+            moveCandidate.mutate({ candidate, status });
+          }}
           onOpenCompany={(company) => setOpenCompany({ company })}
           busyIds={busyIds}
           canWrite={canWrite}
@@ -853,7 +914,7 @@ function TriageStage() {
         {enrollingCompanyIds && (
           <EnrolDialog
             projectId={project.id}
-            scope={{ triageCompanyIds: enrollingCompanyIds }}
+            scope={{ triageCompanyIds: enrollingCompanyIds, triageStatus: stage.status }}
             source={`From the ${companiesOf(enrollingCompanyIds.length)} you ticked on ${stage.label}`}
             onClose={() => setEnrollingCompanyIds(null)}
           />
@@ -944,6 +1005,7 @@ function TriageStage() {
 
       <RemoveCompanyDialog
         company={pendingRemoval}
+        executiveCount={pendingRemoval ? peopleAtRemoval.data?.totalCount : undefined}
         removing={remove.isPending}
         onCancel={() => setPendingRemoval(null)}
         onConfirm={(company) => {
@@ -970,6 +1032,18 @@ function TriageStage() {
 function peopleNotShown(page: CandidatesPage | undefined, where: string): string | null {
   if (!page || page.totalCount <= page.candidates.length) return null;
   return `Showing ${page.candidates.length} of ${page.totalCount} executives ${where}.`;
+}
+
+function executivesOf(count: number): string {
+  return count === 1 ? "1 executive" : `${count} executives`;
+}
+
+interface CompanyMove {
+  company: TriageCompany;
+  status: TriageCompanyStatus;
+  /** Who moves with it; read from the company's old stage when not named. */
+  executiveIds?: string[];
+  isUndo?: boolean;
 }
 
 /**

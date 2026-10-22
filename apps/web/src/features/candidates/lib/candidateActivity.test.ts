@@ -74,6 +74,17 @@ describe("timelineLines", () => {
     expect(lineOf({ kind: "AI_ASSESSED", details: {} }).text).toBe("had the AI assess them");
   });
 
+  it("names a Companies stage move by its stages, and says when the company carried them", () => {
+    expect(lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "declined" } })).toMatchObject({
+      text: "moved them to Declined on this position",
+      detail: "In universe → Declined",
+    });
+    expect(
+      lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "shortlisted", withCompany: "true" } })
+        .detail,
+    ).toBe("In universe → Shortlisted · With their company");
+  });
+
   it("says whether the executive was shown to the client or hidden from them", () => {
     expect(lineOf({ kind: "CLIENT_VISIBILITY_CHANGED", details: { visible: "false" } })).toMatchObject({
       text: "hid them from the client on this position",

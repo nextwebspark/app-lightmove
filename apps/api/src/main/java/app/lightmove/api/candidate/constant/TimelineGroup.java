@@ -14,7 +14,8 @@ import lombok.experimental.Accessors;
 public enum TimelineGroup implements ApiValueEnum {
 
     POSITIONS("positions", EnumSet.of(PersonActivityKind.ADDED_TO_POOL, PersonActivityKind.MAPPED,
-            PersonActivityKind.UNMAPPED, PersonActivityKind.STATUS_CHANGED, PersonActivityKind.NEXT_ACTION_SET,
+            PersonActivityKind.UNMAPPED, PersonActivityKind.STATUS_CHANGED,
+            PersonActivityKind.TRIAGE_STATUS_CHANGED, PersonActivityKind.NEXT_ACTION_SET,
             PersonActivityKind.CLIENT_VISIBILITY_CHANGED, PersonActivityKind.TASK_CREATED,
             PersonActivityKind.TASK_COMPLETED, PersonActivityKind.TASK_REOPENED, PersonActivityKind.TASK_REASSIGNED,
             PersonActivityKind.TASK_CANCELLED)),

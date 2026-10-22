@@ -1145,7 +1145,7 @@
 }, {
   "name" : "uncava_get_universe",
   "title" : "Read a stage with its executives",
-  "description" : "Read one stage of a position — inUniverse (the default), shortlisted or declined — as its companies, each with the executives mapped at it, in one call; on inUniverse, executives at no company come back as unassigned. Use it to summarise or compare a whole market at once; for a stage too large for one answer, page through uncava_list_companies and uncava_list_candidates instead. Example: stage \"shortlisted\" with response_format \"detailed\" for a shortlist briefing.",
+  "description" : "Read one stage of a position — inUniverse (the default), shortlisted or declined — as its companies, each with its executives listed at that stage, in one call; executives at no company come back as unassigned. Use it to summarise or compare a whole market at once; for a stage too large for one answer, page through uncava_list_companies and uncava_list_candidates instead. Example: stage \"shortlisted\" with response_format \"detailed\" for a shortlist briefing.",
   "inputSchema" : {
     "$schema" : "https://json-schema.org/draft/2020-12/schema",
     "type" : "object",
@@ -1630,7 +1630,7 @@
         "description" : "Every executive at no company, including any this answer was cut short of"
       },
       "unassigned" : {
-        "description" : "Executives at no company of the position; filled on inUniverse only",
+        "description" : "Executives of the stage at no company of the position",
         "type" : "array",
         "items" : {
           "$ref" : "#/$defs/McpCandidateRow"
@@ -2219,7 +2219,7 @@
       },
       "stage" : {
         "type" : "string",
-        "description" : "Only executives mapped at a company of this stage: inUniverse, shortlisted or declined. An executive at no company is at no stage"
+        "description" : "Only executives listed at this stage: inUniverse, shortlisted or declined. Each executive holds a stage of their own, their company's unless moved alone"
       },
       "status" : {
         "type" : "string",

@@ -17,6 +17,8 @@ const COALESCE_MS = 500;
 export type ProjectStreamKind =
   | "candidate-captured"
   | "candidate-enriched"
+  /** An executive changed Companies stage, alone or with their company. */
+  | "candidate-moved"
   | "company-captured"
   | "company-enriched"
   | "executive-sourcing"
@@ -28,6 +30,7 @@ export type ProjectStreamKind =
 const EVERY_KIND: ProjectStreamKind[] = [
   "candidate-captured",
   "candidate-enriched",
+  "candidate-moved",
   "company-captured",
   "company-enriched",
   "executive-sourcing",

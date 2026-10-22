@@ -18,6 +18,7 @@ import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.Collection;
@@ -53,13 +54,21 @@ public class CandidateOutreachService {
     @Transactional(readOnly = true)
     public List<OutreachRecipient> recipientsOf(UUID workspaceId, UUID projectId, Collection<UUID> candidateIds,
                                                 Collection<UUID> triageCompanyIds) {
+        return recipientsOf(workspaceId, projectId, candidateIds, triageCompanyIds, null);
+    }
+
+    /** {@code atStage}, when named, holds the companies' people to those listed at that stage (#903). */
+    @Transactional(readOnly = true)
+    public List<OutreachRecipient> recipientsOf(UUID workspaceId, UUID projectId, Collection<UUID> candidateIds,
+                                                Collection<UUID> triageCompanyIds, TriageCompanyStatus atStage) {
         projects.requireInWorkspace(projectId, workspaceId);
         Map<UUID, Candidate> found = new LinkedHashMap<>();
         if (!candidateIds.isEmpty()) {
             candidates.findByProjectIdAndIdIn(projectId, candidateIds).forEach(row -> found.put(row.getId(), row));
         }
         if (!triageCompanyIds.isEmpty()) {
-            candidates.findByProjectIdAndTriageCompanyIdIn(projectId, triageCompanyIds)
+            candidates.findByProjectIdAndTriageCompanyIdIn(projectId, triageCompanyIds).stream()
+                    .filter(row -> atStage == null || row.getTriageStatus() == atStage)
                     .forEach(row -> found.putIfAbsent(row.getId(), row));
         }
         return found.values().stream().map(CandidateOutreachService::recipientOf).toList();

@@ -2,14 +2,17 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.repository.CandidateRepository;
+import app.lightmove.api.candidate.repository.MovedCompanyCount;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.MappedExecutiveLookup;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,18 +33,32 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     private final CandidatePipelineCatalog pipeline;
 
     @Override
-    public Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, String executiveName,
-                                                           ProjectAudience audience) {
+    public Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, TriageCompanyStatus stage,
+                                                           String executiveName, ProjectAudience audience) {
         return candidates.findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
-                projectId, executiveName, audience.clientVisibleOnly());
+                projectId, stage, executiveName, audience.clientVisibleOnly());
     }
 
     /** Status keys of the project's own workspace catalog; a key it does not hold matches nobody. */
     @Override
-    public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses,
-                                                           ProjectAudience audience) {
-        return candidates.findTriageCompanyIdsByProjectIdAndStatusKeyIn(projectId, executiveStatuses,
+    public Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, TriageCompanyStatus stage,
+                                                           List<String> executiveStatuses, ProjectAudience audience) {
+        return candidates.findTriageCompanyIdsByProjectIdAndStatusKeyIn(projectId, stage, executiveStatuses,
                 audience.clientVisibleOnly());
+    }
+
+    @Override
+    public Set<UUID> triageCompanyIdsWithExecutivesMovedTo(UUID projectId, TriageCompanyStatus stage,
+                                                           ProjectAudience audience) {
+        return candidates.findTriageCompanyIdsWithExecutivesMovedTo(projectId, stage.name(),
+                audience.clientVisibleOnly());
+    }
+
+    @Override
+    public Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience) {
+        return candidates.countCompaniesWithExecutivesMovedByStage(projectId, audience.clientVisibleOnly()).stream()
+                .collect(Collectors.toMap(count -> TriageCompanyStatus.valueOf(count.getTriageStatus()),
+                        MovedCompanyCount::getCompanies));
     }
 
     @Override
