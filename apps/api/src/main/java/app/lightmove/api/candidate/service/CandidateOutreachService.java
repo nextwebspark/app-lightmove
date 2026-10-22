@@ -90,6 +90,15 @@ public class CandidateOutreachService {
         return names;
     }
 
+    /** Which of these people are marked do not contact: the Notetaker joins no call with one of them on it. */
+    @Transactional(readOnly = true)
+    public Set<UUID> doNotContactAmong(UUID workspaceId, Collection<UUID> personIds) {
+        return persons.findAllById(personIds).stream()
+                .filter(person -> person.getWorkspaceId().equals(workspaceId) && person.isDoNotContact())
+                .map(Person::getId)
+                .collect(Collectors.toSet());
+    }
+
     /** One executive as they stand now — what a send re-checks. Empty once they are off the position. */
     @Transactional(readOnly = true)
     public Optional<OutreachRecipient> currentRecipient(UUID workspaceId, UUID projectId, UUID candidateId) {

@@ -731,6 +731,15 @@ lightmove:
     purge-after: ${NOTES_PURGE_AFTER:30d}
     purge-interval: ${NOTES_PURGE_INTERVAL:PT1H}
 
+  # Uncava Notetaker (epic #949): our own bot joins a kept meeting's call. Off until a deployment can launch one;
+  # platforms are the ones our own bot can join (GOOGLE_MEET, MICROSOFT_TEAMS).
+  notetaker:
+    enabled: ${NOTETAKER_ENABLED:false}
+    platforms: ${NOTETAKER_PLATFORMS:GOOGLE_MEET}
+    bot-name: ${NOTETAKER_BOT_NAME:Uncava Notetaker}
+    # How often the scheduler looks for calls about to start. Spelled out: @Scheduled reads it.
+    schedule-interval: ${NOTETAKER_SCHEDULE_INTERVAL:PT1M}
+
   # Contact credits (epic #734). On, a find the credits cannot cover is refused (402); off, it is recorded as an overdraft.
   billing:
     enforce: ${BILLING_ENFORCE:true}

@@ -133,6 +133,9 @@ export type ApiErrorCode =
   | "MEETING_SLOT_INVALID"
   | "MEETING_BOOK_FAILED"
   | "MEETING_CALENDAR_UNAVAILABLE"
+  | "NOTETAKER_UNAVAILABLE"
+  | "NOTETAKER_MEETING_STARTED"
+  | "NOTETAKER_NOT_IN_CALL"
   | "WORKSPACE_NAME_MISMATCH"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
@@ -278,6 +281,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
   MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
   MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again in a moment, or reconnect your mailbox if it keeps failing.",
+  NOTETAKER_UNAVAILABLE: "The Notetaker isn't available for your workspace yet.",
+  NOTETAKER_MEETING_STARTED: "This meeting has already started, so the Notetaker can't be changed for it now.",
+  NOTETAKER_NOT_IN_CALL: "The Notetaker isn't in this meeting.",
   WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",

@@ -46,6 +46,7 @@ import java.lang.annotation.Target;
         RecordingContactOutPeopleIndex.Config.class, RecordingMailboxGateway.Config.class,
         RecordingRecallCalendarApi.Config.class, RecordingZoomApi.Config.class,
         RecordingProviderTokenClient.Config.class, StubClientMetadataFetcher.Config.class,
-        RecordingCreditThresholds.Config.class, RecordingPaymentGateway.Config.class})
+        RecordingCreditThresholds.Config.class, RecordingPaymentGateway.Config.class,
+        RecordingMeetingRecorder.Config.class})
 public @interface IntegrationTest {
 }

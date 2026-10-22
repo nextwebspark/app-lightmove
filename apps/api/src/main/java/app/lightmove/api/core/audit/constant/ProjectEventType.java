@@ -140,6 +140,12 @@ public enum ProjectEventType implements AuditEventType {
     /** A call booked with an executive from a consultant's own calendar. */
     OUTREACH_MEETING_BOOKED,
 
+    /** The Notetaker turned on or off for one call. */
+    NOTETAKER_MEETING_SWITCHED,
+
+    /** A consultant sent the Notetaker out of a call it was in. */
+    NOTETAKER_REMOVED,
+
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
 
