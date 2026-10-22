@@ -1763,7 +1763,7 @@
                 <sc-if value="{{ sx.isMeetings }}">
                   <sc-if value="{{ cd.mtEmpty }}"><p style="margin:0;font:400 12.5px/1.5 var(--sans);color:var(--text3)">No meetings with {{ cd.first }} on your team's calendars yet.</p></sc-if>
                   <sc-if value="{{ cd.ntSwitchedOff }}" hint-placeholder-val="{{ false }}">
-                    <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--sans);color:var(--text2)"><span style="flex:1">{{ cd.ntSwitchWhose }}</span><a href="{{ cd.ntSwitchLink }}" style="font:600 12px var(--sans);color:var(--sky)">{{ cd.ntSwitchLinkLabel }}</a></div>
+                    <div style="margin-bottom:10px;display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);padding:7px 10px;font:400 12px var(--sans);color:var(--text2)"><span style="flex:1">{{ cd.ntSwitchWhose }}</span><sc-if value="{{ cd.ntSwitchMine }}" hint-placeholder-val="{{ true }}"><a href="Settings.dc.html?section=profile" style="font:600 12px var(--sans);color:var(--sky)">Profile</a></sc-if></div>
                   </sc-if>
                   <sc-if value="{{ cd.mtHasUpcoming }}">
                     <div style="margin-bottom:4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Upcoming</div>
@@ -1786,10 +1786,16 @@
                               <sc-if value="{{ m.ntRemovable }}" hint-placeholder-val="{{ true }}">
                                 <button data-id="{{ m.when }}" onClick="{{ askRemoveNotetaker }}" style="padding:0;font:500 11.5px var(--sans);color:var(--text3);background:none;border:none;text-decoration:underline;cursor:pointer" style-hover="color:var(--red)">Remove notetaker</button>
                               </sc-if>
+                              <sc-if value="{{ m.ntReady }}" hint-placeholder-val="{{ false }}">
+                                <button data-partial="{{ m.ntPartial }}" onClick="{{ openTranscript }}" style="padding:0;font:500 11.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">View transcript</button>
+                              </sc-if>
+                              <sc-if value="{{ m.ntRetry }}" hint-placeholder-val="{{ false }}">
+                                <button onClick="{{ retryNotes }}" style="border-radius:6px;padding:2px 9px;font:600 11.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer">Try again</button>
+                              </sc-if>
                             </span>
                           </sc-if>
-                          <sc-if value="{{ m.ntZoom }}" hint-placeholder-val="{{ false }}">
-                            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">The notetaker joins Meet and Teams calls.</span>
+                          <sc-if value="{{ m.ntUnjoinable }}" hint-placeholder-val="{{ false }}">
+                            <span style="display:block;margin-top:6px;font:400 11px var(--mono);color:var(--text3)">{{ cd.ntPlatformsLine }}</span>
                           </sc-if>
                         </span>
                         <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
@@ -1800,7 +1806,11 @@
                     <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
                     <sc-for list="{{ cd.mtPast }}" as="m">
                       <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span></span>
-                        <sc-if value="{{ m.hasNotes }}" hint-placeholder-val="{{ false }}"><span style="flex:none;display:inline-flex;align-items:center;gap:8px"><span style="border-radius:5px;padding:1px 7px;font:600 10px var(--mono);color:var(--green);background:var(--green-dim)">Notes ready</span><button onClick="{{ openTranscript }}" style="padding:0;font:500 11.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">View transcript</button></span></sc-if>
+                        <sc-if value="{{ m.hasNotes }}" hint-placeholder-val="{{ false }}"><span style="flex:none;display:inline-flex;align-items:center;gap:8px"><span title="{{ m.notesTitle }}" style="{{ m.notesStyle }}">{{ m.notesLabel }}</span>
+                          <sc-if value="{{ m.notesHere }}" hint-placeholder-val="{{ true }}"><button data-partial="{{ m.notesPartial }}" onClick="{{ openTranscript }}" style="padding:0;font:500 11.5px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">View transcript</button></sc-if>
+                          <sc-if value="{{ m.notesElsewhere }}" hint-placeholder-val="{{ false }}"><span style="font:400 11px var(--mono);color:var(--text3)">On {{ m.notesPosition }}</span></sc-if>
+                          <sc-if value="{{ m.notesRetry }}" hint-placeholder-val="{{ false }}"><button onClick="{{ retryNotes }}" style="border-radius:6px;padding:2px 9px;font:600 11.5px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer">Try again</button></sc-if>
+                        </span></sc-if>
                       </div>
                     </sc-for>
                   </sc-if>
@@ -1969,7 +1979,7 @@
                           </div>
                         </sc-if>
                         <p style="margin:12px 0 0;white-space:pre-wrap;font:400 14px/1.55 var(--sans);color:var(--text)">{{ n.body }}</p>
-                        <sc-if value="{{ n.hasTranscript }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;display:flex;align-items:center;gap:10px;font:400 11px var(--sans);color:var(--text3)"><span>Recorded by Uncava Notetaker</span><button onClick="{{ openTranscript }}" style="padding:0;font:600 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">View transcript</button></div></sc-if>
+                        <sc-if value="{{ n.hasTranscript }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font:400 11px var(--sans);color:var(--text3)"><span>Recorded by Uncava Notetaker</span><sc-if value="{{ n.partial }}" hint-placeholder-val="{{ false }}"><span title="The notetaker stopped before the call ended; the note covers what it heard." style="border-radius:5px;padding:1px 7px;font:600 10px var(--mono);color:var(--amber);background:var(--amber-dim)">Partial · stopped at {{ n.stoppedAt }}</span></sc-if><button data-partial="{{ n.partial }}" onClick="{{ openTranscript }}" style="padding:0;font:600 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">View transcript</button></div></sc-if>
                         <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
                           <span style="font:400 11px var(--sans);color:var(--text3)">Related to: <sc-if value="{{ n.hasPos }}" hint-placeholder-val="{{ false }}">{{ n.pos }}</sc-if></span>
                           <div style="display:flex;align-items:center;justify-content:space-between">
@@ -2002,7 +2012,7 @@
                         </div>
                       </sc-if>
                       <p style="margin:12px 0 0;white-space:pre-wrap;font:400 14px/1.55 var(--sans);color:var(--text)">{{ n.body }}</p>
-                        <sc-if value="{{ n.hasTranscript }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;display:flex;align-items:center;gap:10px;font:400 11px var(--sans);color:var(--text3)"><span>Recorded by Uncava Notetaker</span><button onClick="{{ openTranscript }}" style="padding:0;font:600 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">View transcript</button></div></sc-if>
+                        <sc-if value="{{ n.hasTranscript }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font:400 11px var(--sans);color:var(--text3)"><span>Recorded by Uncava Notetaker</span><sc-if value="{{ n.partial }}" hint-placeholder-val="{{ false }}"><span title="The notetaker stopped before the call ended; the note covers what it heard." style="border-radius:5px;padding:1px 7px;font:600 10px var(--mono);color:var(--amber);background:var(--amber-dim)">Partial · stopped at {{ n.stoppedAt }}</span></sc-if><button data-partial="{{ n.partial }}" onClick="{{ openTranscript }}" style="padding:0;font:600 12px var(--sans);color:var(--sky);background:none;border:none;cursor:pointer">View transcript</button></div></sc-if>
                       <div style="margin-top:12px;display:flex;flex-direction:column;gap:6px">
                         <span style="font:400 11px var(--sans);color:var(--text3)">Related to: <sc-if value="{{ n.hasPos }}" hint-placeholder-val="{{ false }}">{{ n.pos }}</sc-if></span>
                         <div style="display:flex;align-items:center;justify-content:space-between">
@@ -2399,6 +2409,7 @@
           </div>
           <input value="{{ transcriptQuery }}" onChange="{{ onTranscriptSearch }}" placeholder="Search the transcript" aria-label="Search the transcript" style="margin-top:12px;width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 13px var(--sans);color:var(--text);outline:none" style-focus="border-color:var(--sky)">
           <div style="margin-top:8px;font:400 11px var(--mono);color:var(--text3)">{{ transcriptCount }}</div>
+          <sc-if value="{{ transcriptPartial }}" hint-placeholder-val="{{ false }}"><div style="margin-top:10px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber) 40%,transparent);background:var(--amber-dim);padding:7px 10px;font:400 12px var(--sans);color:var(--text2)">Partial: the notetaker stopped at 11:18, before the call ended. This is what it heard until then.</div></sc-if>
         </header>
         <div style="flex:1;overflow:auto;padding:8px 20px 16px">
           <sc-for list="{{ transcriptLines }}" as="t" hint-placeholder-count="4">
@@ -2412,7 +2423,8 @@
           </sc-for>
           <sc-if value="{{ transcriptNone }}" hint-placeholder-val="{{ false }}"><p style="margin:16px 0 0;font:400 12.5px var(--sans);color:var(--text3)">No line matches.</p></sc-if>
         </div>
-        <footer style="padding:10px 20px;border-top:1px solid var(--line-soft);font:400 11px var(--mono);color:var(--text3)">Only your team can read this. Client contacts never see it. Speakers are named from the call's captions.</footer>
+        <!-- "Client contacts" is the agency's word; the build reads it from useWorkspaceVocabulary().contact (in-house: Hiring managers). -->
+        <footer style="padding:10px 20px;border-top:1px solid var(--line-soft);font:400 11px var(--mono);color:var(--text3)">Only your team can read this. Client contacts never see it. Speakers are named from the call's captions; a voice no caption matched keeps a number.</footer>
       </aside>
     </div>
   </sc-if>
@@ -2647,7 +2659,7 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">PR</text></svg></template>
 </x-dc>
 
-<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;shortlisted&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team&quot;,&quot;outreach&quot;,&quot;pipeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;,&quot;duplicate&quot;,&quot;ntRemove&quot;,&quot;transcript&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;notetaker&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;recording&quot;,&quot;options&quot;:[&quot;joining&quot;,&quot;waiting&quot;,&quot;recording&quot;,&quot;backup&quot;,&quot;processing&quot;,&quot;ready&quot;,&quot;removed&quot;,&quot;failed&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;notetakerSwitch&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;workspace&quot;,&quot;mine&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;shortlisted&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team&quot;,&quot;outreach&quot;,&quot;pipeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;,&quot;duplicate&quot;,&quot;ntRemove&quot;,&quot;transcript&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;notetaker&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;recording&quot;,&quot;options&quot;:[&quot;joining&quot;,&quot;waiting&quot;,&quot;recording&quot;,&quot;backup&quot;,&quot;leaving&quot;,&quot;processing&quot;,&quot;ready&quot;,&quot;partial&quot;,&quot;notesFailed&quot;,&quot;removed&quot;,&quot;failed&quot;,&quot;skipped&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;notetakerReason&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;NOT_ADMITTED&quot;,&quot;options&quot;:[&quot;NOT_ADMITTED&quot;,&quot;JOIN_BLOCKED&quot;,&quot;CONSENT_NOT_SHOWN&quot;,&quot;DEVICES_NOT_OFF&quot;,&quot;LAUNCH_FAILED&quot;,&quot;LAUNCH_TIMEOUT&quot;,&quot;CRASHED&quot;,&quot;HEARTBEAT_LOST&quot;,&quot;DO_NOT_CONTACT&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;notetakerSwitch&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;workspace&quot;,&quot;mine&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   video: "m22 8-6 4 6 4V8ZM2 6h14v12H2z",
   calendar: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
@@ -2867,8 +2879,10 @@ const tagPill = (label) => { const [fg, bg] = TAG_LOOK[label] || ["var(--text2)"
 const ADDED_BY = { e01: "Yousef Iman", e02: "Yara Haddad", e03: "Dana Aboud", e04: "Dana Aboud", e05: "Omar Khalil", e06: "Yousef Iman", e07: "Yousef Iman", e08: "Sara Al-Mansour", e09: "Sara Al-Mansour", e10: "Dana Aboud", e11: "Yousef Iman", e12: "Yara Haddad", e13: "Yara Haddad", e14: "Dana Aboud" };
 const CRM = {
   e01: { tags: ["Open to relocate", "Referral"], owner: "Yara Haddad", also: [["Head of Credit Risk", "interested", "Yara Haddad", "14 Apr 2026"]], last: ["Logged an email", "Dana Aboud · Today 10:12"],
-    // The seventh field marks a note the Uncava Notetaker filed from a recorded call: it carries a transcript.
+    // The seventh field marks a note the Uncava Notetaker filed from a recorded call: it carries a transcript ("partial":
+    // the bot stopped before the call ended, the transcript read's `recordedUntil`).
     notes: [["Yara Haddad", "Meeting", "18 Sep", "Chief Financial Officer", "Fatima walked through her group treasury and sukuk work across three markets and is open to the group role if it carries the international portfolio.\n\nKey points\n• Led a sukuk refinancing across the UAE, Saudi Arabia and Oman\n• No listed-board reporting; quarterly to two institutional investors\n\nAgainst the brief\n• Capital markets: described the sukuk refinancing end to end (00:01:15)\n• Not covered: Board engagement\n\nNext steps\n• Yara to send the brief and the reward outline this week", false, true],
+      ["Yara Haddad", "Meeting", "11 Sep", "Chief Financial Officer", "Partial — about 12 minutes at the end weren't recorded.\n\nFatima confirmed her interest in a group role and asked how the international portfolio is split between the CFO and the COO.\n\nNext steps\n• Yara to come back with the remit split", false, "partial"],
       ["Sara Al-Mansour", "Call", "14 Sep", "Chief Financial Officer", "Spoke 14 Sep — open to a group CFO move if the remit includes the international portfolio. Follow up after Q3 close.", true],
       ["Dana Aboud", "Email", "Today 10:12", null, "Sent the group structure overview Fatima asked for; reply expected next week."],
       ["Yara Haddad", "Meeting", "22 Apr", "Head of Credit Risk", "Coffee at DIFC. Strong on treasury and funding, lighter on credit portfolio work."]],
@@ -2967,28 +2981,54 @@ const OUTREACH = {
   e07: ["CFO — first approach", "Yousef Iman", "active", 1, null]
 };
 const MEETINGS = {
-  // The eighth field is the Uncava Notetaker: "live" (the call under way, its chip from ?notetaker=), "on" (a Meet or Teams
-  // call to come, its switch on), or "zoom" (a call the notetaker does not join).
+  // The eighth field is the Uncava Notetaker: "live" (the call under way, its chip from ?notetaker=), "on" (a call to come
+  // that it joins, its switch on), or "unjoinable" (the meeting read's `joinable` false: a platform this deployment's bot
+  // does not join — Teams until #954, Zoom).
   e01: { upcoming: [["Sep", "30", "Today · 14:00–14:45", "Second conversation", "Yara Haddad", "Google Meet", false, "live"],
-      ["Oct", "2", "Thu 2 Oct · 11:00–11:30", "Referencing call", "Yara Haddad", "Microsoft Teams", false, "on"],
-      ["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true, "zoom"]],
-    past: [["18 Sep", "First conversation", "Yara Haddad", true], ["22 Apr", "Coffee at DIFC", "Yara Haddad", false]] },
+      ["Oct", "2", "Thu 2 Oct · 11:00–11:30", "Referencing call", "Yara Haddad", "Google Meet", false, "on"],
+      ["Oct", "6", "Mon 6 Oct · 16:00–16:30", "Reward follow-up", "Yara Haddad", "Microsoft Teams", false, "unjoinable"],
+      ["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true, "unjoinable"]],
+    // The fourth field is the call's notes: a key of NT_PAST, null when the notetaker never joined; the fifth is the
+    // position a note filed elsewhere is on. Its transcript reads only from there, so this row offers none.
+    past: [["18 Sep", "First conversation", "Yara Haddad", "ready"], ["11 Sep", "Introduction", "Yara Haddad", "partial"],
+      ["9 Sep", "Screening call", "Yara Haddad", "notesFailed"], ["2 Sep", "Catch-up", "Omar Khalil", "elsewhere", "Head of Credit Risk"],
+      ["22 Apr", "Coffee at DIFC", "Yara Haddad", null]] },
   e06: { upcoming: [], past: [] }
 };
-// The notetaker's chip on a call: [label, colour, background, what the hover says]. Live states reach the drawer as the
-// staff-only stream kind `notetaker`, so the chip moves without a reload.
+// The notetaker's chip on a call: [label, colour, background, what the hover says]. The build adds the staff-only stream
+// kind `notetaker` (an entity listener on MeetingRecording, as OutreachStreamAnnouncer, sent only to a stream whose
+// holder held WORK_EXECUTE, since the stream is WORK_VIEW), so the chip moves without a reload. While the call goes the
+// chip offers no transcript: it opens once the note is filed.
 const NT_STATES = {
   joining: ["Joining", "var(--text2)", "var(--panel2)", "The notetaker is opening the call."],
   waiting: ["Waiting to be admitted", "var(--amber)", "var(--amber-dim)", "Someone in the call has to let the notetaker in."],
   recording: ["Recording", "var(--red)", "var(--red-dim)", "Recording since 14:02. It said in the chat that it is recording."],
   backup: ["Recording (backup)", "var(--red)", "var(--red-dim)", "Our notetaker could not get in, so the backup recorder joined instead."],
+  leaving: ["Leaving…", "var(--text2)", "var(--panel2)", "Asked to leave. It goes within a few seconds, and nothing it recorded is kept."],
   processing: ["Processing", "var(--sky)", "var(--sky-dim)", "Writing the transcript and the meeting note. It usually takes a few minutes."],
   ready: ["Notes ready", "var(--green)", "var(--green-dim)", "The meeting note is on Notes, with its transcript."],
+  partial: ["Notes ready · partial", "var(--amber)", "var(--amber-dim)", "The notetaker stopped before the call ended. The note covers what it heard."],
+  notesFailed: ["Notes failed", "var(--red)", "var(--red-dim)", "The call was recorded, but its transcript or note couldn't be made."],
   removed: ["Removed", "var(--text3)", "var(--panel2)", "Removed from the call. Nothing it recorded was kept."],
-  failed: ["Couldn't record", "var(--text3)", "var(--panel2)", "Nobody admitted the notetaker in time."]
+  failed: ["Couldn't record", "var(--text3)", "var(--panel2)", null],
+  skipped: ["Not joined", "var(--text3)", "var(--panel2)", null]
+};
+// What a failed or skipped chip's hover says, by the run's end reason (?notetakerReason=). PROCESSING_FAILED is
+// notesFailed's own chip; a bot that crashed or fell silent after hearing someone files a partial note instead.
+const NT_END_REASONS = {
+  NOT_ADMITTED: "Nobody admitted the notetaker in time.",
+  JOIN_BLOCKED: "The call's host doesn't let guests join.",
+  CONSENT_NOT_SHOWN: "It couldn't say in the chat that it was recording, so it left without recording.",
+  DEVICES_NOT_OFF: "It couldn't be sure its microphone and camera were off, so it never asked to join.",
+  LAUNCH_FAILED: "The notetaker couldn't be started.",
+  LAUNCH_TIMEOUT: "The notetaker didn't start in time.",
+  CRASHED: "The notetaker stopped before it heard anyone.",
+  HEARTBEAT_LOST: "The notetaker stopped responding before it heard anyone.",
+  DO_NOT_CONTACT: "Someone on the call is marked do not contact, so the notetaker stayed away."
 };
 const NT_REMOVABLE = { joining: true, waiting: true, recording: true, backup: true };
-// [time into the call, speaker, words]: the transcript sheet. The first speaker is the consultant.
+const NT_PAST = { ready: "ready", partial: "partial", notesFailed: "notesFailed", elsewhere: "ready" };
+// [time into the call, speaker, words, unnamed]: the transcript sheet. The first speaker is the consultant.
 const TRANSCRIPT = [
   ["00:00:04", "Yara Haddad", "Thanks for making the time, Fatima. I wanted to pick up where we left off on the group role."],
   ["00:00:19", "Fatima Al Mazrouei", "Of course. I've been thinking about the international portfolio since we spoke."],
@@ -2997,6 +3037,8 @@ const TRANSCRIPT = [
   ["00:03:40", "Yara Haddad", "And reporting to a listed board, has that come up?"],
   ["00:03:52", "Fatima Al Mazrouei", "Not directly. Our board isn't listed, but we report quarterly to two institutional investors."],
   ["00:08:21", "Fatima Al Mazrouei", "Notice is three months, and I'd want clarity on how the LTIP vests before going further."],
+  // A voice no caption matched keeps the transcriber's label; the build adds `named: false` to such a line.
+  ["00:08:47", "Speaker 3", "Sorry to cut in, the vesting schedule is in the pack we shared last week.", true],
   ["00:09:05", "Yara Haddad", "Understood. I'll send the brief and the reward outline this week."]
 ];
 // [date, summary, technical score, behavioural score, technical +/-, behavioural +/-]
@@ -3165,8 +3207,8 @@ class Component extends DCLogic {
       contactTab: "existing", stageOf: {}, removed: {}, noExecOf: {}, department, roleTitle,
       statusOf: {}, statusPickOpen: false, statusPickQuery: "", pipelineStage: "all", pipelineQuery: "", pipelineChecked: {}, pipelineVisible: {}, pipelineOrder: null, pipelineDrag: null,
       pipelineView: "list", pipelineStageDate: {}, boardDrag: null, boardOver: null, boardInactiveOpen: true,
-      ntLive: pick("notetaker", "recording"), ntSwitch: pick("notetakerSwitch", "none"), ntOff: {}, ntRemoveWhen: null,
-      transcriptQuery: ""
+      ntLive: pick("notetaker", "recording"), ntReason: pick("notetakerReason", "NOT_ADMITTED"), ntSwitch: pick("notetakerSwitch", "none"),
+      ntOff: {}, ntRemoveWhen: null, transcriptQuery: "", transcriptPartial: false
     };
   }
 
@@ -3617,15 +3659,24 @@ class Component extends DCLogic {
           ntSwitchStyle: `position:relative;flex:none;width:28px;height:16px;border-radius:999px;border:none;padding:0;cursor:${switchedOff ? "default" : "pointer"};opacity:${switchedOff ? ".5" : "1"};background:${on ? "var(--amber-btn)" : "var(--line)"}`,
           ntKnobStyle: `position:absolute;top:2px;left:${on ? "14px" : "2px"};width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s`,
           ntLabel: on ? "Notetaker joins" : "Notetaker off",
-          ntChip: !!live, ntChipLabel: live ? NT_STATES[live][0] : "", ntChipTitle: live ? NT_STATES[live][3] : "",
+          ntChip: !!live, ntChipLabel: live ? NT_STATES[live][0] : "",
+          ntChipTitle: live ? NT_STATES[live][3] || NT_END_REASONS[s.ntReason] || NT_END_REASONS.NOT_ADMITTED : "",
           ntChipStyle: live ? `display:inline-flex;align-items:center;gap:5px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);color:${NT_STATES[live][1]};background:${NT_STATES[live][2]}` : "",
           ntDotStyle: live === "recording" || live === "backup" ? "width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.4s ease-in-out infinite" : "display:none",
-          ntRemovable: !!live && !!NT_REMOVABLE[live], ntZoom: nt === "zoom" };
-      }), mtPast: meet.past.map(([date, title, who, notes]) => ({ date, title, who, hasNotes: !!notes })),
+          ntRemovable: !!live && !!NT_REMOVABLE[live], ntReady: live === "ready" || live === "partial", ntPartial: live === "partial",
+          ntRetry: live === "notesFailed", ntUnjoinable: nt === "unjoinable" };
+      }), mtPast: meet.past.map(([date, title, who, notes, position]) => {
+        const look = notes ? NT_STATES[NT_PAST[notes]] : null;
+        return { date, title, who, hasNotes: !!notes, notesLabel: look ? look[0] : "", notesTitle: look ? look[3] : "",
+          notesStyle: look ? `border-radius:5px;padding:1px 7px;font:600 10px var(--mono);color:${look[1]};background:${look[2]}` : "",
+          notesHere: notes === "ready" || notes === "partial", notesPartial: notes === "partial",
+          notesElsewhere: notes === "elsewhere", notesPosition: position || "", notesRetry: notes === "notesFailed" };
+      }),
+      // From the workspace read's `platforms`: Google Meet alone until #954 adds Teams.
+      ntPlatformsLine: "The notetaker joins Google Meet calls.",
       ntSwitchedOff: s.ntSwitch !== "none" && meet.upcoming.some((m) => m[7] === "on"),
-      ntSwitchWhose: s.ntSwitch === "workspace" ? "Your workspace has the notetaker turned off." : "You've turned the notetaker off for your calls.",
-      ntSwitchLink: s.ntSwitch === "workspace" ? "Settings.dc.html?page=integrations" : "Settings.dc.html?page=profile",
-      ntSwitchLinkLabel: s.ntSwitch === "workspace" ? "Integrations" : "Profile",
+      ntSwitchWhose: s.ntSwitch === "workspace" ? "Your workspace has the notetaker turned off. An admin turns it on in Settings → Integrations." : "You've turned the notetaker off for your calls.",
+      ntSwitchMine: s.ntSwitch === "mine",
       mtHasUpcoming: meet.upcoming.length > 0, mtHasPast: meet.past.length > 0, mtEmpty: meet.upcoming.length + meet.past.length === 0,
       zoomConnected: !s.zoomBroken, zoomReconnect: !!s.zoomBroken,
       showDnc: cw && !!crm.dnc,
@@ -3659,14 +3710,14 @@ class Component extends DCLogic {
       notesAuthorOptions: [{ value: "all", label: "Author: Anyone" }], notesPosOptions: [{ value: "all", label: "Position: All" }],
       notesFiltersOpen: s.notesFiltersOpen, notesSortLabel: s.notesSortNewest ? "Newest event first" : "Oldest event first",
       pinnedCount: crm.notes.filter((n) => n[5]).length,
-      pinnedNotes: crm.notes.filter((n) => n[5]).map((n, i) => { const k = `p${i}`; return Object.assign({ id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k, hasTranscript: !!n[6] },
+      pinnedNotes: crm.notes.filter((n) => n[5]).map((n, i) => { const k = `p${i}`; return Object.assign({ id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k, hasTranscript: !!n[6], partial: n[6] === "partial", stoppedAt: "11:18" },
         noteCard(n, "border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);background:var(--amber-dim)")); }),
       hasPinnedNotes: crm.notes.some((n) => n[5]),
       recentNotes: crm.notes.filter((n) => {
         const matchesType = s.notesFilterType === "all" || n[1].toLowerCase() === s.notesFilterType;
         const q = (s.notesSearch || "").trim().toLowerCase();
         return !n[5] && matchesType && (!q || n[4].toLowerCase().includes(q));
-      }).map((n, i) => { const k = `r${i}`; return Object.assign({ id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k, hasTranscript: !!n[6] },
+      }).map((n, i) => { const k = `r${i}`; return Object.assign({ id: k, author: n[0], kind: n[1], kindIcon: NOTE_ICON[n[1]] || I.note, when: n[2], hasPos: !!n[3], pos: n[3] || "", body: n[4], menuOpen: s.noteMenuOpen === k, hasTranscript: !!n[6], partial: n[6] === "partial", stoppedAt: "11:18" },
         noteCard(n, "border:1px solid var(--line-soft);background:var(--panel)")); }),
       noNotes: crm.notes.length === 0,
       hasCv: crmShown && !!cvDoc, cvLabel: cvDoc ? `CV · v${cvDoc[6][0][0]} · ${cvDoc[4].split(" · ")[1]}` : "",
@@ -4389,8 +4440,9 @@ class Component extends DCLogic {
       reconnectZoom: () => { set({ zoomBroken: false }); this.showToast("Zoom reconnected"); },
       toggleNotetaker: (e) => { const k = id(e); const off = !this.state.ntOff[k]; set({ ntOff: Object.assign({}, this.state.ntOff, { [k]: off }) }); this.showToast(off ? "The notetaker won't join this call" : "The notetaker will join this call"); },
       askRemoveNotetaker: (e) => set({ dialog: "ntRemove", ntRemoveWhen: id(e) }),
-      confirmRemoveNotetaker: () => { set({ dialog: "none", ntLive: "removed" }); this.showToast("The notetaker left the call. Nothing it recorded is kept."); },
-      openTranscript: () => set({ dialog: "transcript", transcriptQuery: "" }),
+      confirmRemoveNotetaker: () => { set({ dialog: "none", ntLive: "leaving" }); this.showToast("The notetaker is leaving the call. Nothing it recorded is kept."); },
+      retryNotes: () => { set({ ntLive: "processing" }); this.showToast("Trying again. The note follows in a few minutes."); },
+      openTranscript: (e) => set({ dialog: "transcript", transcriptQuery: "", transcriptPartial: e.currentTarget.dataset.partial === "true" }),
       onTranscriptSearch: (e) => set({ transcriptQuery: e.target.value }),
       acceptNationality: () => this.showToast("Nationality accepted — the AI flag stays until a researcher changes it"),
       closeDrawer: () => set({ drawer: "none", contactEditing: false }),
@@ -4574,9 +4626,9 @@ class Component extends DCLogic {
       showColumns: isStage && cw && s.dialog === "columns",
       customCols: CUSTOM.map((c) => ({ label: c.label, meta: `${c.target === "company" ? "Company" : "Person"} · ${c.type}` })),
       showDuplicate: isStage && cw && s.dialog === "duplicate", dup: { avStyle: avatar("p16", 40), tagStyle: tagPill("Open to work").style },
-      showNtRemove: s.dialog === "ntRemove", showTranscript: s.dialog === "transcript",
+      showNtRemove: s.dialog === "ntRemove", showTranscript: s.dialog === "transcript", transcriptPartial: s.transcriptPartial,
       transcriptLines: TRANSCRIPT.filter(([, , text]) => !s.transcriptQuery.trim() || text.toLowerCase().includes(s.transcriptQuery.trim().toLowerCase()))
-        .map(([at, speaker, text]) => ({ at, speaker, text, speakerStyle: `font:600 12px var(--sans);color:${speaker === "Yara Haddad" ? "var(--sky)" : "var(--green)"}` })),
+        .map(([at, speaker, text, unnamed]) => ({ at, speaker, text, speakerStyle: unnamed ? "font:italic 500 12px var(--sans);color:var(--text3)" : `font:600 12px var(--sans);color:${speaker === "Yara Haddad" ? "var(--sky)" : "var(--green)"}` })),
       transcriptNone: !!s.transcriptQuery.trim() && !TRANSCRIPT.some(([, , text]) => text.toLowerCase().includes(s.transcriptQuery.trim().toLowerCase())),
       transcriptCount: s.transcriptQuery.trim() ? `${TRANSCRIPT.filter(([, , text]) => text.toLowerCase().includes(s.transcriptQuery.trim().toLowerCase())).length} of ${TRANSCRIPT.length} lines` : `${TRANSCRIPT.length} lines · 42 minutes`,
       showRemove: isStage && cw && s.dialog === "remove", removeTitle: `Remove ${removeCo.name}?`, removeName: removeCo.name,
