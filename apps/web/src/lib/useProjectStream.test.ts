@@ -131,6 +131,7 @@ it("names every kind for a payload it does not recognise", async () => {
     "executive-sourcing",
     "outreach",
     "task",
+    "notetaker",
   ]);
 });
 

@@ -13,6 +13,7 @@ import * as poolApi from "../api/poolApi";
 import type { PersonNote, PersonNoteKind } from "../api/types";
 import { timelineLines } from "../lib/candidateActivity";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
+import { MeetingNoteRecording } from "../../outreach/components/NotetakerControls";
 import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
 
 /**
@@ -274,7 +275,17 @@ function PositionNoteCard({
   );
   const team = usePositionTeam(note.projectId);
   return (
-    <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} flashAt={flashAt} />
+    <NoteCard
+      note={note}
+      actions={actions}
+      teammates={note.projectId ? team.teammates : null}
+      flashAt={flashAt}
+      footer={
+        note.kind === "meeting" && (
+          <MeetingNoteRecording projectId={projectId} candidateId={candidateId} noteId={note.id} />
+        )
+      }
+    />
   );
 }
 

@@ -16,6 +16,18 @@ export function meetingWhenOf(startsAt: string, endsAt: string): string {
   return `${weekdayDateOf(start)} · ${clockOf(start)}–${clockOf(end)}`;
 }
 
+/** "14:02", in the viewer's zone. */
+export function clockTimeOf(isoInstant: string): string {
+  return clockOf(new Date(isoInstant));
+}
+
+/** "00:08:47": how far into a call something was said, from its start; never negative. */
+export function elapsedOf(startsAt: string, isoInstant: string): string {
+  const seconds = Math.max(0, Math.floor((new Date(isoInstant).getTime() - new Date(startsAt).getTime()) / 1000));
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
+}
+
 /** "22 Sep": a past meeting's mono date. */
 export function shortDateOf(isoInstant: string): string {
   return new Date(isoInstant).toLocaleDateString("en-GB", { day: "numeric", month: "short" });

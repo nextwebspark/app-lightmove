@@ -25,7 +25,9 @@ export type ProjectStreamKind =
   /** An email, a reply or a sequence run moved. Sent only to someone who may work the position. */
   | "outreach"
   /** A task was filed, changed or closed. Sent only to someone who may work the position. */
-  | "task";
+  | "task"
+  /** A Notetaker bot on a call with one of its executives moved. Sent only to someone who may work the position. */
+  | "notetaker";
 
 const EVERY_KIND: ProjectStreamKind[] = [
   "candidate-captured",
@@ -36,6 +38,7 @@ const EVERY_KIND: ProjectStreamKind[] = [
   "executive-sourcing",
   "outreach",
   "task",
+  "notetaker",
 ];
 
 /**

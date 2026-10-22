@@ -2,8 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { useToast } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
+import { isPureClient } from "../../auth/roles";
 import * as authApi from "../../auth/api/authApi";
 import * as mailboxApi from "../../outreach/api/mailboxApi";
+import { MyNotetakerRow } from "../components/MyNotetakerRow";
 import { ProfileForm } from "../components/ProfileForm";
 import { ProfileIdentityRow } from "../components/ProfileIdentityRow";
 import type { ProfileValues } from "../lib/profileSchema";
@@ -55,6 +57,7 @@ export function SettingsProfilePage() {
             locale: user.locale,
           }}
           onSave={handleSave}
+          beforeSave={!isPureClient(user.workspace?.roles ?? []) && <MyNotetakerRow />}
         />
       </div>
     </>

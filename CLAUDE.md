@@ -1269,6 +1269,16 @@ live position the consultant works that maps the person, else about the person �
 position its note was filed under, or until then the one `MeetingPositionRule` gives it — a call it gives none is its
 consultant's alone until filed — and not found from any other. Try again is refused once the pieces are past retention;
 the note's Markdown breaks GFM's bare-link triggers with a word joiner, since the words are anyone's on the call. A removed run's transcript goes with its pieces; a done run's captions on the next pass.
+**The drawer (#953)** draws it all in the executive drawer's Meetings (`features/outreach`'s `NotetakerControls`): a
+call to come carries its switch (greyed, and said so, while the workspace's or the consultant's own is off), a call
+the bot does not join says which it does (the workspace read's `platforms`), and a call a bot went to carries a chip
+read off its status and end reason (`lib/notetakerChip.ts`) — Remove notetaker (confirmed, then Leaving… until the bot
+hears it), Try again on Notes failed, View transcript where its note is filed here (`transcriptHere`; never while the
+call goes), and "On another position" for one filed elsewhere, never named. A bot's status moving announces the
+staff-only `notetaker` stream kind on every live position mapping the executive (`NotetakerStreamAnnouncer`, a
+heartbeat announcing nothing), and a Meeting note the bot filed links its transcript (`noteId` on the meetings read).
+A transcript line says whether its speaker is a caption's name (`named`); a voice only numbered is drawn apart. Settings
+→ Profile's switch saves as it is flipped; Settings → Integrations carries the workspace's.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

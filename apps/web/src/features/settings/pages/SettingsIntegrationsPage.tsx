@@ -8,6 +8,7 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as integrationsApi from "../api/integrationsApi";
 import { CalendarSyncCard } from "../components/CalendarSyncCard";
 import { IntegrationCard } from "../components/IntegrationCard";
+import { NotetakerCard } from "../components/NotetakerCard";
 
 /**
  * Settings → Integrations: how the workspace's mailboxes, calendars and video meetings connect. Admin-only — the
@@ -44,6 +45,7 @@ export function SettingsIntegrationsPage() {
             calendarSync={workspace.data.calendarSync}
             recallOffered={integrations.data.recallOffered}
           />
+          <NotetakerCard />
           {integrations.data.providers.map((integration) => (
             <IntegrationCard
               key={integration.provider}

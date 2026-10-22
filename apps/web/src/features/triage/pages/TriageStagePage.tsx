@@ -28,7 +28,7 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import * as positionApi from "../../position/api/positionApi";
 import { EnrolDialog } from "../../outreach/components/EnrolDialog";
-import { refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
+import { refreshNotetaker, refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
@@ -325,10 +325,13 @@ function TriageStage() {
     if (kinds.includes("task")) {
       void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
     }
+    if (kinds.includes("notetaker")) {
+      refreshNotetaker(queryClient, project.id);
+    }
     // Both halves are points on the globe. Free while the grid is the view: the map's reads are
-    // disabled there, and an inactive query is marked stale rather than refetched. Outreach and tasks
-    // move neither half.
-    if (kinds.some((kind) => kind !== "outreach" && kind !== "task")) {
+    // disabled there, and an inactive query is marked stale rather than refetched. Outreach, tasks and
+    // the notetaker move neither half.
+    if (kinds.some((kind) => kind !== "outreach" && kind !== "task" && kind !== "notetaker")) {
       refreshMap();
     }
   };
