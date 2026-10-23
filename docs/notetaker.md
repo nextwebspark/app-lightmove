@@ -87,7 +87,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
      Motivation section under "From the call on …", never over it), and the consultant's own **next steps** as tasks.
 
    Anything equal to what is on file is dropped. The suggestions are kept on the recording (V152 `suggestions`,
-   staff-only, purged with the transcript), so reopening costs nothing; a press is one `AI_ENRICH` use, recorded only
+   staff-only, cleared with the transcript), so reopening costs nothing; a press is one `AI_ENRICH` use, recorded only
    when something was found. A claim (`suggesting_since`) keeps two presses to one model call. Each change is then
    applied, edited, skipped or undone one at a time, and every apply writes through the field's own owner
    (`CandidateCallUpdates`: `Person.recordFromCall`, the scorecard, the tag catalogue; `TaskService` for a task) with
@@ -108,10 +108,11 @@ Recall is the only recorder for now. A bot of our own can come back later behind
   speaker whose name is a staff member's or the scheduler's is marked "(your team)" in code. A recording whose summary
   failed has no note yet, so its transcript is not read until **Try again** files one. A transcript the prompt guard
   stops is dropped and the assessment asked again without transcripts, so a remark in a call never blocks it.
-- **Kept:** the note, and the transcript and its suggestions (staff-only, on the recording row) only as long as the
-  note.
-  `NotetakerTranscriptPurge` clears it once the note is purged for good (`lightmove.notes.purge-after`, 30 days after a
-  delete), or from a recording that never filed a note once it has sat untouched that long.
+- **Kept:** the note, and the transcript and its suggestions (staff-only, on the recording row) — by default for as
+  long as the recording row, which goes only with its person or position. A deployment that sets
+  `NOTETAKER_TRANSCRIPT_RETENTION` (`lightmove.recall.transcript-retention`, e.g. `90d`) has `NotetakerTranscriptPurge`
+  clear a transcript nothing needs any more — its note purged for good, or a recording that never filed one — once it
+  has sat untouched that long. Assess with AI still reads a transcript only while its note is live.
 
 Nothing about a Notetaker reaches `CandidateResponse`, the report, the public API or MCP.
 

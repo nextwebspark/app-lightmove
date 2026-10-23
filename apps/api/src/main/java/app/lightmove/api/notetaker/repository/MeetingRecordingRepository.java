@@ -61,16 +61,14 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     int releaseSuggesting(UUID id);
 
     /**
-     * A transcript outlives nothing it was kept for: cleared once its note is gone for good, or once a recording that
-     * never filed one has sat untouched past the notes' own purge age. The suggestions read off it quote the
-     * executive, so they go with it.
+     * A transcript nothing needs any more — its note purged for good, or never filed — once untouched since
+     * {@code cutoff}. The suggestions read off it quote the executive, so they go with it.
      */
     @Modifying
     @Query(nativeQuery = true, value = """
             UPDATE app_lm_meeting_recording SET transcript = NULL, suggestions = NULL
-            WHERE transcript IS NOT NULL
-              AND ((status = 'DONE' AND note_id IS NULL)
-                   OR (status IN ('FAILED', 'CANCELLED') AND updated_at < :cutoff))
+            WHERE transcript IS NOT NULL AND updated_at < :cutoff
+              AND ((status = 'DONE' AND note_id IS NULL) OR status IN ('FAILED', 'CANCELLED'))
             """)
     int purgeTranscripts(Instant cutoff);
 }

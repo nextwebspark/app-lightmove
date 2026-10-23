@@ -11,9 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Keeps a verbatim transcript no longer than what it was kept for: gone once its Meeting note is purged for good
- * ({@code PersonNotePurge}, which empties the row's {@code note_id}), and from a recording that never filed one once it
- * has sat untouched for the notes' own purge age.
+ * Clears a transcript only where a deployment sets {@code lightmove.recall.transcript-retention}: one whose Meeting note
+ * was purged for good, or whose recording never filed one, once it has sat untouched that long. Unset, nothing is cleared.
  */
 @Component
 @Slf4j
@@ -21,13 +20,13 @@ public class NotetakerTranscriptPurge {
 
     private final MeetingRecordingRepository recordings;
     private final Clock clock;
-    private final Duration purgeAfter;
+    private final Duration retention;
 
     public NotetakerTranscriptPurge(MeetingRecordingRepository recordings, Clock clock,
                                     LightMoveProperties properties) {
         this.recordings = recordings;
         this.clock = clock;
-        this.purgeAfter = properties.notes().purgeAfter();
+        this.retention = properties.recall().transcriptRetention();
     }
 
     @Scheduled(fixedDelayString = "${lightmove.notes.purge-interval}",
@@ -38,9 +37,14 @@ public class NotetakerTranscriptPurge {
 
     @Transactional
     public int purgeAt(Instant now) {
-        int purged = recordings.purgeTranscripts(now.minus(purgeAfter));
+        return retention == null ? 0 : purgeUntouchedSince(now.minus(retention));
+    }
+
+    @Transactional
+    public int purgeUntouchedSince(Instant cutoff) {
+        int purged = recordings.purgeTranscripts(cutoff);
         if (purged > 0) {
-            log.info("Notetaker: cleared {} transcripts whose notes are gone", purged);
+            log.info("Notetaker: cleared {} transcripts past their retention", purged);
         }
         return purged;
     }

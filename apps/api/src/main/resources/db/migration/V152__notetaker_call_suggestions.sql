@@ -1,6 +1,6 @@
 -- "Suggest changes" on a recorded call: what the AI read off the transcript for the person's record, kept on the
 -- recording until each one is applied or skipped. The quotes are the executive's words, so the column goes with the
--- transcript when it is purged.
+-- transcript wherever lightmove.recall.transcript-retention clears it; unset, both are kept.
 ALTER TABLE app_lm_meeting_recording
     ADD COLUMN suggestions jsonb,
     ADD COLUMN suggested_at timestamptz,

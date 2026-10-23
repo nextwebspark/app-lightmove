@@ -432,7 +432,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a transcript is cleared once its Meeting note is gone for good")
+    @DisplayName("a transcript is kept by default, and cleared past a set retention once its Meeting note is gone")
     void transcriptGoesWithItsNote() throws Exception {
         chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
         String recordingId = scheduledRecordingId();
@@ -444,12 +444,18 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
         assertThat(statusOf(recordingId)).isEqualTo("DONE");
 
-        transcriptPurge.purgeAt(Instant.now());
+        transcriptPurge.purgeUntouchedSince(Instant.now().plusSeconds(60));
         assertThat(transcriptHeld(recordingId)).isTrue();
 
         jdbc.update("delete from app_lm_person_note where id = (select note_id from app_lm_meeting_recording "
                 + "where id = ?::uuid)", recordingId);
-        transcriptPurge.purgeAt(Instant.now());
+        // No retention is set: a transcript whose note is gone is still kept.
+        transcriptPurge.purgeAt(Instant.now().plus(Duration.ofDays(3650)));
+        assertThat(transcriptHeld(recordingId)).isTrue();
+
+        transcriptPurge.purgeUntouchedSince(Instant.now().minusSeconds(60));
+        assertThat(transcriptHeld(recordingId)).isTrue();
+        transcriptPurge.purgeUntouchedSince(Instant.now().plusSeconds(60));
         assertThat(transcriptHeld(recordingId)).isFalse();
     }
 
@@ -655,7 +661,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         chat.answerWhenSystemContains(CHANGES_MARKER, CHANGES);
         as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk());
         jdbc.update("update app_lm_meeting_recording set note_id = null where id = ?::uuid", recordingId);
-        transcriptPurge.purgeAt(Instant.now());
+        transcriptPurge.purgeUntouchedSince(Instant.now().plusSeconds(60));
         assertThat(suggestionsHeld(recordingId)).isNull();
         as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOTETAKER_TRANSCRIPT_GONE"));
