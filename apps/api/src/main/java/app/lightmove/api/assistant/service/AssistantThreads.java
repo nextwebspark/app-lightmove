@@ -4,6 +4,7 @@ import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.logging.service.MdcPropagation;
 import jakarta.annotation.PreDestroy;
+import java.time.Duration;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
@@ -18,6 +19,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 class AssistantThreads {
+
+    /** Inside Cloud Run's ten seconds between SIGTERM and SIGKILL, with room for the rest of the context to close. */
+    static final Duration ANSWER_DRAIN = Duration.ofSeconds(5);
 
     private final ThreadPoolExecutor answerThreads;
     private final ThreadPoolExecutor toolThreads;
@@ -41,9 +45,21 @@ class AssistantThreads {
         return MdcPropagation.propagating(toolThreads);
     }
 
+    /**
+     * An answer is paid for and saved after its stream ends, so a running one is let finish rather than
+     * interrupted. The tools stay open meanwhile: a shut pool's caller-runs policy discards a task, and the
+     * answer waiting on it would hang to its deadline.
+     */
     @PreDestroy
     void stop() {
-        answerThreads.shutdownNow();
-        toolThreads.shutdownNow();
+        answerThreads.shutdown();
+        try {
+            answerThreads.awaitTermination(ANSWER_DRAIN.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } finally {
+            answerThreads.shutdownNow();
+            toolThreads.shutdownNow();
+        }
     }
 }

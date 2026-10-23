@@ -109,13 +109,18 @@ spring:
   # still pins a carrier while a thread loads or initialises a class. On 2026-10-23 a cold instance's first
   # burst left that carrier waiting on a lock held by a thread that needed the carrier back: no request, job
   # or log line ran for 39 minutes. Cloud Run admits 80 requests per instance; Tomcat's 200 threads cover it.
+  # More carriers alone (the Dockerfile's parallelism) would have cleared that deadlock, but four pinned at
+  # once would freeze again; platform threads take requests off carriers entirely, for ~200 stacks of memory.
   threads:
     virtual:
       enabled: false
   task:
     execution:
       pool:
-        # Every @Async listener shares it, and a sourcing run or a meeting's notes holds one for minutes.
+        # Every @Async listener shares it, behind an unbounded queue. What holds a thread for long is a
+        # Find executives run (one per position, at most run-deadline), a call's notes (one per transcript)
+        # and the AI background (four at once, the rest queued in CandidateAiEnrichWorker), so 32 leaves the
+        # short after-commit listeners and the audit writes room. Never park a thread here to wait a turn.
         core-size: 32
     scheduling:
       pool:

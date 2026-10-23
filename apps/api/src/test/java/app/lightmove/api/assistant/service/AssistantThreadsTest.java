@@ -95,6 +95,28 @@ class AssistantThreadsTest {
         assertThat(ranOn.get(5, TimeUnit.SECONDS)).isSameAs(Thread.currentThread());
     }
 
+    @Test
+    @DisplayName("stopping lets an answer already running finish, its tools included, rather than interrupting it")
+    void stopLetsARunningAnswerFinish() throws Exception {
+        AssistantThreads threads = threadsFor(1, 1);
+        CountDownLatch running = new CountDownLatch(1);
+        CompletableFuture<Boolean> saved = new CompletableFuture<>();
+        threads.answers().execute(() -> {
+            running.countDown();
+            try {
+                Thread.sleep(200);
+                saved.complete(CompletableFuture.supplyAsync(() -> true, threads.tools()).join());
+            } catch (InterruptedException interrupted) {
+                saved.complete(false);
+            }
+        });
+        assertThat(running.await(5, TimeUnit.SECONDS)).isTrue();
+
+        threads.stop();
+
+        assertThat(saved.getNow(false)).isTrue();
+    }
+
     private AssistantThreads threadsFor(int concurrentAsks, int toolParallelism) {
         AssistantSettings settings = mock(AssistantSettings.class);
         when(settings.maxConcurrentAsks()).thenReturn(concurrentAsks);
