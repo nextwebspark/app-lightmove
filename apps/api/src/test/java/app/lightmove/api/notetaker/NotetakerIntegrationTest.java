@@ -27,6 +27,7 @@ import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -301,6 +302,51 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         as(consultant, delete(otherPath + "/" + recordingId)).andExpect(status().isNotFound());
         as(consultant, post(otherPath + "/" + recordingId + "/retry")).andExpect(status().isNotFound());
         assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("a call running over its booked end can still be sent a bot, which joins at once, until 20 min past")
+    void anOverrunningCallIsStillRecordable() throws Exception {
+        Instant now = Instant.now();
+        jdbc.update("update app_lm_person_meeting set starts_at = ?, ends_at = ? where id = ?::uuid",
+                Timestamp.from(now.minus(Duration.ofMinutes(40))), Timestamp.from(now.minus(Duration.ofMinutes(10))),
+                meetingId());
+
+        assertThat(notetaker().get("recordableMeetingIds")).hasSize(1);
+        schedule().andExpect(status().isCreated());
+        assertThat(recall.sent().getFirst().joinAt()).isNull();
+
+        jdbc.update("update app_lm_meeting_recording set status = 'CANCELLED' where project_id = ?::uuid", projectId);
+        jdbc.update("update app_lm_person_meeting set starts_at = ?, ends_at = ? where id = ?::uuid",
+                Timestamp.from(now.minus(Duration.ofMinutes(60))), Timestamp.from(now.minus(Duration.ofMinutes(30))),
+                meetingId());
+
+        assertThat(notetaker().get("recordableMeetingIds")).isEmpty();
+        schedule().andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_MEETING_OVER"));
+        assertThat(recall.sent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("past its booked end a call is not offered once the consultant's next call has begun on its link")
+    void aReusedRoomIsNotRecordedAsTheEarlierCall() throws Exception {
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        jdbc.update("update app_lm_person_meeting set starts_at = ?, ends_at = ? where id = ?::uuid",
+                Timestamp.from(now.minus(Duration.ofMinutes(40))), Timestamp.from(now.minus(Duration.ofMinutes(10))),
+                meetingId());
+        gateway.deliverNext(List.of(new CalendarEventChanged(grantId, new CalendarEvent("call-2",
+                "Next interview", now.minus(Duration.ofMinutes(10)), now.plus(Duration.ofMinutes(20)),
+                List.of(MAILBOX, "priya@" + domain), "https://meet.google.com/abc-defg-hij", "Google Meet"))));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+
+        assertThat(notetaker().get("recordableMeetingIds")).extracting(JsonNode::asText)
+                .doesNotContain(meetingId());
+        schedule().andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_MEETING_OVER"));
+        assertThat(recall.sent()).isEmpty();
     }
 
     @Test

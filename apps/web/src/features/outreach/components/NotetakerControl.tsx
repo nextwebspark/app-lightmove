@@ -31,8 +31,8 @@ const LINE_CLASS: Record<NotetakerTone, string> = {
 };
 
 /**
- * One meeting row's Notetaker, a strip with a switch while the call is still to come: on sends the bot, off asks and
- * then removes it, before or during the call. Once the call is over the strip says what came of it — the transcript
+ * One meeting row's Notetaker, a strip with a switch while the server still offers the call — before it, during it,
+ * or while it runs over: on sends the bot, off asks and then removes it. Once the call is over the strip says what came of it — the transcript
  * once its notes are filed, Try again when only the write-up failed. The bot says in the call's chat who it records for.
  */
 export function NotetakerControl({
@@ -40,7 +40,6 @@ export function NotetakerControl({
   candidateId,
   meeting,
   recording,
-  upcoming,
   mayRecord,
   firstName,
   onShowTranscript,
@@ -49,7 +48,6 @@ export function NotetakerControl({
   candidateId: string;
   meeting: Meeting;
   recording: NotetakerRecording | null;
-  upcoming: boolean;
   /** Offered here, the call is the caller's to record, and the person is not marked do not contact. */
   mayRecord: boolean;
   firstName: string;
@@ -91,13 +89,16 @@ export function NotetakerControl({
   });
 
   const chip = recording ? notetakerChipOf(recording) : null;
-  const offerRecord = upcoming && meeting.joinUrl !== null && mayRecord && canRecord(recording);
+  const offerRecord = meeting.joinUrl !== null && mayRecord && canRecord(recording);
+  const now = Date.now();
+  const timing: CallTiming =
+    new Date(meeting.endsAt).getTime() <= now ? "ended" : new Date(meeting.startsAt).getTime() <= now ? "on" : "ahead";
   if (!chip && !offerRecord) return null;
 
   const isOn = chip?.action === "remove";
   const hasSwitch = isOn || offerRecord;
   const tone: NotetakerTone = isOn || !chip ? "waiting" : chip.tone;
-  const line = schedule.isPending ? "Sending…" : lineOf(recording, chip);
+  const line = schedule.isPending ? "Sending…" : lineOf(recording, chip, timing);
   const handleSwitch = (next: boolean) => {
     if (next) schedule.mutate();
     else setIsRemoving(true);
@@ -163,8 +164,8 @@ export function NotetakerControl({
         onClose={() => setIsRemoving(false)}
       >
         <p>
-          It leaves the call, or never joins it, and no notes are filed for this call. You can send it again before
-          the call ends.
+          It leaves the call, or never joins it, and no notes are filed for this call. You can send it again while
+          the call is still on.
         </p>
       </ConfirmDialog>
     </span>
@@ -172,11 +173,20 @@ export function NotetakerControl({
 }
 
 /** What the strip's second line says: the switch's state, or what came of the bot. */
-function lineOf(recording: NotetakerRecording | null, chip: NotetakerChip | null): string {
-  if (!recording || !chip) return "Off · nothing is recorded";
+type CallTiming = "ahead" | "on" | "ended";
+
+const OFF_LINE: Record<CallTiming, string> = {
+  ahead: "Off · nothing is recorded",
+  on: "Off · add it now to record the rest",
+  ended: "Booked end passed · still on? Add it now",
+};
+
+function lineOf(recording: NotetakerRecording | null, chip: NotetakerChip | null, timing: CallTiming): string {
+  const off = OFF_LINE[timing];
+  if (!recording || !chip) return off;
   switch (recording.status) {
     case "SCHEDULED":
-      return "Joins 1 min early · files notes after";
+      return timing === "ahead" ? "Joins 1 min early · files notes after" : "Joining now · files notes after";
     case "JOINING":
       return "Joining the call";
     case "RECORDING":
@@ -188,7 +198,7 @@ function lineOf(recording: NotetakerRecording | null, chip: NotetakerChip | null
     case "FAILED":
       return `Failed: ${failureWordsOf(recording.failureReason)}`;
     case "CANCELLED":
-      return "Off · nothing is recorded";
+      return off;
   }
 }
 
