@@ -18,6 +18,7 @@ import app.lightmove.api.notetaker.dto.CandidateNotetakerResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRecordingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
 import app.lightmove.api.notetaker.dto.TranscriptLineResponse;
+import app.lightmove.api.notetaker.model.CallSuggestion;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
@@ -314,6 +315,8 @@ public class NotetakerService {
     static NotetakerRecordingResponse responseOf(MeetingRecording recording) {
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
                 recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
-                recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId());
+                recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
+                recording.getSuggestions() != null, recording.getSuggestions() == null ? 0
+                        : (int) recording.getSuggestions().stream().filter(CallSuggestion::isPending).count());
     }
 }

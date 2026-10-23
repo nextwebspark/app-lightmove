@@ -144,6 +144,11 @@ export type ApiErrorCode =
   | "NOTETAKER_ALREADY_SCHEDULED"
   | "NOTETAKER_NOT_CHANGEABLE"
   | "NOTETAKER_SEND_FAILED"
+  | "NOTETAKER_TRANSCRIPT_GONE"
+  | "NOTETAKER_NOT_READY"
+  | "NOTETAKER_SUGGESTIONS_RUNNING"
+  | "NOTETAKER_SUGGESTION_DECIDED"
+  | "NOTETAKER_SUGGESTION_UNAVAILABLE"
   | "WORKSPACE_NAME_MISMATCH"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
@@ -300,6 +305,11 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOTETAKER_ALREADY_SCHEDULED: "A Notetaker is already set to record this call.",
   NOTETAKER_NOT_CHANGEABLE: "This Notetaker can no longer be changed. Reload to see where it got to.",
   NOTETAKER_SEND_FAILED: "The Notetaker couldn't be sent. Try again in a moment.",
+  NOTETAKER_TRANSCRIPT_GONE: "This call's transcript is no longer kept.",
+  NOTETAKER_NOT_READY: "The notes from this call aren't filed yet.",
+  NOTETAKER_SUGGESTIONS_RUNNING: "This call's transcript is already being read. It'll be ready in a moment.",
+  NOTETAKER_SUGGESTION_DECIDED: "Someone already decided this change.",
+  NOTETAKER_SUGGESTION_UNAVAILABLE: "This change can't be made any more. The record changed since the call.",
   WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",

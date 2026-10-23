@@ -67,7 +67,8 @@ class MeetingSummariser {
                 namesOf(answer.competenciesNotCovered(), competencyById), items(answer.briefConcerns()));
     }
 
-    private static String transcriptText(List<TranscriptLine> transcript, Instant callStart) {
+    /** The transcript as every Notetaker prompt reads it: timed, attributed, contacts taken out, start and end kept. */
+    static String transcriptText(List<TranscriptLine> transcript, Instant callStart) {
         String text = transcript.stream()
                 .map(line -> "[%s] %s: %s".formatted(CallTranscriptText.elapsed(callStart, line.at()), line.speaker(),
                         line.text()))

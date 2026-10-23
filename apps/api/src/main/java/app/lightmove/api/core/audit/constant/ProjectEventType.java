@@ -149,6 +149,12 @@ public enum ProjectEventType implements AuditEventType {
     NOTETAKER_CANCELLED,
     /** A Notetaker's transcript summarised by the model and filed as a Meeting note. */
     NOTETAKER_NOTE_FILED,
+    /** Suggest changes asked the model to read a call's transcript against the person's record. */
+    NOTETAKER_SUGGESTIONS_ASKED,
+    /** A change the call suggested, applied, skipped or undone by a researcher; the fields are named, never valued. */
+    NOTETAKER_SUGGESTION_APPLIED,
+    NOTETAKER_SUGGESTION_SKIPPED,
+    NOTETAKER_SUGGESTION_REVERTED,
 
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
