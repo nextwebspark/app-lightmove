@@ -4,6 +4,7 @@ import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
+import app.lightmove.api.notetaker.repository.MeetingLiveLineRepository;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,8 @@ public class NotetakerWebhook {
 
     private final RecallBotApi recall;
     private final MeetingRecordingRepository recordings;
+    private final MeetingLiveLineRepository liveLines;
+    private final CopilotStreamPublisher copilotStream;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
 
@@ -46,8 +49,26 @@ public class NotetakerWebhook {
                     events.publishEvent(new MeetingTranscriptReady(recording.getId()));
                 }
             }
-            case RecallBotNotice.TranscriptFailed failed -> recording.failed("TRANSCRIPT_FAILED");
+            case RecallBotNotice.TranscriptFailed failed -> {
+                recording.liveFeedStopped();
+                recording.failed("TRANSCRIPT_FAILED");
+            }
         }
+        endLiveIfOver(recording);
+    }
+
+    /**
+     * Once the call is over the live copilot reads nothing more, and its streamed lines go: the final transcript, or
+     * nothing, is the only copy of the call kept. Every window is told, so it shows the call ended.
+     */
+    void endLiveIfOver(MeetingRecording recording) {
+        if (!recording.isLiveCopilot()) {
+            return;
+        }
+        if (recording.getStatus() == NotetakerStatus.PROCESSING || !recording.getStatus().isLive()) {
+            liveLines.deleteByRecording(recording.getId());
+        }
+        copilotStream.publish(recording.getId());
     }
 
     void applyStatus(MeetingRecording recording, String code, String subCode) {

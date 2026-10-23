@@ -12,6 +12,7 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.webhook.service.SvixSignatures;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
+import app.lightmove.api.notetaker.model.RecallLiveUtterance;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
@@ -86,6 +87,75 @@ public class RecallBotClient implements RecallBotApi {
             throw new VendorException(VendorCall.of(VENDOR, "bot-create"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return id;
+    }
+
+    /** A scheduled bot's recording settings, changed before it joins: Recall refuses a bot already on its way in. */
+    @Override
+    public void updateLive(String botId, URI liveTranscriptUrl) {
+        guard.call(VendorCall.of(VENDOR, "bot-update"), () -> client.patch()
+                .uri("/api/v1/bot/{id}/", botId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("recording_config", recordingConfigOf(liveTranscriptUrl)))
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    @Override
+    public List<RecallLiveUtterance> liveUtterances(byte[] body, String id, String timestamp, String signature) {
+        if (!SvixSignatures.verifies(config.botWebhookSecret(), id, timestamp, signature, body, clock.instant())) {
+            throw ApiException.of(ErrorCode.NOTETAKER_WEBHOOK_REJECTED);
+        }
+        return liveUtterancesIn(body);
+    }
+
+    /**
+     * A real-time delivery: {@code transcript.data} for an utterance Recall finished, {@code transcript.partial_data}
+     * for the words so far. Timestamps are offsets into the recording; an absolute time is used where Recall sends one.
+     */
+    public static List<RecallLiveUtterance> liveUtterancesIn(byte[] body) {
+        JsonNode payload;
+        try {
+            payload = JSON.readTree(body);
+        } catch (JacksonException unreadable) {
+            return List.of();
+        }
+        if (payload == null) {
+            return List.of();
+        }
+        String event = payload.path("event").asText("");
+        boolean partial = event.equals("transcript.partial_data");
+        if (!partial && !event.equals("transcript.data")) {
+            return List.of();
+        }
+        JsonNode data = payload.path("data");
+        String botId = textOrNull(data.path("bot").get("id"));
+        JsonNode said = data.path("data");
+        JsonNode words = said.path("words");
+        if (botId == null || !words.isArray() || words.isEmpty()) {
+            return List.of();
+        }
+        StringBuilder text = new StringBuilder();
+        for (JsonNode word : words) {
+            String spoken = textOrNull(word.get("text"));
+            if (spoken != null) {
+                text.append(text.isEmpty() ? "" : " ").append(spoken.strip());
+            }
+        }
+        if (text.isEmpty()) {
+            return List.of();
+        }
+        JsonNode first = words.get(0).path("start_timestamp");
+        JsonNode last = words.get(words.size() - 1).path("end_timestamp");
+        JsonNode participant = said.path("participant");
+        String participantKey = textOrNull(participant.get("id"));
+        String name = textOrNull(participant.get("name"));
+        return List.of(new RecallLiveUtterance(botId, participantKey == null ? "unknown" : participantKey, name,
+                secondsOrNull(first.get("relative")), secondsOrNull(last.get("relative")),
+                instantOrNull(textOrNull(first.get("absolute"))), text.toString(), partial));
+    }
+
+    private static Double secondsOrNull(JsonNode node) {
+        return node == null || !node.isNumber() ? null : node.asDouble();
     }
 
     /** Recall deletes only a bot that has not joined; one in the call (or past it) refuses, and is asked to leave. */
@@ -302,15 +372,32 @@ public class RecallBotClient implements RecallBotApi {
         }
         body.put("bot_name", request.botName());
         body.put("metadata", request.metadata());
-        body.put("recording_config", Map.of(
-                "transcript", Map.of(
-                        "provider", Map.of("recallai_streaming", Map.of("mode", "prioritize_accuracy")),
-                        "diarization", Map.of("use_separate_streams_when_available", true))));
+        body.put("recording_config", recordingConfigOf(request.liveTranscriptUrl()));
         // Nobody is recorded without being told, by our bot or Recall's.
         body.put("chat", Map.of("on_bot_join", Map.of("send_to", "everyone", "message", request.consentLine())));
         // Recall's defaults keep a bot up to an hour in an empty or silent call, every minute of it billed.
         body.put("automatic_leave", AUTOMATIC_LEAVE);
         return body;
+    }
+
+    /**
+     * Recall streams the words as they are spoken only in its low-latency mode, which transcribes English alone; webhook
+     * deliveries are otherwise held back by minutes. A bot without the live copilot keeps the accurate mode.
+     */
+    static Map<String, Object> recordingConfigOf(URI liveTranscriptUrl) {
+        Map<String, Object> provider = liveTranscriptUrl == null
+                ? Map.of("mode", "prioritize_accuracy")
+                : Map.of("mode", "prioritize_low_latency", "language_code", "en");
+        Map<String, Object> transcript = Map.of(
+                "provider", Map.of("recallai_streaming", provider),
+                "diarization", Map.of("use_separate_streams_when_available", true));
+        if (liveTranscriptUrl == null) {
+            return Map.of("transcript", transcript);
+        }
+        return Map.of("transcript", transcript, "realtime_endpoints", List.of(Map.of(
+                "type", "webhook",
+                "url", liveTranscriptUrl.toString(),
+                "events", List.of("transcript.data", "transcript.partial_data"))));
     }
 
     private static String lowerOrNull(String text) {

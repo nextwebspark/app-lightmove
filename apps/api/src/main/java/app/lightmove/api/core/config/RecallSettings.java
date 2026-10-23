@@ -17,13 +17,23 @@ public record RecallSettings(
         /** How often live Notetaker bots past their call are read back. Spelled out in yml: {@code @Scheduled} reads it. */
         @DefaultValue("PT10M") Duration botReconcileInterval,
         /** How long a Notetaker transcript is kept once nothing needs it; null keeps it until its person or position goes. */
-        Duration transcriptRetention
+        Duration transcriptRetention,
+        /** The live copilot's shortest gap between two coach runs on one call: what bounds its model calls per minute. */
+        @DefaultValue("PT15S") Duration copilotCoachInterval,
+        /** The most coach runs one call gets, about an hour at the interval; past it the copilot's reading freezes. */
+        @DefaultValue("240") int copilotMaxCoachRuns
 ) {
 
     public RecallSettings {
         if (transcriptRetention != null && (transcriptRetention.isNegative() || transcriptRetention.isZero())) {
             throw new IllegalArgumentException(
                     "lightmove.recall.transcript-retention must be positive, but was " + transcriptRetention);
+        }
+        if (copilotCoachInterval == null || copilotCoachInterval.isNegative()) {
+            copilotCoachInterval = Duration.ofSeconds(15);
+        }
+        if (copilotMaxCoachRuns <= 0) {
+            copilotMaxCoachRuns = 240;
         }
     }
 

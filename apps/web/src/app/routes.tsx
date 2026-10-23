@@ -25,6 +25,7 @@ import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { MCP_GUIDE_PATH } from "../features/docs/lib/paths";
 import { McpGuidePage } from "../features/docs/pages/McpGuidePage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
+import CopilotWindowPage from "../features/outreach/pages/CopilotWindowPage";
 import { OAuthConsentPage } from "../features/oauth/pages/OAuthConsentPage";
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
 import BookingPage from "../features/outreach/pages/BookingPage";
@@ -111,6 +112,12 @@ export function AppRoutes() {
       <Route
         path="/extension/connect"
         element={<RequireWorkspace><ExtensionConnectPage /></RequireWorkspace>}
+      />
+
+      {/* A call's copilot in a popup of its own, for a browser with no floating windows: no app chrome, staff only. */}
+      <Route
+        path="/copilot/:projectId/:candidateId/:recordingId"
+        element={<RequireWorkspace><RequireStaff><CopilotWindowPage /></RequireStaff></RequireWorkspace>}
       />
 
       {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}

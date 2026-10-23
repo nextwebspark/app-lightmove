@@ -69,6 +69,22 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     int releaseSuggesting(UUID id);
 
     /**
+     * One coach run at a time per live call: lines arriving while a run asks the model wait for the next. A claim
+     * older than {@code staleBefore} belonged to a run that died with its instance.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_meeting_recording SET coaching_since = :now
+            WHERE id = :id AND live_copilot AND live_status = 'LISTENING'
+              AND (coaching_since IS NULL OR coaching_since < :staleBefore)
+            """)
+    int claimCoaching(UUID id, Instant now, Instant staleBefore);
+
+    @Modifying
+    @Query(nativeQuery = true, value = "UPDATE app_lm_meeting_recording SET coaching_since = NULL WHERE id = :id")
+    int releaseCoaching(UUID id);
+
+    /**
      * A transcript nothing needs any more — its note purged for good, or never filed — once untouched since
      * {@code cutoff}. The suggestions read off it quote the executive, so they go with it.
      */

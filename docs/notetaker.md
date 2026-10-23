@@ -103,10 +103,61 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    is `AI_UNAVAILABLE` (Try again), a transcript the guard stops is `VALIDATION_FAILED`, and neither stores or charges
    anything.
 
+9. **Prepare questions.** Every upcoming call on the drawer's Meetings section offers **Prepare questions**, which
+   opens the Interview plan and, the first time, drafts it with one Gemini call (`InterviewPlanner`,
+   `prompts/interview-plan-*`, the same structured-output path behind the guard and schema repair). The model gets the
+   brief's `AssessmentBrief` with each competency as an id, the `CandidateDossier`, the notes and documents Assess with
+   AI reads (`ExecutiveReading`, redacted), which competencies the scorecard already evidences (a score of 6 or more
+   with evidence written), and **which** facts the record is missing — notice, package, location, relocation, motivation,
+   expected package — never what a held one says and never a package figure. Code keeps only what it can place: a
+   competency id the brief has (at most two questions each), a gap that was listed (one each), at most two clarifiers.
+   The plan is kept per call (V153 `app_lm_interview_plan`, matched on the call's start and title as every teammate's
+   copy of it is), edited, ticked and saved through `PUT …/meetings/{meetingId}/plan`; Regenerate redrafts the model's
+   questions and keeps the consultant's own. A press is one `AI_ENRICH` use and its own `LlmBudget.INTERVIEW_PLAN` meter;
+   a claim (`drafting_since`) keeps two presses to one call, and a failed or empty draft stores and charges nothing.
+10. **Live copilot.** Under the Notetaker's switch sits **Live copilot**, chosen before the bot joins, because Recall
+    streams a transcript only to a bot made for it: sent with `realtime_endpoints` (`transcript.data`,
+    `transcript.partial_data`) pointing at `/api/v1/notetaker/webhooks/recall/live`, in `recallai_streaming`'s
+    `prioritize_low_latency` mode, which transcribes English only — a bot without the copilot keeps the accurate mode.
+    While the bot is still scheduled the switch changes it at Recall (`PATCH /api/v1/bot/{id}/`); once it is joining it
+    is `NOTETAKER_COPILOT_LOCKED`. Switching it on checks fair use first, so a refusal is the billing sheet before the
+    call, never during it.
+    - **The feed.** Each delivery is Svix-signed under the bot secret. `NotetakerLiveFeed` keeps a line only for a bot
+      we hold, in its call, with the copilot listening: a finished utterance once per Recall participant and first-word
+      offset (a retry is the same line), a speaker's words so far replaced in place (V153
+      `app_lm_meeting_live_line`, staff-only). The lines go when the call ends, fails or is cancelled, and when the
+      copilot is stopped, so only the final transcript outlives the call.
+    - **The coach.** `InterviewCoachWorker` runs `InterviewCoach` (`prompts/interview-coach-*`) once enough new talk is
+      in — four lines, or twenty seconds of speech, or a line left unread for thirty — never sooner than
+      `copilot-coach-interval` (15 s) after the last run, up to `copilot-max-coach-runs` (240) a call; a sweep on the
+      same interval catches a call that went quiet. One run at a time per call by claim (`coaching_since`). It sends the
+      brief, the plan's ticked questions, the missing facts, what it found so far and the transcript (redacted, the
+      team's voices marked "(your team)" in code), and folds the answer forward only: a competency goes from not yet to
+      touched to evidenced and never back, a gap heard stays heard, a question asked stays asked, at most three nudges
+      show, and one the consultant used or dismissed is never suggested again — what they did while a run was reading
+      wins over that run. A failed run keeps what the window shows and reads the same lines again; three in a row pause
+      it until more is said. A stretch the guard stops is skipped. Past the cap the reading freezes. A live call is one
+      `AI_ENRICH` use, counted at its first run.
+    - **The window.** **Open copilot ↗** on the row opens it in a Document Picture-in-Picture window in Chrome and Edge —
+      always on top, dragged over Zoom, Meet or Teams, rendered from the drawer's page so it needs no sign-in of its own
+      — or a popup of `/copilot/:projectId/:candidateId/:recordingId` elsewhere (not on top; it says so), or the drawer
+      when the browser opens neither. It reads `GET …/notetaker/{recordingId}/copilot?after=` (the lines after the last
+      one it holds) whenever `…/copilot/stream` says something changed (Postgres `lm_copilot_stream`), and every 15 s
+      regardless; a hidden tab keeps its stream, since the consultant is looking at the call. Its header carries the
+      Uncava mark, who is watching (each stream stamps `app_lm_meeting_copilot_viewer`), ⋯ — Mute suggestions, Open in
+      drawer, Stop copilot — and ✕, which closes only that window. **Stop copilot** (`POST …/copilot/stop`) is the
+      switcher's, the sender's, a lead's or an admin's (`NOTETAKER_COPILOT_NOT_YOURS`): it stops the feed and the coach
+      for everyone, deletes the lines, and leaves the bot recording. Every switch, stop and first opening is audited.
+
 ## What leaves Uncava
 
 - **To Recall:** the call's join link, and the call's audio and video while the bot is in it. Recall's copy is
   deleted once the note is filed.
+- **To Recall, with the live copilot:** the bot streams the transcript back to our own endpoint as it is spoken; nothing
+  else changes on Recall's side.
+- **To Gemini, for the interview copilot:** for Prepare questions, the brief's assessment seam, the profile, the notes and
+  documents (redacted) and which record facts are missing; during a live call, every few seconds, the brief, the plan,
+  which facts are missing and the redacted transcript so far. Never a package figure or a contact.
 - **To Gemini:** the transcript with contacts redacted, and the brief's assessment seam — once to write the note, once
   per **Suggest changes** press (with the record's notice period, location, relocation tag and motivation — no package —
   never a contact), and again on each **Assess with AI** press on that position while the note is live (`MeetingTranscriptLookup`, read by

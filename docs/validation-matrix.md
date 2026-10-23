@@ -143,4 +143,5 @@ is held back rather than sent (the step does not save until it is named) and the
 | Suggest changes: location (edited) | city and country inputs | country the catalog resolves; city ≤ 120 | under the field |
 | Suggest changes: motivation, expected package, task (edited) | text box | not blank; ≤ 1,000 (a task ≤ 200, one line); the Motivation section ≤ 4,000 after the call's words are added | under the field |
 | Suggest changes: package | one tick per figure; Apply ticked skips when none is ticked | at least one figure; a known three-letter currency; figures ≥ 0; not over a figure held in another currency (`NOTETAKER_SUGGESTION_UNAVAILABLE`) | under the field / sentence on the card |
+| Interview plan: a question | text box in place | not blank; ≤ 400; ≤ 40 questions in a plan; Save stays off while one is blank | under the field / toast |
 | ☐ Assistant question | no `maxLength` | ≤ 4000 | nothing shown |

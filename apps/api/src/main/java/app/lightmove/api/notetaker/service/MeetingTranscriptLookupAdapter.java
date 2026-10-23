@@ -3,20 +3,12 @@ package app.lightmove.api.notetaker.service;
 import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.service.MeetingTranscriptLookup;
-import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.WorkspaceAccess;
-import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -30,8 +22,7 @@ import org.springframework.stereotype.Component;
 class MeetingTranscriptLookupAdapter implements MeetingTranscriptLookup {
 
     private final MeetingRecordingRepository recordings;
-    private final WorkspaceAccess workspaceAccess;
-    private final UserRepository users;
+    private final TeamVoices teamVoices;
 
     @Override
     public List<TranscriptOnFile> transcriptsOf(UUID workspaceId, UUID projectId, UUID personId,
@@ -55,27 +46,13 @@ class MeetingTranscriptLookupAdapter implements MeetingTranscriptLookup {
     }
 
     private Set<String> teamNamesOf(UUID workspaceId, List<MeetingRecording> recordings) {
-        List<UUID> userIds = Stream.concat(
-                        workspaceAccess.activeStaff(workspaceId).stream().map(WorkspaceMember::getUserId),
-                        recordings.stream().map(MeetingRecording::getRequestedBy))
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        return users.findAllById(userIds).stream()
-                .map(User::getFullName)
-                .map(MeetingTranscriptLookupAdapter::nameKey)
-                .filter(name -> !name.isEmpty())
-                .collect(Collectors.toSet());
+        return teamVoices.namesOf(workspaceId, recordings.stream().map(MeetingRecording::getRequestedBy).toList());
     }
 
     private static TranscriptOnFile transcriptOf(MeetingRecording recording, Set<String> team) {
         return new TranscriptOnFile(recording.getTitle(), recording.getStartsAt(), recording.getTranscript().stream()
                 .map(line -> new SpokenLine(line.at(), line.speaker(), line.text(),
-                        line.named() && team.contains(nameKey(line.speaker()))))
+                        TeamVoices.isTeam(team, line.speaker(), line.named())))
                 .toList());
-    }
-
-    private static String nameKey(String name) {
-        return name == null ? "" : name.strip().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 }

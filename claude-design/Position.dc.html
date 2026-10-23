@@ -1770,6 +1770,15 @@
                           <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
                           <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                           <sc-if value="{{ m.viaLink }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
+                          <!-- Interview copilot: Prepare questions on every upcoming call opens the Interview plan; under the
+                               Notetaker's switch a second one, Live copilot, chosen before the bot joins (Recall streams a
+                               call only to a bot made for it). Once the bot is in, the strip offers Open copilot ↗, a small
+                               always-on-top window over the call. -->
+                          <button onClick="{{ openInterviewPlan }}" style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Prepare questions</button>
+                          <span style="display:flex;align-items:center;gap:10px;margin-top:6px;border-radius:6px;border:1px solid var(--line);padding:6px 10px">
+                            <span style="flex:1;min-width:0"><span style="display:block;font:500 12px var(--sans)">Live copilot</span><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Prompts you during the call · only you see it</span></span>
+                            <button onClick="{{ openCopilot }}" style="padding:0;background:none;border:none;font:500 11px var(--mono);color:var(--sky);text-decoration:underline;cursor:pointer">Open copilot ↗</button>
+                          </span>
                         </span>
                         <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
                       </div>
@@ -2579,6 +2588,90 @@
   <sc-if value="{{ askVisible }}" hint-placeholder-val="{{ true }}">
   <a href="Assistant.dc.html" title="Ask the assistant" style="position:fixed;bottom:20px;right:20px;z-index:110;height:44px;display:inline-flex;align-items:center;gap:10px;padding:0 17px 0 14px;border-radius:22px;border:1px solid var(--ai-line);background:linear-gradient(135deg,var(--ai),var(--ai2));color:#fff;font:600 13px var(--sans);box-shadow:0 8px 24px -6px rgba(79,70,229,.5);text-decoration:none">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.sparkle }}"></path></svg>Ask</a>
+  </sc-if>
+
+  <!-- Interview plan (Prepare questions): fit questions per competency of the brief — not yet evidenced first, each with
+       what to listen for — a polite question for each fact the record is missing, and at most two clarifiers. Every
+       question ticks, edits (✎) or goes (✕); + Add your own per section. Regenerate (one AI use), Copy as text, Save. -->
+  <sc-if value="{{ interviewPlanOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeInterviewPlan }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(0,0,0,.6);padding:16px">
+      <div role="dialog" aria-modal="true" aria-label="Interview plan" data-screen-label="Interview plan" onClick="{{ stop }}" style="width:560px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="padding:20px 22px 12px;border-bottom:1px solid var(--line)">
+          <div style="font:600 15px var(--sans)">Interview plan</div>
+          <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">Rania · Intro call · Tue 28 Oct · 11:00</div>
+        </div>
+        <div style="padding:14px 22px;overflow:auto;display:flex;flex-direction:column;gap:16px">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font:600 13px var(--sans)">Fit for the role <span style="font:400 12px var(--sans);color:var(--text3)">From the brief's competencies</span></div>
+            <div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:500 12.5px var(--sans)">Treasury &amp; capital structure <span style="font:500 11px var(--mono);color:var(--text3)">20%</span></div>
+              <label style="display:flex;gap:10px;font:400 13.5px/1.5 var(--sans)"><input type="checkbox" checked>Tell me about a refinancing or capital raise you led. What did you decide, and what changed afterwards?</label>
+              <div style="padding-left:24px;font:400 12px var(--sans);color:var(--text3)"><b style="font-weight:500;color:var(--text2)">Listen for:</b> a named deal, its size, her own call versus the board's</div>
+            </div>
+            <div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+              <div style="font:500 12.5px var(--sans)">Board &amp; investor communication <span style="font:500 11px var(--mono);color:var(--text3)">15%</span><span style="margin-left:8px;border-radius:999px;padding:1px 8px;font:500 11px var(--sans);background:var(--green-dim);color:var(--green)">Already evidenced in notes</span></div>
+              <label style="display:flex;gap:10px;font:400 13.5px/1.5 var(--sans)"><input type="checkbox" checked>How do you prepare for an audit committee that disagrees with management?</label>
+            </div>
+            <button style="align-self:flex-start;padding:0;background:none;border:none;font:500 12.5px var(--sans);color:var(--sky);cursor:pointer">+ Add your own</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font:600 13px var(--sans)">Fill the gaps <span style="font:400 12px var(--sans);color:var(--text3)">Only what the record is missing</span></div>
+            <label style="display:flex;gap:10px;font:400 13.5px/1.5 var(--sans)"><input type="checkbox" checked>When you think about timing, what notice would you need to give your current employer?</label>
+            <label style="display:flex;gap:10px;font:400 13.5px/1.5 var(--sans)"><input type="checkbox" checked>So we can be sure the role makes sense for you, would you be comfortable walking me through your current package?</label>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="font:600 13px var(--sans)">Clarify <span style="font:400 12px var(--sans);color:var(--text3)">From the career on file</span></div>
+            <label style="display:flex;gap:10px;font:400 13.5px/1.5 var(--sans)"><input type="checkbox" checked>Your last two roles were under two years each. What drove those moves?</label>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid var(--line)">
+          <button style="padding:0 6px;background:none;border:none;font:500 12.5px var(--sans);color:var(--text3);cursor:pointer">✦ Regenerate</button>
+          <span style="font:400 12px var(--sans);color:var(--text3)">5 of 5 ticked</span>
+          <span style="flex:1"></span>
+          <button style="border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Copy as text</button>
+          <button onClick="{{ closeInterviewPlan }}" style="border-radius:6px;padding:7px 14px;font:600 13px var(--sans);background:var(--sky);border:1px solid var(--sky);color:#fff;cursor:pointer">Save</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- The copilot window (~360×600, its own window floating over the call — Document Picture-in-Picture, a popup in a
+       browser without it, or the drawer): an app bar with the Uncava mark and "Interview copilot", the viewers' avatars
+       (yours, and smaller ones for teammates watching), ⋯ (Mute suggestions · Open in drawer · Stop copilot, which asks
+       first and stops it for everyone; the recording goes on) and ✕, which closes only this window. Under it the call and
+       elapsed time, then Live · Plan · Transcript. Live: a chip per competency (grey not yet, amber touched, green
+       evidenced; a tap shows the quote), the record's gaps ticked as they are said, at most three Ask next cards (Used /
+       Dismiss — a dismissed one never comes back), and the last lines. -->
+  <sc-if value="{{ copilotOpen }}" hint-placeholder-val="{{ false }}">
+    <div role="dialog" aria-label="Interview copilot" data-screen-label="Interview copilot" style="position:fixed;right:24px;top:72px;z-index:120;width:360px;height:600px;max-height:86vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 10px 9px 12px;border-bottom:1px solid var(--line)">
+        <img src="../apps/web/public/brand/uncava-app-icon-dark.svg" alt="" style="height:20px">
+        <span style="font:600 13px var(--sans)">Interview copilot</span>
+        <span style="margin-left:auto;display:flex;align-items:center"><span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:600 8.5px var(--sans);background:var(--green-dim);color:var(--green);margin-right:-6px">LK</span><span style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--sans);background:var(--sky);color:#fff;border:2px solid var(--panel)">YH</span></span>
+        <button style="width:26px;height:26px;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer">⋯</button>
+        <button onClick="{{ closeCopilot }}" style="width:26px;height:26px;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer">✕</button>
+      </div>
+      <div style="padding:8px 12px 0;display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:7px;font:400 12px var(--sans);color:var(--text2)"><span style="width:7px;height:7px;border-radius:50%;background:var(--red)"></span>Intro call · Rania Haddad<span style="margin-left:auto;font:500 11.5px var(--mono);color:var(--text3)">12:40</span></div>
+        <div style="display:flex;gap:2px;border-bottom:1px solid var(--line);font:400 12.5px var(--sans)"><span style="padding:6px 10px;border-bottom:2px solid var(--sky)">Live</span><span style="padding:6px 10px;color:var(--text3)">Plan 2/5</span><span style="padding:6px 10px;color:var(--text3)">Transcript</span></div>
+      </div>
+      <div style="flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Competencies</span>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;font:500 11.5px var(--sans)"><span style="border-radius:999px;padding:4px 10px;background:var(--green-dim);color:var(--green)">● Treasury</span><span style="border-radius:999px;padding:4px 10px;background:var(--amber-dim);color:var(--amber)">● M&amp;A</span><span style="border-radius:999px;padding:4px 10px;border:1px solid var(--line);color:var(--text3)">● Board</span><span style="border-radius:999px;padding:4px 10px;border:1px solid var(--line);color:var(--text3)">● Team</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">To find out</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 8px;font:400 12px var(--sans);color:var(--text3)"><span style="color:var(--text)">☑ Notice</span><span>☐ Package</span><span>☐ Relocation</span><span style="color:var(--text)">☑ Motivation</span><span>☐ Expected</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Ask next</span>
+          <div style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:5px"><span style="font:500 13px var(--sans)">Walk me through one integration you led end to end.</span><span style="font:400 11.5px var(--sans);color:var(--text3)">M&amp;A integration: mentioned, no example yet</span><span style="display:flex;gap:6px;justify-content:flex-end;font:500 11.5px var(--sans)"><span style="color:var(--text3)">Dismiss</span><span style="border:1px solid var(--line);border-radius:6px;padding:2px 9px">Used</span></span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px"><span style="font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Last said</span>
+          <span style="font:400 12.5px var(--sans)"><b style="color:var(--sky)">Yara Haddad (you)</b>: What notice would you need to give?</span>
+          <span style="font:400 12.5px var(--sans)"><b>Rania</b>: Three months, contractually.</span>
+        </div>
+      </div>
+      <div style="display:flex;padding:7px 12px;border-top:1px solid var(--line);font:400 11px var(--sans);color:var(--text3)">Listening<span style="margin-left:auto">Only you see this</span></div>
+    </div>
   </sc-if>
 
   <!-- Changes from the call: the transcript read against the person's record, one change per card — what the record
@@ -4178,6 +4271,10 @@ class Component extends DCLogic {
       toggleWsMenu: () => set({ wsMenu: !this.state.wsMenu }),
       openCallChanges: () => set({ callChanges: true }),
       closeCallChanges: () => set({ callChanges: false }),
+      openInterviewPlan: () => set({ interviewPlan: true }),
+      closeInterviewPlan: () => set({ interviewPlan: false }),
+      openCopilot: () => set({ copilot: true }),
+      closeCopilot: () => set({ copilot: false }),
       applyCallChange: () => { set({ callChanges: false }); this.showToast("Notice period saved from the call"); },
       toggleTheme: () => { const d = !this.state.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
       toggleCollapse: () => { const c = !this.state.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) { /* storage unavailable */ } set({ collapsed: c }); },
@@ -4441,6 +4538,7 @@ class Component extends DCLogic {
     const pipeline = isPipeline ? this.pipelineVals() : { pipelineRows: [], pipelinePills: [] };
     return Object.assign({
       ic: I, isAdmin: !s.clientRep, viewerInitials: s.clientRep ? "LM" : "YH", wsMenuOpen: s.wsMenu, callChangesOpen: Boolean(s.callChanges),
+      interviewPlanOpen: Boolean(s.interviewPlan), copilotOpen: Boolean(s.copilot),
       department: s.department, roleTitle: s.roleTitle,
       sideWidth: collapsed ? "56px" : "210px", labelDisp: collapsed ? "none" : "inline", rowJustify: collapsed ? "center" : "flex-start",
       themeLabel: s.dark ? "Light mode" : "Dark mode", themeIcon: s.dark ? I.sun : I.moon,

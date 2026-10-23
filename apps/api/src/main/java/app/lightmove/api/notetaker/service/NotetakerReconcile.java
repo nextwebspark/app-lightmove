@@ -120,6 +120,7 @@ public class NotetakerReconcile {
             }
             if (recording.getStatus().isLive() && recording.getEndsAt().plus(GIVE_UP_AFTER_END).isBefore(now)) {
                 recording.failed("TIMED_OUT");
+                webhook.endLiveIfOver(recording);
             }
             return recording.getStatus() != before;
         }));

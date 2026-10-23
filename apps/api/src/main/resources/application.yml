@@ -727,6 +727,8 @@ lightmove:
     # Blank keeps every Notetaker transcript; a duration (e.g. 90d) clears one whose note is gone, or that never filed
     # one, once it has sat untouched that long.
     transcript-retention: ${NOTETAKER_TRANSCRIPT_RETENTION:}
+    copilot-coach-interval: ${NOTETAKER_COPILOT_COACH_INTERVAL:PT15S}
+    copilot-max-coach-runs: ${NOTETAKER_COPILOT_MAX_COACH_RUNS:240}
 
   # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
   # instance, so filesystem is for npm run dev and the tests only.

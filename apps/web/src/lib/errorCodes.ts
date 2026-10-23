@@ -149,6 +149,10 @@ export type ApiErrorCode =
   | "NOTETAKER_SUGGESTIONS_RUNNING"
   | "NOTETAKER_SUGGESTION_DECIDED"
   | "NOTETAKER_SUGGESTION_UNAVAILABLE"
+  | "NOTETAKER_COPILOT_LOCKED"
+  | "NOTETAKER_COPILOT_OFF"
+  | "NOTETAKER_COPILOT_NOT_YOURS"
+  | "INTERVIEW_PLAN_DRAFTING"
   | "WORKSPACE_NAME_MISMATCH"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
@@ -310,6 +314,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOTETAKER_SUGGESTIONS_RUNNING: "This call's transcript is already being read. It'll be ready in a moment.",
   NOTETAKER_SUGGESTION_DECIDED: "Someone already decided this change.",
   NOTETAKER_SUGGESTION_UNAVAILABLE: "This change can't be made any more. The record changed since the call.",
+  NOTETAKER_COPILOT_LOCKED: "Live copilot can only be changed before the Notetaker joins the call.",
+  NOTETAKER_COPILOT_OFF: "This call has no live copilot.",
+  NOTETAKER_COPILOT_NOT_YOURS: "Only the person who switched on the copilot, a lead or an admin can stop it.",
+  INTERVIEW_PLAN_DRAFTING: "These questions are already being prepared. They'll be ready in a moment.",
   WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",

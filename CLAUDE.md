@@ -705,7 +705,13 @@ then deletes Recall's copy, so Try again can read it again; the transcript is ke
 `CallSuggestionService`) reads the transcript once per press against the record and walks each change — notice period,
 package, location, Open to relocate, motivation, expected package, the consultant's next steps as tasks — one card at a
 time; nothing is written until applied, each apply goes through its field's owner (`CandidateCallUpdates`, `TaskService`)
-with an `UPDATED_FROM_CALL` line naming who and which call, and Undo puts back only what the call wrote. A key without the calendar webhook secret
+with an `UPDATED_FROM_CALL` line naming who and which call, and Undo puts back only what the call wrote. **The interview
+copilot** (V153) is two more: **Prepare questions** on an upcoming call drafts an interview plan (`InterviewPlanService`
+— fit questions per competency, a polite one per fact the record is missing, told which are missing and never a value
+or a figure), edited and saved per call; and **Live copilot**, chosen before the bot joins, streams the call
+(`NotetakerLiveFeed`) to a coach (`InterviewCoachWorker`) that folds competency coverage, the gaps heard, the questions
+asked and up to three nudges forward only, read by a floating window (Document Picture-in-Picture, a popup, or the
+drawer) whose ⋯ stops it for everyone; the streamed lines go when the call ends. A key without the calendar webhook secret
 leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
 `candidate` and `position`; nothing depends back.
 
@@ -1255,6 +1261,9 @@ foreign key, since a calendar re-read replaces its rows), Recall's bot id (uniqu
 sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.
 V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
 `suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
+V153 adds `app_lm_interview_plan` (one per call per person on a position, matched on start and title), gives the recording
+its live copilot (`live_copilot`, `live_status`, the `live` reading, the coach's cursor, runs, failures and claim), and adds
+`app_lm_meeting_live_line` (the streamed transcript, deleted when the call ends) and `app_lm_meeting_copilot_viewer`.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),

@@ -8,9 +8,11 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
+import app.lightmove.api.notetaker.model.RecallLiveUtterance;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.RecallBotApi;
 import app.lightmove.api.notetaker.service.RecallBotClient;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -32,6 +34,8 @@ public class RecordingRecallBotApi implements RecallBotApi {
     private final List<RecallBotRequest> sent = new CopyOnWriteArrayList<>();
     private final List<String> removed = new CopyOnWriteArrayList<>();
     private final List<String> mediaDeleted = new CopyOnWriteArrayList<>();
+    private final Map<String, URI> liveUpdates = new ConcurrentHashMap<>();
+    private volatile boolean failUpdates;
     private final Map<String, List<TranscriptLine>> transcripts = new ConcurrentHashMap<>();
     private final Map<String, RecallBotState> states = new ConcurrentHashMap<>();
     private final List<String> botIds = new CopyOnWriteArrayList<>();
@@ -54,6 +58,22 @@ public class RecordingRecallBotApi implements RecallBotApi {
         String botId = "bot-" + UUID.randomUUID();
         botIds.add(botId);
         return botId;
+    }
+
+    @Override
+    public void updateLive(String botId, URI liveTranscriptUrl) {
+        if (failUpdates) {
+            throw new VendorException(VendorCall.of("recall", "bot-update"), VendorFailureKind.BAD_REQUEST, null);
+        }
+        liveUpdates.put(botId, liveTranscriptUrl == null ? URI.create("off:none") : liveTranscriptUrl);
+    }
+
+    @Override
+    public List<RecallLiveUtterance> liveUtterances(byte[] body, String id, String timestamp, String signature) {
+        if (!VALID_SIGNATURE.equals(signature)) {
+            throw ApiException.of(ErrorCode.NOTETAKER_WEBHOOK_REJECTED);
+        }
+        return RecallBotClient.liveUtterancesIn(body);
     }
 
     @Override
@@ -104,6 +124,15 @@ public class RecordingRecallBotApi implements RecallBotApi {
         this.offered = isOffered;
     }
 
+    /** What each bot's live transcript was last changed to: its endpoint, or {@code off:none} for none. */
+    public Map<String, URI> liveUpdates() {
+        return Map.copyOf(liveUpdates);
+    }
+
+    public void failUpdates(boolean fail) {
+        this.failUpdates = fail;
+    }
+
     public void failSends(boolean fail) {
         this.failSends = fail;
     }
@@ -139,6 +168,8 @@ public class RecordingRecallBotApi implements RecallBotApi {
         botIds.clear();
         removed.clear();
         mediaDeleted.clear();
+        liveUpdates.clear();
+        failUpdates = false;
         transcripts.clear();
         states.clear();
         offered = true;

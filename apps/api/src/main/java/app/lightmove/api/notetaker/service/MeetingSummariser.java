@@ -76,7 +76,7 @@ class MeetingSummariser {
         return CallTranscriptText.keepStartAndEnd(ContactRedaction.redact(text), LONGEST_TRANSCRIPT);
     }
 
-    private static String positionOf(AssessmentBrief brief, Map<String, BriefCompetency> competencyById) {
+    static String positionOf(AssessmentBrief brief, Map<String, BriefCompetency> competencyById) {
         String place = List.of(Objects.toString(brief.locationCity(), ""),
                         Objects.toString(brief.locationCountry(), ""))
                 .stream().filter(part -> !part.isBlank()).collect(Collectors.joining(", "));
@@ -106,7 +106,7 @@ class MeetingSummariser {
                         .collect(Collectors.joining("\n")));
     }
 
-    private static Map<String, BriefCompetency> idsOf(AssessmentBrief brief) {
+    static Map<String, BriefCompetency> idsOf(AssessmentBrief brief) {
         Map<String, BriefCompetency> byId = new LinkedHashMap<>();
         List<BriefCompetency> competencies = brief.competencies() == null ? List.of()
                 : brief.competencies().competencies();

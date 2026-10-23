@@ -116,7 +116,7 @@ class RecallBotClientTest {
     @DisplayName("a bot is scheduled for the call with its consent line, our ids, Recall's own transcription and leave rules")
     void requestBody() {
         Map<String, Object> body = RecallBotClient.bodyOf(new RecallBotRequest("https://meet.google.com/abc-defg-hij",
-                Instant.parse("2026-10-22T08:59:00Z"), "Uncava Notetaker", "Hello", Map.of("recordingId", "r1")));
+                Instant.parse("2026-10-22T08:59:00Z"), "Uncava Notetaker", "Hello", Map.of("recordingId", "r1"), null));
 
         assertThat(body).containsEntry("meeting_url", "https://meet.google.com/abc-defg-hij")
                 .containsEntry("join_at", "2026-10-22T08:59:00Z")
@@ -128,7 +128,7 @@ class RecallBotClientTest {
         assertThat(RecallBotClient.AUTOMATIC_LEAVE).containsEntry("waiting_room_timeout", 900)
                 .containsEntry("everyone_left_timeout", Map.of("timeout", 30));
         assertThat(RecallBotClient.bodyOf(new RecallBotRequest("https://zoom.us/j/1", null, "Uncava Notetaker",
-                "Hello", Map.of()))).doesNotContainKey("join_at");
+                "Hello", Map.of(), null))).doesNotContainKey("join_at");
     }
 
     @Test

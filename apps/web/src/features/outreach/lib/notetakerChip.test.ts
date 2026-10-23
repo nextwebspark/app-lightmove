@@ -15,6 +15,8 @@ const recording = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecord
   noteId: null,
   suggestionsAsked: false,
   pendingSuggestions: 0,
+  liveCopilot: false,
+  liveStatus: null,
   ...overrides,
 });
 

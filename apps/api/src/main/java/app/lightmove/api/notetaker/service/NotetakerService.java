@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
@@ -22,6 +23,7 @@ import app.lightmove.api.notetaker.model.CallSuggestion;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
+import app.lightmove.api.notetaker.repository.MeetingLiveLineRepository;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.outreach.model.KeptMeeting;
 import app.lightmove.api.outreach.service.KeptMeetings;
@@ -55,6 +57,8 @@ public class NotetakerService {
 
     static final String BOT_NAME = "Uncava Notetaker";
 
+    static final String LIVE_TRANSCRIPT_PATH = "/api/v1/notetaker/webhooks/recall/live";
+
     /** How long before the call the bot is asked in: the lobby opens a little early on every platform. */
     static final Duration JOIN_AHEAD = Duration.ofMinutes(1);
 
@@ -62,9 +66,12 @@ public class NotetakerService {
     static final Duration OVERRUN_GRACE = Duration.ofMinutes(20);
 
     private final RecallBotApi recall;
+    private final LightMoveProperties properties;
     private final LlmBudgetGuard llmBudget;
     private final FairUseGuard fairUse;
     private final MeetingRecordingRepository recordings;
+    private final MeetingLiveLineRepository liveLines;
+    private final CopilotStreamPublisher copilotStream;
     private final KeptMeetings meetings;
     private final CandidateOutreachService people;
     private final UserRepository users;
@@ -97,7 +104,7 @@ public class NotetakerService {
     }
 
     public NotetakerRecordingResponse schedule(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
-                                               UUID meetingId, HttpServletRequest httpRequest) {
+                                               UUID meetingId, boolean liveCopilot, HttpServletRequest httpRequest) {
         if (!recall.isOffered()) {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
         }
@@ -121,13 +128,15 @@ public class NotetakerService {
         if (joinUrl == null) {
             throw ApiException.of(ErrorCode.NOTETAKER_NO_JOIN_LINK);
         }
-        fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
-        UUID recordingId = claim(userId, workspaceId, projectId, recipient, meeting, joinUrl);
+        // The note is one AI use, and a live copilot's coaching another.
+        fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, liveCopilot ? 2 : 1);
+        UUID recordingId = claim(userId, workspaceId, projectId, recipient, meeting, joinUrl, liveCopilot);
         String botId;
         try {
             botId = recall.send(new RecallBotRequest(joinUrl, joinAtFor(meeting.startsAt(), now), BOT_NAME,
                     consentLineFor(userId), Map.of("recordingId", recordingId.toString(),
-                            "workspaceId", workspaceId.toString())));
+                            "workspaceId", workspaceId.toString()),
+                    liveCopilot ? liveTranscriptUrl() : null));
         } catch (VendorException | ApiException refused) {
             log.warn("Recall refused the Notetaker for recording {}: {}", recordingId, refused.getMessage());
             transactions.executeWithoutResult(status ->
@@ -141,6 +150,7 @@ public class NotetakerService {
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
                     .detail("startsAt", meeting.startsAt().toString())
+                    .detail("liveCopilot", String.valueOf(liveCopilot))
                     .record();
             return recording;
         });
@@ -173,6 +183,10 @@ public class NotetakerService {
             MeetingRecording held = recordings.findById(recordingId).orElseThrow();
             requireCancellable(held);
             held.cancelled();
+            if (held.isLiveCopilot()) {
+                liveLines.deleteByRecording(held.getId());
+                copilotStream.publish(held.getId());
+            }
             audit.projectEvent(ProjectEventType.NOTETAKER_CANCELLED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
@@ -258,17 +272,24 @@ public class NotetakerService {
         }
     }
 
+    /** Where Recall streams a live copilot's transcript: our own public endpoint, signed like every bot delivery. */
+    URI liveTranscriptUrl() {
+        return URI.create(properties.web().baseUrl().replaceAll("/+$", "") + LIVE_TRANSCRIPT_PATH);
+    }
+
     private UUID claim(UUID userId, UUID workspaceId, UUID projectId, OutreachRecipient recipient,
-                       KeptMeeting meeting, String joinUrl) {
+                       KeptMeeting meeting, String joinUrl, boolean liveCopilot) {
         try {
             return transactions.execute(status -> {
                 if (recordings.existsByWorkspaceIdAndJoinUrlAndStartsAtAndStatusIn(workspaceId, joinUrl,
                         meeting.startsAt(), NotetakerStatus.LIVE)) {
                     throw ApiException.of(ErrorCode.NOTETAKER_ALREADY_SCHEDULED);
                 }
-                return recordings.saveAndFlush(MeetingRecording.claimed(workspaceId, recipient.personId(), projectId,
+                MeetingRecording claimed = MeetingRecording.claimed(workspaceId, recipient.personId(), projectId,
                         recipient.candidateId(), meeting.id(), meeting.title(), meeting.startsAt(), meeting.endsAt(),
-                        joinUrl, userId)).getId();
+                        joinUrl, userId);
+                claimed.liveCopilot(liveCopilot, userId);
+                return recordings.saveAndFlush(claimed).getId();
             });
         } catch (DataIntegrityViolationException raced) {
             throw ApiException.of(ErrorCode.NOTETAKER_ALREADY_SCHEDULED);
@@ -317,6 +338,7 @@ public class NotetakerService {
                 recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
                 recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
                 recording.getSuggestions() != null, recording.getSuggestions() == null ? 0
-                        : (int) recording.getSuggestions().stream().filter(CallSuggestion::isPending).count());
+                        : (int) recording.getSuggestions().stream().filter(CallSuggestion::isPending).count(),
+                recording.isLiveCopilot(), recording.getLiveStatus());
     }
 }

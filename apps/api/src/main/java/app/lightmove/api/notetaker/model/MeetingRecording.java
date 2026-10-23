@@ -1,6 +1,8 @@
 package app.lightmove.api.notetaker.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.notetaker.constant.CoachState;
+import app.lightmove.api.notetaker.constant.LiveCopilotStatus;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -96,6 +98,41 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "suggested_at")
     private Instant suggestedAt;
 
+    /** Chosen before the bot joins: Recall streams a transcript only to a bot made for it. */
+    @Column(name = "live_copilot", nullable = false)
+    private boolean liveCopilot;
+
+    @Column(name = "live_enabled_by")
+    private UUID liveEnabledBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "live_status")
+    private LiveCopilotStatus liveStatus;
+
+    @Column(name = "live_stopped_by")
+    private UUID liveStoppedBy;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "live", columnDefinition = "jsonb")
+    private LiveCoaching live;
+
+    @Column(name = "coached_at")
+    private Instant coachedAt;
+
+    /** The last live line the coach has read: a run reads the call through here, the next one past it. */
+    @Column(name = "coached_through", nullable = false)
+    private long coachedThrough;
+
+    @Column(name = "coach_runs", nullable = false)
+    private int coachRuns;
+
+    @Column(name = "coach_failures", nullable = false)
+    private int coachFailures;
+
+    /** A live call is one AI use, counted at its first coaching rather than per run. */
+    @Column(name = "live_charged", nullable = false)
+    private boolean liveCharged;
+
     public static MeetingRecording claimed(UUID workspaceId, UUID personId, UUID projectId, UUID candidateId,
                                            UUID meetingId, String title, Instant startsAt, Instant endsAt,
                                            String joinUrl, UUID requestedBy) {
@@ -112,6 +149,62 @@ public class MeetingRecording extends BaseEntity {
         recording.requestedBy = requestedBy;
         recording.status = NotetakerStatus.SCHEDULED;
         return recording;
+    }
+
+    public void liveCopilot(boolean enabled, UUID by) {
+        this.liveCopilot = enabled;
+        this.liveEnabledBy = enabled ? by : null;
+        this.liveStatus = enabled ? LiveCopilotStatus.LISTENING : null;
+        this.live = enabled ? LiveCoaching.empty() : null;
+    }
+
+    /** Lines are taken and coached only while the copilot listens on a bot still in the call. */
+    public boolean isListening() {
+        return liveCopilot && liveStatus == LiveCopilotStatus.LISTENING && status.isLive()
+                && status != NotetakerStatus.PROCESSING;
+    }
+
+    public void liveFeedStopped() {
+        if (liveStatus == LiveCopilotStatus.LISTENING) {
+            this.liveStatus = LiveCopilotStatus.FEED_STOPPED;
+        }
+    }
+
+    public void liveStopped(UUID by) {
+        this.liveStatus = LiveCopilotStatus.STOPPED;
+        this.liveStoppedBy = by;
+    }
+
+    public void coached(LiveCoaching reading, long through, Instant at) {
+        this.live = reading;
+        this.coachedThrough = Math.max(coachedThrough, through);
+        this.coachedAt = at;
+        this.coachRuns += 1;
+        this.coachFailures = 0;
+    }
+
+    /** A run the model failed: the same lines are read again by the next one, the failures counted to a pause. */
+    public void coachFailed(CoachState next, Instant at) {
+        this.live = (live == null ? LiveCoaching.empty() : live).withCoach(next);
+        this.coachedAt = at;
+        this.coachRuns += 1;
+        this.coachFailures += 1;
+    }
+
+    /** A stretch the prompt guard stopped is skipped, never read again, and coaching goes on after it. */
+    public void coachSkipped(long through, Instant at) {
+        this.live = (live == null ? LiveCoaching.empty() : live).withCoach(CoachState.GUARDED);
+        this.coachedThrough = Math.max(coachedThrough, through);
+        this.coachedAt = at;
+        this.coachRuns += 1;
+    }
+
+    public void liveCoaching(LiveCoaching reading) {
+        this.live = reading;
+    }
+
+    public void liveCharged() {
+        this.liveCharged = true;
     }
 
     public void sent(String botId) {
