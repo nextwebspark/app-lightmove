@@ -434,16 +434,25 @@ jobs:
           # ops/gcp/schedule-warm-hours.sh (1 during Dubai hours, 0 overnight), and a deploy leaves that
           # value alone. Passing the flag here sets the REVISION-level one instead, which would undo the
           # schedule on every release and force a new revision for every change to it.
+          #
+          # --concurrency 200: every open tab holds two live streams, which count against it but wait without
+          # a thread, and Tomcat's 200 threads match it. --max-instances 3: 3 × DB_POOL_MAX=5 = 15 connections,
+          # under the db-g1-small's ~50 that the brightdata ETL and gth-api share (7-day peak: 18 in all).
+          #
+          # The liveness probe replaces an instance that stops answering for a minute; the one frozen on
+          # 2026-10-23 kept its traffic for 39. A minute outlasts Hikari's 30s wait, so a database stall holding
+          # every request thread restarts nothing, and the probe asks the liveness group, never the database.
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
             --update-labels "release=${VERSION//./-}" \
             --service-account "${{ vars.GCP_RUNTIME_SA }}" \
             --allow-unauthenticated \
-            --max-instances 2 \
+            --max-instances 3 \
             --cpu 1 --memory 1Gi --cpu-boost \
-            --concurrency 80 \
+            --concurrency 200 \
             --timeout 300s \
+            --liveness-probe "httpGet.path=/actuator/health/liveness,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=6" \
             --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${{ vars.AUTO_VERIFY_EMAIL || 'false' }}|AUTH_RATE_LIMIT_ENABLED=${{ vars.RATE_LIMIT_ENABLED || 'true' }}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${{ vars.LOGIN_ATTEMPTS_PER_MINUTE || '10' }}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${{ vars.SIGNUP_ATTEMPTS_PER_HOUR || '5' }}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${{ vars.VERIFICATION_RESENDS_PER_HOUR || '3' }}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${{ vars.TRUSTED_PROXY_COUNT || '0' }}|PUBLIC_API_ENABLED=${{ vars.PUBLIC_API_ENABLED || 'true' }}|BILLING_CONTACT_EMAIL=${{ vars.BILLING_CONTACT_EMAIL || 'billing@uncava.com' }}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
             --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}"
 
