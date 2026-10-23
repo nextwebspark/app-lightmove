@@ -14,7 +14,7 @@ spring:
     username: ${DB_USER:lm_app}
     password: ${DB_PASSWORD}
     hikari:
-      # bright-gcc is db-f1-micro; its connection ceiling is low (~25) and the brightdata ETL shares it.
+      # bright-gcc is db-g1-small; its connection ceiling is low (~50) and the brightdata ETL shares it.
       # This is per *instance*, so the real ceiling is pool × Cloud Run max-instances — which is why the
       # deployed service runs a smaller pool than a laptop does. Exhaust it and you take down the
       # neighbours, not just yourself.
@@ -105,9 +105,24 @@ spring:
   # workflow (.github/workflows/deploy.yml) is the authority on which are actually set, including the
   # lightmove.auth.oauth.* lists a provider like LinkedIn cannot work without.
 
+  # Platform threads, not virtual: on one vCPU there is a single carrier, and Java 25 still pins it while a
+  # thread loads a class. On 2026-10-23 a cold instance's first burst pinned it waiting on a lock whose holder
+  # needed it back, and nothing ran for 39 minutes. One Tomcat thread per request Cloud Run admits (server.tomcat).
   threads:
     virtual:
-      enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
+      enabled: false
+  task:
+    execution:
+      pool:
+        # No queue, so a short listener never waits behind a sourcing run or a meeting's notes; past max-size
+        # one runs on its publisher's thread (AsyncExecutorConfig).
+        core-size: 8
+        max-size: 64
+        queue-capacity: 0
+    scheduling:
+      pool:
+        # Boot gives platform-thread scheduling one thread, and every job would wait on the last.
+        size: 8
 
   ai:
     # spring-ai-autoconfigure-retry is on the classpath (transitive via the GenAI starter) and is
@@ -181,6 +196,9 @@ spring:
 
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
+  tomcat:
+    threads:
+      max: 200                # deploy.yml's --concurrency: one thread per request Cloud Run admits. Raise both.
   error:
     include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
   forward-headers-strategy: native
