@@ -15,6 +15,7 @@ import { dateTileOf, meetingWhenOf, shortDateOf } from "../lib/meetingTimes";
 import { hasLiveRecording, recordingOfMeeting } from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
 import { BookCallDialog } from "./BookCallDialog";
+import { CallChangesDialog } from "./CallChangesDialog";
 import { NotetakerControl } from "./NotetakerControl";
 import { TranscriptSheet } from "./TranscriptSheet";
 import { ZoomConnectControl } from "./ZoomConnectControl";
@@ -62,6 +63,7 @@ export function MeetingsSection({
   const [rescheduling, setRescheduling] = useState<Meeting | null>(null);
   const [cancelling, setCancelling] = useState<Meeting | null>(null);
   const [transcriptOf, setTranscriptOf] = useState<string | null>(null);
+  const [suggestionsOf, setSuggestionsOf] = useState<string | null>(null);
 
   const firstName = fullName.trim().split(/\s+/)[0];
   const upcoming = meetings.data?.upcoming ?? [];
@@ -84,6 +86,7 @@ export function MeetingsSection({
         mayRecord={mayRecord(meeting)}
         firstName={firstName}
         onShowTranscript={setTranscriptOf}
+        onSuggestChanges={setSuggestionsOf}
       />
     ) : null;
 
@@ -190,6 +193,17 @@ export function MeetingsSection({
           candidateId={candidateId}
           recordingId={transcriptOf}
           onClose={() => setTranscriptOf(null)}
+        />
+      )}
+
+      {suggestionsOf && (
+        <CallChangesDialog
+          projectId={projectId}
+          candidateId={candidateId}
+          personId={personId}
+          recordingId={suggestionsOf}
+          firstName={firstName}
+          onClose={() => setSuggestionsOf(null)}
         />
       )}
 

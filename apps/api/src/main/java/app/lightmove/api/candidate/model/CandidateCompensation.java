@@ -46,6 +46,19 @@ public record CandidateCompensation(String currency, Long baseSalary, Long bonus
         return new CandidateCompensation(null, null, null, null, null, null, CompensationBreakdown.empty());
     }
 
+    /**
+     * Whether writing figures in {@code newCurrency} would leave a held figure it does not replace labelled in the wrong
+     * currency — relabelling it would restate somebody else's number.
+     */
+    public boolean wouldRelabel(String newCurrency, boolean replacesBase, boolean replacesBonus,
+                                boolean replacesAllowances) {
+        if (currency == null || currency.equalsIgnoreCase(newCurrency)) {
+            return false;
+        }
+        return longTermIncentive != null || (baseSalary != null && !replacesBase) || (bonus != null && !replacesBonus)
+                || (allowances != null && !replacesAllowances);
+    }
+
     /** Nothing about the package is established — no figure, no currency, no notice, no breakdown. */
     public boolean isUnknown() {
         return equals(unknown());

@@ -30,6 +30,8 @@ vi.mock("../api/notetakerApi", async (importOriginal) => ({
   cancelNotetaker: vi.fn(),
   retryNotetaker: vi.fn(),
   getTranscript: vi.fn(),
+  getCallSuggestions: vi.fn(),
+  suggestChanges: vi.fn(),
 }));
 vi.mock("../api/zoomApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/zoomApi")>()),
@@ -491,6 +493,48 @@ describe("MeetingsSection", () => {
     expect(screen.getByText("01:05")).toBeInTheDocument();
   });
 
+  it("offers Suggest changes on a call whose notes are filed, and says what is left to review", async () => {
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue({
+      recordingId: "r2",
+      title: "Coffee",
+      startsAt: "2026-09-22T06:00:00Z",
+      asked: true,
+      mayAskAgain: true,
+      suggestions: [],
+    });
+    renderSection({
+      notetakerOffered: true,
+      recordings: [
+        aRecording({ id: "r2", meetingId: "m2", startsAt: "2026-09-22T06:00:00Z", status: "DONE", hasTranscript: true }),
+        aRecording({
+          id: "r3",
+          meetingId: "m1",
+          status: "DONE",
+          hasTranscript: true,
+          suggestionsAsked: true,
+          pendingSuggestions: 2,
+        }),
+      ],
+    });
+
+    expect(await screen.findByRole("button", { name: "2 changes to review" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Suggest changes" }));
+
+    expect(await screen.findByRole("dialog", { name: "Changes from the call" })).toBeInTheDocument();
+    expect(await screen.findByText("Nothing to change")).toBeInTheDocument();
+    expect(notetakerApi.getCallSuggestions).toHaveBeenCalledWith("p1", "c1", "r2", expect.anything());
+  });
+
+  it("offers no Suggest changes once the transcript is no longer kept", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ id: "r2", meetingId: "m2", startsAt: "2026-09-22T06:00:00Z", status: "DONE" })],
+    });
+
+    expect(await screen.findByText("Notes filed")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Suggest changes" })).not.toBeInTheDocument();
+  });
+
   it("says why a bot failed, and tries the notes again only where the call was heard", async () => {
     vi.mocked(notetakerApi.retryNotetaker).mockResolvedValue(aRecording({ status: "PROCESSING" }));
     renderSection({
@@ -570,6 +614,8 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     hasTranscript: false,
     retryable: false,
     noteId: null,
+    suggestionsAsked: false,
+    pendingSuggestions: 0,
     ...overrides,
   };
 }

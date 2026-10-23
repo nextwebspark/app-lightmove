@@ -11,6 +11,9 @@ export const NOTETAKER_KEY = (projectId: string, candidateId: string) =>
 export const NOTETAKER_TRANSCRIPT_KEY = (projectId: string, candidateId: string, recordingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "transcript"] as const;
 
+export const CALL_SUGGESTIONS_KEY = (projectId: string, candidateId: string, recordingId: string) =>
+  ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "suggestions"] as const;
+
 export type NotetakerStatus =
   | "SCHEDULED"
   | "JOINING"
@@ -32,6 +35,10 @@ export interface NotetakerRecording {
   hasTranscript: boolean;
   retryable: boolean;
   noteId: string | null;
+  /** Someone pressed Suggest changes on this call. */
+  suggestionsAsked: boolean;
+  /** Changes it suggested that nobody has applied or skipped yet. */
+  pendingSuggestions: number;
 }
 
 export interface CandidateNotetaker {
@@ -52,6 +59,61 @@ export interface NotetakerTranscript {
   title: string | null;
   startsAt: string;
   lines: NotetakerTranscriptLine[];
+}
+
+export type CallSuggestionKind =
+  | "NOTICE_PERIOD"
+  | "CURRENT_PACKAGE"
+  | "LOCATION"
+  | "OPEN_TO_RELOCATE"
+  | "MOTIVATION"
+  | "EXPECTED_PACKAGE"
+  | "TASK";
+
+export type CallSuggestionStatus = "PENDING" | "APPLIED" | "SKIPPED";
+
+/** Which parts are set follows the kind: `text`, a place, or a package's currency and annual figures. */
+export interface SuggestedValue {
+  text: string | null;
+  city: string | null;
+  country: string | null;
+  currency: string | null;
+  baseSalary: number | null;
+  bonus: number | null;
+  allowances: number | null;
+  /** How monthly figures were annualised, when they were. */
+  working: string | null;
+}
+
+export interface CallSuggestion {
+  id: string;
+  kind: CallSuggestionKind;
+  status: CallSuggestionStatus;
+  value: SuggestedValue;
+  /** What the record holds now, read live; null for a task. */
+  current: SuggestedValue | null;
+  /** The executive's own words, and when in the call they said them. */
+  said: string | null;
+  at: string | null;
+  /** False once the record moved on so it can't be applied, such as the tag being retired. */
+  available: boolean;
+  edited: boolean;
+}
+
+export interface CallSuggestions {
+  recordingId: string;
+  title: string | null;
+  startsAt: string;
+  asked: boolean;
+  mayAskAgain: boolean;
+  suggestions: CallSuggestion[];
+}
+
+export type PackageField = "baseSalary" | "bonus" | "allowances";
+
+export interface ApplyCallSuggestion {
+  value?: Partial<Omit<SuggestedValue, "working">>;
+  packageFields?: PackageField[];
 }
 
 function candidatePath(projectId: string, candidateId: string): string {
@@ -86,5 +148,37 @@ export function getTranscript(
 ): Promise<NotetakerTranscript> {
   return request<NotetakerTranscript>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/transcript`, {
     signal,
+  });
+}
+
+function suggestionsPath(projectId: string, candidateId: string, recordingId: string): string {
+  return `${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/suggestions`;
+}
+
+export function getCallSuggestions(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  signal?: AbortSignal,
+): Promise<CallSuggestions> {
+  return request<CallSuggestions>(suggestionsPath(projectId, candidateId, recordingId), { signal });
+}
+
+/** Spends a model call: only ever on the consultant's press. */
+export function suggestChanges(projectId: string, candidateId: string, recordingId: string): Promise<CallSuggestions> {
+  return request<CallSuggestions>(suggestionsPath(projectId, candidateId, recordingId), { method: "POST" });
+}
+
+export function decideCallSuggestion(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  suggestionId: string,
+  decision: "apply" | "skip" | "reopen",
+  body?: ApplyCallSuggestion,
+): Promise<CallSuggestions> {
+  return request<CallSuggestions>(`${suggestionsPath(projectId, candidateId, recordingId)}/${suggestionId}/${decision}`, {
+    method: "POST",
+    ...(body && { body }),
   });
 }

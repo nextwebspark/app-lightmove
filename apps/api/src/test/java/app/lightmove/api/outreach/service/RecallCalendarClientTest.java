@@ -130,7 +130,7 @@ class RecallCalendarClientTest {
             VendorRateLimiter limiter = new VendorRateLimiter();
             RecallCalendarClient client = new RecallCalendarClient(
                     new RecallSettings("recall-key", SECRET, null,
-                            "http://127.0.0.1:" + server.getAddress().getPort(), null),
+                            "http://127.0.0.1:" + server.getAddress().getPort(), null, null),
                     new VendorClientFactory(properties), limiter, new VendorCallGuard(limiter, properties),
                     RestClient.builder(), Clock.fixed(NOW, ZoneOffset.UTC));
 
