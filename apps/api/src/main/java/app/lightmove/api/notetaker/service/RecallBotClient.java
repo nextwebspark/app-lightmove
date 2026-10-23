@@ -139,12 +139,28 @@ public class RecallBotClient implements RecallBotApi {
         if (download == null) {
             throw new VendorException(VendorCall.of(VENDOR, "transcript"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
-        JsonNode turns = guard.call(VendorCall.of(VENDOR, "transcript-download"), () -> downloads.get()
-                .uri(download)
-                .accept(MediaType.APPLICATION_JSON)
-                .retrieve()
-                .body(JsonNode.class));
-        return linesOf(turns);
+        return linesOf(guard.call(VendorCall.of(VENDOR, "transcript-download"), () -> turnsAt(downloads, download)));
+    }
+
+    /**
+     * Recall's storage serves the transcript as {@code application/octet-stream}, which no JSON converter accepts:
+     * read as a JSON body, every transcript failed as malformed. Its bytes are parsed here instead. Anything but an
+     * array of turns is malformed rather than an empty call, which would delete Recall's copy as "nothing heard".
+     */
+    static JsonNode turnsAt(RestClient downloads, URI download) {
+        byte[] body = downloads.get().uri(download).retrieve().body(byte[].class);
+        JsonNode turns;
+        try {
+            turns = body == null || body.length == 0 ? null : JSON.readTree(body);
+        } catch (JacksonException unreadable) {
+            throw new VendorException(VendorCall.of(VENDOR, "transcript-download"),
+                    VendorFailureKind.MALFORMED_RESPONSE, unreadable);
+        }
+        if (turns == null || !turns.isArray()) {
+            throw new VendorException(VendorCall.of(VENDOR, "transcript-download"),
+                    VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return turns;
     }
 
     @Override

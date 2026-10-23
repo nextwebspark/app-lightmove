@@ -1,17 +1,25 @@
 package app.lightmove.api.notetaker.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.client.RestClient;
 import tools.jackson.databind.json.JsonMapper;
 
 class RecallBotClientTest {
@@ -46,6 +54,39 @@ class RecallBotClientTest {
                 new TranscriptLine(Instant.parse("2026-10-22T09:00:02Z"), "Priya Raman", "I led the plan.", true),
                 new TranscriptLine(Instant.parse("2026-10-22T09:00:09Z"), "Speaker 8", "Thanks", false));
         assertThat(RecallBotClient.linesOf(JSON.readTree("{}"))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a transcript file served as application/octet-stream, as Recall's storage serves it, is read as JSON")
+    void transcriptFileServedAsOctetStream() throws IOException {
+        HttpServer storage = storageServing("""
+                [{"participant":{"id":7,"name":"Priya Raman"},
+                  "words":[{"text":"Hello","start_timestamp":{"absolute":"2026-10-22T09:00:02Z"}}]}]""");
+        try {
+            URI file = URI.create("http://127.0.0.1:" + storage.getAddress().getPort() + "/transcript.json");
+
+            assertThat(RecallBotClient.linesOf(RecallBotClient.turnsAt(RestClient.create(), file))).containsExactly(
+                    new TranscriptLine(Instant.parse("2026-10-22T09:00:02Z"), "Priya Raman", "Hello", true));
+        } finally {
+            storage.stop(0);
+        }
+    }
+
+    @Test
+    @DisplayName("a transcript file that is not an array of turns is malformed, never an empty call")
+    void transcriptFileNotTurnsIsMalformed() throws IOException {
+        for (String body : List.of("{\"error\":\"expired\"}", "not json", "")) {
+            HttpServer storage = storageServing(body);
+            try {
+                URI file = URI.create("http://127.0.0.1:" + storage.getAddress().getPort() + "/transcript.json");
+
+                assertThatThrownBy(() -> RecallBotClient.turnsAt(RestClient.create(), file))
+                        .isInstanceOfSatisfying(VendorException.class, failure ->
+                                assertThat(failure.getKind()).isEqualTo(VendorFailureKind.MALFORMED_RESPONSE));
+            } finally {
+                storage.stop(0);
+            }
+        }
     }
 
     @Test
@@ -105,5 +146,18 @@ class RecallBotClientTest {
 
     private static List<RecallBotNotice> notices(String body) {
         return RecallBotClient.noticesIn(body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static HttpServer storageServing(String body) throws IOException {
+        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "application/octet-stream");
+            exchange.sendResponseHeaders(200, bytes.length == 0 ? -1 : bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        server.start();
+        return server;
     }
 }
