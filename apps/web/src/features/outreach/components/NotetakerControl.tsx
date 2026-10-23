@@ -1,25 +1,39 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useToast } from "../../../components/ui";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { Toggle, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import type { Meeting } from "../api/meetingApi";
 import * as notetakerApi from "../api/notetakerApi";
 import type { NotetakerRecording } from "../api/notetakerApi";
-import { canRecord, notetakerChipOf, type NotetakerTone } from "../lib/notetakerChip";
+import {
+  canRecord,
+  failureWordsOf,
+  type NotetakerChip,
+  notetakerChipOf,
+  type NotetakerTone,
+} from "../lib/notetakerChip";
 
 const TONE_CLASS: Record<NotetakerTone, string> = {
-  waiting: "bg-u-raised text-u-text2 border-u-border",
-  live: "bg-u-accent-tint text-u-accent border-u-accent",
-  done: "bg-u-direct-tint text-u-direct border-transparent",
-  failed: "bg-u-signal-tint text-u-text2 border-u-signal/40",
+  waiting: "border-u-border bg-u-bg",
+  live: "border-u-border bg-u-bg",
+  done: "border-transparent bg-u-direct-tint",
+  failed: "border-u-signal/40 bg-u-signal-tint",
+};
+
+const LINE_CLASS: Record<NotetakerTone, string> = {
+  waiting: "text-u-text3",
+  live: "text-u-accent",
+  done: "text-u-direct",
+  failed: "text-u-text2",
 };
 
 /**
- * One meeting row's Notetaker: Record with Notetaker on a call still to come that has a video link, then the bot's
- * chip and whatever may be done from it — Remove before or during the call, the transcript once its notes are filed,
- * Try again when only the write-up failed. The bot says in the call's chat who it records for.
+ * One meeting row's Notetaker, a strip with a switch while the call is still to come: on sends the bot, off asks and
+ * then removes it, before or during the call. Once the call is over the strip says what came of it — the transcript
+ * once its notes are filed, Try again when only the write-up failed. The bot says in the call's chat who it records for.
  */
 export function NotetakerControl({
   projectId,
@@ -80,23 +94,41 @@ export function NotetakerControl({
   const offerRecord = upcoming && meeting.joinUrl !== null && mayRecord && canRecord(recording);
   if (!chip && !offerRecord) return null;
 
+  const isOn = chip?.action === "remove";
+  const hasSwitch = isOn || offerRecord;
+  const tone: NotetakerTone = isOn || !chip ? "waiting" : chip.tone;
+  const line = schedule.isPending ? "Sending…" : lineOf(recording, chip);
+  const handleSwitch = (next: boolean) => {
+    if (next) schedule.mutate();
+    else setIsRemoving(true);
+  };
+
   return (
-    <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-      {chip && (
+    <span
+      className={cn(
+        "mt-1.5 flex items-center gap-2.5 rounded-u-control border px-2.5 py-[7px]",
+        TONE_CLASS[tone],
+      )}
+    >
+      <Icon
+        d={ICONS.mic}
+        size={14}
+        className={cn("flex-none", isOn ? "text-u-accent" : tone === "done" ? "text-u-direct" : "text-u-text3")}
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block text-note font-medium text-u-text">Notetaker</span>
         <span
           className={cn(
-            "inline-flex rounded-u-control border px-[7px] py-px font-mono text-eyebrow font-semibold",
-            TONE_CLASS[chip.tone],
+            "block font-mono text-meta",
+            recording?.status === "RECORDING" ? "text-u-accent" : LINE_CLASS[tone],
           )}
         >
-          {chip.label}
+          {recording?.status === "RECORDING" && (
+            <span aria-hidden="true" className="me-1.5 inline-block size-1.5 rounded-full bg-u-offlimits align-middle" />
+          )}
+          {line}
         </span>
-      )}
-      {chip?.action === "remove" && recording && (
-        <button type="button" onClick={() => setIsRemoving(true)} className={ROW_ACTION}>
-          Remove notetaker
-        </button>
-      )}
+      </span>
       {chip?.action === "transcript" && recording && (
         <button type="button" onClick={() => onShowTranscript(recording.id)} className={ROW_ACTION}>
           View transcript
@@ -112,10 +144,13 @@ export function NotetakerControl({
           Try again
         </button>
       )}
-      {offerRecord && (
-        <button type="button" disabled={schedule.isPending} onClick={() => schedule.mutate()} className={ROW_ACTION}>
-          {schedule.isPending ? "Sending…" : "Record with Notetaker"}
-        </button>
+      {hasSwitch && (
+        <Toggle
+          checked={isOn || schedule.isPending}
+          onChange={handleSwitch}
+          label="Record with Notetaker"
+          disabled={schedule.isPending || remove.isPending}
+        />
       )}
 
       <ConfirmDialog
@@ -136,5 +171,26 @@ export function NotetakerControl({
   );
 }
 
+/** What the strip's second line says: the switch's state, or what came of the bot. */
+function lineOf(recording: NotetakerRecording | null, chip: NotetakerChip | null): string {
+  if (!recording || !chip) return "Off · nothing is recorded";
+  switch (recording.status) {
+    case "SCHEDULED":
+      return "Joins 1 min early · files notes after";
+    case "JOINING":
+      return "Joining the call";
+    case "RECORDING":
+      return "Recording";
+    case "PROCESSING":
+      return "Writing notes";
+    case "DONE":
+      return "Notes filed";
+    case "FAILED":
+      return `Failed: ${failureWordsOf(recording.failureReason)}`;
+    case "CANCELLED":
+      return "Off · nothing is recorded";
+  }
+}
+
 const ROW_ACTION =
-  "font-mono text-meta font-medium text-u-text3 underline-offset-2 hover:text-u-text hover:underline disabled:opacity-60";
+  "flex-none font-mono text-meta font-medium text-u-text3 underline underline-offset-2 hover:text-u-text disabled:opacity-60";

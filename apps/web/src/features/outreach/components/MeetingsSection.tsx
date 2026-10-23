@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import * as poolApi from "../../candidates/api/poolApi";
@@ -179,6 +180,7 @@ export function MeetingsSection({
           fullName={fullName}
           candidateStatus={candidateStatus}
           emails={emails}
+          notetakerOffered={notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact}
           onClose={() => setIsBooking(false)}
         />
       )}
@@ -238,51 +240,70 @@ function UpcomingMeeting({
   const tile = dateTileOf(meeting.startsAt);
   const when = meetingWhenOf(meeting.startsAt, meeting.endsAt);
   return (
-    <div className="flex items-start gap-3 py-2">
-      <span aria-hidden="true" className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center">
-        <span className="block font-mono text-[9.5px] font-semibold uppercase text-u-accent">{tile.month}</span>
-        <span className="block text-[16px]/[1.2] font-semibold tabular-nums">{tile.day}</span>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-medium">{meeting.title ?? "Untitled"}</span>
-        <span className="block font-mono text-[11.5px] text-u-text3">
-          {when}
-          {meeting.ownerName ? ` · ${meeting.ownerName}` : ""}
+    <div className="py-2">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center">
+          <span className="block font-mono text-[9.5px] font-semibold uppercase text-u-accent">{tile.month}</span>
+          <span className="block text-[16px]/[1.2] font-semibold tabular-nums">{tile.day}</span>
         </span>
-        {meeting.viaLink && (
-          <span className="mt-1 inline-flex rounded-[5px] bg-u-direct-tint px-[7px] py-px font-mono text-[10px] font-semibold text-u-direct">
-            Booked through your link
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] font-medium">{meeting.title ?? "Untitled"}</span>
+          <span className="block font-mono text-[11.5px] text-u-text3">
+            {when}
+            {meeting.ownerName ? ` · ${meeting.ownerName}` : ""}
+          </span>
+          {meeting.viaLink && (
+            <span className="mt-1 inline-flex rounded-[5px] bg-u-direct-tint px-[7px] py-px font-mono text-[10px] font-semibold text-u-direct">
+              Booked through your link
+            </span>
+          )}
+        </span>
+        {(meeting.joinUrl || onReschedule || onCancel) && (
+          <span className="flex flex-none flex-col items-end gap-1.5">
+            {meeting.joinUrl && (
+              <a
+                href={meeting.joinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-[5px] rounded-[6px] border border-u-border px-[9px] py-1 text-[11.5px] font-medium text-u-text2 hover:text-u-text"
+              >
+                <Icon d={ICONS.video} size={12} />
+                {meeting.videoProvider ?? "Join"}
+              </a>
+            )}
+            {(onReschedule || onCancel) && (
+              <span className="flex gap-1">
+                {onReschedule && (
+                  <button
+                    type="button"
+                    onClick={onReschedule}
+                    aria-label="Reschedule"
+                    title="Reschedule"
+                    className={cn(ICON_ACTION, "hover:bg-u-raised hover:text-u-text")}
+                  >
+                    <Icon d={ICONS.reschedule} size={13} />
+                  </button>
+                )}
+                {onCancel && (
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    aria-label="Cancel call"
+                    title="Cancel call"
+                    className={cn(ICON_ACTION, "hover:bg-u-offlimits-tint hover:text-u-offlimits")}
+                  >
+                    <Icon d={ICONS.trash} size={13} />
+                  </button>
+                )}
+              </span>
+            )}
           </span>
         )}
-        {(onReschedule || onCancel) && (
-          <span className="mt-1 flex gap-3">
-            {onReschedule && (
-              <button type="button" onClick={onReschedule} className={ROW_ACTION}>
-                Reschedule
-              </button>
-            )}
-            {onCancel && (
-              <button type="button" onClick={onCancel} className={ROW_ACTION}>
-                Cancel call
-              </button>
-            )}
-          </span>
-        )}
-        {notetaker}
-      </span>
-      {meeting.joinUrl && (
-        <a
-          href={meeting.joinUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex flex-none items-center gap-[5px] rounded-[6px] border border-u-border px-[9px] py-1 text-[11.5px] font-medium text-u-text2 hover:text-u-text"
-        >
-          <Icon d={ICONS.video} size={12} />
-          {meeting.videoProvider ?? "Join"}
-        </a>
-      )}
+      </div>
+      {notetaker && <div className="ms-[54px]">{notetaker}</div>}
     </div>
   );
 }
 
-const ROW_ACTION = "font-mono text-meta font-medium text-u-text3 underline-offset-2 hover:text-u-text hover:underline";
+const ICON_ACTION =
+  "grid size-[26px] place-items-center rounded-u-control border border-u-border text-u-text3 transition-colors focus-visible:outline-2 focus-visible:outline-u-accent";

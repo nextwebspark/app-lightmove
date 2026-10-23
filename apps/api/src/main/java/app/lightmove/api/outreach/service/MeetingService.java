@@ -14,6 +14,7 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.dto.BookMeetingRequest;
+import app.lightmove.api.outreach.dto.BookedMeetingResponse;
 import app.lightmove.api.outreach.dto.MeetingResponse;
 import app.lightmove.api.outreach.dto.MeetingSlotsResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
@@ -135,8 +136,8 @@ public class MeetingService {
      * Everything that could refuse the booking is checked before the invite goes, and the calendar is asked
      * once more for the slot: an invite cannot be taken back quietly once the executive has it.
      */
-    public void book(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, BookMeetingRequest request,
-                     HttpServletRequest httpRequest) {
+    public BookedMeetingResponse book(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                      BookMeetingRequest request, HttpServletRequest httpRequest) {
         Duration length = requireLength(request.minutes());
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         if (recipient.doNotContact()) {
@@ -179,8 +180,8 @@ public class MeetingService {
         }
 
         try {
-            recordBooked(userId, workspaceId, projectId, candidateId, recipient, mailbox, created,
-                    zoomMeeting == null ? null : zoomMeeting.id(), request.minutes(), now, httpRequest);
+            return new BookedMeetingResponse(recordBooked(userId, workspaceId, projectId, candidateId, recipient, mailbox, created,
+                    zoomMeeting == null ? null : zoomMeeting.id(), request.minutes(), now, httpRequest));
         } catch (RuntimeException failed) {
             // The invite has gone; without this line nothing would say that an event exists with no booking behind it.
             log.error("Invite {} went out from mailbox {} for candidate {} on project {} (user {}), but recording "
@@ -200,10 +201,10 @@ public class MeetingService {
         }
     }
 
-    private void recordBooked(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+    private UUID recordBooked(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                               OutreachRecipient recipient, MailboxConnection mailbox, CalendarEvent created,
                               String zoomMeetingId, int minutes, Instant now, HttpServletRequest httpRequest) {
-        transactions.executeWithoutResult(status -> {
+        return transactions.execute(status -> {
             MailboxConnection fresh = mailboxes.findById(mailbox.getId()).orElse(mailbox);
             meetingSync.keep(fresh, created, recipient.personId(), userId, false, zoomMeetingId);
             people.recordMeetingBooked(userId, projectId, candidateId, created.startsAt(), false);
@@ -217,6 +218,8 @@ public class MeetingService {
                     .detail("startsAt", created.startsAt().toString())
                     .detail("minutes", String.valueOf(minutes))
                     .record();
+            return meetings.findByMailboxConnectionIdAndProviderEventIdAndPersonId(fresh.getId(), created.id(),
+                    recipient.personId()).orElseThrow().getId();
         });
     }
 

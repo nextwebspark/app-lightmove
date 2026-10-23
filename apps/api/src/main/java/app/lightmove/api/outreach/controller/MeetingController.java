@@ -4,6 +4,7 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.outreach.dto.BookMeetingRequest;
+import app.lightmove.api.outreach.dto.BookedMeetingResponse;
 import app.lightmove.api.outreach.dto.MeetingSlotsResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
 import app.lightmove.api.outreach.dto.RescheduleMeetingRequest;
@@ -56,11 +57,10 @@ public class MeetingController {
 
     @PostMapping
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void book(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
-                     @PathVariable UUID candidateId, @Valid @RequestBody BookMeetingRequest request,
-                     HttpServletRequest httpRequest) {
-        meetings.book(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
+    public BookedMeetingResponse book(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
+                                      @PathVariable UUID candidateId, @Valid @RequestBody BookMeetingRequest request,
+                                      HttpServletRequest httpRequest) {
+        return meetings.book(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
     }
 
     @PutMapping("/{meetingId}")
