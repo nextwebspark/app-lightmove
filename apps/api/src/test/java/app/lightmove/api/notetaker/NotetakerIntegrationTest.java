@@ -23,6 +23,7 @@ import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -295,6 +296,29 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         as(consultant, delete(otherPath + "/" + recordingId)).andExpect(status().isNotFound());
         as(consultant, post(otherPath + "/" + recordingId + "/retry")).andExpect(status().isNotFound());
         assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("a call running over its booked end can still be sent a bot, which joins at once, until an hour past")
+    void anOverrunningCallIsStillRecordable() throws Exception {
+        Instant now = Instant.now();
+        jdbc.update("update app_lm_person_meeting set starts_at = ?, ends_at = ? where id = ?::uuid",
+                Timestamp.from(now.minus(Duration.ofMinutes(50))), Timestamp.from(now.minus(Duration.ofMinutes(20))),
+                meetingId());
+
+        assertThat(notetaker().get("recordableMeetingIds")).hasSize(1);
+        schedule().andExpect(status().isCreated());
+        assertThat(recall.sent().getFirst().joinAt()).isNull();
+
+        jdbc.update("update app_lm_meeting_recording set status = 'CANCELLED' where project_id = ?::uuid", projectId);
+        jdbc.update("update app_lm_person_meeting set starts_at = ?, ends_at = ? where id = ?::uuid",
+                Timestamp.from(now.minus(Duration.ofMinutes(100))), Timestamp.from(now.minus(Duration.ofMinutes(70))),
+                meetingId());
+
+        assertThat(notetaker().get("recordableMeetingIds")).isEmpty();
+        schedule().andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_MEETING_OVER"));
+        assertThat(recall.sent()).hasSize(1);
     }
 
     @Test

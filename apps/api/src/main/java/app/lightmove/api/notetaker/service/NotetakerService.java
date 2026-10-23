@@ -57,6 +57,9 @@ public class NotetakerService {
     /** How long before the call the bot is asked in: the lobby opens a little early on every platform. */
     static final Duration JOIN_AHEAD = Duration.ofMinutes(1);
 
+    /** Calls run over: a consultant who forgot the bot can still send it in this long after the booked end. */
+    static final Duration OVERRUN_GRACE = Duration.ofMinutes(60);
+
     private final RecallBotApi recall;
     private final LlmBudgetGuard llmBudget;
     private final FairUseGuard fairUse;
@@ -83,7 +86,8 @@ public class NotetakerService {
         Instant now = clock.instant();
         List<KeptMeeting> calls = meetings.ofPerson(workspaceId, recipient.personId());
         List<UUID> recordable = calls.stream()
-                .filter(meeting -> meeting.endsAt().isAfter(now) && joinableOrNull(meeting.joinUrl()) != null)
+                .filter(meeting -> isStillJoinable(meeting.endsAt(), now)
+                        && joinableOrNull(meeting.joinUrl()) != null)
                 .filter(meeting -> calls.stream()
                         .anyMatch(copy -> copy.isSameCallAs(meeting) && copy.isHeldOrBookedBy(userId)))
                 .map(KeptMeeting::id)
@@ -109,7 +113,7 @@ public class NotetakerService {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_YOUR_CALL);
         }
         Instant now = clock.instant();
-        if (!meeting.endsAt().isAfter(now)) {
+        if (!isStillJoinable(meeting.endsAt(), now)) {
             throw ApiException.of(ErrorCode.NOTETAKER_MEETING_OVER);
         }
         String joinUrl = joinableOrNull(meeting.joinUrl());
@@ -216,6 +220,10 @@ public class NotetakerService {
                 recording.getTranscript().stream()
                         .map(line -> new TranscriptLineResponse(line.at(), line.speaker(), line.text()))
                         .toList());
+    }
+
+    static boolean isStillJoinable(Instant endsAt, Instant now) {
+        return endsAt.plus(OVERRUN_GRACE).isAfter(now);
     }
 
     /** Recall asks the bot in just before the call; one due within the minute goes at once. */

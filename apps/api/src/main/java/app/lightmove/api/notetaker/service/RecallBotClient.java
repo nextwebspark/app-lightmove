@@ -276,6 +276,13 @@ public class RecallBotClient implements RecallBotApi {
                 transcript == null ? null : lowerOrNull(textOrNull(transcript.path("status").get("code"))));
     }
 
+    static final Map<String, Object> AUTOMATIC_LEAVE = Map.of(
+            "waiting_room_timeout", 600,
+            "noone_joined_timeout", 600,
+            "everyone_left_timeout", Map.of("timeout", 30, "activate_after", 0),
+            "in_call_not_recording_timeout", 600,
+            "silence_detection", Map.of("timeout", 600, "activate_after", 600));
+
     static Map<String, Object> bodyOf(RecallBotRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("meeting_url", request.meetingUrl());
@@ -290,6 +297,8 @@ public class RecallBotClient implements RecallBotApi {
                         "diarization", Map.of("use_separate_streams_when_available", true))));
         // Nobody is recorded without being told, by our bot or Recall's.
         body.put("chat", Map.of("on_bot_join", Map.of("send_to", "everyone", "message", request.consentLine())));
+        // Recall's defaults keep a bot up to an hour in an empty or silent call, every minute of it billed.
+        body.put("automatic_leave", AUTOMATIC_LEAVE);
         return body;
     }
 

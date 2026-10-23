@@ -113,7 +113,7 @@ class RecallBotClientTest {
     }
 
     @Test
-    @DisplayName("a bot is scheduled for the call with its consent line, our ids and Recall's own transcription")
+    @DisplayName("a bot is scheduled for the call with its consent line, our ids, Recall's own transcription and leave rules")
     void requestBody() {
         Map<String, Object> body = RecallBotClient.bodyOf(new RecallBotRequest("https://meet.google.com/abc-defg-hij",
                 Instant.parse("2026-10-22T08:59:00Z"), "Uncava Notetaker", "Hello", Map.of("recordingId", "r1")));
@@ -124,6 +124,12 @@ class RecallBotClientTest {
                 .containsEntry("metadata", Map.of("recordingId", "r1"))
                 .containsEntry("chat", Map.of("on_bot_join", Map.of("send_to", "everyone", "message", "Hello")));
         assertThat(body.get("recording_config").toString()).contains("recallai_streaming");
+        assertThat(body.get("automatic_leave")).isEqualTo(Map.of(
+                "waiting_room_timeout", 600,
+                "noone_joined_timeout", 600,
+                "everyone_left_timeout", Map.of("timeout", 30, "activate_after", 0),
+                "in_call_not_recording_timeout", 600,
+                "silence_detection", Map.of("timeout", 600, "activate_after", 600)));
         assertThat(RecallBotClient.bodyOf(new RecallBotRequest("https://zoom.us/j/1", null, "Uncava Notetaker",
                 "Hello", Map.of()))).doesNotContainKey("join_at");
     }
