@@ -5,11 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as notetakerApi from "../api/notetakerApi";
-import type {
-  CallSuggestion,
-  CallSuggestions,
-  SuggestedValue,
-} from "../api/notetakerApi";
+import type { CallSuggestion, CallSuggestions, SuggestedValue } from "../api/notetakerApi";
 import { CallChangesDialog } from "./CallChangesDialog";
 
 vi.mock("../api/notetakerApi", async (importOriginal) => ({
@@ -61,36 +57,25 @@ const PACKAGE: CallSuggestion = {
   edited: false,
 };
 
-function answerOf(
-  suggestions: CallSuggestion[],
-  asked = true,
-): CallSuggestions {
+function answerOf(suggestions: CallSuggestion[], asked = true): CallSuggestions {
   return {
     recordingId: "r1",
     title: "Intro call",
     startsAt: "2026-10-21T10:00:00Z",
     asked,
-    mayAskAgain:
-      asked && suggestions.every((each) => each.status !== "PENDING"),
+    mayAskAgain: asked && suggestions.every((each) => each.status !== "PENDING"),
     suggestions,
   };
 }
 
-function decided(
-  suggestion: CallSuggestion,
-  status: CallSuggestion["status"],
-): CallSuggestion {
+function decided(suggestion: CallSuggestion, status: CallSuggestion["status"]): CallSuggestion {
   return { ...suggestion, status };
 }
 
 function renderDialog() {
   const onClose = vi.fn();
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
         <CallChangesDialog
           projectId="p1"
@@ -110,12 +95,8 @@ describe("CallChangesDialog", () => {
   beforeEach(() => vi.resetAllMocks());
 
   it("reads the transcript once on opening, then shows one change at a time against what is held", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([], false),
-    );
-    vi.mocked(notetakerApi.suggestChanges).mockResolvedValue(
-      answerOf([NOTICE, PACKAGE]),
-    );
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([], false));
+    vi.mocked(notetakerApi.suggestChanges).mockResolvedValue(answerOf([NOTICE, PACKAGE]));
     renderDialog();
 
     expect(await screen.findByText("Notice period")).toBeInTheDocument();
@@ -128,9 +109,7 @@ describe("CallChangesDialog", () => {
   });
 
   it("does not read the transcript again when changes are already waiting", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([NOTICE]),
-    );
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE]));
     renderDialog();
 
     expect(await screen.findByText("3 months")).toBeInTheDocument();
@@ -138,14 +117,10 @@ describe("CallChangesDialog", () => {
   });
 
   it("applies a change, moves to the next, and applies only the ticked package figures", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([NOTICE, PACKAGE]),
-    );
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE, PACKAGE]));
     vi.mocked(notetakerApi.decideCallSuggestion)
       .mockResolvedValueOnce(answerOf([decided(NOTICE, "APPLIED"), PACKAGE]))
-      .mockResolvedValueOnce(
-        answerOf([decided(NOTICE, "APPLIED"), decided(PACKAGE, "APPLIED")]),
-      );
+      .mockResolvedValueOnce(answerOf([decided(NOTICE, "APPLIED"), decided(PACKAGE, "APPLIED")]));
     renderDialog();
 
     await userEvent.click(await screen.findByRole("button", { name: "Apply" }));
@@ -158,57 +133,32 @@ describe("CallChangesDialog", () => {
       undefined,
     );
     expect(await screen.findByText("2 of 2")).toBeInTheDocument();
-    expect(
-      screen.getByText("Annualised from monthly: base 95,000 × 12"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Annualised from monthly: base 95,000 × 12")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("checkbox", { name: /Bonus/ }));
     await userEvent.click(screen.getByRole("button", { name: "Apply ticked" }));
-    expect(notetakerApi.decideCallSuggestion).toHaveBeenLastCalledWith(
-      "p1",
-      "c1",
-      "r1",
-      "current-package",
-      "apply",
-      {
-        packageFields: ["baseSalary", "allowances"],
-      },
-    );
+    expect(notetakerApi.decideCallSuggestion).toHaveBeenLastCalledWith("p1", "c1", "r1", "current-package", "apply", {
+      packageFields: ["baseSalary", "allowances"],
+    });
     expect(await screen.findByText(/^2 applied/)).toBeInTheDocument();
   });
 
   it("applies an edited notice period as the researcher chose it", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([NOTICE]),
-    );
-    vi.mocked(notetakerApi.decideCallSuggestion).mockResolvedValue(
-      answerOf([decided(NOTICE, "APPLIED")]),
-    );
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE]));
+    vi.mocked(notetakerApi.decideCallSuggestion).mockResolvedValue(answerOf([decided(NOTICE, "APPLIED")]));
     renderDialog();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: "Notice period" }),
-      "2 months",
-    );
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Notice period" }), "2 months");
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
 
-    expect(notetakerApi.decideCallSuggestion).toHaveBeenCalledWith(
-      "p1",
-      "c1",
-      "r1",
-      "notice-period",
-      "apply",
-      {
-        value: { text: "2 months" },
-      },
-    );
+    expect(notetakerApi.decideCallSuggestion).toHaveBeenCalledWith("p1", "c1", "r1", "notice-period", "apply", {
+      value: { text: "2 months" },
+    });
   });
 
   it("skips, sums up what was decided, and undoes a line from the summary", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([NOTICE]),
-    );
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE]));
     vi.mocked(notetakerApi.decideCallSuggestion)
       .mockResolvedValueOnce(answerOf([decided(NOTICE, "SKIPPED")]))
       .mockResolvedValueOnce(answerOf([NOTICE]));
@@ -227,9 +177,7 @@ describe("CallChangesDialog", () => {
       "reopen",
       undefined,
     );
-    expect(
-      await screen.findByRole("button", { name: "Apply" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Apply" })).toBeInTheDocument();
   });
 
   it("says so when the call stated nothing new", async () => {
@@ -237,17 +185,11 @@ describe("CallChangesDialog", () => {
     renderDialog();
 
     expect(await screen.findByText("Nothing to change")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "The call didn't state anything new for Priya's record.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText("The call didn't state anything new for Priya's record.")).toBeInTheDocument();
   });
 
   it("offers Try again when the AI could not answer, and reads again when pressed", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([], false),
-    );
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([], false));
     vi.mocked(notetakerApi.suggestChanges)
       .mockRejectedValueOnce(
         new ApiRequestError({
@@ -260,15 +202,11 @@ describe("CallChangesDialog", () => {
       .mockResolvedValueOnce(answerOf([NOTICE]));
     renderDialog();
 
-    expect(
-      await screen.findByText("Couldn't read the transcript just now."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't read the transcript just now.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(await screen.findByText("3 months")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(2),
-    );
+    await waitFor(() => expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(2));
   });
 
   it("explains a change the record no longer lets in, and offers only Skip", async () => {
@@ -285,14 +223,8 @@ describe("CallChangesDialog", () => {
     );
     renderDialog();
 
-    expect(
-      await screen.findByText(
-        /the Open to relocate tag was renamed or retired/,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Apply" }),
-    ).not.toBeInTheDocument();
+    expect(await screen.findByText(/the Open to relocate tag was renamed or retired/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
   });
 });

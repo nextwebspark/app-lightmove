@@ -1,16 +1,8 @@
 import { formatNumber } from "../../../lib/format";
-import type {
-  CallSuggestion,
-  CallSuggestionKind,
-  PackageField,
-  SuggestedValue,
-} from "../api/notetakerApi";
+import type { CallSuggestion, CallSuggestionKind, PackageField, SuggestedValue } from "../api/notetakerApi";
 
 /** What each change is called on its card, and where in the record it lands. */
-export const SUGGESTION_FIELD: Record<
-  CallSuggestionKind,
-  { label: string; lands: string }
-> = {
+export const SUGGESTION_FIELD: Record<CallSuggestionKind, { label: string; lands: string }> = {
   NOTICE_PERIOD: { label: "Notice period", lands: "Compensation" },
   CURRENT_PACKAGE: { label: "Current package", lands: "Compensation" },
   LOCATION: { label: "Location", lands: "Identity" },
@@ -33,22 +25,15 @@ export const PACKAGE_LINES: { field: PackageField; label: string }[] = [
 ];
 
 /** One line for a value, or null where nothing is held — the card then says "Not recorded". */
-export function valueTextOf(
-  kind: CallSuggestionKind,
-  value: SuggestedValue | null,
-): string | null {
+export function valueTextOf(kind: CallSuggestionKind, value: SuggestedValue | null): string | null {
   if (!value) return null;
   switch (kind) {
     case "CURRENT_PACKAGE": {
       const parts = PACKAGE_LINES.flatMap(({ field, label }) => {
         const figure = value[field];
-        return figure === null
-          ? []
-          : [`${label.toLowerCase()} ${formatNumber(figure)}`];
+        return figure === null ? [] : [`${label.toLowerCase()} ${formatNumber(figure)}`];
       });
-      return parts.length === 0
-        ? null
-        : `${value.currency ?? ""} ${parts.join(" · ")}`.trim();
+      return parts.length === 0 ? null : `${value.currency ?? ""} ${parts.join(" · ")}`.trim();
     }
     case "LOCATION":
       return [value.city, value.country].filter(Boolean).join(", ") || null;
@@ -58,14 +43,8 @@ export function valueTextOf(
 }
 
 /** Where the review should stand: the first change still waiting at or after `fromIndex`, else any still waiting. */
-export function nextPendingIndex(
-  suggestions: CallSuggestion[],
-  fromIndex: number,
-): number {
-  const after = suggestions.findIndex(
-    (suggestion, index) =>
-      index >= fromIndex && suggestion.status === "PENDING",
-  );
+export function nextPendingIndex(suggestions: CallSuggestion[], fromIndex: number): number {
+  const after = suggestions.findIndex((suggestion, index) => index >= fromIndex && suggestion.status === "PENDING");
   if (after >= 0) return after;
   return suggestions.findIndex((suggestion) => suggestion.status === "PENDING");
 }

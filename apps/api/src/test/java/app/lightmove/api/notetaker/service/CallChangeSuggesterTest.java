@@ -120,7 +120,8 @@ class CallChangeSuggesterTest {
         assertThat(tasks).extracting(task -> task.value().text()).containsExactly(
                 "Send Rania the position description", "Call her references", "Book the second interview");
         assertThat(tasks).extracting(CallSuggestion::at).containsExactly("31:02", null, "1:02:03");
-        assertThat(tasks).extracting(CallSuggestion::id).containsExactly("task-1", "task-2", "task-3");
+        assertThat(tasks).extracting(CallSuggestion::id).doesNotHaveDuplicates()
+                .allSatisfy(id -> assertThat(UUID.fromString(id)).isNotNull());
     }
 
     @Test

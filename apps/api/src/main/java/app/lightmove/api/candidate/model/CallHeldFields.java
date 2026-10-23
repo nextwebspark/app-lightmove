@@ -8,4 +8,9 @@ import java.util.UUID;
  */
 public record CallHeldFields(String noticePeriod, String currency, Long baseSalary, Long bonus, Long allowances,
                              Long longTermIncentive, String city, String country, String motivation,
-                             UUID relocationTagId, boolean openToRelocate) {}
+                             UUID relocationTagId, boolean openToRelocate) {
+
+    public CandidateCompensation compensation() {
+        return new CandidateCompensation(currency, baseSalary, bonus, allowances, longTermIncentive, noticePeriod, null);
+    }
+}

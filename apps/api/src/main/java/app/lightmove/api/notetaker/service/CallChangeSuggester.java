@@ -41,8 +41,6 @@ class CallChangeSuggester {
     private static final int LONGEST_QUOTE = 400;
     private static final int LONGEST_TASK = 120;
     private static final int MOST_TASKS = 3;
-    /** No package figure in any currency this market quotes reaches ten billion units; one that does is misread. */
-    private static final double LARGEST_FIGURE = 1e10;
     private static final Pattern CALL_TIME = Pattern.compile("\\d{1,2}:\\d{2}(:\\d{2})?");
     private static final Set<String> CURRENCIES = Currency.getAvailableCurrencies().stream()
             .map(Currency::getCurrencyCode)
@@ -86,8 +84,8 @@ class CallChangeSuggester {
         payOf(answer.currentPackage(), held).ifPresent(found::add);
         placeOf(answer.location(), held).ifPresent(found::add);
         relocationOf(answer.relocation(), held).ifPresent(found::add);
-        wordsOf(CallSuggestionKind.MOTIVATION, "motivation", answer.motivation(), held).ifPresent(found::add);
-        wordsOf(CallSuggestionKind.EXPECTED_PACKAGE, "expected-package", answer.expectedPackage(), held)
+        wordsOf(CallSuggestionKind.MOTIVATION, answer.motivation(), held).ifPresent(found::add);
+        wordsOf(CallSuggestionKind.EXPECTED_PACKAGE, answer.expectedPackage(), held)
                 .ifPresent(found::add);
         found.addAll(tasksOf(answer.nextSteps()));
         return List.copyOf(found);
@@ -102,7 +100,7 @@ class CallChangeSuggester {
         if (period == null || period.value().equalsIgnoreCase(Objects.toString(held.noticePeriod(), ""))) {
             return Optional.empty();
         }
-        return Optional.of(CallSuggestion.pending("notice-period", CallSuggestionKind.NOTICE_PERIOD,
+        return Optional.of(CallSuggestion.pending(CallSuggestionKind.NOTICE_PERIOD,
                 SuggestedValue.text(period.value()), quote(notice.said()), timeOf(notice.at())));
     }
 
@@ -132,14 +130,12 @@ class CallChangeSuggester {
         if (base == null && bonus == null && allowances == null) {
             return Optional.empty();
         }
-        if (!sameCurrency && held.currency() != null && (held.longTermIncentive() != null
-                || (held.baseSalary() != null && base == null) || (held.bonus() != null && bonus == null)
-                || (held.allowances() != null && allowances == null))) {
+        if (held.compensation().wouldRelabel(currency, base != null, bonus != null, allowances != null)) {
             // Taking it would relabel a figure held in another currency; the consultant edits that by hand.
             return Optional.empty();
         }
         String note = working.isEmpty() ? null : "Annualised from monthly: " + String.join(" · ", working);
-        return Optional.of(CallSuggestion.pending("current-package", CallSuggestionKind.CURRENT_PACKAGE,
+        return Optional.of(CallSuggestion.pending(CallSuggestionKind.CURRENT_PACKAGE,
                 SuggestedValue.pay(currency, base, bonus, allowances, note), quote(pay.said()), timeOf(pay.at())));
     }
 
@@ -158,7 +154,7 @@ class CallChangeSuggester {
         if (same || (city == null && countryName.equalsIgnoreCase(Objects.toString(held.country(), "")))) {
             return Optional.empty();
         }
-        return Optional.of(CallSuggestion.pending("location", CallSuggestionKind.LOCATION,
+        return Optional.of(CallSuggestion.pending(CallSuggestionKind.LOCATION,
                 SuggestedValue.place(city, countryName), quote(place.said()), timeOf(place.at())));
     }
 
@@ -168,17 +164,17 @@ class CallChangeSuggester {
                 || held.openToRelocate()) {
             return Optional.empty();
         }
-        return Optional.of(CallSuggestion.pending("open-to-relocate", CallSuggestionKind.OPEN_TO_RELOCATE,
+        return Optional.of(CallSuggestion.pending(CallSuggestionKind.OPEN_TO_RELOCATE,
                 SuggestedValue.text("Open to relocate"), quote(relocation.said()), timeOf(relocation.at())));
     }
 
-    private static Optional<CallSuggestion> wordsOf(CallSuggestionKind kind, String id,
+    private static Optional<CallSuggestion> wordsOf(CallSuggestionKind kind,
                                                               CallChangesAnswer.Words words, CallHeldFields held) {
         String text = words == null ? null : clip(words.text(), LONGEST_TEXT);
         if (text == null || (held.motivation() != null && held.motivation().contains(text))) {
             return Optional.empty();
         }
-        return Optional.of(CallSuggestion.pending(id, kind, SuggestedValue.text(text), quote(words.said()),
+        return Optional.of(CallSuggestion.pending(kind, SuggestedValue.text(text), quote(words.said()),
                 timeOf(words.at())));
     }
 
@@ -195,7 +191,7 @@ class CallChangeSuggester {
             if (title == null || tasks.stream().anyMatch(held -> held.value().text().equalsIgnoreCase(title))) {
                 continue;
             }
-            tasks.add(CallSuggestion.pending("task-" + (tasks.size() + 1), CallSuggestionKind.TASK,
+            tasks.add(CallSuggestion.pending(CallSuggestionKind.TASK,
                     SuggestedValue.text(title), quote(step.said()), timeOf(step.at())));
             if (tasks.size() == MOST_TASKS) {
                 break;
@@ -213,14 +209,14 @@ class CallChangeSuggester {
         String per = figure.per().strip().toUpperCase(Locale.ROOT);
         if (per.startsWith("MONTH")) {
             double yearly = figure.amount() * 12;
-            if (yearly >= LARGEST_FIGURE) {
+            if (yearly >= SuggestedValue.LARGEST_FIGURE) {
                 return null;
             }
             working.add(label + " " + plain(figure.amount()) + " × 12");
             return Math.round(yearly);
         }
         if (per.startsWith("YEAR") || per.startsWith("ANNUAL")) {
-            return figure.amount() >= LARGEST_FIGURE ? null : Math.round(figure.amount());
+            return figure.amount() >= SuggestedValue.LARGEST_FIGURE ? null : Math.round(figure.amount());
         }
         return null;
     }
@@ -239,30 +235,19 @@ class CallChangeSuggester {
         return spelled.startsWith("DAY") ? NoticeUnit.DAYS : null;
     }
 
+    /**
+     * What the model is told the record holds. Never the package: the model sees no compensation on file (the
+     * `CandidateDossier` rule), so a stated package is compared with the held one in code, in {@link #payOf}.
+     */
     private static String heldText(CallHeldFields held) {
         return """
                 Notice period: %s
-                Package: %s
                 Lives in: %s
                 Tagged open to relocate: %s
-                Motivation on file: %s""".formatted(orNone(held.noticePeriod()), payText(held),
+                Motivation on file: %s""".formatted(orNone(held.noticePeriod()),
                 orNone(List.of(Objects.toString(held.city(), ""), Objects.toString(held.country(), "")).stream()
                         .filter(part -> !part.isBlank()).collect(Collectors.joining(", "))),
                 held.openToRelocate() ? "yes" : "no", orNone(clip(held.motivation(), LONGEST_TEXT)));
-    }
-
-    private static String payText(CallHeldFields held) {
-        List<String> parts = new ArrayList<>();
-        if (held.baseSalary() != null) {
-            parts.add("base " + plain(held.baseSalary().doubleValue()) + " a year");
-        }
-        if (held.bonus() != null) {
-            parts.add("bonus " + plain(held.bonus().doubleValue()));
-        }
-        if (held.allowances() != null) {
-            parts.add("allowances " + plain(held.allowances().doubleValue()));
-        }
-        return parts.isEmpty() ? "nothing" : Objects.toString(held.currency(), "") + " " + String.join(", ", parts);
     }
 
     private static String plain(double amount) {

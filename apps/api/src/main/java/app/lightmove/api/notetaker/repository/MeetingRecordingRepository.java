@@ -2,12 +2,14 @@ package app.lightmove.api.notetaker.repository;
 
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.model.MeetingRecording;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
@@ -24,6 +26,12 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
                                                                              UUID projectId, UUID personId);
 
     Optional<MeetingRecording> findByRecallBotId(String recallBotId);
+
+    /** The row a Suggest changes decision writes, locked first so two tabs' decisions queue rather than collide. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from MeetingRecording r where r.id = :id and r.workspaceId = :workspaceId "
+            + "and r.projectId = :projectId and r.personId = :personId")
+    Optional<MeetingRecording> lockForDecision(UUID id, UUID workspaceId, UUID projectId, UUID personId);
 
     boolean existsByWorkspaceIdAndJoinUrlAndStartsAtAndStatusIn(UUID workspaceId, String joinUrl, Instant startsAt,
                                                                 Collection<NotetakerStatus> statuses);

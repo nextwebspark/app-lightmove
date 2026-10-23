@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker.model;
 
 import app.lightmove.api.candidate.constant.CallField;
+import app.lightmove.api.candidate.model.CandidateScorecard.SectionStanding;
 import app.lightmove.api.candidate.model.ProfileFromCall;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.time.Instant;
@@ -14,5 +15,5 @@ import java.util.UUID;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AppliedChange(UUID by, Instant at, boolean edited, List<CallField> fields,
                             ProfileFromCall profileBefore, ProfileFromCall profileAfter,
-                            String sectionBefore, String sectionAfter,
+                            String sectionBefore, String sectionAfter, SectionStanding sectionStanding,
                             UUID tagId, boolean tagAdded, UUID taskId) {}

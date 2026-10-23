@@ -14,7 +14,8 @@ anything the call did not state, and null for anything that only repeats what th
 THE ITEMS.
   - notice: the executive's own notice period as a whole count and a unit (MONTHS, WEEKS or DAYS), as stated. "No
     notice" or "I can start immediately" is count 0. A range, "negotiable" or "it depends" is null.
-  - currentPackage: what the executive is paid today, never what they want. currency is the ISO 4217 code of the
+  - currentPackage: what the executive is paid today, never what they want. The record's package is never shown
+    to you; give it whenever the executive stated it. currency is the ISO 4217 code of the
     currency they named or plainly meant ("dirhams" is AED, "riyals" in Saudi is SAR); null when no currency was
     named or plainly meant. base, bonus and allowances are each an amount in whole currency units — write "ninety-five
     k" as 95000 and "one point two million" as 1200000 — with "per" MONTH or YEAR as said. Where the bonus was given

@@ -55,7 +55,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -79,7 +78,6 @@ public class CallSuggestionService {
 
     private static final Set<CallField> PACKAGE_FIELDS = EnumSet.of(CallField.BASE_SALARY, CallField.BONUS,
             CallField.ALLOWANCES);
-    private static final double LARGEST_FIGURE = 1e10;
     private static final Duration TASK_DUE_AFTER = Duration.ofDays(1);
     private static final DateTimeFormatter CALL_DATE = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
             .withZone(ZoneOffset.UTC);
@@ -129,7 +127,7 @@ public class CallSuggestionService {
             Instant at = clock.instant();
             transactions.executeWithoutResult(status -> {
                 MeetingRecording fresh = requireSuggestible(
-                        requireRecording(workspaceId, projectId, recipient, recordingId));
+                        lockRecording(workspaceId, projectId, recipient, recordingId));
                 fresh.suggested(found, at);
                 audit.projectEvent(ProjectEventType.NOTETAKER_SUGGESTIONS_ASKED, userId, workspaceId, projectId,
                                 httpRequest)
@@ -153,7 +151,7 @@ public class CallSuggestionService {
                                          HttpServletRequest httpRequest) {
         return decide(() -> {
             OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
-            MeetingRecording recording = requireRecording(workspaceId, projectId, recipient, recordingId);
+            MeetingRecording recording = lockRecording(workspaceId, projectId, recipient, recordingId);
             CallSuggestion suggestion = requirePending(recording, suggestionId);
             CallReference call = callOf(recording);
             Applied applied = applyOne(userId, workspaceId, projectId, recipient, suggestion, request, call,
@@ -172,7 +170,7 @@ public class CallSuggestionService {
                                         UUID recordingId, String suggestionId, HttpServletRequest httpRequest) {
         return decide(() -> {
             OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
-            MeetingRecording recording = requireRecording(workspaceId, projectId, recipient, recordingId);
+            MeetingRecording recording = lockRecording(workspaceId, projectId, recipient, recordingId);
             CallSuggestion suggestion = requirePending(recording, suggestionId);
             recording.replaceSuggestion(suggestion.skipped());
             audited(ProjectEventType.NOTETAKER_SUGGESTION_SKIPPED, userId, workspaceId, projectId, recipient,
@@ -189,7 +187,7 @@ public class CallSuggestionService {
                                           UUID recordingId, String suggestionId, HttpServletRequest httpRequest) {
         return decide(() -> {
             OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
-            MeetingRecording recording = requireRecording(workspaceId, projectId, recipient, recordingId);
+            MeetingRecording recording = lockRecording(workspaceId, projectId, recipient, recordingId);
             CallSuggestion suggestion = requireSuggestion(recording, suggestionId);
             if (suggestion.isPending()) {
                 return recording;
@@ -222,20 +220,12 @@ public class CallSuggestionService {
     }
 
     /**
-     * One decision in its own transaction. Two tabs deciding the same call at once collide on the recording's version;
-     * the loser runs again over the fresh row, where a suggestion already decided answers that it was.
+     * One decision in its own transaction, on the recording row locked first: two tabs deciding the same call queue
+     * rather than collide after their side effects, so no audit line ever describes a write that was rolled back.
      */
     private CallSuggestionsResponse decide(Supplier<MeetingRecording> decision, UUID workspaceId, UUID projectId,
                                            UUID candidateId, UUID recordingId) {
-        try {
-            transactions.execute(status -> decision.get());
-        } catch (ObjectOptimisticLockingFailureException raced) {
-            try {
-                transactions.execute(status -> decision.get());
-            } catch (ObjectOptimisticLockingFailureException again) {
-                throw ApiException.of(ErrorCode.CANDIDATE_ASSESSMENT_STALE);
-            }
-        }
+        transactions.execute(status -> decision.get());
         return read(workspaceId, projectId, candidateId, recordingId);
     }
 
@@ -254,7 +244,7 @@ public class CallSuggestionService {
                 ProfileFromCall before = updates.applyProfile(userId, workspaceId, projectId, candidateId, change,
                         call, httpRequest);
                 yield new Applied(SuggestedValue.text(label), new AppliedChange(userId, now, edited,
-                        List.of(CallField.NOTICE_PERIOD), before, change, null, null, null, false, null));
+                        List.of(CallField.NOTICE_PERIOD), before, change, null, null, null, null, false, null));
             }
             case CURRENT_PACKAGE -> {
                 SuggestedValue pay = edited ? payOf(edit, suggestion.value()) : suggestion.value();
@@ -264,7 +254,7 @@ public class CallSuggestionService {
                 ProfileFromCall before = updates.applyProfile(userId, workspaceId, projectId, candidateId, change,
                         call, httpRequest);
                 yield new Applied(pay, new AppliedChange(userId, now, edited, sorted(fields), before, change, null,
-                        null, null, false, null));
+                        null, null, null, false, null));
             }
             case LOCATION -> {
                 SuggestedValue place = edited ? placeOf(edit) : suggestion.value();
@@ -273,13 +263,13 @@ public class CallSuggestionService {
                 ProfileFromCall before = updates.applyProfile(userId, workspaceId, projectId, candidateId, change,
                         call, httpRequest);
                 yield new Applied(place, new AppliedChange(userId, now, edited, List.of(CallField.LOCATION),
-                        before, change, null, null, null, false, null));
+                        before, change, null, null, null, null, false, null));
             }
             case OPEN_TO_RELOCATE -> {
                 RelocationTagging tagging = updates.tagOpenToRelocate(userId, workspaceId, projectId, candidateId,
                         call, httpRequest);
                 yield new Applied(suggestion.value(), new AppliedChange(userId, now, false,
-                        List.of(CallField.OPEN_TO_RELOCATE), null, null, null, null, tagging.tagId(),
+                        List.of(CallField.OPEN_TO_RELOCATE), null, null, null, null, null, tagging.tagId(),
                         tagging.added(), null));
             }
             case MOTIVATION, EXPECTED_PACKAGE -> {
@@ -288,7 +278,7 @@ public class CallSuggestionService {
                 SectionChange section = updates.appendToMotivation(userId, workspaceId, projectId, candidateId,
                         field, text, call, httpRequest);
                 yield new Applied(SuggestedValue.text(text), new AppliedChange(userId, now, edited, List.of(field),
-                        null, null, section.before(), section.after(), null, false, null));
+                        null, null, section.before(), section.after(), section.standing(), null, false, null));
             }
             case TASK -> {
                 String title = taskTitleOf(edited ? edit.text() : suggestion.value().text());
@@ -299,7 +289,7 @@ public class CallSuggestionService {
                         httpRequest);
                 updates.recordTaskFromCall(userId, workspaceId, projectId, candidateId, call, false);
                 yield new Applied(SuggestedValue.text(title), new AppliedChange(userId, now, edited,
-                        List.of(CallField.TASK), null, null, null, null, null, false, task.id()));
+                        List.of(CallField.TASK), null, null, null, null, null, null, false, task.id()));
             }
         };
     }
@@ -317,9 +307,18 @@ public class CallSuggestionService {
             case OPEN_TO_RELOCATE -> updates.untagOpenToRelocate(userId, workspaceId, projectId, candidateId,
                     new RelocationTagging(applied.tagId(), applied.tagAdded()), call, httpRequest);
             case MOTIVATION, EXPECTED_PACKAGE -> updates.revertMotivation(userId, workspaceId, projectId, candidateId,
-                    applied.fields().getFirst(), new SectionChange(applied.sectionBefore(), applied.sectionAfter()),
+                    applied.fields().getFirst(), new SectionChange(applied.sectionBefore(), applied.sectionAfter(),
+                            applied.sectionStanding()),
                     call, httpRequest);
             case TASK -> {
+                // Only the task as the call filed it: one since done, retitled or cancelled is somebody's own now.
+                boolean untouched = tasks.find(workspaceId, applied.taskId())
+                        .filter(task -> "open".equals(task.status())
+                                && Objects.equals(task.title(), suggestion.value().text()))
+                        .isPresent();
+                if (!untouched) {
+                    throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
+                }
                 tasks.cancel(userId, workspaceId, applied.taskId(), httpRequest);
                 updates.recordTaskFromCall(userId, workspaceId, projectId, candidateId, call, true);
             }
@@ -356,18 +355,11 @@ public class CallSuggestionService {
         }
         return switch (suggestion.kind()) {
             case OPEN_TO_RELOCATE -> held.relocationTagId() != null;
-            case CURRENT_PACKAGE -> !mixesCurrencies(suggestion.value(), held);
+            case CURRENT_PACKAGE -> !held.compensation().wouldRelabel(suggestion.value().currency(),
+                    suggestion.value().baseSalary() != null, suggestion.value().bonus() != null,
+                    suggestion.value().allowances() != null);
             default -> true;
         };
-    }
-
-    private static boolean mixesCurrencies(SuggestedValue pay, CallHeldFields held) {
-        if (held.currency() == null || held.currency().equalsIgnoreCase(pay.currency())) {
-            return false;
-        }
-        return held.longTermIncentive() != null || (held.baseSalary() != null && pay.baseSalary() == null)
-                || (held.bonus() != null && pay.bonus() == null)
-                || (held.allowances() != null && pay.allowances() == null);
     }
 
     private static String noticeLabelOf(String text) {
@@ -388,7 +380,7 @@ public class CallSuggestionService {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Use a three-letter currency code, like AED.");
         }
         for (Long figure : new Long[] {edit.baseSalary(), edit.bonus(), edit.allowances()}) {
-            if (figure != null && (figure < 0 || figure >= LARGEST_FIGURE)) {
+            if (figure != null && (figure < 0 || figure >= SuggestedValue.LARGEST_FIGURE)) {
                 throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "That figure doesn't look right.");
             }
         }
@@ -496,6 +488,12 @@ public class CallSuggestionService {
                                               UUID recordingId) {
         return recordings.findByIdAndWorkspaceIdAndProjectIdAndPersonId(recordingId, workspaceId, projectId,
                         recipient.personId())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+    }
+
+    private MeetingRecording lockRecording(UUID workspaceId, UUID projectId, OutreachRecipient recipient,
+                                           UUID recordingId) {
+        return recordings.lockForDecision(recordingId, workspaceId, projectId, recipient.personId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 

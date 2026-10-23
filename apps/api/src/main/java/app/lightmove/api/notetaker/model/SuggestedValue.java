@@ -11,6 +11,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record SuggestedValue(String text, String city, String country, String currency, Long baseSalary, Long bonus,
                              Long allowances, String working) {
 
+    /** No package figure in any currency this market quotes reaches ten billion units; one that does is misread. */
+    public static final double LARGEST_FIGURE = 1e10;
+
     public static SuggestedValue text(String text) {
         return new SuggestedValue(text, null, null, null, null, null, null, null);
     }

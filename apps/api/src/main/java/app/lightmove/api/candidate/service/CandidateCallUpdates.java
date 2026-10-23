@@ -81,7 +81,9 @@ public class CandidateCallUpdates {
                                         ProfileFromCall change, CallReference call, HttpServletRequest httpRequest) {
         Candidate candidate = requireCandidate(workspaceId, projectId, candidateId);
         Person person = candidate.getPerson();
-        if (change.touchesPackage() && mixesCurrencies(person.compensation(), change)) {
+        if (change.touchesPackage() && person.compensation().wouldRelabel(change.currency(),
+                change.fields().contains(CallField.BASE_SALARY), change.fields().contains(CallField.BONUS),
+                change.fields().contains(CallField.ALLOWANCES))) {
             throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
         }
         ProfileFromCall before = person.heldFor(change);
@@ -127,6 +129,7 @@ public class CandidateCallUpdates {
         CandidateScorecard scorecard = scorecards.findByCandidateIdAndWorkspaceId(candidate.getId(), workspaceId)
                 .orElseGet(() -> CandidateScorecard.startFor(candidate, workspaceId));
         String previous = scorecard.getReport().textOf(ScorecardReportSection.MOTIVATION);
+        CandidateScorecard.SectionStanding standing = scorecard.standingOf(ScorecardReportSection.MOTIVATION);
         String block = "From the call on " + CALL_DATE.format(call.startsAt()) + ": " + text.strip();
         String next = previous == null || previous.isBlank() ? block : previous.stripTrailing() + "\n\n" + block;
         if (next.length() > CandidateScorecard.MAX_REPORT_SECTION) {
@@ -141,7 +144,7 @@ public class CandidateCallUpdates {
                 .detail("via", "CALL")
                 .detail("recordingId", call.recordingId().toString())
                 .record();
-        return new SectionChange(previous, next);
+        return new SectionChange(previous, next, standing);
     }
 
     @Transactional
@@ -152,7 +155,8 @@ public class CandidateCallUpdates {
                 .filter(held -> Objects.equals(held.getReport().textOf(ScorecardReportSection.MOTIVATION),
                         applied.after()))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE));
-        scorecard.writeSection(ScorecardReportSection.MOTIVATION, applied.before(), userId);
+        scorecard.restoreSection(ScorecardReportSection.MOTIVATION, applied.before(),
+                applied.standing() == null ? CandidateScorecard.SectionStanding.fresh() : applied.standing(), userId);
         scorecards.saveAndFlush(scorecard);
         line(candidate, userId, List.of(field), call, true);
         audit.projectEvent(ProjectEventType.CANDIDATE_ASSESSMENT_SAVED, userId, workspaceId, projectId, httpRequest)
@@ -212,8 +216,8 @@ public class CandidateCallUpdates {
                 reverted);
     }
 
-    /** A section's text before and after a call's words went in. */
-    public record SectionChange(String before, String after) {}
+    /** A section's text before and after a call's words went in, and how the assessment stood before. */
+    public record SectionChange(String before, String after, CandidateScorecard.SectionStanding standing) {}
 
     private void line(Candidate candidate, UUID userId, Collection<CallField> fields, CallReference call,
                       boolean reverted) {
@@ -228,16 +232,6 @@ public class CandidateCallUpdates {
 
     private Optional<CandidateTag> liveRelocationTag(UUID workspaceId) {
         return tags.findByLabel(workspaceId, OPEN_TO_RELOCATE).filter(tag -> !tag.isRetired());
-    }
-
-    private static boolean mixesCurrencies(CandidateCompensation held, ProfileFromCall change) {
-        if (held.currency() == null || held.currency().equalsIgnoreCase(change.currency())) {
-            return false;
-        }
-        return (held.baseSalary() != null && !change.fields().contains(CallField.BASE_SALARY))
-                || (held.bonus() != null && !change.fields().contains(CallField.BONUS))
-                || (held.allowances() != null && !change.fields().contains(CallField.ALLOWANCES))
-                || held.longTermIncentive() != null;
     }
 
     private static boolean sameFields(ProfileFromCall held, ProfileFromCall applied) {

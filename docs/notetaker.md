@@ -76,24 +76,30 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 8. **Suggest changes.** A recording whose notes are filed and whose transcript is still kept offers **Suggest changes**
    on its row. The press opens "Changes from the call" and reads the transcript then — never on its own — with one
    Gemini call (`CallChangeSuggester`, `prompts/call-changes-*`, Spring AI's structured output behind the usual guard
-   and schema repair). The model gets the redacted transcript and what the record holds now for the fields below, and
-   proposes only what the executive said:
+   and schema repair). The model gets the redacted transcript and what the record holds now for the notice period,
+   location, relocation tag and motivation — **never the package on file**, which is compared in code, since the model
+   sees no compensation figure (the `CandidateDossier` rule) — and proposes only what the executive said:
    - **notice period**, folded onto one of the five only where it is an exact equivalent (`NoticePeriod.ofPair`);
    - **current package** — base, bonus and allowances in one ISO currency, monthly figures annualised with the working
      shown, a bonus in months read off the base; no currency stated means no suggestion, and one that would relabel a
      figure held in another currency is not offered;
-   - **location** (a country the catalog resolves), **Open to relocate** (the workspace's live tag of that name, only
-     when they said they would move), **motivation** and **expected package** (added below the Assessment's
+   - **location** (a country the catalog resolves), **Open to relocate** (the workspace's live tag labelled
+     "Open to relocate", only when they said they would move — found by its label, since tags carry no stable key: a
+     workspace that renames or retires the starter tag is offered no relocation change, and one that names another
+     tag that gets it), **motivation** and **expected package** (added below the Assessment's
      Motivation section under "From the call on …", never over it), and the consultant's own **next steps** as tasks.
 
    Anything equal to what is on file is dropped. The suggestions are kept on the recording (V152 `suggestions`,
-   staff-only, cleared with the transcript), so reopening costs nothing; a press is one `AI_ENRICH` use, recorded only
+   staff-only, cleared with the transcript), so reopening costs nothing; each has a random id, and asking again once
+   every one is decided adds the new ones beside the decided ones, which keep their Undo; a press is one `AI_ENRICH` use, recorded only
    when something was found. A claim (`suggesting_since`) keeps two presses to one model call. Each change is then
-   applied, edited, skipped or undone one at a time, and every apply writes through the field's own owner
+   applied, edited, skipped or undone one at a time — on the recording row locked first, so two tabs' decisions
+   queue rather than collide — and every apply writes through the field's own owner
    (`CandidateCallUpdates`: `Person.recordFromCall`, the scorecard, the tag catalogue; `TaskService` for a task) with
    one `UPDATED_FROM_CALL` Activity line naming the researcher, the fields and the call — never the values — and a
    `NOTETAKER_SUGGESTION_APPLIED` / `_SKIPPED` / `_REVERTED` audit event beside the owner's own. Undo puts back what
-   the change replaced only while the field still holds what the call wrote. A model that fails or answers off-schema
+   the change replaced only while the field still holds what the call wrote (a task only while it is still open under
+   its title), and a reviewed assessment the call's words reopened is reviewed again. A model that fails or answers off-schema
    is `AI_UNAVAILABLE` (Try again), a transcript the guard stops is `VALIDATION_FAILED`, and neither stores or charges
    anything.
 
@@ -102,7 +108,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 - **To Recall:** the call's join link, and the call's audio and video while the bot is in it. Recall's copy is
   deleted once the note is filed.
 - **To Gemini:** the transcript with contacts redacted, and the brief's assessment seam — once to write the note, once
-  per **Suggest changes** press (with the record's notice period, package, location, relocation tag and motivation,
+  per **Suggest changes** press (with the record's notice period, location, relocation tag and motivation — no package —
   never a contact), and again on each **Assess with AI** press on that position while the note is live (`MeetingTranscriptLookup`, read by
   `CandidateMaterialReader`, newest call first, 60k characters a call with its start and end kept, 90k in all). A
   speaker whose name is a staff member's or the scheduler's is marked "(your team)" in code. A recording whose summary

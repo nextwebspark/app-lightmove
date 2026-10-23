@@ -485,6 +485,9 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @DisplayName("Suggest changes reads the transcript once, and each change is applied through its own field's owner")
     void suggestedChangesAreAppliedOneByOne() throws Exception {
         String recordingId = filedRecording();
+        // A package on file is compared in code; the model never sees a compensation figure.
+        jdbc.update("update app_lm_person set compensation_currency = 'AED', base_salary = 777777 where id = (select "
+                + "person_id from app_lm_project_candidate where id = ?::uuid)", priya);
         as(consultant, get("/api/v1/candidate-tags")).andExpect(status().isOk());
         chat.answerWhenSystemContains(CHANGES_MARKER, CHANGES);
         int promptsBefore = chat.prompts().size();
@@ -494,10 +497,11 @@ class NotetakerIntegrationTest extends FlowTestSupport {
 
         assertThat(asked.get("asked").asBoolean()).isTrue();
         assertThat(asked.get("mayAskAgain").asBoolean()).isFalse();
-        assertThat(asked.get("suggestions")).extracting(each -> each.get("id").asText()).containsExactly(
-                "notice-period", "current-package", "location", "open-to-relocate", "motivation",
-                "expected-package", "task-1");
-        assertThat(chat.lastPrompt().getUserMessage().getText()).contains("My notice is three months.");
+        assertThat(asked.get("suggestions")).extracting(each -> each.get("kind").asText()).containsExactly(
+                "NOTICE_PERIOD", "CURRENT_PACKAGE", "LOCATION", "OPEN_TO_RELOCATE", "MOTIVATION", "EXPECTED_PACKAGE",
+                "TASK");
+        assertThat(chat.lastPrompt().getUserMessage().getText()).contains("My notice is three months.")
+                .doesNotContain("777777").doesNotContain("777,777");
         JsonNode pay = suggestion(asked, "current-package");
         assertThat(pay.get("value").get("baseSalary").asLong()).isEqualTo(1_140_000L);
         assertThat(pay.get("value").get("bonus").asLong()).isEqualTo(380_000L);
@@ -605,6 +609,60 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("Undo leaves a task someone has since done, and puts a reviewed assessment back as it was")
+    void undoRespectsWhatHappenedSince() throws Exception {
+        String recordingId = filedRecording();
+        chat.answerWhenSystemContains(CHANGES_MARKER, CHANGES);
+        as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk());
+        String assessment = "/api/v1/projects/" + projectId + "/candidates/" + priya + "/assessment";
+        as(consultant, put(assessment).contentType(MediaType.APPLICATION_JSON).content("""
+                {"version":null,"scores":[],"report":{"motivation":"Keen on a listed group."},"markReviewed":true}"""))
+                .andExpect(status().isOk());
+
+        decide(recordingId, "task-1", "apply", null).andExpect(status().isOk());
+        decide(recordingId, "motivation", "apply", null).andExpect(status().isOk());
+        JsonNode appended = body(as(consultant, get(assessment)).andExpect(status().isOk()).andReturn());
+        assertThat(appended.get("status").asText()).isEqualTo("draft");
+        assertThat(appended.get("report").get("motivation").asText()).startsWith("Keen on a listed group.\n\n");
+
+        decide(recordingId, "motivation", "reopen", null).andExpect(status().isOk());
+        JsonNode restored = body(as(consultant, get(assessment)).andExpect(status().isOk()).andReturn());
+        assertThat(restored.get("status").asText()).isEqualTo("reviewed");
+        assertThat(restored.get("report").get("motivation").asText()).isEqualTo("Keen on a listed group.");
+
+        jdbc.update("update app_lm_task set status = 'DONE', completed_at = now() where workspace_id = (select "
+                + "workspace_id from app_lm_project where id = ?::uuid)", projectId);
+        decide(recordingId, "task-1", "reopen", null).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_SUGGESTION_UNAVAILABLE"));
+        assertThat(jdbc.queryForObject("select status from app_lm_task where workspace_id = (select workspace_id "
+                + "from app_lm_project where id = ?::uuid)", String.class, projectId)).isEqualTo("DONE");
+    }
+
+    @Test
+    @DisplayName("asking again keeps every decided change and its Undo, beside new changes with new ids")
+    void askingAgainKeepsDecidedChanges() throws Exception {
+        String recordingId = filedRecording();
+        chat.answerWhenSystemContains(CHANGES_MARKER, """
+                {"notice":{"count":3,"unit":"MONTHS","said":"Three months.","at":"00:20"}}""");
+        JsonNode first = body(as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk())
+                .andReturn());
+        String noticeId = suggestion(first, "notice-period").get("id").asText();
+        decide(recordingId, "notice-period", "apply", null).andExpect(status().isOk());
+
+        chat.answerWhenSystemContains(CHANGES_MARKER, """
+                {"location":{"city":"Dubai","country":"United Arab Emirates","said":"Dubai.","at":"00:50"}}""");
+        JsonNode again = body(as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(again.get("suggestions")).extracting(each -> each.get("kind").asText())
+                .containsExactly("NOTICE_PERIOD", "LOCATION");
+        assertThat(suggestion(again, "notice-period").get("id").asText()).isEqualTo(noticeId);
+        assertThat(suggestion(again, "location").get("id").asText()).isNotEqualTo(noticeId);
+        decide(recordingId, "notice-period", "reopen", null).andExpect(status().isOk());
+        assertThat(noticeHeld()).isNull();
+    }
+
+    @Test
     @DisplayName("a model that fails, answers off-schema or is stopped by the guard stores and charges nothing")
     void suggestFailsGracefully() throws Exception {
         String recordingId = filedRecording();
@@ -690,8 +748,10 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         return recordingId;
     }
 
-    private ResultActions decide(String recordingId, String suggestionId, String action, String json)
-            throws Exception {
+    /** The suggestion a test names by its kind's slug ("notice-period", "task-1"); its id is random. */
+    private ResultActions decide(String recordingId, String slug, String action, String json) throws Exception {
+        JsonNode held = body(as(consultant, get(suggestionsPath(recordingId))).andExpect(status().isOk()).andReturn());
+        String suggestionId = suggestion(held, slug).get("id").asText();
         MockHttpServletRequestBuilder request = post(suggestionsPath(recordingId) + "/" + suggestionId + "/" + action);
         if (json != null) {
             request.contentType(MediaType.APPLICATION_JSON).content(json);
@@ -699,8 +759,9 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         return as(consultant, request);
     }
 
-    private static JsonNode suggestion(JsonNode answer, String id) {
-        return answer.get("suggestions").valueStream().filter(each -> each.get("id").asText().equals(id))
+    private static JsonNode suggestion(JsonNode answer, String slug) {
+        String kind = slug.replaceFirst("-\\d+$", "").replace('-', '_').toUpperCase();
+        return answer.get("suggestions").valueStream().filter(each -> each.get("kind").asText().equals(kind))
                 .findFirst().orElseThrow();
     }
 

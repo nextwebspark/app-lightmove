@@ -3,6 +3,7 @@ package app.lightmove.api.notetaker.model;
 import app.lightmove.api.notetaker.constant.CallSuggestionKind;
 import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.util.UUID;
 
 /**
  * One change a recorded call suggests for the person's record (V152), with the words it rests on and the time into
@@ -12,9 +13,13 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record CallSuggestion(String id, CallSuggestionKind kind, SuggestedValue value, String said, String at,
                              CallSuggestionStatus status, AppliedChange applied) {
 
-    public static CallSuggestion pending(String id, CallSuggestionKind kind, SuggestedValue value, String said,
-                                         String at) {
-        return new CallSuggestion(id, kind, value, said, at, CallSuggestionStatus.PENDING, null);
+    /**
+     * A random id, never a slug of the kind: asking again adds suggestions beside the decided ones, and a tab still
+     * open on the earlier answer must not apply a different suggestion that happened to share its id.
+     */
+    public static CallSuggestion pending(CallSuggestionKind kind, SuggestedValue value, String said, String at) {
+        return new CallSuggestion(UUID.randomUUID().toString(), kind, value, said, at, CallSuggestionStatus.PENDING,
+                null);
     }
 
     public boolean isPending() {

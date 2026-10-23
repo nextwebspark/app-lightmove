@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -180,8 +181,12 @@ public class MeetingRecording extends BaseEntity {
         return suggestions != null && suggestions.stream().anyMatch(CallSuggestion::isPending);
     }
 
+    /** Asking again keeps every decided suggestion beside the new ones, so an applied change keeps its Undo. */
     public void suggested(List<CallSuggestion> found, Instant at) {
-        this.suggestions = List.copyOf(found);
+        List<CallSuggestion> next = new ArrayList<>(suggestions == null ? List.of()
+                : suggestions.stream().filter(held -> !held.isPending()).toList());
+        next.addAll(found);
+        this.suggestions = List.copyOf(next);
         this.suggestedAt = at;
     }
 
