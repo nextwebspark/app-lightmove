@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
@@ -5,6 +6,8 @@ import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { saveBlob } from "../../../lib/saveBlob";
 import { formatBytes } from "../../candidates/lib/documents";
+import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
+import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
 import { NoteText } from "../../notes/components/NoteText";
 import * as conversationApi from "../api/conversationApi";
 import type { ConversationAttachment, ConversationEvent, ConversationMessage } from "../api/conversationApi";
@@ -43,7 +46,7 @@ export function ConversationEventCard({
             {cardTimeOf(event.at)}
           </time>
         </div>
-        <EventBody event={event} projectId={projectId} viewerUserId={viewerUserId} />
+        <EventBody event={event} title={face.title} projectId={projectId} viewerUserId={viewerUserId} />
         <div className="mt-1.5 text-eyebrow text-u-text3">
           <span className={cn("type-tag", TONE_TEXT[face.tone])}>{face.tag}</span>
           {face.context && <span> · {face.context}</span>}
@@ -53,12 +56,37 @@ export function ConversationEventCard({
   );
 }
 
+/** A team note held to the card's height, Open reading it whole; a note is edited where it lives, not here. */
+function NoteEventBody({ note, title }: { note: Extract<ConversationEvent, { type: "NOTE" }>["note"]; title: string }) {
+  const [reading, setReading] = useState(false);
+  return (
+    <>
+      <ClampedNoteText
+        body={note.body}
+        format={note.format}
+        className="mt-1 text-body text-u-text2"
+        onOpen={() => setReading(true)}
+      />
+      <NoteReaderModal
+        open={reading}
+        onClose={() => setReading(false)}
+        title={title}
+        writtenAt={note.createdAt}
+        body={note.body}
+        format={note.format}
+      />
+    </>
+  );
+}
+
 function EventBody({
   event,
+  title,
   projectId,
   viewerUserId,
 }: {
   event: ConversationEvent;
+  title: string;
   projectId: string;
   viewerUserId: string | null;
 }) {
@@ -66,7 +94,7 @@ function EventBody({
     case "MESSAGE":
       return <MessageBody message={event.message} projectId={projectId} viewerUserId={viewerUserId} />;
     case "NOTE":
-      return <NoteText body={event.note.body} format={event.note.format} className="mt-1 text-body text-u-text2" />;
+      return <NoteEventBody note={event.note} title={title} />;
     case "MEETING":
       return (
         <p className="mt-1 text-body text-u-text2">

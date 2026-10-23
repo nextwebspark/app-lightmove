@@ -304,3 +304,10 @@ body {
   outline: 2px solid var(--color-u-accent);
   outline-offset: 2px;
 }
+
+/* A note held to its card's height fades out rather than ending mid-line; a mask, so it reads on a pinned card's
+   tint as on a plain one. */
+.note-clamp {
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent);
+}
