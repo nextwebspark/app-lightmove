@@ -20,6 +20,14 @@ class NotetakerServiceTest {
     }
 
     @Test
+    @DisplayName("a bot can still be sent into a call running up to twenty minutes past its booked end")
+    void overrunGrace() {
+        assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T09:30:00Z"), NOW)).isTrue();
+        assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:45:00Z"), NOW)).isTrue();
+        assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:35:00Z"), NOW)).isFalse();
+    }
+
+    @Test
     @DisplayName("only an https link with a host goes to Recall")
     void joinableLinks() {
         assertThat(NotetakerService.joinableOrNull(" https://meet.google.com/abc-defg-hij "))

@@ -413,7 +413,11 @@ describe("MeetingsSection", () => {
 
   it("shows a scheduled bot on its call and removes it after asking", async () => {
     vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
-    renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
+    renderSection({
+      meetings: { ...MEETINGS, upcoming: [{ ...MEETINGS.upcoming[0], startsAt: "2099-10-07T06:00:00Z", endsAt: "2099-10-07T06:30:00Z" }] },
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "SCHEDULED" })],
+    });
 
     expect(await screen.findByText("Joins 1 min early · files notes after")).toBeInTheDocument();
     const toggle = screen.getByRole("switch", { name: "Record with Notetaker" });
@@ -422,6 +426,38 @@ describe("MeetingsSection", () => {
     await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove notetaker" }));
 
     expect(notetakerApi.cancelNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+  });
+
+  it("offers the Notetaker on a call that has run past its booked end, and says it joins at once", async () => {
+    const overrun = { ...MEETINGS.upcoming[0], id: "m4", title: "Ran over" };
+    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(
+      aRecording({ id: "r4", meetingId: "m4", status: "SCHEDULED" }),
+    );
+    renderSection({
+      meetings: { upcoming: [], past: [overrun] },
+      notetakerOffered: true,
+      recordableMeetingIds: ["m4"],
+    });
+
+    expect(await screen.findByText("Booked end passed · still on? Add it now")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("switch", { name: "Record with Notetaker" }));
+
+    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m4");
+  });
+
+  it("says a bot sent to a call already under way joins now", async () => {
+    renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
+
+    expect(await screen.findByText("Joining now · files notes after")).toBeInTheDocument();
+  });
+
+  it("offers a call under way to be recorded from here on", async () => {
+    renderSection({
+      meetings: { ...MEETINGS, upcoming: [{ ...MEETINGS.upcoming[0], endsAt: "2099-10-07T06:30:00Z" }] },
+      notetakerOffered: true,
+    });
+
+    expect(await screen.findByText("Off · add it now to record the rest")).toBeInTheDocument();
   });
 
   it("opens a past call's transcript once its notes are filed, matched by its start", async () => {

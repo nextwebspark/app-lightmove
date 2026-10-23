@@ -74,14 +74,13 @@ export function MeetingsSection({
   const recordable = new Set(notetaker.data?.recordableMeetingIds ?? []);
   const mayRecord = (meeting: Meeting) =>
     notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact && recordable.has(meeting.id);
-  const notetakerFor = (meeting: Meeting, isUpcoming: boolean) =>
+  const notetakerFor = (meeting: Meeting) =>
     notetaker.isSuccess ? (
       <NotetakerControl
         projectId={projectId}
         candidateId={candidateId}
         meeting={meeting}
         recording={recordingOfMeeting(recordings, meeting)}
-        upcoming={isUpcoming}
         mayRecord={mayRecord(meeting)}
         firstName={firstName}
         onShowTranscript={setTranscriptOf}
@@ -138,7 +137,7 @@ export function MeetingsSection({
               meeting={meeting}
               onReschedule={meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined}
               onCancel={meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined}
-              notetaker={notetakerFor(meeting, true)}
+              notetaker={notetakerFor(meeting)}
             />
           ))}
         </>
@@ -159,7 +158,7 @@ export function MeetingsSection({
                 {meeting.ownerName && (
                   <span className="font-mono text-[11.5px] text-u-text3"> · {meeting.ownerName}</span>
                 )}
-                {notetakerFor(meeting, false)}
+                {notetakerFor(meeting)}
               </span>
             </div>
           ))}
