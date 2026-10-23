@@ -22,9 +22,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * One model call drafting a consultant's assessment from the profile, the team's notes and the documents on file: a
- * score out of 10 and its evidence per competency, and the five report sections. The total out of 100 is never the
- * model's — {@code ScorecardScoring} weighs the scores exactly as it weighs a consultant's.
+ * One model call drafting a consultant's assessment from the profile, the team's notes, the documents on file and the
+ * transcripts of the calls the position recorded: a score out of 10 and its evidence per competency, and the five
+ * report sections. The total out of 100 is never the model's — {@code ScorecardScoring} weighs the scores exactly as
+ * it weighs a consultant's.
  */
 @Service
 @Slf4j
@@ -78,6 +79,9 @@ public class CandidateScorecardDrafter {
                 NOTES ON FILE (the team's own, newest first)
                 {notes}
 
+                CALL TRANSCRIPTS (newest first; time into the call, speaker, words)
+                {transcripts}
+
                 DOCUMENTS ON FILE
                 {documents}
 
@@ -101,6 +105,7 @@ public class CandidateScorecardDrafter {
                 """)
                 .param("profile", DossierText.of(dossier))
                 .param("notes", material.notes())
+                .param("transcripts", material.transcripts())
                 .param("documents", material.documents())
                 .param("roleTitle", DossierText.orNotStated(brief.roleTitle()))
                 .param("seniority", brief.seniority() == null ? DossierText.NOT_STATED : brief.seniority().value())

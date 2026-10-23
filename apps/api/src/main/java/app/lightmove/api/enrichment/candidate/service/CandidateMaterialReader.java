@@ -3,12 +3,16 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.model.CandidateMaterial;
 import app.lightmove.api.candidate.model.DocumentOnFile;
 import app.lightmove.api.candidate.model.NoteOnFile;
+import app.lightmove.api.candidate.model.SpokenLine;
+import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.service.CandidateMaterialService;
 import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.storage.constant.DocumentFormat;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -25,8 +29,9 @@ import org.springframework.stereotype.Component;
 /**
  * Writes out what the team has filed on a person for a prompt: every note the position reads, newest first, and the
  * text of the latest file of every document a text can be read from — an image or a scan without a text layer is left
- * out. Emails and phone numbers are taken out of both, and each is held to a share of the prompt, so one long file
- * never crowds out the rest.
+ * out — and, for the assessment alone, the transcripts of the calls the position recorded with them. Emails and phone
+ * numbers are taken out of all three, and each is held to a share of the prompt, so one long file or call never crowds
+ * out the rest.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,6 +44,10 @@ class CandidateMaterialReader {
     static final int MAX_DOCUMENTS = 40_000;
     static final String CUT = " … [cut]";
     static final String OLDER_NOTES_LEFT_OUT = "- older notes left out";
+    static final int MAX_TRANSCRIPT = 60_000;
+    static final int MAX_TRANSCRIPTS = 90_000;
+    static final String MIDDLE_LEFT_OUT = "\n[… the middle of the call is left out …]\n";
+    static final String EARLIER_CALLS_LEFT_OUT = "- earlier calls left out";
 
     private static final Set<String> READABLE = Stream.of(DocumentFormat.PDF, DocumentFormat.DOCX, DocumentFormat.DOC,
             DocumentFormat.TXT).map(DocumentFormat::contentType).collect(Collectors.toSet());
@@ -54,6 +63,72 @@ class CandidateMaterialReader {
         List<String> documents = documentsOf(filed.documents());
         int notesSent = notes.size() - (notes.contains(OLDER_NOTES_LEFT_OUT) ? 1 : 0);
         return new MaterialText(joined(notes, "\n"), joined(documents, "\n\n"), notesSent, documents.size());
+    }
+
+    MaterialText readForAssessment(UUID projectId, UUID candidateId) {
+        List<String> calls = transcriptsOf(material.transcriptsOf(projectId, candidateId));
+        int callsSent = calls.size() - (calls.contains(EARLIER_CALLS_LEFT_OUT) ? 1 : 0);
+        return read(projectId, candidateId).withTranscripts(joined(calls, "\n\n"), callsSent);
+    }
+
+    /**
+     * Newest call first; one too long for its share keeps its start and its end, where the opening and the closing
+     * questions — motivation, notice, what happens next — usually sit.
+     */
+    private static List<String> transcriptsOf(List<TranscriptOnFile> transcripts) {
+        List<String> read = new ArrayList<>();
+        int left = MAX_TRANSCRIPTS;
+        for (TranscriptOnFile transcript : transcripts) {
+            String heading = "=== Call: %s · %s ===\n".formatted(
+                    transcript.title() == null || transcript.title().isBlank() ? "untitled" : transcript.title().strip(),
+                    DAY.format(transcript.startsAt()));
+            int room = Math.min(MAX_TRANSCRIPT, left - heading.length() - MIDDLE_LEFT_OUT.length());
+            if (room <= 0) {
+                read.add(EARLIER_CALLS_LEFT_OUT);
+                break;
+            }
+            String block = heading + keepStartAndEnd(ContactRedaction.redact(turnsOf(transcript)), room);
+            read.add(block);
+            left -= block.length();
+        }
+        return read;
+    }
+
+    /** A speaker's consecutive lines are one turn, stamped with when it began. */
+    private static String turnsOf(TranscriptOnFile transcript) {
+        StringBuilder text = new StringBuilder();
+        String speaking = null;
+        for (SpokenLine line : transcript.lines()) {
+            if (line.text() == null || line.text().isBlank()) {
+                continue;
+            }
+            if (line.speaker() != null && line.speaker().equals(speaking)) {
+                text.append(' ').append(line.text().strip());
+                continue;
+            }
+            speaking = line.speaker();
+            if (!text.isEmpty()) {
+                text.append('\n');
+            }
+            text.append('[').append(elapsed(transcript.startsAt(), line.at())).append("] ")
+                    .append(speaking == null ? "Unknown speaker" : speaking).append(": ").append(line.text().strip());
+        }
+        return text.toString();
+    }
+
+    /** {@code MeetingSummariser}'s stamp, so evidence quoting a time finds its line on the transcript sheet. */
+    static String elapsed(Instant callStart, Instant at) {
+        long seconds = at == null ? 0 : Math.max(0, Duration.between(callStart, at).toSeconds());
+        return seconds >= 3600 ? "%d:%02d:%02d".formatted(seconds / 3600, seconds / 60 % 60, seconds % 60)
+                : "%02d:%02d".formatted(seconds / 60, seconds % 60);
+    }
+
+    private static String keepStartAndEnd(String text, int max) {
+        if (text.length() <= max) {
+            return text;
+        }
+        int half = max / 2;
+        return text.substring(0, half) + MIDDLE_LEFT_OUT + text.substring(text.length() - half);
     }
 
     private static List<String> notesOf(List<NoteOnFile> notes) {

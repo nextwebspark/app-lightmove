@@ -279,10 +279,13 @@ profiles, exported by `ops/eval/export-golden.sh` — and appends counts to `doc
 AI run on an executive reads the person's notes and documents too** (`CandidateMaterialService` →
 `CandidateMaterialReader`): every note that position reads, newest first, and the text of the latest file of each
 document (a PDF, DOCX, DOC or TXT; an image or a scan without a text layer is left out), each held to a length,
-and the audit line counts how many of each went. **The model never sees a candidate's contacts, compensation
+and the audit line counts how many of each went. Assess with AI alone also reads the **transcripts** of the calls that
+position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest first, only while each call's Meeting
+note is live, redacted and held to 60k characters a call (start and end kept) and 90k in all; a claim the executive
+makes about themselves with no example behind it scores as indirect evidence. **The model never sees a candidate's contacts, compensation
 fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` —
 the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
-and number out of the About, the notes and
+and number out of the About, the notes, the transcripts and
 the documents first, sparing dates, ranges and money; a figure a note or a CV states is sent as written. The assessment ranks a person and the nationality reading reasons about their origin, so both are
 staff-only — `GET …/candidates/{id}/assessment` and `…/nationality-reading`, `WORK_EXECUTE` — and never on `CandidateResponse`, which a
 client seat reads; a filled seniority, like gender, is a mapping fact and is. **Nationality is counted
