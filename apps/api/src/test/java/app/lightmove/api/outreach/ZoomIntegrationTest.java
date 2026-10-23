@@ -112,7 +112,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
 
         JsonNode slots = slotsOf(priya);
         assertThat(slots.get("zoomOffered").asBoolean()).isTrue();
-        book(priya, firstStartIn(slots), "ZOOM").andExpect(status().isNoContent());
+        book(priya, firstStartIn(slots), "ZOOM").andExpect(status().isOk());
 
         assertThat(zoom.created()).hasSize(1);
         assertThat(zoom.accessTokensUsed()).containsExactly("access-for-refresh-for-zoom-code-1");
@@ -150,7 +150,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         JsonNode slots = slotsOf(priya);
         Instant slot = firstStartIn(slots);
-        book(priya, slot, "ZOOM").andExpect(status().isNoContent());
+        book(priya, slot, "ZOOM").andExpect(status().isOk());
         String zoomId = zoom.created().getFirst();
         String meetingId = body(as(consultant, get(meetings(priya))).andReturn()).get("upcoming").get(0).get("id")
                 .asText();
@@ -179,7 +179,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         JsonNode slots = slotsOf(priya);
         Instant slot = firstStartIn(slots);
-        book(priya, slot, "ZOOM").andExpect(status().isNoContent());
+        book(priya, slot, "ZOOM").andExpect(status().isOk());
         String meetingId = body(as(consultant, get(meetings(priya))).andReturn()).get("upcoming").get(0).get("id")
                 .asText();
         as(consultant, delete("/api/v1/outreach/zoom")).andExpect(status().isNoContent());
