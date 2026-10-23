@@ -15,6 +15,10 @@ record MaterialText(String notes, String documents, String transcripts, int note
         this(notes, documents, NONE_ON_FILE, noteCount, documentCount, 0);
     }
 
+    MaterialText withoutTranscripts() {
+        return withTranscripts(NONE_ON_FILE, 0);
+    }
+
     MaterialText withTranscripts(String text, int count) {
         return new MaterialText(notes, documents, text, noteCount, documentCount, count);
     }

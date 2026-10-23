@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,6 +14,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.service.CandidateMaterialService;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
@@ -328,12 +330,13 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the assessment reads a call's transcript from its own position only, and only while its note is live")
+    @DisplayName("the assessment reads a call's transcript from its position while its note is live, the team marked")
     void transcriptReachesTheAssessmentWhileItsNoteIsLive() throws Exception {
         chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
         String recordingId = scheduledRecordingId();
         String bot = recall.lastBotId();
         recall.holdsTranscript("t-1", List.of(
+                new TranscriptLine(start.plusSeconds(5), "Yara  haddad", "How did the listing go?", true),
                 new TranscriptLine(start.plusSeconds(20), "Priya Raman", "I took the finance team through the IPO.",
                         true)));
         deliver(bot, """
@@ -345,8 +348,8 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         List<TranscriptOnFile> read = material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
         assertThat(read).singleElement().satisfies(transcript -> {
             assertThat(transcript.title()).isEqualTo("First conversation");
-            assertThat(transcript.lines()).singleElement()
-                    .satisfies(line -> assertThat(line.text()).contains("through the IPO"));
+            assertThat(transcript.lines()).extracting(SpokenLine::speaker, SpokenLine::team)
+                    .containsExactly(tuple("Yara  haddad", true), tuple("Priya Raman", false));
         });
 
         String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)

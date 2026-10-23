@@ -6,13 +6,12 @@ import app.lightmove.api.candidate.model.NoteOnFile;
 import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.service.CandidateMaterialService;
+import app.lightmove.api.common.transcript.CallTranscriptText;
 import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.storage.constant.DocumentFormat;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
-import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -46,7 +45,8 @@ class CandidateMaterialReader {
     static final String OLDER_NOTES_LEFT_OUT = "- older notes left out";
     static final int MAX_TRANSCRIPT = 60_000;
     static final int MAX_TRANSCRIPTS = 90_000;
-    static final String MIDDLE_LEFT_OUT = "\n[… the middle of the call is left out …]\n";
+    static final int LEAST_TRANSCRIPT = 2_000;
+    static final String TEAM_MARK = "(your team)";
     static final String EARLIER_CALLS_LEFT_OUT = "- earlier calls left out";
 
     private static final Set<String> READABLE = Stream.of(DocumentFormat.PDF, DocumentFormat.DOCX, DocumentFormat.DOC,
@@ -79,22 +79,24 @@ class CandidateMaterialReader {
         List<String> read = new ArrayList<>();
         int left = MAX_TRANSCRIPTS;
         for (TranscriptOnFile transcript : transcripts) {
-            String heading = "=== Call: %s · %s ===\n".formatted(
-                    transcript.title() == null || transcript.title().isBlank() ? "untitled" : transcript.title().strip(),
-                    DAY.format(transcript.startsAt()));
-            int room = Math.min(MAX_TRANSCRIPT, left - heading.length() - MIDDLE_LEFT_OUT.length());
-            if (room <= 0) {
+            String title = transcript.title() == null || transcript.title().isBlank() ? "untitled"
+                    : transcript.title().strip();
+            String heading = "=== Call: %s · %s ===\n".formatted(title, DAY.format(transcript.startsAt()));
+            int room = Math.min(MAX_TRANSCRIPT,
+                    left - heading.length() - CallTranscriptText.MIDDLE_LEFT_OUT.length());
+            if (room < LEAST_TRANSCRIPT) {
                 read.add(EARLIER_CALLS_LEFT_OUT);
                 break;
             }
-            String block = heading + keepStartAndEnd(ContactRedaction.redact(turnsOf(transcript)), room);
+            String block = heading + CallTranscriptText.keepStartAndEnd(
+                    ContactRedaction.redact(turnsOf(transcript)), room);
             read.add(block);
             left -= block.length();
         }
         return read;
     }
 
-    /** A speaker's consecutive lines are one turn, stamped with when it began. */
+    /** A speaker's consecutive lines are one turn, stamped with when it began; the team's speakers are marked. */
     private static String turnsOf(TranscriptOnFile transcript) {
         StringBuilder text = new StringBuilder();
         String speaking = null;
@@ -102,33 +104,24 @@ class CandidateMaterialReader {
             if (line.text() == null || line.text().isBlank()) {
                 continue;
             }
-            if (line.speaker() != null && line.speaker().equals(speaking)) {
+            String speaker = speakerOf(line);
+            if (speaker.equals(speaking)) {
                 text.append(' ').append(line.text().strip());
                 continue;
             }
-            speaking = line.speaker();
+            speaking = speaker;
             if (!text.isEmpty()) {
                 text.append('\n');
             }
-            text.append('[').append(elapsed(transcript.startsAt(), line.at())).append("] ")
-                    .append(speaking == null ? "Unknown speaker" : speaking).append(": ").append(line.text().strip());
+            text.append('[').append(CallTranscriptText.elapsed(transcript.startsAt(), line.at())).append("] ")
+                    .append(speaker).append(": ").append(line.text().strip());
         }
         return text.toString();
     }
 
-    /** {@code MeetingSummariser}'s stamp, so evidence quoting a time finds its line on the transcript sheet. */
-    static String elapsed(Instant callStart, Instant at) {
-        long seconds = at == null ? 0 : Math.max(0, Duration.between(callStart, at).toSeconds());
-        return seconds >= 3600 ? "%d:%02d:%02d".formatted(seconds / 3600, seconds / 60 % 60, seconds % 60)
-                : "%02d:%02d".formatted(seconds / 60, seconds % 60);
-    }
-
-    private static String keepStartAndEnd(String text, int max) {
-        if (text.length() <= max) {
-            return text;
-        }
-        int half = max / 2;
-        return text.substring(0, half) + MIDDLE_LEFT_OUT + text.substring(text.length() - half);
+    private static String speakerOf(SpokenLine line) {
+        String name = line.speaker() == null || line.speaker().isBlank() ? "Unnamed speaker" : line.speaker().strip();
+        return line.team() ? name + " " + TEAM_MARK : name;
     }
 
     private static List<String> notesOf(List<NoteOnFile> notes) {

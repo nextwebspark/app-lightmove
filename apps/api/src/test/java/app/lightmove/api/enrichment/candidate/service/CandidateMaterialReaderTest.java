@@ -70,24 +70,24 @@ class CandidateMaterialReaderTest {
     }
 
     @Test
-    @DisplayName("a call's transcript reaches the assessment as speaker turns, its contacts taken out")
+    @DisplayName("a call's transcript reaches the assessment as speaker turns, the team marked and contacts taken out")
     void transcriptIsWrittenAsTurnsWithContactsRedacted() {
         Instant start = Instant.parse("2026-10-12T14:00:00Z");
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
         when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(new TranscriptOnFile("First conversation",
                 start, List.of(
-                        new SpokenLine(start.plusSeconds(5), "Yara Haddad", "Tell me about the IPO."),
-                        new SpokenLine(start.plusSeconds(65), "Priya Raman", "I led the finance team through it."),
-                        new SpokenLine(start.plusSeconds(70), "Priya Raman", "Write to priya@example.com."),
-                        new SpokenLine(start.plusSeconds(3_725), "Yara Haddad", "Thanks.")))));
+                        new SpokenLine(start.plusSeconds(5), "Yara Haddad", "Tell me about the IPO.", true),
+                        new SpokenLine(start.plusSeconds(65), "Priya Raman", "I led the finance team through it.", false),
+                        new SpokenLine(start.plusSeconds(70), "Priya Raman", "Write to priya@example.com.", false),
+                        new SpokenLine(start.plusSeconds(3_725), "Yara Haddad", "Thanks.", true)))));
 
         MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
 
         assertThat(text.transcriptCount()).isEqualTo(1);
         assertThat(text.transcripts()).startsWith("=== Call: First conversation · 12 Oct 2026 ===")
-                .contains("[00:05] Yara Haddad: Tell me about the IPO.",
+                .contains("[00:05] Yara Haddad (your team): Tell me about the IPO.",
                         "[01:05] Priya Raman: I led the finance team through it. Write to",
-                        "[1:02:05] Yara Haddad: Thanks.")
+                        "[1:02:05] Yara Haddad (your team): Thanks.")
                 .doesNotContain("priya@example.com");
     }
 
@@ -96,8 +96,8 @@ class CandidateMaterialReaderTest {
     void transcriptsShareTheBudget() {
         Instant start = Instant.parse("2026-10-12T14:00:00Z");
         TranscriptOnFile longCall = new TranscriptOnFile("Long call", start, List.of(
-                new SpokenLine(start, "Priya Raman", "OPENING " + "a".repeat(40_000)),
-                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "b".repeat(40_000) + " CLOSING")));
+                new SpokenLine(start, "Priya Raman", "OPENING " + "a".repeat(40_000), false),
+                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "b".repeat(40_000) + " CLOSING", true)));
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
         when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(longCall, longCall, longCall));
 
@@ -107,6 +107,8 @@ class CandidateMaterialReaderTest {
         assertThat(text.transcripts()).contains("OPENING", "CLOSING", "the middle of the call is left out")
                 .endsWith(CandidateMaterialReader.EARLIER_CALLS_LEFT_OUT);
         assertThat(text.transcripts().length()).isLessThanOrEqualTo(CandidateMaterialReader.MAX_TRANSCRIPTS + 100);
+        assertThat(text.transcripts().split("=== Call: ")).allSatisfy(block ->
+                assertThat(block.isEmpty() || block.length() >= CandidateMaterialReader.LEAST_TRANSCRIPT).isTrue());
         assertThat(reader.read(PROJECT, CANDIDATE).transcripts()).isEqualTo(MaterialText.NONE_ON_FILE);
     }
 

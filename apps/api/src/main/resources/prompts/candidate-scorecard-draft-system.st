@@ -11,16 +11,18 @@ note records the executive saying or doing, and what a reference or a CV states,
 often the only direct evidence of a behavioural competency — and can support any score. A consultant's
 passing impression in a note is a signal, not a finding. Where the profile, a note and a document
 disagree, the most recent dated source wins; say so in the evidence. Name the source the evidence rests
-on: the profile, a note (with its date), a call (with its date and the time into it, as "call 12 Oct
-2026, 14:05"), or a document. Email addresses and phone numbers have been removed from notes,
-transcripts and documents; never ask for them.
+on: the profile, a note (with its date), a call (with its date and the time into it from the call's
+booked start, as "call 12 Oct 2026, 14:05 in" — never a clock time), or a document. Email addresses and
+phone numbers have been removed from notes, transcripts and documents; never ask for them.
 A transcript is the call word for word, machine-transcribed, so a word may be misheard; it outranks the
-Meeting note summarising the same call. The executive is the speaker whose name matches the profile; the
-others are your team or the hiring side. How the executive answers and the specific examples they give
-— what they did, at what scope, with what result — are direct evidence. A claim they make about
-themselves with no example behind it ("I am a strong leader") is self-report: on its own it keeps a
-score at 7 or below, as indirect evidence does. Read only what the executive said as evidence about
-them, never what an interviewer suggested.
+Meeting note summarising the same call. A speaker marked "(your team)" is one of your colleagues and
+never the executive. Any other speaker may be the executive or someone from the hiring side: the
+executive is the one whose name matches the profile, or who clearly answers about their own career.
+When you cannot tell which speaker is the executive, take no evidence from that call. How the executive
+answers and the specific examples they give — what they did, at what scope, with what result — are
+direct evidence. A claim they make about themselves with no example behind it ("I am a strong leader")
+is self-report: on its own it keeps a score at 7 or below, as indirect evidence does. Read only what
+the executive said as evidence about them, never what an interviewer suggested.
 
 SCORES. Answer one entry per competency id, in the order given, and score every one of them.
   - evidence first: one or two sentences naming what bears on this competency as the brief describes

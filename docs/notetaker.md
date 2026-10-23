@@ -72,7 +72,10 @@ Recall is the only recorder for now. A bot of our own can come back later behind
   deleted once the note is filed.
 - **To Gemini:** the transcript with contacts redacted, and the brief's assessment seam — once to write the note, and
   again on each **Assess with AI** press on that position while the note is live (`MeetingTranscriptLookup`, read by
-  `CandidateMaterialReader`, newest call first, 60k characters a call with its start and end kept, 90k in all).
+  `CandidateMaterialReader`, newest call first, 60k characters a call with its start and end kept, 90k in all). A
+  speaker whose name is a staff member's or the scheduler's is marked "(your team)" in code. A recording whose summary
+  failed has no note yet, so its transcript is not read until **Try again** files one. A transcript the prompt guard
+  stops is dropped and the assessment asked again without transcripts, so a remark in a call never blocks it.
 - **Kept:** the note, and the transcript (staff-only, on the recording row) only as long as the note.
   `NotetakerTranscriptPurge` clears it once the note is purged for good (`lightmove.notes.purge-after`, 30 days after a
   delete), or from a recording that never filed a note once it has sat untouched that long.

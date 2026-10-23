@@ -44,7 +44,8 @@ public class CandidateScorecardDrafter {
 
     /**
      * Empty when there is nothing to score, the model could not be reached, or it answered nothing usable — a draft
-     * with no score and no section is never written or charged. A blocked prompt is refused instead.
+     * with no score and no section is never written or charged. A blocked prompt is asked again without the call
+     * transcripts, then refused.
      */
     Optional<AiScorecardDraft> draft(CandidateDossier dossier, AssessmentBrief brief, MaterialText material) {
         Map<String, BriefCompetency> competencyById = idsOf(brief.competencies().competencies());
@@ -62,6 +63,12 @@ public class CandidateScorecardDrafter {
             return Optional.empty();
         }
         if (answered.report() != null && BlockedAnswer.matches(answered.report().careerSummary())) {
+            if (material.transcriptCount() > 0) {
+                // Anyone in a call speaks into its transcript and nobody can reword it, so a remark there costs the
+                // calls' evidence, never the whole assessment.
+                log.info("Candidate scorecard draft asked again without the call transcripts the guard stopped");
+                return draft(dossier, brief, material.withoutTranscripts());
+            }
             throw AiRefusals.blockedText();
         }
         AiScorecardDraft draft = new AiScorecardDraft(scoresOf(answered.scores(), competencyById),
