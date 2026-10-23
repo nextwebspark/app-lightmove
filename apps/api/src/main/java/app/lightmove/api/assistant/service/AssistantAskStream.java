@@ -13,12 +13,11 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -29,8 +28,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * only stops the sending; the answer is still saved.
  *
  * <p>An answer outliving the stream is reported as still answering, never failed — asking again would
- * pay twice. The executor is unbounded virtual threads, so the slots are the only concurrency cap. The
- * stream has its own, longer limit than {@code SseStreams}: it is one answer, not a feed that reconnects.
+ * pay twice. The slots are the only concurrency cap, and {@link AssistantThreads} holds a thread for each.
+ * The stream has its own, longer limit than {@code SseStreams}: it is one answer, not a feed that reconnects.
  */
 @Slf4j
 @Service
@@ -39,17 +38,16 @@ public class AssistantAskStream {
     private static final long STREAM_GRACE_AFTER_DEADLINE_MS = 10_000;
 
     private final AssistantService assistant;
-    private final AsyncTaskExecutor executor;
+    private final Executor executor;
     private final LlmBudgetGuard budget;
     private final FairUseGuard fairUse;
     private final Semaphore slots;
     private final long stillAnsweringAfterMs;
 
-    public AssistantAskStream(AssistantService assistant,
-                              @Qualifier("applicationTaskExecutor") AsyncTaskExecutor executor,
-                              LlmBudgetGuard budget, FairUseGuard fairUse, LightMoveProperties properties) {
+    public AssistantAskStream(AssistantService assistant, AssistantThreads threads, LlmBudgetGuard budget,
+                              FairUseGuard fairUse, LightMoveProperties properties) {
         this.assistant = assistant;
-        this.executor = executor;
+        this.executor = threads.answers();
         this.budget = budget;
         this.fairUse = fairUse;
         this.slots = new Semaphore(properties.assistant().maxConcurrentAsks());

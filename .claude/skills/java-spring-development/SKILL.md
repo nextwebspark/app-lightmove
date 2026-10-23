@@ -604,3 +604,8 @@ reintroduce them.
   not a ProblemDetail. Every path through those handlers must end in a redirect to the SPA —
   `LoginErrorRedirector` owns the redirect, and the catch covers `Exception`, not just
   `ApiException` (the concurrent double-callback race throws `DataIntegrityViolationException`).
+- **Virtual threads froze production for 39 minutes, so `spring.threads.virtual.enabled` is off.** On
+  one vCPU the scheduler has a single carrier, and Java 25 still pins it while a thread loads or
+  initialises a class: a first-request burst left it waiting on a lock whose holder needed it back.
+  Don't turn it back on, and don't move long or nested work onto `applicationTaskExecutor`, which is
+  now a fixed pool behind a queue. The assistant runs on `AssistantThreads` for that reason.

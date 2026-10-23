@@ -62,8 +62,8 @@ its own log lines already lose the correlation id today. Boot auto-configures a
 the OpenTelemetry starter in gap 3 brings in. Worth verifying it actually took effect rather than
 assuming, because a silently inert propagator looks exactly like a working one until an incident.
 
-Virtual threads are on (`spring.threads.virtual.enabled: true`). MDC is a `ThreadLocal` and works
-fine on a virtual thread; the thing that breaks is the hand-off, not the carrier.
+Virtual threads are off (`spring.threads.virtual.enabled: false`; `application.yml` says why). MDC is
+a `ThreadLocal` and works on either kind of thread; the thing that breaks is the hand-off, not the thread.
 
 ### Gap 2 — There is no access log
 
