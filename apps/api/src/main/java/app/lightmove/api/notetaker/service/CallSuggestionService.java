@@ -9,9 +9,7 @@ import app.lightmove.api.candidate.model.CallHeldFields;
 import app.lightmove.api.candidate.model.CallReference;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.model.ProfileFromCall;
-import app.lightmove.api.candidate.model.RelocationTagging;
 import app.lightmove.api.candidate.service.CandidateCallUpdates;
-import app.lightmove.api.candidate.service.CandidateCallUpdates.SectionChange;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.common.constant.NoticePeriod;
 import app.lightmove.api.common.location.service.Countries;
@@ -22,19 +20,18 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.notetaker.constant.CallSuggestionKind;
-import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.dto.ApplyCallSuggestionRequest;
 import app.lightmove.api.notetaker.dto.CallSuggestionResponse;
 import app.lightmove.api.notetaker.dto.CallSuggestionsResponse;
 import app.lightmove.api.notetaker.dto.EditedSuggestionValue;
+import app.lightmove.api.notetaker.dto.ReviewCallSuggestionsRequest;
 import app.lightmove.api.notetaker.model.AppliedChange;
 import app.lightmove.api.notetaker.model.CallSuggestion;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.SuggestedValue;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.task.dto.CreateTaskRequest;
-import app.lightmove.api.task.dto.TaskResponse;
 import app.lightmove.api.task.model.Task;
 import app.lightmove.api.task.service.TaskService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -45,13 +42,15 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Currency;
+import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,9 +60,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Suggest changes on a recorded call: one press asks the model to read the transcript against the person's record,
- * and each suggestion it keeps is then applied, skipped or undone by a researcher, one at a time. Nothing reaches the
- * record unless someone applies it, and every apply writes through the field's own owner — the person, the
- * assessment, the tag catalogue, the task list — so scope, validation and the timeline stay where they live.
+ * and a researcher then reviews what it kept in one go — each suggestion applied as chosen or skipped. Nothing reaches
+ * the record unless someone applies it, and every apply writes through the field's own owner — the person, the
+ * assessment, the tag catalogue, the task list — so scope, validation and the timeline stay where they live. Once
+ * reviewed a change is the record's: a later correction is made there, never by undoing it here.
  *
  * <p>The model call holds no transaction and no connection; a claim on the recording keeps two presses to one call,
  * and nothing is stored or charged unless an answer was stored.
@@ -78,6 +78,8 @@ public class CallSuggestionService {
 
     private static final Set<CallField> PACKAGE_FIELDS = EnumSet.of(CallField.BASE_SALARY, CallField.BONUS,
             CallField.ALLOWANCES);
+    private static final Set<CallSuggestionKind> PROFILE_KINDS = EnumSet.of(CallSuggestionKind.NOTICE_PERIOD,
+            CallSuggestionKind.CURRENT_PACKAGE, CallSuggestionKind.LOCATION);
     private static final Duration TASK_DUE_AFTER = Duration.ofDays(1);
     private static final DateTimeFormatter CALL_DATE = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
             .withZone(ZoneOffset.UTC);
@@ -146,62 +148,48 @@ public class CallSuggestionService {
         return read(workspaceId, projectId, candidateId, recordingId);
     }
 
-    public CallSuggestionsResponse apply(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
-                                         UUID recordingId, String suggestionId, ApplyCallSuggestionRequest request,
-                                         HttpServletRequest httpRequest) {
-        return decide(() -> {
-            OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
-            MeetingRecording recording = lockRecording(workspaceId, projectId, recipient, recordingId);
-            CallSuggestion suggestion = requirePending(recording, suggestionId);
-            CallReference call = callOf(recording);
-            Applied applied = applyOne(userId, workspaceId, projectId, recipient, suggestion, request, call,
-                    httpRequest);
-            recording.replaceSuggestion(suggestion.appliedAs(applied.shown(), applied.change()));
-            audited(ProjectEventType.NOTETAKER_SUGGESTION_APPLIED, userId, workspaceId, projectId, recipient,
-                    recording, suggestion, httpRequest)
-                    .detail("fields", keysOf(applied.change().fields()))
-                    .detail("edited", String.valueOf(applied.change().edited()))
-                    .record();
-            return recording;
-        }, workspaceId, projectId, candidateId, recordingId);
-    }
-
-    public CallSuggestionsResponse skip(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
-                                        UUID recordingId, String suggestionId, HttpServletRequest httpRequest) {
-        return decide(() -> {
-            OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
-            MeetingRecording recording = lockRecording(workspaceId, projectId, recipient, recordingId);
-            CallSuggestion suggestion = requirePending(recording, suggestionId);
-            recording.replaceSuggestion(suggestion.skipped());
-            audited(ProjectEventType.NOTETAKER_SUGGESTION_SKIPPED, userId, workspaceId, projectId, recipient,
-                    recording, suggestion, httpRequest).record();
-            return recording;
-        }, workspaceId, projectId, candidateId, recordingId);
-    }
-
     /**
-     * Undo: a skipped suggestion waits again; an applied one is put back through the same owner first, and refused
-     * when the record moved on since — a later edit is never overwritten by an undo.
+     * The researcher's review, in one transaction on the recording row locked first: every waiting suggestion named in
+     * {@code apply} is applied as chosen, every other one skipped. Each choice is read and checked before anything is
+     * written, so one refused change writes nothing at all; two tabs reviewing one call queue on the lock, and the
+     * second finds nothing waiting.
      */
-    public CallSuggestionsResponse reopen(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
-                                          UUID recordingId, String suggestionId, HttpServletRequest httpRequest) {
-        return decide(() -> {
+    public CallSuggestionsResponse review(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                          UUID recordingId, ReviewCallSuggestionsRequest request,
+                                          HttpServletRequest httpRequest) {
+        transactions.executeWithoutResult(status -> {
             OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
             MeetingRecording recording = lockRecording(workspaceId, projectId, recipient, recordingId);
-            CallSuggestion suggestion = requireSuggestion(recording, suggestionId);
-            if (suggestion.isPending()) {
-                return recording;
+            Map<String, ApplyCallSuggestionRequest> picked = pickedOf(recording, request);
+            List<CallSuggestion> waiting = recording.getSuggestions().stream().filter(CallSuggestion::isPending)
+                    .toList();
+            CallHeldFields held = updates.heldOf(workspaceId, projectId, recipient.candidateId());
+            List<ChosenChange> chosen = waiting.stream()
+                    .filter(suggestion -> picked.containsKey(suggestion.id()))
+                    .map(suggestion -> resolve(suggestion, picked.get(suggestion.id()), held))
+                    .toList();
+            write(userId, workspaceId, projectId, recipient.candidateId(), chosen, callOf(recording), httpRequest);
+            Instant now = clock.instant();
+            Map<String, ChosenChange> chosenById = chosen.stream()
+                    .collect(Collectors.toMap(each -> each.suggestion().id(), each -> each));
+            for (CallSuggestion suggestion : waiting) {
+                ChosenChange change = chosenById.get(suggestion.id());
+                if (change == null) {
+                    recording.replaceSuggestion(suggestion.skipped());
+                    audited(ProjectEventType.NOTETAKER_SUGGESTION_SKIPPED, userId, workspaceId, projectId, recipient,
+                            recording, suggestion, httpRequest).record();
+                } else {
+                    recording.replaceSuggestion(suggestion.appliedAs(change.value(),
+                            new AppliedChange(userId, now, change.edited(), change.fields())));
+                    audited(ProjectEventType.NOTETAKER_SUGGESTION_APPLIED, userId, workspaceId, projectId,
+                            recipient, recording, suggestion, httpRequest)
+                            .detail("fields", keysOf(change.fields()))
+                            .detail("edited", String.valueOf(change.edited()))
+                            .record();
+                }
             }
-            if (suggestion.status() == CallSuggestionStatus.APPLIED) {
-                revert(userId, workspaceId, projectId, recipient, suggestion, callOf(recording), httpRequest);
-                audited(ProjectEventType.NOTETAKER_SUGGESTION_REVERTED, userId, workspaceId, projectId, recipient,
-                        recording, suggestion, httpRequest)
-                        .detail("fields", keysOf(suggestion.applied().fields()))
-                        .record();
-            }
-            recording.replaceSuggestion(suggestion.reopened());
-            return recording;
-        }, workspaceId, projectId, candidateId, recordingId);
+        });
+        return read(workspaceId, projectId, candidateId, recordingId);
     }
 
     private List<CallSuggestion> readTranscript(MeetingRecording recording, CallHeldFields held) {
@@ -219,110 +207,129 @@ public class CallSuggestionService {
         }
     }
 
-    /**
-     * One decision in its own transaction, on the recording row locked first: two tabs deciding the same call queue
-     * rather than collide after their side effects, so no audit line ever describes a write that was rolled back.
-     */
-    private CallSuggestionsResponse decide(Supplier<MeetingRecording> decision, UUID workspaceId, UUID projectId,
-                                           UUID candidateId, UUID recordingId) {
-        transactions.execute(status -> decision.get());
-        return read(workspaceId, projectId, candidateId, recordingId);
+    private static Map<String, ApplyCallSuggestionRequest> pickedOf(MeetingRecording recording,
+                                                                    ReviewCallSuggestionsRequest request) {
+        if (!recording.hasPendingSuggestions()) {
+            throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_DECIDED);
+        }
+        Map<String, ApplyCallSuggestionRequest> picked = new HashMap<>();
+        for (ApplyCallSuggestionRequest each : request.apply()) {
+            requirePending(recording, each.id());
+            if (picked.putIfAbsent(each.id(), each) != null) {
+                throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "Each change can be applied once.");
+            }
+        }
+        return picked;
     }
 
-    private Applied applyOne(UUID userId, UUID workspaceId, UUID projectId, OutreachRecipient recipient,
-                             CallSuggestion suggestion, ApplyCallSuggestionRequest request, CallReference call,
-                             HttpServletRequest httpRequest) {
-        EditedSuggestionValue edit = request == null ? null : request.value();
+    /** A refusal of what the researcher chose names the change it belongs to, so the review shows it on that row. */
+    private static ChosenChange resolve(CallSuggestion suggestion, ApplyCallSuggestionRequest request,
+                                        CallHeldFields held) {
+        try {
+            return chosenAs(suggestion, request, held);
+        } catch (ApiException refused) {
+            throw onRow(suggestion, refused);
+        }
+    }
+
+    private static ChosenChange chosenAs(CallSuggestion suggestion, ApplyCallSuggestionRequest request,
+                                         CallHeldFields held) {
+        EditedSuggestionValue edit = request.value();
         boolean edited = edit != null;
-        UUID candidateId = recipient.candidateId();
-        Instant now = clock.instant();
         return switch (suggestion.kind()) {
-            case NOTICE_PERIOD -> {
-                String label = noticeLabelOf(edited ? edit.text() : suggestion.value().text());
-                ProfileFromCall change = new ProfileFromCall(Set.of(CallField.NOTICE_PERIOD), label, null, null,
-                        null, null, null, null);
-                ProfileFromCall before = updates.applyProfile(userId, workspaceId, projectId, candidateId, change,
-                        call, httpRequest);
-                yield new Applied(SuggestedValue.text(label), new AppliedChange(userId, now, edited,
-                        List.of(CallField.NOTICE_PERIOD), before, change, null, null, null, null, false, null));
-            }
+            case NOTICE_PERIOD -> new ChosenChange(suggestion,
+                    SuggestedValue.text(noticeLabelOf(edited ? edit.text() : suggestion.value().text())), edited,
+                    List.of(CallField.NOTICE_PERIOD));
             case CURRENT_PACKAGE -> {
                 SuggestedValue pay = edited ? payOf(edit, suggestion.value()) : suggestion.value();
-                Set<CallField> fields = packageFieldsOf(request == null ? null : request.packageFields(), pay);
-                ProfileFromCall change = new ProfileFromCall(fields, null, pay.currency(), pay.baseSalary(),
-                        pay.bonus(), pay.allowances(), null, null);
-                ProfileFromCall before = updates.applyProfile(userId, workspaceId, projectId, candidateId, change,
-                        call, httpRequest);
-                yield new Applied(pay, new AppliedChange(userId, now, edited, sorted(fields), before, change, null,
-                        null, null, null, false, null));
+                Set<CallField> fields = packageFieldsOf(request.packageFields(), pay);
+                if (held.compensation().wouldRelabel(pay.currency(), fields.contains(CallField.BASE_SALARY),
+                        fields.contains(CallField.BONUS), fields.contains(CallField.ALLOWANCES))) {
+                    throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
+                }
+                yield new ChosenChange(suggestion, pay, edited, sorted(fields));
             }
-            case LOCATION -> {
-                SuggestedValue place = edited ? placeOf(edit) : suggestion.value();
-                ProfileFromCall change = new ProfileFromCall(Set.of(CallField.LOCATION), null, null, null, null,
-                        null, place.city(), place.country());
-                ProfileFromCall before = updates.applyProfile(userId, workspaceId, projectId, candidateId, change,
-                        call, httpRequest);
-                yield new Applied(place, new AppliedChange(userId, now, edited, List.of(CallField.LOCATION),
-                        before, change, null, null, null, null, false, null));
-            }
+            case LOCATION -> new ChosenChange(suggestion, edited ? placeOf(edit) : suggestion.value(), edited,
+                    List.of(CallField.LOCATION));
             case OPEN_TO_RELOCATE -> {
-                RelocationTagging tagging = updates.tagOpenToRelocate(userId, workspaceId, projectId, candidateId,
-                        call, httpRequest);
-                yield new Applied(suggestion.value(), new AppliedChange(userId, now, false,
-                        List.of(CallField.OPEN_TO_RELOCATE), null, null, null, null, null, tagging.tagId(),
-                        tagging.added(), null));
+                if (held.relocationTagId() == null) {
+                    throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
+                }
+                yield new ChosenChange(suggestion, suggestion.value(), false, List.of(CallField.OPEN_TO_RELOCATE));
             }
-            case MOTIVATION, EXPECTED_PACKAGE -> {
-                String text = requiredText(edited ? edit.text() : suggestion.value().text());
-                CallField field = suggestion.kind().fields().getFirst();
-                SectionChange section = updates.appendToMotivation(userId, workspaceId, projectId, candidateId,
-                        field, text, call, httpRequest);
-                yield new Applied(SuggestedValue.text(text), new AppliedChange(userId, now, edited, List.of(field),
-                        null, null, section.before(), section.after(), section.standing(), null, false, null));
-            }
-            case TASK -> {
-                String title = taskTitleOf(edited ? edit.text() : suggestion.value().text());
-                TaskResponse task = tasks.create(userId, workspaceId, projectId, candidateId,
-                        new CreateTaskRequest(title, "follow_up", userId, now.plus(TASK_DUE_AFTER),
-                                "From the call: " + Objects.toString(call.title(), "recorded call") + " · "
-                                        + CALL_DATE.format(call.startsAt()), null, null),
-                        httpRequest);
-                updates.recordTaskFromCall(userId, workspaceId, projectId, candidateId, call, false);
-                yield new Applied(SuggestedValue.text(title), new AppliedChange(userId, now, edited,
-                        List.of(CallField.TASK), null, null, null, null, null, null, false, task.id()));
-            }
+            case MOTIVATION, EXPECTED_PACKAGE -> new ChosenChange(suggestion,
+                    SuggestedValue.text(requiredText(edited ? edit.text() : suggestion.value().text())), edited,
+                    suggestion.kind().fields());
+            case TASK -> new ChosenChange(suggestion,
+                    SuggestedValue.text(taskTitleOf(edited ? edit.text() : suggestion.value().text())), edited,
+                    List.of(CallField.TASK));
         };
     }
 
-    private void revert(UUID userId, UUID workspaceId, UUID projectId, OutreachRecipient recipient,
-                        CallSuggestion suggestion, CallReference call, HttpServletRequest httpRequest) {
-        AppliedChange applied = suggestion.applied();
-        if (applied == null) {
-            throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
-        }
-        UUID candidateId = recipient.candidateId();
-        switch (suggestion.kind()) {
-            case NOTICE_PERIOD, CURRENT_PACKAGE, LOCATION -> updates.revertProfile(userId, workspaceId, projectId,
-                    candidateId, applied.profileBefore(), applied.profileAfter(), call, httpRequest);
-            case OPEN_TO_RELOCATE -> updates.untagOpenToRelocate(userId, workspaceId, projectId, candidateId,
-                    new RelocationTagging(applied.tagId(), applied.tagAdded()), call, httpRequest);
-            case MOTIVATION, EXPECTED_PACKAGE -> updates.revertMotivation(userId, workspaceId, projectId, candidateId,
-                    applied.fields().getFirst(), new SectionChange(applied.sectionBefore(), applied.sectionAfter(),
-                            applied.sectionStanding()),
-                    call, httpRequest);
-            case TASK -> {
-                // Only the task as the call filed it: one since done, retitled or cancelled is somebody's own now.
-                boolean untouched = tasks.find(workspaceId, applied.taskId())
-                        .filter(task -> "open".equals(task.status())
-                                && Objects.equals(task.title(), suggestion.value().text()))
-                        .isPresent();
-                if (!untouched) {
-                    throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
-                }
-                tasks.cancel(userId, workspaceId, applied.taskId(), httpRequest);
-                updates.recordTaskFromCall(userId, workspaceId, projectId, candidateId, call, true);
+    /**
+     * Writes every chosen change through its field's owner. The Motivation section goes first: it is the one write
+     * that can still refuse what was chosen (a section too full for the call's words), and refusing before any other
+     * write leaves nothing half-applied behind an audit line.
+     */
+    private void write(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, List<ChosenChange> chosen,
+                       CallReference call, HttpServletRequest httpRequest) {
+        Map<CallField, String> words = new EnumMap<>(CallField.class);
+        chosen.stream().filter(each -> each.suggestion().kind() == CallSuggestionKind.MOTIVATION
+                        || each.suggestion().kind() == CallSuggestionKind.EXPECTED_PACKAGE)
+                .forEach(each -> words.put(each.fields().getFirst(), each.value().text()));
+        if (!words.isEmpty()) {
+            try {
+                updates.appendToMotivation(userId, workspaceId, projectId, candidateId, words, call, httpRequest);
+            } catch (ApiException refused) {
+                throw onRow(chosen.stream().filter(each -> words.containsKey(each.fields().getFirst()))
+                        .findFirst().orElseThrow().suggestion(), refused);
             }
         }
+        ProfileFromCall profile = profileOf(chosen);
+        if (!profile.fields().isEmpty()) {
+            updates.applyProfile(userId, workspaceId, projectId, candidateId, profile, call, httpRequest);
+        }
+        if (chosen.stream().anyMatch(each -> each.suggestion().kind() == CallSuggestionKind.OPEN_TO_RELOCATE)) {
+            updates.tagOpenToRelocate(userId, workspaceId, projectId, candidateId, call, httpRequest);
+        }
+        List<ChosenChange> taskChanges = chosen.stream()
+                .filter(each -> each.suggestion().kind() == CallSuggestionKind.TASK).toList();
+        Instant now = clock.instant();
+        for (ChosenChange task : taskChanges) {
+            tasks.create(userId, workspaceId, projectId, candidateId,
+                    new CreateTaskRequest(task.value().text(), "follow_up", userId, now.plus(TASK_DUE_AFTER),
+                            "From the call: " + Objects.toString(call.title(), "recorded call") + " · "
+                                    + CALL_DATE.format(call.startsAt()), null, null),
+                    httpRequest);
+        }
+        if (!taskChanges.isEmpty()) {
+            updates.recordTaskFromCall(userId, workspaceId, projectId, candidateId, call);
+        }
+    }
+
+    /** The notice period, package and location chosen, as one write of the person's own fields. */
+    private static ProfileFromCall profileOf(List<ChosenChange> chosen) {
+        SuggestedValue notice = valueOf(chosen, CallSuggestionKind.NOTICE_PERIOD);
+        SuggestedValue pay = valueOf(chosen, CallSuggestionKind.CURRENT_PACKAGE);
+        SuggestedValue place = valueOf(chosen, CallSuggestionKind.LOCATION);
+        Set<CallField> fields = chosen.stream()
+                .filter(each -> PROFILE_KINDS.contains(each.suggestion().kind()))
+                .flatMap(each -> each.fields().stream())
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(CallField.class)));
+        return new ProfileFromCall(fields, notice.text(), pay.currency(), pay.baseSalary(), pay.bonus(),
+                pay.allowances(), place.city(), place.country());
+    }
+
+    private static SuggestedValue valueOf(List<ChosenChange> chosen, CallSuggestionKind kind) {
+        return chosen.stream().filter(each -> each.suggestion().kind() == kind).map(ChosenChange::value)
+                .findFirst().orElse(SuggestedValue.text(null));
+    }
+
+    private static ApiException onRow(CallSuggestion suggestion, ApiException refused) {
+        if (refused.getCode() != ErrorCode.VALIDATION_FAILED || refused.getClientDetail() == null) {
+            return refused;
+        }
+        return ApiException.withField(ErrorCode.VALIDATION_FAILED, suggestion.id(), refused.getClientDetail());
     }
 
     private CallSuggestionsResponse responseOf(MeetingRecording recording, CallHeldFields held) {
@@ -502,5 +509,7 @@ public class CallSuggestionService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private record Applied(SuggestedValue shown, AppliedChange change) {}
+    /** One waiting suggestion the review applies: the value it takes, whether it was edited, and the fields it writes. */
+    private record ChosenChange(CallSuggestion suggestion, SuggestedValue value, boolean edited,
+                                List<CallField> fields) {}
 }

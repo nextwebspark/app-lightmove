@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -181,7 +182,11 @@ public class MeetingRecording extends BaseEntity {
         return suggestions != null && suggestions.stream().anyMatch(CallSuggestion::isPending);
     }
 
-    /** Asking again keeps every decided suggestion beside the new ones, so an applied change keeps its Undo. */
+    public int suggestionsWith(CallSuggestionStatus status) {
+        return suggestions == null ? 0 : (int) suggestions.stream().filter(held -> held.status() == status).count();
+    }
+
+    /** Asking again keeps every decided suggestion beside the new ones, so what was applied stays on record. */
     public void suggested(List<CallSuggestion> found, Instant at) {
         List<CallSuggestion> next = new ArrayList<>(suggestions == null ? List.of()
                 : suggestions.stream().filter(held -> !held.isPending()).toList());

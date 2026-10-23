@@ -5,7 +5,7 @@ import java.util.Set;
 
 /**
  * The person's own fields a call changes: only those named in {@code fields} are written, so a package whose bonus
- * was left unticked keeps the bonus on file. The same shape carries what was held before, for an undo.
+ * was left unticked keeps the bonus on file.
  */
 public record ProfileFromCall(Set<CallField> fields, String noticePeriod, String currency, Long baseSalary,
                               Long bonus, Long allowances, String city, String country) {

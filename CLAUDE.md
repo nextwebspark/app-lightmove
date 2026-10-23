@@ -702,10 +702,12 @@ Markdown `MEETING` note in the scheduler's name (one worker per transcript, by c
 then deletes Recall's copy, so Try again can read it again; the transcript is kept unless
 `lightmove.recall.transcript-retention` is set, which clears one whose note is purged or never filed once that long untouched.
 `NotetakerReconcile` reads back a recording still live past its call. **Suggest changes** on a filed call's row (V152,
-`CallSuggestionService`) reads the transcript once per press against the record and walks each change — notice period,
-package, location, Open to relocate, motivation, expected package, the consultant's next steps as tasks — one card at a
-time; nothing is written until applied, each apply goes through its field's owner (`CandidateCallUpdates`, `TaskService`)
-with an `UPDATED_FROM_CALL` line naming who and which call, and Undo puts back only what the call wrote. A key without the calendar webhook secret
+`CallSuggestionService`) reads the transcript once per press against the record and lists every change — notice period,
+package, location, Open to relocate, motivation, expected package, the consultant's next steps as tasks — on one review,
+each ticked to keep and editable in place; one **Apply N changes** (`…/suggestions/review`) writes what is ticked and
+skips the rest, all or nothing, each through its field's owner (`CandidateCallUpdates`, `TaskService`) with an
+`UPDATED_FROM_CALL` line naming who and which call. There is no Undo: once reviewed, a change is corrected on the record,
+and the row reads "N changes applied". A key without the calendar webhook secret
 leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
 `candidate` and `position`; nothing depends back.
 

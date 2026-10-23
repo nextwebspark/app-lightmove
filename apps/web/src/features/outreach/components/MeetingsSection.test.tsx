@@ -525,6 +525,28 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.getCallSuggestions).toHaveBeenCalledWith("p1", "c1", "r2", expect.anything());
   });
 
+  it("says what a review made of a call's changes, and offers no way back into it", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordings: [
+        aRecording({
+          id: "r2",
+          meetingId: "m2",
+          startsAt: "2026-09-22T06:00:00Z",
+          status: "DONE",
+          hasTranscript: true,
+          suggestionsAsked: true,
+          appliedSuggestions: 3,
+        }),
+        aRecording({ id: "r3", meetingId: "m1", status: "DONE", hasTranscript: true, suggestionsAsked: true }),
+      ],
+    });
+
+    expect(await screen.findByText("3 changes applied")).toBeInTheDocument();
+    expect(screen.getByText("No changes made")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /changes applied|No changes made|Suggest changes/ })).not.toBeInTheDocument();
+  });
+
   it("offers no Suggest changes once the transcript is no longer kept", async () => {
     renderSection({
       notetakerOffered: true,
@@ -616,6 +638,7 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     noteId: null,
     suggestionsAsked: false,
     pendingSuggestions: 0,
+    appliedSuggestions: 0,
     ...overrides,
   };
 }
