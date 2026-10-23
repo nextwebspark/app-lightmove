@@ -21,6 +21,13 @@ describe("readTeamsScreen", () => {
     expect(readTeamsScreen(page(fixture)).stage).toBe(stage);
   });
 
+  it("reads Teams' lighter guest page, whose lobby greets the guest above a pre-join screen it leaves drawn", () => {
+    const doc = new JSDOM(`<main><p>Hi, Uncava Notetaker. Someone will let you in shortly.</p>
+      <input data-tid="prejoin-display-name-input"><button data-tid="prejoin-join-button" disabled>Join now</button></main>`)
+      .window.document;
+    expect(readTeamsScreen(doc).stage).toBe("lobby");
+  });
+
   it("never reads the lobby's own Leave, nor a pane's test id, as being in the call", () => {
     expect(readTeamsScreen(page("teams-lobby")).stage).toBe("lobby");
   });

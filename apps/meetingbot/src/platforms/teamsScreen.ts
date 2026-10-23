@@ -57,7 +57,7 @@ export function readTeamsScreen(doc: Document): TeamsScreen {
       "this meeting link is invalid", "you can't join this meeting")) {
     return { stage: "blocked", participants: null };
   }
-  if (says("should let you in soon", "we'll let people know you're waiting", "know you're waiting",
+  if (says("should let you in soon", "will let you in shortly", "we'll let people know you're waiting", "know you're waiting",
       "waiting for someone to let you in", "waiting to be admitted")) {
     return { stage: "lobby", participants: null };
   }

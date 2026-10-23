@@ -9,7 +9,7 @@ import { runBot } from "../runner.js";
 
 /**
  * Tries the bot on a real call with no Uncava behind it: a stub of the run's API on this machine prints every
- * report and saves every piece under `try-output/`. Somebody has to admit "Uncava Notetaker (try)" from the call.
+ * report and saves every piece under `try-output/`. Somebody has to admit "Uncava Notetaker - try" from the call.
  *
  *   CHROME_PATH=/path/to/chrome npm run try --workspace=apps/meetingbot -- https://meet.google.com/abc-defg-hij
  */
@@ -52,7 +52,8 @@ const port = (server.address() as { port: number }).port;
 
 const config: BotConfig = {
   runId: "try", runToken: "try", tokenAudience: null, joinUrl, platform: isTeamsLink(joinUrl) ? "MICROSOFT_TEAMS" : "GOOGLE_MEET",
-  botName: "Uncava Notetaker (try)",
+  // Teams refuses a guest name with brackets, leaving Join now disabled.
+  botName: "Uncava Notetaker - try",
   apiBaseUrl: `http://127.0.0.1:${port}`, lobbyTimeoutMs: 10 * 60_000, maxDurationMs: 60 * 60_000, endsAtMs: null,
 };
 const outcome = await runBot(config, {

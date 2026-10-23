@@ -56,7 +56,8 @@ function meetPage(browser: Browser, page: Page): MeetingPage {
       await delay(500);
       const asked = await inPage(page, pressMeetButton, ["ask to join", "join now"]);
       if (!asked) {
-        return (await inPage(page, readMeetScreen)).stage === "blocked" ? "blocked" : "requested";
+        const { stage } = await inPage(page, readMeetScreen);
+        return stage === "lobby" || stage === "in-call" ? "requested" : "blocked";
       }
       return "requested";
     },
