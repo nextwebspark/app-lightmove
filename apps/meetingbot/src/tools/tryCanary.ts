@@ -32,7 +32,7 @@ mkdirSync(output, { recursive: true });
 const platform: BotConfig["platform"] = isTeamsLink(joinUrl) ? "MICROSOFT_TEAMS" : "GOOGLE_MEET";
 const log = (message: string, severity = "INFO") => console.log(`${severity} ${message}`);
 const config: BotConfig = {
-  runId: "try-canary", runToken: "try", tokenAudience: null, joinUrl, platform, botName: "Uncava Notetaker (try)",
+  runId: "try-canary", runToken: "try", tokenAudience: null, joinUrl, platform, botName: "Uncava Notetaker - try",
   apiBaseUrl: "http://127.0.0.1", lobbyTimeoutMs: 5 * 60_000, maxDurationMs: recordMs + 5 * 60_000, endsAtMs: null,
 };
 const finding = await runCanaryOn(recordMs, {

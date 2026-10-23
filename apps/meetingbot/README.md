@@ -6,10 +6,12 @@ platform's own captions in 30-second pieces and uploads each one as it is made. 
 everyone else has gone for three minutes, a consultant presses Remove notetaker, the cap is reached, or — when it
 cannot count who is left — half an hour past the calendar's end.
 
-Three things it will not do, each a failed run rather than a degraded one:
+It posts its recording notice in the call's chat, with retries, before it reports `RECORDING`. A call whose guests
+cannot chat (a personal teams.live.com meeting offers guests no chat at all) is recorded without it, and the bot logs a
+WARNING that the notice was not shown.
 
-- **Record unannounced.** The chat notice is posted, with retries, before it reports `RECORDING`; if it never lands
-  the bot leaves and fails the run `CONSENT_NOT_SHOWN`.
+Two things it will not do, each a failed run rather than a degraded one:
+
 - **Join with a device on.** Chromium gets no fake microphone or camera and the service no media permission; the bot
   joins without either, turns off whatever the pre-join screen still shows on, and fails `DEVICES_NOT_OFF` rather
   than ask to join while either is.
@@ -31,8 +33,7 @@ The Teams acceptance run, with `npm run try`, before `MICROSOFT_TEAMS` is switch
 
 - a work-tenant meeting and a personal (teams.live.com) one: join, record, leave, complete;
 - a tenant that lets no guest in: the run fails `JOIN_BLOCKED` fast;
-- a tenant with meeting chat off for guests: every run ends `CONSENT_NOT_SHOWN`, which the drawer explains as the
-  meeting not letting guests chat;
+- a tenant with meeting chat off for guests: the run records, its log saying the notice was not posted;
 - a Teams link that an Outlook calendar under Defender stored wrapped in Safe Links
   (`*.safelinks.protection.outlook.com/?url=…`): today both the server and the bot refuse it, so if such links appear
   the server should unwrap them when a meeting is kept — the `url` parameter only, only under an exact Safe Links host,
@@ -69,7 +70,7 @@ CHROME_PATH=/path/to/chrome npm run try:canary --workspace=apps/meetingbot -- <t
 ```
 
 `npm run try` stands up a stub of the run's API on this machine and saves every piece under `try-output/`; somebody in
-the call admits "Uncava Notetaker (try)", and Ctrl+C makes the bot leave as if removed. It is how a change to the
+the call admits "Uncava Notetaker - try", and Ctrl+C makes the bot leave as if removed. It is how a change to the
 screen readers is checked against a live call before it ships — their fixtures are hand-trimmed, not saved from a call.
 
 Under `npm run dev` the API starts the bot as a local process with `NOTETAKER_ENABLED=true NOTETAKER_RUNNER=local`

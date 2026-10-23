@@ -76,8 +76,10 @@ function teamsPage(browser: Browser, page: Page): MeetingPage {
       }
       await inPage(page, fillTeamsName, botName);
       await delay(500);
+      // Join now stays disabled for a name Teams will not take (brackets, say): no request went, so nobody is waiting.
       if (!(await inPage(page, pressTeamsButton, ["prejoin-join-button", "join now"]))) {
-        return (await inPage(page, readTeamsScreen)).stage === "blocked" ? "blocked" : "requested";
+        const { stage } = await inPage(page, readTeamsScreen);
+        return stage === "lobby" || stage === "in-call" ? "requested" : "blocked";
       }
       return "requested";
     },

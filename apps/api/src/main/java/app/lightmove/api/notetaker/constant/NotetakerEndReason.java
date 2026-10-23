@@ -16,7 +16,7 @@ public enum NotetakerEndReason {
     JOIN_BLOCKED,
     /** Nobody admitted the bot from the lobby in time. */
     NOT_ADMITTED,
-    /** The bot could not post its recording notice in the call's chat, so it left rather than record unannounced. */
+    /** Older runs only: the bot left when it could not post its notice. It now records on and logs a warning. */
     CONSENT_NOT_SHOWN,
     /** The bot could not be sure its microphone and camera were off, so it never asked to join. */
     DEVICES_NOT_OFF,
