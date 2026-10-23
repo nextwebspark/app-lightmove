@@ -414,7 +414,7 @@ describe("MeetingsSection", () => {
   it("shows a scheduled bot on its call and removes it after asking", async () => {
     vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
     renderSection({
-      meetings: { ...MEETINGS, upcoming: [{ ...MEETINGS.upcoming[0], startsAt: "2099-10-07T06:00:00Z" }] },
+      meetings: { ...MEETINGS, upcoming: [{ ...MEETINGS.upcoming[0], startsAt: "2099-10-07T06:00:00Z", endsAt: "2099-10-07T06:30:00Z" }] },
       notetakerOffered: true,
       recordings: [aRecording({ status: "SCHEDULED" })],
     });
@@ -439,7 +439,7 @@ describe("MeetingsSection", () => {
       recordableMeetingIds: ["m4"],
     });
 
-    expect(await screen.findByText("Off · add it now to record the rest")).toBeInTheDocument();
+    expect(await screen.findByText("Booked end passed · still on? Add it now")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: "Record with Notetaker" }));
 
     expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m4");
@@ -449,6 +449,15 @@ describe("MeetingsSection", () => {
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
 
     expect(await screen.findByText("Joining now · files notes after")).toBeInTheDocument();
+  });
+
+  it("offers a call under way to be recorded from here on", async () => {
+    renderSection({
+      meetings: { ...MEETINGS, upcoming: [{ ...MEETINGS.upcoming[0], endsAt: "2099-10-07T06:30:00Z" }] },
+      notetakerOffered: true,
+    });
+
+    expect(await screen.findByText("Off · add it now to record the rest")).toBeInTheDocument();
   });
 
   it("opens a past call's transcript once its notes are filed, matched by its start", async () => {

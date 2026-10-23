@@ -277,11 +277,18 @@ public class RecallBotClient implements RecallBotApi {
     }
 
     static final Map<String, Object> AUTOMATIC_LEAVE = Map.of(
-            "waiting_room_timeout", 600,
-            "noone_joined_timeout", 600,
-            "everyone_left_timeout", Map.of("timeout", 30, "activate_after", 0),
-            "in_call_not_recording_timeout", 600,
-            "silence_detection", Map.of("timeout", 600, "activate_after", 600));
+            "waiting_room_timeout", seconds(Duration.ofMinutes(15)),
+            "noone_joined_timeout", seconds(Duration.ofMinutes(15)),
+            "everyone_left_timeout", Map.of("timeout", seconds(Duration.ofSeconds(30)), "activate_after", 0),
+            "in_call_not_recording_timeout", seconds(Duration.ofMinutes(10)),
+            "silence_detection", Map.of(
+                    "timeout", seconds(Duration.ofMinutes(10)), "activate_after", seconds(Duration.ofMinutes(10))),
+            "bot_detection", Map.of("using_participant_events", Map.of(
+                    "timeout", seconds(Duration.ofMinutes(2)), "activate_after", seconds(Duration.ofMinutes(10)))));
+
+    private static int seconds(Duration duration) {
+        return Math.toIntExact(duration.toSeconds());
+    }
 
     static Map<String, Object> bodyOf(RecallBotRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();

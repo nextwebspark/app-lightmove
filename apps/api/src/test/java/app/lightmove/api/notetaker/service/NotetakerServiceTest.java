@@ -20,11 +20,11 @@ class NotetakerServiceTest {
     }
 
     @Test
-    @DisplayName("a bot can still be sent into a call running up to an hour past its booked end")
+    @DisplayName("a bot can still be sent into a call running up to twenty minutes past its booked end")
     void overrunGrace() {
         assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T09:30:00Z"), NOW)).isTrue();
-        assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:15:00Z"), NOW)).isTrue();
-        assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:00:00Z"), NOW)).isFalse();
+        assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:45:00Z"), NOW)).isTrue();
+        assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:35:00Z"), NOW)).isFalse();
     }
 
     @Test

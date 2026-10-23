@@ -10,8 +10,10 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 1. **Record with Notetaker.** The button sits on a meeting in the executive drawer's Meetings section. It is
    offered when:
-   - the call is still to come, under way, or ran over its booked end by no more than an hour (`OVERRUN_GRACE`), so a
-     consultant who forgot can send it mid-call — it then joins at once;
+   - the call is still to come, under way, or ran over its booked end by no more than 20 minutes (`OVERRUN_GRACE`), so
+     a consultant who forgot can send it mid-call — it then joins at once. Past the booked end it is offered only while
+     no later call on the consultant's calendar has started on the same link, since a personal room used back to back
+     would otherwise put the next interview on this person;
    - the meeting has a video link (an https join URL);
    - the call is the caller's own: on their calendar, or booked by them. A teammate's private call is never
      recorded by someone else (`NOTETAKER_NOT_YOUR_CALL`), the same line Book a call's move/cancel draws;
@@ -27,9 +29,10 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    - a chat line on join that says whose notes it records;
    - Recall's own transcription (`recallai_streaming`, accuracy mode, separate streams per participant where the
      platform gives them);
-   - leave rules tighter than Recall's defaults, since every minute in a call is billed (`automatic_leave`): ten
-     minutes unadmitted in a waiting room, ten with nobody joined, ten in the call without leave to record, ten of
-     silence once the call is ten minutes old, and thirty seconds after everyone else has gone;
+   - leave rules tighter than Recall's defaults, since every minute in a call is billed (`automatic_leave`): fifteen
+     minutes unadmitted in a waiting room or with nobody joined, ten in the call without leave to record, ten of
+     silence or two with only other bots left once the call is ten minutes old, and thirty seconds after everyone else
+     has gone;
    - the recording's id as metadata.
 
    A refusal marks the row `FAILED` (`SEND_FAILED`), and the consultant can press again. A Remove pressed while Recall

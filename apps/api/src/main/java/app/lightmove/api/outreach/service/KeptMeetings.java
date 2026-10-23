@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.outreach.model.KeptMeeting;
 import app.lightmove.api.outreach.model.PersonMeeting;
 import app.lightmove.api.outreach.repository.PersonMeetingRepository;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +29,14 @@ public class KeptMeetings {
         return meetings.findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(workspaceId, personId).stream()
                 .map(KeptMeetings::keptOf)
                 .toList();
+    }
+
+    /** Whether the consultant's calendar has started another call on this call's link since: a reused room. */
+    @Transactional(readOnly = true)
+    public boolean linkReusedSince(UUID workspaceId, UUID userId, KeptMeeting meeting, Instant now) {
+        return meeting.joinUrl() != null && meetings
+                .existsByWorkspaceIdAndUserIdAndJoinUrlAndStartsAtGreaterThanAndStartsAtLessThanEqual(
+                        workspaceId, userId, meeting.joinUrl(), meeting.startsAt(), now);
     }
 
     private static KeptMeeting keptOf(PersonMeeting row) {

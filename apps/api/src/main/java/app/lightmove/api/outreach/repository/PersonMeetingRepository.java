@@ -15,6 +15,9 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
 
     List<PersonMeeting> findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(UUID workspaceId, UUID personId);
 
+    boolean existsByWorkspaceIdAndUserIdAndJoinUrlAndStartsAtGreaterThanAndStartsAtLessThanEqual(
+            UUID workspaceId, UUID userId, String joinUrl, Instant after, Instant until);
+
     /** Which of these people a teammate's calendar holds a meeting with. */
     @Query("select distinct m.personId from PersonMeeting m where m.workspaceId = :workspaceId "
             + "and m.personId in :personIds")
