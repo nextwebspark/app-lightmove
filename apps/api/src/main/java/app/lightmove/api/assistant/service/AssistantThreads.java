@@ -12,9 +12,10 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Component;
 
 /**
- * Platform threads for an answer and its side-by-side tools, apart from Spring's fixed, queued executor,
- * where an answer's tools could wait behind other answers until its deadline. A tool past the pool runs on
- * its answer's thread. Not an {@code Executor} bean, which would stand in for Spring Boot's own.
+ * Platform threads for an answer and its side-by-side tools, apart from the {@code @Async} pool: past that
+ * pool's last thread an answer would run on the request thread, its stream unreturned until it finished. A
+ * tool past this pool, or after shutdown, runs on its answer's thread. Not an {@code Executor} bean, which
+ * would stand in for Spring Boot's own.
  */
 @Component
 class AssistantThreads {
@@ -30,7 +31,7 @@ class AssistantThreads {
         this.answerThreads.allowCoreThreadTimeOut(true);
         this.toolThreads = new ThreadPoolExecutor(0, asks * settings.toolParallelism(), 60, TimeUnit.SECONDS,
                 new SynchronousQueue<>(), Thread.ofPlatform().daemon().name("assistant-tool-", 0).factory(),
-                new ThreadPoolExecutor.CallerRunsPolicy());
+                (tool, pool) -> tool.run());
     }
 
     Executor answers() {
@@ -41,9 +42,10 @@ class AssistantThreads {
         return MdcPropagation.propagating(toolThreads);
     }
 
+    /** Never interrupts: an answer is paid for and saved after its stream ends, so it runs on while the instance does. */
     @PreDestroy
     void stop() {
-        answerThreads.shutdownNow();
-        toolThreads.shutdownNow();
+        answerThreads.shutdown();
+        toolThreads.shutdown();
     }
 }

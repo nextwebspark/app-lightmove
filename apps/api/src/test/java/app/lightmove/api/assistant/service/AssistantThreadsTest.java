@@ -95,6 +95,27 @@ class AssistantThreadsTest {
         assertThat(ranOn.get(5, TimeUnit.SECONDS)).isSameAs(Thread.currentThread());
     }
 
+    @Test
+    @DisplayName("an answer running when the instance shuts down is not interrupted, and its tools still run")
+    void shutdownLetsARunningAnswerFinish() throws Exception {
+        AssistantThreads threads = threadsFor(1, 1);
+        CountDownLatch running = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CompletableFuture<String> answer = new CompletableFuture<>();
+        threads.answers().execute(() -> {
+            running.countDown();
+            boolean waitedOut = awaitQuietly(release);
+            String tool = CompletableFuture.supplyAsync(() -> "tool ran", threads.tools()).join();
+            answer.complete(waitedOut + ":" + tool);
+        });
+        assertThat(running.await(5, TimeUnit.SECONDS)).isTrue();
+
+        threads.stop();
+        release.countDown();
+
+        assertThat(answer.get(5, TimeUnit.SECONDS)).isEqualTo("true:tool ran");
+    }
+
     private AssistantThreads threadsFor(int concurrentAsks, int toolParallelism) {
         AssistantSettings settings = mock(AssistantSettings.class);
         when(settings.maxConcurrentAsks()).thenReturn(concurrentAsks);

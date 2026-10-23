@@ -105,21 +105,23 @@ spring:
   # workflow (.github/workflows/deploy.yml) is the authority on which are actually set, including the
   # lightmove.auth.oauth.* lists a provider like LinkedIn cannot work without.
 
-  # Platform threads, not virtual. On one vCPU the virtual-thread scheduler has a single carrier, and Java 25
-  # still pins a carrier while a thread loads or initialises a class. On 2026-10-23 a cold instance's first
-  # burst left that carrier waiting on a lock held by a thread that needed the carrier back: no request, job
-  # or log line ran for 39 minutes. Cloud Run admits 200 requests per instance, one per Tomcat thread (server.tomcat).
+  # Platform threads, not virtual: on one vCPU there is a single carrier, and Java 25 still pins it while a
+  # thread loads a class. On 2026-10-23 a cold instance's first burst pinned it waiting on a lock whose holder
+  # needed it back, and nothing ran for 39 minutes. One Tomcat thread per request Cloud Run admits (server.tomcat).
   threads:
     virtual:
       enabled: false
   task:
     execution:
       pool:
-        # Every @Async listener shares it, and a sourcing run or a meeting's notes holds one for minutes.
-        core-size: 32
+        # No queue, so a short listener never waits behind a sourcing run or a meeting's notes; past max-size
+        # one runs on its publisher's thread (AsyncExecutorConfig).
+        core-size: 8
+        max-size: 64
+        queue-capacity: 0
     scheduling:
       pool:
-        # Without virtual threads Boot gives @Scheduled one thread, and every job would wait on the last.
+        # Boot gives platform-thread scheduling one thread, and every job would wait on the last.
         size: 8
 
   ai:

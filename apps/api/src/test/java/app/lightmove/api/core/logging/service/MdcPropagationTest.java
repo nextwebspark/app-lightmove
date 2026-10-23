@@ -84,7 +84,7 @@ class MdcPropagationTest {
     void bootAppliesTheDecoratorToAsync() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class))
-                .withPropertyValues("spring.threads.virtual.enabled=false", "spring.task.execution.pool.core-size=32")
+                .withPropertyValues("spring.threads.virtual.enabled=false")
                 .withUserConfiguration(AsyncProbeConfig.class)
                 .run(context -> {
                     MDC.put(CorrelationId.MDC_KEY, "abc123");
