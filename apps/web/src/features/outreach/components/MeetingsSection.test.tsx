@@ -204,7 +204,7 @@ describe("MeetingsSection", () => {
         { date: "2026-10-06", starts: [] },
       ],
     });
-    vi.mocked(meetingApi.bookMeeting).mockResolvedValue(undefined);
+    vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(aSeededCatalog());
     vi.mocked(pipelineApi.statusAutomations).mockResolvedValue([
       { trigger: "callBooked", enabled: true, statusId: "status-engaged", broken: false },
@@ -330,7 +330,7 @@ describe("MeetingsSection", () => {
       previousFrom: null,
       days: [{ date: "2026-10-05", starts: ["2026-10-05T06:00:00Z"] }],
     });
-    vi.mocked(meetingApi.bookMeeting).mockResolvedValue(undefined);
+    vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
     renderSection({ zoomStatus: "ACTIVE" });
 
     expect(await screen.findByText("Zoom connected")).toBeInTheDocument();
@@ -467,7 +467,61 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.retryNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
     expect(screen.getByRole("switch", { name: "Record with Notetaker" })).toHaveAttribute("aria-checked", "false");
   });
+
+  it("sends the Notetaker to a call it books, switched on by default", async () => {
+    vi.mocked(meetingApi.getMeetingSlots).mockResolvedValue(aSlotPage());
+    vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
+    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(aRecording({ meetingId: "m9", status: "SCHEDULED" }));
+    renderSection({ notetakerOffered: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    const toggle = within(screen.getByRole("dialog")).getByRole("switch", { name: "Record with Notetaker" });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Send invite" }));
+
+    await waitFor(() => expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m9"));
+    expect(await screen.findByText(/The Notetaker will join and file its notes\./)).toBeInTheDocument();
+  });
+
+  it("books without the Notetaker once it is switched off", async () => {
+    vi.mocked(meetingApi.getMeetingSlots).mockResolvedValue(aSlotPage());
+    vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
+    renderSection({ notetakerOffered: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await userEvent.click(await screen.findByRole("button", { name: "10:00" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("switch", { name: "Record with Notetaker" }));
+    await userEvent.click(screen.getByRole("button", { name: "Send invite" }));
+
+    await waitFor(() => expect(meetingApi.bookMeeting).toHaveBeenCalled());
+    expect(await screen.findByText(/Invite sent to Priya/)).toBeInTheDocument();
+    expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
+  });
+
+  it("offers no Notetaker in Book a call where none is set up", async () => {
+    vi.mocked(meetingApi.getMeetingSlots).mockResolvedValue(aSlotPage());
+    renderSection({ notetakerOffered: false });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await screen.findByRole("button", { name: "10:00" });
+    expect(within(screen.getByRole("dialog")).queryByRole("switch")).not.toBeInTheDocument();
+  });
 });
+
+function aSlotPage() {
+  return {
+    address: "yara@firm.example",
+    timeZone: "Asia/Dubai",
+    provider: "google",
+    minutes: 30,
+    zoomOffered: false,
+    earliestDate: "2026-10-05",
+    latestDate: "2027-04-05",
+    previousFrom: null,
+    days: [{ date: "2026-10-05", starts: ["2026-10-05T06:00:00Z"] }],
+  };
+}
 
 function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecording {
   return {
