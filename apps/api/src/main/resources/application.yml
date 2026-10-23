@@ -14,7 +14,7 @@ spring:
     username: ${DB_USER:lm_app}
     password: ${DB_PASSWORD}
     hikari:
-      # bright-gcc is db-f1-micro; its connection ceiling is low (~25) and the brightdata ETL shares it.
+      # bright-gcc is db-g1-small; its connection ceiling is low (~50) and the brightdata ETL shares it.
       # This is per *instance*, so the real ceiling is pool × Cloud Run max-instances — which is why the
       # deployed service runs a smaller pool than a laptop does. Exhaust it and you take down the
       # neighbours, not just yourself.
@@ -108,7 +108,7 @@ spring:
   # Platform threads, not virtual. On one vCPU the virtual-thread scheduler has a single carrier, and Java 25
   # still pins a carrier while a thread loads or initialises a class. On 2026-10-23 a cold instance's first
   # burst left that carrier waiting on a lock held by a thread that needed the carrier back: no request, job
-  # or log line ran for 39 minutes. Cloud Run admits 80 requests per instance; Tomcat's 200 threads cover it.
+  # or log line ran for 39 minutes. Cloud Run admits 200 requests per instance, one per Tomcat thread (server.tomcat).
   threads:
     virtual:
       enabled: false
@@ -194,6 +194,9 @@ spring:
 
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
+  tomcat:
+    threads:
+      max: 200                # deploy.yml's --concurrency: one thread per request Cloud Run admits. Raise both.
   error:
     include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
   forward-headers-strategy: native

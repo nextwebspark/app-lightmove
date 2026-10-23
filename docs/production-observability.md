@@ -105,8 +105,8 @@ production:
 - Cloud Run routes one port, so Actuator shares 8080 and `SecurityConfig` chain 0 stands itself down
 - chain 4 then permits only `health` and `info` and applies `denyAll` to the rest
 - the deploy workflow's own smoke test **asserts** `/actuator/prometheus` returns 401
-- `--min-instances 0` means there is usually no instance to scrape at all, and `--max-instances 2`
-  means the two that exist are anonymous and short-lived
+- `--min-instances 0` means there is usually no instance to scrape at all, and `--max-instances 3`
+  means the few that exist are anonymous and short-lived
 
 Every one of those decisions is individually right. Together they mean the pull model cannot work.
 Serverless wants **push**, and the OTLP metric exporter from gap 3 is the fix — the same dependency,
@@ -256,7 +256,7 @@ Loki's per-user drill-down is a LogQL query, and it is genuinely this small:
 **How to run it — start hosted, self-host if the bill or the policy demands it.** Two honest options:
 
 1. **Grafana Cloud free tier.** Same open-source software, someone else's servers, no ops. For a
-   service on `--max-instances 2` the free tier is not a trial — it is genuinely enough, for a long
+   service on `--max-instances 3` the free tier is not a trial — it is genuinely enough, for a long
    time. Start here. It costs an afternoon.
 2. **Self-hosted.** `grafana/otel-lgtm` is a single all-in-one image (Grafana + Loki + Tempo +
    Prometheus, OTLP in on 4317/4318) and runs on one small GCE VM behind a private IP. Real ops work —
@@ -339,7 +339,7 @@ authenticated break-glass path. Keep them shut on the internet.
 
 ### The Cloud Run caveat that undercuts all of it
 
-`--min-instances 0 --max-instances 2` means instances are created and destroyed constantly. A slow leak
+`--min-instances 0 --max-instances 3` means instances are created and destroyed constantly. A slow leak
 may never live long enough to manifest, and a profile is a few minutes of a process that no longer
 exists. **Setting `--min-instances 1` is a prerequisite for meaningful profiling** — and it is wanted
 anyway, because a Spring Boot JVM cold start is seconds and right now the first user after an idle
@@ -366,7 +366,7 @@ Asked for, and the honest answer is that some of these are more urgent than the 
 2. **`--min-instances 0` in production.** Every idle period ends with a user waiting on a JVM cold
    start. Set it to 1. It also unblocks §5.
 3. **The rate limiter is in-memory, per instance.** `application.yml` says so plainly — "a speed bump,
-   not a quota" — and with `max-instances 2` the real login ceiling is 20/minute, wiped by every cold
+   not a quota" — and with `max-instances 3` the real login ceiling is 30/minute, wiped by every cold
    start. For a login endpoint on the public internet that is thin. It needs a shared store, and
    Postgres is already there.
 4. **Confirm Cloud SQL backups and point-in-time recovery are on.** `bright-gcc` is a `db-f1-micro`
@@ -378,7 +378,7 @@ Asked for, and the honest answer is that some of these are more urgent than the 
 **Soon**
 
 6. **An external uptime check.** Health that is only checked from inside proves the inside works.
-7. **Capacity sanity.** `concurrency 80` × 2 instances = 160 concurrent requests against a Hikari pool
+7. **Capacity sanity.** `concurrency 200` × 3 instances = 600 concurrent requests against a Hikari pool
    of 5 each, on 1 CPU and 1Gi, with a 60s request timeout. Those numbers should be reconciled against
    a load test rather than against intuition — the pool is the ceiling that will bind first.
 8. **`--allow-unauthenticated` with no Cloud Armor in front.** No WAF, no DDoS filter, no IP
