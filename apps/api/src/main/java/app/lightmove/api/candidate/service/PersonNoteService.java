@@ -204,6 +204,19 @@ public class PersonNoteService {
         save(person, candidate.getProjectId(), PersonNoteKind.GENERAL, text, NoteFormat.PLAIN, userId);
     }
 
+    /**
+     * A call the Notetaker recorded, filed as one Meeting note in its scheduler's name: about the position while the
+     * person is still mapped there, about the person once they are not.
+     */
+    @Transactional
+    public UUID fileMeetingNote(UUID workspaceId, UUID personId, UUID projectId, UUID authorId, String markdown) {
+        Person person = people.requireInWorkspace(personId, workspaceId);
+        UUID aboutProjectId = projectId != null && candidates.existsByProjectIdAndPersonId(projectId, personId)
+                ? projectId : null;
+        return save(person, aboutProjectId, PersonNoteKind.MEETING, markdown.strip(), NoteFormat.MARKDOWN, authorId)
+                .getId();
+    }
+
     private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
                             UUID author) {
         String title = projectId == null ? null

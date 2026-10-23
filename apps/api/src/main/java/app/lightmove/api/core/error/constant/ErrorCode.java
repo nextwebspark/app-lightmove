@@ -416,6 +416,27 @@ public enum ErrorCode {
     MEETING_UPDATE_FAILED(HttpStatus.BAD_GATEWAY,
             "The call could not be changed. Check your calendar before trying again"),
 
+    /** No Recall.ai account is configured on this deployment, so no Notetaker is offered. */
+    NOTETAKER_NOT_OFFERED(HttpStatus.CONFLICT, "The Notetaker is not set up on this deployment"),
+
+    /** The call has no video link a bot could join. */
+    NOTETAKER_NO_JOIN_LINK(HttpStatus.CONFLICT, "This call has no video link for the Notetaker to join"),
+
+    /** The call has already ended. */
+    NOTETAKER_MEETING_OVER(HttpStatus.CONFLICT, "This call has already ended"),
+
+    /** A Notetaker is already on its way to this call, sent by this consultant or a teammate. */
+    NOTETAKER_ALREADY_SCHEDULED(HttpStatus.CONFLICT, "A Notetaker is already set to record this call"),
+
+    /** Only a recording that is still to come or under way is called back; only a failed one is tried again. */
+    NOTETAKER_NOT_CHANGEABLE(HttpStatus.CONFLICT, "This Notetaker can no longer be changed"),
+
+    /** Recall.ai refused or could not be reached; never retried, since a second bot in a call is worse. */
+    NOTETAKER_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The Notetaker could not be sent. Try again"),
+
+    /** A Recall bot webhook whose signature did not verify, or any delivery while no bot secret is configured. */
+    NOTETAKER_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
 

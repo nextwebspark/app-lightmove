@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "overview": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "keyPoints": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "motivation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "package": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "notice": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mobility": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "concerns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "nextSteps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "competencyEvidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "evidence"
+        ]
+      }
+    },
+    "competenciesNotCovered": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "briefConcerns": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "overview"
+  ]
+}
