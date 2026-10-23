@@ -37,6 +37,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
     private final List<String> botIds = new CopyOnWriteArrayList<>();
     private volatile boolean offered = true;
     private volatile boolean failSends;
+    private volatile Runnable whileSending = () -> { };
 
     @Override
     public boolean isOffered() {
@@ -48,6 +49,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
         if (failSends) {
             throw new VendorException(VendorCall.of("recall", "bot-create"), VendorFailureKind.UNAVAILABLE, null);
         }
+        whileSending.run();
         sent.add(request);
         String botId = "bot-" + UUID.randomUUID();
         botIds.add(botId);
@@ -106,6 +108,11 @@ public class RecordingRecallBotApi implements RecallBotApi {
         this.failSends = fail;
     }
 
+    /** Runs while Recall is being asked, before it answers: where a Remove pressed mid-send lands. */
+    public void whileSending(Runnable action) {
+        this.whileSending = action;
+    }
+
     public List<RecallBotRequest> sent() {
         return List.copyOf(sent);
     }
@@ -136,6 +143,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
         states.clear();
         offered = true;
         failSends = false;
+        whileSending = () -> { };
     }
 
     @TestConfiguration(proxyBeanMethods = false)

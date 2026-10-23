@@ -145,8 +145,11 @@ public class MeetingRecording extends BaseEntity {
         this.status = NotetakerStatus.FAILED;
     }
 
+    /** Only a live recording is called back: one a webhook already finished stays as it ended. */
     public void cancelled() {
-        this.status = NotetakerStatus.CANCELLED;
+        if (status.isLive()) {
+            this.status = NotetakerStatus.CANCELLED;
+        }
     }
 
     /** A failed recording is tried again only from its transcript: the call itself cannot be recorded twice. */

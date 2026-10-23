@@ -1,11 +1,15 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.ratelimit.service.LlmBudget;
+import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -54,6 +58,8 @@ public class NotetakerService {
     static final Duration JOIN_AHEAD = Duration.ofMinutes(1);
 
     private final RecallBotApi recall;
+    private final LlmBudgetGuard llmBudget;
+    private final FairUseGuard fairUse;
     private final MeetingRecordingRepository recordings;
     private final KeptMeetings meetings;
     private final CandidateOutreachService people;
@@ -64,13 +70,25 @@ public class NotetakerService {
     private final Clock clock;
 
     @Transactional(readOnly = true)
-    public CandidateNotetakerResponse ofCandidate(UUID workspaceId, UUID projectId, UUID candidateId) {
+    public CandidateNotetakerResponse ofCandidate(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         List<NotetakerRecordingResponse> rows = recordings
-                .findByWorkspaceIdAndPersonIdOrderByStartsAtDescCreatedAtDesc(workspaceId, recipient.personId()).stream()
+                .findByWorkspaceIdAndProjectIdAndPersonIdOrderByStartsAtDescCreatedAtDesc(workspaceId, projectId,
+                        recipient.personId()).stream()
                 .map(NotetakerService::responseOf)
                 .toList();
-        return new CandidateNotetakerResponse(recall.isOffered(), rows);
+        if (!recall.isOffered() || recipient.doNotContact()) {
+            return new CandidateNotetakerResponse(recall.isOffered(), rows, List.of());
+        }
+        Instant now = clock.instant();
+        List<KeptMeeting> calls = meetings.ofPerson(workspaceId, recipient.personId());
+        List<UUID> recordable = calls.stream()
+                .filter(meeting -> meeting.endsAt().isAfter(now) && joinableOrNull(meeting.joinUrl()) != null)
+                .filter(meeting -> calls.stream()
+                        .anyMatch(copy -> copy.isSameCallAs(meeting) && copy.isHeldOrBookedBy(userId)))
+                .map(KeptMeeting::id)
+                .toList();
+        return new CandidateNotetakerResponse(true, rows, recordable);
     }
 
     public NotetakerRecordingResponse schedule(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
@@ -84,6 +102,12 @@ public class NotetakerService {
         }
         KeptMeeting meeting = meetings.of(workspaceId, recipient.personId(), meetingId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        // A recorder joins a call only for someone it is theirs to record: on their own calendar, or booked by them.
+        // A teammate's copy of the same call counts, since every calendar keeps its own row of it.
+        if (meetings.ofPerson(workspaceId, recipient.personId()).stream()
+                .noneMatch(copy -> copy.isSameCallAs(meeting) && copy.isHeldOrBookedBy(userId))) {
+            throw ApiException.of(ErrorCode.NOTETAKER_NOT_YOUR_CALL);
+        }
         Instant now = clock.instant();
         if (!meeting.endsAt().isAfter(now)) {
             throw ApiException.of(ErrorCode.NOTETAKER_MEETING_OVER);
@@ -92,6 +116,7 @@ public class NotetakerService {
         if (joinUrl == null) {
             throw ApiException.of(ErrorCode.NOTETAKER_NO_JOIN_LINK);
         }
+        fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
         UUID recordingId = claim(userId, workspaceId, projectId, recipient, meeting, joinUrl);
         String botId;
         try {
@@ -104,7 +129,7 @@ public class NotetakerService {
                     recordings.findById(recordingId).ifPresent(recording -> recording.failed("SEND_FAILED")));
             throw ApiException.of(ErrorCode.NOTETAKER_SEND_FAILED);
         }
-        return transactions.execute(status -> {
+        MeetingRecording sent = transactions.execute(status -> {
             MeetingRecording recording = recordings.findById(recordingId).orElseThrow();
             recording.sent(botId);
             audit.projectEvent(ProjectEventType.NOTETAKER_SCHEDULED, userId, workspaceId, projectId, httpRequest)
@@ -112,8 +137,13 @@ public class NotetakerService {
                     .detail("recordingId", recordingId.toString())
                     .detail("startsAt", meeting.startsAt().toString())
                     .record();
-            return responseOf(recording);
+            return recording;
         });
+        if (sent.getStatus() == NotetakerStatus.CANCELLED) {
+            // Removed while Recall was still being asked: the bot it just made must not go on to join and record.
+            removeQuietly(botId);
+        }
+        return responseOf(sent);
     }
 
     /** Anyone on the team may call a bot back: a recording nobody wanted is the thing to stop, whoever sent it. */
@@ -121,42 +151,54 @@ public class NotetakerService {
                        HttpServletRequest httpRequest) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         MeetingRecording recording = recordings
-                .findByIdAndWorkspaceIdAndPersonId(recordingId, workspaceId, recipient.personId())
+                .findByIdAndWorkspaceIdAndProjectIdAndPersonId(recordingId, workspaceId, projectId,
+                        recipient.personId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-        if (recording.getStatus() != NotetakerStatus.SCHEDULED && recording.getStatus() != NotetakerStatus.JOINING
-                && recording.getStatus() != NotetakerStatus.RECORDING) {
-            throw ApiException.of(ErrorCode.NOTETAKER_NOT_CHANGEABLE);
-        }
-        if (recording.getRecallBotId() != null) {
+        requireCancellable(recording);
+        String removedBotId = recording.getRecallBotId();
+        if (removedBotId != null) {
             try {
-                recall.remove(recording.getRecallBotId());
+                recall.remove(removedBotId);
             } catch (VendorException failed) {
-                log.warn("Recall could not call back bot {}: {}", recording.getRecallBotId(), failed.getMessage());
+                log.warn("Recall could not call back bot {}: {}", removedBotId, failed.getMessage());
                 throw ApiException.of(ErrorCode.NOTETAKER_SEND_FAILED);
             }
         }
-        transactions.executeWithoutResult(status -> {
-            recordings.findById(recordingId).ifPresent(MeetingRecording::cancelled);
+        String botIdNow = transactions.execute(status -> {
+            MeetingRecording held = recordings.findById(recordingId).orElseThrow();
+            requireCancellable(held);
+            held.cancelled();
             audit.projectEvent(ProjectEventType.NOTETAKER_CANCELLED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
                     .record();
+            return held.getRecallBotId();
         });
-        if (recording.getRecallBotId() != null) {
-            deleteMediaQuietly(recording.getRecallBotId());
+        if (botIdNow != null && !botIdNow.equals(removedBotId)) {
+            // The send finished between the read and the cancel: that bot is called back too.
+            removeQuietly(botIdNow);
+        }
+        if (botIdNow != null) {
+            deleteMediaQuietly(botIdNow);
         }
     }
 
+    /** Try again is a press that spends a model call, so it takes the same meter Assess with AI does. */
     @Transactional
-    public NotetakerRecordingResponse retry(UUID workspaceId, UUID projectId, UUID candidateId, UUID recordingId) {
+    public NotetakerRecordingResponse retry(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                            UUID recordingId) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         MeetingRecording recording = recordings
-                .findByIdAndWorkspaceIdAndPersonId(recordingId, workspaceId, recipient.personId())
+                .findByIdAndWorkspaceIdAndProjectIdAndPersonId(recordingId, workspaceId, projectId,
+                        recipient.personId())
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         if (!recording.isRetryable()) {
             throw ApiException.of(ErrorCode.NOTETAKER_NOT_CHANGEABLE);
         }
+        llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, userId);
+        fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
         recording.retrying();
+        recordings.releaseProcessing(recording.getId());
         events.publishEvent(new MeetingTranscriptReady(recording.getId()));
         return responseOf(recording);
     }
@@ -166,7 +208,8 @@ public class NotetakerService {
                                                   UUID recordingId) {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         MeetingRecording recording = recordings
-                .findByIdAndWorkspaceIdAndPersonId(recordingId, workspaceId, recipient.personId())
+                .findByIdAndWorkspaceIdAndProjectIdAndPersonId(recordingId, workspaceId, projectId,
+                        recipient.personId())
                 .filter(found -> found.getTranscript() != null)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         return new NotetakerTranscriptResponse(recording.getId(), recording.getTitle(), recording.getStartsAt(),
@@ -220,6 +263,22 @@ public class NotetakerService {
                 + "'s notes. Ask them to remove me at any time.";
     }
 
+    private static void requireCancellable(MeetingRecording recording) {
+        if (recording.getStatus() != NotetakerStatus.SCHEDULED && recording.getStatus() != NotetakerStatus.JOINING
+                && recording.getStatus() != NotetakerStatus.RECORDING) {
+            throw ApiException.of(ErrorCode.NOTETAKER_NOT_CHANGEABLE);
+        }
+    }
+
+    private void removeQuietly(String botId) {
+        try {
+            recall.remove(botId);
+        } catch (VendorException failed) {
+            log.error("Recall could not call back cancelled bot {}; remove it from Recall's dashboard: {}", botId,
+                    failed.getMessage());
+        }
+    }
+
     private void deleteMediaQuietly(String botId) {
         try {
             recall.deleteMedia(botId);
@@ -235,7 +294,7 @@ public class NotetakerService {
 
     static NotetakerRecordingResponse responseOf(MeetingRecording recording) {
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
-                recording.getStatus(), recording.getFailureReason(), recording.getTranscript() != null,
-                recording.isRetryable(), recording.getNoteId());
+                recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
+                recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId());
     }
 }

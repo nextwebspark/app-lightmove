@@ -67,10 +67,14 @@ class MeetingSummariser {
                 namesOf(answer.competenciesNotCovered(), competencyById), items(answer.briefConcerns()));
     }
 
-    /** Elapsed time into the call, which is what the transcript view shows beside each line. */
+    /**
+     * Elapsed time into the call as the transcript sheet prints it beside each line ({@code lib/meetingTimes.ts}'s
+     * {@code elapsedOf}): {@code MM:SS}, or {@code H:MM:SS} past the hour, so a note's evidence time finds its line.
+     */
     static String elapsed(Instant callStart, Instant at) {
         long seconds = Math.max(0, Duration.between(callStart, at).toSeconds());
-        return "%02d:%02d:%02d".formatted(seconds / 3600, seconds / 60 % 60, seconds % 60);
+        return seconds >= 3600 ? "%d:%02d:%02d".formatted(seconds / 3600, seconds / 60 % 60, seconds % 60)
+                : "%02d:%02d".formatted(seconds / 60, seconds % 60);
     }
 
     private static String transcriptText(List<TranscriptLine> transcript, Instant callStart) {

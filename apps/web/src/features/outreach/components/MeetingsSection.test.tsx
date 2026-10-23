@@ -93,6 +93,7 @@ function renderSection({
   zoomStatus = null,
   notetakerOffered = false,
   recordings = [],
+  recordableMeetingIds = ["m1"],
 }: {
   meetings?: PersonMeetings;
   doNotContact?: boolean;
@@ -100,9 +101,14 @@ function renderSection({
   zoomStatus?: zoomApi.ZoomAccount["status"];
   notetakerOffered?: boolean;
   recordings?: NotetakerRecording[];
+  recordableMeetingIds?: string[];
 } = {}) {
   vi.mocked(meetingApi.getMeetings).mockResolvedValue(meetings);
-  vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({ offered: notetakerOffered, recordings });
+  vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({
+    offered: notetakerOffered,
+    recordings,
+    recordableMeetingIds: notetakerOffered && !doNotContact ? recordableMeetingIds : [],
+  });
   vi.mocked(zoomApi.getZoom).mockResolvedValue({ offered: true, status: zoomStatus, connectedAt: null });
   vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
     offered,
@@ -398,6 +404,13 @@ describe("MeetingsSection", () => {
     expect(screen.queryByRole("button", { name: "Record with Notetaker" })).not.toBeInTheDocument();
   });
 
+  it("offers no Notetaker on a call that is only on a teammate's calendar", async () => {
+    renderSection({ notetakerOffered: true, recordableMeetingIds: [] });
+    await screen.findByText("Coffee");
+    await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Record with Notetaker" })).not.toBeInTheDocument();
+  });
+
   it("shows a scheduled bot on its call and removes it after asking", async () => {
     vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
@@ -427,6 +440,7 @@ describe("MeetingsSection", () => {
           id: "r2",
           meetingId: "an-older-row",
           startsAt: "2026-09-22T06:00:00Z",
+          title: "Coffee",
           status: "DONE",
           hasTranscript: true,
         }),
@@ -459,6 +473,7 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     id: "r1",
     meetingId: "m1",
     startsAt: "2026-10-07T06:00:00Z",
+    title: "Confidential: first conversation",
     status: "SCHEDULED",
     failureReason: null,
     hasTranscript: false,

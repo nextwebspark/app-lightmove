@@ -1,5 +1,8 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.billing.usage.constant.UsageKind;
+import app.lightmove.api.billing.usage.model.MeteredUse;
+import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -12,6 +15,8 @@ import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.position.model.AssessmentBrief;
 import app.lightmove.api.position.service.PositionService;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
@@ -35,23 +40,30 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 class MeetingNotesWorker {
 
+    /** Longer than a transcript read and a summary take; past it, the worker holding the claim is taken for dead. */
+    static final Duration CLAIM_LIFETIME = Duration.ofMinutes(15);
+
     private final RecallBotApi recall;
     private final MeetingRecordingRepository recordings;
     private final MeetingSummariser summariser;
     private final PositionService positions;
     private final PersonNoteService notes;
     private final AuditService audit;
+    private final UsageRecorder usage;
+    private final Clock clock;
     private final TransactionTemplate transactions;
 
     MeetingNotesWorker(RecallBotApi recall, MeetingRecordingRepository recordings, MeetingSummariser summariser,
-                       PositionService positions, PersonNoteService notes, AuditService audit,
-                       PlatformTransactionManager transactionManager) {
+                       PositionService positions, PersonNoteService notes, AuditService audit, UsageRecorder usage,
+                       Clock clock, PlatformTransactionManager transactionManager) {
         this.recall = recall;
         this.recordings = recordings;
         this.summariser = summariser;
         this.positions = positions;
         this.notes = notes;
         this.audit = audit;
+        this.usage = usage;
+        this.clock = clock;
         // An after-commit listener run on the publishing thread would otherwise join the finished transaction, and
         // every write here would be silently dropped with it.
         this.transactions = new TransactionTemplate(transactionManager);
@@ -65,9 +77,14 @@ class MeetingNotesWorker {
     }
 
     void process(UUID recordingId) {
-        MeetingRecording recording = transactions.execute(status -> recordings.findById(recordingId)
-                .filter(found -> found.getStatus() == NotetakerStatus.PROCESSING)
-                .orElse(null));
+        Instant now = clock.instant();
+        // One worker per transcript, however many times it was handed over: the second spends nothing.
+        Integer claimed = transactions.execute(status ->
+                recordings.claimProcessing(recordingId, now, now.minus(CLAIM_LIFETIME)));
+        if (claimed == null || claimed == 0) {
+            return;
+        }
+        MeetingRecording recording = transactions.execute(status -> recordings.findById(recordingId).orElse(null));
         if (recording == null) {
             return;
         }
@@ -100,8 +117,11 @@ class MeetingNotesWorker {
             return;
         }
         String body = MeetingNoteMarkdown.of(summary);
-        transactions.executeWithoutResult(status -> {
+        boolean filed = Boolean.TRUE.equals(transactions.execute(status -> {
             MeetingRecording held = recordings.findById(recordingId).orElseThrow();
+            if (held.getStatus() != NotetakerStatus.PROCESSING || held.getNoteId() != null) {
+                return false;
+            }
             UUID noteId = notes.fileMeetingNote(held.getWorkspaceId(), held.getPersonId(), held.getProjectId(),
                     held.getRequestedBy(), body);
             held.filed(noteId);
@@ -111,7 +131,13 @@ class MeetingNotesWorker {
                     .detail("noteId", noteId.toString())
                     .detail("lines", String.valueOf(held.getTranscript().size()))
                     .record();
-        });
+            return true;
+        }));
+        if (!filed) {
+            return;
+        }
+        usage.record(new MeteredUse(recording.getWorkspaceId(), recording.getRequestedBy(), recording.getProjectId(),
+                UsageKind.AI_ENRICH, 1, "notetaker:" + recordingId));
         deleteMedia(recordingId, recording.getRecallBotId());
     }
 

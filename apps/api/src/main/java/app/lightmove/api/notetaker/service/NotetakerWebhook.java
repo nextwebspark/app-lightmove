@@ -40,8 +40,11 @@ public class NotetakerWebhook {
         switch (notice) {
             case RecallBotNotice.StatusChanged changed -> applyStatus(recording, changed.code(), changed.subCode());
             case RecallBotNotice.TranscriptReady ready -> {
-                recording.transcriptReady(ready.transcriptId());
-                events.publishEvent(new MeetingTranscriptReady(recording.getId()));
+                // Svix redelivers on a timeout: a transcript already handed over is not handed over again.
+                if (!ready.transcriptId().equals(recording.getTranscriptId())) {
+                    recording.transcriptReady(ready.transcriptId());
+                    events.publishEvent(new MeetingTranscriptReady(recording.getId()));
+                }
             }
             case RecallBotNotice.TranscriptFailed failed -> recording.failed("TRANSCRIPT_FAILED");
         }

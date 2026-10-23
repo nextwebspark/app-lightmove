@@ -7,6 +7,7 @@ const recording = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecord
   id: "r1",
   meetingId: "m1",
   startsAt: "2026-10-07T06:00:00Z",
+  title: "First conversation",
   status: "SCHEDULED",
   failureReason: null,
   hasTranscript: false,
@@ -37,10 +38,11 @@ describe("notetakerChip", () => {
     expect(failureWordsOf(null)).toBe("something went wrong");
   });
 
-  it("finds a call's bot by its row, or by its start once a calendar re-read replaced the row", () => {
-    const meeting = { id: "m9", startsAt: "2026-10-07T06:00:00.000Z" } as Meeting;
+  it("finds a call's bot by its row, or by its start and title once a calendar re-read replaced the row", () => {
+    const meeting = { id: "m9", startsAt: "2026-10-07T06:00:00.000Z", title: " first CONVERSATION" } as Meeting;
     expect(recordingOfMeeting([recording({ meetingId: "gone" })], meeting)?.id).toBe("r1");
     expect(recordingOfMeeting([recording({ meetingId: "gone", startsAt: "2026-10-08T06:00:00Z" })], meeting)).toBeNull();
+    expect(recordingOfMeeting([recording({ meetingId: "gone", title: "Another call" })], meeting)).toBeNull();
   });
 
   it("records again only once no bot is on its way", () => {

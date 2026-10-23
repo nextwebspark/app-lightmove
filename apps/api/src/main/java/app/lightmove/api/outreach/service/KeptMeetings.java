@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.outreach.model.KeptMeeting;
 import app.lightmove.api.outreach.model.PersonMeeting;
 import app.lightmove.api.outreach.repository.PersonMeetingRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +22,16 @@ public class KeptMeetings {
         return meetings.findByIdAndWorkspaceIdAndPersonId(meetingId, workspaceId, personId).map(KeptMeetings::keptOf);
     }
 
+    /** Every teammate's copy of every call with the person. */
+    @Transactional(readOnly = true)
+    public List<KeptMeeting> ofPerson(UUID workspaceId, UUID personId) {
+        return meetings.findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(workspaceId, personId).stream()
+                .map(KeptMeetings::keptOf)
+                .toList();
+    }
+
     private static KeptMeeting keptOf(PersonMeeting row) {
         return new KeptMeeting(row.getId(), row.getPersonId(), row.getTitle(), row.getStartsAt(), row.getEndsAt(),
-                row.getJoinUrl());
+                row.getJoinUrl(), row.getUserId(), row.getBookedByUserId());
     }
 }

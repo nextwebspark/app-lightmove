@@ -36,7 +36,7 @@ export function NotetakerControl({
   meeting: Meeting;
   recording: NotetakerRecording | null;
   upcoming: boolean;
-  /** Offered here, and the person is not marked do not contact. */
+  /** Offered here, the call is the caller's to record, and the person is not marked do not contact. */
   mayRecord: boolean;
   firstName: string;
   onShowTranscript: (recordingId: string) => void;

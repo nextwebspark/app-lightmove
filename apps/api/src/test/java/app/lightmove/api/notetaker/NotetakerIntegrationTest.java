@@ -17,6 +17,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.NotetakerReconcile;
+import app.lightmove.api.notetaker.service.NotetakerTranscriptPurge;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -58,6 +59,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingRecallBotApi recall;
     @Autowired private StubChatModel chat;
     @Autowired private NotetakerReconcile reconcile;
+    @Autowired private NotetakerTranscriptPurge transcriptPurge;
     @Autowired private JdbcTemplate jdbc;
 
     private String grantId;
@@ -243,6 +245,107 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a transcript delivered twice is summarised and filed once")
+    void aRedeliveredTranscriptFilesOneNote() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+        // The reconcile handing the same transcript over again finds nothing left to do either.
+        recall.botIs(bot, new RecallBotState("done", null, start, "t-1", "done"));
+        reconcile.reconcileAt(start.plus(Duration.ofHours(2)));
+
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_person_note n join app_lm_meeting_recording r "
+                + "on r.person_id = n.person_id where r.id = ?::uuid and n.kind = 'MEETING'", Integer.class,
+                recordingId)).isEqualTo(1);
+        assertThat(chat.prompts().stream().filter(prompt -> prompt.getSystemMessage().getText()
+                .contains(SUMMARY_MARKER)).count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("one position never reads, removes or retries another position's recording of the same person")
+    void recordingsStayWithTheirPosition() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group COO\"}".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String onOther = body(as(consultant, post("/api/v1/projects/" + otherProject + "/candidates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"fullName":"Priya Raman","title":"Chief Financial Officer","employerName":"Target Group",
+                         "email":"priya@%s"}
+                        """.formatted(domain)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String otherPath = "/api/v1/projects/" + otherProject + "/outreach/candidates/" + onOther + "/notetaker";
+        assertThat(jdbc.queryForObject("select count(distinct person_id) from app_lm_project_candidate "
+                + "where id in (?::uuid, ?::uuid)", Integer.class, priya, onOther)).isEqualTo(1);
+
+        assertThat(body(as(consultant, get(otherPath)).andExpect(status().isOk()).andReturn()).get("recordings"))
+                .isEmpty();
+        as(consultant, get(otherPath + "/" + recordingId + "/transcript")).andExpect(status().isNotFound());
+        as(consultant, delete(otherPath + "/" + recordingId)).andExpect(status().isNotFound());
+        as(consultant, post(otherPath + "/" + recordingId + "/retry")).andExpect(status().isNotFound());
+        assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
+    }
+
+    @Test
+    @DisplayName("a call only on a teammate's calendar is not the consultant's to record")
+    void aTeammatesCallIsNotRecordable() throws Exception {
+        String teammate = jdbc.queryForObject("select id::text from app_lm_user where id <> "
+                + "(select user_id from app_lm_person_meeting where id = ?::uuid) limit 1", String.class, meetingId());
+        jdbc.update("update app_lm_person_meeting set user_id = ?::uuid, booked_by_user_id = null where id = ?::uuid",
+                teammate, meetingId());
+
+        assertThat(notetaker().get("recordableMeetingIds")).isEmpty();
+        schedule().andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_NOT_YOUR_CALL"));
+        assertThat(recall.sent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a Remove pressed while Recall is still being asked calls the new bot straight back")
+    void removedWhileSending() throws Exception {
+        recall.whileSending(() -> jdbc.update("update app_lm_meeting_recording set status = 'CANCELLED' "
+                + "where status = 'SCHEDULED' and recall_bot_id is null and project_id = ?::uuid", projectId));
+
+        JsonNode scheduled = body(schedule().andExpect(status().isCreated()).andReturn());
+
+        assertThat(scheduled.get("status").asText()).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).containsExactly(recall.lastBotId());
+    }
+
+    @Test
+    @DisplayName("a transcript is cleared once its Meeting note is gone for good")
+    void transcriptGoesWithItsNote() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+
+        transcriptPurge.purgeAt(Instant.now());
+        assertThat(transcriptHeld(recordingId)).isTrue();
+
+        jdbc.update("delete from app_lm_person_note where id = (select note_id from app_lm_meeting_recording "
+                + "where id = ?::uuid)", recordingId);
+        transcriptPurge.purgeAt(Instant.now());
+        assertThat(transcriptHeld(recordingId)).isFalse();
+    }
+
+    @Test
     @DisplayName("no bot goes to someone marked do not contact, to a deployment without Recall, or for a client seat")
     void refusals() throws Exception {
         recall.offered(false);
@@ -283,6 +386,11 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 .header("webhook-timestamp", String.valueOf(Instant.now().getEpochSecond()))
                 .header("webhook-signature", signature)
                 .contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    private boolean transcriptHeld(String recordingId) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("select transcript is not null from app_lm_meeting_recording "
+                + "where id = ?::uuid", Boolean.class, recordingId));
     }
 
     private String statusOf(String recordingId) {

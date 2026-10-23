@@ -27,10 +27,15 @@ CREATE TABLE app_lm_meeting_recording (
     recall_sub_code varchar(128),
     failure_reason  varchar(64),
     transcript_id   varchar(64),
-    -- [{at, speaker, text}], staff-only like the note it became.
+    -- [{at, speaker, text}], staff-only like the note it became, and cleared once that note is gone
+    -- (NotetakerTranscriptPurge).
     transcript      jsonb,
     note_id         uuid         REFERENCES app_lm_person_note (id) ON DELETE SET NULL,
     media_deleted   boolean      NOT NULL DEFAULT false,
+    -- Claims, written by conditional updates and never by Hibernate: the worker making the note (so a transcript
+    -- handed over twice is summarised and filed once), and the reconcile reading the bot back (once across instances).
+    processing_since timestamptz,
+    reconciled_at   timestamptz,
     created_at      timestamptz  NOT NULL DEFAULT now(),
     updated_at      timestamptz  NOT NULL DEFAULT now(),
     version         bigint       NOT NULL DEFAULT 0

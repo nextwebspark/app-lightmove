@@ -422,6 +422,10 @@ public enum ErrorCode {
     /** The call has no video link a bot could join. */
     NOTETAKER_NO_JOIN_LINK(HttpStatus.CONFLICT, "This call has no video link for the Notetaker to join"),
 
+    /** A recorder joins a call only for someone whose calendar holds it, or who booked it; never a teammate's call. */
+    NOTETAKER_NOT_YOUR_CALL(HttpStatus.FORBIDDEN,
+            "Only someone whose calendar holds this call can send the Notetaker"),
+
     /** The call has already ended. */
     NOTETAKER_MEETING_OVER(HttpStatus.CONFLICT, "This call has already ended"),
 

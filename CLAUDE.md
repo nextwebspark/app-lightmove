@@ -688,12 +688,14 @@ keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` befor
 the person forward to Engaged once per position — a booking after a reply included.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
-its row in the executive drawer's Meetings section (Record with Notetaker, `WORK_EXECUTE`, never for do not contact):
+its row in the executive drawer's Meetings section (Record with Notetaker, `WORK_EXECUTE`, only on a call on the caller's
+own calendar or booked by them, never for do not contact; a recording is read only from the position that sent it):
 claimed first (one live bot per call by join URL and start, whoever presses), then sent once and never retried, joining a
 minute early and saying in the chat whose notes it records. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
-Markdown `MEETING` note in the scheduler's name and only then deletes Recall's copy, so Try again can read it again.
+Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and only
+then deletes Recall's copy, so Try again can read it again; the transcript is cleared once its note is purged.
 `NotetakerReconcile` reads back a recording still live past its call. A key without the calendar webhook secret
 leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
 `candidate` and `position`; nothing depends back.

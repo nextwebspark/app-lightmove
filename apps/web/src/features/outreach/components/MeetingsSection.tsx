@@ -70,7 +70,9 @@ export function MeetingsSection({
   const canBook = hasActiveMailbox && record.isSuccess && !record.data.doNotContact && emails.length > 0;
   const canReschedule = hasActiveMailbox && record.isSuccess && !record.data.doNotContact;
   const recordings = notetaker.data?.recordings ?? [];
-  const mayRecord = notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact;
+  const recordable = new Set(notetaker.data?.recordableMeetingIds ?? []);
+  const mayRecord = (meeting: Meeting) =>
+    notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact && recordable.has(meeting.id);
   const notetakerFor = (meeting: Meeting, isUpcoming: boolean) =>
     notetaker.isSuccess ? (
       <NotetakerControl
@@ -79,7 +81,7 @@ export function MeetingsSection({
         meeting={meeting}
         recording={recordingOfMeeting(recordings, meeting)}
         upcoming={isUpcoming}
-        mayRecord={mayRecord}
+        mayRecord={mayRecord(meeting)}
         firstName={firstName}
         onShowTranscript={setTranscriptOf}
       />

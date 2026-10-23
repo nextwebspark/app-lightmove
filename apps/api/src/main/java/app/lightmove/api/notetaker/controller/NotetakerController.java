@@ -35,7 +35,7 @@ public class NotetakerController {
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
     public CandidateNotetakerResponse list(@AuthenticationPrincipal AuthPrincipal principal,
                                            @PathVariable UUID projectId, @PathVariable UUID candidateId) {
-        return notetaker.ofCandidate(principal.requireWorkspaceId(), projectId, candidateId);
+        return notetaker.ofCandidate(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId);
     }
 
     @PostMapping("/meetings/{meetingId}/notetaker")
@@ -63,7 +63,8 @@ public class NotetakerController {
     public NotetakerRecordingResponse retry(@AuthenticationPrincipal AuthPrincipal principal,
                                             @PathVariable UUID projectId, @PathVariable UUID candidateId,
                                             @PathVariable UUID recordingId) {
-        return notetaker.retry(principal.requireWorkspaceId(), projectId, candidateId, recordingId);
+        return notetaker.retry(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
+                recordingId);
     }
 
     @GetMapping("/notetaker/{recordingId}/transcript")

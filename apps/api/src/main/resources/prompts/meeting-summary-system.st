@@ -19,8 +19,9 @@ THE NOTE.
 
 AGAINST THE BRIEF (only when a brief is given; otherwise leave these empty).
   - competencyEvidence: one entry per competency id the call gave evidence on — the evidence, one or
-    two sentences of what the executive said or showed, and the time it was said (HH:MM as in the
-    transcript). Never score. A competency the call never touched is not listed here.
+    two sentences of what the executive said or showed, and the time it was said, exactly as the
+    transcript writes it (MM:SS, or H:MM:SS past the hour). Never score. A competency the call never
+    touched is not listed here.
   - competenciesNotCovered: the ids of every competency the call gave no evidence on.
   - briefConcerns: where what was said cuts against the brief — location, level, reporting line, the
     selection criteria — each one sentence.

@@ -62,17 +62,22 @@ export function notetakerChipOf(recording: NotetakerRecording): NotetakerChip | 
 }
 
 /**
- * The latest bot sent to this call: by its meeting row, or by its start where a calendar's re-read gave the call a new
- * row. The server answers newest call first, and the latest attempt first within one call.
+ * The latest bot sent to this call: by its meeting row, or by its start and title where a calendar's re-read gave the
+ * call a new row — the same two the server tells calls apart by. Newest call first, latest attempt first within one.
  */
 export function recordingOfMeeting(recordings: NotetakerRecording[], meeting: Meeting): NotetakerRecording | null {
   return (
     recordings.find(
       (recording) =>
         recording.meetingId === meeting.id ||
-        new Date(recording.startsAt).getTime() === new Date(meeting.startsAt).getTime(),
+        (new Date(recording.startsAt).getTime() === new Date(meeting.startsAt).getTime() &&
+          titleKeyOf(recording.title) === titleKeyOf(meeting.title)),
     ) ?? null
   );
+}
+
+function titleKeyOf(title: string | null): string {
+  return (title ?? "").trim().toLowerCase();
 }
 
 /** Whether any bot is still on its way, in a call or being written up: the section reads again while one is. */

@@ -22,9 +22,10 @@ export type NotetakerStatus =
 
 export interface NotetakerRecording {
   id: string;
-  /** The meeting row it was sent for; a calendar's re-read can replace that row, so `startsAt` matches too. */
+  /** The meeting row it was sent for; a calendar's re-read can replace that row, so `startsAt` and `title` match too. */
   meetingId: string | null;
   startsAt: string;
+  title: string | null;
   status: NotetakerStatus;
   /** Recall's sub-code or our own word, worded by `lib/notetakerChip.ts`. */
   failureReason: string | null;
@@ -36,6 +37,8 @@ export interface NotetakerRecording {
 export interface CandidateNotetaker {
   offered: boolean;
   recordings: NotetakerRecording[];
+  /** Upcoming rows the caller may send a bot to: on their own calendar or booked by them, with a video link. */
+  recordableMeetingIds: string[];
 }
 
 export interface NotetakerTranscriptLine {
