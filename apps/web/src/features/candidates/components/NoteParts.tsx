@@ -9,7 +9,8 @@ import type { PersonNote, PersonNoteKind } from "../api/types";
 import { shortWhen } from "../lib/candidateActivity";
 import { NOTE_KINDS, noteKindLabel } from "../lib/noteKinds";
 import { NoteEditor } from "../../notes/components/NoteEditor";
-import { NoteText } from "../../notes/components/NoteText";
+import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
+import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG } from "../../tasks/lib/mentions";
 import type { TeammateOption } from "../../tasks/lib/team";
 
@@ -138,10 +139,16 @@ export function NoteCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
+  const [reading, setReading] = useState(false);
   const [draft, setDraft] = useState(note.body);
   const revised = draft.trim();
   const revisedTooLong = revised.length > NOTE_MAX_STORED;
   const canSave = revised.length > 0 && !revisedTooLong;
+  const startEditing = () => {
+    setDraft(note.body);
+    setEditing(true);
+  };
+  const authorName = note.authorName ?? "Someone";
   const saveRevision = () => {
     if (!actions || !canSave) return;
     // An untouched draft is still the stored body; sent back as Markdown, a plain note's "*" and "1." would format.
@@ -166,8 +173,8 @@ export function NoteCard({
         />
       )}
       <div className="flex items-center gap-2">
-        <Avatar id={note.authorUserId} name={note.authorName ?? "Someone"} src={note.authorAvatarUrl} size="sm" />
-        <span className="text-[12.5px] font-semibold">{note.authorName ?? "Someone"}</span>
+        <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="sm" />
+        <span className="text-[12.5px] font-semibold">{authorName}</span>
         <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px] font-semibold uppercase tracking-[0.06em] text-u-text3">
           {noteKindLabel(note.kind)}
         </span>
@@ -224,7 +231,13 @@ export function NoteCard({
           />
         </div>
       ) : (
-        <NoteText body={note.body} format={note.format} className="mt-1.5 text-[13px]/[1.55] text-u-text2" />
+        <ClampedNoteText
+          body={note.body}
+          format={note.format}
+          className="mt-1.5 text-[13px]/[1.55] text-u-text2"
+          onOpen={() => setReading(true)}
+          defaultExpanded={flashAt !== null}
+        />
       )}
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
         {note.projectTitle ? (
@@ -248,10 +261,7 @@ export function NoteCard({
               <NoteActionButton
                 label="Edit"
                 icon={ICONS.pencil}
-                onClick={() => {
-                  setDraft(note.body);
-                  setEditing(true);
-                }}
+                onClick={startEditing}
                 disabled={actions.busy}
               />
             )}
@@ -267,6 +277,26 @@ export function NoteCard({
           </span>
         )}
       </div>
+      <NoteReaderModal
+        open={reading}
+        onClose={() => setReading(false)}
+        title={note.kind === "general" ? "Note" : `${noteKindLabel(note.kind)} note`}
+        details={[
+          authorName,
+          note.projectTitle ? `About ${note.projectTitle}` : note.projectId === null ? "All positions" : null,
+        ]}
+        writtenAt={note.createdAt}
+        body={note.body}
+        format={note.format}
+        onEdit={
+          actions && note.editable
+            ? () => {
+                setReading(false);
+                startEditing();
+              }
+            : undefined
+        }
+      />
       {actions && (
         <ConfirmDialog
           open={confirmingRemove}
