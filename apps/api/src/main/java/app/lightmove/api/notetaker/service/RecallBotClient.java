@@ -276,10 +276,14 @@ public class RecallBotClient implements RecallBotApi {
                 transcript == null ? null : lowerOrNull(textOrNull(transcript.path("status").get("code"))));
     }
 
+    /**
+     * Recall refuses an {@code activate_after} below 1 with a 400, so a sent {@code 0} failed every bot; the
+     * everyone-left timer leaves it out and runs from the start.
+     */
     static final Map<String, Object> AUTOMATIC_LEAVE = Map.of(
             "waiting_room_timeout", seconds(Duration.ofMinutes(15)),
             "noone_joined_timeout", seconds(Duration.ofMinutes(15)),
-            "everyone_left_timeout", Map.of("timeout", seconds(Duration.ofSeconds(30)), "activate_after", 0),
+            "everyone_left_timeout", Map.of("timeout", seconds(Duration.ofSeconds(30))),
             "in_call_not_recording_timeout", seconds(Duration.ofMinutes(10)),
             "silence_detection", Map.of(
                     "timeout", seconds(Duration.ofMinutes(10)), "activate_after", seconds(Duration.ofMinutes(10))),

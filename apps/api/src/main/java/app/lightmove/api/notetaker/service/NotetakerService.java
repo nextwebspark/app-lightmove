@@ -277,7 +277,7 @@ public class NotetakerService {
 
     /** Nobody is recorded without being told, and told whose notes they are. */
     private String consentLineFor(UUID userId) {
-        String name = users.findById(userId).map(User::getFullName).filter(full -> !full.isBlank())
+        String name = users.findById(userId).map(User::getFullName).map(String::strip).filter(full -> !full.isEmpty())
                 .orElse("the consultant");
         return "Hello, I'm " + BOT_NAME + ". I'm recording and transcribing this call for " + name
                 + "'s notes. Ask them to remove me at any time.";
