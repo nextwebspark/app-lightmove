@@ -376,6 +376,17 @@ jobs:
             RECALL_SECRETS=",RECALL_API_KEY=lightmove-recall-api-key:latest,RECALL_WEBHOOK_SECRET=lightmove-recall-webhook-secret:latest"
             RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
           fi
+          # The Notetaker's Recall.ai bots: the same account, their events on an endpoint of their own. Off unless
+          # NOTETAKER_ENABLED=true; on its own it leaves calendars read directly. Prerequisites:
+          #   gcloud secrets create lightmove-recall-api-key            --data-file=-   (if RECALL_ENABLED never made it)
+          #   gcloud secrets create lightmove-recall-bot-webhook-secret --data-file=-   (the bot endpoint's whsec_… secret)
+          if [ "${{ vars.NOTETAKER_ENABLED }}" = "true" ]; then
+            if [ -z "${RECALL_SECRETS}" ]; then
+              RECALL_SECRETS=",RECALL_API_KEY=lightmove-recall-api-key:latest"
+              RECALL_ENV="|RECALL_BASE_URL=${{ vars.RECALL_BASE_URL || 'https://us-east-1.recall.ai' }}"
+            fi
+            RECALL_SECRETS="${RECALL_SECRETS},RECALL_BOT_WEBHOOK_SECRET=lightmove-recall-bot-webhook-secret:latest"
+          fi
 
           # Stripe (epic #734). Off unless BILLING_ENABLED=true, for the secret-must-exist reason above; off, every
           # workspace is invoiced. Prerequisites:

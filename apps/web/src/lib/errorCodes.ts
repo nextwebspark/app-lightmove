@@ -137,6 +137,13 @@ export type ApiErrorCode =
   | "MEETING_NOT_YOURS"
   | "MEETING_UPDATE_FAILED"
   | "MEETING_GONE"
+  | "NOTETAKER_NOT_OFFERED"
+  | "NOTETAKER_NO_JOIN_LINK"
+  | "NOTETAKER_NOT_YOUR_CALL"
+  | "NOTETAKER_MEETING_OVER"
+  | "NOTETAKER_ALREADY_SCHEDULED"
+  | "NOTETAKER_NOT_CHANGEABLE"
+  | "NOTETAKER_SEND_FAILED"
   | "WORKSPACE_NAME_MISMATCH"
   | "ARCHIVE_NAME_MISMATCH"
   | "CLIENT_HAS_LIVE_POSITIONS"
@@ -286,6 +293,13 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MEETING_NOT_YOURS: "Only the person whose calendar holds this call can change it.",
   MEETING_UPDATE_FAILED: "The call couldn't be changed. Check your calendar before trying again.",
   MEETING_GONE: "This call is no longer on your calendar.",
+  NOTETAKER_NOT_OFFERED: "The Notetaker isn't set up for your workspace.",
+  NOTETAKER_NO_JOIN_LINK: "This call has no video link for the Notetaker to join.",
+  NOTETAKER_NOT_YOUR_CALL: "Only someone whose calendar holds this call can send the Notetaker to it.",
+  NOTETAKER_MEETING_OVER: "This call has already ended.",
+  NOTETAKER_ALREADY_SCHEDULED: "A Notetaker is already set to record this call.",
+  NOTETAKER_NOT_CHANGEABLE: "This Notetaker can no longer be changed. Reload to see where it got to.",
+  NOTETAKER_SEND_FAILED: "The Notetaker couldn't be sent. Try again in a moment.",
   WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
   NOT_A_MEMBER: "That workspace isn't available to you any more.",
   NOT_FOUND: "That item no longer exists. Reload to see the latest.",

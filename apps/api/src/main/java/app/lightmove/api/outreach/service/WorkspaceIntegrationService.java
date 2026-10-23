@@ -189,7 +189,7 @@ public class WorkspaceIntegrationService {
 
     private boolean isRecallOffered() {
         RecallSettings recall = properties.recall();
-        return recall != null && recall.isConfigured();
+        return recall != null && recall.isCalendarOffered();
     }
 
     private static String blankToNull(String value) {

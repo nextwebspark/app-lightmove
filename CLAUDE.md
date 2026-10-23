@@ -395,7 +395,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -686,6 +686,19 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 (`toAddress`, never merely the ledger — the booking form's address is typed by whoever holds the link),
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
+
+**The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
+its row in the executive drawer's Meetings section (Record with Notetaker, `WORK_EXECUTE`, only on a call on the caller's
+own calendar or booked by them, never for do not contact; a recording is read only from the position that sent it):
+claimed first (one live bot per call by join URL and start, whoever presses), then sent once and never retried, joining a
+minute early and saying in the chat whose notes it records. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
+`lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
+keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
+Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and only
+then deletes Recall's copy, so Try again can read it again; the transcript is cleared once its note is purged.
+`NotetakerReconcile` reads back a recording still live past its call. A key without the calendar webhook secret
+leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
+`candidate` and `position`; nothing depends back.
 
 **Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
 (`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
@@ -1228,6 +1241,9 @@ V147 adds `app_lm_outreach_message_attachment` — an own email's files in order
 bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
 V150 gives `app_lm_project_candidate` `triage_status` (`IN_UNIVERSE | SHORTLISTED | DECLINED`, backfilled from each
 row's company): the Companies stage the executive is listed at, their own.
+V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
+foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
+sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),

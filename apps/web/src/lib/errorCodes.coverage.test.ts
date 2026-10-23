@@ -17,6 +17,7 @@ const HANDLED_ELSEWHERE: Record<string, string> = {
   MCP_REQUEST_TOO_LARGE: "MCP server only",
   MAILBOX_WEBHOOK_REJECTED: "the mail provider's webhook, never a browser",
   BILLING_WEBHOOK_REJECTED: "Stripe's webhook, never a browser",
+  NOTETAKER_WEBHOOK_REJECTED: "Recall's bot webhook, never a browser",
   CREDIT_HOLD_NOT_FOUND: "the credit ledger's own invariant: on a screen it is a bug, the reference-id line is the message",
   CREDIT_HOLD_SETTLED: "the credit ledger's own invariant: on a screen it is a bug, the reference-id line is the message",
   CREDIT_IDEMPOTENCY_KEY_REUSED: "the credit ledger's own invariant: on a screen it is a bug, the reference-id line is the message",

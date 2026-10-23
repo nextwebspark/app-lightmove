@@ -10,27 +10,23 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
+import app.lightmove.api.core.webhook.service.SvixSignatures;
 import app.lightmove.api.outreach.constant.RecallCalendarStatus;
 import app.lightmove.api.outreach.model.RecallCalendarEvent;
 import app.lightmove.api.outreach.model.RecallCalendarSpec;
 import app.lightmove.api.outreach.model.RecallWebhookDelivery;
 import app.lightmove.api.outreach.model.RecallWebhookNotice;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
-import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -52,9 +48,7 @@ public class RecallCalendarClient implements RecallCalendarApi {
     private static final int REQUESTS_PER_SECOND = 5;
 
     /** A delivery older or newer than this is refused, so a captured one cannot be replayed later. */
-    static final Duration WEBHOOK_TOLERANCE = Duration.ofMinutes(5);
-
-    private static final String SECRET_PREFIX = "whsec_";
+    static final Duration WEBHOOK_TOLERANCE = SvixSignatures.TOLERANCE;
     private static final String CALENDAR_UPDATE = "calendar.update";
     private static final String CALENDAR_SYNC_EVENTS = "calendar.sync_events";
 
@@ -234,45 +228,8 @@ public class RecallCalendarClient implements RecallCalendarApi {
 
     /** A blank secret refuses every delivery: an unsigned public endpoint would let anyone disconnect a mailbox. */
     static boolean verifies(String secret, RecallWebhookDelivery delivery, Instant now) {
-        if (secret == null || secret.isBlank() || delivery.id() == null || delivery.timestamp() == null
-                || delivery.signature() == null || delivery.body() == null) {
-            return false;
-        }
-        long sentAt;
-        try {
-            sentAt = Long.parseLong(delivery.timestamp().strip());
-        } catch (NumberFormatException notATimestamp) {
-            return false;
-        }
-        if (Duration.between(Instant.ofEpochSecond(sentAt), now).abs().compareTo(WEBHOOK_TOLERANCE) > 0) {
-            return false;
-        }
-        byte[] expected;
-        try {
-            String key = secret.startsWith(SECRET_PREFIX) ? secret.substring(SECRET_PREFIX.length()) : secret;
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(Base64.getDecoder().decode(key), "HmacSHA256"));
-            mac.update((delivery.id() + "." + delivery.timestamp().strip() + ".").getBytes(StandardCharsets.UTF_8));
-            expected = mac.doFinal(delivery.body());
-        } catch (GeneralSecurityException | IllegalArgumentException unusable) {
-            return false;
-        }
-        for (String candidate : delivery.signature().split(" ")) {
-            int comma = candidate.indexOf(',');
-            if (comma < 0 || !"v1".equals(candidate.substring(0, comma))) {
-                continue;
-            }
-            byte[] presented;
-            try {
-                presented = Base64.getDecoder().decode(candidate.substring(comma + 1));
-            } catch (IllegalArgumentException notBase64) {
-                continue;
-            }
-            if (MessageDigest.isEqual(expected, presented)) {
-                return true;
-            }
-        }
-        return false;
+        return SvixSignatures.verifies(secret, delivery.id(), delivery.timestamp(), delivery.signature(),
+                delivery.body(), now);
     }
 
     /** A create names the host; an update hands over the app and the new token only. */
