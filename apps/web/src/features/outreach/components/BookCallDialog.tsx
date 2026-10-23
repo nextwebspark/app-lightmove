@@ -153,7 +153,11 @@ export function BookCallDialog({
         );
       }
       if (notetaker.failure) {
-        toast.error(`The Notetaker wasn't sent: ${messageFor(notetaker.failure)}`);
+        toast.error(
+          codeOf(notetaker.failure) === "NOTETAKER_SEND_FAILED"
+            ? "The Notetaker couldn't be sent. Switch it on from the call under Meetings to try again."
+            : `The Notetaker wasn't sent: ${messageFor(notetaker.failure)}`,
+        );
       }
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
