@@ -47,11 +47,47 @@ export const CANDIDATES_KEY = (projectId: string, scope: CandidateQuery) =>
  * grid's first attempt at that — a multiple of its own page size — landed exactly on
  * `company.list.max-page-size`. Lowering that deployment knob would have made every Companies page
  * 400 on this read. Omitted, the server sizes a company-filtered read at its own maximum and says in
- * `totalCount` whether that was enough.
+ * `totalCount` whether that was enough — and, for a company-scoped or unmapped read, this pages on
+ * until it was.
  */
-export function getCandidates(
+export async function getCandidates(
   projectId: string,
   scope: CandidateQuery,
+  signal?: AbortSignal,
+): Promise<CandidatesPage> {
+  const first = await getCandidatesPage(projectId, scope, 0, signal);
+  if (!readsEveryone(scope)) return first;
+  // A page of 100 companies easily maps more than one ceiling of people, and the read is ordered by
+  // when each was filed — so a company's later executives were simply missing from the grid at 100
+  // per page while 50 per page showed them all. A company-scoped read is everyone at those companies.
+  const candidates = [...first.candidates];
+  const seen = new Set(candidates.map((candidate) => candidate.id));
+  let addedBy = first.addedBy;
+  let last = first;
+  for (let page = 1; page < MAX_PAGES_PER_SCOPE && seen.size < last.totalCount; page++) {
+    last = await getCandidatesPage(projectId, scope, page, signal);
+    if (last.candidates.length === 0) break;
+    for (const candidate of last.candidates) {
+      if (seen.has(candidate.id)) continue;
+      seen.add(candidate.id);
+      candidates.push(candidate);
+    }
+    if (last.addedBy) addedBy = { ...(addedBy ?? {}), ...last.addedBy };
+  }
+  return { ...last, candidates, page: 0, addedBy };
+}
+
+/** Past this many pages the read stops and `totalCount` says what was left out. */
+const MAX_PAGES_PER_SCOPE = 50;
+
+function readsEveryone(scope: CandidateQuery): boolean {
+  return scope.triageCompanyIds !== undefined || scope.unmapped === true;
+}
+
+function getCandidatesPage(
+  projectId: string,
+  scope: CandidateQuery,
+  page: number,
   signal?: AbortSignal,
 ): Promise<CandidatesPage> {
   const params = new URLSearchParams();
@@ -61,6 +97,7 @@ export function getCandidates(
   if (scope.unmapped) params.set("unmapped", "true");
   if (scope.query) params.set("q", scope.query);
   if (scope.triageStatus) params.set("triageStatus", scope.triageStatus);
+  if (page > 0) params.set("page", String(page));
   return request<CandidatesPage>(`/projects/${projectId}/candidates?${params}`, { signal });
 }
 
