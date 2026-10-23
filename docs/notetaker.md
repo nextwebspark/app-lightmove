@@ -65,7 +65,7 @@ A run that never got a note carries `end_reason`. The drawer's chip says each in
 | `LAUNCH_TIMEOUT` | Started, never reported within `launch-timeout` | Execution logs; the token exchange |
 | `JOIN_BLOCKED` | The host or tenant lets no guest in | The organiser's settings; not ours |
 | `NOT_ADMITTED` | Nobody let it in within `lobby-timeout` | Usually the host's choice |
-| `CONSENT_NOT_SHOWN` | It could not post its notice in the chat, so it left unrecorded | Teams with guest chat off; a page change if widespread |
+| `CONSENT_NOT_SHOWN` | Older runs only: it could not post its notice, so it left unrecorded. The bot now records on and logs a WARNING | — |
 | `DEVICES_NOT_OFF` | It could not be sure its microphone and camera were off | A page change; check the canary |
 | `CRASHED` | The bot fell over (reported, or its process died) | Execution logs |
 | `HEARTBEAT_LOST` | It went silent for `heartbeat-timeout` | Execution killed or the network |
@@ -88,12 +88,12 @@ reports to `POST /api/v1/internal/notetaker/canary`. Both calls are signed with 
 own (`NOTETAKER_CANARY_SA`). It is never `MEETINGBOT_SA`, because a meeting bot runs on a third party's page and must
 not be able to report a platform down, or hide an outage.
 
-The report passes only when the bot got in, said what it was, and its pieces say the phrase. Otherwise it gives the
-failure:
+The report passes only when the bot got in and its pieces say the phrase; a notice it could not post is a WARNING in
+its log, not a failure. Otherwise it gives the failure:
 
 | Reason | Means |
 |---|---|
-| A bot end reason | The bot itself failed: `JOIN_BLOCKED`, `NOT_ADMITTED`, `CONSENT_NOT_SHOWN`, … |
+| A bot end reason | The bot itself failed: `JOIN_BLOCKED`, `NOT_ADMITTED`, `DEVICES_NOT_OFF`, … |
 | `NOT_RECORDING` | The bot never reached recording |
 | `NO_AUDIO` | No audio piece came out at all |
 | `SPEAKER_NOT_JOINED` | The canary's own speaker never got in (after two tries), or stopped sending sound before the bot left |
@@ -197,8 +197,9 @@ the ceiling.
 - **Our bot's chat line, as it is let in** (`runner.ts`'s `consentLine`, the same words for Recall's bot):
   > Uncava Notetaker is recording and transcribing this call to take notes for Uncava. If you'd rather not be
   > recorded, ask the host to remove it.
-- **Fails closed.** Our bot that cannot post that line leaves without recording (`CONSENT_NOT_SHOWN`).
-- **Recall's bot is best-effort.** It posts the same line but cannot confirm it was shown, and records either way.
+- **Best-effort, by decision.** Our bot that cannot post that line — a call whose guests cannot chat, such as a
+  personal Teams meeting — records anyway and logs a WARNING, `the recording notice could not be posted in the chat`.
+- **Recall's bot is best-effort too.** It posts the same line but cannot confirm it was shown, and records either way.
   The Integrations card says so before an admin turns it on.
 - **Before the call.** An invite Uncava sends (Book a call) does not mention the notetaker today. Each consultant
   decides per call from the drawer, and anyone on the call may ask the host to remove it.

@@ -72,10 +72,10 @@ export async function runBot(config: BotConfig, deps: RunnerDeps): Promise<RunOu
       return await fail(admitted);
     }
 
-    // Nobody is recorded without being told: a bot that cannot say what it is in the chat leaves before recording.
+    // The notice goes in the chat wherever the call has one; a call whose guests cannot chat (a personal Teams
+    // meeting) is still recorded, and the log says the notice was not shown.
     if (!(await announceConsent(config, deps, page))) {
-      await page.leave();
-      return await fail("CONSENT_NOT_SHOWN");
+      log("the recording notice could not be posted in the chat; recording without it", "WARNING");
     }
     await call("report recording", () => api.report("RECORDING"));
     await page.turnOnCaptions().catch((error) => log(`captions could not be turned on: ${error}`));

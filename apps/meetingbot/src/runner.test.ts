@@ -29,6 +29,7 @@ function harness(script: Script) {
   const uploads: Array<[PieceKind, number]> = [];
   const chat: string[] = [];
   const events: string[] = [];
+  const logs: string[] = [];
   let onAudio: (piece: Uint8Array, startedAt: Date) => void = () => undefined;
   let recording: ReturnType<typeof setInterval> | null = null;
 
@@ -106,10 +107,12 @@ function harness(script: Script) {
         onAudio(new Uint8Array(8), new Date(0));
       }
     },
-    log: () => undefined,
+    log: (message) => {
+      logs.push(message);
+    },
   };
   void recording;
-  return { deps, reports, uploads, chat, events, elapsed: () => now };
+  return { deps, reports, uploads, chat, events, logs, elapsed: () => now };
 }
 
 const inCall = (participants: number): MeetScreen => ({ stage: "in-call", participants });
@@ -164,13 +167,13 @@ describe("runBot", () => {
     expect(run.elapsed()).toBeLessThan(100_000);
   });
 
-  it("never records a call it could not tell it is recording: no consent line, no recording", async () => {
+  it("records a call whose chat will not take the notice, and says so in its log", async () => {
     const run = harness({ chatWorks: false, screen: () => inCall(3) });
-    expect(await runBot(config, run.deps)).toBe("failed");
-    expect(run.reports.map(([state]) => state)).not.toContain("RECORDING");
-    expect(run.reports.at(-1)).toEqual(["FAILED", "CONSENT_NOT_SHOWN"]);
-    expect(run.events).not.toContain("audio started");
-    expect(run.events).toContain("left");
+    expect(await runBot({ ...config, maxDurationMs: 60_000 }, run.deps)).toBe("completed");
+    expect(run.reports.map(([state]) => state)).toContain("RECORDING");
+    expect(run.reports.map(([state]) => state)).not.toContain("FAILED");
+    expect(run.events).toContain("audio started");
+    expect(run.logs.some((line) => line.includes("recording notice could not be posted"))).toBe(true);
   });
 
   it("never joins with a microphone or camera it could not turn off", async () => {
