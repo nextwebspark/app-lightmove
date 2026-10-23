@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
@@ -7,6 +7,8 @@ import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, PersonRecord } from "../../candidates/api/types";
 import * as mailboxApi from "../api/mailboxApi";
 import * as meetingApi from "../api/meetingApi";
+import * as notetakerApi from "../api/notetakerApi";
+import type { NotetakerRecording } from "../api/notetakerApi";
 import * as zoomApi from "../api/zoomApi";
 import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
@@ -20,6 +22,14 @@ vi.mock("../api/meetingApi", async (importOriginal) => ({
   bookMeeting: vi.fn(),
   rescheduleMeeting: vi.fn(),
   cancelMeeting: vi.fn(),
+}));
+vi.mock("../api/notetakerApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/notetakerApi")>()),
+  getNotetaker: vi.fn(),
+  scheduleNotetaker: vi.fn(),
+  cancelNotetaker: vi.fn(),
+  retryNotetaker: vi.fn(),
+  getTranscript: vi.fn(),
 }));
 vi.mock("../api/zoomApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/zoomApi")>()),
@@ -81,13 +91,18 @@ function renderSection({
   doNotContact = false,
   offered = true,
   zoomStatus = null,
+  notetakerOffered = false,
+  recordings = [],
 }: {
   meetings?: PersonMeetings;
   doNotContact?: boolean;
   offered?: boolean;
   zoomStatus?: zoomApi.ZoomAccount["status"];
+  notetakerOffered?: boolean;
+  recordings?: NotetakerRecording[];
 } = {}) {
   vi.mocked(meetingApi.getMeetings).mockResolvedValue(meetings);
+  vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({ offered: notetakerOffered, recordings });
   vi.mocked(zoomApi.getZoom).mockResolvedValue({ offered: true, status: zoomStatus, connectedAt: null });
   vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
     offered,
@@ -358,4 +373,97 @@ describe("MeetingsSection", () => {
     expect(meetingApi.getMeetingSlots).toHaveBeenLastCalledWith("p1", "c1", 30, "2026-10-07", null, expect.anything());
     expect(screen.getByRole("button", { name: "Earlier days" })).toBeEnabled();
   });
+  it("offers Record with Notetaker on a call with a video link, and sends the bot when pressed", async () => {
+    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(aRecording({ status: "SCHEDULED" }));
+    renderSection({ notetakerOffered: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Record with Notetaker" }));
+
+    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1");
+    expect(await screen.findByText(/The Notetaker will join the call with Priya/)).toBeInTheDocument();
+  });
+
+  it("offers no Notetaker where none is set up, or for someone marked do not contact", async () => {
+    renderSection({ notetakerOffered: false });
+    await screen.findByText("Coffee");
+    await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Record with Notetaker" })).not.toBeInTheDocument();
+  });
+
+  it("hides Record with Notetaker for someone marked do not contact", async () => {
+    renderSection({ notetakerOffered: true, doNotContact: true });
+    await screen.findByText("Coffee");
+    await waitFor(() => expect(poolApi.getPerson).toHaveBeenCalled());
+    await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Record with Notetaker" })).not.toBeInTheDocument();
+  });
+
+  it("shows a scheduled bot on its call and removes it after asking", async () => {
+    vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
+    renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
+
+    expect(await screen.findByText("Notetaker scheduled")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Record with Notetaker" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove notetaker" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove notetaker" }));
+
+    expect(notetakerApi.cancelNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+  });
+
+  it("opens a past call's transcript once its notes are filed, matched by its start", async () => {
+    vi.mocked(notetakerApi.getTranscript).mockResolvedValue({
+      recordingId: "r2",
+      title: "Coffee",
+      startsAt: "2026-09-22T06:00:00Z",
+      lines: [
+        { at: "2026-09-22T06:00:05Z", speaker: "Yara Haddad", text: "Thanks for making the time." },
+        { at: "2026-09-22T06:01:10Z", speaker: "Priya Raman", text: "Happy to talk." },
+      ],
+    });
+    renderSection({
+      notetakerOffered: true,
+      recordings: [
+        aRecording({
+          id: "r2",
+          meetingId: "an-older-row",
+          startsAt: "2026-09-22T06:00:00Z",
+          status: "DONE",
+          hasTranscript: true,
+        }),
+      ],
+    });
+
+    expect(await screen.findByText("Notes filed")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "View transcript" }));
+
+    expect(await screen.findByText("Happy to talk.")).toBeInTheDocument();
+    expect(screen.getByText("01:05")).toBeInTheDocument();
+  });
+
+  it("says why a bot failed, and tries the notes again only where the call was heard", async () => {
+    vi.mocked(notetakerApi.retryNotetaker).mockResolvedValue(aRecording({ status: "PROCESSING" }));
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "FAILED", failureReason: "SUMMARY_FAILED", retryable: true })],
+    });
+
+    expect(await screen.findByText("Notetaker failed: the notes couldn't be written")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(notetakerApi.retryNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+    expect(screen.getByRole("button", { name: "Record with Notetaker" })).toBeInTheDocument();
+  });
 });
+
+function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecording {
+  return {
+    id: "r1",
+    meetingId: "m1",
+    startsAt: "2026-10-07T06:00:00Z",
+    status: "SCHEDULED",
+    failureReason: null,
+    hasTranscript: false,
+    retryable: false,
+    noteId: null,
+    ...overrides,
+  };
+}

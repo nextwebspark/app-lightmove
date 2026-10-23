@@ -739,6 +739,11 @@
                   <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
                   <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                   <sc-if value="{{ m.viaLink }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
+                  <span data-screen-label="Notetaker" style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:4px">
+                    <sc-if value="{{ m.hasNotetaker }}" hint-placeholder-val="{{ true }}"><span style="display:inline-flex;border-radius:6px;border:1px solid var(--line);padding:1px 7px;font:600 9.5px var(--mono);background:var(--panel);color:var(--text2)">{{ m.notetaker }}</span>
+                      <a href="#" style="font:500 11px var(--mono);color:var(--text3)" style-hover="color:var(--text);text-decoration:underline">Remove notetaker</a></sc-if>
+                    <sc-if value="{{ m.canRecord }}" hint-placeholder-val="{{ false }}"><a href="#" style="font:500 11px var(--mono);color:var(--text3)" style-hover="color:var(--text);text-decoration:underline">Record with Notetaker</a></sc-if>
+                  </span>
                 </span>
                 <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
@@ -750,7 +755,11 @@
             <sc-for list="{{ mt.past }}" as="m" hint-placeholder-count="2">
               <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)">
                 <span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span>
-                <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span></span>
+                <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
+                  <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><span data-screen-label="Notetaker" style="display:flex;align-items:center;gap:12px;margin-top:4px">
+                    <span style="display:inline-flex;border-radius:6px;padding:1px 7px;font:600 9.5px var(--mono);background:var(--green-dim);color:var(--green)">Notes filed</span>
+                    <a href="#" style="font:500 11px var(--mono);color:var(--text3)" style-hover="color:var(--text);text-decoration:underline">View transcript</a></span></sc-if>
+                </span>
               </div>
             </sc-for>
           </sc-if>
@@ -798,8 +807,8 @@ const BOOKING_URL = "uncava.com/book/yara-haddad";
 // person id → meetings on the team's connected calendars with one of that person's addresses
 const MEETINGS = {
   e01: {
-    upcoming: [["OCT", "7", "Tue 7 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Google Meet", false]],
-    past: [["22 Sep", "Coffee at DIFC", "Sara Al-Mansour"], ["14 Apr", "Head of Credit Risk: intro call", "Yara Haddad"]]
+    upcoming: [["OCT", "7", "Tue 7 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Google Meet", false, "Notetaker scheduled"]],
+    past: [["22 Sep", "Coffee at DIFC", "Sara Al-Mansour", true], ["14 Apr", "Head of Credit Risk: intro call", "Yara Haddad"]]
   },
   e09: {
     upcoming: [["OCT", "2", "Thu 2 Oct · 14:00–14:30", "30-minute call with Yara Haddad", "Sara Al-Mansour", "Microsoft Teams", true]],
@@ -1043,8 +1052,12 @@ class Component extends DCLogic {
   meetingVals(dr) {
     const id = this.state.drawer;
     const found = MEETINGS[id] || { upcoming: [], past: [] };
-    const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink }));
-    const past = found.past.map(([date, title, who]) => ({ date, title, who }));
+    // The Notetaker (a Recall.ai bot): Record with Notetaker on a call with a video link, then its chip — Notetaker
+    // scheduled / Notetaker joining / Recording (each with Remove notetaker), Writing notes, Notes filed (View transcript),
+    // or "Notetaker failed: <why>" (Try again where only the write-up failed). Never offered for do not contact.
+    const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink, notetaker]) => ({ month, day, when, title, who, join, viaLink,
+      notetaker: notetaker || "", hasNotetaker: !!notetaker, canRecord: !notetaker && !dr.dnc }));
+    const past = found.past.map(([date, title, who, notesFiled]) => ({ date, title, who, notesFiled: !!notesFiled }));
     const total = upcoming.length + past.length;
     return { upcoming, past, hasUpcoming: upcoming.length > 0, hasPast: past.length > 0, isEmpty: total === 0,
       count: total === 0 ? "" : String(total), canBook: dr.show && !dr.dnc };
