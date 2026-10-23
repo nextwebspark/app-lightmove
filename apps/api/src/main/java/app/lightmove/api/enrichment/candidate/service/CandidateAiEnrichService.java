@@ -80,7 +80,7 @@ public class CandidateAiEnrichService {
         }
         llmBudget.require(LlmBudget.CANDIDATE_AI_ASSESSMENT, userId);
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
-        MaterialText material = materialReader.read(projectId, candidateId);
+        MaterialText material = materialReader.readForAssessment(projectId, candidateId);
         requested(AiRunScope.ASSESSMENT, material, userId, workspaceId, projectId, candidateId, httpRequest);
 
         AiScorecardDraft draft = drafter.draft(dossier, brief, material)
@@ -95,7 +95,10 @@ public class CandidateAiEnrichService {
         return candidates.dossierOf(projectId, candidateId).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    /** Says how many notes and documents left for the model with the profile: a CV sent out is a CV out of the app. */
+    /**
+     * Says how many notes, documents and call transcripts left for the model with the profile: a CV sent out is a CV
+     * out of the app.
+     */
     private void requested(AiRunScope scope, MaterialText material, UUID userId, UUID workspaceId, UUID projectId,
                            UUID candidateId, HttpServletRequest httpRequest) {
         audit.projectEvent(ProjectEventType.CANDIDATE_AI_ENRICH_REQUESTED, userId, workspaceId, projectId, httpRequest)
@@ -103,6 +106,7 @@ public class CandidateAiEnrichService {
                 .detail("scope", scope.name())
                 .detail("notesSent", String.valueOf(material.noteCount()))
                 .detail("documentsSent", String.valueOf(material.documentCount()))
+                .detail("transcriptsSent", String.valueOf(material.transcriptCount()))
                 .record();
     }
 }

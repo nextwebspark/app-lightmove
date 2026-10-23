@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,6 +14,9 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.candidate.model.SpokenLine;
+import app.lightmove.api.candidate.model.TranscriptOnFile;
+import app.lightmove.api.candidate.service.CandidateMaterialService;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
@@ -28,6 +32,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -62,6 +67,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private NotetakerReconcile reconcile;
     @Autowired private NotetakerTranscriptPurge transcriptPurge;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private CandidateMaterialService material;
 
     private String grantId;
     private String consultant;
@@ -367,6 +373,48 @@ class NotetakerIntegrationTest extends FlowTestSupport {
 
         assertThat(scheduled.get("status").asText()).isEqualTo("CANCELLED");
         assertThat(recall.removed()).containsExactly(recall.lastBotId());
+    }
+
+    @Test
+    @DisplayName("the assessment reads a call's transcript from its position while its note is live, the team marked")
+    void transcriptReachesTheAssessmentWhileItsNoteIsLive() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(
+                new TranscriptLine(start.plusSeconds(5), "Yara  haddad", "How did the listing go?", true),
+                new TranscriptLine(start.plusSeconds(20), "Priya Raman", "I took the finance team through the IPO.",
+                        true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+
+        List<TranscriptOnFile> read = material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
+        assertThat(read).singleElement().satisfies(transcript -> {
+            assertThat(transcript.title()).isEqualTo("First conversation");
+            assertThat(transcript.lines()).extracting(SpokenLine::speaker, SpokenLine::team)
+                    .containsExactly(tuple("Yara  haddad", true), tuple("Priya Raman", false));
+        });
+
+        String otherProject = body(as(consultant, post("/api/v1/projects").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"clientId\":\"%s\",\"positionTitle\":\"Group COO\"}".formatted(clientId)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        String onOther = body(as(consultant, post("/api/v1/projects/" + otherProject + "/candidates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"fullName":"Priya Raman","title":"Chief Financial Officer","employerName":"Target Group",
+                         "email":"priya@%s"}
+                        """.formatted(domain)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        assertThat(material.transcriptsOf(UUID.fromString(otherProject), UUID.fromString(onOther))).isEmpty();
+
+        jdbc.update("update app_lm_person_note set deleted_at = now(), deleted_by = author_user_id where id = "
+                + "(select note_id from app_lm_meeting_recording where id = ?::uuid)", recordingId);
+        assertThat(material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya))).isEmpty();
     }
 
     @Test

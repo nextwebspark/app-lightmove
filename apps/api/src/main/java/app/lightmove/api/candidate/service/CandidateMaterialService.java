@@ -7,7 +7,9 @@ import app.lightmove.api.candidate.model.NoteOnFile;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonDocumentVersion;
+import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.StoredDocumentFile;
+import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonDocumentRepository;
 import app.lightmove.api.candidate.repository.PersonDocumentVersionRepository;
@@ -43,6 +45,7 @@ public class CandidateMaterialService {
     private final PersonDocumentRepository documents;
     private final PersonDocumentVersionRepository versions;
     private final PersonDocumentService documentFiles;
+    private final MeetingTranscriptLookup transcripts;
 
     /** Nothing when the executive is gone. */
     @Transactional(readOnly = true)
@@ -51,6 +54,20 @@ public class CandidateMaterialService {
                 .map(Candidate::getPerson)
                 .map(person -> materialOf(person, projectId))
                 .orElse(CandidateMaterial.NONE);
+    }
+
+    /** The calls this position recorded with the executive, newest first, while each one's note is live. */
+    @Transactional(readOnly = true)
+    public List<TranscriptOnFile> transcriptsOf(UUID projectId, UUID candidateId) {
+        return candidates.findByIdAndProjectId(candidateId, projectId)
+                .map(Candidate::getPerson)
+                .map(person -> transcripts.transcriptsOf(person.getWorkspaceId(), projectId, person.getId(), notes
+                        .findReadableNewestFirst(person.getWorkspaceId(), person.getId(),
+                                NoteViewpoint.position(projectId))
+                        .stream()
+                        .map(PersonNote::getId)
+                        .toList()))
+                .orElse(List.of());
     }
 
     public InputStream open(StoredDocumentFile file) {
