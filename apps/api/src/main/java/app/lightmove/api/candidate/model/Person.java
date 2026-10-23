@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.BackgroundField;
+import app.lightmove.api.candidate.constant.CallField;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
@@ -313,6 +314,36 @@ public class Person extends BaseEntity {
         this.nationality = details.nationality();
         this.gender = details.gender();
         this.yearsExperience = details.yearsExperience();
+    }
+
+    /**
+     * What a researcher applied from a recorded call: only the fields it names, so an edit made elsewhere to the rest
+     * stands. A package figure carries the package's currency with it, and the compensation's own reconciliation still
+     * decides what an allowance total does to its itemised lines.
+     */
+    public void recordFromCall(ProfileFromCall change) {
+        if (change.fields().contains(CallField.NOTICE_PERIOD)) {
+            this.noticePeriod = change.noticePeriod();
+        }
+        if (change.touchesPackage()) {
+            CandidateCompensation held = compensation();
+            describeCompensation(new CandidateCompensation(change.currency(),
+                    change.fields().contains(CallField.BASE_SALARY) ? change.baseSalary() : held.baseSalary(),
+                    change.fields().contains(CallField.BONUS) ? change.bonus() : held.bonus(),
+                    change.fields().contains(CallField.ALLOWANCES) ? change.allowances() : held.allowances(),
+                    held.longTermIncentive(), noticePeriod,
+                    held.breakdown()));
+        }
+        if (change.fields().contains(CallField.LOCATION)) {
+            this.locationCity = change.city();
+            this.locationCountry = change.country();
+        }
+    }
+
+    /** The same fields as {@code change} names, as the record holds them now. */
+    public ProfileFromCall heldFor(ProfileFromCall change) {
+        return new ProfileFromCall(change.fields(), noticePeriod, compensationCurrency, baseSalary, bonus, allowances,
+                locationCity, locationCountry);
     }
 
     /** A researcher saved the Background section: every AI-proposed value in it is now theirs. */

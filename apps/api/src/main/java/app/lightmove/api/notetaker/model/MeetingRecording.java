@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -87,6 +88,14 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "media_deleted", nullable = false)
     private boolean mediaDeleted;
 
+    /** Null until someone presses Suggest changes; empty when the call stated nothing new for the record. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "suggestions", columnDefinition = "jsonb")
+    private List<CallSuggestion> suggestions;
+
+    @Column(name = "suggested_at")
+    private Instant suggestedAt;
+
     public static MeetingRecording claimed(UUID workspaceId, UUID personId, UUID projectId, UUID candidateId,
                                            UUID meetingId, String title, Instant startsAt, Instant endsAt,
                                            String joinUrl, UUID requestedBy) {
@@ -161,6 +170,30 @@ public class MeetingRecording extends BaseEntity {
     public void retrying() {
         this.failureReason = null;
         this.status = NotetakerStatus.PROCESSING;
+    }
+
+    /** Suggest changes is offered on a call whose notes are filed and whose transcript is still kept. */
+    public boolean isSuggestible() {
+        return status == NotetakerStatus.DONE && transcript != null;
+    }
+
+    public boolean hasPendingSuggestions() {
+        return suggestions != null && suggestions.stream().anyMatch(CallSuggestion::isPending);
+    }
+
+    /** Asking again keeps every decided suggestion beside the new ones, so an applied change keeps its Undo. */
+    public void suggested(List<CallSuggestion> found, Instant at) {
+        List<CallSuggestion> next = new ArrayList<>(suggestions == null ? List.of()
+                : suggestions.stream().filter(held -> !held.isPending()).toList());
+        next.addAll(found);
+        this.suggestions = List.copyOf(next);
+        this.suggestedAt = at;
+    }
+
+    public void replaceSuggestion(CallSuggestion changed) {
+        this.suggestions = suggestions.stream()
+                .map(held -> held.id().equals(changed.id()) ? changed : held)
+                .toList();
     }
 
     private static String clip(String value, int longest) {

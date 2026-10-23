@@ -33,7 +33,8 @@ const LINE_CLASS: Record<NotetakerTone, string> = {
 /**
  * One meeting row's Notetaker, a strip with a switch while the server still offers the call — before it, during it,
  * or while it runs over: on sends the bot, off asks and then removes it. Once the call is over the strip says what came of it — the transcript
- * once its notes are filed, Try again when only the write-up failed. The bot says in the call's chat who it records for.
+ * and Suggest changes once its notes are filed, Try again when only the write-up failed. The bot says in the call's chat who it
+ * records for.
  */
 export function NotetakerControl({
   projectId,
@@ -43,6 +44,7 @@ export function NotetakerControl({
   mayRecord,
   firstName,
   onShowTranscript,
+  onSuggestChanges,
 }: {
   projectId: string;
   candidateId: string;
@@ -52,6 +54,8 @@ export function NotetakerControl({
   mayRecord: boolean;
   firstName: string;
   onShowTranscript: (recordingId: string) => void;
+  /** Opens the review of what the call's transcript suggests for the person's record. */
+  onSuggestChanges: (recordingId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -135,6 +139,16 @@ export function NotetakerControl({
           View transcript
         </button>
       )}
+      {recording?.status === "DONE" && recording.hasTranscript && (
+        <button
+          type="button"
+          onClick={() => onSuggestChanges(recording.id)}
+          className={cn(ROW_ACTION, "inline-flex items-center gap-1", recording.pendingSuggestions > 0 || !recording.suggestionsAsked ? "text-u-accent" : "")}
+        >
+          {(recording.pendingSuggestions > 0 || !recording.suggestionsAsked) && <Icon d={ICONS.sparkle} size={12} />}
+          {suggestLabelOf(recording)}
+        </button>
+      )}
       {chip?.action === "retry" && recording && (
         <button
           type="button"
@@ -200,6 +214,12 @@ function lineOf(recording: NotetakerRecording | null, chip: NotetakerChip | null
     case "CANCELLED":
       return off;
   }
+}
+
+function suggestLabelOf(recording: NotetakerRecording): string {
+  if (!recording.suggestionsAsked) return "Suggest changes";
+  if (recording.pendingSuggestions === 0) return "Changes reviewed";
+  return recording.pendingSuggestions === 1 ? "1 change to review" : `${recording.pendingSuggestions} changes to review`;
 }
 
 const ROW_ACTION =

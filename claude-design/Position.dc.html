@@ -1778,7 +1778,18 @@
                   <sc-if value="{{ cd.mtHasPast }}">
                     <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
                     <sc-for list="{{ cd.mtPast }}" as="m">
-                      <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span></span></div>
+                      <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
+                        <!-- A call the Notetaker recorded: once its notes are filed the row offers Suggest changes, which opens
+                             "Changes from the call" and reads the transcript then — one press, one AI use. After a run the link
+                             reads "3 changes to review", then "Changes reviewed". Nothing else in the drawer changes. -->
+                        <sc-if value="{{ m.recorded }}">
+                          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:4px;font:400 11.5px var(--mono)">
+                            <span style="border-radius:999px;padding:1px 8px;font:500 11px var(--sans);background:var(--green-dim);color:var(--green)">Notes filed</span>
+                            <button style="padding:0;background:none;border:none;font:500 11.5px var(--mono);color:var(--text3);text-decoration:underline;cursor:pointer">View transcript</button>
+                            <button onClick="{{ openCallChanges }}" style="display:inline-flex;align-items:center;gap:4px;padding:0;background:none;border:none;font:500 11.5px var(--mono);color:var(--sky);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Suggest changes</button>
+                          </span>
+                        </sc-if>
+                      </span></div>
                     </sc-for>
                   </sc-if>
                   <sc-if value="{{ cd.zoomReconnect }}" hint-placeholder-val="{{ false }}">
@@ -2570,6 +2581,38 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.sparkle }}"></path></svg>Ask</a>
   </sc-if>
 
+  <!-- Changes from the call: the transcript read against the person's record, one change per card — what the record
+       holds now, what the call suggests, and the words it rests on with their time into the call. Skip, Edit (the
+       field's own input in place) or Apply; ← Back revisits a card. A package is one card with a tick per figure. The
+       last step sums up ("4 applied · 3 skipped") with Undo per line. Loading reads "Reading the transcript…"; a call
+       that stated nothing new reads "Nothing to change". Every apply is an Activity line naming who and from which call. -->
+  <sc-if value="{{ callChangesOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeCallChanges }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(0,0,0,.6);padding:16px">
+      <div role="dialog" aria-modal="true" aria-label="Changes from the call" data-screen-label="Changes from the call" onClick="{{ stop }}" style="width:480px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+        <div style="padding:20px 22px 0">
+          <div style="font:600 15px var(--sans)">Changes from the call</div>
+          <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">Coffee at DIFC · Tue 22 Apr · 10:00</div>
+        </div>
+        <div style="padding:14px 22px 18px">
+          <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:3px;border-radius:2px;background:var(--panel2);overflow:hidden"><div style="width:14%;height:100%;background:var(--sky)"></div></div><span style="font:500 11.5px var(--mono);color:var(--text3)">1 of 7</span></div>
+          <div style="margin-top:20px;display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Notice period</span><span style="font:400 12px var(--sans);color:var(--text3)">Compensation</span></div>
+          <div style="margin-top:14px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.3fr);gap:12px;align-items:start">
+            <div><div style="font:400 11.5px var(--sans);color:var(--text3)">Now</div><div style="margin-top:4px;font:italic 400 14px var(--sans);color:var(--text3)">Not recorded</div></div>
+            <div style="padding-top:20px;color:var(--text3)">→</div>
+            <div><div style="font:400 11.5px var(--sans);color:var(--text3)">Suggested</div><div style="margin-top:4px;font:500 19px var(--sans)">3 months</div><button style="margin-top:6px;padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Edit</button></div>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:10px;align-items:baseline;border-top:1px solid var(--line-soft);padding-top:14px;font:400 13px var(--sans);color:var(--text2)"><span style="flex:none;font:500 11.5px var(--mono);color:var(--sky)">07:42</span><q style="font-style:italic">My contract has three months' notice, and they'd hold me to it.</q></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid var(--line-soft)">
+          <button disabled style="padding:7px 12px;background:none;border:none;font:500 13px var(--sans);color:var(--text3);opacity:.5">← Back</button>
+          <span style="flex:1"></span>
+          <button onClick="{{ closeCallChanges }}" style="border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Skip</button>
+          <button onClick="{{ applyCallChange }}" style="border-radius:6px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Apply</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
   <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
     <div style="position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:120;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:9px 16px;font:500 12px var(--mono);color:var(--text2);box-shadow:var(--shadow);animation:fadeUp .2s ease both">{{ toast }}</div>
   </sc-if>
@@ -2895,7 +2938,7 @@ const OUTREACH = {
   e07: ["CFO — first approach", "Yousef Iman", "active", 1, null]
 };
 const MEETINGS = {
-  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["22 Apr", "Coffee at DIFC", "Yara Haddad"]] },
+  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["22 Apr", "Coffee at DIFC", "Yara Haddad", true]] },
   e06: { upcoming: [], past: [] }
 };
 // [date, summary, technical score, behavioural score, technical +/-, behavioural +/-]
@@ -3504,7 +3547,7 @@ class Component extends DCLogic {
       orSeq: run ? run[0] : "", orSender: run ? run[1] : "", orSteps, orLive: runState === "active",
       orBooked: runState === "booked", orReplied: runState === "replied", orRepliedAt: run ? run[4] : "",
       replyChoices: this.statusOf(e) === "contacted" ? [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })) : [],
-      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.map(([date, title, who]) => ({ date, title, who })),
+      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.map(([date, title, who, recorded]) => ({ date, title, who, recorded: Boolean(recorded) })),
       mtHasUpcoming: meet.upcoming.length > 0, mtHasPast: meet.past.length > 0, mtEmpty: meet.upcoming.length + meet.past.length === 0,
       zoomConnected: !s.zoomBroken, zoomReconnect: !!s.zoomBroken,
       showDnc: cw && !!crm.dnc,
@@ -4133,6 +4176,9 @@ class Component extends DCLogic {
     const id = (e) => e.currentTarget.dataset.id;
     return {
       toggleWsMenu: () => set({ wsMenu: !this.state.wsMenu }),
+      openCallChanges: () => set({ callChanges: true }),
+      closeCallChanges: () => set({ callChanges: false }),
+      applyCallChange: () => { set({ callChanges: false }); this.showToast("Notice period saved from the call"); },
       toggleTheme: () => { const d = !this.state.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
       toggleCollapse: () => { const c = !this.state.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) { /* storage unavailable */ } set({ collapsed: c }); },
       setViewTable: () => set({ view: "table" }),
@@ -4394,7 +4440,7 @@ class Component extends DCLogic {
     const isPipeline = s.page === "pipeline";
     const pipeline = isPipeline ? this.pipelineVals() : { pipelineRows: [], pipelinePills: [] };
     return Object.assign({
-      ic: I, isAdmin: !s.clientRep, viewerInitials: s.clientRep ? "LM" : "YH", wsMenuOpen: s.wsMenu,
+      ic: I, isAdmin: !s.clientRep, viewerInitials: s.clientRep ? "LM" : "YH", wsMenuOpen: s.wsMenu, callChangesOpen: Boolean(s.callChanges),
       department: s.department, roleTitle: s.roleTitle,
       sideWidth: collapsed ? "56px" : "210px", labelDisp: collapsed ? "none" : "inline", rowJustify: collapsed ? "center" : "flex-start",
       themeLabel: s.dark ? "Light mode" : "Dark mode", themeIcon: s.dark ? I.sun : I.moon,

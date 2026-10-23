@@ -1,0 +1,278 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "guard": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "notice": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "said": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "currentPackage": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "base": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "amount": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "per": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "bonus": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "amount": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "per": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "allowances": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "amount": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "per": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        "bonusMonthsOfBase": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "said": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "location": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "city": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "country": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "said": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "relocation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "open": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "said": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "motivation": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "said": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "expectedPackage": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "said": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "nextSteps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "said": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "title"
+        ]
+      }
+    }
+  }
+}

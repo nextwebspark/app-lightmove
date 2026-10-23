@@ -439,7 +439,8 @@ two drift apart.
 | | |
 |---|---|
 | `min-instances` | **Not set by the deploy.** It is the *service-level* minimum, owned by `ops/gcp/schedule-warm-hours.sh` ("Warm hours" above): 1 from 06:45 to 22:00 Asia/Dubai, 0 overnight, about $2–4 a month at the idle rate. A deploy leaves it alone. Outside the window the price is a cold start — measured at **~5s**, not the 15s a Spring Boot app usually costs |
-| `max-instances 2` | **Not** the default of 100. 2 × `DB_POOL_MAX=5` = 10 connections, under the `db-f1-micro`'s ~25 — which the `brightdata` ETL also draws on. Raise this and you can take down the neighbours |
+| `max-instances 3` | **Not** the default of 100. 3 × `DB_POOL_MAX=5` = 15 connections, under the `db-g1-small`'s ~50 — which the `brightdata` ETL also draws on. Raise this and you can take down the neighbours |
+| `concurrency 200` | Every open tab holds two live streams, which count against it but wait without a thread. Tomcat's 200 platform threads match it; raise both together |
 | Version | One `--build-arg` (`APP_VERSION`, the release tag) feeds both halves of the image: vite freezes it into the bundle, where the left rail renders it, and Spring reports it at `/actuator/info`. Baked, never set on the service — an image must not be able to disagree with itself. Every local build reads `dev` |
 | Image tag | The release version **and** the git SHA, never `latest`. The version is what you ask for; the SHA still answers which commit is serving if a tag is ever moved |
 | Frontend bundle | The `vite build` output and nothing else: **no sourcemaps** and no build-machine paths. A scan of a *developer's* machine sees `/src/...` and an absolute local path because that is the Vite **dev server** serving unbundled modules — it only ever runs under `npm run dev` and is never in the image |

@@ -18,6 +18,7 @@ import app.lightmove.api.notetaker.dto.CandidateNotetakerResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRecordingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
 import app.lightmove.api.notetaker.dto.TranscriptLineResponse;
+import app.lightmove.api.notetaker.model.CallSuggestion;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
@@ -276,7 +277,7 @@ public class NotetakerService {
 
     /** Nobody is recorded without being told, and told whose notes they are. */
     private String consentLineFor(UUID userId) {
-        String name = users.findById(userId).map(User::getFullName).filter(full -> !full.isBlank())
+        String name = users.findById(userId).map(User::getFullName).map(String::strip).filter(full -> !full.isEmpty())
                 .orElse("the consultant");
         return "Hello, I'm " + BOT_NAME + ". I'm recording and transcribing this call for " + name
                 + "'s notes. Ask them to remove me at any time.";
@@ -314,6 +315,8 @@ public class NotetakerService {
     static NotetakerRecordingResponse responseOf(MeetingRecording recording) {
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
                 recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
-                recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId());
+                recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
+                recording.getSuggestions() != null, recording.getSuggestions() == null ? 0
+                        : (int) recording.getSuggestions().stream().filter(CallSuggestion::isPending).count());
     }
 }

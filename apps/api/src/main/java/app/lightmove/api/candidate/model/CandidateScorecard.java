@@ -133,6 +133,52 @@ public class CandidateScorecard extends BaseEntity {
         return changed;
     }
 
+    /**
+     * One section rewritten by a researcher outside the tab — words applied from a call. The section is theirs from
+     * then on, and like any save it makes the assessment a draft again.
+     */
+    public void writeSection(ScorecardReportSection section, String text, UUID by) {
+        Set<String> drafted = new HashSet<>(aiDrafted);
+        drafted.remove(draftKeyOf(section));
+        this.aiDrafted = drafted;
+        this.report = report.withText(section, text);
+        this.updatedBy = by;
+        reopen();
+    }
+
+    /** How one section and the assessment stood before a write from outside the tab, so an undo can put both back. */
+    public SectionStanding standingOf(ScorecardReportSection section) {
+        return new SectionStanding(status == ScorecardStatus.REVIEWED, reviewedBy, reviewedAt,
+                aiDrafted.contains(draftKeyOf(section)));
+    }
+
+    /** Puts a section back as it stood: its text, whether it was still the AI's draft, and a reviewed assessment's stamp. */
+    public void restoreSection(ScorecardReportSection section, String text, SectionStanding standing, UUID by) {
+        Set<String> drafted = new HashSet<>(aiDrafted);
+        if (standing.aiDrafted()) {
+            drafted.add(draftKeyOf(section));
+        } else {
+            drafted.remove(draftKeyOf(section));
+        }
+        this.aiDrafted = drafted;
+        this.report = report.withText(section, text);
+        this.updatedBy = by;
+        if (standing.reviewed()) {
+            this.status = ScorecardStatus.REVIEWED;
+            this.reviewedBy = standing.reviewedBy();
+            this.reviewedAt = standing.reviewedAt();
+        } else {
+            reopen();
+        }
+    }
+
+    public record SectionStanding(boolean reviewed, UUID reviewedBy, Instant reviewedAt, boolean aiDrafted) {
+
+        public static SectionStanding fresh() {
+            return new SectionStanding(false, null, null, false);
+        }
+    }
+
     /** Whether a draft could still write anything: a criterion or section nobody holds, or one still the AI's. */
     public boolean hasOpenAmong(Collection<String> criterionKeys) {
         Set<String> held = byKey(scores).keySet();

@@ -38,6 +38,7 @@ public class StubChatModel implements ChatModel {
     private volatile String reply = REPLY;
     private final Map<String, String> repliesBySystemText = new ConcurrentHashMap<>();
     private final Map<String, AssistantMessage.ToolCall> toolCallsBySystemText = new ConcurrentHashMap<>();
+    private final Map<String, RuntimeException> failuresBySystemText = new ConcurrentHashMap<>();
 
     /**
      * ChatClient builds every call's options from these, and only tool-calling options carry a call's tools —
@@ -53,6 +54,12 @@ public class StubChatModel implements ChatModel {
         lastPrompt = prompt;
         prompts.add(prompt);
         String system = prompt.getSystemMessage().getText();
+        failuresBySystemText.entrySet().stream()
+                .filter(marked -> system != null && system.contains(marked.getKey()))
+                .findFirst()
+                .ifPresent(marked -> {
+                    throw marked.getValue();
+                });
         if (!answersToolResults(prompt)) {
             AssistantMessage.ToolCall toolCall = toolCallsBySystemText.entrySet().stream()
                     .filter(marked -> system != null && system.contains(marked.getKey()))
@@ -76,6 +83,11 @@ public class StubChatModel implements ChatModel {
         repliesBySystemText.put(marker, text);
     }
 
+    /** Fails a prompt whose system text contains {@code marker} with {@code failure}, as a model outage would. */
+    public void failWhenSystemContains(String marker, RuntimeException failure) {
+        failuresBySystemText.put(marker, failure);
+    }
+
     /**
      * Calls {@code toolName} with {@code arguments} for a prompt whose system text contains {@code marker},
      * then answers as usual once the tool's result comes back — so the real tool runs, with its context.
@@ -94,6 +106,7 @@ public class StubChatModel implements ChatModel {
         reply = REPLY;
         repliesBySystemText.clear();
         toolCallsBySystemText.clear();
+        failuresBySystemText.clear();
         lastPrompt = null;
         prompts.clear();
     }
