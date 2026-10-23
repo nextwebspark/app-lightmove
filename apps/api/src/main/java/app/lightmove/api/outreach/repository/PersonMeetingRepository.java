@@ -71,10 +71,6 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
 
     Optional<PersonMeeting> findByIdAndWorkspaceIdAndPersonId(UUID id, UUID workspaceId, UUID personId);
 
-    Optional<PersonMeeting> findByMailboxConnectionIdAndProviderEventIdAndPersonId(UUID mailboxConnectionId,
-                                                                                 String providerEventId,
-                                                                                 UUID personId);
-
     /** The meetings a full read of this window no longer finds: moved out of it, deleted, or no longer a call. */
     @Modifying
     @Query("delete from PersonMeeting m where m.mailboxConnectionId = :mailboxConnectionId "

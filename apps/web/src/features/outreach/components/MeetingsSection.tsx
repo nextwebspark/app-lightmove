@@ -180,7 +180,6 @@ export function MeetingsSection({
           fullName={fullName}
           candidateStatus={candidateStatus}
           emails={emails}
-          notetakerOffered={notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact}
           onClose={() => setIsBooking(false)}
         />
       )}

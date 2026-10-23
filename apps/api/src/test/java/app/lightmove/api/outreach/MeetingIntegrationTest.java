@@ -144,8 +144,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         startSequence(priya, "priya@" + domain);
 
         Instant slot = firstFreeSlot(priya, 30);
-        String bookedId = body(book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk()).andReturn())
-                .get("meetingId").asText();
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
 
         assertThat(gateway.created()).hasSize(1);
         assertThat(gateway.created().getFirst().inviteeAddress()).isEqualTo("priya@" + domain);
@@ -158,7 +157,6 @@ class MeetingIntegrationTest extends FlowTestSupport {
         JsonNode upcoming = meetingsOf(priya).get("upcoming");
         assertThat(upcoming).hasSize(1);
         assertThat(upcoming.get(0).get("bookedInUncava").asBoolean()).isTrue();
-        assertThat(upcoming.get(0).get("id").asText()).isEqualTo(bookedId);
 
         // The calendar's own webhook for the same event keeps who booked it.
         changed(event(createdEventId(), "Confidential: first conversation",
@@ -181,7 +179,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         setStatus(priya, "interested");
         long statusLines = activityKinds(priya).stream().filter("STATUS_CHANGED"::equals).count();
 
-        book(priya, firstFreeSlot(priya, 45), 45, "priya@" + domain).andExpect(status().isOk());
+        book(priya, firstFreeSlot(priya, 45), 45, "priya@" + domain).andExpect(status().isNoContent());
 
         assertThat(candidateStatus(priya)).isEqualTo("interested");
         assertThat(activityKinds(priya)).contains("MEETING_BOOKED");
@@ -195,7 +193,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         connectMailbox();
         Instant slot = firstFreeSlot(priya, 90);
 
-        book(priya, slot, 90, "priya@" + domain).andExpect(status().isOk());
+        book(priya, slot, 90, "priya@" + domain).andExpect(status().isNoContent());
 
         Instant callEnds = slot.plus(Duration.ofMinutes(90));
         assertThat(gateway.created().getFirst().endsAt()).isEqualTo(callEnds);
@@ -275,7 +273,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(LocalDate.parse(later.get("days").get(0).get("date").asText())).isBetween(asked, asked.plusDays(7));
         assertThat(LocalDate.parse(later.get("previousFrom").asText())).isBetween(asked.minusDays(9), asked);
         Instant farOff = Instant.parse(later.get("days").get(0).get("starts").get(0).asText());
-        book(priya, farOff, 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, farOff, 30, "priya@" + domain).andExpect(status().isNoContent());
 
         assertThat(codeOf(as(consultant, get(meetings(priya) + "/slots").param("from", latest.plusDays(1).toString()))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("MEETING_SLOT_INVALID");
@@ -347,7 +345,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         connectMailbox();
         startSequence(priya, "priya@" + domain);
         Instant slot = firstFreeSlot(priya, 30);
-        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
         JsonNode booked = meetingsOf(priya).get("upcoming").get(0);
         assertThat(booked.get("editable").asBoolean()).isTrue();
         String meetingId = booked.get("id").asText();
@@ -376,7 +374,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         // A slot only 30 minutes long can be the window's last half hour, where moving to 45 overruns the close
         // and is refused as an invalid slot (400) before the busy check this test is about.
         Instant slot = firstFreeSlot(priya, 45);
-        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
         gateway.busyAt(List.of(new BusyInterval(slot, slot.plus(Duration.ofMinutes(30))),
                 new BusyInterval(slot.plus(Duration.ofMinutes(30)), slot.plus(Duration.ofMinutes(45)))));
@@ -395,7 +393,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void cancellingRemovesTheCall() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        book(priya, firstFreeSlot(priya, 30), 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, firstFreeSlot(priya, 30), 30, "priya@" + domain).andExpect(status().isNoContent());
         String eventId = createdEventId();
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
 
@@ -421,7 +419,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_NOT_EDITABLE");
 
         Instant slot = firstFreeSlot(priya, 30);
-        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
         String booked = meetingIdBookedInUncava();
         inviteAndAccept(consultant, "Omar Saleh", "omar@" + domain, "ADMIN");
         String teammate = login("omar@" + domain);
@@ -442,7 +440,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
         Instant slot = firstFreeSlot(priya, 30);
-        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
 
         gateway.failChangingEvents(unavailable("move-event"));
@@ -462,7 +460,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
         Instant slot = firstFreeSlot(priya, 30);
-        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isNoContent());
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
 
         gateway.failChangingEvents(new VendorException(VendorCall.of("nylas", "move-event"),

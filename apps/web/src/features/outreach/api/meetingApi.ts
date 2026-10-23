@@ -95,12 +95,8 @@ export function getMeetingSlots(
   return request<MeetingSlots>(`${meetingsPath(projectId, candidateId)}/slots?${query}`, { signal });
 }
 
-export interface BookedMeeting {
-  meetingId: string;
-}
-
-export function bookMeeting(projectId: string, candidateId: string, body: BookMeetingRequest): Promise<BookedMeeting> {
-  return request<BookedMeeting>(meetingsPath(projectId, candidateId), { method: "POST", body });
+export function bookMeeting(projectId: string, candidateId: string, body: BookMeetingRequest): Promise<void> {
+  return request<void>(meetingsPath(projectId, candidateId), { method: "POST", body });
 }
 
 export function rescheduleMeeting(

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Field, Input, Modal, Select, Skeleton, Toggle, useToast } from "../../../components/ui";
+import { Button, Field, Input, Modal, Select, Skeleton, useToast } from "../../../components/ui";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -11,7 +10,6 @@ import { statusById, useStatusAutomations, wouldMoveForward } from "../../worksp
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as meetingApi from "../api/meetingApi";
 import type { Meeting, MeetingVideo } from "../api/meetingApi";
-import * as notetakerApi from "../api/notetakerApi";
 import { meetingWhenOf, slotDayLabelOf, slotTimeOf } from "../lib/meetingTimes";
 import { SlotDayTiles, SlotGroup, SlotPager } from "./BookCallTimes";
 
@@ -49,11 +47,6 @@ function videoLinksFor(provider: string | undefined, isZoomOffered: boolean) {
 
 const DEFAULT_TITLE = "Confidential: first conversation";
 
-interface NotetakerOutcome {
-  sent: boolean;
-  failure: unknown;
-}
-
 /**
  * Book a call (`Outreach.dc.html?dialog=bookCall`): a free time off the consultant's own calendar, and an invite from it.
  * Given a booked `meeting`, the same grid moves that call instead: its link, address and title stay as booked.
@@ -65,7 +58,6 @@ export function BookCallDialog({
   candidateStatus,
   emails,
   meeting,
-  notetakerOffered = false,
   onClose,
 }: {
   projectId: string;
@@ -76,8 +68,6 @@ export function BookCallDialog({
   emails: CandidateEmail[];
   /** The call to move, where this is a reschedule rather than a booking. */
   meeting?: Meeting;
-  /** The Notetaker is set up and the person may be recorded: a booking offers to send it, switched on. */
-  notetakerOffered?: boolean;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -91,7 +81,6 @@ export function BookCallDialog({
   const [chosenDate, setChosenDate] = useState<string | null>(null);
   const [inviteAddress, setInviteAddress] = useState(emails[0]?.address ?? "");
   const [title, setTitle] = useState(DEFAULT_TITLE);
-  const [withNotetaker, setWithNotetaker] = useState(true);
 
   const minutes = Number(length);
   const slots = useQuery({
@@ -115,30 +104,18 @@ export function BookCallDialog({
   const bookedTarget =
     bookedRule?.enabled && !bookedRule.broken ? statusById(catalog, bookedRule.statusId) : null;
 
-  const offersNotetaker = !isRescheduling && notetakerOffered && video !== "NONE";
   const book = useMutation({
-    mutationFn: async (): Promise<NotetakerOutcome> => {
-      if (meeting) {
-        await meetingApi.rescheduleMeeting(projectId, candidateId, meeting.id, { startsAt: slot as string, minutes });
-        return { sent: false, failure: null };
-      }
-      const booked = await meetingApi.bookMeeting(projectId, candidateId, {
-        startsAt: slot as string,
-        minutes,
-        video,
-        inviteAddress,
-        title: title.trim(),
-      });
-      if (!(offersNotetaker && withNotetaker)) return { sent: false, failure: null };
-      // The invite has gone whatever the Notetaker answers, so its refusal is told apart rather than failing the booking.
-      try {
-        await notetakerApi.scheduleNotetaker(projectId, candidateId, booked.meetingId);
-        return { sent: true, failure: null };
-      } catch (failure) {
-        return { sent: false, failure };
-      }
-    },
-    onSuccess: (notetaker) => {
+    mutationFn: () =>
+      meeting
+        ? meetingApi.rescheduleMeeting(projectId, candidateId, meeting.id, { startsAt: slot as string, minutes })
+        : meetingApi.bookMeeting(projectId, candidateId, {
+            startsAt: slot as string,
+            minutes,
+            video,
+            inviteAddress,
+            title: title.trim(),
+          }),
+    onSuccess: () => {
       const day = slots.data?.days.find((candidate) => candidate.starts.includes(slot as string));
       const time = slotTimeOf(slot as string, timeZone ?? "UTC");
       const when = day ? `${slotDayLabelOf(day.date)}, ${time}` : time;
@@ -146,14 +123,7 @@ export function BookCallDialog({
         toast(`Call with ${firstName} moved to ${when}. They've been sent the new time.`);
       } else {
         const movesForward = bookedTarget !== null && wouldMoveForward(catalog, candidateStatus, bookedTarget.id);
-        toast(
-          `Invite sent to ${firstName} for ${when}.` +
-            (movesForward ? ` They moved to ${bookedTarget.label}.` : "") +
-            (notetaker.sent ? " The Notetaker will join and file its notes." : ""),
-        );
-      }
-      if (notetaker.failure) {
-        toast.error(`The Notetaker wasn't sent: ${messageFor(notetaker.failure)}`);
+        toast(`Invite sent to ${firstName} for ${when}.` + (movesForward ? ` They moved to ${bookedTarget.label}.` : ""));
       }
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
@@ -359,22 +329,6 @@ export function BookCallDialog({
                   className="px-2.5 py-2 font-sans text-[13px]"
                 />
               </Field>
-              {offersNotetaker && (
-                <div className="flex items-center gap-2.5 rounded-u-control border border-u-border bg-u-bg px-2.5 py-2">
-                  <Icon
-                    d={ICONS.mic}
-                    size={14}
-                    className={cn("flex-none", withNotetaker ? "text-u-accent" : "text-u-text3")}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-note font-medium text-u-text">Record with Notetaker</span>
-                    <span className="block font-mono text-meta text-u-text3">
-                      {withNotetaker ? `Joins 1 min early · files notes on ${firstName}` : "Off · nothing is recorded"}
-                    </span>
-                  </span>
-                  <Toggle checked={withNotetaker} onChange={setWithNotetaker} label="Record with Notetaker" />
-                </div>
-              )}
             </>
           )}
         </section>
