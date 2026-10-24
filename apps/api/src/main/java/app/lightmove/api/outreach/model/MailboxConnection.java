@@ -52,7 +52,7 @@ public class MailboxConnection extends BaseEntity {
     @Column(name = "status", nullable = false, length = 16)
     private MailboxStatus status;
 
-    /** Frozen since V153, written for its NOT NULL and never read: the cap is {@code AvailabilityService}'s. */
+    /** Frozen since V155, written for its NOT NULL and never read: the cap is {@code AvailabilityService}'s. */
     @Getter(AccessLevel.NONE)
     @Column(name = "daily_cap", nullable = false)
     private int dailyCap;

@@ -57,4 +57,4 @@ CREATE TRIGGER app_lm_member_availability_touch BEFORE UPDATE ON app_lm_member_a
     FOR EACH ROW EXECUTE FUNCTION app_lm_touch_updated_at();
 
 COMMENT ON COLUMN app_lm_mailbox_connection.daily_cap IS
-    'Frozen since V153: written at a first connect, never read. The cap is app_lm_workspace_availability / app_lm_member_availability.';
+    'Frozen since V155: written at a first connect, never read. The cap is app_lm_workspace_availability / app_lm_member_availability.';

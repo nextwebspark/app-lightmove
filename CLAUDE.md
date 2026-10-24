@@ -1264,7 +1264,13 @@ row's company): the Companies stage the executive is listed at, their own.
 V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
 foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
 sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.
-V153 adds working hours and the daily email cap (**Meetings & email** in Settings, an admin's; **Availability**, each
+V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
+`suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
+V154 adds `app_lm_interview_plan` (one per call per person on a position, matched on start and title), gives the recording
+its live copilot (`live_copilot`, `live_status`, the `live` reading, the coach's cursor, runs, failures and claim, the
+live URL's `live_token_hash` and the after-call `final_transcript_id` the note is filed from), and adds
+`app_lm_meeting_live_line` (the streamed transcript, deleted when the call ends) and `app_lm_meeting_copilot_viewer`.
+V155 adds working hours and the daily email cap (**Meetings & email** in Settings, an admin's; **Availability**, each
 consultant's; `AvailabilityService`): `app_lm_workspace_availability` (one per workspace; a null `weekly_hours` is the week
 the firm's country keeps — Saudi Arabia, Qatar, Kuwait, Bahrain, Oman and most of the Arab world Sunday to Thursday,
 `WorkingWeeks` — a null `daily_email_cap` the deployment's `daily-cap`, at most `max-daily-cap`) and
@@ -1277,12 +1283,6 @@ workspace's; Google and Nylas state none. They shape the booking link alone — 
 consultant's lower one, for every send — lowering the workspace's lowers any consultant's above it — and
 `app_lm_mailbox_connection.daily_cap` is frozen. Both rows are written insert-if-missing first, so a double-clicked
 first save writes one row.
-V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
-`suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
-V154 adds `app_lm_interview_plan` (one per call per person on a position, matched on start and title), gives the recording
-its live copilot (`live_copilot`, `live_status`, the `live` reading, the coach's cursor, runs, failures and claim, the
-live URL's `live_token_hash` and the after-call `final_transcript_id` the note is filed from), and adds
-`app_lm_meeting_live_line` (the streamed transcript, deleted when the call ends) and `app_lm_meeting_copilot_viewer`.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),

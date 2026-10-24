@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** A consultant's own working week and daily email cap in one workspace (V153); a null field is the workspace's. */
+/** A consultant's own working week and daily email cap in one workspace (V155); a null field is the workspace's. */
 @Entity
 @Table(name = "app_lm_member_availability")
 @Getter

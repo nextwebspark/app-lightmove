@@ -12,7 +12,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * A workspace's default working week and daily email cap per mailbox (V153). A null week is the one its firm's
+ * A workspace's default working week and daily email cap per mailbox (V155). A null week is the one its firm's
  * country keeps; a null cap is the deployment's.
  */
 @Entity
