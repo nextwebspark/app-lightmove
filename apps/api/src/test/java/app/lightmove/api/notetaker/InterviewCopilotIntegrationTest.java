@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -14,6 +15,7 @@ import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.service.InterviewCoachWorker;
+import app.lightmove.api.notetaker.service.NotetakerReconcile;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.GrantedMailbox;
@@ -64,6 +66,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingRecallBotApi recall;
     @Autowired private StubChatModel chat;
     @Autowired private InterviewCoachWorker coachWorker;
+    @Autowired private NotetakerReconcile reconcile;
     @Autowired private JdbcTemplate jdbc;
 
     private String grantId;
@@ -179,13 +182,33 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         RecallBotRequest sent = recall.sent().getFirst();
         assertThat(sent.liveTranscriptUrl()).isNotNull();
         assertThat(sent.liveTranscriptUrl().getPath()).isEqualTo("/api/v1/notetaker/webhooks/recall/live");
+        assertThat(tokenIn(sent.liveTranscriptUrl())).hasSizeGreaterThan(30);
+        assertThat(sent.consentLine()).contains("an AI assistant follows it live");
+        assertThat(scheduled.get("mayChangeCopilot").asBoolean()).isTrue();
 
         JsonNode off = body(switchLive(recordingId, false).andExpect(status().isOk()).andReturn());
         assertThat(off.get("liveCopilot").asBoolean()).isFalse();
         assertThat(recall.liveUpdates()).containsEntry(recall.lastBotId(), URI.create("off:none"));
+        assertThat(recall.consentLines().get(recall.lastBotId())).doesNotContain("AI assistant");
+        assertThat(jdbc.queryForObject("select live_token_hash from app_lm_meeting_recording where id = ?::uuid",
+                String.class, recordingId)).isNull();
         switchLive(recordingId, true).andExpect(status().isOk());
-        assertThat(recall.liveUpdates().get(recall.lastBotId()).getPath())
-                .isEqualTo("/api/v1/notetaker/webhooks/recall/live");
+        URI switchedTo = recall.liveUpdates().get(recall.lastBotId());
+        assertThat(switchedTo.getPath()).isEqualTo("/api/v1/notetaker/webhooks/recall/live");
+        assertThat(tokenIn(switchedTo)).isNotEqualTo(tokenIn(sent.liveTranscriptUrl()));
+        assertThat(recall.consentLines().get(recall.lastBotId())).contains("AI assistant");
+
+        // Only the bot's sender switches it: it reconfigures their bot and spends their AI use.
+        String sender = jdbc.queryForObject("select requested_by::text from app_lm_meeting_recording "
+                + "where id = ?::uuid", String.class, recordingId);
+        String someoneElse = jdbc.queryForObject("select id::text from app_lm_user where id <> ?::uuid limit 1",
+                String.class, sender);
+        jdbc.update("update app_lm_meeting_recording set requested_by = ?::uuid where id = ?::uuid", someoneElse,
+                recordingId);
+        switchLive(recordingId, false).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_COPILOT_SWITCH_NOT_YOURS"));
+        jdbc.update("update app_lm_meeting_recording set requested_by = ?::uuid where id = ?::uuid", sender,
+                recordingId);
 
         recall.failUpdates(true);
         switchLive(recordingId, false).andExpect(status().isConflict())
@@ -216,8 +239,16 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
                  "nudges":[{"question":"Walk me through that refinancing.","reason":"No example yet"},
                            {"question":"What notice would you need?","reason":"Notice not asked"}]}""");
 
-        liveDelivered(bot, partial("p1", "Yara Haddad", "Thanks for", 1.0), "nope")
+        liveDelivered(bot, partial("p1", "Yara Haddad", "Thanks for", 1.0), null, "nope")
                 .andExpect(status().isUnauthorized());
+        liveDelivered(bot, partial("p1", "Yara Haddad", "Thanks for", 1.0), "not-the-token", null)
+                .andExpect(status().isUnauthorized());
+        // A token feeds its own bot's recording and nothing else.
+        liveDelivered("bot-somebody-else", partial("p1", "Yara Haddad", "Thanks for", 1.0), tokenOf(bot), null)
+                .andExpect(status().isUnauthorized());
+        // Recall's Svix signature, where it signs real-time deliveries, still counts on its own.
+        liveDelivered(bot, partial("p1", "Yara Haddad", "Thanks", 0.5), null, RecordingRecallBotApi.VALID_SIGNATURE)
+                .andExpect(status().isOk());
         liveDeliver(bot, partial("p1", "Yara Haddad", "Thanks for", 1.0));
         JsonNode speaking = copilot(recordingId, 0);
         assertThat(speaking.get("speaking")).hasSize(1);
@@ -279,6 +310,11 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(again.get("plan").valueStream().filter(question -> question.get("asked").asBoolean()).count())
                 .isEqualTo(1);
 
+        // The bot's own transcript is the English low-latency stream: the note waits for an accurate one.
+        recall.botIs(bot, new app.lightmove.api.notetaker.model.RecallBotState("done", null, Instant.now(),
+                "t-stream", "done", "rec-live"));
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-stream"}}}""");
         deliver(bot, """
                 {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
         assertThat(jdbc.queryForObject("select count(*) from app_lm_meeting_live_line where recording_id = ?::uuid",
@@ -287,6 +323,38 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from app_lm_meeting_live_line where recording_id = ?::uuid",
                 Integer.class, recordingId)).isZero();
         assertThat(copilot(recordingId, 0).get("status").asText()).isEqualTo("PROCESSING");
+        awaitFinalTranscript(recordingId, "final-rec-live");
+        assertThat(recall.transcriptRequests()).containsExactly("rec-live");
+        assertThat(jdbc.queryForObject("select transcript_id from app_lm_meeting_recording where id = ?::uuid",
+                String.class, recordingId)).isNull();
+
+        deliver(bot, """
+                {"event":"transcript.done","data":{"transcript":{"id":"final-rec-live"},"recording":{"id":"rec-live"}}}
+                """);
+        assertThat(jdbc.queryForObject("select transcript_id from app_lm_meeting_recording where id = ?::uuid",
+                String.class, recordingId)).isEqualTo("final-rec-live");
+    }
+
+    @Test
+    @DisplayName("a live call's final transcript Recall never announced is asked for, and folded, by the reconcile")
+    void finalTranscriptIsReconciled() throws Exception {
+        String recordingId = liveRecording();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        jdbc.update("update app_lm_meeting_recording set ends_at = now() - interval '2 hours', "
+                + "starts_at = now() - interval '3 hours' where id = ?::uuid", recordingId);
+        recall.botIs(bot, new app.lightmove.api.notetaker.model.RecallBotState("done", null, Instant.now(),
+                "t-stream", "done", "rec-9"));
+        reconcile.reconcileAt(Instant.now());
+        awaitFinalTranscript(recordingId, "final-rec-9");
+        assertThat(jdbc.queryForObject("select transcript_id from app_lm_meeting_recording where id = ?::uuid",
+                String.class, recordingId)).isNull();
+
+        recall.transcriptIs("final-rec-9", "done");
+        reconcile.reconcileAt(Instant.now().plus(Duration.ofMinutes(10)));
+        assertThat(jdbc.queryForObject("select transcript_id from app_lm_meeting_recording where id = ?::uuid",
+                String.class, recordingId)).isEqualTo("final-rec-9");
     }
 
     @Test
@@ -306,6 +374,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(copilot(recordingId, 0).get("coach").asText()).isEqualTo("PAUSED");
         assertThat(jdbc.queryForObject("select coached_through from app_lm_meeting_recording where id = ?::uuid",
                 Long.class, recordingId)).isZero();
+        assertThat(usageOf(recordingId)).isZero();
 
         chat.reset();
         chat.answerWhenSystemContains(COACH_MARKER, "{\"guard\":\"" + app.lightmove.api.core.llm.model.BlockedAnswer
@@ -321,6 +390,27 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         rewindCoach(recordingId);
         assertThat(coachWorker.coachIfDue(id, Instant.now().plusSeconds(120))).isFalse();
         assertThat(copilot(recordingId, 0).get("coach").asText()).isEqualTo("CAPPED");
+        // No run ever answered, so the call cost nothing.
+        assertThat(usageOf(recordingId)).isZero();
+    }
+
+    private int usageOf(String recordingId) {
+        Integer count = jdbc.queryForObject("select count(*) from app_lm_usage_event where idempotency_key = ?",
+                Integer.class, "interview-copilot:" + recordingId);
+        return count == null ? 0 : count;
+    }
+
+    /** Asked of Recall off the request thread, after the commit; waited for, briefly. */
+    private void awaitFinalTranscript(String recordingId, String expected) throws Exception {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            String held = jdbc.queryForObject("select final_transcript_id from app_lm_meeting_recording "
+                    + "where id = ?::uuid", String.class, recordingId);
+            if (expected.equals(held)) {
+                return;
+            }
+            Thread.sleep(50);
+        }
+        throw new AssertionError("No final transcript was asked for " + recordingId);
     }
 
     @Test
@@ -357,6 +447,12 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.code").value("NOTETAKER_COPILOT_OFF"));
         as(consultant, get(outreach("/candidates/" + priya + "/meetings/" + java.util.UUID.randomUUID() + "/plan")))
                 .andExpect(status().isNotFound());
+        as(consultant, delete(outreach("/candidates/" + priya + "/notetaker/" + recordingId)))
+                .andExpect(status().isNoContent());
+
+        String live = liveRecording();
+        as(consultant, put(copilotPath(live) + "/plan/q-nobody-planned").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"asked\":true}")).andExpect(status().isNotFound());
     }
 
     private String liveRecording() throws Exception {
@@ -423,15 +519,35 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
     }
 
     private void liveDeliver(String bot, String template) throws Exception {
-        liveDelivered(bot, template, RecordingRecallBotApi.VALID_SIGNATURE).andExpect(status().isOk());
+        liveDelivered(bot, template, tokenOf(bot), null).andExpect(status().isOk());
     }
 
-    private ResultActions liveDelivered(String bot, String template, String signature) throws Exception {
-        return mvc.perform(post("/api/v1/notetaker/webhooks/recall/live")
-                .header("webhook-id", "msg-live")
-                .header("webhook-timestamp", String.valueOf(Instant.now().getEpochSecond()))
-                .header("webhook-signature", signature)
-                .contentType(MediaType.APPLICATION_JSON).content(template.formatted(bot)));
+    /** Recall posts a real-time delivery to the URL its bot was given, its token in the query; a signature is optional. */
+    private ResultActions liveDelivered(String bot, String template, String token, String signature) throws Exception {
+        MockHttpServletRequestBuilder request = post("/api/v1/notetaker/webhooks/recall/live")
+                .contentType(MediaType.APPLICATION_JSON).content(template.formatted(bot));
+        if (token != null) {
+            request.param("t", token);
+        }
+        if (signature != null) {
+            request.header("webhook-id", "msg-live")
+                    .header("webhook-timestamp", String.valueOf(Instant.now().getEpochSecond()))
+                    .header("webhook-signature", signature);
+        }
+        return mvc.perform(request);
+    }
+
+    /** The token in the live URL the bot was last given: by a switch of its copilot, or when it was sent. */
+    private String tokenOf(String bot) {
+        URI url = recall.liveUpdates().get(bot);
+        if (url == null) {
+            url = recall.sent().get(recall.botIds().indexOf(bot)).liveTranscriptUrl();
+        }
+        return tokenIn(url);
+    }
+
+    private static String tokenIn(URI url) {
+        return UriComponentsBuilder.fromUri(url).build().getQueryParams().getFirst("t");
     }
 
     private void deliver(String bot, String template) throws Exception {

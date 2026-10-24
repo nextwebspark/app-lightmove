@@ -37,6 +37,8 @@ export interface NotetakerRecording {
   /** The bot streams the call to the live copilot; chosen before it joins. */
   liveCopilot: boolean;
   liveStatus: LiveCopilotStatus | null;
+  /** The caller sent this bot, so may switch its copilot. */
+  mayChangeCopilot: boolean;
 }
 
 export interface CandidateNotetaker {

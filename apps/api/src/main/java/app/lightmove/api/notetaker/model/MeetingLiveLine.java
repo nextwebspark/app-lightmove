@@ -11,7 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * One line of a live call's transcript as Recall streamed it (V153), read by the copilot window after its cursor.
+ * One line of a live call's transcript as Recall streamed it (V154), read by the copilot window after its cursor.
  * Written only by {@code MeetingLiveLineRepository}'s upserts, since a delivery can repeat; {@code partial} is the
  * words-so-far line of a speaker still talking.
  */

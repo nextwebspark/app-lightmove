@@ -256,7 +256,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         String recordingId = scheduledRecordingId();
         String bot = recall.lastBotId();
         recall.holdsTranscript("t-9", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
-        recall.botIs(bot, new RecallBotState("done", null, start.plus(Duration.ofMinutes(30)), "t-9", "done"));
+        recall.botIs(bot, new RecallBotState("done", null, start.plus(Duration.ofMinutes(30)), "t-9", "done", null));
 
         assertThat(reconcile.reconcileAt(start)).isZero();
         assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
@@ -281,7 +281,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         deliver(bot, """
                 {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
         // The reconcile handing the same transcript over again finds nothing left to do either.
-        recall.botIs(bot, new RecallBotState("done", null, start, "t-1", "done"));
+        recall.botIs(bot, new RecallBotState("done", null, start, "t-1", "done", null));
         reconcile.reconcileAt(start.plus(Duration.ofHours(2)));
 
         assertThat(statusOf(recordingId)).isEqualTo("DONE");

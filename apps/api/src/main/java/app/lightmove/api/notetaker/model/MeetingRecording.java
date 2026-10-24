@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.LiveCopilotStatus;
@@ -10,6 +11,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -113,6 +116,14 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "live_stopped_by")
     private UUID liveStoppedBy;
 
+    /** SHA-256 of the token in this bot's live transcript URL; only a delivery carrying it feeds this recording. */
+    @Column(name = "live_token_hash")
+    private String liveTokenHash;
+
+    /** A live copilot bot's after-call transcript in Recall's accurate mode: the one its note is filed from. */
+    @Column(name = "final_transcript_id")
+    private String finalTranscriptId;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "live", columnDefinition = "jsonb")
     private LiveCoaching live;
@@ -152,9 +163,10 @@ public class MeetingRecording extends BaseEntity {
         return recording;
     }
 
-    public void liveCopilot(boolean enabled, UUID by) {
+    public void liveCopilot(boolean enabled, UUID by, String liveTokenHash) {
         this.liveCopilot = enabled;
         this.liveEnabledBy = enabled ? by : null;
+        this.liveTokenHash = enabled ? liveTokenHash : null;
         this.liveStatus = enabled ? LiveCopilotStatus.LISTENING : null;
         this.live = enabled ? LiveCoaching.empty() : null;
     }
@@ -163,6 +175,21 @@ public class MeetingRecording extends BaseEntity {
     public boolean isListening() {
         return liveCopilot && liveStatus == LiveCopilotStatus.LISTENING && status.isLive()
                 && status != NotetakerStatus.PROCESSING;
+    }
+
+    public boolean holdsLiveToken(String token) {
+        return liveTokenHash != null && token != null && !token.isBlank() && MessageDigest.isEqual(
+                liveTokenHash.getBytes(StandardCharsets.US_ASCII),
+                Tokens.hash(token).getBytes(StandardCharsets.US_ASCII));
+    }
+
+    /** A live copilot bot's own transcript is the low-latency stream's; its note waits for {@link #finalTranscriptId}. */
+    public boolean isFinalTranscript(String id) {
+        return !liveCopilot || (finalTranscriptId != null && finalTranscriptId.equals(id));
+    }
+
+    public void finalTranscriptAsked(String id) {
+        this.finalTranscriptId = id;
     }
 
     public void liveFeedStopped() {

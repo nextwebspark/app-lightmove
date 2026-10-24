@@ -27,6 +27,8 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
 
     Optional<MeetingRecording> findByRecallBotId(String recallBotId);
 
+    Optional<MeetingRecording> findByFinalTranscriptId(String finalTranscriptId);
+
     /** The row a Suggest changes decision writes, locked first so two tabs' decisions queue rather than collide. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from MeetingRecording r where r.id = :id and r.workspaceId = :workspaceId "
@@ -83,6 +85,21 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     @Modifying
     @Query(nativeQuery = true, value = "UPDATE app_lm_meeting_recording SET coaching_since = NULL WHERE id = :id")
     int releaseCoaching(UUID id);
+
+    /** One request at a time asks Recall for a live call's final transcript; a stale claim is a request that died. */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_meeting_recording SET final_transcript_requested_at = :now
+            WHERE id = :id AND live_copilot AND final_transcript_id IS NULL
+              AND status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING')
+              AND (final_transcript_requested_at IS NULL OR final_transcript_requested_at < :staleBefore)
+            """)
+    int claimFinalTranscript(UUID id, Instant now, Instant staleBefore);
+
+    @Modifying
+    @Query(nativeQuery = true,
+            value = "UPDATE app_lm_meeting_recording SET final_transcript_requested_at = NULL WHERE id = :id")
+    int releaseFinalTranscript(UUID id);
 
     /**
      * A transcript nothing needs any more — its note purged for good, or never filed — once untouched since

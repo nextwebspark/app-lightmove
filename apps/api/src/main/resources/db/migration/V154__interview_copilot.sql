@@ -51,11 +51,19 @@ ALTER TABLE app_lm_meeting_recording
     ADD COLUMN coach_failures   integer      NOT NULL DEFAULT 0,
     ADD COLUMN live_charged     boolean      NOT NULL DEFAULT false,
     ADD COLUMN coaching_since   timestamptz,
+    ADD COLUMN live_token_hash  varchar(64),
+    ADD COLUMN final_transcript_id           varchar(128),
+    ADD COLUMN final_transcript_requested_at timestamptz,
     ADD CONSTRAINT app_lm_meeting_recording_live_chk CHECK (live_copilot OR live_status IS NULL);
 
 COMMENT ON COLUMN app_lm_meeting_recording.live IS
     'The live copilot''s reading of the call so far: competency coverage, what the executive has said of the record''s '
     'gaps, the plan questions asked and up to three nudges. Staff-only; kept after the call.';
+COMMENT ON COLUMN app_lm_meeting_recording.live_token_hash IS
+    'SHA-256 of the token in the live transcript URL this bot was given: a delivery carrying it feeds this recording alone.';
+COMMENT ON COLUMN app_lm_meeting_recording.final_transcript_id IS
+    'A live copilot bot''s accuracy-mode transcript, asked of Recall after the call: the note is filed from it, never '
+    'from the low-latency stream.';
 COMMENT ON COLUMN app_lm_meeting_recording.coaching_since IS
     'Claim held while one coach run asks the model, so a call is coached by one run at a time; older than its deadline is stale.';
 

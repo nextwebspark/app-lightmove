@@ -17,6 +17,7 @@ import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.CoverageState;
 import app.lightmove.api.notetaker.constant.LiveCopilotStatus;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
@@ -97,15 +98,21 @@ public class InterviewCopilotService {
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         MeetingRecording recording = transactions.execute(status ->
                 requireRecording(workspaceId, projectId, recipient, recordingId));
+        // It reconfigures that consultant's own bot at Recall, transcription included, and spends their AI use.
+        if (!userId.equals(recording.getRequestedBy())) {
+            throw ApiException.of(ErrorCode.NOTETAKER_COPILOT_SWITCH_NOT_YOURS);
+        }
         if (recording.isLiveCopilot() == enabled) {
-            return NotetakerService.responseOf(recording);
+            return NotetakerService.responseOf(recording, userId);
         }
         requireSwitchable(recording);
         if (enabled) {
             fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, 1);
         }
+        String liveToken = enabled ? Tokens.generate() : null;
         try {
-            recall.updateLive(recording.getRecallBotId(), enabled ? notetaker.liveTranscriptUrl() : null);
+            recall.updateLive(recording.getRecallBotId(), liveToken == null ? null
+                    : notetaker.liveTranscriptUrl(liveToken), notetaker.consentLineFor(userId, enabled));
         } catch (VendorException refused) {
             log.warn("Recall refused to change the live copilot of recording {}: {}", recordingId,
                     refused.getMessage());
@@ -116,13 +123,13 @@ public class InterviewCopilotService {
         return transactions.execute(status -> {
             MeetingRecording held = recordings.lockForDecision(recordingId, workspaceId, projectId,
                     recipient.personId()).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
-            held.liveCopilot(enabled, userId);
+            held.liveCopilot(enabled, userId, liveToken == null ? null : Tokens.hash(liveToken));
             audit.projectEvent(enabled ? ProjectEventType.NOTETAKER_COPILOT_ENABLED
                             : ProjectEventType.NOTETAKER_COPILOT_DISABLED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
                     .record();
-            return NotetakerService.responseOf(held);
+            return NotetakerService.responseOf(held, userId);
         });
     }
 
@@ -218,6 +225,17 @@ public class InterviewCopilotService {
 
     public void markAsked(UUID workspaceId, UUID projectId, UUID candidateId, UUID recordingId, String questionId,
                           boolean asked) {
+        OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        MeetingRecording recording = transactions.execute(status ->
+                requireRecording(workspaceId, projectId, recipient, recordingId));
+        boolean planned = plans.planOfCall(workspaceId, projectId, recipient.personId(), recording.getStartsAt(),
+                        recording.getTitle())
+                .map(InterviewPlan::includedQuestions)
+                .orElse(List.of()).stream()
+                .anyMatch(question -> questionId.equals(question.id()));
+        if (!planned) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
         steer(workspaceId, projectId, candidateId, recordingId, reading -> {
             Set<String> next = new LinkedHashSet<>(reading.asked());
             if (asked) {

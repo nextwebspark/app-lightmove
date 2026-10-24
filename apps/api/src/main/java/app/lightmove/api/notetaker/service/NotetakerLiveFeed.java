@@ -1,5 +1,7 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.notetaker.model.LiveLinesHeard;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.RecallLiveUtterance;
@@ -8,16 +10,21 @@ import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Recall's real-time transcript for a live copilot, line by line as it is spoken. Only a bot we hold, still in its
- * call with the copilot listening, takes lines; anything else is dropped, so a stopped copilot keeps nothing more of the
- * call. A delivery answers quickly: the coach runs after the commit, off this thread.
+ * Recall's real-time transcript for a live copilot, line by line as it is spoken. A delivery counts only with the token
+ * in its bot's own URL, or a Svix signature under the bot webhook secret; a token feeds its own recording and no other.
+ * Only a bot we hold, still in its call with the copilot listening, takes lines; anything else is dropped, so a stopped
+ * copilot keeps nothing more of the call. A delivery answers quickly: the coach runs after the commit, off this thread.
  */
 @Service
 @RequiredArgsConstructor
@@ -25,6 +32,11 @@ public class NotetakerLiveFeed {
 
     private static final int LONGEST_SPEAKER = 200;
     private static final int LONGEST_LINE = 4_000;
+    /** Words so far arrive several times a second per voice; windows are told of them at most this often. */
+    static final Duration PARTIAL_ANNOUNCE_EVERY = Duration.ofMillis(500);
+    private static final int MOST_ANNOUNCED_HELD = 1_000;
+
+    private final Map<UUID, Instant> partialAnnounced = new ConcurrentHashMap<>();
 
     private final RecallBotApi recall;
     private final MeetingRecordingRepository recordings;
@@ -34,12 +46,30 @@ public class NotetakerLiveFeed {
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
-    public void receive(byte[] body, String id, String timestamp, String signature) {
+    public void receive(byte[] body, String token, String id, String timestamp, String signature) {
         Instant received = clock.instant();
-        for (RecallLiveUtterance utterance : recall.liveUtterances(body, id, timestamp, signature)) {
-            transactions.executeWithoutResult(status -> recordings.findByRecallBotId(utterance.botId())
-                    .filter(MeetingRecording::isListening)
-                    .ifPresent(recording -> take(recording, utterance, received)));
+        boolean signed = recall.verifiesLive(body, id, timestamp, signature);
+        if (!signed && (token == null || token.isBlank())) {
+            throw ApiException.of(ErrorCode.NOTETAKER_WEBHOOK_REJECTED);
+        }
+        List<RecallLiveUtterance> utterances = RecallBotClient.liveUtterancesIn(body);
+        for (RecallLiveUtterance utterance : utterances) {
+            Boolean taken = transactions.execute(status -> {
+                MeetingRecording recording = recordings.findByRecallBotId(utterance.botId()).orElse(null);
+                if (recording == null) {
+                    return signed;
+                }
+                if (!signed && !recording.holdsLiveToken(token)) {
+                    return false;
+                }
+                if (recording.isListening()) {
+                    take(recording, utterance, received);
+                }
+                return true;
+            });
+            if (!Boolean.TRUE.equals(taken)) {
+                throw ApiException.of(ErrorCode.NOTETAKER_WEBHOOK_REJECTED);
+            }
         }
     }
 
@@ -61,7 +91,21 @@ public class NotetakerLiveFeed {
                 events.publishEvent(new LiveLinesHeard(recording.getId()));
             }
         }
-        publisher.publish(recording.getId());
+        if (!utterance.partial() || isDueToAnnounce(recording.getId(), received)) {
+            publisher.publish(recording.getId());
+        }
+    }
+
+    private boolean isDueToAnnounce(UUID recordingId, Instant now) {
+        if (partialAnnounced.size() > MOST_ANNOUNCED_HELD) {
+            partialAnnounced.values().removeIf(at -> at.isBefore(now.minus(Duration.ofMinutes(1))));
+        }
+        Instant last = partialAnnounced.get(recordingId);
+        if (last != null && last.plus(PARTIAL_ANNOUNCE_EVERY).isAfter(now)) {
+            return false;
+        }
+        partialAnnounced.put(recordingId, now);
+        return true;
     }
 
     /**

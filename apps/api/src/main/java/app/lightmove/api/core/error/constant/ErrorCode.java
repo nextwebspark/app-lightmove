@@ -472,6 +472,9 @@ public enum ErrorCode {
     NOTETAKER_COPILOT_NOT_YOURS(HttpStatus.FORBIDDEN,
             "Only the person who switched on the copilot, a lead or an admin can stop it"),
 
+    NOTETAKER_COPILOT_SWITCH_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who sent the Notetaker can change its copilot"),
+
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
 

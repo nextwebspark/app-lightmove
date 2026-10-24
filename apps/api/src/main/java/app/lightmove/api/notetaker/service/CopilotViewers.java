@@ -10,7 +10,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * Who has a copilot window open on a live call (V153): each window's stream stamps its holder as it connects, which it
+ * Who has a copilot window open on a live call (V154): each window's stream stamps its holder as it connects, which it
  * does again at least every 55 seconds, so a stamp a little older than that means the window closed.
  */
 @Component

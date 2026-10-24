@@ -14,6 +14,7 @@ import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.dto.CandidateNotetakerResponse;
@@ -86,7 +87,7 @@ public class NotetakerService {
         List<NotetakerRecordingResponse> rows = recordings
                 .findByWorkspaceIdAndProjectIdAndPersonIdOrderByStartsAtDescCreatedAtDesc(workspaceId, projectId,
                         recipient.personId()).stream()
-                .map(NotetakerService::responseOf)
+                .map(recording -> responseOf(recording, userId))
                 .toList();
         if (!recall.isOffered() || recipient.doNotContact()) {
             return new CandidateNotetakerResponse(recall.isOffered(), rows, List.of());
@@ -130,13 +131,15 @@ public class NotetakerService {
         }
         // The note is one AI use, and a live copilot's coaching another.
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, liveCopilot ? 2 : 1);
-        UUID recordingId = claim(userId, workspaceId, projectId, recipient, meeting, joinUrl, liveCopilot);
+        String liveToken = liveCopilot ? Tokens.generate() : null;
+        UUID recordingId = claim(userId, workspaceId, projectId, recipient, meeting, joinUrl, liveCopilot,
+                liveToken == null ? null : Tokens.hash(liveToken));
         String botId;
         try {
             botId = recall.send(new RecallBotRequest(joinUrl, joinAtFor(meeting.startsAt(), now), BOT_NAME,
-                    consentLineFor(userId), Map.of("recordingId", recordingId.toString(),
+                    consentLineFor(userId, liveCopilot), Map.of("recordingId", recordingId.toString(),
                             "workspaceId", workspaceId.toString()),
-                    liveCopilot ? liveTranscriptUrl() : null));
+                    liveToken == null ? null : liveTranscriptUrl(liveToken)));
         } catch (VendorException | ApiException refused) {
             log.warn("Recall refused the Notetaker for recording {}: {}", recordingId, refused.getMessage());
             transactions.executeWithoutResult(status ->
@@ -158,7 +161,7 @@ public class NotetakerService {
             // Removed while Recall was still being asked: the bot it just made must not go on to join and record.
             removeQuietly(botId);
         }
-        return responseOf(sent);
+        return responseOf(sent, userId);
     }
 
     /** Anyone on the team may call a bot back: a recording nobody wanted is the thing to stop, whoever sent it. */
@@ -219,7 +222,7 @@ public class NotetakerService {
         recording.retrying();
         recordings.releaseProcessing(recording.getId());
         events.publishEvent(new MeetingTranscriptReady(recording.getId()));
-        return responseOf(recording);
+        return responseOf(recording, userId);
     }
 
     @Transactional(readOnly = true)
@@ -272,13 +275,16 @@ public class NotetakerService {
         }
     }
 
-    /** Where Recall streams a live copilot's transcript: our own public endpoint, signed like every bot delivery. */
-    URI liveTranscriptUrl() {
-        return URI.create(properties.web().baseUrl().replaceAll("/+$", "") + LIVE_TRANSCRIPT_PATH);
+    /**
+     * Where Recall streams a live copilot's transcript: our own public endpoint, with a token that is this bot's alone,
+     * so a delivery is taken only for the recording it names.
+     */
+    URI liveTranscriptUrl(String liveToken) {
+        return URI.create(properties.web().baseUrl().replaceAll("/+$", "") + LIVE_TRANSCRIPT_PATH + "?t=" + liveToken);
     }
 
     private UUID claim(UUID userId, UUID workspaceId, UUID projectId, OutreachRecipient recipient,
-                       KeptMeeting meeting, String joinUrl, boolean liveCopilot) {
+                       KeptMeeting meeting, String joinUrl, boolean liveCopilot, String liveTokenHash) {
         try {
             return transactions.execute(status -> {
                 if (recordings.existsByWorkspaceIdAndJoinUrlAndStartsAtAndStatusIn(workspaceId, joinUrl,
@@ -288,7 +294,7 @@ public class NotetakerService {
                 MeetingRecording claimed = MeetingRecording.claimed(workspaceId, recipient.personId(), projectId,
                         recipient.candidateId(), meeting.id(), meeting.title(), meeting.startsAt(), meeting.endsAt(),
                         joinUrl, userId);
-                claimed.liveCopilot(liveCopilot, userId);
+                claimed.liveCopilot(liveCopilot, userId, liveTokenHash);
                 return recordings.saveAndFlush(claimed).getId();
             });
         } catch (DataIntegrityViolationException raced) {
@@ -296,12 +302,13 @@ public class NotetakerService {
         }
     }
 
-    /** Nobody is recorded without being told, and told whose notes they are. */
-    private String consentLineFor(UUID userId) {
+    /** Nobody is recorded without being told, and told whose notes they are, and that an AI follows it live. */
+    String consentLineFor(UUID userId, boolean liveCopilot) {
         String name = users.findById(userId).map(User::getFullName).map(String::strip).filter(full -> !full.isEmpty())
                 .orElse("the consultant");
-        return "Hello, I'm " + BOT_NAME + ". I'm recording and transcribing this call for " + name
-                + "'s notes. Ask them to remove me at any time.";
+        return "Hello, I'm " + BOT_NAME + ". I'm recording and transcribing this call for " + name + "'s notes"
+                + (liveCopilot ? ", and an AI assistant follows it live to help them" : "")
+                + ". Ask them to remove me at any time.";
     }
 
     private static void requireCancellable(MeetingRecording recording) {
@@ -333,12 +340,13 @@ public class NotetakerService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    static NotetakerRecordingResponse responseOf(MeetingRecording recording) {
+    /** {@code mayChangeCopilot}: only the bot's sender switches its copilot, since it reconfigures their bot. */
+    static NotetakerRecordingResponse responseOf(MeetingRecording recording, UUID userId) {
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
                 recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
                 recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
                 recording.getSuggestions() != null, recording.suggestionsWith(CallSuggestionStatus.PENDING),
                 recording.suggestionsWith(CallSuggestionStatus.APPLIED),
-                recording.isLiveCopilot(), recording.getLiveStatus());
+                recording.isLiveCopilot(), recording.getLiveStatus(), recording.getRequestedBy().equals(userId));
     }
 }

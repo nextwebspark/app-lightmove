@@ -189,13 +189,6 @@ public class InterviewCoachWorker {
     }
 
     private void run(CoachTurn turn, Instant now) {
-        if (turn.firstRun()) {
-            // A live call is one AI use, counted once whatever it goes on to cost; the key keeps it to one.
-            usage.record(new MeteredUse(turn.workspaceId(), turn.requestedBy(), turn.projectId(), UsageKind.AI_ENRICH,
-                    1, "interview-copilot:" + turn.recordingId()));
-            transactions.executeWithoutResult(status ->
-                    recordings.findById(turn.recordingId()).ifPresent(MeetingRecording::liveCharged));
-        }
         LiveCoaching reading;
         try {
             reading = readCall(turn);
@@ -219,6 +212,14 @@ public class InterviewCoachWorker {
             held.coached(reconciled(reading, held.getLive()), turn.throughSeq(), clock.instant());
             publisher.publish(held.getId());
         }));
+        if (turn.firstRun()) {
+            // A live call is one AI use, counted once its first reading is on file whatever it goes on to cost; a
+            // call no run ever answered costs nothing. The key keeps it to one.
+            usage.record(new MeteredUse(turn.workspaceId(), turn.requestedBy(), turn.projectId(), UsageKind.AI_ENRICH,
+                    1, "interview-copilot:" + turn.recordingId()));
+            transactions.executeWithoutResult(status ->
+                    recordings.findById(turn.recordingId()).ifPresent(MeetingRecording::liveCharged));
+        }
     }
 
     private LiveCoaching readCall(CoachTurn turn) {

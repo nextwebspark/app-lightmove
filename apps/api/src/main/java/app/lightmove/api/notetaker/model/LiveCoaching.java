@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 /**
- * The live copilot's reading of a call so far (V153 {@code live}): how far each competency is shown, which of the
+ * The live copilot's reading of a call so far (V154 {@code live}): how far each competency is shown, which of the
  * record's gaps the executive spoke to, which prepared questions were asked, and every nudge it made — dismissed ones
  * included, so none is suggested twice.
  */

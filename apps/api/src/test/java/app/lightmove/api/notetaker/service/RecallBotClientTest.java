@@ -104,10 +104,15 @@ class RecallBotClientTest {
                         Instant.parse("2026-10-22T09:01:00Z")));
         assertThat(notices("""
                 {"event":"transcript.done","data":{"bot":{"id":"b1"},"transcript":{"id":"t1"}}}"""))
-                .containsExactly(new RecallBotNotice.TranscriptReady("b1", "t1"));
+                .containsExactly(new RecallBotNotice.TranscriptReady("b1", "t1", null));
         assertThat(notices("""
                 {"event":"transcript.failed","data":{"bot":{"id":"b1"},"transcript":{"id":"t1"}}}"""))
-                .containsExactly(new RecallBotNotice.TranscriptFailed("b1"));
+                .containsExactly(new RecallBotNotice.TranscriptFailed("b1", "t1", null));
+        // A transcript asked of a recording after the call names its recording, and may not name its bot.
+        assertThat(notices("""
+                {"event":"transcript.done","data":{"transcript":{"id":"t2"},"recording":{"id":"rec1"}}}"""))
+                .containsExactly(new RecallBotNotice.TranscriptReady(null, "t2", "rec1"));
+        assertThat(notices("{\"event\":\"bot.done\",\"data\":{\"data\":{\"code\":\"done\"}}}")).isEmpty();
         assertThat(notices("{\"event\":\"calendar.update\",\"data\":{\"calendar_id\":\"c1\"}}")).isEmpty();
         assertThat(notices("not json")).isEmpty();
     }
@@ -142,9 +147,9 @@ class RecallBotClientTest {
                 """));
 
         assertThat(state).isEqualTo(new RecallBotState("done", "call_ended_by_host",
-                Instant.parse("2026-10-22T09:40:00Z"), "t1", "done"));
+                Instant.parse("2026-10-22T09:40:00Z"), "t1", "done", "rec1"));
         assertThat(RecallBotClient.stateOf(JSON.readTree("{\"id\":\"b1\"}")))
-                .isEqualTo(new RecallBotState(null, null, null, null, null));
+                .isEqualTo(new RecallBotState(null, null, null, null, null, null));
     }
 
     private static List<RecallBotNotice> notices(String body) {

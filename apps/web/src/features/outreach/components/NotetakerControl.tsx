@@ -124,7 +124,9 @@ export function NotetakerControl({
     else setIsRemoving(true);
   };
   // Recall streams a call only to a bot made for it: the copilot is chosen before the bot is in the call.
-  const mayChooseCopilot = recording?.status === "SCHEDULED" || (!isOn && offerRecord);
+  // Only the bot's sender switches its copilot: it reconfigures their bot. Anyone may choose it before sending one.
+  const mayChooseCopilot =
+    (recording?.status === "SCHEDULED" && recording.mayChangeCopilot) || (!isOn && offerRecord);
   const isCopilotOn =
     (recording?.status === "SCHEDULED" && recording.liveCopilot) || (schedule.isPending && schedule.variables === true);
   const handleCopilotSwitch = (next: boolean) => {

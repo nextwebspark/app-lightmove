@@ -2,6 +2,7 @@ package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
+import app.lightmove.api.notetaker.model.FinalTranscriptWanted;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
@@ -75,31 +76,38 @@ public class NotetakerReconcile {
                 .addValue("batch", BATCH), UUID.class));
         int moved = 0;
         for (UUID recordingId : claimed == null ? List.<UUID>of() : claimed) {
-            String botId = transactions.execute(status ->
-                    recordings.findById(recordingId).map(MeetingRecording::getRecallBotId).orElse(null));
+            MeetingRecording held = transactions.execute(status -> recordings.findById(recordingId).orElse(null));
+            if (held == null) {
+                continue;
+            }
             RecallBotState state;
+            String finalStatus;
             try {
-                state = recall.state(botId);
+                state = recall.state(held.getRecallBotId());
+                finalStatus = held.getFinalTranscriptId() == null ? null
+                        : recall.transcriptStatus(held.getFinalTranscriptId());
             } catch (VendorException unreadable) {
                 log.warn("Notetaker recording {}: Recall could not be read: {}", recordingId, unreadable.getMessage());
                 continue;
             }
-            if (fold(recordingId, state, now)) {
+            if (fold(recordingId, state, finalStatus, now)) {
                 moved++;
             }
         }
         return moved;
     }
 
-    private boolean fold(UUID recordingId, RecallBotState state, Instant now) {
+    private boolean fold(UUID recordingId, RecallBotState state, String finalStatus, Instant now) {
         return Boolean.TRUE.equals(transactions.execute(status -> {
             MeetingRecording recording = recordings.findById(recordingId).orElse(null);
             if (recording == null || !recording.getStatus().isLive()) {
                 return false;
             }
             NotetakerStatus before = recording.getStatus();
-            // The transcript first: a bot that brought one back recorded, whatever its last status says.
-            if (state.transcriptId() != null) {
+            if (recording.isLiveCopilot()) {
+                foldLive(recording, state, finalStatus);
+            } else if (state.transcriptId() != null) {
+                // The transcript first: a bot that brought one back recorded, whatever its last status says.
                 recording.heard(state.statusCode(), state.subCode(), NotetakerStatus.RECORDING);
                 if ("done".equals(state.transcriptStatus())) {
                     if (state.transcriptId().equals(recording.getTranscriptId())) {
@@ -108,10 +116,11 @@ public class NotetakerReconcile {
                         events.publishEvent(new MeetingTranscriptReady(recordingId));
                     } else {
                         webhook.apply(recording, new RecallBotNotice.TranscriptReady(recording.getRecallBotId(),
-                                state.transcriptId()));
+                                state.transcriptId(), state.recordingId()));
                     }
                 } else if ("failed".equals(state.transcriptStatus())) {
-                    webhook.apply(recording, new RecallBotNotice.TranscriptFailed(recording.getRecallBotId()));
+                    webhook.apply(recording, new RecallBotNotice.TranscriptFailed(recording.getRecallBotId(),
+                            state.transcriptId(), state.recordingId()));
                 }
             }
             if (recording.getStatus().isLive() && state.statusCode() != null) {
@@ -124,5 +133,31 @@ public class NotetakerReconcile {
             }
             return recording.getStatus() != before;
         }));
+    }
+
+    /**
+     * A live copilot bot's own transcript is the low-latency stream: once it exists the call is over and the accurate
+     * one is asked for, or folded on once Recall has it.
+     */
+    private void foldLive(MeetingRecording recording, RecallBotState state, String finalStatus) {
+        if (state.transcriptId() != null) {
+            recording.heard(state.statusCode(), state.subCode(), NotetakerStatus.RECORDING);
+        }
+        String finalId = recording.getFinalTranscriptId();
+        if (finalId == null) {
+            if (state.transcriptId() != null || "done".equals(state.statusCode())) {
+                events.publishEvent(new FinalTranscriptWanted(recording.getId(), state.recordingId()));
+            }
+        } else if ("done".equals(finalStatus)) {
+            if (finalId.equals(recording.getTranscriptId())) {
+                events.publishEvent(new MeetingTranscriptReady(recording.getId()));
+            } else {
+                webhook.apply(recording, new RecallBotNotice.TranscriptReady(recording.getRecallBotId(), finalId,
+                        state.recordingId()));
+            }
+        } else if ("failed".equals(finalStatus)) {
+            webhook.apply(recording, new RecallBotNotice.TranscriptFailed(recording.getRecallBotId(), finalId,
+                    state.recordingId()));
+        }
     }
 }

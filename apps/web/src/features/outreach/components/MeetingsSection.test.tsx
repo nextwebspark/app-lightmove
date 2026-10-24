@@ -654,6 +654,16 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.switchLiveCopilot).toHaveBeenCalledWith("p1", "c1", "r1", true);
   });
 
+  it("leaves a teammate's Notetaker copilot to the teammate who sent it", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "SCHEDULED", liveCopilot: true, mayChangeCopilot: false })],
+    });
+
+    expect(await screen.findByText(/Live copilot on/)).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Live copilot" })).not.toBeInTheDocument();
+  });
+
   it("opens the copilot in its own window during the call, and in the drawer where no window opens", async () => {
     vi.mocked(openCopilotWindow).mockResolvedValue("blocked");
     vi.mocked(notetakerApi.getCopilot).mockReturnValue(new Promise(() => {}));
@@ -742,6 +752,7 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     appliedSuggestions: 0,
     liveCopilot: false,
     liveStatus: null,
+    mayChangeCopilot: true,
     ...overrides,
   };
 }

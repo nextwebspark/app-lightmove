@@ -1,7 +1,6 @@
 package app.lightmove.api.notetaker.service;
 
 import app.lightmove.api.notetaker.model.RecallBotNotice;
-import app.lightmove.api.notetaker.model.RecallLiveUtterance;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
@@ -19,11 +18,20 @@ public interface RecallBotApi {
     /** Sends or schedules a bot; answers Recall's id for it. Never retried: a second bot in a call is worse. */
     String send(RecallBotRequest request);
 
-    /** Turns a scheduled bot's live transcript on ({@code liveTranscriptUrl}) or off (null) before it joins. */
-    void updateLive(String botId, URI liveTranscriptUrl);
+    /**
+     * Turns a scheduled bot's live transcript on ({@code liveTranscriptUrl}) or off (null) before it joins, with what it
+     * says in the chat as it does.
+     */
+    void updateLive(String botId, URI liveTranscriptUrl, String consentLine);
 
-    /** What a real-time delivery says; refused with {@code NOTETAKER_WEBHOOK_REJECTED} when its signature fails. */
-    List<RecallLiveUtterance> liveUtterances(byte[] body, String id, String timestamp, String signature);
+    /** Whether a real-time delivery carries a valid Svix signature under the bot webhook secret. */
+    boolean verifiesLive(byte[] body, String id, String timestamp, String signature);
+
+    /** Asks for an accuracy-mode transcript of a finished recording; answers the new transcript's id. */
+    String requestTranscript(String recallRecordingId);
+
+    /** A transcript's state as Recall answers it: {@code processing}, {@code done} or {@code failed}. */
+    String transcriptStatus(String transcriptId);
 
     /** Calls a bot back: a scheduled one is deleted, one already in the call is asked to leave. */
     void remove(String botId);

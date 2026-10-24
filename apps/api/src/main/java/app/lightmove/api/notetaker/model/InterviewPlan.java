@@ -16,7 +16,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 /**
- * The questions a consultant prepared for one call with a person on a position (V153). The call is matched on its
+ * The questions a consultant prepared for one call with a person on a position (V154). The call is matched on its
  * start and title, as every teammate's copy of it is, because a calendar's re-read replaces its meeting rows.
  */
 @Entity

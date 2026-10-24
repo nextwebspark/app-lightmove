@@ -8,7 +8,6 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
-import app.lightmove.api.notetaker.model.RecallLiveUtterance;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.RecallBotApi;
 import app.lightmove.api.notetaker.service.RecallBotClient;
@@ -35,7 +34,11 @@ public class RecordingRecallBotApi implements RecallBotApi {
     private final List<String> removed = new CopyOnWriteArrayList<>();
     private final List<String> mediaDeleted = new CopyOnWriteArrayList<>();
     private final Map<String, URI> liveUpdates = new ConcurrentHashMap<>();
+    private final Map<String, String> consentLines = new ConcurrentHashMap<>();
     private volatile boolean failUpdates;
+    private final List<String> transcriptRequests = new CopyOnWriteArrayList<>();
+    private final Map<String, String> transcriptStatuses = new ConcurrentHashMap<>();
+    private volatile boolean failTranscriptRequests;
     private final Map<String, List<TranscriptLine>> transcripts = new ConcurrentHashMap<>();
     private final Map<String, RecallBotState> states = new ConcurrentHashMap<>();
     private final List<String> botIds = new CopyOnWriteArrayList<>();
@@ -61,19 +64,33 @@ public class RecordingRecallBotApi implements RecallBotApi {
     }
 
     @Override
-    public void updateLive(String botId, URI liveTranscriptUrl) {
+    public void updateLive(String botId, URI liveTranscriptUrl, String consentLine) {
         if (failUpdates) {
             throw new VendorException(VendorCall.of("recall", "bot-update"), VendorFailureKind.BAD_REQUEST, null);
         }
         liveUpdates.put(botId, liveTranscriptUrl == null ? URI.create("off:none") : liveTranscriptUrl);
+        consentLines.put(botId, consentLine);
     }
 
     @Override
-    public List<RecallLiveUtterance> liveUtterances(byte[] body, String id, String timestamp, String signature) {
-        if (!VALID_SIGNATURE.equals(signature)) {
-            throw ApiException.of(ErrorCode.NOTETAKER_WEBHOOK_REJECTED);
+    public boolean verifiesLive(byte[] body, String id, String timestamp, String signature) {
+        return VALID_SIGNATURE.equals(signature);
+    }
+
+    @Override
+    public String requestTranscript(String recallRecordingId) {
+        if (failTranscriptRequests) {
+            throw new VendorException(VendorCall.of("recall", "transcript-create"), VendorFailureKind.BAD_REQUEST,
+                    null);
         }
-        return RecallBotClient.liveUtterancesIn(body);
+        String transcriptId = "final-" + recallRecordingId;
+        transcriptRequests.add(recallRecordingId);
+        return transcriptId;
+    }
+
+    @Override
+    public String transcriptStatus(String transcriptId) {
+        return transcriptStatuses.getOrDefault(transcriptId, "processing");
     }
 
     @Override
@@ -129,6 +146,24 @@ public class RecordingRecallBotApi implements RecallBotApi {
         return Map.copyOf(liveUpdates);
     }
 
+    /** What each bot was last told to say as it joins, by a switch of its copilot. */
+    public Map<String, String> consentLines() {
+        return Map.copyOf(consentLines);
+    }
+
+    /** Recall's recordings a final transcript was asked of, oldest first; each answers {@code final-<recording>}. */
+    public List<String> transcriptRequests() {
+        return List.copyOf(transcriptRequests);
+    }
+
+    public void transcriptIs(String transcriptId, String status) {
+        transcriptStatuses.put(transcriptId, status);
+    }
+
+    public void failTranscriptRequests(boolean fail) {
+        this.failTranscriptRequests = fail;
+    }
+
     public void failUpdates(boolean fail) {
         this.failUpdates = fail;
     }
@@ -169,7 +204,11 @@ public class RecordingRecallBotApi implements RecallBotApi {
         removed.clear();
         mediaDeleted.clear();
         liveUpdates.clear();
+        consentLines.clear();
         failUpdates = false;
+        transcriptRequests.clear();
+        transcriptStatuses.clear();
+        failTranscriptRequests = false;
         transcripts.clear();
         states.clear();
         offered = true;
