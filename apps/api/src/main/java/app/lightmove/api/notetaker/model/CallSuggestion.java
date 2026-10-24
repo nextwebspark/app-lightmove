@@ -33,9 +33,4 @@ public record CallSuggestion(String id, CallSuggestionKind kind, SuggestedValue 
     public CallSuggestion skipped() {
         return new CallSuggestion(id, kind, value, said, at, CallSuggestionStatus.SKIPPED, null);
     }
-
-    /** Back to waiting with the value it was applied as, so the card shows what the researcher last chose. */
-    public CallSuggestion reopened() {
-        return new CallSuggestion(id, kind, value, said, at, CallSuggestionStatus.PENDING, null);
-    }
 }

@@ -32,6 +32,8 @@ export interface NotetakerRecording {
   suggestionsAsked: boolean;
   /** Changes it suggested that nobody has applied or skipped yet. */
   pendingSuggestions: number;
+  /** Changes a review applied to the record. */
+  appliedSuggestions: number;
   /** The bot streams the call to the live copilot; chosen before it joins. */
   liveCopilot: boolean;
   liveStatus: LiveCopilotStatus | null;
@@ -107,7 +109,9 @@ export interface CallSuggestions {
 
 export type PackageField = "baseSalary" | "bonus" | "allowances";
 
-export interface ApplyCallSuggestion {
+/** One waiting change a review applies, as suggested or as edited; every change the review leaves out is skipped. */
+export interface AppliedCallSuggestion {
+  id: string;
   value?: Partial<Omit<SuggestedValue, "working">>;
   packageFields?: PackageField[];
 }
@@ -179,21 +183,17 @@ export function suggestChanges(projectId: string, candidateId: string, recording
   return request<CallSuggestions>(suggestionsPath(projectId, candidateId, recordingId), { method: "POST" });
 }
 
-export function decideCallSuggestion(
+/** One save for the whole review: what is listed is applied, the rest skipped, and nothing is undone afterwards. */
+export function reviewCallSuggestions(
   projectId: string,
   candidateId: string,
   recordingId: string,
-  suggestionId: string,
-  decision: "apply" | "skip" | "reopen",
-  body?: ApplyCallSuggestion,
+  apply: AppliedCallSuggestion[],
 ): Promise<CallSuggestions> {
-  return request<CallSuggestions>(
-    `${suggestionsPath(projectId, candidateId, recordingId)}/${suggestionId}/${decision}`,
-    {
-      method: "POST",
-      ...(body && { body }),
-    },
-  );
+  return request<CallSuggestions>(`${suggestionsPath(projectId, candidateId, recordingId)}/review`, {
+    method: "POST",
+    body: { apply },
+  });
 }
 
 /* ── Interview copilot: questions prepared for a call, and the live copilot that follows it ── */

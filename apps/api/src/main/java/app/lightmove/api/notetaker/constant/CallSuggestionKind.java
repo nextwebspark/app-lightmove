@@ -3,7 +3,7 @@ package app.lightmove.api.notetaker.constant;
 import app.lightmove.api.candidate.constant.CallField;
 import java.util.List;
 
-/** What a recorded call may suggest for the person's record, in the order the review walks them. */
+/** What a recorded call may suggest for the person's record, in the order the review lists them. */
 public enum CallSuggestionKind {
 
     NOTICE_PERIOD(List.of(CallField.NOTICE_PERIOD)),

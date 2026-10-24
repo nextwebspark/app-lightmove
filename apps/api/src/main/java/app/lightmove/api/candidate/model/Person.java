@@ -340,12 +340,6 @@ public class Person extends BaseEntity {
         }
     }
 
-    /** The same fields as {@code change} names, as the record holds them now. */
-    public ProfileFromCall heldFor(ProfileFromCall change) {
-        return new ProfileFromCall(change.fields(), noticePeriod, compensationCurrency, baseSalary, bonus, allowances,
-                locationCity, locationCountry);
-    }
-
     /** A researcher saved the Background section: every AI-proposed value in it is now theirs. */
     public void confirmBackground() {
         aiInferredFields = new HashSet<>();

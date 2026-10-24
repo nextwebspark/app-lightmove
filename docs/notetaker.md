@@ -91,17 +91,25 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
    Anything equal to what is on file is dropped. The suggestions are kept on the recording (V152 `suggestions`,
    staff-only, cleared with the transcript), so reopening costs nothing; each has a random id, and asking again once
-   every one is decided adds the new ones beside the decided ones, which keep their Undo; a press is one `AI_ENRICH` use, recorded only
-   when something was found. A claim (`suggesting_since`) keeps two presses to one model call. Each change is then
-   applied, edited, skipped or undone one at a time — on the recording row locked first, so two tabs' decisions
-   queue rather than collide — and every apply writes through the field's own owner
-   (`CandidateCallUpdates`: `Person.recordFromCall`, the scorecard, the tag catalogue; `TaskService` for a task) with
-   one `UPDATED_FROM_CALL` Activity line naming the researcher, the fields and the call — never the values — and a
-   `NOTETAKER_SUGGESTION_APPLIED` / `_SKIPPED` / `_REVERTED` audit event beside the owner's own. Undo puts back what
-   the change replaced only while the field still holds what the call wrote (a task only while it is still open under
-   its title), and a reviewed assessment the call's words reopened is reviewed again. A model that fails or answers off-schema
-   is `AI_UNAVAILABLE` (Try again), a transcript the guard stops is `VALIDATION_FAILED`, and neither stores or charges
-   anything.
+   every one is decided adds the new ones beside the decided ones; a press is one `AI_ENRICH` use, recorded only
+   when something was found. A claim (`suggesting_since`) keeps two presses to one model call.
+
+   The review is **one list and one save**, the convention for suggested record updates from a call: every change on
+   its row — what the record holds now, what the call suggests, the words it rests on and their time into the call —
+   ticked to keep unless the record no longer lets it in, editable in place, a package ticked figure by figure.
+   **Apply N changes** (`POST …/suggestions/review`) applies what is ticked as it reads and skips the rest; Not now
+   writes nothing and leaves them waiting. The review is one transaction on the recording row locked first, so a
+   second tab finds nothing waiting (`NOTETAKER_SUGGESTION_DECIDED`); every choice is checked before anything is
+   written, and the Motivation section — the one write that can still refuse, when it is too full — goes first, so a
+   refused change writes nothing at all and is named on its own row (`fieldErrors` keyed by the suggestion's id).
+   Every apply writes through the field's own owner (`CandidateCallUpdates`: `Person.recordFromCall` for the notice
+   period, package and location together, the scorecard for the Motivation section, the tag catalogue; `TaskService`
+   for each task) with one `UPDATED_FROM_CALL` Activity line per write naming the researcher, the fields and the call
+   — never the values — and a `NOTETAKER_SUGGESTION_APPLIED` / `_SKIPPED` audit event per suggestion beside the
+   owner's own. **There is no Undo**: once reviewed a change is the record's, and a correction is made there. The
+   row then reads "N changes applied" (or "No changes made") as plain text, and Activity holds the history. A model
+   that fails or answers off-schema is `AI_UNAVAILABLE` (Try again), a transcript the guard stops is
+   `VALIDATION_FAILED`, and neither stores or charges anything.
 
 9. **Prepare questions.** Every upcoming call on the drawer's Meetings section offers **Prepare questions**, which
    opens the Interview plan and, the first time, drafts it with one Gemini call (`InterviewPlanner`,
@@ -168,7 +176,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 - **Kept:** the note, and the transcript and its suggestions (staff-only, on the recording row) — by default for as
   long as the recording row, which goes only with its person or position. A deployment that sets
   `NOTETAKER_TRANSCRIPT_RETENTION` (`lightmove.recall.transcript-retention`, e.g. `90d`) has `NotetakerTranscriptPurge`
-  clear a transcript nothing needs any more — its note purged for good, or a recording that never filed one — once it
+  clear a transcript (with its suggestions and the live copilot's reading) nothing needs any more — its note purged for good, or a recording that never filed one — once it
   has sat untouched that long. Assess with AI still reads a transcript only while its note is live.
 
 Nothing about a Notetaker reaches `CandidateResponse`, the report, the public API or MCP.

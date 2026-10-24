@@ -1,7 +1,13 @@
 import { formatNumber } from "../../../lib/format";
-import type { CallSuggestion, CallSuggestionKind, PackageField, SuggestedValue } from "../api/notetakerApi";
+import type {
+  AppliedCallSuggestion,
+  CallSuggestion,
+  CallSuggestionKind,
+  PackageField,
+  SuggestedValue,
+} from "../api/notetakerApi";
 
-/** What each change is called on its card, and where in the record it lands. */
+/** What each change is called on its row, and where in the record it lands. */
 export const SUGGESTION_FIELD: Record<CallSuggestionKind, { label: string; lands: string }> = {
   NOTICE_PERIOD: { label: "Notice period", lands: "Compensation" },
   CURRENT_PACKAGE: { label: "Current package", lands: "Compensation" },
@@ -15,7 +21,7 @@ export const SUGGESTION_FIELD: Record<CallSuggestionKind, { label: string; lands
     label: "Expected package",
     lands: "Assessment · added below what's written",
   },
-  TASK: { label: "Task for you", lands: "Next action" },
+  TASK: { label: "Task for you", lands: "Next action · due tomorrow" },
 };
 
 export const PACKAGE_LINES: { field: PackageField; label: string }[] = [
@@ -24,7 +30,7 @@ export const PACKAGE_LINES: { field: PackageField; label: string }[] = [
   { field: "allowances", label: "Allowances" },
 ];
 
-/** One line for a value, or null where nothing is held — the card then says "Not recorded". */
+/** One line for a value, or null where nothing is held — the row then says "Not recorded". */
 export function valueTextOf(kind: CallSuggestionKind, value: SuggestedValue | null): string | null {
   if (!value) return null;
   switch (kind) {
@@ -42,9 +48,59 @@ export function valueTextOf(kind: CallSuggestionKind, value: SuggestedValue | nu
   }
 }
 
-/** Where the review should stand: the first change still waiting at or after `fromIndex`, else any still waiting. */
-export function nextPendingIndex(suggestions: CallSuggestion[], fromIndex: number): number {
-  const after = suggestions.findIndex((suggestion, index) => index >= fromIndex && suggestion.status === "PENDING");
-  if (after >= 0) return after;
-  return suggestions.findIndex((suggestion) => suggestion.status === "PENDING");
+/** What the review holds for one waiting change until it is saved: kept or not, an edit, a package's ticked figures. */
+export interface SuggestionChoice {
+  kept: boolean;
+  /** Null while the change is taken as the call suggested it. */
+  edit: SuggestionEdit | null;
+  packageFields: PackageField[];
+}
+
+export interface SuggestionEdit {
+  text: string;
+  city: string;
+  country: string;
+}
+
+/** Kept unless the record no longer lets it in, with every figure a package states ticked. */
+export function defaultChoiceOf(suggestion: CallSuggestion): SuggestionChoice {
+  return {
+    kept: suggestion.available,
+    edit: null,
+    packageFields: PACKAGE_LINES.filter(({ field }) => suggestion.value[field] !== null).map(({ field }) => field),
+  };
+}
+
+/** Ticking a package back on whose every figure was unticked takes every figure again. */
+export function withKept(suggestion: CallSuggestion, choice: SuggestionChoice, kept: boolean): SuggestionChoice {
+  if (!kept) return { ...choice, kept: false };
+  const packageFields =
+    choice.packageFields.length > 0 ? choice.packageFields : defaultChoiceOf(suggestion).packageFields;
+  return { ...choice, kept: true, packageFields };
+}
+
+/** A package is chosen figure by figure and a relocation tag is all or nothing; everything else can be reworded. */
+export function isEditable(suggestion: CallSuggestion): boolean {
+  return suggestion.available && suggestion.kind !== "OPEN_TO_RELOCATE" && suggestion.kind !== "CURRENT_PACKAGE";
+}
+
+export function editOf(suggestion: CallSuggestion): SuggestionEdit {
+  return {
+    text: suggestion.value.text ?? "",
+    city: suggestion.value.city ?? "",
+    country: suggestion.value.country ?? "",
+  };
+}
+
+/** The change as the review sends it, or null where it is to be skipped. */
+export function appliedOf(suggestion: CallSuggestion, choice: SuggestionChoice): AppliedCallSuggestion | null {
+  if (!choice.kept || !suggestion.available) return null;
+  if (suggestion.kind === "CURRENT_PACKAGE") {
+    return choice.packageFields.length === 0 ? null : { id: suggestion.id, packageFields: choice.packageFields };
+  }
+  if (!choice.edit) return { id: suggestion.id };
+  if (suggestion.kind === "LOCATION") {
+    return { id: suggestion.id, value: { city: choice.edit.city.trim() || null, country: choice.edit.country } };
+  }
+  return { id: suggestion.id, value: { text: choice.edit.text } };
 }

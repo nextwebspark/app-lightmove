@@ -173,17 +173,23 @@ export function NotetakerControl({
             View transcript
           </button>
         )}
-        {recording?.status === "DONE" && recording.hasTranscript && (
+        {recording?.status === "DONE" && recording.hasTranscript && isReviewed(recording) && (
+          <span
+            className={cn(
+              "flex-none font-mono text-meta",
+              recording.appliedSuggestions > 0 ? "text-u-direct" : "text-u-text3",
+            )}
+          >
+            {reviewedLabelOf(recording)}
+          </span>
+        )}
+        {recording?.status === "DONE" && recording.hasTranscript && !isReviewed(recording) && (
           <button
             type="button"
             onClick={() => onSuggestChanges(recording.id)}
-            className={cn(
-              ROW_ACTION,
-              "inline-flex items-center gap-1",
-              recording.pendingSuggestions > 0 || !recording.suggestionsAsked ? "text-u-accent" : "",
-            )}
+            className={cn(ROW_ACTION, "inline-flex items-center gap-1 text-u-accent")}
           >
-            {(recording.pendingSuggestions > 0 || !recording.suggestionsAsked) && <Icon d={ICONS.sparkle} size={12} />}
+            <Icon d={ICONS.sparkle} size={12} />
             {suggestLabelOf(recording)}
           </button>
         )}
@@ -278,12 +284,21 @@ function lineOf(recording: NotetakerRecording | null, chip: NotetakerChip | null
   }
 }
 
+/** Every change decided: the review is over, the row says what came of it, and the record takes it from there. */
+function isReviewed(recording: NotetakerRecording): boolean {
+  return recording.suggestionsAsked && recording.pendingSuggestions === 0;
+}
+
 function suggestLabelOf(recording: NotetakerRecording): string {
   if (!recording.suggestionsAsked) return "Suggest changes";
-  if (recording.pendingSuggestions === 0) return "Changes reviewed";
   return recording.pendingSuggestions === 1
     ? "1 change to review"
     : `${recording.pendingSuggestions} changes to review`;
+}
+
+function reviewedLabelOf(recording: NotetakerRecording): string {
+  if (recording.appliedSuggestions === 0) return "No changes made";
+  return recording.appliedSuggestions === 1 ? "1 change applied" : `${recording.appliedSuggestions} changes applied`;
 }
 
 const ROW_ACTION =

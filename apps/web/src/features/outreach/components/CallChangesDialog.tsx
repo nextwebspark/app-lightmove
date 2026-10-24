@@ -4,25 +4,27 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { Modal } from "../../../components/ui/Modal";
 import { LinesSkeleton } from "../../../components/ui/Skeleton";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { isBillingRefusal } from "../../billing/lib/billingView";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import * as poolApi from "../../candidates/api/poolApi";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as notetakerApi from "../api/notetakerApi";
-import type { ApplyCallSuggestion, CallSuggestion } from "../api/notetakerApi";
-import { nextPendingIndex } from "../lib/callSuggestions";
+import type { AppliedCallSuggestion, CallSuggestion } from "../api/notetakerApi";
+import { appliedOf, defaultChoiceOf, type SuggestionChoice, withKept } from "../lib/callSuggestions";
 import { meetingDayOf } from "../lib/meetingTimes";
-import { SUGGESTION_FORM_ID, SuggestionStep } from "./callChanges/SuggestionStep";
-import { SuggestionSummary } from "./callChanges/SuggestionSummary";
+import { DecidedSuggestions } from "./callChanges/DecidedSuggestions";
+import { SuggestionRow } from "./callChanges/SuggestionRow";
 
-type Decision = "apply" | "skip" | "reopen";
+type Phase = "loading" | "failed" | "empty" | "review" | "reviewed";
 
 /**
  * Suggest changes on a recorded call (`Position.dc.html`'s "Changes from the call"): the transcript read against the
- * person's record, then one change per card — what the record holds now, what the call suggests, and the words it
- * rests on. Nothing is written until Apply; the summary undoes any of it. Opening it is the press that reads the
- * transcript, once; reopening reads back what was found.
+ * person's record, every change it found on one list — what the record holds now, what the call suggests, the words it
+ * rests on — each ticked to keep, editable in place, and saved together by one Apply. Nothing is written before it and
+ * nothing is undone after it: from then on the record is where a change is made. Opening it is the press that reads
+ * the transcript, once; reopening reads back what was found.
  */
 export function CallChangesDialog({
   projectId,
@@ -81,65 +83,44 @@ export function CallChangesDialog({
   }, [shouldAsk, ask]);
 
   const suggestions = answer?.suggestions ?? [];
-  const [cursor, setCursor] = useState<number | null>(null);
-  const [showSummary, setShowSummary] = useState(false);
-  const firstPending = nextPendingIndex(suggestions, 0);
-  const index = cursor ?? (firstPending >= 0 ? firstPending : 0);
-  const current = suggestions[index] ?? null;
-  const allDecided = asked && suggestions.length > 0 && firstPending < 0;
-  const phase: "loading" | "failed" | "empty" | "step" | "summary" =
+  const waiting = suggestions.filter((suggestion) => suggestion.status === "PENDING");
+  const decided = suggestions.filter((suggestion) => suggestion.status !== "PENDING");
+  const [choices, setChoices] = useState<Record<string, SuggestionChoice>>({});
+  const choiceOf = (suggestion: CallSuggestion) => choices[suggestion.id] ?? defaultChoiceOf(suggestion);
+  const toApply = waiting.flatMap((suggestion) => appliedOf(suggestion, choiceOf(suggestion)) ?? []);
+  const offered = waiting.filter((suggestion) => suggestion.available);
+
+  const phase: Phase =
     read.isError || (ask.isError && !isRunningElsewhere && !isBillingRefusal(ask.error))
       ? "failed"
       : !asked
         ? "loading"
         : suggestions.length === 0
           ? "empty"
-          : showSummary || (allDecided && cursor === null)
-            ? "summary"
-            : "step";
+          : waiting.length === 0
+            ? "reviewed"
+            : "review";
 
-  const decide = useMutation({
-    mutationFn: ({
-      suggestion,
-      decision,
-      body,
-    }: {
-      suggestion: CallSuggestion;
-      decision: Decision;
-      body?: ApplyCallSuggestion;
-    }) => notetakerApi.decideCallSuggestion(projectId, candidateId, recordingId, suggestion.id, decision, body),
-    onSuccess: (next, { suggestion, decision }) => {
+  const review = useMutation({
+    mutationFn: (apply: AppliedCallSuggestion[]) =>
+      notetakerApi.reviewCallSuggestions(projectId, candidateId, recordingId, apply),
+    onSuccess: (next, apply) => {
       queryClient.setQueryData(key, next);
       void queryClient.invalidateQueries({
         queryKey: notetakerApi.NOTETAKER_KEY(projectId, candidateId),
         exact: true,
       });
-      if (decision !== "skip") {
-        void queryClient.invalidateQueries({
-          queryKey: CANDIDATES_KEY_PREFIX(projectId),
-        });
+      if (apply.length > 0) {
+        void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
         void queryClient.invalidateQueries({ queryKey: TASKS_KEY_PREFIX });
-        void queryClient.invalidateQueries({
-          queryKey: poolApi.PERSON_RECORD_KEY(personId),
-        });
+        void queryClient.invalidateQueries({ queryKey: poolApi.PERSON_RECORD_KEY(personId) });
+        toast.success(`${apply.length === 1 ? "1 change" : `${apply.length} changes`} saved to ${firstName}'s record`);
       }
-      if (decision === "reopen") {
-        setShowSummary(false);
-        setCursor(next.suggestions.findIndex((each) => each.id === suggestion.id));
-        return;
-      }
-      const at = next.suggestions.findIndex((each) => each.id === suggestion.id);
-      const following = nextPendingIndex(next.suggestions, at + 1);
-      if (following < 0) {
-        setCursor(null);
-        setShowSummary(true);
-      } else {
-        setCursor(following);
-      }
+      onClose();
     },
-    onError: (error) => {
+    onError: (error, apply) => {
+      if (Object.keys(rowErrorsOf(error, apply)).length > 0) return;
       const code = codeOf(error);
-      if (code === "VALIDATION_FAILED") return;
       toast.error(messageFor(error));
       if (code === "NOTETAKER_SUGGESTION_DECIDED" || code === "NOTETAKER_SUGGESTION_UNAVAILABLE") {
         void read.refetch();
@@ -147,6 +128,22 @@ export function CallChangesDialog({
       if (code === "PROJECT_ARCHIVED" || code === "FORBIDDEN" || code === "NOT_FOUND") onClose();
     },
   });
+  const rowErrors = review.isError ? rowErrorsOf(review.error, review.variables ?? []) : {};
+
+  const choose = (suggestion: CallSuggestion, next: SuggestionChoice) => {
+    review.reset();
+    setChoices((held) => ({ ...held, [suggestion.id]: next }));
+  };
+  const keepAll = (kept: boolean) => {
+    review.reset();
+    setChoices((held) => {
+      const next = { ...held };
+      for (const suggestion of offered) {
+        next[suggestion.id] = withKept(suggestion, held[suggestion.id] ?? defaultChoiceOf(suggestion), kept);
+      }
+      return next;
+    });
+  };
 
   const title = answer?.title ?? "Recorded call";
   const subtitle = answer ? `${title} · ${meetingDayOf(answer.startsAt)}` : undefined;
@@ -158,33 +155,23 @@ export function CallChangesDialog({
       title="Changes from the call"
       subtitle={subtitle}
       closeButton
-      className="md:w-[480px]"
+      className="md:w-[760px]"
       footer={
-        <DialogFooter
-          phase={phase}
-          suggestion={current}
-          index={index}
-          pending={decide.isPending}
-          canRetry={codeOf(ask.error) !== "VALIDATION_FAILED"}
-          onRetry={() => {
-            ask.reset();
-            setIsRunningElsewhere(false);
-            ask.mutate();
-          }}
-          onBack={() => setCursor(Math.max(0, index - 1))}
-          onNext={() => {
-            const following = nextPendingIndex(suggestions, index + 1);
-            if (following < 0) {
-              setCursor(null);
-              setShowSummary(true);
-            } else {
-              setCursor(following);
-            }
-          }}
-          onSkip={() => current && decide.mutate({ suggestion: current, decision: "skip" })}
-          onClose={onClose}
-          formId={SUGGESTION_FORM_ID}
-        />
+        phase !== "reviewed" && (
+          <DialogFooter
+            phase={phase}
+            applying={toApply.length}
+            pending={review.isPending}
+            canRetry={codeOf(ask.error) !== "VALIDATION_FAILED"}
+            onRetry={() => {
+              ask.reset();
+              setIsRunningElsewhere(false);
+              ask.mutate();
+            }}
+            onApply={() => review.mutate(toApply)}
+            onClose={onClose}
+          />
+        )
       }
     >
       {phase === "loading" && <ReadingTranscript />}
@@ -202,30 +189,82 @@ export function CallChangesDialog({
           <p className="mt-1 text-note text-u-text2">The call didn't state anything new for {firstName}'s record.</p>
         </div>
       )}
-      {phase === "step" && current && (
-        <SuggestionStep
-          key={current.id + current.status}
-          suggestion={current}
-          index={index}
-          total={suggestions.length}
-          pending={decide.isPending}
-          error={codeOf(decide.error) === "VALIDATION_FAILED" ? messageFor(decide.error) : null}
-          onApply={(body) => decide.mutate({ suggestion: current, decision: "apply", body })}
-          onSkip={() => decide.mutate({ suggestion: current, decision: "skip" })}
-          onUndo={() => decide.mutate({ suggestion: current, decision: "reopen" })}
-          onBack={() => setCursor(Math.max(0, index - 1))}
-          onEditing={() => decide.reset()}
-        />
+      {phase === "review" && (
+        <div className="pb-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pb-2">
+            <p className="text-note text-u-text2">
+              <span className="font-semibold text-u-text">
+                {waiting.length === 1 ? "1 change" : `${waiting.length} changes`} found
+              </span>{" "}
+              · {toApply.length} selected
+            </p>
+            {offered.length > 1 && (
+              <span className="flex gap-3.5 text-meta">
+                <button
+                  type="button"
+                  disabled={review.isPending}
+                  onClick={() => keepAll(true)}
+                  className="font-medium text-u-accent hover:underline disabled:opacity-60"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  disabled={review.isPending}
+                  onClick={() => keepAll(false)}
+                  className="font-medium text-u-accent hover:underline disabled:opacity-60"
+                >
+                  None
+                </button>
+              </span>
+            )}
+          </div>
+          <ul aria-label="Changes to apply">
+            {waiting.map((suggestion) => (
+              <SuggestionRow
+                key={suggestion.id}
+                suggestion={suggestion}
+                choice={choiceOf(suggestion)}
+                error={rowErrors[suggestion.id] ?? null}
+                disabled={review.isPending}
+                onChange={(next) => choose(suggestion, next)}
+              />
+            ))}
+          </ul>
+          {decided.length > 0 && (
+            <section aria-label="Already reviewed" className="mt-5">
+              <h3 className="type-micro-label pb-1 font-mono text-u-text3">Already reviewed</h3>
+              <DecidedSuggestions suggestions={decided} />
+            </section>
+          )}
+        </div>
       )}
-      {phase === "summary" && answer && (
-        <SuggestionSummary
-          answer={answer}
-          pending={decide.isPending}
-          onUndo={(suggestion) => decide.mutate({ suggestion, decision: "reopen" })}
-        />
+      {phase === "reviewed" && (
+        <div className="pb-1">
+          <p className="pb-2 text-subhead font-semibold">
+            {decided.filter((suggestion) => suggestion.status === "APPLIED").length} applied{" "}
+            <span className="font-normal text-u-text3">
+              · {decided.filter((suggestion) => suggestion.status === "SKIPPED").length} skipped
+            </span>
+          </p>
+          <DecidedSuggestions suggestions={decided} />
+          <p className="mt-3 text-meta text-u-text3">To change any of it, edit {firstName}'s record.</p>
+        </div>
       )}
     </Modal>
   );
+}
+
+/** A refused review's messages by the change they belong to: the server names its id, or its place in what was sent. */
+function rowErrorsOf(error: unknown, sent: AppliedCallSuggestion[]): Record<string, string> {
+  if (codeOf(error) !== "VALIDATION_FAILED" || !(error instanceof ApiRequestError)) return {};
+  const byRow: Record<string, string> = {};
+  for (const [key, message] of Object.entries(error.fieldErrors)) {
+    const place = /^apply\[(\d+)\]/.exec(key);
+    const id = place ? sent[Number(place[1])]?.id : sent.find((each) => each.id === key)?.id;
+    if (id && !byRow[id]) byRow[id] = message;
+  }
+  return byRow;
 }
 
 function ReadingTranscript() {
@@ -245,32 +284,24 @@ function ReadingTranscript() {
 
 function DialogFooter({
   phase,
-  suggestion,
-  index,
+  applying,
   pending,
   canRetry,
   onRetry,
-  onBack,
-  onNext,
-  onSkip,
+  onApply,
   onClose,
-  formId,
 }: {
-  phase: "loading" | "failed" | "empty" | "step" | "summary";
-  suggestion: CallSuggestion | null;
-  index: number;
+  phase: Phase;
+  applying: number;
   pending: boolean;
   canRetry: boolean;
   onRetry: () => void;
-  onBack: () => void;
-  onNext: () => void;
-  onSkip: () => void;
+  onApply: () => void;
   onClose: () => void;
-  formId: string;
 }) {
   if (phase === "loading") {
     return (
-      <Button variant="secondary" size="sm" onClick={onClose}>
+      <Button variant="secondary" onClick={onClose}>
         Cancel
       </Button>
     );
@@ -278,52 +309,25 @@ function DialogFooter({
   if (phase === "failed") {
     return (
       <>
-        <Button variant="secondary" size="sm" onClick={onClose}>
+        <Button variant="secondary" onClick={onClose}>
           Close
         </Button>
-        {canRetry && (
-          <Button size="sm" onClick={onRetry}>
-            Try again
-          </Button>
-        )}
+        {canRetry && <Button onClick={onRetry}>Try again</Button>}
       </>
     );
   }
-  if (phase !== "step" || !suggestion) {
-    return (
-      <Button size="sm" onClick={onClose}>
-        {phase === "summary" ? "Done" : "Close"}
-      </Button>
-    );
+  if (phase === "empty") {
+    return <Button onClick={onClose}>Close</Button>;
   }
-  const waiting = suggestion.status === "PENDING";
   return (
-    <div className="flex w-full items-center gap-2">
-      <Button variant="ghost" size="sm" disabled={index === 0 || pending} onClick={onBack}>
-        ← Back
+    <div className="flex w-full items-center justify-end gap-2">
+      <span className="me-auto hidden text-meta text-u-text3 sm:inline">Nothing is saved until you apply.</span>
+      <Button variant="secondary" disabled={pending} onClick={onClose}>
+        Not now
       </Button>
-      <span className="flex-1" />
-      {!waiting && (
-        <Button size="sm" disabled={pending} onClick={onNext}>
-          Next →
-        </Button>
-      )}
-      {waiting && (
-        <>
-          <Button variant="secondary" size="sm" disabled={pending} onClick={onSkip}>
-            Skip
-          </Button>
-          {suggestion.available && (
-            <Button size="sm" type="submit" form={formId} loading={pending}>
-              {suggestion.kind === "TASK"
-                ? "Add task"
-                : suggestion.kind === "CURRENT_PACKAGE"
-                  ? "Apply ticked"
-                  : "Apply"}
-            </Button>
-          )}
-        </>
-      )}
+      <Button loading={pending} onClick={onApply}>
+        {applying === 0 ? "Skip all" : applying === 1 ? "Apply 1 change" : `Apply ${applying} changes`}
+      </Button>
     </div>
   );
 }

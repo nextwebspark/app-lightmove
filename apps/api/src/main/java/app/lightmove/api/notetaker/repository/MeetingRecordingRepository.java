@@ -86,11 +86,11 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
 
     /**
      * A transcript nothing needs any more — its note purged for good, or never filed — once untouched since
-     * {@code cutoff}. The suggestions read off it quote the executive, so they go with it.
+     * {@code cutoff}. The suggestions and the live copilot's reading quote the executive, so they go with it.
      */
     @Modifying
     @Query(nativeQuery = true, value = """
-            UPDATE app_lm_meeting_recording SET transcript = NULL, suggestions = NULL
+            UPDATE app_lm_meeting_recording SET transcript = NULL, suggestions = NULL, live = NULL
             WHERE transcript IS NOT NULL AND updated_at < :cutoff
               AND ((status = 'DONE' AND note_id IS NULL) OR status IN ('FAILED', 'CANCELLED'))
             """)

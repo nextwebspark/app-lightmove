@@ -151,10 +151,9 @@ public enum ProjectEventType implements AuditEventType {
     NOTETAKER_NOTE_FILED,
     /** Suggest changes asked the model to read a call's transcript against the person's record. */
     NOTETAKER_SUGGESTIONS_ASKED,
-    /** A change the call suggested, applied, skipped or undone by a researcher; the fields are named, never valued. */
+    /** A change the call suggested, applied or skipped by a researcher; the fields are named, never valued. */
     NOTETAKER_SUGGESTION_APPLIED,
     NOTETAKER_SUGGESTION_SKIPPED,
-    NOTETAKER_SUGGESTION_REVERTED,
 
     /** Prepare questions: the model drafted an interview plan for a call, or a consultant saved their edits to one. */
     INTERVIEW_PLAN_DRAFTED,

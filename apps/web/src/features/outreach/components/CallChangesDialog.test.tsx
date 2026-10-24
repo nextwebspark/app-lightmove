@@ -12,7 +12,7 @@ vi.mock("../api/notetakerApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/notetakerApi")>()),
   getCallSuggestions: vi.fn(),
   suggestChanges: vi.fn(),
-  decideCallSuggestion: vi.fn(),
+  reviewCallSuggestions: vi.fn(),
 }));
 
 const EMPTY: SuggestedValue = {
@@ -94,18 +94,21 @@ function renderDialog() {
 describe("CallChangesDialog", () => {
   beforeEach(() => vi.resetAllMocks());
 
-  it("reads the transcript once on opening, then shows one change at a time against what is held", async () => {
+  it("reads the transcript once on opening, then lists every change against what is held", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([], false));
     vi.mocked(notetakerApi.suggestChanges).mockResolvedValue(answerOf([NOTICE, PACKAGE]));
     renderDialog();
 
-    expect(await screen.findByText("Notice period")).toBeInTheDocument();
+    expect(await screen.findByText("2 changes found")).toBeInTheDocument();
     expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("1 of 2")).toBeInTheDocument();
-    expect(screen.getByText("Not recorded")).toBeInTheDocument();
+    expect(screen.getByText("Notice period")).toBeInTheDocument();
+    expect(screen.getByText("Current package")).toBeInTheDocument();
+    expect(screen.getAllByText("Not recorded")).toHaveLength(2);
     expect(screen.getByText("3 months")).toBeInTheDocument();
     expect(screen.getByText("My notice is ninety days.")).toBeInTheDocument();
     expect(screen.getByText("07:42")).toBeInTheDocument();
+    expect(screen.getByText("Annualised from monthly: base 95,000 × 12")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply 2 changes" })).toBeInTheDocument();
   });
 
   it("does not read the transcript again when changes are already waiting", async () => {
@@ -116,68 +119,96 @@ describe("CallChangesDialog", () => {
     expect(notetakerApi.suggestChanges).not.toHaveBeenCalled();
   });
 
-  it("applies a change, moves to the next, and applies only the ticked package figures", async () => {
+  it("saves every kept change in one request, as edited and with only the ticked figures, then closes", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE, PACKAGE]));
-    vi.mocked(notetakerApi.decideCallSuggestion)
-      .mockResolvedValueOnce(answerOf([decided(NOTICE, "APPLIED"), PACKAGE]))
-      .mockResolvedValueOnce(answerOf([decided(NOTICE, "APPLIED"), decided(PACKAGE, "APPLIED")]));
-    renderDialog();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Apply" }));
-    expect(notetakerApi.decideCallSuggestion).toHaveBeenLastCalledWith(
-      "p1",
-      "c1",
-      "r1",
-      "notice-period",
-      "apply",
-      undefined,
+    vi.mocked(notetakerApi.reviewCallSuggestions).mockResolvedValue(
+      answerOf([decided(NOTICE, "APPLIED"), decided(PACKAGE, "APPLIED")]),
     );
-    expect(await screen.findByText("2 of 2")).toBeInTheDocument();
-    expect(screen.getByText("Annualised from monthly: base 95,000 × 12")).toBeInTheDocument();
+    const onClose = renderDialog();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: /Bonus/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Apply ticked" }));
-    expect(notetakerApi.decideCallSuggestion).toHaveBeenLastCalledWith("p1", "c1", "r1", "current-package", "apply", {
-      packageFields: ["baseSalary", "allowances"],
-    });
-    expect(await screen.findByText(/^2 applied/)).toBeInTheDocument();
-  });
-
-  it("applies an edited notice period as the researcher chose it", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE]));
-    vi.mocked(notetakerApi.decideCallSuggestion).mockResolvedValue(answerOf([decided(NOTICE, "APPLIED")]));
-    renderDialog();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Edit notice period" }));
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Notice period" }), "2 months");
-    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Bonus" }));
+    await userEvent.click(screen.getByRole("button", { name: "Apply 2 changes" }));
 
-    expect(notetakerApi.decideCallSuggestion).toHaveBeenCalledWith("p1", "c1", "r1", "notice-period", "apply", {
-      value: { text: "2 months" },
-    });
+    expect(notetakerApi.reviewCallSuggestions).toHaveBeenCalledTimes(1);
+    expect(notetakerApi.reviewCallSuggestions).toHaveBeenCalledWith("p1", "c1", "r1", [
+      { id: "notice-period", value: { text: "2 months" } },
+      { id: "current-package", packageFields: ["baseSalary", "allowances"] },
+    ]);
+    expect(await screen.findByText("2 changes saved to Priya's record")).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it("skips, sums up what was decided, and undoes a line from the summary", async () => {
-    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE]));
-    vi.mocked(notetakerApi.decideCallSuggestion)
-      .mockResolvedValueOnce(answerOf([decided(NOTICE, "SKIPPED")]))
-      .mockResolvedValueOnce(answerOf([NOTICE]));
+  it("skips what is unticked, and skips everything when nothing is kept", async () => {
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE, PACKAGE]));
+    vi.mocked(notetakerApi.reviewCallSuggestions).mockResolvedValue(
+      answerOf([decided(NOTICE, "SKIPPED"), decided(PACKAGE, "SKIPPED")]),
+    );
     renderDialog();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Skip" }));
-    expect(await screen.findByText(/^0 applied/)).toBeInTheDocument();
-    expect(screen.getByText("Skipped")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Apply notice period" }));
+    expect(screen.getByText(/1 selected/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply 1 change" })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Undo" }));
-    expect(notetakerApi.decideCallSuggestion).toHaveBeenLastCalledWith(
-      "p1",
-      "c1",
-      "r1",
-      "notice-period",
-      "reopen",
-      undefined,
+    await userEvent.click(screen.getByRole("button", { name: "None" }));
+    await userEvent.click(screen.getByRole("button", { name: "Skip all" }));
+    expect(notetakerApi.reviewCallSuggestions).toHaveBeenCalledWith("p1", "c1", "r1", []);
+  });
+
+  it("shows a refused change on its own row and saves nothing", async () => {
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE, PACKAGE]));
+    vi.mocked(notetakerApi.reviewCallSuggestions).mockRejectedValue(
+      new ApiRequestError({
+        code: "VALIDATION_FAILED",
+        detail: "Choose a notice period: None, 1, 2, 3 or 6 months.",
+        status: 400,
+        correlationId: "c",
+        fieldErrors: { "notice-period": "Choose a notice period: None, 1, 2, 3 or 6 months." },
+      }),
     );
-    expect(await screen.findByRole("button", { name: "Apply" })).toBeInTheDocument();
+    const onClose = renderDialog();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Apply 2 changes" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose a notice period: None, 1, 2, 3 or 6 months.");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("closes on Not now without saving anything", async () => {
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([NOTICE]));
+    const onClose = renderDialog();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Not now" }));
+
+    expect(onClose).toHaveBeenCalled();
+    expect(notetakerApi.reviewCallSuggestions).not.toHaveBeenCalled();
+  });
+
+  it("reads a reviewed call back as a record, with no way to undo it", async () => {
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
+      answerOf([decided(NOTICE, "APPLIED"), decided(PACKAGE, "SKIPPED")]),
+    );
+    renderDialog();
+
+    expect(await screen.findByText(/^1 applied/)).toBeInTheDocument();
+    expect(screen.getByText("Applied")).toBeInTheDocument();
+    expect(screen.getByText("Skipped")).toBeInTheDocument();
+    expect(screen.getByText("To change any of it, edit Priya's record.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toEqual([screen.getByRole("button", { name: "Close" })]);
+  });
+
+  it("lists changes already decided apart from those still waiting, read only", async () => {
+    vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(answerOf([decided(NOTICE, "APPLIED"), PACKAGE]));
+    renderDialog();
+
+    expect(await screen.findByText("1 change found")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Already reviewed" })).toHaveTextContent("Applied");
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Apply notice period" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Apply 1 change" })).toBeInTheDocument();
   });
 
   it("says so when the call stated nothing new", async () => {
@@ -209,7 +240,7 @@ describe("CallChangesDialog", () => {
     await waitFor(() => expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(2));
   });
 
-  it("explains a change the record no longer lets in, and offers only Skip", async () => {
+  it("explains a change the record no longer lets in, and leaves it unticked", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
       answerOf([
         {
@@ -224,7 +255,8 @@ describe("CallChangesDialog", () => {
     renderDialog();
 
     expect(await screen.findByText(/the Open to relocate tag was renamed or retired/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Apply" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Apply open to relocate" })).toBeDisabled();
+    expect(screen.getByRole("checkbox", { name: "Apply open to relocate" })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Skip all" })).toBeInTheDocument();
   });
 });

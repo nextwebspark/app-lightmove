@@ -32,7 +32,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -453,10 +455,15 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         transcriptPurge.purgeAt(Instant.now().plus(Duration.ofDays(3650)));
         assertThat(transcriptHeld(recordingId)).isTrue();
 
+        // The live copilot's reading quotes the executive too, so it goes with the transcript.
+        jdbc.update("update app_lm_meeting_recording set live_copilot = true, live = '{\"coverage\":[]}'::jsonb "
+                + "where id = ?::uuid", recordingId);
         transcriptPurge.purgeUntouchedSince(Instant.now().minusSeconds(60));
         assertThat(transcriptHeld(recordingId)).isTrue();
         transcriptPurge.purgeUntouchedSince(Instant.now().plusSeconds(60));
         assertThat(transcriptHeld(recordingId)).isFalse();
+        assertThat(jdbc.queryForObject("select live is null from app_lm_meeting_recording where id = ?::uuid",
+                Boolean.class, recordingId)).isTrue();
     }
 
     @Test
@@ -482,8 +489,8 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("Suggest changes reads the transcript once, and each change is applied through its own field's owner")
-    void suggestedChangesAreAppliedOneByOne() throws Exception {
+    @DisplayName("Suggest changes reads the transcript once; one review applies what was kept through each field's owner")
+    void oneReviewAppliesWhatWasKept() throws Exception {
         String recordingId = filedRecording();
         // A package on file is compared in code; the model never sees a compensation figure.
         jdbc.update("update app_lm_person set compensation_currency = 'AED', base_salary = 777777 where id = (select "
@@ -513,20 +520,18 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk());
         assertThat(chat.prompts()).hasSize(promptsBefore + 1);
 
-        decide(recordingId, "notice-period", "apply", null).andExpect(status().isOk());
-        decide(recordingId, "current-package", "apply", "{\"packageFields\":[\"baseSalary\"]}")
-                .andExpect(status().isOk());
-        decide(recordingId, "location", "apply",
-                "{\"value\":{\"city\":\"Abu Dhabi\",\"country\":\"UAE\"}}").andExpect(status().isOk());
-        decide(recordingId, "open-to-relocate", "apply", null).andExpect(status().isOk());
-        decide(recordingId, "motivation", "apply", null).andExpect(status().isOk());
-        decide(recordingId, "task-1", "apply", null).andExpect(status().isOk());
-        JsonNode decided = body(decide(recordingId, "expected-package", "skip", null).andExpect(status().isOk())
-                .andReturn());
+        JsonNode reviewed = body(review(recordingId, Map.of(
+                "notice-period", "",
+                "current-package", "\"packageFields\":[\"baseSalary\"]",
+                "location", "\"value\":{\"city\":\"Abu Dhabi\",\"country\":\"UAE\"}",
+                "open-to-relocate", "",
+                "motivation", "",
+                "task-1", "")).andExpect(status().isOk()).andReturn());
 
-        assertThat(decided.get("mayAskAgain").asBoolean()).isTrue();
-        assertThat(suggestion(decided, "location").get("edited").asBoolean()).isTrue();
-        assertThat(suggestion(decided, "expected-package").get("status").asText()).isEqualTo("SKIPPED");
+        assertThat(reviewed.get("mayAskAgain").asBoolean()).isTrue();
+        assertThat(reviewed.get("suggestions")).extracting(each -> each.get("status").asText()).containsExactly(
+                "APPLIED", "APPLIED", "APPLIED", "APPLIED", "APPLIED", "SKIPPED", "APPLIED");
+        assertThat(suggestion(reviewed, "location").get("edited").asBoolean()).isTrue();
         JsonNode executive = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
                 .andExpect(status().isOk()).andReturn());
         assertThat(executive.get("compensation").get("noticePeriod").asText()).isEqualTo("3 months");
@@ -550,9 +555,9 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 + "/timeline")).andExpect(status().isOk()).andReturn());
         List<JsonNode> fromCall = timeline.get("entries").valueStream()
                 .filter(entry -> entry.get("kind").asText().equals("UPDATED_FROM_CALL")).toList();
-        assertThat(fromCall).hasSize(6);
         assertThat(fromCall).extracting(entry -> entry.get("details").get("fields").asText())
-                .contains("noticePeriod", "baseSalary", "location", "openToRelocate", "motivation", "task");
+                .containsExactlyInAnyOrder("noticePeriod,baseSalary,location", "motivation", "openToRelocate",
+                        "task");
         assertThat(fromCall).allSatisfy(entry -> {
             assertThat(entry.get("actorName").asText()).isEqualTo("Yara Haddad");
             assertThat(entry.get("details").get("recordingId").asText()).isEqualTo(recordingId);
@@ -560,86 +565,57 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         });
         assertThat(auditedFor("NOTETAKER_SUGGESTION_APPLIED", recordingId, 6)).isEqualTo(6);
         assertThat(auditedFor("NOTETAKER_SUGGESTION_SKIPPED", recordingId, 1)).isEqualTo(1);
+        JsonNode row = notetaker().get("recordings").get(0);
+        assertThat(row.get("pendingSuggestions").asInt()).isZero();
+        assertThat(row.get("appliedSuggestions").asInt()).isEqualTo(6);
 
-        decide(recordingId, "notice-period", "apply", null).andExpect(status().isConflict())
+        review(recordingId, Map.of()).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("NOTETAKER_SUGGESTION_DECIDED"));
     }
 
     @Test
-    @DisplayName("Undo puts back what a change replaced, and refuses once the field was edited after it")
-    void undoPutsBackOnlyWhatTheCallWrote() throws Exception {
+    @DisplayName("a review is all or nothing: a refused change writes none of them and names its row")
+    void aRefusedChangeWritesNothing() throws Exception {
         String recordingId = filedRecording();
         as(consultant, get("/api/v1/candidate-tags")).andExpect(status().isOk());
         chat.answerWhenSystemContains(CHANGES_MARKER, CHANGES);
-        as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk());
-
-        decide(recordingId, "notice-period", "apply", "{\"value\":{\"text\":\"2 months\"}}")
-                .andExpect(status().isOk());
-        decide(recordingId, "task-1", "apply", null).andExpect(status().isOk());
-        decide(recordingId, "open-to-relocate", "apply", null).andExpect(status().isOk());
-        decide(recordingId, "motivation", "apply", null).andExpect(status().isOk());
-        decide(recordingId, "location", "apply", null).andExpect(status().isOk());
-        assertThat(noticeHeld()).isEqualTo("2 months");
-
-        JsonNode undone = body(decide(recordingId, "notice-period", "reopen", null).andExpect(status().isOk())
+        JsonNode asked = body(as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk())
                 .andReturn());
-        assertThat(suggestion(undone, "notice-period").get("status").asText()).isEqualTo("PENDING");
-        assertThat(noticeHeld()).isNull();
-        decide(recordingId, "task-1", "reopen", null).andExpect(status().isOk());
-        assertThat(jdbc.queryForObject("select status from app_lm_task where workspace_id = (select workspace_id "
-                + "from app_lm_project where id = ?::uuid)", String.class, projectId)).isEqualTo("CANCELLED");
-        decide(recordingId, "open-to-relocate", "reopen", null).andExpect(status().isOk());
-        assertThat(jdbc.queryForObject("select count(*) from app_lm_person_tag where person_id = (select person_id "
-                + "from app_lm_project_candidate where id = ?::uuid)", Integer.class, priya)).isZero();
-        decide(recordingId, "motivation", "reopen", null).andExpect(status().isOk());
-        JsonNode assessment = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya
-                + "/assessment")).andExpect(status().isOk()).andReturn());
-        assertThat(assessment.get("report").get("motivation").isNull()).isTrue();
-        assertThat(jdbc.queryForObject("select count(*) from app_lm_person_activity where kind = 'UPDATED_FROM_CALL' "
-                + "and details ->> 'reverted' = 'true' and details ->> 'recordingId' = ?", Integer.class, recordingId))
-                .isEqualTo(4);
-        assertThat(auditedFor("NOTETAKER_SUGGESTION_REVERTED", recordingId, 4)).isEqualTo(4);
 
-        jdbc.update("update app_lm_person set location_city = 'Sharjah' where id = (select person_id from "
-                + "app_lm_project_candidate where id = ?::uuid)", priya);
-        decide(recordingId, "location", "reopen", null).andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("NOTETAKER_SUGGESTION_UNAVAILABLE"));
-        assertThat(jdbc.queryForObject("select location_city from app_lm_person where id = (select person_id from "
-                + "app_lm_project_candidate where id = ?::uuid)", String.class, priya)).isEqualTo("Sharjah");
-    }
+        review(recordingId, Map.of("location", "", "task-1", "",
+                "notice-period", "\"value\":{\"text\":\"9 months\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "notice-period").get("id").asText() + "']")
+                        .value("Choose a notice period: None, 1, 2, 3 or 6 months."));
 
-    @Test
-    @DisplayName("Undo leaves a task someone has since done, and puts a reviewed assessment back as it was")
-    void undoRespectsWhatHappenedSince() throws Exception {
-        String recordingId = filedRecording();
-        chat.answerWhenSystemContains(CHANGES_MARKER, CHANGES);
-        as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk());
         String assessment = "/api/v1/projects/" + projectId + "/candidates/" + priya + "/assessment";
         as(consultant, put(assessment).contentType(MediaType.APPLICATION_JSON).content("""
-                {"version":null,"scores":[],"report":{"motivation":"Keen on a listed group."},"markReviewed":true}"""))
-                .andExpect(status().isOk());
+                {"version":null,"scores":[],"report":{"motivation":"%s"},"markReviewed":false}"""
+                .formatted("x".repeat(3990)))).andExpect(status().isOk());
+        review(recordingId, Map.of("notice-period", "", "motivation", ""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "motivation").get("id").asText() + "']")
+                        .exists());
 
-        decide(recordingId, "task-1", "apply", null).andExpect(status().isOk());
-        decide(recordingId, "motivation", "apply", null).andExpect(status().isOk());
-        JsonNode appended = body(as(consultant, get(assessment)).andExpect(status().isOk()).andReturn());
-        assertThat(appended.get("status").asText()).isEqualTo("draft");
-        assertThat(appended.get("report").get("motivation").asText()).startsWith("Keen on a listed group.\n\n");
+        assertThat(noticeHeld()).isNull();
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_task where candidate_id = ?::uuid and title = "
+                + "'Send Priya the position description'", Integer.class, priya)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_person_activity where kind = 'UPDATED_FROM_CALL' "
+                + "and details ->> 'recordingId' = ?", Integer.class, recordingId)).isZero();
+        JsonNode held = body(as(consultant, get(suggestionsPath(recordingId))).andExpect(status().isOk()).andReturn());
+        assertThat(held.get("suggestions")).allSatisfy(each -> assertThat(each.get("status").asText())
+                .isEqualTo("PENDING"));
 
-        decide(recordingId, "motivation", "reopen", null).andExpect(status().isOk());
-        JsonNode restored = body(as(consultant, get(assessment)).andExpect(status().isOk()).andReturn());
-        assertThat(restored.get("status").asText()).isEqualTo("reviewed");
-        assertThat(restored.get("report").get("motivation").asText()).isEqualTo("Keen on a listed group.");
-
-        jdbc.update("update app_lm_task set status = 'DONE', completed_at = now() where workspace_id = (select "
-                + "workspace_id from app_lm_project where id = ?::uuid)", projectId);
-        decide(recordingId, "task-1", "reopen", null).andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("NOTETAKER_SUGGESTION_UNAVAILABLE"));
-        assertThat(jdbc.queryForObject("select status from app_lm_task where workspace_id = (select workspace_id "
-                + "from app_lm_project where id = ?::uuid)", String.class, projectId)).isEqualTo("DONE");
+        review(recordingId, Map.of("unknown", "")).andExpect(status().isNotFound());
+        JsonNode dismissed = body(review(recordingId, Map.of()).andExpect(status().isOk()).andReturn());
+        assertThat(dismissed.get("suggestions")).allSatisfy(each -> assertThat(each.get("status").asText())
+                .isEqualTo("SKIPPED"));
+        assertThat(notetaker().get("recordings").get(0).get("appliedSuggestions").asInt()).isZero();
     }
 
     @Test
-    @DisplayName("asking again keeps every decided change and its Undo, beside new changes with new ids")
+    @DisplayName("asking again keeps every applied change on record, beside new changes with new ids")
     void askingAgainKeepsDecidedChanges() throws Exception {
         String recordingId = filedRecording();
         chat.answerWhenSystemContains(CHANGES_MARKER, """
@@ -647,7 +623,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         JsonNode first = body(as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk())
                 .andReturn());
         String noticeId = suggestion(first, "notice-period").get("id").asText();
-        decide(recordingId, "notice-period", "apply", null).andExpect(status().isOk());
+        review(recordingId, Map.of("notice-period", "")).andExpect(status().isOk());
 
         chat.answerWhenSystemContains(CHANGES_MARKER, """
                 {"location":{"city":"Dubai","country":"United Arab Emirates","said":"Dubai.","at":"00:50"}}""");
@@ -657,9 +633,9 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         assertThat(again.get("suggestions")).extracting(each -> each.get("kind").asText())
                 .containsExactly("NOTICE_PERIOD", "LOCATION");
         assertThat(suggestion(again, "notice-period").get("id").asText()).isEqualTo(noticeId);
-        assertThat(suggestion(again, "location").get("id").asText()).isNotEqualTo(noticeId);
-        decide(recordingId, "notice-period", "reopen", null).andExpect(status().isOk());
-        assertThat(noticeHeld()).isNull();
+        assertThat(suggestion(again, "notice-period").get("status").asText()).isEqualTo("APPLIED");
+        assertThat(suggestion(again, "location").get("status").asText()).isEqualTo("PENDING");
+        assertThat(noticeHeld()).isEqualTo("3 months");
     }
 
     @Test
@@ -748,15 +724,22 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         return recordingId;
     }
 
-    /** The suggestion a test names by its kind's slug ("notice-period", "task-1"); its id is random. */
-    private ResultActions decide(String recordingId, String slug, String action, String json) throws Exception {
+    /**
+     * One review: each suggestion named by its kind's slug ("notice-period", "task-1") is applied, with any JSON members
+     * given beside its random id, and every other one skipped. A slug no suggestion has sends an id nobody holds.
+     */
+    private ResultActions review(String recordingId, Map<String, String> applied) throws Exception {
         JsonNode held = body(as(consultant, get(suggestionsPath(recordingId))).andExpect(status().isOk()).andReturn());
-        String suggestionId = suggestion(held, slug).get("id").asText();
-        MockHttpServletRequestBuilder request = post(suggestionsPath(recordingId) + "/" + suggestionId + "/" + action);
-        if (json != null) {
-            request.contentType(MediaType.APPLICATION_JSON).content(json);
-        }
-        return as(consultant, request);
+        String items = applied.entrySet().stream()
+                .map(each -> "{\"id\":\"" + idOf(held, each.getKey()) + "\""
+                        + (each.getValue().isEmpty() ? "" : "," + each.getValue()) + "}")
+                .collect(Collectors.joining(","));
+        return as(consultant, post(suggestionsPath(recordingId) + "/review").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"apply\":[" + items + "]}"));
+    }
+
+    private static String idOf(JsonNode answer, String slug) {
+        return slug.equals("unknown") ? UUID.randomUUID().toString() : suggestion(answer, slug).get("id").asText();
     }
 
     private static JsonNode suggestion(JsonNode answer, String slug) {
