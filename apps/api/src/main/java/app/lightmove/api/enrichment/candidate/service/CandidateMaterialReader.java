@@ -43,8 +43,9 @@ class CandidateMaterialReader {
     static final int MAX_DOCUMENTS = 40_000;
     static final String CUT = " … [cut]";
     static final String OLDER_NOTES_LEFT_OUT = "- older notes left out";
-    static final int MAX_TRANSCRIPT = 60_000;
-    static final int MAX_TRANSCRIPTS = 90_000;
+    /** About two and a half hours of talk, so a typical call of an hour or ninety minutes is read whole. */
+    static final int MAX_TRANSCRIPT = 150_000;
+    static final int MAX_TRANSCRIPTS = 250_000;
     static final int LEAST_TRANSCRIPT = 2_000;
     static final String TEAM_MARK = "(your team)";
     static final String EARLIER_CALLS_LEFT_OUT = "- earlier calls left out";
