@@ -348,15 +348,15 @@
           </div>
         </sc-if>
 
-        <!-- AVAILABILITY — the consultant's own working hours and email limit, over the workspace's. A direct Outlook
-             mailbox's own working hours come first; this card then says so and keeps these for when Outlook says none. -->
+        <!-- AVAILABILITY — the consultant's own working hours and email limit, over the workspace's. A consultant's own
+             hours always decide; until they set some, a direct Outlook mailbox's own working hours come before the workspace's. -->
         <sc-if value="{{ isAvailability }}" hint-placeholder-val="{{ false }}">
           <div data-screen-label="Availability">
             <div style="margin-bottom:18px">
               <div style="font:600 19px/1.25 var(--sans)">Availability</div>
               <div style="margin-top:4px;font:400 12px var(--mono);color:var(--text3)">When your booking link offers times, and how much you send a day · Asia/Dubai</div>
             </div>
-            <div style="margin-bottom:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:12px 14px;font:400 12px/1.5 var(--mono);color:var(--text2)">Your Outlook working hours are used for your booking link. Change them in Outlook; the hours below apply only if Outlook doesn't state any.</div>
+            <div style="margin-bottom:16px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:12px 14px;font:400 12px/1.5 var(--mono);color:var(--text2)">Until you set your own hours here, your booking link follows your Outlook working hours where Outlook states them, and the workspace's where it doesn't.</div>
             <div data-screen-label="My working hours" style="border-radius:10px;border:1px solid var(--line-soft);background:var(--panel2);padding:20px">
               <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
                 <div style="flex:1"><div style="font:600 14px var(--sans)">Working hours</div><div style="margin-top:2px;font:400 11.5px var(--mono);color:var(--text3)">Workspace default: Sun–Thu, 09:00–18:00</div></div>

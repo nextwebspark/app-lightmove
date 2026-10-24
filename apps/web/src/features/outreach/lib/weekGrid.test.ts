@@ -80,4 +80,19 @@ describe("weekGrid", () => {
     ).toBe("Your calendar is busy then.");
     expect(refusalOf({ start: "2099-10-05T06:00:00Z", minutes: 30 }, RULES)).toBeNull();
   });
+
+  it("reads a row as the wall-clock time on a day the clocks go back, in a drag and in the spans drawn", () => {
+    // 25 October 2026: London's clocks go back at 02:00, so 14:00 is 13:00 UTC, not the 14:00 UTC of midnight + 14h.
+    expect(choiceOfDrag("2026-10-25", 14 * 60, 15 * 60, "Europe/London", LIMITS)).toEqual({
+      start: "2026-10-25T14:00:00.000Z",
+      minutes: 60,
+    });
+    expect(
+      stretchesOn([{ start: "2026-10-25T14:00:00Z", end: "2026-10-25T15:00:00Z" }], "2026-10-25", "Europe/London"),
+    ).toEqual([{ top: 14 * 60, bottom: 15 * 60 }]);
+    // 29 March 2026: clocks go forward at 01:00, so 14:00 is 13:00 UTC.
+    expect(choiceOfDrag("2026-03-29", 14 * 60, 14 * 60 + 30, "Europe/London", LIMITS).start).toBe(
+      "2026-03-29T13:00:00.000Z",
+    );
+  });
 });

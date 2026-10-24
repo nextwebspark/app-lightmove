@@ -35,22 +35,31 @@ export function dayStartOf(date: string, timeZone: string): Date {
   return instantOf(date, "00:00", timeZone);
 }
 
-/** The instant `minutes` past the day's own midnight. */
+/**
+ * The instant the clock shows `minutes` past midnight on `date`. Read off the wall clock, never as minutes elapsed
+ * since midnight: on a day the clocks change those differ by an hour after the change, and a drag at the 14:00 row
+ * would book 13:00 or 15:00.
+ */
 export function instantAt(date: string, minutes: number, timeZone: string): Date {
-  return new Date(dayStartOf(date, timeZone).getTime() + minutes * 60_000);
+  if (minutes >= MINUTES_IN_DAY) return dayStartOf(shiftDateOf(date, 1), timeZone);
+  const clock = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+  return instantOf(date, clock, timeZone);
 }
 
-/** Where each span falls on `date`, clipped to it; a span on no part of the day is left out. */
+/** Where each span falls on `date`'s wall clock, clipped to the day; a span on no part of it is left out. */
 export function stretchesOn(spans: readonly TimeSpan[], date: string, timeZone: string): DayStretch[] {
   const opens = dayStartOf(date, timeZone).getTime();
   const closes = dayStartOf(shiftDateOf(date, 1), timeZone).getTime();
-  const length = (closes - opens) / 60_000;
+  const clockMinutesOf = (instant: number) => {
+    const [hour, minute] = wallClockOf(new Date(instant), timeZone).time.split(":").map(Number);
+    return hour * 60 + minute;
+  };
   return spans
     .map((span) => ({ start: Date.parse(span.start), end: Date.parse(span.end) }))
     .filter((span) => span.start < closes && span.end > opens)
     .map((span) => ({
-      top: Math.max(0, (span.start - opens) / 60_000),
-      bottom: Math.min(length, (span.end - opens) / 60_000),
+      top: span.start <= opens ? 0 : clockMinutesOf(span.start),
+      bottom: span.end >= closes ? MINUTES_IN_DAY : clockMinutesOf(span.end),
     }));
 }
 
@@ -76,8 +85,10 @@ export function choiceOfDrag(
   }
   const from = snapTo(Math.min(anchor, current), SNAP_MINUTES);
   const to = snapTo(Math.max(anchor, current), SNAP_MINUTES);
-  const minutes = Math.min(maxMinutes, Math.max(minMinutes, to - from));
-  return { start: instantAt(date, from, timeZone).toISOString(), minutes };
+  const start = instantAt(date, from, timeZone);
+  const elapsed = Math.round((instantAt(date, to, timeZone).getTime() - start.getTime()) / 60_000);
+  const minutes = Math.min(maxMinutes, Math.max(minMinutes, elapsed));
+  return { start: start.toISOString(), minutes };
 }
 
 export function endOf(choice: CallChoice): string {

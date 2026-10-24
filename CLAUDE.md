@@ -1261,12 +1261,15 @@ V153 adds working hours and the daily email cap (**Meetings & email** in Setting
 consultant's; `AvailabilityService`): `app_lm_workspace_availability` (one per workspace; a null `weekly_hours` is the week
 the firm's country keeps — Saudi Arabia, Qatar, Kuwait, Bahrain, Oman and most of the Arab world Sunday to Thursday,
 `WorkingWeeks` — a null `daily_email_cap` the deployment's `daily-cap`, at most `max-daily-cap`) and
-`app_lm_member_availability` (per consultant, a null column the workspace's). A consultant's working hours are Outlook's
-own where a direct Microsoft mailbox states them (`getSchedule`'s `workingHours`, read beside its free/busy in one call,
-`MailboxGateway.schedule`; a Windows zone name through `WindowsZones`), then theirs, then the workspace's; Google and
-Nylas state none. They shape the booking link alone — Uncava's own page and, re-sent on every change
-(`updateBookingPage`), Nylas's — and a new sequence's default days. The cap is the workspace's, or a consultant's lower
-one, for every send; `app_lm_mailbox_connection.daily_cap` is frozen.
+`app_lm_member_availability` (per consultant, a null column the workspace's). A consultant's working hours are their own
+first — a choice made in Uncava outranks Outlook's, which every mailbox states, chosen or not (Exchange's default is
+Monday to Friday) — then Outlook's where a direct Microsoft mailbox states them (`getSchedule`'s `workingHours`, read
+beside its free/busy in one call, `MailboxGateway.schedule`; a Windows zone name through `WindowsZones`), then the
+workspace's; Google and Nylas state none. They shape the booking link alone — Uncava's own page and, re-sent on every change
+(`updateBookingPage`), Nylas's — and a new sequence's default days and hours. The cap is the workspace's, or a
+consultant's lower one, for every send — lowering the workspace's lowers any consultant's above it — and
+`app_lm_mailbox_connection.daily_cap` is frozen. Both rows are written insert-if-missing first, so a double-clicked
+first save writes one row.
 V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
 `suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and

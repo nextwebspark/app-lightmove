@@ -235,6 +235,15 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
                                     {"startsAt":"%s","email":"priya@%s"}""".formatted(monday, domain)))
                     .andExpect(status().isBadRequest());
             assertThat(gateway.created()).isEmpty();
+
+            // A week the consultant chose in Uncava outranks Outlook's, which every mailbox states, chosen or not.
+            as(consultant, put("/api/v1/me/availability").contentType(MediaType.APPLICATION_JSON).content("""
+                    {"weeklyHours":[{"day":"SUNDAY","start":"09:00","end":"11:00"}]}""")).andExpect(status().isOk());
+            JsonNode own = body(mvc.perform(get("/api/v1/outreach/booking/" + slug + "/slots")
+                            .param("from", nextWeek.toString()))
+                    .andExpect(status().isOk()).andReturn());
+            assertThat(own.get("days")).singleElement().satisfies(day ->
+                    assertThat(LocalDate.parse(day.get("date").asText()).getDayOfWeek()).isEqualTo(DayOfWeek.SUNDAY));
         } finally {
             jdbc.update("update app_lm_mailbox_connection set gateway = 'NYLAS', refresh_token_encrypted = null "
                     + "where workspace_id = ?::uuid", workspaceId);

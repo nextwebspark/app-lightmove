@@ -1,6 +1,5 @@
 package app.lightmove.api.outreach.model;
 
-import app.lightmove.api.core.config.OutreachSettings;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -23,11 +22,6 @@ public record SendingWindow(LocalTime start, LocalTime end, Set<DayOfWeek> worki
             throw new IllegalArgumentException("A sending window needs a start before its end and a working day");
         }
         workingDays = Set.copyOf(EnumSet.copyOf(workingDays));
-    }
-
-    /** A new sequence's window: the deployment's hours, on the days its sender works. */
-    public static SendingWindow of(OutreachSettings settings, Set<DayOfWeek> workingDays) {
-        return new SendingWindow(settings.windowStart(), settings.windowEnd(), workingDays);
     }
 
     public boolean admits(LocalTime time) {

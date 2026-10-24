@@ -2,9 +2,10 @@
 --
 -- The calendar is the truth for when a consultant is busy; these say only when they work, which an empty calendar
 -- cannot. A booking link offers its times inside them; a consultant booking a call themselves is never held to them.
--- Outlook's own working hours, where a direct Microsoft mailbox states them, come first and are never stored here.
+-- Outlook's own working hours, where a direct Microsoft mailbox states them, come after a consultant's own and before
+-- the workspace's, and are never stored here.
 --
--- weekly_hours is one document per row, {"SUNDAY": {"start": "09:00", "end": "18:00"}, ...}, a missing day closed
+-- weekly_hours is one document per row, {"SUNDAY": {"start": "09:00:00", "end": "18:00:00"}, ...}, a missing day closed
 -- (shape owned by WeeklyHours). On the workspace row null means "not chosen": the week is then the one the firm's
 -- country keeps, so no existing workspace needs a backfill. On a consultant's row every null column means "use the
 -- workspace's".

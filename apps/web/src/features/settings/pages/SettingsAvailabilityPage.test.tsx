@@ -77,10 +77,12 @@ describe("SettingsAvailabilityPage", () => {
     );
   });
 
-  it("says Outlook's own hours come first where the calendar states them", async () => {
+  it("says Outlook's hours apply until the consultant sets their own, and not once they have", async () => {
     vi.mocked(availabilityApi.getMyAvailability).mockResolvedValue({ ...INHERITED, calendarStatesHours: true });
     renderPage();
 
-    expect(await screen.findByText(/Your Outlook working hours are used for your booking link/)).toBeInTheDocument();
+    expect(await screen.findByText(/follows your Outlook working hours where Outlook states them/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("switch", { name: "Use workspace hours" }));
+    expect(screen.queryByText(/follows your Outlook working hours/)).not.toBeInTheDocument();
   });
 });

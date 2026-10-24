@@ -151,6 +151,38 @@ class AvailabilityIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("lowering the workspace's cap lowers a consultant's own above it, and their next save still goes")
+    void aLoweredWorkspaceCapLowersTheirs() throws Exception {
+        change(admin, WORKSPACE, null, 200).andExpect(status().isOk());
+        String member = member();
+        change(member, MINE, null, 150).andExpect(status().isOk());
+
+        change(admin, WORKSPACE, null, 50).andExpect(status().isOk());
+
+        JsonNode mine = read(member, MINE);
+        assertThat(mine.get("dailyEmailCap").asInt()).isEqualTo(50);
+        assertThat(jdbc.queryForObject("select daily_email_cap from app_lm_member_availability where workspace_id = "
+                + "?::uuid", Integer.class, workspaceId)).isEqualTo(50);
+        change(member, MINE, "[{\"day\":\"MONDAY\",\"start\":\"09:00\",\"end\":\"17:00\"}]", 50)
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a day ending at 23:59 is kept as the end of the day, and saving twice writes one row")
+    void theEndOfTheDayAndARepeatedFirstSave() throws Exception {
+        String week = "[{\"day\":\"MONDAY\",\"start\":\"20:00\",\"end\":\"23:59\"}]";
+        change(admin, MINE, week, null).andExpect(status().isOk());
+        change(admin, MINE, week, null).andExpect(status().isOk());
+
+        assertThat(rowsOfMemberAvailability()).isOne();
+        assertThat(jdbc.queryForObject("select weekly_hours -> 'MONDAY' ->> 'end' from app_lm_member_availability "
+                + "where workspace_id = ?::uuid", String.class, workspaceId)).startsWith("23:59:59");
+        assertThat(jdbc.queryForObject("select weekly_hours -> 'MONDAY' ->> 'start' from app_lm_member_availability "
+                + "where workspace_id = ?::uuid", String.class, workspaceId)).isEqualTo("20:00:00");
+        assertThat(read(admin, MINE).get("weeklyHours").get(0).get("end").asText()).startsWith("23:59");
+    }
+
+    @Test
     @DisplayName("only an admin changes the workspace's; a pure client is told none of it exists")
     void whoMayChangeWhat() throws Exception {
         String member = member();

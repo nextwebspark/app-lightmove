@@ -105,7 +105,7 @@ public interface MailboxGateway {
         return CalendarSchedule.busyOnly(busyTimes(grantId, address, from, to));
     }
 
-    /** Whether {@link #schedule} answers the calendar's own working hours, so Settings can say whose apply. */
+    /** Whether {@link #schedule} may answer the calendar's own working hours, so Settings can say they might apply. */
     default boolean statesWorkingHours(String grantId) {
         return false;
     }

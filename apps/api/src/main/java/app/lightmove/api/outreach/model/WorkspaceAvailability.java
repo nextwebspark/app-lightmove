@@ -31,12 +31,6 @@ public class WorkspaceAvailability extends BaseEntity {
     @Column(name = "daily_email_cap")
     private Integer dailyEmailCap;
 
-    public static WorkspaceAvailability of(UUID workspaceId) {
-        WorkspaceAvailability availability = new WorkspaceAvailability();
-        availability.workspaceId = workspaceId;
-        return availability;
-    }
-
     public void change(WeeklyHours weeklyHours, Integer dailyEmailCap) {
         this.weeklyHours = weeklyHours;
         this.dailyEmailCap = dailyEmailCap;

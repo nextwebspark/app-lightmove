@@ -21,6 +21,7 @@ import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.DayHours;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.MemberAvailability;
+import app.lightmove.api.outreach.model.SendingWindow;
 import app.lightmove.api.outreach.model.WeeklyHours;
 import app.lightmove.api.outreach.model.WorkingHours;
 import app.lightmove.api.outreach.model.WorkingWeeks;
@@ -33,6 +34,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -46,8 +48,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * When a consultant works and how much their mailbox may send a day. Working hours are the calendar's own where it
- * states them, then the consultant's, then the workspace's, which until an admin chooses is the week its firm's
+ * When a consultant works and how much their mailbox may send a day. Working hours are the consultant's own, then the
+ * calendar's where it states them, then the workspace's, which until an admin chooses is the week its firm's
  * country keeps. The daily cap is the workspace's, or the consultant's where they chose a lower one.
  */
 @Service
@@ -75,17 +77,34 @@ public class AvailabilityService {
                 .orElseGet(() -> new WorkingHours(workspaceWeekOf(workspaceId), zone, WorkingHoursSource.WORKSPACE));
     }
 
-    /** The calendar's own working hours where it states them, else {@link #workingHoursOf(UUID, UUID, ZoneId)}. */
+    /**
+     * The consultant's own hours first, then the calendar's where it states them, then the workspace's. Outlook states
+     * working hours on every mailbox, chosen or not (Exchange's default is Monday to Friday), so a choice made in
+     * Uncava has to outrank them or it would lose to a default nobody chose.
+     */
     @Transactional(readOnly = true)
     public WorkingHours workingHoursOf(MailboxConnection mailbox, CalendarSchedule schedule) {
-        return schedule.workingHours(mailbox.zone())
-                .orElseGet(() -> workingHoursOf(mailbox.getWorkspaceId(), mailbox.getUserId(), mailbox.zone()));
+        ZoneId zone = mailbox.zone();
+        return ownWeekOf(mailbox.getWorkspaceId(), mailbox.getUserId())
+                .map(own -> new WorkingHours(own, zone, WorkingHoursSource.PERSONAL))
+                .or(() -> schedule.workingHours(zone))
+                .orElseGet(() -> new WorkingHours(workspaceWeekOf(mailbox.getWorkspaceId()), zone,
+                        WorkingHoursSource.WORKSPACE));
     }
 
-    /** The days a new sequence of this consultant's sends on until they choose others. */
+    /**
+     * A new sequence's sending days and hours until its author chooses others: the consultant's working week, from its
+     * earliest opening to its latest close.
+     */
     @Transactional(readOnly = true)
-    public Set<DayOfWeek> workingDaysOf(UUID workspaceId, UUID userId) {
-        return ownWeekOf(workspaceId, userId).orElseGet(() -> workspaceWeekOf(workspaceId)).days();
+    public SendingWindow sequenceWindowOf(UUID workspaceId, UUID userId) {
+        WeeklyHours week = ownWeekOf(workspaceId, userId).orElseGet(() -> workspaceWeekOf(workspaceId));
+        LocalTime opens = week.asMap().values().stream().map(DayHours::start).min(Comparator.naturalOrder())
+                .orElseThrow();
+        LocalTime closes = week.asMap().values().stream().map(DayHours::end).max(Comparator.naturalOrder())
+                .orElseThrow();
+        // A sequence's window_end is a Postgres time, which rounds the end of the day up to 24:00 and back unreadable.
+        return new SendingWindow(opens, closes.equals(LocalTime.MAX) ? LAST_PICKER_TIME : closes, week.days());
     }
 
     /** What this mailbox may send a day: its owner's own cap, or their workspace's. */
@@ -118,6 +137,7 @@ public class AvailabilityService {
     @Transactional(readOnly = true)
     public MyAvailabilityResponse mine(UUID workspaceId, UUID userId) {
         Optional<MemberAvailability> own = memberAvailabilities.findByWorkspaceIdAndUserId(workspaceId, userId);
+        int workspaceCap = workspaceCapOf(workspaceId);
         boolean calendarStatesHours = gateway.isOffered() && mailboxes.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .filter(MailboxConnection::canSend)
                 .map(mailbox -> gateway.statesWorkingHours(mailbox.getGrantId()))
@@ -125,7 +145,9 @@ public class AvailabilityService {
         return new MyAvailabilityResponse(
                 WorkingDayResponse.listOf(own.map(MemberAvailability::getWeeklyHours).orElse(null)),
                 WorkingDayResponse.listOf(workspaceWeekOf(workspaceId)),
-                own.map(MemberAvailability::getDailyEmailCap).orElse(null), workspaceCapOf(workspaceId),
+                own.map(MemberAvailability::getDailyEmailCap).map(cap -> Math.min(cap, workspaceCap))
+                        .orElse(null),
+                workspaceCap,
                 timezones.zoneOf(userId).getId(), calendarStatesHours);
     }
 
@@ -140,14 +162,17 @@ public class AvailabilityService {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "dailyEmailCap",
                     "Choose a daily limit from 1 to " + settings().maxDailyCap());
         }
-        WorkspaceAvailability availability = workspaceAvailabilities.findByWorkspaceId(workspaceId)
-                .orElseGet(() -> WorkspaceAvailability.of(workspaceId));
-        if (Objects.equals(availability.getWeeklyHours(), week)
-                && Objects.equals(availability.getDailyEmailCap(), cap)) {
+        Optional<WorkspaceAvailability> held = workspaceAvailabilities.findByWorkspaceId(workspaceId);
+        if (Objects.equals(held.map(WorkspaceAvailability::getWeeklyHours).orElse(null), week)
+                && Objects.equals(held.map(WorkspaceAvailability::getDailyEmailCap).orElse(null), cap)) {
             return workspace(workspaceId);
         }
+        // Inserted if missing first, so two first saves racing write one row rather than refusing the second.
+        workspaceAvailabilities.insertIfMissing(workspaceId);
+        WorkspaceAvailability availability = workspaceAvailabilities.findByWorkspaceId(workspaceId).orElseThrow();
         availability.change(week, cap);
-        workspaceAvailabilities.save(availability);
+        workspaceAvailabilities.flush();
+        memberAvailabilities.lowerCapsAbove(workspaceId, workspaceCapOf(workspaceId));
         audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(httpRequest)
                 .detail("section", "availability")
@@ -174,12 +199,11 @@ public class AvailabilityService {
                 && Objects.equals(held.map(MemberAvailability::getDailyEmailCap).orElse(null), cap)) {
             return mine(workspaceId, userId);
         }
-        MemberAvailability availability = held.orElseGet(() -> MemberAvailability.of(workspaceId, userId));
-        availability.change(week, cap);
-        if (availability.isEmpty()) {
+        if (week == null && cap == null) {
             held.ifPresent(memberAvailabilities::delete);
         } else {
-            memberAvailabilities.save(availability);
+            memberAvailabilities.insertIfMissing(workspaceId, userId);
+            memberAvailabilities.findByWorkspaceIdAndUserId(workspaceId, userId).orElseThrow().change(week, cap);
         }
         audit.event(AuthEventType.PROFILE_UPDATED)
                 .actor(userId).workspace(workspaceId).from(httpRequest)
@@ -211,7 +235,7 @@ public class AvailabilityService {
 
     /**
      * A week as Settings may send one: each day once, on the half hour (or ending at 23:59, the last time the picker
-     * offers), opening before it closes, and at least one day worked — a week nobody works offers a booking link
+     * offers, kept as the end of the day so a last half hour fits), opening before it closes, and at least one day worked — a week nobody works offers a booking link
      * nothing. Null is "not chosen".
      */
     static WeeklyHours weekOf(List<WorkingDayRequest> days) {
@@ -226,7 +250,8 @@ public class AvailabilityService {
             if (!day.start().isBefore(day.end())) {
                 throw invalidWeek("A working day has to end after it starts");
             }
-            if (week.put(day.day(), new DayHours(day.start(), day.end())) != null) {
+            LocalTime end = day.end().equals(LAST_PICKER_TIME) ? LocalTime.MAX : day.end();
+            if (week.put(day.day(), new DayHours(day.start(), end)) != null) {
                 throw invalidWeek("Each day can be listed once");
             }
         }

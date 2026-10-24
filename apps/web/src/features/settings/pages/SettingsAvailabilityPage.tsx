@@ -11,8 +11,8 @@ import { draftOf, weekLabelOf, weekProblemOf, workingDaysOf } from "../lib/weekl
 
 /**
  * Settings → Availability (`Settings.dc.html`, `availability`): the consultant's own working hours and email limit,
- * each either theirs or the workspace's. Where their calendar is Outlook, its own working hours come first, and the
- * page says so rather than pretending these decide.
+ * each either theirs or the workspace's. Their own hours always decide; until they set some, an Outlook calendar's own
+ * working hours come before the workspace's, and the page says so.
  */
 export function SettingsAvailabilityPage() {
   const availability = useQuery({
@@ -73,10 +73,10 @@ function AvailabilityForm({ saved }: { saved: MyAvailability }) {
 
   return (
     <>
-      {saved.calendarStatesHours && (
+      {saved.calendarStatesHours && usesWorkspaceHours && (
         <p className="mb-4 rounded-u-card border border-u-border bg-u-surface px-4 py-3 font-mono text-note text-u-text2">
-          Your Outlook working hours are used for your booking link. Change them in Outlook; the hours below apply only
-          if Outlook doesn't state any.
+          Until you set your own hours here, your booking link follows your Outlook working hours where Outlook states
+          them, and the workspace's where it doesn't.
         </p>
       )}
 
