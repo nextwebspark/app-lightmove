@@ -12,10 +12,13 @@ import * as meetingApi from "../api/meetingApi";
 import type { Meeting } from "../api/meetingApi";
 import * as notetakerApi from "../api/notetakerApi";
 import { dateTileOf, meetingWhenOf, shortDateOf } from "../lib/meetingTimes";
+import { openCopilotWindow } from "../lib/copilotWindow";
 import { hasLiveRecording, recordingOfMeeting } from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
 import { BookCallDialog } from "./BookCallDialog";
 import { CallChangesDialog } from "./CallChangesDialog";
+import { CopilotPanel } from "./copilot/CopilotPanel";
+import { InterviewPlanDialog } from "./copilot/InterviewPlanDialog";
 import { NotetakerControl } from "./NotetakerControl";
 import { TranscriptSheet } from "./TranscriptSheet";
 import { ZoomConnectControl } from "./ZoomConnectControl";
@@ -64,6 +67,8 @@ export function MeetingsSection({
   const [cancelling, setCancelling] = useState<Meeting | null>(null);
   const [transcriptOf, setTranscriptOf] = useState<string | null>(null);
   const [suggestionsOf, setSuggestionsOf] = useState<string | null>(null);
+  const [planOf, setPlanOf] = useState<string | null>(null);
+  const [inlineCopilotOf, setInlineCopilotOf] = useState<string | null>(null);
 
   const firstName = fullName.trim().split(/\s+/)[0];
   const upcoming = meetings.data?.upcoming ?? [];
@@ -87,8 +92,18 @@ export function MeetingsSection({
         firstName={firstName}
         onShowTranscript={setTranscriptOf}
         onSuggestChanges={setSuggestionsOf}
+        onOpenCopilot={handleOpenCopilot}
       />
     ) : null;
+
+  // Straight from the click: the floating window needs the gesture. Where the browser opens no window, the drawer does.
+  function handleOpenCopilot(recordingId: string) {
+    void openCopilotWindow({ projectId, candidateId, recordingId }, () => setInlineCopilotOf(recordingId)).then(
+      (opened) => {
+        if (opened === "blocked") setInlineCopilotOf(recordingId);
+      },
+    );
+  }
 
   const cancel = useMutation({
     mutationFn: (meeting: Meeting) => meetingApi.cancelMeeting(projectId, candidateId, meeting.id),
@@ -133,13 +148,16 @@ export function MeetingsSection({
 
       {upcoming.length > 0 && (
         <>
-          <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">Upcoming</div>
+          <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">
+            Upcoming
+          </div>
           {upcoming.map((meeting) => (
             <UpcomingMeeting
               key={meeting.id}
               meeting={meeting}
               onReschedule={meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined}
               onCancel={meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined}
+              onPrepare={() => setPlanOf(meeting.id)}
               notetaker={notetakerFor(meeting)}
             />
           ))}
@@ -168,6 +186,18 @@ export function MeetingsSection({
         </>
       )}
 
+      {inlineCopilotOf && (
+        <div className="mt-2.5">
+          <CopilotPanel
+            projectId={projectId}
+            candidateId={candidateId}
+            recordingId={inlineCopilotOf}
+            variant="inline"
+            onClose={() => setInlineCopilotOf(null)}
+          />
+        </div>
+      )}
+
       {canBook && <ZoomConnectControl className="mt-2" />}
 
       <p className="mt-2 font-mono text-[11px]/[1.5] text-u-text3">
@@ -193,6 +223,16 @@ export function MeetingsSection({
           candidateId={candidateId}
           recordingId={transcriptOf}
           onClose={() => setTranscriptOf(null)}
+        />
+      )}
+
+      {planOf && (
+        <InterviewPlanDialog
+          projectId={projectId}
+          candidateId={candidateId}
+          meetingId={planOf}
+          firstName={firstName}
+          onClose={() => setPlanOf(null)}
         />
       )}
 
@@ -243,11 +283,14 @@ function UpcomingMeeting({
   meeting,
   onReschedule,
   onCancel,
+  onPrepare,
   notetaker,
 }: {
   meeting: Meeting;
   onReschedule?: () => void;
   onCancel?: () => void;
+  /** Opens the questions prepared for this call, drafting them the first time. */
+  onPrepare: () => void;
   notetaker: ReactNode;
 }) {
   const tile = dateTileOf(meeting.startsAt);
@@ -255,7 +298,10 @@ function UpcomingMeeting({
   return (
     <div className="py-2">
       <div className="flex items-start gap-3">
-        <span aria-hidden="true" className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center">
+        <span
+          aria-hidden="true"
+          className="w-[42px] flex-none rounded-[7px] border border-u-border py-[3px] text-center"
+        >
           <span className="block font-mono text-[9.5px] font-semibold uppercase text-u-accent">{tile.month}</span>
           <span className="block text-[16px]/[1.2] font-semibold tabular-nums">{tile.day}</span>
         </span>
@@ -265,6 +311,14 @@ function UpcomingMeeting({
             {when}
             {meeting.ownerName ? ` · ${meeting.ownerName}` : ""}
           </span>
+          <button
+            type="button"
+            onClick={onPrepare}
+            className="mt-0.5 inline-flex items-center gap-1 text-note font-medium text-u-accent hover:underline hover:underline-offset-2"
+          >
+            <Icon d={ICONS.sparkle} size={12} />
+            Prepare questions
+          </button>
           {meeting.viaLink && (
             <span className="mt-1 inline-flex rounded-[5px] bg-u-direct-tint px-[7px] py-px font-mono text-[10px] font-semibold text-u-direct">
               Booked through your link

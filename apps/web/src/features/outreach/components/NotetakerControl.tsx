@@ -45,6 +45,7 @@ export function NotetakerControl({
   firstName,
   onShowTranscript,
   onSuggestChanges,
+  onOpenCopilot,
 }: {
   projectId: string;
   candidateId: string;
@@ -56,17 +57,23 @@ export function NotetakerControl({
   onShowTranscript: (recordingId: string) => void;
   /** Opens the review of what the call's transcript suggests for the person's record. */
   onSuggestChanges: (recordingId: string) => void;
+  /** Opens the live copilot's window; called straight from the click, which the window needs. */
+  onOpenCopilot: (recordingId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [isRemoving, setIsRemoving] = useState(false);
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: notetakerApi.NOTETAKER_KEY(projectId, candidateId) });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: notetakerApi.NOTETAKER_KEY(projectId, candidateId) });
 
   const schedule = useMutation({
-    mutationFn: () => notetakerApi.scheduleNotetaker(projectId, candidateId, meeting.id),
-    onSuccess: () => {
-      toast(`The Notetaker will join the call with ${firstName} and file its notes afterwards.`);
+    mutationFn: (liveCopilot: boolean) =>
+      notetakerApi.scheduleNotetaker(projectId, candidateId, meeting.id, liveCopilot),
+    onSuccess: (sent) => {
+      toast(
+        sent.liveCopilot
+          ? `The Notetaker will join the call with ${firstName}, and the live copilot will follow it for you.`
+          : `The Notetaker will join the call with ${firstName} and file its notes afterwards.`,
+      );
       void refresh();
     },
     onError: (error) => {
@@ -81,6 +88,15 @@ export function NotetakerControl({
       setIsRemoving(false);
       void refresh();
     },
+    onError: (error) => {
+      toast.error(messageFor(error));
+      void refresh();
+    },
+  });
+  const switchLive = useMutation({
+    mutationFn: ({ recordingId, enabled }: { recordingId: string; enabled: boolean }) =>
+      notetakerApi.switchLiveCopilot(projectId, candidateId, recordingId, enabled),
+    onSuccess: () => void refresh(),
     onError: (error) => {
       toast.error(messageFor(error));
       void refresh();
@@ -104,94 +120,138 @@ export function NotetakerControl({
   const tone: NotetakerTone = isOn || !chip ? "waiting" : chip.tone;
   const line = schedule.isPending ? "Sending…" : lineOf(recording, chip, timing);
   const handleSwitch = (next: boolean) => {
-    if (next) schedule.mutate();
+    if (next) schedule.mutate(false);
     else setIsRemoving(true);
   };
+  // Recall streams a call only to a bot made for it: the copilot is chosen before the bot is in the call.
+  // Only the bot's sender switches its copilot: it reconfigures their bot. Anyone may choose it before sending one.
+  const mayChooseCopilot =
+    (recording?.status === "SCHEDULED" && recording.mayChangeCopilot) || (!isOn && offerRecord);
+  const isCopilotOn =
+    (recording?.status === "SCHEDULED" && recording.liveCopilot) || (schedule.isPending && schedule.variables === true);
+  const handleCopilotSwitch = (next: boolean) => {
+    if (recording?.status === "SCHEDULED") switchLive.mutate({ recordingId: recording.id, enabled: next });
+    else if (next) schedule.mutate(true);
+  };
+  const mayOpenCopilot =
+    recording?.liveCopilot === true &&
+    (recording.status === "JOINING" || recording.status === "RECORDING" || recording.status === "PROCESSING");
 
   return (
-    <span
-      className={cn(
-        "mt-1.5 flex items-center gap-2.5 rounded-u-control border px-2.5 py-[7px]",
-        TONE_CLASS[tone],
-      )}
-    >
-      <Icon
-        d={ICONS.mic}
-        size={14}
-        className={cn("flex-none", isOn ? "text-u-accent" : tone === "done" ? "text-u-direct" : "text-u-text3")}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="block text-note font-medium text-u-text">Notetaker</span>
-        <span
-          className={cn(
-            "block font-mono text-meta",
-            recording?.status === "RECORDING" ? "text-u-accent" : LINE_CLASS[tone],
-          )}
-        >
-          {recording?.status === "RECORDING" && (
-            <span aria-hidden="true" className="me-1.5 inline-block size-1.5 rounded-full bg-u-offlimits align-middle" />
-          )}
-          {line}
-        </span>
-      </span>
-      {chip?.action === "transcript" && recording && (
-        <button type="button" onClick={() => onShowTranscript(recording.id)} className={ROW_ACTION}>
-          View transcript
-        </button>
-      )}
-      {recording?.status === "DONE" && recording.hasTranscript && isReviewed(recording) && (
-        <span
-          className={cn(
-            "flex-none font-mono text-meta",
-            recording.appliedSuggestions > 0 ? "text-u-direct" : "text-u-text3",
-          )}
-        >
-          {reviewedLabelOf(recording)}
-        </span>
-      )}
-      {recording?.status === "DONE" && recording.hasTranscript && !isReviewed(recording) && (
-        <button
-          type="button"
-          onClick={() => onSuggestChanges(recording.id)}
-          className={cn(ROW_ACTION, "inline-flex items-center gap-1 text-u-accent")}
-        >
-          <Icon d={ICONS.sparkle} size={12} />
-          {suggestLabelOf(recording)}
-        </button>
-      )}
-      {chip?.action === "retry" && recording && (
-        <button
-          type="button"
-          disabled={retry.isPending}
-          onClick={() => retry.mutate(recording.id)}
-          className={ROW_ACTION}
-        >
-          Try again
-        </button>
-      )}
-      {hasSwitch && (
-        <Toggle
-          checked={isOn || schedule.isPending}
-          onChange={handleSwitch}
-          label="Record with Notetaker"
-          disabled={schedule.isPending || remove.isPending}
-        />
-      )}
-
-      <ConfirmDialog
-        open={isRemoving}
-        title="Remove the Notetaker?"
-        confirmLabel="Remove notetaker"
-        cancelLabel="Keep it"
-        pending={remove.isPending}
-        onConfirm={() => recording && remove.mutate(recording.id)}
-        onClose={() => setIsRemoving(false)}
+    <span className="block">
+      <span
+        className={cn("mt-1.5 flex items-center gap-2.5 rounded-u-control border px-2.5 py-[7px]", TONE_CLASS[tone])}
       >
-        <p>
-          It leaves the call, or never joins it, and no notes are filed for this call. You can send it again while
-          the call is still on.
-        </p>
-      </ConfirmDialog>
+        <Icon
+          d={ICONS.mic}
+          size={14}
+          className={cn("flex-none", isOn ? "text-u-accent" : tone === "done" ? "text-u-direct" : "text-u-text3")}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block text-note font-medium text-u-text">Notetaker</span>
+          <span
+            className={cn(
+              "block font-mono text-meta",
+              recording?.status === "RECORDING" ? "text-u-accent" : LINE_CLASS[tone],
+            )}
+          >
+            {recording?.status === "RECORDING" && (
+              <span
+                aria-hidden="true"
+                className="me-1.5 inline-block size-1.5 rounded-full bg-u-offlimits align-middle"
+              />
+            )}
+            {line}
+            {recording?.status === "SCHEDULED" && recording.liveCopilot && " · Live copilot on"}
+          </span>
+        </span>
+        {mayOpenCopilot && recording && (
+          <button type="button" onClick={() => onOpenCopilot(recording.id)} className={cn(ROW_ACTION, "text-u-accent")}>
+            {recording.status === "PROCESSING" ? "Copilot ↗" : "Open copilot ↗"}
+          </button>
+        )}
+        {chip?.action === "transcript" && recording && (
+          <button type="button" onClick={() => onShowTranscript(recording.id)} className={ROW_ACTION}>
+            View transcript
+          </button>
+        )}
+        {recording?.status === "DONE" && recording.hasTranscript && isReviewed(recording) && (
+          <span
+            className={cn(
+              "flex-none font-mono text-meta",
+              recording.appliedSuggestions > 0 ? "text-u-direct" : "text-u-text3",
+            )}
+          >
+            {reviewedLabelOf(recording)}
+          </span>
+        )}
+        {recording?.status === "DONE" && recording.hasTranscript && !isReviewed(recording) && (
+          <button
+            type="button"
+            onClick={() => onSuggestChanges(recording.id)}
+            className={cn(ROW_ACTION, "inline-flex items-center gap-1 text-u-accent")}
+          >
+            <Icon d={ICONS.sparkle} size={12} />
+            {suggestLabelOf(recording)}
+          </button>
+        )}
+        {chip?.action === "retry" && recording && (
+          <button
+            type="button"
+            disabled={retry.isPending}
+            onClick={() => retry.mutate(recording.id)}
+            className={ROW_ACTION}
+          >
+            Try again
+          </button>
+        )}
+        {hasSwitch && (
+          <Toggle
+            checked={isOn || schedule.isPending}
+            onChange={handleSwitch}
+            label="Record with Notetaker"
+            disabled={schedule.isPending || remove.isPending}
+          />
+        )}
+
+        <ConfirmDialog
+          open={isRemoving}
+          title="Remove the Notetaker?"
+          confirmLabel="Remove notetaker"
+          cancelLabel="Keep it"
+          pending={remove.isPending}
+          onConfirm={() => recording && remove.mutate(recording.id)}
+          onClose={() => setIsRemoving(false)}
+        >
+          <p>
+            It leaves the call, or never joins it, and no notes are filed for this call. You can send it again while the
+            call is still on.
+          </p>
+        </ConfirmDialog>
+      </span>
+      {mayChooseCopilot && (
+        <span className="mt-1 flex items-center gap-2.5 rounded-u-control border border-u-border bg-u-bg px-2.5 py-1.5">
+          <Icon
+            d={ICONS.sparkle}
+            size={13}
+            className={cn("flex-none", isCopilotOn ? "text-u-accent" : "text-u-text3")}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block text-note font-medium text-u-text">Live copilot</span>
+            <span className="block font-mono text-meta text-u-text3">
+              {isCopilotOn
+                ? "Prompts you during the call · only you see it"
+                : "Off · choose before the Notetaker joins"}
+            </span>
+          </span>
+          <Toggle
+            checked={isCopilotOn}
+            onChange={handleCopilotSwitch}
+            label="Live copilot"
+            disabled={schedule.isPending || switchLive.isPending || remove.isPending}
+          />
+        </span>
+      )}
     </span>
   );
 }
@@ -233,7 +293,9 @@ function isReviewed(recording: NotetakerRecording): boolean {
 
 function suggestLabelOf(recording: NotetakerRecording): string {
   if (!recording.suggestionsAsked) return "Suggest changes";
-  return recording.pendingSuggestions === 1 ? "1 change to review" : `${recording.pendingSuggestions} changes to review`;
+  return recording.pendingSuggestions === 1
+    ? "1 change to review"
+    : `${recording.pendingSuggestions} changes to review`;
 }
 
 function reviewedLabelOf(recording: NotetakerRecording): string {

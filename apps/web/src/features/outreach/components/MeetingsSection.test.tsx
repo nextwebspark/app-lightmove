@@ -13,6 +13,7 @@ import * as zoomApi from "../api/zoomApi";
 import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
 import type { PersonMeetings } from "../api/meetingApi";
+import { openCopilotWindow } from "../lib/copilotWindow";
 import { MeetingsSection } from "./MeetingsSection";
 
 vi.mock("../api/meetingApi", async (importOriginal) => ({
@@ -32,7 +33,12 @@ vi.mock("../api/notetakerApi", async (importOriginal) => ({
   getTranscript: vi.fn(),
   getCallSuggestions: vi.fn(),
   suggestChanges: vi.fn(),
+  switchLiveCopilot: vi.fn(),
+  getCopilot: vi.fn(),
+  getInterviewPlan: vi.fn(),
+  draftInterviewPlan: vi.fn(),
 }));
+vi.mock("../lib/copilotWindow", () => ({ openCopilotWindow: vi.fn() }));
 vi.mock("../api/zoomApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/zoomApi")>()),
   getZoom: vi.fn(),
@@ -52,7 +58,14 @@ vi.mock("../../candidates/api/poolApi", async (importOriginal) => ({
 }));
 
 const EMAILS: CandidateEmail[] = [
-  { address: "priya@target.example", kind: "work", verified: true, status: null, source: "manual", foundAt: "2026-09-01T00:00:00Z" },
+  {
+    address: "priya@target.example",
+    kind: "work",
+    verified: true,
+    status: null,
+    source: "manual",
+    foundAt: "2026-09-01T00:00:00Z",
+  },
 ];
 
 const MEETINGS: PersonMeetings = {
@@ -129,8 +142,8 @@ function renderSection({
       livePeople: 0,
       readsReplies: false,
       reconnectToReadReplies: false,
-    sentToday: 0,
-    scheduledEmails: 0,
+      sentToday: 0,
+      scheduledEmails: 0,
     },
   });
   vi.mocked(poolApi.getPerson).mockResolvedValue({
@@ -219,7 +232,9 @@ describe("MeetingsSection", () => {
         title: "Confidential: first conversation",
       }),
     );
-    expect(await screen.findByText(/Invite sent to Priya for Mon 5 Oct, 10:30\. They moved to Engaged\./)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Invite sent to Priya for Mon 5 Oct, 10:30\. They moved to Engaged\./),
+    ).toBeInTheDocument();
   });
 
   it("books any length, on any minute, and says when a time is outside working hours", async () => {
@@ -404,7 +419,7 @@ describe("MeetingsSection", () => {
 
     await userEvent.click(await screen.findByRole("switch", { name: "Record with Notetaker" }));
 
-    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1");
+    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", false);
     expect(await screen.findByText(/The Notetaker will join the call with Priya/)).toBeInTheDocument();
   });
 
@@ -433,7 +448,10 @@ describe("MeetingsSection", () => {
   it("shows a scheduled bot on its call and removes it after asking", async () => {
     vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
     renderSection({
-      meetings: { ...MEETINGS, upcoming: [{ ...MEETINGS.upcoming[0], startsAt: "2099-10-07T06:00:00Z", endsAt: "2099-10-07T06:30:00Z" }] },
+      meetings: {
+        ...MEETINGS,
+        upcoming: [{ ...MEETINGS.upcoming[0], startsAt: "2099-10-07T06:00:00Z", endsAt: "2099-10-07T06:30:00Z" }],
+      },
       notetakerOffered: true,
       recordings: [aRecording({ status: "SCHEDULED" })],
     });
@@ -461,7 +479,7 @@ describe("MeetingsSection", () => {
     expect(await screen.findByText("Booked end passed · still on? Add it now")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: "Record with Notetaker" }));
 
-    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m4");
+    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m4", false);
   });
 
   it("says a bot sent to a call already under way joins now", async () => {
@@ -522,7 +540,13 @@ describe("MeetingsSection", () => {
     renderSection({
       notetakerOffered: true,
       recordings: [
-        aRecording({ id: "r2", meetingId: "m2", startsAt: "2026-09-22T06:00:00Z", status: "DONE", hasTranscript: true }),
+        aRecording({
+          id: "r2",
+          meetingId: "m2",
+          startsAt: "2026-09-22T06:00:00Z",
+          status: "DONE",
+          hasTranscript: true,
+        }),
         aRecording({
           id: "r3",
           meetingId: "m1",
@@ -628,6 +652,93 @@ describe("MeetingsSection", () => {
     await screen.findByRole("group", { name: "Your week" });
     expect(within(screen.getByRole("dialog")).queryByRole("switch")).not.toBeInTheDocument();
   });
+
+  it("sends the Notetaker ready for the live copilot when Live copilot is switched on first", async () => {
+    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(
+      aRecording({ liveCopilot: true, liveStatus: "LISTENING" }),
+    );
+    renderSection({ notetakerOffered: true });
+
+    await userEvent.click(await screen.findByRole("switch", { name: "Live copilot" }));
+
+    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", true);
+    expect(await screen.findByText(/the live copilot will follow it for you/)).toBeInTheDocument();
+  });
+
+  it("switches the live copilot on a Notetaker that has not joined yet, and offers no switch once it has", async () => {
+    vi.mocked(notetakerApi.switchLiveCopilot).mockResolvedValue(aRecording({ liveCopilot: true }));
+    renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
+
+    await userEvent.click(await screen.findByRole("switch", { name: "Live copilot" }));
+    expect(notetakerApi.switchLiveCopilot).toHaveBeenCalledWith("p1", "c1", "r1", true);
+  });
+
+  it("leaves a teammate's Notetaker copilot to the teammate who sent it", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "SCHEDULED", liveCopilot: true, mayChangeCopilot: false })],
+    });
+
+    expect(await screen.findByText(/Live copilot on/)).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Live copilot" })).not.toBeInTheDocument();
+  });
+
+  it("opens the copilot in its own window during the call, and in the drawer where no window opens", async () => {
+    vi.mocked(openCopilotWindow).mockResolvedValue("blocked");
+    vi.mocked(notetakerApi.getCopilot).mockReturnValue(new Promise(() => {}));
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "RECORDING", liveCopilot: true, liveStatus: "LISTENING" })],
+    });
+
+    expect(screen.queryByRole("switch", { name: "Live copilot" })).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Open copilot ↗" }));
+
+    expect(openCopilotWindow).toHaveBeenCalledWith(
+      { projectId: "p1", candidateId: "c1", recordingId: "r1" },
+      expect.any(Function),
+    );
+    expect(await screen.findByRole("region", { name: "Interview copilot" })).toBeInTheDocument();
+  });
+
+  it("prepares questions for an upcoming call, drafting them the first time it opens", async () => {
+    const plan: notetakerApi.InterviewPlan = {
+      meetingId: "m1",
+      title: "First conversation",
+      startsAt: "2026-10-07T06:00:00Z",
+      drafted: false,
+      savedAt: null,
+      savedByName: null,
+      competencies: [],
+      missing: ["NOTICE"],
+      questions: [],
+    };
+    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue(plan);
+    vi.mocked(notetakerApi.draftInterviewPlan).mockResolvedValue({
+      ...plan,
+      drafted: true,
+      questions: [
+        {
+          id: "q1",
+          section: "GAP",
+          panel: null,
+          competency: null,
+          gap: "NOTICE",
+          text: "What notice would you need to give?",
+          listenFor: null,
+          why: null,
+          included: true,
+          source: "AI",
+        },
+      ],
+    });
+    renderSection();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Prepare questions" }));
+
+    expect(await screen.findByText("What notice would you need to give?")).toBeInTheDocument();
+    expect(notetakerApi.draftInterviewPlan).toHaveBeenCalledTimes(1);
+  });
 });
 
 /** A week from Monday 5 October 2099 in Dubai: Monday to Friday worked 08:00–18:00 (04:00–14:00 UTC). */
@@ -675,6 +786,9 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     suggestionsAsked: false,
     pendingSuggestions: 0,
     appliedSuggestions: 0,
+    liveCopilot: false,
+    liveStatus: null,
+    mayChangeCopilot: true,
     ...overrides,
   };
 }

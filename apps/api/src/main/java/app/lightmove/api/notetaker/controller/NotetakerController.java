@@ -8,6 +8,7 @@ import app.lightmove.api.notetaker.dto.CandidateNotetakerResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRecordingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
 import app.lightmove.api.notetaker.dto.ReviewCallSuggestionsRequest;
+import app.lightmove.api.notetaker.dto.ScheduleNotetakerRequest;
 import app.lightmove.api.notetaker.service.CallSuggestionService;
 import app.lightmove.api.notetaker.service.NotetakerService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,9 +50,11 @@ public class NotetakerController {
     @ResponseStatus(HttpStatus.CREATED)
     public NotetakerRecordingResponse schedule(@AuthenticationPrincipal AuthPrincipal principal,
                                                @PathVariable UUID projectId, @PathVariable UUID candidateId,
-                                               @PathVariable UUID meetingId, HttpServletRequest httpRequest) {
+                                               @PathVariable UUID meetingId,
+                                               @RequestBody(required = false) ScheduleNotetakerRequest request,
+                                               HttpServletRequest httpRequest) {
         return notetaker.schedule(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                meetingId, httpRequest);
+                meetingId, request != null && request.liveCopilot(), httpRequest);
     }
 
     @DeleteMapping("/notetaker/{recordingId}")

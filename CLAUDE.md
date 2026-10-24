@@ -709,7 +709,14 @@ package, location, Open to relocate, motivation, expected package, the consultan
 each ticked to keep and editable in place; one **Apply N changes** (`…/suggestions/review`) writes what is ticked and
 skips the rest, all or nothing, each through its field's owner (`CandidateCallUpdates`, `TaskService`) with an
 `UPDATED_FROM_CALL` line naming who and which call. There is no Undo: once reviewed, a change is corrected on the record,
-and the row reads "N changes applied". A key without the calendar webhook secret
+and the row reads "N changes applied". **The interview
+copilot** (V154) is two more: **Prepare questions** on an upcoming call drafts an interview plan (`InterviewPlanService`
+— fit questions per competency, a polite one per fact the record is missing, told which are missing and never a value
+or a figure), edited and saved per call; and **Live copilot**, chosen before the bot joins by whoever sent it, streams
+the call (`NotetakerLiveFeed`, each bot's own URL token the credential) to a coach (`InterviewCoachWorker`) that folds competency coverage, the gaps heard, the questions
+asked and up to three nudges forward only, read by a floating window (Document Picture-in-Picture, a popup, or the
+drawer) whose ⋯ stops it for everyone; the streamed lines go when the call ends, and the note is filed from an accurate
+transcript asked of Recall after the call (`FinalTranscriptRequester`), never the English-only stream. A key without the calendar webhook secret
 leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
 `candidate` and `position`; nothing depends back.
 
@@ -1272,6 +1279,10 @@ consultant's lower one, for every send — lowering the workspace's lowers any c
 first save writes one row.
 V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
 `suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
+V154 adds `app_lm_interview_plan` (one per call per person on a position, matched on start and title), gives the recording
+its live copilot (`live_copilot`, `live_status`, the `live` reading, the coach's cursor, runs, failures and claim, the
+live URL's `live_token_hash` and the after-call `final_transcript_id` the note is filed from), and adds
+`app_lm_meeting_live_line` (the streamed transcript, deleted when the call ends) and `app_lm_meeting_copilot_viewer`.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
