@@ -7,4 +7,4 @@ import java.time.Instant;
  * only when a webhook may have been lost.
  */
 public record RecallBotState(String statusCode, String subCode, Instant statusAt, String transcriptId,
-                             String transcriptStatus) {}
+                             String transcriptStatus, String recordingId) {}

@@ -459,6 +459,22 @@ public enum ErrorCode {
      */
     NOTETAKER_SUGGESTION_UNAVAILABLE(HttpStatus.CONFLICT, "This change can no longer be made"),
 
+    /** Another press is already preparing this call's questions; its answer lands for both. */
+    INTERVIEW_PLAN_DRAFTING(HttpStatus.CONFLICT, "These questions are already being prepared"),
+
+    /** Recall streams a transcript only to a bot made for it, so the live copilot is chosen before the bot joins. */
+    NOTETAKER_COPILOT_LOCKED(HttpStatus.CONFLICT, "Live copilot can only be changed before the Notetaker joins"),
+
+    /** The copilot is read, stopped or steered only on a recording that has one. */
+    NOTETAKER_COPILOT_OFF(HttpStatus.CONFLICT, "This call has no live copilot"),
+
+    /** Stopping coaching for everyone is the switcher's, a lead's or an admin's; anyone else closes their own window. */
+    NOTETAKER_COPILOT_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who switched on the copilot, a lead or an admin can stop it"),
+
+    NOTETAKER_COPILOT_SWITCH_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who sent the Notetaker can change its copilot"),
+
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
 

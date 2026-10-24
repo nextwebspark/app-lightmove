@@ -155,6 +155,15 @@ public enum ProjectEventType implements AuditEventType {
     NOTETAKER_SUGGESTION_APPLIED,
     NOTETAKER_SUGGESTION_SKIPPED,
 
+    /** Prepare questions: the model drafted an interview plan for a call, or a consultant saved their edits to one. */
+    INTERVIEW_PLAN_DRAFTED,
+    INTERVIEW_PLAN_SAVED,
+    /** The live copilot switched on or off for a call before its bot joined, stopped during it, or opened by someone. */
+    NOTETAKER_COPILOT_ENABLED,
+    NOTETAKER_COPILOT_DISABLED,
+    NOTETAKER_COPILOT_STOPPED,
+    NOTETAKER_COPILOT_OPENED,
+
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
 

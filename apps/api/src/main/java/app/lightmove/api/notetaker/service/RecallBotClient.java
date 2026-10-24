@@ -12,6 +12,7 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.webhook.service.SvixSignatures;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
+import app.lightmove.api.notetaker.model.RecallLiveUtterance;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
@@ -86,6 +87,99 @@ public class RecallBotClient implements RecallBotApi {
             throw new VendorException(VendorCall.of(VENDOR, "bot-create"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return id;
+    }
+
+    /** A scheduled bot's recording settings, changed before it joins: Recall refuses a bot already on its way in. */
+    @Override
+    public void updateLive(String botId, URI liveTranscriptUrl, String consentLine) {
+        guard.call(VendorCall.of(VENDOR, "bot-update"), () -> client.patch()
+                .uri("/api/v1/bot/{id}/", botId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("recording_config", recordingConfigOf(liveTranscriptUrl), "chat", chatOf(consentLine)))
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    @Override
+    public boolean verifiesLive(byte[] body, String id, String timestamp, String signature) {
+        return id != null && SvixSignatures.verifies(config.botWebhookSecret(), id, timestamp, signature, body,
+                clock.instant());
+    }
+
+    @Override
+    public String requestTranscript(String recallRecordingId) {
+        JsonNode created = guard.call(VendorCall.of(VENDOR, "transcript-create"), () -> client.post()
+                .uri("/api/v1/recording/{id}/create_transcript/", recallRecordingId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(FINAL_TRANSCRIPT)
+                .retrieve()
+                .body(JsonNode.class));
+        String id = created == null ? null : textOrNull(created.get("id"));
+        if (id == null) {
+            throw new VendorException(VendorCall.of(VENDOR, "transcript-create"),
+                    VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return id;
+    }
+
+    @Override
+    public String transcriptStatus(String transcriptId) {
+        JsonNode transcript = guard.call(VendorCall.of(VENDOR, "transcript"), () -> client.get()
+                .uri("/api/v1/transcript/{id}/", transcriptId)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class));
+        return transcript == null ? null : lowerOrNull(textOrNull(transcript.path("status").get("code")));
+    }
+
+    /**
+     * A real-time delivery: {@code transcript.data} for an utterance Recall finished, {@code transcript.partial_data}
+     * for the words so far. Timestamps are offsets into the recording; an absolute time is used where Recall sends one.
+     */
+    public static List<RecallLiveUtterance> liveUtterancesIn(byte[] body) {
+        JsonNode payload;
+        try {
+            payload = JSON.readTree(body);
+        } catch (JacksonException unreadable) {
+            return List.of();
+        }
+        if (payload == null) {
+            return List.of();
+        }
+        String event = payload.path("event").asText("");
+        boolean partial = event.equals("transcript.partial_data");
+        if (!partial && !event.equals("transcript.data")) {
+            return List.of();
+        }
+        JsonNode data = payload.path("data");
+        String botId = textOrNull(data.path("bot").get("id"));
+        JsonNode said = data.path("data");
+        JsonNode words = said.path("words");
+        if (botId == null || !words.isArray() || words.isEmpty()) {
+            return List.of();
+        }
+        StringBuilder text = new StringBuilder();
+        for (JsonNode word : words) {
+            String spoken = textOrNull(word.get("text"));
+            if (spoken != null) {
+                text.append(text.isEmpty() ? "" : " ").append(spoken.strip());
+            }
+        }
+        if (text.isEmpty()) {
+            return List.of();
+        }
+        JsonNode first = words.get(0).path("start_timestamp");
+        JsonNode last = words.get(words.size() - 1).path("end_timestamp");
+        JsonNode participant = said.path("participant");
+        String participantKey = textOrNull(participant.get("id"));
+        String name = textOrNull(participant.get("name"));
+        return List.of(new RecallLiveUtterance(botId, participantKey == null ? "unknown" : participantKey, name,
+                secondsOrNull(first.get("relative")), secondsOrNull(last.get("relative")),
+                instantOrNull(textOrNull(first.get("absolute"))), text.toString(), partial));
+    }
+
+    private static Double secondsOrNull(JsonNode node) {
+        return node == null || !node.isNumber() ? null : node.asDouble();
     }
 
     /** Recall deletes only a bot that has not joined; one in the call (or past it) refuses, and is asked to leave. */
@@ -237,17 +331,18 @@ public class RecallBotClient implements RecallBotApi {
         String event = payload.path("event").asText("");
         JsonNode data = payload.path("data");
         String botId = textOrNull(data.path("bot").get("id"));
-        if (botId == null) {
-            return List.of();
-        }
+        String transcriptId = textOrNull(data.path("transcript").get("id"));
+        String recordingId = textOrNull(data.path("recording").get("id"));
+        // A transcript asked of a recording after the call may come without its bot: it is found by its own id.
         if (event.equals("transcript.done")) {
-            String transcriptId = textOrNull(data.path("transcript").get("id"));
-            return transcriptId == null ? List.of() : List.of(new RecallBotNotice.TranscriptReady(botId, transcriptId));
+            return transcriptId == null ? List.of()
+                    : List.of(new RecallBotNotice.TranscriptReady(botId, transcriptId, recordingId));
         }
         if (event.equals("transcript.failed")) {
-            return List.of(new RecallBotNotice.TranscriptFailed(botId));
+            return botId == null && transcriptId == null ? List.of()
+                    : List.of(new RecallBotNotice.TranscriptFailed(botId, transcriptId, recordingId));
         }
-        if (!event.startsWith("bot.")) {
+        if (botId == null || !event.startsWith("bot.")) {
             return List.of();
         }
         JsonNode status = event.equals("bot.status_change") ? data.path("status") : data.path("data");
@@ -266,14 +361,15 @@ public class RecallBotClient implements RecallBotApi {
         JsonNode changes = bot.path("status_changes");
         JsonNode latest = changes.isArray() && !changes.isEmpty() ? changes.get(changes.size() - 1) : null;
         JsonNode recordings = bot.path("recordings");
-        JsonNode transcript = recordings.isArray() && !recordings.isEmpty()
-                ? recordings.get(recordings.size() - 1).path("media_shortcuts").path("transcript") : null;
+        JsonNode recording = recordings.isArray() && !recordings.isEmpty() ? recordings.get(recordings.size() - 1) : null;
+        JsonNode transcript = recording == null ? null : recording.path("media_shortcuts").path("transcript");
         return new RecallBotState(
                 latest == null ? null : lowerOrNull(textOrNull(latest.get("code"))),
                 latest == null ? null : textOrNull(latest.get("sub_code")),
                 latest == null ? null : instantOrNull(textOrNull(latest.get("created_at"))),
                 transcript == null ? null : textOrNull(transcript.get("id")),
-                transcript == null ? null : lowerOrNull(textOrNull(transcript.path("status").get("code"))));
+                transcript == null ? null : lowerOrNull(textOrNull(transcript.path("status").get("code"))),
+                recording == null ? null : textOrNull(recording.get("id")));
     }
 
     /**
@@ -302,15 +398,45 @@ public class RecallBotClient implements RecallBotApi {
         }
         body.put("bot_name", request.botName());
         body.put("metadata", request.metadata());
-        body.put("recording_config", Map.of(
-                "transcript", Map.of(
-                        "provider", Map.of("recallai_streaming", Map.of("mode", "prioritize_accuracy")),
-                        "diarization", Map.of("use_separate_streams_when_available", true))));
+        body.put("recording_config", recordingConfigOf(request.liveTranscriptUrl()));
         // Nobody is recorded without being told, by our bot or Recall's.
-        body.put("chat", Map.of("on_bot_join", Map.of("send_to", "everyone", "message", request.consentLine())));
+        body.put("chat", chatOf(request.consentLine()));
         // Recall's defaults keep a bot up to an hour in an empty or silent call, every minute of it billed.
         body.put("automatic_leave", AUTOMATIC_LEAVE);
         return body;
+    }
+
+    private static Map<String, Object> chatOf(String consentLine) {
+        return Map.of("on_bot_join", Map.of("send_to", "everyone", "message", consentLine));
+    }
+
+    /**
+     * A live copilot bot's record: its own stream is English only and low-latency, so the note is filed from this,
+     * transcribed again after the call in Recall's accurate mode, whatever language the call was held in.
+     */
+    static final Map<String, Object> FINAL_TRANSCRIPT = Map.of(
+            "provider", Map.of("recallai_async", Map.of("language_code", "auto")),
+            "diarization", Map.of("use_separate_streams_when_available", true));
+
+    /**
+     * Recall streams the words as they are spoken only in its low-latency mode, which transcribes English alone; webhook
+     * deliveries are otherwise held back by minutes. A bot without the live copilot keeps the accurate mode; one with it
+     * is transcribed again after the call ({@link #FINAL_TRANSCRIPT}).
+     */
+    static Map<String, Object> recordingConfigOf(URI liveTranscriptUrl) {
+        Map<String, Object> provider = liveTranscriptUrl == null
+                ? Map.of("mode", "prioritize_accuracy")
+                : Map.of("mode", "prioritize_low_latency", "language_code", "en");
+        Map<String, Object> transcript = Map.of(
+                "provider", Map.of("recallai_streaming", provider),
+                "diarization", Map.of("use_separate_streams_when_available", true));
+        if (liveTranscriptUrl == null) {
+            return Map.of("transcript", transcript);
+        }
+        return Map.of("transcript", transcript, "realtime_endpoints", List.of(Map.of(
+                "type", "webhook",
+                "url", liveTranscriptUrl.toString(),
+                "events", List.of("transcript.data", "transcript.partial_data"))));
     }
 
     private static String lowerOrNull(String text) {

@@ -47,7 +47,10 @@ public enum LlmBudget {
     EXECUTIVE_SOURCING("executive-sourcing", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** One press drafting outreach openers — a batch of people or a single redraft. */
-    OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute);
+    OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One Prepare questions press, drafting an interview plan for a call. */
+    INTERVIEW_PLAN("interview-plan", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;
