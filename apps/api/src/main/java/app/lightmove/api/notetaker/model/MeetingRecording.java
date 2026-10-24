@@ -91,6 +91,12 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "note_id")
     private UUID noteId;
 
+    @Column(name = "call_record")
+    private String callRecord;
+
+    @Column(name = "call_record_version")
+    private Short callRecordVersion;
+
     @Column(name = "media_deleted", nullable = false)
     private boolean mediaDeleted;
 
@@ -263,6 +269,11 @@ public class MeetingRecording extends BaseEntity {
         this.noteId = noteId;
         this.failureReason = null;
         this.status = NotetakerStatus.DONE;
+    }
+
+    public void recorded(String record, int version) {
+        this.callRecord = record;
+        this.callRecordVersion = (short) version;
     }
 
     public void mediaDeleted() {

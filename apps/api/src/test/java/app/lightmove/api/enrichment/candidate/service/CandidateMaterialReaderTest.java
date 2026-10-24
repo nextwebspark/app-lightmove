@@ -79,12 +79,12 @@ class CandidateMaterialReaderTest {
                         new SpokenLine(start.plusSeconds(5), "Yara Haddad", "Tell me about the IPO.", true),
                         new SpokenLine(start.plusSeconds(65), "Priya Raman", "I led the finance team through it.", false),
                         new SpokenLine(start.plusSeconds(70), "Priya Raman", "Write to priya@example.com.", false),
-                        new SpokenLine(start.plusSeconds(3_725), "Yara Haddad", "Thanks.", true)))));
+                        new SpokenLine(start.plusSeconds(3_725), "Yara Haddad", "Thanks.", true)), null)));
 
         MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
 
         assertThat(text.transcriptCount()).isEqualTo(1);
-        assertThat(text.transcripts()).startsWith("=== Call: First conversation · 12 Oct 2026 ===")
+        assertThat(text.transcripts()).startsWith("=== Call: First conversation · 12 Oct 2026 ===\n--- Transcript ---")
                 .contains("[00:05] Yara Haddad (your team): Tell me about the IPO.",
                         "[01:05] Priya Raman: I led the finance team through it. Write to",
                         "[1:02:05] Yara Haddad (your team): Thanks.")
@@ -92,24 +92,65 @@ class CandidateMaterialReaderTest {
     }
 
     @Test
-    @DisplayName("a long call keeps its start and end, a call past the budget is left out, and Background reads none")
-    void transcriptsShareTheBudget() {
+    @DisplayName("each call's record goes first, its transcript whole where it fits, and past the budget the record alone")
+    void recordsStandInForTranscriptsTooLongToFit() {
         Instant start = Instant.parse("2026-10-12T14:00:00Z");
-        TranscriptOnFile longCall = new TranscriptOnFile("Long call", start, List.of(
-                new SpokenLine(start, "Priya Raman", "OPENING " + "a".repeat(40_000), false),
-                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "b".repeat(40_000) + " CLOSING", true)));
+        TranscriptOnFile hourLong = call("Hour-long call", start, 200_000, "Record of the hour-long call.");
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
-        when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(longCall, longCall, longCall));
+        when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(hourLong, hourLong, hourLong));
+
+        MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
+
+        assertThat(text.transcriptCount()).isEqualTo(3);
+        String[] calls = text.transcripts().split("\n\n(?==== Call: )");
+        assertThat(calls).hasSize(3).allSatisfy(call -> assertThat(call)
+                .contains(CandidateMaterialReader.RECORD_HEADING + "Record of the hour-long call.")
+                .doesNotContain("the middle of the call is left out"));
+        assertThat(calls[0]).contains("OPENING", "CLOSING");
+        assertThat(List.of(calls[1], calls[2])).allSatisfy(call -> assertThat(call)
+                .endsWith(CandidateMaterialReader.TRANSCRIPT_LEFT_OUT).doesNotContain("OPENING"));
+        assertThat(text.transcripts().length()).isLessThanOrEqualTo(CandidateMaterialReader.MAX_CALLS + 1_000);
+        assertThat(reader.read(PROJECT, CANDIDATE).transcripts()).isEqualTo(MaterialText.NONE_ON_FILE);
+    }
+
+    @Test
+    @DisplayName("a call filed before records were kept keeps its start and end only when it alone does not fit")
+    void aCallWithoutARecordIsCutOnlyAsALastResort() {
+        Instant start = Instant.parse("2026-10-12T14:00:00Z");
+        TranscriptOnFile oldCall = call("Old call", start, 250_000, null);
+        when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
+        when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(oldCall, oldCall));
 
         MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
 
         assertThat(text.transcriptCount()).isEqualTo(2);
-        assertThat(text.transcripts()).contains("OPENING", "CLOSING", "the middle of the call is left out")
-                .endsWith(CandidateMaterialReader.EARLIER_CALLS_LEFT_OUT);
-        assertThat(text.transcripts().length()).isLessThanOrEqualTo(CandidateMaterialReader.MAX_TRANSCRIPTS + 100);
-        assertThat(text.transcripts().split("=== Call: ")).allSatisfy(block ->
-                assertThat(block.isEmpty() || block.length() >= CandidateMaterialReader.LEAST_TRANSCRIPT).isTrue());
-        assertThat(reader.read(PROJECT, CANDIDATE).transcripts()).isEqualTo(MaterialText.NONE_ON_FILE);
+        String[] calls = text.transcripts().split("\n\n(?==== Call: )");
+        assertThat(calls[0]).contains("OPENING", "CLOSING").doesNotContain("the middle of the call is left out");
+        assertThat(calls[1]).contains("OPENING", "CLOSING", "the middle of the call is left out");
+        assertThat(text.transcripts().length()).isLessThanOrEqualTo(CandidateMaterialReader.MAX_CALLS + 1_000);
+    }
+
+    @Test
+    @DisplayName("interview prep reads each call's record without its transcript, and a call with no record not at all")
+    void callRecordsAloneForInterviewPrep() {
+        Instant start = Instant.parse("2026-10-12T14:00:00Z");
+        when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(
+                call("Second call", start.plusSeconds(86_400 * 7), 1_000, "Record: write to priya@example.com."),
+                call("First call", start, 1_000, null)));
+
+        CallRecordsText calls = reader.callRecords(PROJECT, CANDIDATE);
+
+        assertThat(calls.count()).isEqualTo(1);
+        assertThat(calls.text())
+                .isEqualTo("=== Call: Second call · 19 Oct 2026 ===\nRecord: write to [email removed].")
+                .doesNotContain("OPENING");
+    }
+
+    private static TranscriptOnFile call(String title, Instant start, int length, String record) {
+        return new TranscriptOnFile(title, start, List.of(
+                new SpokenLine(start, "Priya Raman", "OPENING " + "said ".repeat(length / 10), false),
+                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "asked ".repeat(length / 12) + "CLOSING", true)),
+                record);
     }
 
     private static DocumentOnFile document(String title, PersonDocumentCategory category, DocumentFormat format) {

@@ -8,6 +8,12 @@
         "null"
       ]
     },
+    "account": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "keyPoints": {
       "type": "array",
       "items": {
@@ -38,6 +44,36 @@
         "null"
       ]
     },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string"
+          },
+          "said": {
+            "type": "string"
+          },
+          "at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "topic",
+          "said"
+        ]
+      }
+    },
     "concerns": {
       "type": "array",
       "items": {
@@ -45,6 +81,12 @@
       }
     },
     "nextSteps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "openQuestions": {
       "type": "array",
       "items": {
         "type": "string"
@@ -64,6 +106,18 @@
           "at": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "quote": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "example": {
+            "type": [
+              "boolean",
               "null"
             ]
           }

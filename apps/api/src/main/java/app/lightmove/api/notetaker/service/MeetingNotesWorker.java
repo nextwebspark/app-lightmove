@@ -31,10 +31,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Turns a finished recording into its Meeting note, off the webhook's thread: the transcript from Recall, a summary
- * from the model against the position's brief, the note filed in the scheduler's name, and Recall's copy of the call
- * deleted. Not {@code @Transactional}: neither vendor call may hold a connection, so each write is its own short
- * transaction. Recall's copy is deleted only once the note is filed, so Try again can still read the transcript.
+ * Turns a finished recording into its Meeting note and its call record, off the webhook's thread: the transcript from
+ * Recall, one summary from the model against the position's brief, the note filed in the scheduler's name with the
+ * record kept beside the transcript, and Recall's copy of the call deleted. Not {@code @Transactional}: neither vendor
+ * call may hold a connection, so each write is its own short transaction. Recall's copy is deleted only once the note
+ * is filed, so Try again can still read the transcript.
  */
 @Component
 @Slf4j
@@ -117,6 +118,7 @@ class MeetingNotesWorker {
             return;
         }
         String body = MeetingNoteMarkdown.of(summary);
+        String callRecord = CallRecordMarkdown.of(summary);
         boolean filed = Boolean.TRUE.equals(transactions.execute(status -> {
             MeetingRecording held = recordings.findById(recordingId).orElseThrow();
             if (held.getStatus() != NotetakerStatus.PROCESSING || held.getNoteId() != null) {
@@ -125,6 +127,7 @@ class MeetingNotesWorker {
             UUID noteId = notes.fileMeetingNote(held.getWorkspaceId(), held.getPersonId(), held.getProjectId(),
                     held.getRequestedBy(), body);
             held.filed(noteId);
+            held.recorded(callRecord, CallRecordMarkdown.VERSION);
             audit.event(ProjectEventType.NOTETAKER_NOTE_FILED).actor(held.getRequestedBy())
                     .workspace(held.getWorkspaceId()).target(AuditService.PROJECT_TARGET, held.getProjectId())
                     .detail("recordingId", recordingId.toString())

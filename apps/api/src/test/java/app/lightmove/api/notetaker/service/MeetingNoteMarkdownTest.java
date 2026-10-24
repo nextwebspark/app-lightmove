@@ -29,16 +29,16 @@ class MeetingNoteMarkdownTest {
     void emptySectionsAreLeftOut() {
         String body = MeetingNoteMarkdown.of(new MeetingSummary("Spoke about the role.", List.of("Open to move"),
                 null, "AED 90k a month", null, null, List.of(), List.of("Send the brief"), List.of(), List.of(),
-                List.of()));
+                List.of(), "The whole call, in order.", List.of(), List.of("Their notice")));
 
         assertThat(body).startsWith("Spoke about the role.")
                 .contains("## Key points\n\n- Open to move")
                 .contains("- **Package:** AED 90k a month", "## Next steps")
-                .doesNotContain("## Concerns", "## Against the brief", "Motivation");
+                .doesNotContain("## Concerns", "## Against the brief", "Motivation", "The whole call", "Their notice");
     }
 
     private static MeetingSummary summary(String overview, List<String> keyPoints) {
         return new MeetingSummary(overview, keyPoints, null, null, null, null, List.of(), List.of(), List.of(),
-                List.of(), List.of());
+                List.of(), List.of(), null, List.of(), List.of());
     }
 }

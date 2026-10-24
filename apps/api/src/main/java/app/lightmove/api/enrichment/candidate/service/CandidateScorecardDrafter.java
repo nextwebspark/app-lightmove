@@ -86,7 +86,7 @@ public class CandidateScorecardDrafter {
                 NOTES ON FILE (the team's own, newest first)
                 {notes}
 
-                CALL TRANSCRIPTS (newest first; time into the call, speaker, words)
+                RECORDED CALLS (newest first: each call's record, then its transcript — time in, speaker, words)
                 {transcripts}
 
                 DOCUMENTS ON FILE
