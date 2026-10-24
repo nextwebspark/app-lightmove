@@ -126,7 +126,7 @@ class RecallBotClientTest {
         assertThat(body.get("recording_config").toString()).contains("recallai_streaming");
         assertThat(body.get("automatic_leave")).isEqualTo(RecallBotClient.AUTOMATIC_LEAVE);
         assertThat(RecallBotClient.AUTOMATIC_LEAVE).containsEntry("waiting_room_timeout", 900)
-                .containsEntry("everyone_left_timeout", Map.of("timeout", 30, "activate_after", 0));
+                .containsEntry("everyone_left_timeout", Map.of("timeout", 30));
         assertThat(RecallBotClient.bodyOf(new RecallBotRequest("https://zoom.us/j/1", null, "Uncava Notetaker",
                 "Hello", Map.of()))).doesNotContainKey("join_at");
     }

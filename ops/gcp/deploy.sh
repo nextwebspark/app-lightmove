@@ -218,8 +218,9 @@ fi
 # is wrong: EMAIL_FROM is an email address, so gcloud splits it mid-way and rejects `lightmove.app` as a
 # malformed entry. A pipe cannot occur in a URL, an address, or a file path.
 #
-# max-instances 2, NOT the default of 100: 2 × DB_POOL_MAX=5 = 10 connections, under the db-f1-micro's
-# ~25 — which the brightdata ETL and gth-api also draw on. Raise it and you take down the neighbours.
+# max-instances 3, NOT the default of 100: 3 × DB_POOL_MAX=5 = 15 connections, under the db-g1-small's
+# ~50 — which the brightdata ETL and gth-api also draw on. Raise it and you take down the neighbours.
+# concurrency 200: open tabs hold live streams that count against it without holding a thread.
 #
 # No --min-instances, deliberately. Minimum instances are a SERVICE-level setting owned by
 # ops/gcp/schedule-warm-hours.sh (1 during Dubai hours, 0 overnight), and a deploy leaves that value
@@ -231,9 +232,9 @@ gcloud run deploy "$SERVICE" \
     --region "$REGION" \
     --service-account "$RUNTIME_SA" \
     --allow-unauthenticated \
-    --max-instances 2 \
+    --max-instances 3 \
     --cpu 1 --memory 1Gi --cpu-boost \
-    --concurrency 80 \
+    --concurrency 200 \
     --timeout 300s \
     --set-env-vars "^|^GOOGLE_CLOUD_PROJECT=${PROJECT}|FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${OAUTH_ENV}" \
     --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}"

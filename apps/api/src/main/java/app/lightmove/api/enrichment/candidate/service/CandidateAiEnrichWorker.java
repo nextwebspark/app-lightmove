@@ -35,9 +35,9 @@ class CandidateAiEnrichWorker {
 
     /**
      * A Find executives run files a batch at once; this many run their model calls together, the rest wait in
-     * {@link #waiting} rather than on a thread of the fixed {@code @Async} pool every listener shares.
+     * {@link #waiting} rather than parked on a thread of the {@code @Async} pool every listener shares.
      */
-    private static final int CONCURRENT_RUNS = 4;
+    static final int CONCURRENT_RUNS = 4;
 
     private final BackgroundProposer backgroundProposer;
     private final CandidateService candidates;
@@ -71,7 +71,10 @@ class CandidateAiEnrichWorker {
         drain();
     }
 
-    /** Re-checks the queue after each release: a run queued while this thread still held its permit is not left behind. */
+    /**
+     * Re-checks the queue after each release: a run queued while this thread still held its permit is not
+     * left behind.
+     */
     private void drain() {
         while (!waiting.isEmpty() && runs.tryAcquire()) {
             try {

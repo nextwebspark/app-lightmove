@@ -2,12 +2,14 @@ package app.lightmove.api.notetaker.repository;
 
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.model.MeetingRecording;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
@@ -24,6 +26,12 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
                                                                              UUID projectId, UUID personId);
 
     Optional<MeetingRecording> findByRecallBotId(String recallBotId);
+
+    /** The row a Suggest changes decision writes, locked first so two tabs' decisions queue rather than collide. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from MeetingRecording r where r.id = :id and r.workspaceId = :workspaceId "
+            + "and r.projectId = :projectId and r.personId = :personId")
+    Optional<MeetingRecording> lockForDecision(UUID id, UUID workspaceId, UUID projectId, UUID personId);
 
     boolean existsByWorkspaceIdAndJoinUrlAndStartsAtAndStatusIn(UUID workspaceId, String joinUrl, Instant startsAt,
                                                                 Collection<NotetakerStatus> statuses);
@@ -45,15 +53,30 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
     int releaseProcessing(UUID id);
 
     /**
-     * A transcript outlives nothing it was kept for: cleared once its note is gone for good, or once a recording that
-     * never filed one has sat untouched past the notes' own purge age.
+     * One press of Suggest changes at a time per call: the model is asked once however many tabs press together. A
+     * claim older than {@code staleBefore} belonged to a request that died with its instance.
      */
     @Modifying
     @Query(nativeQuery = true, value = """
-            UPDATE app_lm_meeting_recording SET transcript = NULL
-            WHERE transcript IS NOT NULL
-              AND ((status = 'DONE' AND note_id IS NULL)
-                   OR (status IN ('FAILED', 'CANCELLED') AND updated_at < :cutoff))
+            UPDATE app_lm_meeting_recording SET suggesting_since = :now
+            WHERE id = :id AND status = 'DONE' AND transcript IS NOT NULL
+              AND (suggesting_since IS NULL OR suggesting_since < :staleBefore)
+            """)
+    int claimSuggesting(UUID id, Instant now, Instant staleBefore);
+
+    @Modifying
+    @Query(nativeQuery = true, value = "UPDATE app_lm_meeting_recording SET suggesting_since = NULL WHERE id = :id")
+    int releaseSuggesting(UUID id);
+
+    /**
+     * A transcript nothing needs any more — its note purged for good, or never filed — once untouched since
+     * {@code cutoff}. The suggestions read off it quote the executive, so they go with it.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_meeting_recording SET transcript = NULL, suggestions = NULL
+            WHERE transcript IS NOT NULL AND updated_at < :cutoff
+              AND ((status = 'DONE' AND note_id IS NULL) OR status IN ('FAILED', 'CANCELLED'))
             """)
     int purgeTranscripts(Instant cutoff);
 }

@@ -88,6 +88,6 @@ LABEL org.opencontainers.image.source="https://github.com/nextwebspark/app-light
 # container, which changes with --memory and is not knowable here. 70, not 75: thread stacks, metaspace
 # and the code cache live outside the heap, and 1Gi left them too little.
 #
-# The few pools still built on virtual threads get four carriers rather than one per vCPU: with a single
-# carrier, one thread pinned while loading a class stops every other (application.yml, spring.threads).
+# The few pools still built on virtual threads get four carriers, not one per vCPU, where one thread pinned
+# loading a class stopped every other (application.yml, spring.threads). Four pinned at once still would.
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=70.0", "-Djdk.virtualThreadScheduler.parallelism=4", "-jar", "/app/app.jar"]

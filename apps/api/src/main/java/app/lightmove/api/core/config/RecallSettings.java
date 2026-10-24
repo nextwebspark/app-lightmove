@@ -15,8 +15,17 @@ public record RecallSettings(
         String botWebhookSecret,
         @DefaultValue("https://us-east-1.recall.ai") String baseUrl,
         /** How often live Notetaker bots past their call are read back. Spelled out in yml: {@code @Scheduled} reads it. */
-        @DefaultValue("PT10M") Duration botReconcileInterval
+        @DefaultValue("PT10M") Duration botReconcileInterval,
+        /** How long a Notetaker transcript is kept once nothing needs it; null keeps it until its person or position goes. */
+        Duration transcriptRetention
 ) {
+
+    public RecallSettings {
+        if (transcriptRetention != null && (transcriptRetention.isNegative() || transcriptRetention.isZero())) {
+            throw new IllegalArgumentException(
+                    "lightmove.recall.transcript-retention must be positive, but was " + transcriptRetention);
+        }
+    }
 
     public boolean isConfigured() {
         return apiKey != null && !apiKey.isBlank();

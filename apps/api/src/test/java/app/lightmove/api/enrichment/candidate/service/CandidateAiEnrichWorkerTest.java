@@ -28,12 +28,10 @@ import org.junit.jupiter.api.Test;
 
 class CandidateAiEnrichWorkerTest {
 
-    private static final int CONCURRENT_RUNS = 4;
-
     @Test
     @DisplayName("a run past the four at once is queued and its thread let go, then run once a slot frees")
     void aRunPastTheLimitIsQueuedNotParked() throws Exception {
-        CountDownLatch fourRunning = new CountDownLatch(CONCURRENT_RUNS);
+        CountDownLatch fourRunning = new CountDownLatch(CandidateAiEnrichWorker.CONCURRENT_RUNS);
         CountDownLatch release = new CountDownLatch(1);
         Set<UUID> ran = ConcurrentHashMap.newKeySet();
         CandidateService candidates = mock(CandidateService.class);
@@ -45,9 +43,9 @@ class CandidateAiEnrichWorkerTest {
         });
         CandidateAiEnrichWorker worker = workerOver(candidates);
 
-        try (ExecutorService pool = Executors.newFixedThreadPool(CONCURRENT_RUNS + 1)) {
+        try (ExecutorService pool = Executors.newFixedThreadPool(CandidateAiEnrichWorker.CONCURRENT_RUNS + 1)) {
             List<UUID> first = new ArrayList<>();
-            for (int run = 0; run < CONCURRENT_RUNS; run++) {
+            for (int run = 0; run < CandidateAiEnrichWorker.CONCURRENT_RUNS; run++) {
                 UUID candidateId = UUID.randomUUID();
                 first.add(candidateId);
                 pool.execute(() -> worker.enrich(requestFor(candidateId)));
@@ -55,14 +53,15 @@ class CandidateAiEnrichWorkerTest {
             assertThat(fourRunning.await(5, TimeUnit.SECONDS)).isTrue();
 
             UUID fifth = UUID.randomUUID();
-            CompletableFuture<Void> handedOver = CompletableFuture.runAsync(() -> worker.enrich(requestFor(fifth)), pool);
+            CompletableFuture<Void> handedOver =
+                    CompletableFuture.runAsync(() -> worker.enrich(requestFor(fifth)), pool);
             handedOver.get(1, TimeUnit.SECONDS);
             assertThat(ran).containsExactlyInAnyOrderElementsOf(first);
 
             release.countDown();
         }
 
-        assertThat(ran).hasSize(CONCURRENT_RUNS + 1);
+        assertThat(ran).hasSize(CandidateAiEnrichWorker.CONCURRENT_RUNS + 1);
     }
 
     private static CandidateAiEnrichWorker workerOver(CandidateService candidates) {

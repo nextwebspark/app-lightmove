@@ -699,8 +699,13 @@ minute early and saying in the chat whose notes it records. Recall's Svix-signed
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
 Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and only
-then deletes Recall's copy, so Try again can read it again; the transcript is cleared once its note is purged.
-`NotetakerReconcile` reads back a recording still live past its call. A key without the calendar webhook secret
+then deletes Recall's copy, so Try again can read it again; the transcript is kept unless
+`lightmove.recall.transcript-retention` is set, which clears one whose note is purged or never filed once that long untouched.
+`NotetakerReconcile` reads back a recording still live past its call. **Suggest changes** on a filed call's row (V152,
+`CallSuggestionService`) reads the transcript once per press against the record and walks each change — notice period,
+package, location, Open to relocate, motivation, expected package, the consultant's next steps as tasks — one card at a
+time; nothing is written until applied, each apply goes through its field's owner (`CandidateCallUpdates`, `TaskService`)
+with an `UPDATED_FROM_CALL` line naming who and which call, and Undo puts back only what the call wrote. A key without the calendar webhook secret
 leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
 `candidate` and `position`; nothing depends back.
 
@@ -1248,6 +1253,8 @@ row's company): the Companies stage the executive is listed at, their own.
 V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
 foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
 sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.
+V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
+`suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
