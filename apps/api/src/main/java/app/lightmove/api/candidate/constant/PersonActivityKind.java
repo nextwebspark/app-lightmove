@@ -92,8 +92,8 @@ public enum PersonActivityKind {
     ASSESSMENT_REVIEWED,
 
     /**
-     * A researcher applied a change a recorded call suggested (or undid one: {@code reverted}). The line names the
-     * fields and the call, never the values.
+     * A researcher applied a change a recorded call suggested; {@code reverted} marks an undo, written only while the
+     * review offered one. The line names the fields and the call, never the values.
      */
     UPDATED_FROM_CALL
 }

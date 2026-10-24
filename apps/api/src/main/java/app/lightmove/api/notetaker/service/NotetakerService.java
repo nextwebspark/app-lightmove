@@ -13,12 +13,12 @@ import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.dto.CandidateNotetakerResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRecordingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
 import app.lightmove.api.notetaker.dto.TranscriptLineResponse;
-import app.lightmove.api.notetaker.model.CallSuggestion;
 import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
@@ -316,7 +316,7 @@ public class NotetakerService {
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
                 recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
                 recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
-                recording.getSuggestions() != null, recording.getSuggestions() == null ? 0
-                        : (int) recording.getSuggestions().stream().filter(CallSuggestion::isPending).count());
+                recording.getSuggestions() != null, recording.suggestionsWith(CallSuggestionStatus.PENDING),
+                recording.suggestionsWith(CallSuggestionStatus.APPLIED));
     }
 }

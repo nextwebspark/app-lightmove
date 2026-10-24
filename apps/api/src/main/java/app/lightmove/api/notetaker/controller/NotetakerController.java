@@ -3,11 +3,11 @@ package app.lightmove.api.notetaker.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
-import app.lightmove.api.notetaker.dto.ApplyCallSuggestionRequest;
 import app.lightmove.api.notetaker.dto.CallSuggestionsResponse;
 import app.lightmove.api.notetaker.dto.CandidateNotetakerResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRecordingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
+import app.lightmove.api.notetaker.dto.ReviewCallSuggestionsRequest;
 import app.lightmove.api.notetaker.service.CallSuggestionService;
 import app.lightmove.api.notetaker.service.NotetakerService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -99,35 +99,15 @@ public class NotetakerController {
                 recordingId, httpRequest);
     }
 
-    @PostMapping("/notetaker/{recordingId}/suggestions/{suggestionId}/apply")
+    /** Applies the suggestions the researcher kept, as they chose them, and skips the rest: one save, no undo. */
+    @PostMapping("/notetaker/{recordingId}/suggestions/review")
     @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
-    public CallSuggestionsResponse apply(@AuthenticationPrincipal AuthPrincipal principal,
-                                         @PathVariable UUID projectId, @PathVariable UUID candidateId,
-                                         @PathVariable UUID recordingId, @PathVariable String suggestionId,
-                                         @Valid @RequestBody(required = false) ApplyCallSuggestionRequest request,
-                                         HttpServletRequest httpRequest) {
-        return suggestions.apply(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                recordingId, suggestionId, request, httpRequest);
-    }
-
-    @PostMapping("/notetaker/{recordingId}/suggestions/{suggestionId}/skip")
-    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
-    public CallSuggestionsResponse skip(@AuthenticationPrincipal AuthPrincipal principal,
-                                        @PathVariable UUID projectId, @PathVariable UUID candidateId,
-                                        @PathVariable UUID recordingId, @PathVariable String suggestionId,
-                                        HttpServletRequest httpRequest) {
-        return suggestions.skip(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                recordingId, suggestionId, httpRequest);
-    }
-
-    /** Undo from the review's summary: a skipped change waits again, an applied one is put back first. */
-    @PostMapping("/notetaker/{recordingId}/suggestions/{suggestionId}/reopen")
-    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
-    public CallSuggestionsResponse reopen(@AuthenticationPrincipal AuthPrincipal principal,
+    public CallSuggestionsResponse review(@AuthenticationPrincipal AuthPrincipal principal,
                                           @PathVariable UUID projectId, @PathVariable UUID candidateId,
-                                          @PathVariable UUID recordingId, @PathVariable String suggestionId,
+                                          @PathVariable UUID recordingId,
+                                          @Valid @RequestBody ReviewCallSuggestionsRequest request,
                                           HttpServletRequest httpRequest) {
-        return suggestions.reopen(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                recordingId, suggestionId, httpRequest);
+        return suggestions.review(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
+                recordingId, request, httpRequest);
     }
 }
