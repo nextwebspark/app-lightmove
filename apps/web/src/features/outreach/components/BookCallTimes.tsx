@@ -4,7 +4,7 @@ import { cn } from "../../../lib/cn";
 import type { SlotDay } from "../api/meetingApi";
 import { shiftDateOf, slotDayLabelOf, slotDayPartsOf, slotTimeOf } from "../lib/meetingTimes";
 
-/** Book a call's ← date → control: a page back, a jump to any day, a page ahead. */
+/** The ← date → control of Book a call and the booking page: a page back, a jump to any day, a page ahead. */
 export function SlotPager({
   firstShown,
   lastShown,
@@ -18,7 +18,7 @@ export function SlotPager({
   lastShown: string;
   earliestDate: string;
   latestDate: string;
-  /** Where the page before starts, as the server counts working days; null on the first page. */
+  /** Where the page before starts; null on the first page. */
   previousFrom: string | null;
   isFetching: boolean;
   onShowFrom: (day: string) => void;

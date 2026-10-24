@@ -72,6 +72,7 @@ public class OutreachSendService {
     private final TransactionTemplate transactions;
     private final AuditService audit;
     private final LightMoveProperties properties;
+    private final AvailabilityService availability;
 
     public List<UUID> claimDue(Instant now) {
         return claims.claimDue(now, settings().dispatchBatch());
@@ -184,7 +185,7 @@ public class OutreachSendService {
         // but instances running at once can each pass at the same count and overshoot by one email apiece.
         long sentToday = messages.countByWorkspaceIdAndSenderUserIdAndSentAtGreaterThanEqual(
                 enrollment.getWorkspaceId(), enrollment.getSenderUserId(), window.startOfDay(now, zone));
-        if (sentToday >= mailbox.getDailyCap()) {
+        if (sentToday >= availability.dailyCapOf(mailbox)) {
             enrollment.deferToOpening(window, window.openingAfterToday(now, zone));
             return null;
         }

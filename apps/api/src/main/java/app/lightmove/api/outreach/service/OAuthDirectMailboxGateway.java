@@ -199,6 +199,11 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
         throw ApiException.of(ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE);
     }
 
+    @Override
+    public void updateBookingPage(String grantId, String configurationId, BookingPageSpec page) {
+        throw ApiException.of(ErrorCode.OUTREACH_BOOKING_LINK_UNAVAILABLE);
+    }
+
     protected JsonNode apiCall(String operation, String accessToken,
                                Function<RestClient, RestClient.RequestHeadersSpec<?>> request) {
         return guard.call(vendorCall(operation), () -> authorised(request, accessToken)

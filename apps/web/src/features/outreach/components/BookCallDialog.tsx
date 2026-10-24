@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Field, Input, Modal, Select, Skeleton, Toggle, useToast } from "../../../components/ui";
+import { DateInput } from "../../../components/ui/DateInput";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
@@ -12,20 +13,34 @@ import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as meetingApi from "../api/meetingApi";
 import type { Meeting, MeetingVideo } from "../api/meetingApi";
 import * as notetakerApi from "../api/notetakerApi";
-import { meetingWhenOf, slotDayLabelOf, slotTimeOf } from "../lib/meetingTimes";
-import { SlotDayTiles, SlotGroup, SlotPager } from "./BookCallTimes";
+import type { WorkingHoursSource } from "../api/meetingApi";
+import { meetingWhenOf, shiftDateOf, slotDayLabelOf } from "../lib/meetingTimes";
+import { instantOf } from "../lib/sendSchedule";
+import {
+  choiceOfFields,
+  fieldsOf,
+  isWithinWorkingHours,
+  refusalOf,
+  viewDaysOf,
+  type CallChoice,
+} from "../lib/weekGrid";
+import { SlotPager } from "./BookCallTimes";
+import { WeekTimeGrid } from "./WeekTimeGrid";
 
-type Length = "15" | "30" | "45" | "60" | "90";
-
-const LENGTHS: { value: Length; label: string }[] = [
+const LENGTHS: { value: string; label: string }[] = [
   { value: "15", label: "15 min" },
   { value: "30", label: "30 min" },
   { value: "45", label: "45 min" },
   { value: "60", label: "1 hr" },
   { value: "90", label: "1.5 hr" },
+  { value: "other", label: "Other" },
 ];
 
-const OFFERED_LENGTHS = new Intl.ListFormat("en", { type: "disjunction" }).format(LENGTHS.map((option) => option.label));
+const WORKING_HOURS_LABEL: Record<WorkingHoursSource, string> = {
+  CALENDAR: "Your working hours · Outlook",
+  PERSONAL: "Your working hours",
+  WORKSPACE: "Workspace working hours",
+};
 
 const VIDEO_LINKS: { value: MeetingVideo; label: string }[] = [
   { value: "GOOGLE_MEET", label: "Google Meet" },
@@ -55,8 +70,9 @@ interface NotetakerOutcome {
 }
 
 /**
- * Book a call (`Outreach.dc.html?dialog=bookCall`): a free time off the consultant's own calendar, and an invite from it.
- * Given a booked `meeting`, the same grid moves that call instead: its link, address and title stay as booked.
+ * Book a call (`Outreach.dc.html?dialog=bookCall`): any time on the consultant's own week, dragged on the calendar or
+ * typed, and an invite from it. Their calendar's busy times are what refuse a time; working hours only label it.
+ * Given a booked `meeting`, the same week moves that call instead: its link, address and title stay as booked.
  */
 export function BookCallDialog({
   projectId,
@@ -84,31 +100,46 @@ export function BookCallDialog({
   const toast = useToast();
   const firstName = fullName.trim().split(/\s+/)[0];
   const isRescheduling = meeting !== undefined;
-  const [length, setLength] = useState<Length>(meeting ? lengthOf(meeting) : "30");
+  const [minutes, setMinutes] = useState(meeting ? minutesOf(meeting) : 30);
+  const [start, setStart] = useState<string | null>(null);
+  const [isOtherLength, setIsOtherLength] = useState(meeting !== undefined && !isPresetLength(minutesOf(meeting)));
   const [chosenVideo, setChosenVideo] = useState<MeetingVideo | null>(null);
-  const [slot, setSlot] = useState<string | null>(null);
   const [from, setFrom] = useState<string | null>(null);
-  const [chosenDate, setChosenDate] = useState<string | null>(null);
+  // The day chosen in Pick a time before any time is: the time typed next lands on it, never on the week's first day.
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [inviteAddress, setInviteAddress] = useState(emails[0]?.address ?? "");
   const [title, setTitle] = useState(DEFAULT_TITLE);
   const [withNotetaker, setWithNotetaker] = useState(true);
 
-  const minutes = Number(length);
-  const slots = useQuery({
-    queryKey: meetingApi.MEETING_SLOTS_KEY(projectId, candidateId, minutes, from, meeting?.id ?? null),
-    queryFn: ({ signal }) =>
-      meetingApi.getMeetingSlots(projectId, candidateId, minutes, from, meeting?.id ?? null, signal),
+  const calendar = useQuery({
+    queryKey: meetingApi.MEETING_CALENDAR_KEY(projectId, candidateId, from, meeting?.id ?? null),
+    queryFn: ({ signal }) => meetingApi.getMeetingCalendar(projectId, candidateId, from, meeting?.id ?? null, signal),
     placeholderData: (previous) => previous,
   });
-  const timeZone = slots.data?.timeZone;
-  const videoLinks = videoLinksFor(slots.data?.provider, slots.data?.zoomOffered === true);
+  const view = calendar.data;
+  const timeZone = view?.timeZone ?? "UTC";
+  const videoLinks = videoLinksFor(view?.provider, view?.zoomOffered === true);
   const video: MeetingVideo =
     chosenVideo !== null && videoLinks.some((option) => option.value === chosenVideo)
       ? chosenVideo
-      : slots.data?.provider === "microsoft"
+      : view?.provider === "microsoft"
         ? "MICROSOFT_TEAMS"
         : "GOOGLE_MEET";
-  const isSlotOffered = slot !== null && (slots.data?.days.some((day) => day.starts.includes(slot)) ?? false);
+
+  const choice: CallChoice | null = start ? { start, minutes } : null;
+  const fields = choice ? fieldsOf(choice, timeZone) : null;
+  const refusal =
+    choice && view
+      ? refusalOf(choice, {
+          now: new Date(),
+          minMinutes: view.minMinutes,
+          maxMinutes: view.maxMinutes,
+          latestDate: view.latestDate,
+          timeZone,
+          busy: view.busy,
+        })
+      : null;
+  const isOutsideWorkingHours = choice !== null && view !== undefined && !isWithinWorkingHours(choice, view.workingHours);
 
   const { catalog } = usePipelineCatalog();
   const bookedRule = useStatusAutomations().data?.find((automation) => automation.trigger === "callBooked");
@@ -119,11 +150,11 @@ export function BookCallDialog({
   const book = useMutation({
     mutationFn: async (): Promise<NotetakerOutcome> => {
       if (meeting) {
-        await meetingApi.rescheduleMeeting(projectId, candidateId, meeting.id, { startsAt: slot as string, minutes });
+        await meetingApi.rescheduleMeeting(projectId, candidateId, meeting.id, { startsAt: start as string, minutes });
         return { sent: false, failure: null };
       }
       const booked = await meetingApi.bookMeeting(projectId, candidateId, {
-        startsAt: slot as string,
+        startsAt: start as string,
         minutes,
         video,
         inviteAddress,
@@ -139,9 +170,7 @@ export function BookCallDialog({
       }
     },
     onSuccess: (notetaker) => {
-      const day = slots.data?.days.find((candidate) => candidate.starts.includes(slot as string));
-      const time = slotTimeOf(slot as string, timeZone ?? "UTC");
-      const when = day ? `${slotDayLabelOf(day.date)}, ${time}` : time;
+      const when = fields ? `${slotDayLabelOf(fields.date)}, ${fields.from}` : "";
       if (isRescheduling) {
         toast(`Call with ${firstName} moved to ${when}. They've been sent the new time.`);
       } else {
@@ -165,8 +194,7 @@ export function BookCallDialog({
     },
     onError: (error) => {
       if (codeOf(error) === "MEETING_SLOT_TAKEN") {
-        setSlot(null);
-        void slots.refetch();
+        void calendar.refetch();
       }
       toast.error(messageFor(error));
       if (codeOf(error) === "MEETING_GONE") {
@@ -176,34 +204,63 @@ export function BookCallDialog({
     },
   });
 
-  const handleLengthChange = (next: Length) => {
-    setLength(next);
-    setSlot(null);
+  const handleChoose = (next: CallChoice) => {
+    setStart(next.start);
+    setMinutes(next.minutes);
+    setIsOtherLength(!isPresetLength(next.minutes));
   };
 
-  const handleShowFrom = (day: string) => {
+  const handleLengthChange = (next: string) => {
+    if (next === "other") {
+      setIsOtherLength(true);
+      return;
+    }
+    setIsOtherLength(false);
+    setMinutes(Number(next));
+  };
+
+  const showDay = (day: string) => {
+    if (!view) return;
+    const days = viewDaysOf(view.from, view.days);
+    if (!days.includes(day)) setFrom(day);
+  };
+
+  /** A picked time the new week does not show is dropped, so Send invite never books a day off the screen. */
+  const handleShowWeek = (day: string) => {
     setFrom(day);
-    setChosenDate(null);
-    setSlot(null);
+    const shown = viewDaysOf(day, view?.days ?? 7);
+    if (fields && !shown.includes(fields.date)) setStart(null);
+    if (pickedDate && !shown.includes(pickedDate)) setPickedDate(null);
   };
 
-  const shownDays = slots.data?.days ?? [];
-  const firstShown = shownDays[0]?.date;
-  const lastShown = shownDays[shownDays.length - 1]?.date;
-  const earliestDate = slots.data?.earliestDate;
-  const latestDate = slots.data?.latestDate;
-  const activeDay =
-    shownDays.find((day) => day.date === chosenDate) ??
-    shownDays.find((day) => day.starts.length > 0) ??
-    shownDays[0];
-  const morning = activeDay && timeZone ? activeDay.starts.filter((start) => slotTimeOf(start, timeZone) < "12:00") : [];
-  const afternoon = activeDay && timeZone ? activeDay.starts.filter((start) => slotTimeOf(start, timeZone) >= "12:00") : [];
+  const handleDateChange = (day: string) => {
+    if (!day) return;
+    showDay(day);
+    setPickedDate(day);
+    if (fields) setStart(instantOf(day, fields.from, timeZone).toISOString());
+  };
 
-  const chosenDay = slots.data?.days.find((day) => slot !== null && day.starts.includes(slot));
-  const summary =
-    slot && chosenDay && timeZone
-      ? `${slotDayLabelOf(chosenDay.date)} · ${slotTimeOf(slot, timeZone)}–${slotTimeOf(endOf(slot, minutes), timeZone)} · ${timeZone}`
+  const handleFromChange = (time: string) => {
+    if (!time || !view) return;
+    setStart(instantOf(fields?.date ?? pickedDate ?? view.from, time, timeZone).toISOString());
+  };
+
+  const handleToChange = (time: string) => {
+    if (!time || !fields) return;
+    const next = choiceOfFields(fields.date, fields.from, time, timeZone);
+    if (next) handleChoose(next);
+  };
+
+  const shownDays = view ? viewDaysOf(view.from, view.days) : [];
+  const firstShown = shownDays[0];
+  const lastShown = shownDays[shownDays.length - 1];
+  const previousFrom =
+    view && view.from > view.earliestDate
+      ? [shiftDateOf(view.from, -view.days), view.earliestDate].sort().at(-1) ?? null
       : null;
+
+  const summary =
+    choice && fields ? `${slotDayLabelOf(fields.date)} · ${fields.from}–${fields.to} · ${timeZone}` : null;
 
   const footer = (
     <div className="flex w-full items-center gap-2.5">
@@ -211,12 +268,21 @@ export function BookCallDialog({
         {summary ? (
           <>
             <div className="truncate text-[13px] font-semibold text-u-text">{summary}</div>
-            <div className="truncate font-mono text-[11.5px] text-u-text3">
-              {minutes} min · {isRescheduling ? "update" : "invite"} from {slots.data?.address}
+            <div
+              className={cn(
+                "truncate font-mono text-[11.5px]",
+                refusal ? "text-u-offlimits" : isOutsideWorkingHours ? "text-u-signal" : "text-u-text3",
+              )}
+              role={refusal ? "alert" : undefined}
+            >
+              {refusal ??
+                (isOutsideWorkingHours
+                  ? `Outside your working hours · ${minutes} min`
+                  : `${minutes} min · ${isRescheduling ? "update" : "invite"} from ${view?.address}`)}
             </div>
           </>
         ) : (
-          <span className="font-mono text-[12px] text-u-text3">Pick a day and a time</span>
+          <span className="font-mono text-note text-u-text3">Drag on your calendar, or pick a time</span>
         )}
       </div>
       <Button type="button" variant="secondary" onClick={onClose}>
@@ -224,7 +290,7 @@ export function BookCallDialog({
       </Button>
       <Button
         type="button"
-        disabled={!isSlotOffered || (!isRescheduling && (inviteAddress === "" || title.trim() === ""))}
+        disabled={choice === null || refusal !== null || (!isRescheduling && (inviteAddress === "" || title.trim() === ""))}
         loading={book.isPending}
         onClick={() => book.mutate()}
       >
@@ -238,57 +304,99 @@ export function BookCallDialog({
       open
       onClose={onClose}
       title={isRescheduling ? `Reschedule call with ${fullName}` : `Book a call with ${fullName}`}
-      subtitle={slots.data ? `Free times on ${slots.data.address} · ${slots.data.timeZone}` : " "}
+      subtitle={view ? `Your calendar · ${view.address} · ${view.timeZone}` : " "}
       closeButton
       footer={footer}
-      className="md:w-[940px]"
+      className="md:w-[1040px]"
     >
       <div className="grid gap-6 pb-2 md:grid-cols-[minmax(0,1fr)_280px]">
         <section aria-label="Time" className="min-w-0">
           <div className="mb-3 flex items-center gap-2">
-            <span className="type-label text-u-text3">Day</span>
-            {firstShown && lastShown && earliestDate && latestDate && (
+            <span className="type-label text-u-text3">Week</span>
+            <span className="hidden font-mono text-meta text-u-text3 sm:inline">Drag on your calendar to pick a time</span>
+            {firstShown && lastShown && view && (
               <SlotPager
                 firstShown={firstShown}
                 lastShown={lastShown}
-                earliestDate={earliestDate}
-                latestDate={latestDate}
-                previousFrom={slots.data?.previousFrom ?? null}
-                isFetching={slots.isFetching}
-                onShowFrom={handleShowFrom}
+                earliestDate={view.earliestDate}
+                latestDate={view.latestDate}
+                previousFrom={previousFrom}
+                isFetching={calendar.isFetching}
+                onShowFrom={handleShowWeek}
               />
             )}
           </div>
 
-          {slots.isPending ? (
-            <Skeleton className="h-[300px] w-full" />
-          ) : slots.isError ? (
+          {calendar.isPending ? (
+            <Skeleton className="h-[420px] w-full" />
+          ) : calendar.isError ? (
             <p role="alert" className="text-[12.5px] text-u-offlimits">
-              {messageFor(slots.error)}
+              {messageFor(calendar.error)}
             </p>
           ) : (
-            <div
-              aria-busy={slots.isPlaceholderData}
-              className={cn("transition-opacity", slots.isPlaceholderData && "pointer-events-none opacity-50")}
-            >
-              <SlotDayTiles days={shownDays} activeDate={activeDay?.date} onChoose={setChosenDate} />
-
-              <div className="min-h-[220px]">
-                {activeDay && activeDay.starts.length === 0 ? (
-                  <div className="grid h-[220px] place-items-center rounded-[8px] border border-dashed border-u-border text-center">
-                    <div>
-                      <div className="text-[13px] text-u-text2">No free time on {slotDayLabelOf(activeDay.date)}</div>
-                      <div className="mt-1 font-mono text-[11.5px] text-u-text3">Pick another day, or page ahead.</div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <SlotGroup label="Morning" starts={morning} timeZone={timeZone} chosen={slot} onChoose={setSlot} />
-                    <SlotGroup label="Afternoon" starts={afternoon} timeZone={timeZone} chosen={slot} onChoose={setSlot} />
-                  </>
-                )}
+            view && (
+              <div
+                aria-busy={calendar.isPlaceholderData}
+                className={cn("transition-opacity", calendar.isPlaceholderData && "pointer-events-none opacity-50")}
+              >
+                <WeekTimeGrid
+                  days={shownDays}
+                  timeZone={timeZone}
+                  busy={view.busy}
+                  workingHours={view.workingHours}
+                  choice={choice}
+                  clickMinutes={minutes}
+                  minMinutes={view.minMinutes}
+                  maxMinutes={view.maxMinutes}
+                  now={new Date()}
+                  onChoose={handleChoose}
+                />
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-meta text-u-text3">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-u-accent-tint" />
+                    {WORKING_HOURS_LABEL[view.workingHoursSource]}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm border border-u-border bg-u-raised" />
+                    Busy
+                  </span>
+                </div>
+                <fieldset className="mt-4 flex flex-wrap items-end gap-2.5">
+                  <legend className="sr-only">Pick a time</legend>
+                  <Field label="Pick a time">
+                    <DateInput
+                      value={fields?.date ?? pickedDate ?? firstShown ?? ""}
+                      min={view.earliestDate}
+                      max={view.latestDate}
+                      onChange={handleDateChange}
+                      ariaLabel="Call date"
+                      className="w-[150px] px-2.5 py-2 text-note"
+                    />
+                  </Field>
+                  <Field label="From">
+                    <Input
+                      type="time"
+                      step={300}
+                      aria-label="Call starts"
+                      value={fields?.from ?? ""}
+                      onChange={(event) => handleFromChange(event.target.value)}
+                      className="w-[110px] px-2.5 py-2 text-note"
+                    />
+                  </Field>
+                  <Field label="To">
+                    <Input
+                      type="time"
+                      step={300}
+                      aria-label="Call ends"
+                      value={fields?.to === "24:00" ? "00:00" : (fields?.to ?? "")}
+                      disabled={fields === null}
+                      onChange={(event) => handleToChange(event.target.value)}
+                      className="w-[110px] px-2.5 py-2 text-note"
+                    />
+                  </Field>
+                </fieldset>
               </div>
-            </div>
+            )
           )}
         </section>
 
@@ -303,16 +411,32 @@ export function BookCallDialog({
             <SegmentedControl
               label="Length"
               options={LENGTHS}
-              value={length}
+              value={isOtherLength ? "other" : String(minutes)}
               onChange={handleLengthChange}
               className="max-w-full flex-wrap"
             />
+            {isOtherLength ? (
+              <label className="mt-2 flex items-center gap-2 font-mono text-meta text-u-text3">
+                <Input
+                  type="number"
+                  aria-label="Call length in minutes"
+                  min={view?.minMinutes ?? 5}
+                  max={view?.maxMinutes ?? 480}
+                  step={5}
+                  value={minutes}
+                  onChange={(event) => setMinutes(Number(event.target.value))}
+                  className="w-[84px] px-2.5 py-1.5 text-note"
+                />
+                minutes, up to {(view?.maxMinutes ?? 480) / 60} hr
+              </label>
+            ) : (
+              <p className="mt-2 font-mono text-meta text-u-text3">Or drag on your calendar for any length.</p>
+            )}
           </div>
           {meeting ? (
             <p className="text-note text-u-text3">
               Now {meetingWhenOf(meeting.startsAt, meeting.endsAt)}. {firstName} is sent the new time; the title
               {meeting.videoProvider ? ` and the ${meeting.videoProvider} link stay` : " stays"} as booked.
-              {!isOfferedLength(meeting) && ` It was booked for ${minutesOf(meeting)} min; a moved call is ${OFFERED_LENGTHS}.`}
             </p>
           ) : (
             <>
@@ -387,19 +511,10 @@ export function BookCallDialog({
   );
 }
 
-/** The call's own length where the dialog offers it; a call of any other length starts on 30, and the note says so. */
-function lengthOf(meeting: Meeting): Length {
-  return isOfferedLength(meeting) ? (String(minutesOf(meeting)) as Length) : "30";
-}
-
-function isOfferedLength(meeting: Meeting): boolean {
-  return LENGTHS.some((option) => option.value === String(minutesOf(meeting)));
+function isPresetLength(minutes: number): boolean {
+  return LENGTHS.some((option) => option.value === String(minutes));
 }
 
 function minutesOf(meeting: Meeting): number {
   return Math.round((Date.parse(meeting.endsAt) - Date.parse(meeting.startsAt)) / 60_000);
-}
-
-function endOf(start: string, minutes: number): string {
-  return new Date(Date.parse(start) + minutes * 60_000).toISOString();
 }

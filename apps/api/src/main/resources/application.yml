@@ -692,6 +692,7 @@ lightmove:
         shared-app-guide-url: ${ZOOM_SHARED_APP_GUIDE_URL:}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
     daily-cap: ${OUTREACH_DAILY_CAP:50}
+    max-daily-cap: ${OUTREACH_MAX_DAILY_CAP:200}
     window-start: ${OUTREACH_WINDOW_START:08:00}
     window-end: ${OUTREACH_WINDOW_END:18:00}
     working-days: ${OUTREACH_WORKING_DAYS:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY}

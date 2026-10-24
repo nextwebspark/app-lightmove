@@ -2,7 +2,6 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -48,7 +47,7 @@ public class OutreachSequenceService {
     private final OutreachEnrollmentRepository enrollments;
     private final UserRepository users;
     private final AuditService audit;
-    private final LightMoveProperties properties;
+    private final AvailabilityService availability;
 
     @Transactional(readOnly = true)
     public SequencesResponse list(UUID workspaceId, UUID projectId) {
@@ -70,7 +69,7 @@ public class OutreachSequenceService {
     public SequenceResponse create(UUID userId, UUID workspaceId, UUID projectId, SaveSequenceRequest request,
                                    HttpServletRequest httpRequest) {
         SendingWindow schedule = request.schedule() == null
-                ? SendingWindow.of(properties.outreach()) : scheduleOf(request.schedule());
+                ? availability.sequenceWindowOf(workspaceId, userId) : scheduleOf(request.schedule());
         List<SequenceStep> steps = stepsOf(request.steps(), schedule);
         refuseUnofferedBookingLink(steps);
         OutreachSequence sequence = sequences.save(OutreachSequence.written(workspaceId, projectId, userId,
