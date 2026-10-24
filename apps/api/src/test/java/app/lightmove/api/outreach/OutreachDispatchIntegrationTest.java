@@ -246,8 +246,7 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("Start now still keeps the mailbox's daily cap")
     void startNowKeepsTheCap() throws Exception {
-        jdbc.update("update app_lm_mailbox_connection set daily_cap = 1 where address = ? and workspace_id = "
-                + "(select workspace_id from app_lm_project where id = ?::uuid)", MAILBOX, projectId);
+        capEachMailboxAtOne();
         String priya = executive("Priya Raman", "priya@" + domain);
         String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
         startTimed(createSequence("First approach"),
@@ -341,8 +340,7 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("a mailbox's daily cap holds: the rest wait for the next working day's window")
     void theDailyCapHolds() throws Exception {
-        jdbc.update("update app_lm_mailbox_connection set daily_cap = 1 where address = ? and workspace_id = "
-                + "(select workspace_id from app_lm_project where id = ?::uuid)", MAILBOX, projectId);
+        capEachMailboxAtOne();
         String sequenceId = createSequence("First approach");
         String priya = executive("Priya Raman", "priya@" + domain);
         String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
@@ -934,5 +932,11 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
 
     private String outreach(String path) {
         return "/api/v1/projects/" + projectId + "/outreach" + path;
+    }
+
+    /** The workspace's own cap: the one a send counts against. */
+    private void capEachMailboxAtOne() {
+        jdbc.update("insert into app_lm_workspace_availability (workspace_id, daily_email_cap) "
+                + "select workspace_id, 1 from app_lm_project where id = ?::uuid", projectId);
     }
 }

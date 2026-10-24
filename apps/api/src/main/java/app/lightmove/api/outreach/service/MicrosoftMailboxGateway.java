@@ -9,6 +9,7 @@ import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.EmailAttachment;
 import app.lightmove.api.outreach.model.OutgoingEmail;
@@ -17,10 +18,14 @@ import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.model.ThreadMessage;
+import app.lightmove.api.outreach.model.WeeklyHours;
+import app.lightmove.api.outreach.model.WindowsZones;
 import java.nio.charset.StandardCharsets;
 import java.time.DateTimeException;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -28,6 +33,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -243,6 +249,17 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     @Override
     public List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to) {
+        return schedule(grantId, address, from, to).busy();
+    }
+
+    @Override
+    public boolean statesWorkingHours(String grantId) {
+        return true;
+    }
+
+    /** Graph answers the mailbox's Outlook working hours beside its free/busy, from the same call. */
+    @Override
+    public CalendarSchedule schedule(String grantId, String address, Instant from, Instant to) {
         String accessToken = accessTokenOf(grantId);
         JsonNode answer = apiCall("free-busy", accessToken, client -> client.post()
                 .uri("/v1.0/me/calendar/getSchedule")
@@ -250,7 +267,45 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                 .body(Map.of("schedules", List.of(address),
                         "startTime", graphTimeOf(from),
                         "endTime", graphTimeOf(to))));
-        return busyIntervalsOf(answer);
+        List<BusyInterval> busy = busyIntervalsOf(answer);
+        JsonNode workingHours = answer.path("value").get(0).path("workingHours");
+        return new CalendarSchedule(busy, workingWeekOf(workingHours),
+                WindowsZones.zoneOf(textOrNull(workingHours.path("timeZone").path("name"))).orElse(null));
+    }
+
+    /**
+     * Outlook's working days and hours, one span for every day it names. Anything unreadable is no working week at
+     * all rather than a guessed one: the consultant's own hours then stand. Outlook writes a day that runs to midnight
+     * as ending at 00:00.
+     */
+    static WeeklyHours workingWeekOf(JsonNode workingHours) {
+        LocalTime start = localTimeOrNull(textOrNull(workingHours.path("startTime")));
+        LocalTime end = localTimeOrNull(textOrNull(workingHours.path("endTime")));
+        if (start == null || end == null || !workingHours.path("daysOfWeek").isArray()) {
+            return null;
+        }
+        LocalTime closes = end.equals(LocalTime.MIDNIGHT) ? LocalTime.MAX : end;
+        if (!start.isBefore(closes)) {
+            return null;
+        }
+        Set<DayOfWeek> days = EnumSet.noneOf(DayOfWeek.class);
+        for (JsonNode day : workingHours.path("daysOfWeek")) {
+            String name = textOrNull(day);
+            try {
+                days.add(DayOfWeek.valueOf(name == null ? "" : name.toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException unreadable) {
+                return null;
+            }
+        }
+        return days.isEmpty() ? null : WeeklyHours.uniform(days, start, closes);
+    }
+
+    private static LocalTime localTimeOrNull(String text) {
+        try {
+            return text == null ? null : LocalTime.parse(text);
+        } catch (DateTimeParseException unreadable) {
+            return null;
+        }
     }
 
     /**

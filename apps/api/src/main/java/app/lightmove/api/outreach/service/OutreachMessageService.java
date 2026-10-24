@@ -63,6 +63,7 @@ public class OutreachMessageService {
     private final ProjectRepository projects;
     private final TransactionTemplate transactions;
     private final AuditService audit;
+    private final AvailabilityService availability;
     private final Clock clock;
 
     public ScheduledMessageResponse schedule(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
@@ -105,7 +106,7 @@ public class OutreachMessageService {
                 throw ApiException.of(ErrorCode.OUTREACH_DO_NOT_CONTACT);
             }
             String toAddress = ledgerSpellingOf(recipient, request.toAddress());
-            if (request.sendAt() == null && sentToday.of(mailbox, now) >= mailbox.getDailyCap()) {
+            if (request.sendAt() == null && sentToday.of(mailbox, now) >= availability.dailyCapOf(mailbox)) {
                 throw ApiException.of(ErrorCode.OUTREACH_DAILY_CAP_REACHED);
             }
             ThreadReply reply = request.replyInThread()

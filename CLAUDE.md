@@ -281,7 +281,7 @@ AI run on an executive reads the person's notes and documents too** (`CandidateM
 document (a PDF, DOCX, DOC or TXT; an image or a scan without a text layer is left out), each held to a length,
 and the audit line counts how many of each went. Assess with AI alone also reads the **transcripts** of the calls that
 position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest first, only while each call's Meeting
-note is live, redacted, a staff member's voice marked "(your team)" in code: each call's **call record** (V155, below)
+note is live, redacted, a staff member's voice marked "(your team)" in code: each call's **call record** (V156, below)
 first, then each transcript **whole** while 360k characters in all hold it — past that a call is its record alone, never
 a transcript cut in its middle (only a call filed before records were kept keeps its start and end, as a last resort);
 Prepare questions reads the records alone; a claim the executive makes about themselves with no example behind it scores as
@@ -556,7 +556,7 @@ first send): whichever way the sender came to another gateway — a reconnect, o
 run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
 read it. **A direct mailbox's booking link opens Uncava's own page** (`DirectBookingPage`, the same slug kept across
 the move): `GET /api/v1/outreach/booking/{slug}` answers `kind: DIRECT`, `…/{slug}/slots` the consultant's free
-half-hours read as Book a call reads them, and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
+half-hours inside their working hours (`FreeSlots`: a week a page, an hour's notice, 60 days out, as Nylas's page keeps), and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
 once more, invites whoever picked the time with the calendar's own video link, and hands the booking to
 `LinkBookings` — so it counts only for an address that consultant emailed. All three are public and rate-limited per
 IP and link (`booking-page-bookings-per-hour`, 5, for the write). A Nylas mailbox's link still opens Nylas's
@@ -670,13 +670,15 @@ calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-da
 when a mailbox is connected (`MeetingBackfill`, retried by the reply poll while `calendar_synced_at` is
 null — V103 backs each failed read off from 15 minutes to a day, ten calendars a poll, and gives up after
 five until a reconnect). A recurring series is never kept: Nylas keys it by its master in a webhook and by
-each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** offers the
-consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
-re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
+each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** is the
+consultant's own week (`…/meetings/calendar`, `WeekTimeGrid`): their calendar as free/busy alone and their working
+hours, a call dragged from any time to any time on any day (`ConsultantBooking`: a five-minute mark, 5–480 minutes, five
+minutes ahead at the soonest, six months out at most) — working hours only label it — and `POST …/meetings`
+re-checks do not contact, the ledger and that the calendar is still free, creates the event (never retried), then writes
 `MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
 A call booked in Uncava (Book a call or the link), still to come, is **moved or cancelled** from its row by whoever
 holds its calendar (`editable`; `PUT|DELETE …/meetings/{id}`, `MEETING_NOT_EDITABLE`, `MEETING_NOT_YOURS`): a move
-reads the call's own time as free (`…/slots?excluding=`), re-checks do not contact and the slot, moves its Zoom meeting
+reads the call's own time as free (`…/calendar?excluding=`), re-checks do not contact and the slot, moves its Zoom meeting
 first (V149 keeps its id; put back if the calendar refuses) and sends the update; a cancel tells the executive. Neither
 is retried, moves a status or restarts a run (`MEETING_RESCHEDULED` / `MEETING_CANCELLED`, audited).
 All `WORK_EXECUTE`. **The booking link (V104)** is `{{bookingLink}}`, offered only where the Nylas plan
@@ -700,7 +702,7 @@ claimed first (one live bot per call by join URL and start, whoever presses), th
 minute early and saying in the chat whose notes it records. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
-Markdown `MEETING` note in the scheduler's name and, from the same model answer, the **call record** (V155) — the fuller
+Markdown `MEETING` note in the scheduler's name and, from the same model answer, the **call record** (V156) — the fuller
 account later AI runs read in place of a transcript cut to fit: the call in order, every fact stated with its time and
 whether only the team said it, evidence per competency with the executive's words kept only where the transcript holds
 them verbatim (`MeetingSummariser.quoteOrNull`), open questions and next steps (`CallRecordMarkdown`, never drawn)
@@ -1274,7 +1276,20 @@ V154 adds `app_lm_interview_plan` (one per call per person on a position, matche
 its live copilot (`live_copilot`, `live_status`, the `live` reading, the coach's cursor, runs, failures and claim, the
 live URL's `live_token_hash` and the after-call `final_transcript_id` the note is filed from), and adds
 `app_lm_meeting_live_line` (the streamed transcript, deleted when the call ends) and `app_lm_meeting_copilot_viewer`.
-V155 gives the recording `call_record` (Markdown, staff-only, never shown) and `call_record_version` (both or neither, by
+V155 adds working hours and the daily email cap (**Meetings & email** in Settings, an admin's; **Availability**, each
+consultant's; `AvailabilityService`): `app_lm_workspace_availability` (one per workspace; a null `weekly_hours` is the week
+the firm's country keeps — Saudi Arabia, Qatar, Kuwait, Bahrain, Oman and most of the Arab world Sunday to Thursday,
+`WorkingWeeks` — a null `daily_email_cap` the deployment's `daily-cap`, at most `max-daily-cap`) and
+`app_lm_member_availability` (per consultant, a null column the workspace's). A consultant's working hours are their own
+first — a choice made in Uncava outranks Outlook's, which every mailbox states, chosen or not (Exchange's default is
+Monday to Friday) — then Outlook's where a direct Microsoft mailbox states them (`getSchedule`'s `workingHours`, read
+beside its free/busy in one call, `MailboxGateway.schedule`; a Windows zone name through `WindowsZones`), then the
+workspace's; Google and Nylas state none. They shape the booking link alone — Uncava's own page and, re-sent on every change
+(`updateBookingPage`), Nylas's — and a new sequence's default days and hours. The cap is the workspace's, or a
+consultant's lower one, for every send — lowering the workspace's lowers any consultant's above it — and
+`app_lm_mailbox_connection.daily_cap` is frozen. Both rows are written insert-if-missing first, so a double-clicked
+first save writes one row.
+V156 gives the recording `call_record` (Markdown, staff-only, never shown) and `call_record_version` (both or neither, by
 CHECK), cleared with the transcript by the retention purge.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.

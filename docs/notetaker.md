@@ -61,7 +61,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    3. Summarises it with `MeetingSummariser` (`prompts/meeting-summary-*`) against the brief's `AssessmentBrief`. That
       is role, criteria and competencies, never compensation. Every email address and phone number is redacted first.
    4. Files a Markdown `MEETING` note in the scheduler's name, through `PersonNoteService.fileMeetingNote`, and keeps
-      the **call record** beside the transcript (V155, `CallRecordMarkdown`) — written from the same summary answer, so
+      the **call record** beside the transcript (V156, `CallRecordMarkdown`) — written from the same summary answer, so
       it costs no second call. The note is for the consultant; the record is for the AI and never drawn: the call in
       order, every fact stated with its time and whether only the team said it, evidence per competency with whether
       an example backed it and the executive's own words, kept only where the transcript holds them verbatim

@@ -17,7 +17,9 @@ import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
+import app.lightmove.api.outreach.model.DayHours;
 import app.lightmove.api.outreach.model.DeliveryFailure;
+import app.lightmove.api.outreach.model.FreeSlots;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
@@ -29,12 +31,16 @@ import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.model.ThreadMessage;
+import app.lightmove.api.outreach.model.WeeklyHours;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
@@ -83,10 +89,6 @@ public class NylasMailboxGateway implements MailboxGateway {
     private static final int MAX_EVENT_PAGES = 10;
 
     private static final String PRIMARY_CALENDAR = "primary";
-
-    /** How far ahead an executive may book, and how soon: two weeks out, never within the hour. */
-    private static final int BOOKING_DAYS_AHEAD = 14;
-    private static final int BOOKING_NOTICE_MINUTES = 60;
 
     private final NylasSettings config;
     private final RestClient client;
@@ -383,31 +385,10 @@ public class NylasMailboxGateway implements MailboxGateway {
 
     @Override
     public String createBookingPage(String grantId, BookingPageSpec page) {
-        Map<String, Object> organizer = new LinkedHashMap<>();
-        organizer.put("email", page.organizerAddress());
-        organizer.put("name", page.organizerName());
-        organizer.put("is_organizer", true);
-        organizer.put("availability", Map.of("calendar_ids", List.of(PRIMARY_CALENDAR)));
-        organizer.put("booking", Map.of("calendar_id", PRIMARY_CALENDAR));
-        Map<String, Object> openHours = Map.of(
-                "days", page.days().stream().map(day -> day.getValue() % 7).sorted().toList(),
-                "timezone", page.zone().getId(),
-                "start", page.dayStart().toString(),
-                "end", page.dayEnd().toString(),
-                "exdates", List.of());
-        Map<String, Object> body = new LinkedHashMap<>();
-        // The page is opened by its id from a public link: an executive holds no Nylas session.
-        body.put("requires_session_auth", false);
-        body.put("participants", List.of(organizer));
-        body.put("availability", Map.of("duration_minutes", page.minutes(), "interval_minutes", page.minutes(),
-                "availability_rules", Map.of("default_open_hours", List.of(openHours))));
-        body.put("event_booking", Map.of("title", page.eventTitle(), "timezone", page.zone().getId()));
-        body.put("scheduler", Map.of("available_days_in_future", BOOKING_DAYS_AHEAD,
-                "min_booking_notice", BOOKING_NOTICE_MINUTES));
         JsonNode answer = guard.call(VendorCall.of(VENDOR, "create-booking-page"), () -> client.post()
                 .uri("/v3/grants/{grantId}/scheduling/configurations", grantId)
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
+                .body(bookingPageBodyOf(page))
                 .retrieve()
                 .body(JsonNode.class));
         String configurationId = answer == null ? null : textOrNull(answer.path("data").path("id"));
@@ -416,6 +397,55 @@ public class NylasMailboxGateway implements MailboxGateway {
                     VendorFailureKind.MALFORMED_RESPONSE, null);
         }
         return configurationId;
+    }
+
+    @Override
+    public void updateBookingPage(String grantId, String configurationId, BookingPageSpec page) {
+        guard.call(VendorCall.of(VENDOR, "update-booking-page"), () -> client.put()
+                .uri("/v3/grants/{grantId}/scheduling/configurations/{configurationId}", grantId, configurationId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(bookingPageBodyOf(page))
+                .retrieve()
+                .toBodilessEntity());
+    }
+
+    /** The same notice and horizon Uncava's own page keeps ({@link FreeSlots}), so a link reads alike on both. */
+    static Map<String, Object> bookingPageBodyOf(BookingPageSpec page) {
+        Map<String, Object> organizer = new LinkedHashMap<>();
+        organizer.put("email", page.organizerAddress());
+        organizer.put("name", page.organizerName());
+        organizer.put("is_organizer", true);
+        organizer.put("availability", Map.of("calendar_ids", List.of(PRIMARY_CALENDAR)));
+        organizer.put("booking", Map.of("calendar_id", PRIMARY_CALENDAR));
+        Map<String, Object> body = new LinkedHashMap<>();
+        // The page is opened by its id from a public link: an executive holds no Nylas session.
+        body.put("requires_session_auth", false);
+        body.put("participants", List.of(organizer));
+        body.put("availability", Map.of("duration_minutes", page.minutes(), "interval_minutes", page.minutes(),
+                "availability_rules", Map.of("default_open_hours", openHoursOf(page.hours(), page.zone()))));
+        body.put("event_booking", Map.of("title", page.eventTitle(), "timezone", page.zone().getId()));
+        body.put("scheduler", Map.of("available_days_in_future", FreeSlots.HORIZON_DAYS,
+                "min_booking_notice", FreeSlots.NOTICE.toMinutes()));
+        return body;
+    }
+
+    /** One open-hours rule per distinct span, naming every day that keeps it; Nylas counts Sunday as day 0. */
+    static List<Map<String, Object>> openHoursOf(WeeklyHours hours, ZoneId zone) {
+        Map<DayHours, List<Integer>> daysBySpan = new LinkedHashMap<>();
+        hours.asMap().forEach((day, span) ->
+                daysBySpan.computeIfAbsent(span, ignored -> new ArrayList<>()).add(day.getValue() % 7));
+        return daysBySpan.entrySet().stream()
+                .map(entry -> Map.<String, Object>of(
+                        "days", entry.getValue().stream().sorted().toList(),
+                        "timezone", zone.getId(),
+                        "start", clockOf(entry.getKey().start()),
+                        "end", clockOf(entry.getKey().end()),
+                        "exdates", List.of()))
+                .toList();
+    }
+
+    private static String clockOf(LocalTime time) {
+        return time.truncatedTo(ChronoUnit.MINUTES).toString();
     }
 
     /** Nothing in a booking without its configuration and a timed slot can be matched to a page or a call. */

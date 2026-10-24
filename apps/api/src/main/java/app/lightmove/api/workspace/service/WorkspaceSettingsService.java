@@ -121,6 +121,12 @@ public class WorkspaceSettingsService {
         return requireWorkspace(workspaceId).getCalendarSync();
     }
 
+    /** The firm's country as signup or Settings picked it, or null; {@code outreach} reads its working week from it. */
+    @Transactional(readOnly = true)
+    public String companyCountryOf(UUID workspaceId) {
+        return requireWorkspace(workspaceId).getCompanyCountry();
+    }
+
 
     /** The typed name is verified here, not only in the browser. */
     @Transactional

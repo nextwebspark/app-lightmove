@@ -4,6 +4,7 @@ import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
@@ -97,6 +98,19 @@ public interface MailboxGateway {
     List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to);
 
     /**
+     * {@link #busyTimes}, and the working hours the calendar keeps where it states them. Only Outlook does, and in the
+     * same answer, so no second call is made for them.
+     */
+    default CalendarSchedule schedule(String grantId, String address, Instant from, Instant to) {
+        return CalendarSchedule.busyOnly(busyTimes(grantId, address, from, to));
+    }
+
+    /** Whether {@link #schedule} may answer the calendar's own working hours, so Settings can say they might apply. */
+    default boolean statesWorkingHours(String grantId) {
+        return false;
+    }
+
+    /**
      * Puts a call on the mailbox's calendar and invites the executive to it. Never retried, as {@link #send}
      * is not: a request that timed out may still have sent the invite.
      */
@@ -129,4 +143,7 @@ public interface MailboxGateway {
 
     /** Creates a public booking page on the mailbox's calendar and answers its id, which the page is opened by. */
     String createBookingPage(String grantId, BookingPageSpec page);
+
+    /** Gives an existing booking page new hours: a consultant or their workspace changed them. */
+    void updateBookingPage(String grantId, String configurationId, BookingPageSpec page);
 }

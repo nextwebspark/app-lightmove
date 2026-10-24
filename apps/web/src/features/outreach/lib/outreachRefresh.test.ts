@@ -2,7 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { CANDIDATE_OUTREACH_KEY } from "../api/runApi";
 import { CONVERSATIONS_KEY_PREFIX } from "../api/conversationApi";
-import { MEETING_SLOTS_KEY } from "../api/meetingApi";
+import { MEETING_CALENDAR_KEY } from "../api/meetingApi";
 import { refreshOutreachActivity } from "./outreachRefresh";
 
 function cacheWith(...keys: (readonly unknown[])[]) {
@@ -15,8 +15,8 @@ const isInvalidated = (queryClient: QueryClient, key: readonly unknown[]) =>
   queryClient.getQueryState(key)?.isInvalidated ?? false;
 
 describe("refreshOutreachActivity", () => {
-  it("refreshes the position's outreach reads but never a call's free slots", () => {
-    const slots = MEETING_SLOTS_KEY("p1", "c1", 30, "2026-10-21");
+  it("refreshes the position's outreach reads but never Book a call's calendar", () => {
+    const slots = MEETING_CALENDAR_KEY("p1", "c1", "2026-10-21");
     const queryClient = cacheWith(CONVERSATIONS_KEY_PREFIX("p1"), CANDIDATE_OUTREACH_KEY("p1", "c1"), slots,
       CONVERSATIONS_KEY_PREFIX("p2"));
 
