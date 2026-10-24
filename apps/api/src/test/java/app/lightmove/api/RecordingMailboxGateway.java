@@ -6,6 +6,7 @@ import app.lightmove.api.outreach.config.MailboxGatewayConfig;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
@@ -14,9 +15,11 @@ import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.ReplyText;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.model.ThreadMessage;
+import app.lightmove.api.outreach.model.WeeklyHours;
 import app.lightmove.api.outreach.service.MailboxGateway;
 import java.net.URI;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -62,6 +65,9 @@ public class RecordingMailboxGateway implements MailboxGateway {
     private volatile RuntimeException busyFailure;
     private volatile boolean bookingPagesOffered = true;
     private final List<BookingPageSpec> bookingPages = new CopyOnWriteArrayList<>();
+    private final List<BookingPageUpdate> bookingPageUpdates = new CopyOnWriteArrayList<>();
+    private volatile WeeklyHours calendarWorkingWeek;
+    private volatile ZoneId calendarWorkingZone;
 
     @Override
     public boolean isOffered() {
@@ -154,6 +160,22 @@ public class RecordingMailboxGateway implements MailboxGateway {
     }
 
     @Override
+    public CalendarSchedule schedule(String grantId, String address, Instant from, Instant to) {
+        return new CalendarSchedule(busyTimes(grantId, address, from, to), calendarWorkingWeek, calendarWorkingZone);
+    }
+
+    @Override
+    public boolean statesWorkingHours(String grantId) {
+        return calendarWorkingWeek != null;
+    }
+
+    /** The working week the calendar states, as Outlook's does; null states none. */
+    public void calendarKeepsWorkingHours(WeeklyHours week, ZoneId zone) {
+        this.calendarWorkingWeek = week;
+        this.calendarWorkingZone = zone;
+    }
+
+    @Override
     public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
         if (createEventFailure != null) {
             throw createEventFailure;
@@ -225,6 +247,15 @@ public class RecordingMailboxGateway implements MailboxGateway {
     public String createBookingPage(String grantId, BookingPageSpec page) {
         bookingPages.add(page);
         return "booking-page-" + bookingPages.size();
+    }
+
+    @Override
+    public void updateBookingPage(String grantId, String configurationId, BookingPageSpec page) {
+        bookingPageUpdates.add(new BookingPageUpdate(configurationId, page));
+    }
+
+    public List<BookingPageUpdate> bookingPageUpdates() {
+        return List.copyOf(bookingPageUpdates);
     }
 
     public void offerBookingPages(boolean offered) {
@@ -344,7 +375,12 @@ public class RecordingMailboxGateway implements MailboxGateway {
         busyFailure = null;
         bookingPagesOffered = true;
         bookingPages.clear();
+        bookingPageUpdates.clear();
+        calendarWorkingWeek = null;
+        calendarWorkingZone = null;
     }
+
+    public record BookingPageUpdate(String configurationId, BookingPageSpec page) {}
 
     public record SentRecord(String grantId, OutgoingEmail email) {}
 

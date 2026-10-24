@@ -25,8 +25,9 @@ public record SendingWindow(LocalTime start, LocalTime end, Set<DayOfWeek> worki
         workingDays = Set.copyOf(EnumSet.copyOf(workingDays));
     }
 
-    public static SendingWindow of(OutreachSettings settings) {
-        return new SendingWindow(settings.windowStart(), settings.windowEnd(), Set.copyOf(settings.workingDays()));
+    /** A new sequence's window: the deployment's hours, on the days its sender works. */
+    public static SendingWindow of(OutreachSettings settings, Set<DayOfWeek> workingDays) {
+        return new SendingWindow(settings.windowStart(), settings.windowEnd(), workingDays);
     }
 
     public boolean admits(LocalTime time) {

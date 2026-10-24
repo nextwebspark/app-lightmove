@@ -12,22 +12,30 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.model.BookingMade;
+import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
+import app.lightmove.api.outreach.model.DayHours;
 import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.EmailAttachment;
+import app.lightmove.api.outreach.model.FreeSlots;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.SentEmail;
+import app.lightmove.api.outreach.model.WeeklyHours;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.DisplayName;
@@ -51,6 +59,30 @@ class NylasMailboxGatewayTest {
                     WEBHOOK_SECRET, true, false),
             mock(VendorClientFactory.class), mock(VendorRateLimiter.class), mock(VendorCallGuard.class),
             RestClient.builder());
+
+    @Test
+    @DisplayName("a booking page offers each run of days its own hours, Sunday as Nylas's day 0, with Uncava's notice")
+    void aBookingPageCarriesEachDaysHours() {
+        WeeklyHours week = WeeklyHours.of(Map.of(
+                DayOfWeek.SUNDAY, new DayHours(LocalTime.of(9, 0), LocalTime.of(17, 0)),
+                DayOfWeek.MONDAY, new DayHours(LocalTime.of(9, 0), LocalTime.of(17, 0)),
+                DayOfWeek.THURSDAY, new DayHours(LocalTime.of(9, 0), LocalTime.of(13, 0)),
+                DayOfWeek.FRIDAY, new DayHours(LocalTime.of(9, 0), LocalTime.MAX)));
+
+        Map<String, Object> body = NylasMailboxGateway.bookingPageBodyOf(new BookingPageSpec("yara@firm.example",
+                "Yara Haddad", "30-minute call with Yara Haddad", 30, ZoneId.of("Asia/Riyadh"), week));
+
+        assertThat(NylasMailboxGateway.openHoursOf(week, ZoneId.of("Asia/Riyadh"))).containsExactlyInAnyOrder(
+                Map.of("days", List.of(0, 1), "timezone", "Asia/Riyadh", "start", "09:00", "end", "17:00",
+                        "exdates", List.of()),
+                Map.of("days", List.of(4), "timezone", "Asia/Riyadh", "start", "09:00", "end", "13:00",
+                        "exdates", List.of()),
+                Map.of("days", List.of(5), "timezone", "Asia/Riyadh", "start", "09:00", "end", "23:59",
+                        "exdates", List.of()));
+        assertThat(body.get("scheduler")).isEqualTo(Map.of("available_days_in_future", FreeSlots.HORIZON_DAYS,
+                "min_booking_notice", 60L));
+        assertThat(body.get("requires_session_auth")).isEqualTo(false);
+    }
 
     @Test
     @DisplayName("an email without files is one JSON send; one with files is multipart, the message JSON a part of its own")

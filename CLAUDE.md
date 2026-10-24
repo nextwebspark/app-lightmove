@@ -554,7 +554,7 @@ first send): whichever way the sender came to another gateway — a reconnect, o
 run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
 read it. **A direct mailbox's booking link opens Uncava's own page** (`DirectBookingPage`, the same slug kept across
 the move): `GET /api/v1/outreach/booking/{slug}` answers `kind: DIRECT`, `…/{slug}/slots` the consultant's free
-half-hours read as Book a call reads them, and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
+half-hours inside their working hours (`FreeSlots`: a week a page, an hour's notice, 60 days out, as Nylas's page keeps), and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
 once more, invites whoever picked the time with the calendar's own video link, and hands the booking to
 `LinkBookings` — so it counts only for an address that consultant emailed. All three are public and rate-limited per
 IP and link (`booking-page-bookings-per-hour`, 5, for the write). A Nylas mailbox's link still opens Nylas's
@@ -668,13 +668,15 @@ calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-da
 when a mailbox is connected (`MeetingBackfill`, retried by the reply poll while `calendar_synced_at` is
 null — V103 backs each failed read off from 15 minutes to a day, ten calendars a poll, and gives up after
 five until a reconnect). A recurring series is never kept: Nylas keys it by its master in a webhook and by
-each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** offers the
-consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
-re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
+each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** is the
+consultant's own week (`…/meetings/calendar`, `WeekTimeGrid`): their calendar as free/busy alone and their working
+hours, a call dragged from any time to any time on any day (`ConsultantBooking`: a five-minute mark, 5–480 minutes, five
+minutes ahead at the soonest, six months out at most) — working hours only label it — and `POST …/meetings`
+re-checks do not contact, the ledger and that the calendar is still free, creates the event (never retried), then writes
 `MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
 A call booked in Uncava (Book a call or the link), still to come, is **moved or cancelled** from its row by whoever
 holds its calendar (`editable`; `PUT|DELETE …/meetings/{id}`, `MEETING_NOT_EDITABLE`, `MEETING_NOT_YOURS`): a move
-reads the call's own time as free (`…/slots?excluding=`), re-checks do not contact and the slot, moves its Zoom meeting
+reads the call's own time as free (`…/calendar?excluding=`), re-checks do not contact and the slot, moves its Zoom meeting
 first (V149 keeps its id; put back if the calendar refuses) and sends the update; a cancel tells the executive. Neither
 is retried, moves a status or restarts a run (`MEETING_RESCHEDULED` / `MEETING_CANCELLED`, audited).
 All `WORK_EXECUTE`. **The booking link (V104)** is `{{bookingLink}}`, offered only where the Nylas plan
@@ -1255,6 +1257,16 @@ row's company): the Companies stage the executive is listed at, their own.
 V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
 foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
 sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.
+V153 adds working hours and the daily email cap (**Meetings & email** in Settings, an admin's; **Availability**, each
+consultant's; `AvailabilityService`): `app_lm_workspace_availability` (one per workspace; a null `weekly_hours` is the week
+the firm's country keeps — Saudi Arabia, Qatar, Kuwait, Bahrain, Oman and most of the Arab world Sunday to Thursday,
+`WorkingWeeks` — a null `daily_email_cap` the deployment's `daily-cap`, at most `max-daily-cap`) and
+`app_lm_member_availability` (per consultant, a null column the workspace's). A consultant's working hours are Outlook's
+own where a direct Microsoft mailbox states them (`getSchedule`'s `workingHours`, read beside its free/busy in one call,
+`MailboxGateway.schedule`; a Windows zone name through `WindowsZones`), then theirs, then the workspace's; Google and
+Nylas state none. They shape the booking link alone — Uncava's own page and, re-sent on every change
+(`updateBookingPage`), Nylas's — and a new sequence's default days. The cap is the workspace's, or a consultant's lower
+one, for every send; `app_lm_mailbox_connection.daily_cap` is frozen.
 V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
 `suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and

@@ -100,7 +100,7 @@ class ProviderCredentialsResolverTest {
                 new ProviderAppSettings("uncava-google-client", "uncava-google-secret", List.of(), "", ""),
                 new ProviderAppSettings("uncava-microsoft-client", "uncava-microsoft-secret", List.of(), "", ""),
                 new ProviderAppSettings("", "", List.of(), "", ""));
-        OutreachSettings outreach = new OutreachSettings(null, apps, Duration.ofMinutes(10), 50,
+        OutreachSettings outreach = new OutreachSettings(null, apps, Duration.ofMinutes(10), 50, 200,
                 LocalTime.of(8, 0), LocalTime.of(18, 0), List.of(), 25, Duration.ofMinutes(10), Duration.ofDays(30),
                 OutreachGateway.NYLAS, null);
         WebSettings web = new WebSettings("https://app.example", List.of(), "/auth/callback", 0, true, DataSize.ofMegabytes(2));

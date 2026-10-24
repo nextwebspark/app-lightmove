@@ -3,6 +3,7 @@ package app.lightmove.api.outreach;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -14,6 +15,7 @@ import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxGrants;
+import app.lightmove.api.outreach.model.WeeklyHours;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
@@ -25,8 +27,10 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -92,6 +96,8 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
         assertThat(page.organizerAddress()).isEqualTo(MAILBOX);
         assertThat(page.zone()).isEqualTo(DUBAI);
         assertThat(page.eventTitle()).isEqualTo("30-minute call with Yara Haddad");
+        assertThat(page.hours()).isEqualTo(WeeklyHours.uniform(EnumSet.range(DayOfWeek.MONDAY, DayOfWeek.FRIDAY),
+                LocalTime.of(8, 0), LocalTime.of(18, 0)));
         Map<String, Object> mailbox = mailboxRow();
         String slug = (String) mailbox.get("booking_slug");
         assertThat(slug).matches("yara-haddad-[a-z0-9]{8}");
@@ -165,7 +171,7 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
                                     {"startsAt":"%s","email":"priya@%s"}"""
                                     .formatted(Instant.parse(start).plusSeconds(60), domain)))
                     .andExpect(status().isBadRequest());
-            // The same weekday and time a year on is on the grid, but past the six months the page offers.
+            // The same weekday and time a year on is on the grid, but past the 60 days the page offers.
             mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"startsAt":"%s","email":"priya@%s"}"""
@@ -177,6 +183,62 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
                     + "where workspace_id = ?::uuid", workspaceId);
         }
         mvc.perform(get("/api/v1/outreach/booking/" + slug + "/slots")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("a consultant's new hours, or the workspace's, reach the Nylas page they shape")
+    void newHoursReachTheNylasPage() throws Exception {
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSequence(createSequence(), priya, "priya@" + domain);
+
+        as(consultant, put("/api/v1/me/availability").contentType(MediaType.APPLICATION_JSON).content("""
+                {"weeklyHours":[{"day":"SATURDAY","start":"10:00","end":"14:00"}]}"""))
+                .andExpect(status().isOk());
+
+        assertThat(gateway.bookingPageUpdates()).singleElement().satisfies(update -> {
+            assertThat(update.configurationId()).isEqualTo("booking-page-1");
+            assertThat(update.page().hours().days()).containsExactly(DayOfWeek.SATURDAY);
+        });
+
+        as(consultant, put("/api/v1/workspace/availability").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"dailyEmailCap\":20}")).andExpect(status().isOk());
+        assertThat(gateway.bookingPageUpdates()).hasSize(2);
+        assertThat(gateway.bookingPageUpdates().getLast().page().hours().days()).containsExactly(DayOfWeek.SATURDAY);
+    }
+
+    @Test
+    @DisplayName("a direct page offers the calendar's own working hours where it states them, and books nothing outside")
+    void aDirectPageKeepsTheCalendarsHours() throws Exception {
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        startSequence(createSequence(), priya, "priya@" + domain);
+        String slug = (String) mailboxRow().get("booking_slug");
+        gateway.calendarKeepsWorkingHours(WeeklyHours.uniform(Set.of(DayOfWeek.SATURDAY), LocalTime.of(10, 0),
+                LocalTime.of(12, 0)), DUBAI);
+        jdbc.update("update app_lm_mailbox_connection set gateway = 'DIRECT', refresh_token_encrypted = 'not-a-seal', "
+                + "recall_calendar_attempts = 5 where workspace_id = ?::uuid", workspaceId);
+        try {
+            LocalDate nextWeek = LocalDate.now(DUBAI).plusWeeks(1);
+            JsonNode slots = body(mvc.perform(get("/api/v1/outreach/booking/" + slug + "/slots")
+                            .param("from", nextWeek.toString()))
+                    .andExpect(status().isOk()).andReturn());
+            assertThat(slots.get("days")).singleElement().satisfies(day -> {
+                assertThat(LocalDate.parse(day.get("date").asText()).getDayOfWeek()).isEqualTo(DayOfWeek.SATURDAY);
+                assertThat(day.get("starts")).hasSize(4);
+            });
+
+            Instant monday = nextWeek.with(TemporalAdjusters.next(DayOfWeek.MONDAY)).atTime(10, 0).atZone(DUBAI)
+                    .toInstant();
+            mvc.perform(post("/api/v1/outreach/booking/" + slug).contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"startsAt":"%s","email":"priya@%s"}""".formatted(monday, domain)))
+                    .andExpect(status().isBadRequest());
+            assertThat(gateway.created()).isEmpty();
+        } finally {
+            jdbc.update("update app_lm_mailbox_connection set gateway = 'NYLAS', refresh_token_encrypted = null "
+                    + "where workspace_id = ?::uuid", workspaceId);
+        }
     }
 
     private static String firstStart(JsonNode slots) {

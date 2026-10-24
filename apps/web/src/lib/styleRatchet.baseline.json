@@ -259,8 +259,7 @@
     "arbitraryText": 11
   },
   "features/outreach/components/BookCallDialog.tsx": {
-    "arbitraryText": 10,
-    "arbitraryRadius": 1
+    "arbitraryText": 7
   },
   "features/outreach/components/BookCallTimes.tsx": {
     "arbitraryText": 6,

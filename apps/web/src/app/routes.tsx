@@ -40,11 +40,13 @@ import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
 import { SettingsBillingPage } from "../features/billing/pages/SettingsBillingPage";
 import { SettingsAiAppsPage } from "../features/settings/pages/SettingsAiAppsPage";
 import { SettingsApiKeysPage } from "../features/settings/pages/SettingsApiKeysPage";
+import { SettingsAvailabilityPage } from "../features/settings/pages/SettingsAvailabilityPage";
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
 import { SettingsNotificationsPage } from "../features/settings/pages/SettingsNotificationsPage";
 import { SettingsTaskPresetsPage } from "../features/settings/pages/SettingsTaskPresetsPage";
 import { PipelineStagesPage } from "../features/settings/pages/PipelineStagesPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
+import { SettingsMeetingsPage } from "../features/settings/pages/SettingsMeetingsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
@@ -172,6 +174,7 @@ export function AppRoutes() {
         <Route path="/settings" element={<SettingsLanding />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
         <Route path="/settings/notifications" element={<RequireStaff><SettingsNotificationsPage /></RequireStaff>} />
+        <Route path="/settings/availability" element={<RequireStaff><SettingsAvailabilityPage /></RequireStaff>} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
@@ -181,6 +184,7 @@ export function AppRoutes() {
         <Route path="/settings/pipeline-stages" element={<RequireStaff><PipelineStagesPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
+          <Route path="/settings/meetings" element={<SettingsMeetingsPage />} />
           <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
           <Route path="/settings/task-presets" element={<SettingsTaskPresetsPage />} />
           <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />

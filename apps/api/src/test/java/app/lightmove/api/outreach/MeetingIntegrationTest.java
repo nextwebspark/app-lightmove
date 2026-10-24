@@ -143,7 +143,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         connectMailbox();
         startSequence(priya, "priya@" + domain);
 
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
         String bookedId = body(book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk()).andReturn())
                 .get("meetingId").asText();
 
@@ -181,7 +181,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         setStatus(priya, "interested");
         long statusLines = activityKinds(priya).stream().filter("STATUS_CHANGED"::equals).count();
 
-        book(priya, firstFreeSlot(priya, 45), 45, "priya@" + domain).andExpect(status().isOk());
+        book(priya, tomorrowAt(10, 0), 45, "priya@" + domain).andExpect(status().isOk());
 
         assertThat(candidateStatus(priya)).isEqualTo("interested");
         assertThat(activityKinds(priya)).contains("MEETING_BOOKED");
@@ -189,23 +189,23 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an interview may run an hour or an hour and a half")
-    void aCallMayRunUpToAnHourAndAHalf() throws Exception {
+    @DisplayName("a call runs any length on five-minute marks, up to a working day, and its time shows as taken")
+    void aCallRunsAnyLength() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        Instant slot = firstFreeSlot(priya, 90);
+        Instant slot = tomorrowAt(10, 15);
 
-        book(priya, slot, 90, "priya@" + domain).andExpect(status().isOk());
+        book(priya, slot, 50, "priya@" + domain).andExpect(status().isOk());
 
-        Instant callEnds = slot.plus(Duration.ofMinutes(90));
+        Instant callEnds = slot.plus(Duration.ofMinutes(50));
         assertThat(gateway.created().getFirst().endsAt()).isEqualTo(callEnds);
-
         gateway.busyAt(List.of(new BusyInterval(slot, callEnds)));
-        JsonNode hourLong = body(as(consultant, get(meetings(priya) + "/slots").param("minutes", "60")).andReturn());
-        List<Instant> offered = new ArrayList<>();
-        hourLong.get("days").forEach(day -> day.get("starts").forEach(start -> offered.add(Instant.parse(start.asText()))));
-        assertThat(offered).isNotEmpty().noneMatch(start ->
-                start.isBefore(callEnds) && start.plus(Duration.ofMinutes(60)).isAfter(slot));
+        JsonNode view = calendarOf(priya, slot.atZone(DUBAI).toLocalDate());
+        assertThat(view.get("busy")).hasSize(1);
+        assertThat(Instant.parse(view.get("busy").get(0).get("start").asText())).isEqualTo(slot);
+        assertThat(Instant.parse(view.get("busy").get(0).get("end").asText())).isEqualTo(callEnds);
+        assertThat(view.get("minMinutes").asInt()).isEqualTo(5);
+        assertThat(view.get("maxMinutes").asInt()).isEqualTo(480);
     }
 
     @Test
@@ -214,16 +214,19 @@ class MeetingIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
         connectMailbox();
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
 
         assertThat(codeOf(book(priya, slot, 30, "someone@else.example").andExpect(status().isBadRequest())
                 .andReturn())).isEqualTo("OUTREACH_ADDRESS_NOT_ON_FILE");
-        assertThat(codeOf(book(priya, slot, 20, "priya@" + domain).andExpect(status().isBadRequest())
-                .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
-        assertThat(codeOf(book(priya, slot, 120, "priya@" + domain).andExpect(status().isBadRequest())
-                .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
-        assertThat(codeOf(book(priya, slot.plus(Duration.ofMinutes(10)), 30, "priya@" + domain)
+        for (int minutes : new int[] {0, 12, 485}) {
+            assertThat(codeOf(book(priya, slot, minutes, "priya@" + domain).andExpect(status().isBadRequest())
+                    .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
+        }
+        assertThat(codeOf(book(priya, slot.plus(Duration.ofMinutes(7)), 30, "priya@" + domain)
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("MEETING_SLOT_INVALID");
+        Instant past = Instant.now().truncatedTo(ChronoUnit.HOURS).minus(Duration.ofHours(1));
+        assertThat(codeOf(book(priya, past, 30, "priya@" + domain).andExpect(status().isBadRequest())
+                .andReturn())).isEqualTo("MEETING_SLOT_INVALID");
 
         gateway.busyAt(List.of(new BusyInterval(slot.plus(Duration.ofMinutes(15)), slot.plus(Duration.ofHours(1)))));
         assertThat(codeOf(book(priya, slot, 30, "priya@" + domain).andExpect(status().isConflict())
@@ -239,46 +242,67 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the slots leave out what the calendar holds, and nobody without a mailbox can book")
-    void theSlotsReadTheCalendar() throws Exception {
+    @DisplayName("the calendar view shows a week of busy times and working hours, and nobody without a mailbox books")
+    void theCalendarViewReadsTheCalendar() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
-        as(consultant, get(meetings(priya) + "/slots")).andExpect(status().isConflict());
+        as(consultant, get(meetings(priya) + "/calendar")).andExpect(status().isConflict());
 
         connectMailbox();
-        JsonNode slots = body(as(consultant, get(meetings(priya) + "/slots").param("minutes", "30")).andReturn());
-        assertThat(slots.get("address").asText()).isEqualTo(MAILBOX);
-        assertThat(slots.get("timeZone").asText()).isEqualTo("Asia/Dubai");
-        assertThat(slots.get("days")).hasSize(5);
-        Instant taken = firstFreeSlot(priya, 30);
+        Instant taken = tomorrowAt(11, 0);
+        gateway.busyAt(List.of(new BusyInterval(taken, taken.plus(Duration.ofMinutes(45)))));
+        JsonNode view = calendarOf(priya, null);
 
-        gateway.busyAt(List.of(new BusyInterval(taken, taken.plus(Duration.ofMinutes(30)))));
-        assertThat(firstFreeSlot(priya, 30)).isNotEqualTo(taken);
+        assertThat(view.get("address").asText()).isEqualTo(MAILBOX);
+        assertThat(view.get("timeZone").asText()).isEqualTo("Asia/Dubai");
+        assertThat(view.get("days").asInt()).isEqualTo(7);
+        assertThat(view.get("from").asText()).isEqualTo(view.get("earliestDate").asText());
+        assertThat(view.get("busy")).hasSize(1);
+        assertThat(view.get("workingHoursSource").asText()).isEqualTo("WORKSPACE");
+        List<Instant> opens = new ArrayList<>();
+        view.get("workingHours").forEach(span -> opens.add(Instant.parse(span.get("start").asText())));
+        // A week always holds the five working days a workspace with no country keeps, Monday to Friday 08:00–18:00.
+        assertThat(opens).isNotEmpty().allMatch(open -> {
+            DayOfWeek day = open.atZone(DUBAI).getDayOfWeek();
+            return day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY;
+        });
+        assertThat(view.get("workingHours")).hasSize(5);
     }
 
     @Test
-    @DisplayName("the grid pages ahead to a later week, up to its horizon, and a time there can be booked")
-    void theSlotsPageAhead() throws Exception {
+    @DisplayName("a consultant books outside their working hours, at a minute of their choosing, on any day")
+    void aConsultantIsNotHeldToWorkingHours() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant saturdayEvening = LocalDate.now(DUBAI).plusWeeks(1).with(TemporalAdjusters.next(DayOfWeek.SATURDAY))
+                .atTime(19, 40).atZone(DUBAI).toInstant();
+
+        book(priya, saturdayEvening, 25, "priya@" + domain).andExpect(status().isOk());
+
+        assertThat(gateway.created().getFirst().startsAt()).isEqualTo(saturdayEvening);
+    }
+
+    @Test
+    @DisplayName("the view pages ahead to a later week, up to its horizon, and a time there can be booked")
+    void theCalendarViewPagesAhead() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
 
-        JsonNode thisWeek = body(as(consultant, get(meetings(priya) + "/slots")).andExpect(status().isOk())
-                .andReturn());
+        JsonNode thisWeek = calendarOf(priya, null);
         LocalDate today = LocalDate.parse(thisWeek.get("earliestDate").asText());
         LocalDate latest = LocalDate.parse(thisWeek.get("latestDate").asText());
         assertThat(latest).isAfter(today.plusMonths(5));
-        assertThat(thisWeek.get("previousFrom").isNull()).isTrue();
 
         LocalDate asked = today.plusWeeks(8);
-        JsonNode later = body(as(consultant, get(meetings(priya) + "/slots").param("from", asked.toString()))
-                .andExpect(status().isOk()).andReturn());
-        assertThat(later.get("days")).hasSize(5);
-        assertThat(LocalDate.parse(later.get("days").get(0).get("date").asText())).isBetween(asked, asked.plusDays(7));
-        assertThat(LocalDate.parse(later.get("previousFrom").asText())).isBetween(asked.minusDays(9), asked);
-        Instant farOff = Instant.parse(later.get("days").get(0).get("starts").get(0).asText());
-        book(priya, farOff, 30, "priya@" + domain).andExpect(status().isOk());
+        JsonNode later = calendarOf(priya, asked);
+        assertThat(LocalDate.parse(later.get("from").asText())).isEqualTo(asked);
+        assertThat(LocalDate.parse(calendarOf(priya, today.minusDays(3)).get("from").asText())).isEqualTo(today);
+        book(priya, asked.atTime(9, 30).atZone(DUBAI).toInstant(), 30, "priya@" + domain)
+                .andExpect(status().isOk());
 
-        assertThat(codeOf(as(consultant, get(meetings(priya) + "/slots").param("from", latest.plusDays(1).toString()))
+        assertThat(codeOf(as(consultant, get(meetings(priya) + "/calendar").param("from", latest.plusDays(1).toString()))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("MEETING_SLOT_INVALID");
+        assertThat(codeOf(as(consultant, get(meetings(priya) + "/calendar").param("days", "8"))
+                .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
     }
 
     @Test
@@ -286,10 +310,10 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void anUnreadableCalendarIsNotFree() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
 
         gateway.failBusyWith(unavailable("free-busy"));
-        assertThat(codeOf(as(consultant, get(meetings(priya) + "/slots")).andExpect(status().isBadGateway())
+        assertThat(codeOf(as(consultant, get(meetings(priya) + "/calendar")).andExpect(status().isBadGateway())
                 .andReturn())).isEqualTo("MEETING_CALENDAR_UNAVAILABLE");
         assertThat(codeOf(book(priya, slot, 30, "priya@" + domain).andExpect(status().isBadGateway())
                 .andReturn())).isEqualTo("MEETING_CALENDAR_UNAVAILABLE");
@@ -325,10 +349,10 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void clientSeatsAndOtherWorkspaces() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
 
         String rep = clientSeat();
-        for (MockHttpServletRequestBuilder route : List.of(get(meetings(priya)), get(meetings(priya) + "/slots"),
+        for (MockHttpServletRequestBuilder route : List.of(get(meetings(priya)), get(meetings(priya) + "/calendar"),
                 bookRequest(priya, slot, 30, "priya@" + domain))) {
             as(rep, route).andExpect(status().isForbidden());
         }
@@ -346,13 +370,13 @@ class MeetingIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
         startSequence(priya, "priya@" + domain);
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
         book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
         JsonNode booked = meetingsOf(priya).get("upcoming").get(0);
         assertThat(booked.get("editable").asBoolean()).isTrue();
         String meetingId = booked.get("id").asText();
 
-        Instant later = slotAfter(priya, slot, 30);
+        Instant later = slot.plus(Duration.ofHours(2));
         reschedule(priya, meetingId, later, 30).andExpect(status().isNoContent());
 
         assertThat(gateway.moves()).containsExactly(new RecordingMailboxGateway.EventMove(createdEventId(), later,
@@ -373,9 +397,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void reschedulingTreatsItsOwnTimeAsFree() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        // A slot only 30 minutes long can be the window's last half hour, where moving to 45 overruns the close
-        // and is refused as an invalid slot (400) before the busy check this test is about.
-        Instant slot = firstFreeSlot(priya, 45);
+        Instant slot = tomorrowAt(10, 0);
         book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
         gateway.busyAt(List.of(new BusyInterval(slot, slot.plus(Duration.ofMinutes(30))),
@@ -385,7 +407,10 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(gateway.moves()).isEmpty();
 
         gateway.busyAt(List.of(new BusyInterval(slot, slot.plus(Duration.ofMinutes(30)))));
-        assertThat(firstFreeSlotExcluding(priya, 45, meetingId)).isEqualTo(slot);
+        assertThat(as(consultant, get(meetings(priya) + "/calendar")
+                .param("from", slot.atZone(DUBAI).toLocalDate().toString()).param("excluding", meetingId))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .contains("\"busy\":[]");
         reschedule(priya, meetingId, slot, 45).andExpect(status().isNoContent());
         assertThat(gateway.moves()).hasSize(1);
     }
@@ -395,7 +420,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void cancellingRemovesTheCall() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        book(priya, firstFreeSlot(priya, 30), 30, "priya@" + domain).andExpect(status().isOk());
+        book(priya, tomorrowAt(10, 0), 30, "priya@" + domain).andExpect(status().isOk());
         String eventId = createdEventId();
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
 
@@ -420,7 +445,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(codeOf(as(consultant, delete(meetings(priya) + "/" + found.get("id").asText()))
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_NOT_EDITABLE");
 
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
         book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
         String booked = meetingIdBookedInUncava();
         inviteAndAccept(consultant, "Omar Saleh", "omar@" + domain, "ADMIN");
@@ -430,7 +455,7 @@ class MeetingIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isForbidden()).andReturn())).isEqualTo("MEETING_NOT_YOURS");
 
         markDoNotContact(priya);
-        assertThat(codeOf(reschedule(priya, booked, slotAfter(priya, slot, 30), 30)
+        assertThat(codeOf(reschedule(priya, booked, slot.plus(Duration.ofHours(2)), 30)
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_DO_NOT_CONTACT");
         assertThat(gateway.moves()).isEmpty();
         assertThat(gateway.cancelled()).isEmpty();
@@ -441,12 +466,12 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void aRefusedChangeLeavesTheCall() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
         book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
 
         gateway.failChangingEvents(unavailable("move-event"));
-        assertThat(codeOf(reschedule(priya, meetingId, slotAfter(priya, slot, 30), 30)
+        assertThat(codeOf(reschedule(priya, meetingId, slot.plus(Duration.ofHours(2)), 30)
                 .andExpect(status().isBadGateway()).andReturn())).isEqualTo("MEETING_UPDATE_FAILED");
         assertThat(codeOf(as(consultant, delete(meetings(priya) + "/" + meetingId))
                 .andExpect(status().isBadGateway()).andReturn())).isEqualTo("MEETING_UPDATE_FAILED");
@@ -461,13 +486,13 @@ class MeetingIntegrationTest extends FlowTestSupport {
     void aCallGoneFromTheCalendarLeavesTheMailboxAlone() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
         connectMailbox();
-        Instant slot = firstFreeSlot(priya, 30);
+        Instant slot = tomorrowAt(10, 0);
         book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
         String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
 
         gateway.failChangingEvents(new VendorException(VendorCall.of("nylas", "move-event"),
                 VendorFailureKind.NOT_FOUND, null));
-        assertThat(codeOf(reschedule(priya, meetingId, slotAfter(priya, slot, 30), 30)
+        assertThat(codeOf(reschedule(priya, meetingId, slot.plus(Duration.ofHours(2)), 30)
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_GONE");
 
         assertThat(jdbc.queryForObject("select status from app_lm_mailbox_connection where workspace_id = ?::uuid",
@@ -504,41 +529,17 @@ class MeetingIntegrationTest extends FlowTestSupport {
         return body(as(consultant, get(meetings(candidateId))).andExpect(status().isOk()).andReturn());
     }
 
-    private Instant firstFreeSlot(String candidateId, int minutes) throws Exception {
-        JsonNode slots = body(as(consultant, get(meetings(candidateId) + "/slots")
-                .param("minutes", String.valueOf(minutes))).andExpect(status().isOk()).andReturn());
-        for (JsonNode day : slots.get("days")) {
-            if (!day.get("starts").isEmpty()) {
-                return Instant.parse(day.get("starts").get(0).asText());
-            }
-        }
-        throw new AssertionError("No free slot offered");
+    /** Tomorrow at a given time in the consultant's zone: never too soon to book, and the calendar starts empty. */
+    private static Instant tomorrowAt(int hour, int minute) {
+        return LocalDate.now(DUBAI).plusDays(1).atTime(hour, minute).atZone(DUBAI).toInstant();
     }
 
-    private Instant slotAfter(String candidateId, Instant taken, int minutes) throws Exception {
-        JsonNode slots = body(as(consultant, get(meetings(candidateId) + "/slots")
-                .param("minutes", String.valueOf(minutes))).andExpect(status().isOk()).andReturn());
-        for (JsonNode day : slots.get("days")) {
-            for (JsonNode start : day.get("starts")) {
-                Instant offered = Instant.parse(start.asText());
-                if (!offered.isBefore(taken.plus(Duration.ofMinutes(minutes)))) {
-                    return offered;
-                }
-            }
+    private JsonNode calendarOf(String candidateId, LocalDate from) throws Exception {
+        MockHttpServletRequestBuilder request = get(meetings(candidateId) + "/calendar");
+        if (from != null) {
+            request.param("from", from.toString());
         }
-        throw new AssertionError("No later free slot offered");
-    }
-
-    private Instant firstFreeSlotExcluding(String candidateId, int minutes, String meetingId) throws Exception {
-        JsonNode slots = body(as(consultant, get(meetings(candidateId) + "/slots")
-                .param("minutes", String.valueOf(minutes)).param("excluding", meetingId))
-                .andExpect(status().isOk()).andReturn());
-        for (JsonNode day : slots.get("days")) {
-            if (!day.get("starts").isEmpty()) {
-                return Instant.parse(day.get("starts").get(0).asText());
-            }
-        }
-        throw new AssertionError("No free slot offered");
+        return body(as(consultant, request).andExpect(status().isOk()).andReturn());
     }
 
     private String meetingIdBookedInUncava() {

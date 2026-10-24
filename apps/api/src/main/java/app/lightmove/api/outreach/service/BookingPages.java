@@ -1,7 +1,6 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
@@ -9,14 +8,16 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.BookingPageKind;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.dto.BookingPageResponse;
+import app.lightmove.api.outreach.model.AvailabilityChanged;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BookingSlug;
 import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -47,6 +48,7 @@ public class BookingPages {
     private final TransactionTemplate transactions;
     private final RateLimitGuard rateLimit;
     private final LightMoveProperties properties;
+    private final AvailabilityService availability;
 
     /**
      * Its own transaction, never the caller's: after a reconnect commits, the finished one is still bound to
@@ -54,7 +56,7 @@ public class BookingPages {
      */
     BookingPages(MailboxGateway gateway, MailboxConnectionRepository mailboxes, UserRepository users,
                  PlatformTransactionManager transactionManager, RateLimitGuard rateLimit,
-                 LightMoveProperties properties) {
+                 LightMoveProperties properties, AvailabilityService availability) {
         this.gateway = gateway;
         this.mailboxes = mailboxes;
         this.users = users;
@@ -62,6 +64,7 @@ public class BookingPages {
         this.transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.rateLimit = rateLimit;
         this.properties = properties;
+        this.availability = availability;
     }
 
     /** A direct mailbox's page is always Uncava's own; a Nylas one needs the plan to carry Scheduler. */
@@ -138,6 +141,36 @@ public class BookingPages {
     }
 
     /**
+     * New working hours reach every Nylas page they shape: the consultant's own, or each of the workspace's for a
+     * change to its default. Off any request; a page that cannot be updated keeps its old hours until it is made again
+     * at a reconnect, and the consultant's own page (Uncava's) never needs this.
+     */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    void onAvailabilityChanged(AvailabilityChanged changed) {
+        if (!gateway.isBookingPageOffered()) {
+            return;
+        }
+        List<MailboxConnection> affected = changed.userId() == null
+                ? mailboxes.findByWorkspaceIdAndGateway(changed.workspaceId(), MailboxGatewayKind.NYLAS)
+                : mailboxes.findByWorkspaceIdAndUserId(changed.workspaceId(), changed.userId()).stream().toList();
+        affected.stream()
+                .filter(MailboxConnection::canSend)
+                .filter(mailbox -> !mailbox.isDirect() && mailbox.getBookingConfigurationId() != null)
+                .forEach(this::updatePage);
+    }
+
+    private void updatePage(MailboxConnection mailbox) {
+        try {
+            gateway.updateBookingPage(mailbox.getGrantId(), mailbox.getBookingConfigurationId(),
+                    specOf(mailbox, nameOf(mailbox)));
+        } catch (VendorException failed) {
+            log.warn("Booking page {} of mailbox {} kept its old hours: the mail service refused the update ({})",
+                    mailbox.getBookingConfigurationId(), mailbox.getId(), failed.getKind());
+        }
+    }
+
+    /**
      * The public page's read: no write and no call to the mail service. Any link that leads nowhere answers
      * alike, so a slug says nothing it should not.
      */
@@ -197,12 +230,12 @@ public class BookingPages {
                 .ifPresent(fresh -> fresh.holdBookingPage(configurationId)));
     }
 
+    /** A Nylas calendar states no working hours of its own, so the page keeps the consultant's or the workspace's. */
     private BookingPageSpec specOf(MailboxConnection mailbox, String consultantName) {
-        OutreachSettings settings = properties.outreach();
         String name = consultantName != null ? consultantName : mailbox.getAddress();
         return new BookingPageSpec(mailbox.getAddress(), name, CALL_MINUTES + "-minute call with " + name,
-                CALL_MINUTES, mailbox.zone(), settings.windowStart(), settings.windowEnd(),
-                Set.copyOf(settings.workingDays()));
+                CALL_MINUTES, mailbox.zone(),
+                availability.workingHoursOf(mailbox.getWorkspaceId(), mailbox.getUserId(), mailbox.zone()).week());
     }
 
     String nameOf(MailboxConnection mailbox) {
