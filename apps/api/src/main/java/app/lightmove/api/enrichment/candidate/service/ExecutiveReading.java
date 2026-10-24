@@ -10,7 +10,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * The executive as a prompt reads them, for an AI run outside this feature (the Notetaker's interview plan and live
- * copilot): the same allowlisted profile and redacted material Assess with AI sends, never contacts or compensation.
+ * copilot): the same allowlisted profile and redacted material Assess with AI sends, with each recorded call's record
+ * in place of its transcript, never contacts or compensation.
  */
 @Service
 @RequiredArgsConstructor
@@ -24,8 +25,9 @@ public class ExecutiveReading {
                 .map(DossierText::of)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         MaterialText filed = material.read(projectId, candidateId);
-        return new ExecutiveReadingText(profile, filed.notes(), filed.documents(), filed.noteCount(),
-                filed.documentCount());
+        CallRecordsText calls = material.callRecords(projectId, candidateId);
+        return new ExecutiveReadingText(profile, filed.notes(), filed.documents(), calls.text(), filed.noteCount(),
+                filed.documentCount(), calls.count());
     }
 
     /** The profile alone, for a run that must stay small (the live copilot reads it every few seconds). */

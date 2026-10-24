@@ -7,6 +7,7 @@ import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.notetaker.model.CompetencyEvidence;
 import app.lightmove.api.notetaker.model.MeetingSummary;
+import app.lightmove.api.notetaker.model.StatedFact;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.position.model.AssessmentBrief;
 import app.lightmove.api.position.model.BriefCompetency;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
@@ -34,6 +36,9 @@ class MeetingSummariser {
     /** About three hours of talk; a longer transcript keeps its start and its end. */
     private static final int LONGEST_TRANSCRIPT = 400_000;
     private static final int LONGEST_ITEM = 600;
+    private static final int LONGEST_ACCOUNT = 16_000;
+    private static final int LONGEST_QUOTE = 300;
+    private static final Pattern NOT_A_WORD = Pattern.compile("[^\\p{L}\\p{N}]+");
 
     private final StructuredPrompt prompt;
 
@@ -54,6 +59,10 @@ class MeetingSummariser {
                 .param("position", brief == null ? "None: the call was about no position. Leave the brief fields empty."
                         : positionOf(brief, competencyById))
                 .param("transcript", transcriptText(transcript, callStart)));
+        String heard = wordsOf(ContactRedaction.redact(transcript.stream()
+                .map(TranscriptLine::text)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(" "))));
         if (answer == null || answer.overview() == null || answer.overview().isBlank()) {
             throw new IllegalStateException("The summariser answered no overview");
         }
@@ -63,8 +72,11 @@ class MeetingSummariser {
         return new MeetingSummary(clip(answer.overview()), items(answer.keyPoints()), clipOrNull(answer.motivation()),
                 clipOrNull(answer.packageSaid()), clipOrNull(answer.notice()), clipOrNull(answer.mobility()),
                 items(answer.concerns()), items(answer.nextSteps()),
-                evidenceOf(answer.competencyEvidence(), competencyById),
-                namesOf(answer.competenciesNotCovered(), competencyById), items(answer.briefConcerns()));
+                evidenceOf(answer.competencyEvidence(), competencyById, heard),
+                namesOf(answer.competenciesNotCovered(), competencyById), items(answer.briefConcerns()),
+                answer.account() == null || answer.account().isBlank() ? null
+                        : clip(answer.account(), LONGEST_ACCOUNT),
+                factsOf(answer.facts()), items(answer.openQuestions()));
     }
 
     /** The transcript as every Notetaker prompt reads it: timed, attributed, contacts taken out, start and end kept. */
@@ -117,7 +129,7 @@ class MeetingSummariser {
     }
 
     private static List<CompetencyEvidence> evidenceOf(List<ModelEvidence> answered,
-                                                       Map<String, BriefCompetency> competencyById) {
+                                                       Map<String, BriefCompetency> competencyById, String heard) {
         if (answered == null) {
             return List.of();
         }
@@ -126,7 +138,37 @@ class MeetingSummariser {
                 .filter(entry -> entry.id() != null && competencyById.containsKey(entry.id().strip())
                         && entry.evidence() != null && !entry.evidence().isBlank())
                 .map(entry -> new CompetencyEvidence(competencyById.get(entry.id().strip()).name(),
-                        clip(entry.evidence()), clipOrNull(entry.at())))
+                        clip(entry.evidence()), clipOrNull(entry.at()), quoteOrNull(entry.quote(), heard),
+                        entry.example()))
+                .toList();
+    }
+
+    /**
+     * Only words the transcript holds, in that order: a quote the model reworded or invented would be read by every
+     * later run as the executive's own, so it is dropped and the evidence stands on its own.
+     */
+    static String quoteOrNull(String quote, String heard) {
+        if (quote == null || quote.isBlank() || quote.strip().length() > LONGEST_QUOTE) {
+            return null;
+        }
+        String words = wordsOf(quote);
+        return words.isEmpty() || !(" " + heard + " ").contains(" " + words + " ") ? null : quote.strip();
+    }
+
+    static String wordsOf(String text) {
+        return NOT_A_WORD.matcher(text.toLowerCase(Locale.ROOT)).replaceAll(" ").strip();
+    }
+
+    private static List<StatedFact> factsOf(List<ModelFact> answered) {
+        if (answered == null) {
+            return List.of();
+        }
+        return answered.stream()
+                .filter(Objects::nonNull)
+                .filter(fact -> fact.topic() != null && !fact.topic().isBlank() && fact.said() != null
+                        && !fact.said().isBlank())
+                .map(fact -> new StatedFact(clip(fact.topic()), clip(fact.said()), clipOrNull(fact.at()),
+                        "team".equalsIgnoreCase(Objects.toString(fact.by(), "").strip())))
                 .toList();
     }
 
@@ -164,15 +206,22 @@ class MeetingSummariser {
     }
 
     private static String clip(String value) {
-        String stripped = value.strip();
-        return stripped.length() <= LONGEST_ITEM ? stripped : stripped.substring(0, LONGEST_ITEM) + "…";
+        return clip(value, LONGEST_ITEM);
     }
 
-    private record ModelAnswer(String overview, List<String> keyPoints, String motivation,
+    private static String clip(String value, int longest) {
+        String stripped = value.strip();
+        return stripped.length() <= longest ? stripped : stripped.substring(0, longest) + "…";
+    }
+
+    private record ModelAnswer(String overview, String account, List<String> keyPoints, String motivation,
                                @JsonProperty("package") String packageSaid,
-                               String notice, String mobility, List<String> concerns, List<String> nextSteps,
+                               String notice, String mobility, List<ModelFact> facts, List<String> concerns,
+                               List<String> nextSteps, List<String> openQuestions,
                                List<ModelEvidence> competencyEvidence, List<String> competenciesNotCovered,
                                List<String> briefConcerns) {}
 
-    private record ModelEvidence(String id, String evidence, String at) {}
+    private record ModelEvidence(String id, String evidence, String at, String quote, Boolean example) {}
+
+    private record ModelFact(String topic, String said, String at, String by) {}
 }

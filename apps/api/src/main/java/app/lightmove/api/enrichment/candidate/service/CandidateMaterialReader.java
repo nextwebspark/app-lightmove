@@ -28,9 +28,9 @@ import org.springframework.stereotype.Component;
 /**
  * Writes out what the team has filed on a person for a prompt: every note the position reads, newest first, and the
  * text of the latest file of every document a text can be read from — an image or a scan without a text layer is left
- * out — and, for the assessment alone, the transcripts of the calls the position recorded with them. Emails and phone
- * numbers are taken out of all three, and each is held to a share of the prompt, so one long file or call never crowds
- * out the rest.
+ * out — and, for the assessment alone, the record and transcript of each call the position recorded with them. Emails
+ * and phone numbers are taken out of all three, and each is held to a share of the prompt, so one long file or call
+ * never crowds out the rest.
  */
 @Component
 @RequiredArgsConstructor
@@ -43,9 +43,15 @@ class CandidateMaterialReader {
     static final int MAX_DOCUMENTS = 40_000;
     static final String CUT = " … [cut]";
     static final String OLDER_NOTES_LEFT_OUT = "- older notes left out";
-    static final int MAX_TRANSCRIPT = 60_000;
-    static final int MAX_TRANSCRIPTS = 90_000;
+    /** About 90k tokens for every recorded call together, well inside the model's context beside the rest. */
+    static final int MAX_CALLS = 360_000;
+    static final int MAX_CALL_RECORD = 20_000;
+    static final int MAX_CALL_RECORDS = 60_000;
     static final int LEAST_TRANSCRIPT = 2_000;
+    static final String RECORD_HEADING = "--- Call record (written from the whole call) ---\n";
+    static final String TRANSCRIPT_HEADING = "--- Transcript ---\n";
+    static final String TRANSCRIPT_LEFT_OUT =
+            "--- Transcript left out for room: the call record above was written from all of it ---";
     static final String TEAM_MARK = "(your team)";
     static final String EARLIER_CALLS_LEFT_OUT = "- earlier calls left out";
 
@@ -72,29 +78,84 @@ class CandidateMaterialReader {
     }
 
     /**
-     * Newest call first; one too long for its share keeps its start and its end, where the opening and the closing
-     * questions — motivation, notice, what happens next — usually sit.
+     * The record of each call the position recorded, newest first and without the transcripts, for a run that plans
+     * the next conversation rather than judging the last. A call with no record is left out: its Meeting note is
+     * among the notes.
      */
-    private static List<String> transcriptsOf(List<TranscriptOnFile> transcripts) {
+    CallRecordsText callRecords(UUID projectId, UUID candidateId) {
         List<String> read = new ArrayList<>();
-        int left = MAX_TRANSCRIPTS;
-        for (TranscriptOnFile transcript : transcripts) {
-            String title = transcript.title() == null || transcript.title().isBlank() ? "untitled"
-                    : transcript.title().strip();
-            String heading = "=== Call: %s · %s ===\n".formatted(title, DAY.format(transcript.startsAt()));
-            int room = Math.min(MAX_TRANSCRIPT,
-                    left - heading.length() - CallTranscriptText.MIDDLE_LEFT_OUT.length());
-            if (room < LEAST_TRANSCRIPT) {
+        int left = MAX_CALL_RECORDS;
+        for (TranscriptOnFile transcript : material.transcriptsOf(projectId, candidateId)) {
+            if (transcript.callRecord() == null || transcript.callRecord().isBlank()) {
+                continue;
+            }
+            String block = headingOf(transcript)
+                    + cut(ContactRedaction.redact(transcript.callRecord().strip()), MAX_CALL_RECORD);
+            if (block.length() > left) {
                 read.add(EARLIER_CALLS_LEFT_OUT);
                 break;
             }
-            String block = heading + CallTranscriptText.keepStartAndEnd(
-                    ContactRedaction.redact(turnsOf(transcript)), room);
             read.add(block);
             left -= block.length();
         }
+        int sent = read.size() - (read.contains(EARLIER_CALLS_LEFT_OUT) ? 1 : 0);
+        return new CallRecordsText(joined(read, "\n\n"), sent);
+    }
+
+    /**
+     * Newest call first, and never a call cut in its middle where its record can stand in for it: every call's record
+     * goes first, then each transcript whole while the budget holds it. A call with no record (one filed before records
+     * were kept) is the one exception, keeping its start and end as a last resort rather than being left out.
+     */
+    private static List<String> transcriptsOf(List<TranscriptOnFile> transcripts) {
+        List<CallBlock> calls = new ArrayList<>();
+        int left = MAX_CALLS;
+        boolean earlierLeftOut = false;
+        for (TranscriptOnFile transcript : transcripts) {
+            String heading = headingOf(transcript);
+            String record = transcript.callRecord() == null || transcript.callRecord().isBlank() ? null
+                    : RECORD_HEADING + cut(ContactRedaction.redact(transcript.callRecord().strip()), MAX_CALL_RECORD);
+            int reserved = heading.length() + (record == null ? 0 : record.length() + 1);
+            if (reserved > left) {
+                earlierLeftOut = true;
+                break;
+            }
+            calls.add(new CallBlock(heading, record, transcript));
+            left -= reserved;
+        }
+        List<String> read = new ArrayList<>();
+        for (CallBlock call : calls) {
+            String turns = ContactRedaction.redact(turnsOf(call.transcript()));
+            int room = left - TRANSCRIPT_HEADING.length();
+            String spoken;
+            if (turns.length() <= room) {
+                spoken = TRANSCRIPT_HEADING + turns;
+            } else if (call.record() != null) {
+                read.add(call.heading() + call.record() + "\n" + TRANSCRIPT_LEFT_OUT);
+                continue;
+            } else if (room - CallTranscriptText.MIDDLE_LEFT_OUT.length() >= LEAST_TRANSCRIPT) {
+                spoken = TRANSCRIPT_HEADING + CallTranscriptText.keepStartAndEnd(turns,
+                        room - CallTranscriptText.MIDDLE_LEFT_OUT.length());
+            } else {
+                earlierLeftOut = true;
+                continue;
+            }
+            left -= spoken.length();
+            read.add(call.heading() + (call.record() == null ? "" : call.record() + "\n") + spoken);
+        }
+        if (earlierLeftOut) {
+            read.add(EARLIER_CALLS_LEFT_OUT);
+        }
         return read;
     }
+
+    private static String headingOf(TranscriptOnFile transcript) {
+        String title = transcript.title() == null || transcript.title().isBlank() ? "untitled"
+                : transcript.title().strip();
+        return "=== Call: %s · %s ===\n".formatted(title, DAY.format(transcript.startsAt()));
+    }
+
+    private record CallBlock(String heading, String record, TranscriptOnFile transcript) {}
 
     /** A speaker's consecutive lines are one turn, stamped with when it began; the team's speakers are marked. */
     private static String turnsOf(TranscriptOnFile transcript) {

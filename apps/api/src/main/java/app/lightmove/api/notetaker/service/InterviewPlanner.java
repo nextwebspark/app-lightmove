@@ -78,6 +78,9 @@ class InterviewPlanner {
 
                 DOCUMENTS ON FILE
                 {documents}
+
+                EARLIER CALLS (the record of each call your team recorded with them for this position, newest first)
+                {calls}
                 """)
                 .param("position", MeetingSummariser.positionOf(brief, competencyById))
                 .param("evidenced", evidencedText(competencyById, evidenced))
@@ -86,11 +89,17 @@ class InterviewPlanner {
                         .collect(Collectors.joining("\n")))
                 .param("profile", executive.profile())
                 .param("notes", executive.notes())
-                .param("documents", executive.documents()));
+                .param("documents", executive.documents())
+                .param("calls", executive.calls()));
         if (answer == null) {
             throw ApiException.of(ErrorCode.AI_UNAVAILABLE);
         }
         if (BlockedAnswer.matches(answer.guard())) {
+            if (executive.callCount() > 0) {
+                // Anyone on a call speaks into its record and nobody can reword it, so a remark there costs the
+                // earlier calls, never the whole plan.
+                return draft(brief, executive.withoutCalls(), evidenced, gaps);
+            }
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "Something on file for this person reads like an instruction to the AI, so it was not read. "
                             + "Write the questions by hand.");

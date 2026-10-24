@@ -281,8 +281,10 @@ AI run on an executive reads the person's notes and documents too** (`CandidateM
 document (a PDF, DOCX, DOC or TXT; an image or a scan without a text layer is left out), each held to a length,
 and the audit line counts how many of each went. Assess with AI alone also reads the **transcripts** of the calls that
 position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest first, only while each call's Meeting
-note is live, redacted and held to 60k characters a call (start and end kept) and 90k in all, a staff member's voice
-marked "(your team)" in code; a claim the executive makes about themselves with no example behind it scores as
+note is live, redacted, a staff member's voice marked "(your team)" in code: each call's **call record** (V156, below)
+first, then each transcript **whole** while 360k characters in all hold it — past that a call is its record alone, never
+a transcript cut in its middle (only a call filed before records were kept keeps its start and end, as a last resort);
+Prepare questions reads the records alone; a claim the executive makes about themselves with no example behind it scores as
 indirect evidence, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
 fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` —
 the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
@@ -700,7 +702,11 @@ claimed first (one live bot per call by join URL and start, whoever presses), th
 minute early and saying in the chat whose notes it records. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
-Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and only
+Markdown `MEETING` note in the scheduler's name and, from the same model answer, the **call record** (V156) — the fuller
+account later AI runs read in place of a transcript cut to fit: the call in order, every fact stated with its time and
+whether only the team said it, evidence per competency with the executive's words kept only where the transcript holds
+them verbatim (`MeetingSummariser.quoteOrNull`), open questions and next steps (`CallRecordMarkdown`, never drawn)
+(one worker per transcript, by claim; an `AI_ENRICH` use) and only
 then deletes Recall's copy, so Try again can read it again; the transcript is kept unless
 `lightmove.recall.transcript-retention` is set, which clears one whose note is purged or never filed once that long untouched.
 `NotetakerReconcile` reads back a recording still live past its call. **Suggest changes** on a filed call's row (V152,
@@ -1283,6 +1289,8 @@ workspace's; Google and Nylas state none. They shape the booking link alone — 
 consultant's lower one, for every send — lowering the workspace's lowers any consultant's above it — and
 `app_lm_mailbox_connection.daily_cap` is frozen. Both rows are written insert-if-missing first, so a double-clicked
 first save writes one row.
+V156 gives the recording `call_record` (Markdown, staff-only, never shown) and `call_record_version` (both or neither, by
+CHECK), cleared with the transcript by the retention purge.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),

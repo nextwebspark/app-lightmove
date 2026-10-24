@@ -13,9 +13,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Answers the assessment's transcripts for {@code candidate}: only the position's own calls, read from it. A speaker
- * whose name is a staff member's, or the scheduler's, is marked as the team here, so the model never has to guess
- * from a display name which voice is ours.
+ * Answers the assessment's transcripts and call records for {@code candidate}: only the position's own calls, read
+ * from it. A speaker whose name is a staff member's, or the scheduler's, is marked as the team here, so the model
+ * never has to guess from a display name which voice is ours.
  */
 @Component
 @RequiredArgsConstructor
@@ -53,6 +53,6 @@ class MeetingTranscriptLookupAdapter implements MeetingTranscriptLookup {
         return new TranscriptOnFile(recording.getTitle(), recording.getStartsAt(), recording.getTranscript().stream()
                 .map(line -> new SpokenLine(line.at(), line.speaker(), line.text(),
                         TeamVoices.isTeam(team, line.speaker(), line.named())))
-                .toList());
+                .toList(), recording.getCallRecord());
     }
 }

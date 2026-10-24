@@ -105,7 +105,7 @@ class CandidateScorecardDrafterTest {
         drafterOver(model).draft(NOTHING_MISSING, BRIEF, material);
 
         assertThat(model.prompts.getLast()).contains("NOTES ON FILE", "Calm under board pressure.",
-                "CALL TRANSCRIPTS", "I chose the auditors myself.",
+                "RECORDED CALLS", "I chose the auditors myself.",
                 "DOCUMENTS ON FILE", "=== CV: Layla Mansour CV ===", "Led the 2019 IPO.");
     }
 

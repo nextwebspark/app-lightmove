@@ -136,6 +136,7 @@ public class InterviewPlanService {
                         .detail("questions", String.valueOf(drafted.size()))
                         .detail("notesSent", String.valueOf(executive.noteCount()))
                         .detail("documentsSent", String.valueOf(executive.documentCount()))
+                        .detail("callsSent", String.valueOf(executive.callCount()))
                         .record();
             });
             usage.record(new MeteredUse(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1,

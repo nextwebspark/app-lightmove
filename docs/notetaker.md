@@ -60,7 +60,12 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    2. Keeps the transcript on the row.
    3. Summarises it with `MeetingSummariser` (`prompts/meeting-summary-*`) against the brief's `AssessmentBrief`. That
       is role, criteria and competencies, never compensation. Every email address and phone number is redacted first.
-   4. Files a Markdown `MEETING` note in the scheduler's name, through `PersonNoteService.fileMeetingNote`.
+   4. Files a Markdown `MEETING` note in the scheduler's name, through `PersonNoteService.fileMeetingNote`, and keeps
+      the **call record** beside the transcript (V156, `CallRecordMarkdown`) — written from the same summary answer, so
+      it costs no second call. The note is for the consultant; the record is for the AI and never drawn: the call in
+      order, every fact stated with its time and whether only the team said it, evidence per competency with whether
+      an example backed it and the executive's own words, kept only where the transcript holds them verbatim
+      (`MeetingSummariser.quoteOrNull`), open questions and next steps. Always in English; quotes as spoken.
    5. Records one `AI_ENRICH` use against fair use.
    6. Asks Recall to **delete its copy of the call** (`delete_media`).
 
@@ -183,14 +188,17 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 - **To Gemini:** the transcript with contacts redacted, and the brief's assessment seam — once to write the note, once
   per **Suggest changes** press (with the record's notice period, location, relocation tag and motivation — no package —
   never a contact), and again on each **Assess with AI** press on that position while the note is live (`MeetingTranscriptLookup`, read by
-  `CandidateMaterialReader`, newest call first, 60k characters a call with its start and end kept, 90k in all). A
+  `CandidateMaterialReader`, newest call first: every call's record, then each transcript whole while 360k characters in
+  all hold it, a call past that read through its record alone — never a transcript cut in its middle, save one filed
+  before records were kept, which keeps its start and end as a last resort). **Prepare questions** reads each earlier
+  call's record, without its transcript. A
   speaker whose name is a staff member's or the scheduler's is marked "(your team)" in code. A recording whose summary
   failed has no note yet, so its transcript is not read until **Try again** files one. A transcript the prompt guard
   stops is dropped and the assessment asked again without transcripts, so a remark in a call never blocks it.
 - **Kept:** the note, and the transcript and its suggestions (staff-only, on the recording row) — by default for as
   long as the recording row, which goes only with its person or position. A deployment that sets
   `NOTETAKER_TRANSCRIPT_RETENTION` (`lightmove.recall.transcript-retention`, e.g. `90d`) has `NotetakerTranscriptPurge`
-  clear a transcript (with its suggestions and the live copilot's reading) nothing needs any more — its note purged for good, or a recording that never filed one — once it
+  clear a transcript (with its suggestions, its call record and the live copilot's reading) nothing needs any more — its note purged for good, or a recording that never filed one — once it
   has sat untouched that long. Assess with AI still reads a transcript only while its note is live.
 
 Nothing about a Notetaker reaches `CandidateResponse`, the report, the public API or MCP.

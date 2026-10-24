@@ -61,7 +61,10 @@ class NotetakerIntegrationTest extends FlowTestSupport {
             {"overview":"Spoke with Priya about the Group CFO role; she is open to a move.",
              "keyPoints":["Leads a finance team of forty"],"motivation":"Wants a listed company","package":null,
              "notice":"Three months","mobility":null,"concerns":[],"nextSteps":["Send her the brief"],
-             "competencyEvidence":[],"competenciesNotCovered":[],"briefConcerns":[]}""";
+             "competencyEvidence":[],"competenciesNotCovered":[],"briefConcerns":[],
+             "account":"Yara opened with thanks; Priya said she was happy to talk and gave three months' notice.",
+             "facts":[{"topic":"Notice","said":"Three months","at":"00:20","by":"executive"}],
+             "openQuestions":["Her current package"]}""";
 
     private static final String CHANGES_MARKER = "THE ITEMS.";
     private static final String CHANGES = """
@@ -180,7 +183,15 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 + "on r.note_id = n.id where r.id = ?::uuid and n.kind = 'MEETING' and n.body_format = 'MARKDOWN' "
                 + "and n.project_id = r.project_id", String.class, recordingId);
         assertThat(body).startsWith("Spoke with Priya about the Group CFO role")
-                .contains("- **Notice:** Three months", "## Next steps");
+                .contains("- **Notice:** Three months", "## Next steps")
+                .doesNotContain("Account of the call", "Open questions");
+        assertThat(jdbc.queryForObject("select call_record_version from app_lm_meeting_recording where id = ?::uuid",
+                Integer.class, recordingId)).isPositive();
+        assertThat(jdbc.queryForObject("select call_record from app_lm_meeting_recording where id = ?::uuid",
+                String.class, recordingId))
+                .startsWith("Spoke with Priya about the Group CFO role")
+                .contains("## Account of the call\n\nYara opened with thanks",
+                        "- **Notice:** Three months [00:20]", "## Open questions\n\n- Her current package");
         assertThat(chat.lastPrompt().getUserMessage().getText()).contains("My notice is three months.")
                 .contains("Group CFO");
         assertThat(recall.mediaDeleted()).containsExactly(bot);
@@ -410,6 +421,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         List<TranscriptOnFile> read = material.transcriptsOf(UUID.fromString(projectId), UUID.fromString(priya));
         assertThat(read).singleElement().satisfies(transcript -> {
             assertThat(transcript.title()).isEqualTo("First conversation");
+            assertThat(transcript.callRecord()).contains("## Account of the call");
             assertThat(transcript.lines()).extracting(SpokenLine::speaker, SpokenLine::team)
                     .containsExactly(tuple("Yara  haddad", true), tuple("Priya Raman", false));
         });
@@ -462,8 +474,8 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         assertThat(transcriptHeld(recordingId)).isTrue();
         transcriptPurge.purgeUntouchedSince(Instant.now().plusSeconds(60));
         assertThat(transcriptHeld(recordingId)).isFalse();
-        assertThat(jdbc.queryForObject("select live is null from app_lm_meeting_recording where id = ?::uuid",
-                Boolean.class, recordingId)).isTrue();
+        assertThat(jdbc.queryForObject("select live is null and call_record is null and call_record_version is null "
+                + "from app_lm_meeting_recording where id = ?::uuid", Boolean.class, recordingId)).isTrue();
     }
 
     @Test
