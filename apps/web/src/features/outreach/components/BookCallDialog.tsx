@@ -105,6 +105,8 @@ export function BookCallDialog({
   const [isOtherLength, setIsOtherLength] = useState(meeting !== undefined && !isPresetLength(minutesOf(meeting)));
   const [chosenVideo, setChosenVideo] = useState<MeetingVideo | null>(null);
   const [from, setFrom] = useState<string | null>(null);
+  // The day chosen in Pick a time before any time is: the time typed next lands on it, never on the week's first day.
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [inviteAddress, setInviteAddress] = useState(emails[0]?.address ?? "");
   const [title, setTitle] = useState(DEFAULT_TITLE);
   const [withNotetaker, setWithNotetaker] = useState(true);
@@ -223,15 +225,24 @@ export function BookCallDialog({
     if (!days.includes(day)) setFrom(day);
   };
 
+  /** A picked time the new week does not show is dropped, so Send invite never books a day off the screen. */
+  const handleShowWeek = (day: string) => {
+    setFrom(day);
+    const shown = viewDaysOf(day, view?.days ?? 7);
+    if (fields && !shown.includes(fields.date)) setStart(null);
+    if (pickedDate && !shown.includes(pickedDate)) setPickedDate(null);
+  };
+
   const handleDateChange = (day: string) => {
     if (!day) return;
     showDay(day);
+    setPickedDate(day);
     if (fields) setStart(instantOf(day, fields.from, timeZone).toISOString());
   };
 
   const handleFromChange = (time: string) => {
     if (!time || !view) return;
-    setStart(instantOf(fields?.date ?? view.from, time, timeZone).toISOString());
+    setStart(instantOf(fields?.date ?? pickedDate ?? view.from, time, timeZone).toISOString());
   };
 
   const handleToChange = (time: string) => {
@@ -311,7 +322,7 @@ export function BookCallDialog({
                 latestDate={view.latestDate}
                 previousFrom={previousFrom}
                 isFetching={calendar.isFetching}
-                onShowFrom={setFrom}
+                onShowFrom={handleShowWeek}
               />
             )}
           </div>
@@ -354,7 +365,7 @@ export function BookCallDialog({
                   <legend className="sr-only">Pick a time</legend>
                   <Field label="Pick a time">
                     <DateInput
-                      value={fields?.date ?? firstShown ?? ""}
+                      value={fields?.date ?? pickedDate ?? firstShown ?? ""}
                       min={view.earliestDate}
                       max={view.latestDate}
                       onChange={handleDateChange}

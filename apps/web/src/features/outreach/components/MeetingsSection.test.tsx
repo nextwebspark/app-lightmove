@@ -260,6 +260,39 @@ describe("MeetingsSection", () => {
     expect(screen.getByRole("button", { name: "Send invite" })).toBeDisabled();
   });
 
+  it("books the day the time was picked on, and drops a pick the next week does not show", async () => {
+    vi.mocked(meetingApi.getMeetingCalendar).mockImplementation(async (_project, _candidate, from) =>
+      aWeek({ from: from ?? "2099-10-05" }),
+    );
+    vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
+    renderSection();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await screen.findByRole("group", { name: "Your week" });
+    fireEvent.change(screen.getByLabelText("Call date"), { target: { value: "2099-10-10" } });
+    pickTime("10:00");
+    expect(screen.getByText("Sat 10 Oct · 10:00–10:30 · Asia/Dubai")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Later days" }));
+    await waitFor(() =>
+      expect(meetingApi.getMeetingCalendar).toHaveBeenLastCalledWith("p1", "c1", "2099-10-12", null, expect.anything()),
+    );
+    expect(await screen.findByText("Drag on your calendar, or pick a time")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send invite" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Earlier days" }));
+    fireEvent.change(await screen.findByLabelText("Call date"), { target: { value: "2099-10-10" } });
+    pickTime("10:00");
+    await userEvent.click(screen.getByRole("button", { name: "Send invite" }));
+    await waitFor(() =>
+      expect(meetingApi.bookMeeting).toHaveBeenCalledWith(
+        "p1",
+        "c1",
+        expect.objectContaining({ startsAt: "2099-10-10T06:00:00.000Z" }),
+      ),
+    );
+  });
+
   it("moves a call booked in Uncava, its own time read as free", async () => {
     vi.mocked(meetingApi.getMeetingCalendar).mockResolvedValue(aWeek());
     vi.mocked(meetingApi.rescheduleMeeting).mockResolvedValue(undefined);
