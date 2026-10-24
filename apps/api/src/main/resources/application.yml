@@ -115,7 +115,8 @@ spring:
     execution:
       pool:
         # No queue, so a short listener never waits behind a sourcing run or a meeting's notes; past max-size
-        # one runs on its publisher's thread (AsyncExecutorConfig).
+        # one runs on its publisher's thread (AsyncExecutorConfig). Never park a thread here to wait a turn:
+        # CandidateAiEnrichWorker queues its runs past four rather than holding threads.
         core-size: 8
         max-size: 64
         queue-capacity: 0
