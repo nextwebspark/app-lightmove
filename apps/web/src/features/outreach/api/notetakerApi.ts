@@ -39,6 +39,8 @@ export interface NotetakerRecording {
   suggestionsAsked: boolean;
   /** Changes it suggested that nobody has applied or skipped yet. */
   pendingSuggestions: number;
+  /** Changes a review applied to the record. */
+  appliedSuggestions: number;
 }
 
 export interface CandidateNotetaker {
@@ -111,7 +113,9 @@ export interface CallSuggestions {
 
 export type PackageField = "baseSalary" | "bonus" | "allowances";
 
-export interface ApplyCallSuggestion {
+/** One waiting change a review applies, as suggested or as edited; every change the review leaves out is skipped. */
+export interface AppliedCallSuggestion {
+  id: string;
   value?: Partial<Omit<SuggestedValue, "working">>;
   packageFields?: PackageField[];
 }
@@ -169,16 +173,15 @@ export function suggestChanges(projectId: string, candidateId: string, recording
   return request<CallSuggestions>(suggestionsPath(projectId, candidateId, recordingId), { method: "POST" });
 }
 
-export function decideCallSuggestion(
+/** One save for the whole review: what is listed is applied, the rest skipped, and nothing is undone afterwards. */
+export function reviewCallSuggestions(
   projectId: string,
   candidateId: string,
   recordingId: string,
-  suggestionId: string,
-  decision: "apply" | "skip" | "reopen",
-  body?: ApplyCallSuggestion,
+  apply: AppliedCallSuggestion[],
 ): Promise<CallSuggestions> {
-  return request<CallSuggestions>(`${suggestionsPath(projectId, candidateId, recordingId)}/${suggestionId}/${decision}`, {
+  return request<CallSuggestions>(`${suggestionsPath(projectId, candidateId, recordingId)}/review`, {
     method: "POST",
-    ...(body && { body }),
+    body: { apply },
   });
 }

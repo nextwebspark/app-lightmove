@@ -1781,7 +1781,8 @@
                       <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
                         <!-- A call the Notetaker recorded: once its notes are filed the row offers Suggest changes, which opens
                              "Changes from the call" and reads the transcript then — one press, one AI use. After a run the link
-                             reads "3 changes to review", then "Changes reviewed". Nothing else in the drawer changes. -->
+                             reads "3 changes to review"; once reviewed it is plain text, "3 changes applied" (or "No changes
+                             made"), and opens nothing — a correction is made on the record. Nothing else in the drawer changes. -->
                         <sc-if value="{{ m.recorded }}">
                           <span style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:4px;font:400 11.5px var(--mono)">
                             <span style="border-radius:999px;padding:1px 8px;font:500 11px var(--sans);background:var(--green-dim);color:var(--green)">Notes filed</span>
@@ -2581,33 +2582,75 @@
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.sparkle }}"></path></svg>Ask</a>
   </sc-if>
 
-  <!-- Changes from the call: the transcript read against the person's record, one change per card — what the record
-       holds now, what the call suggests, and the words it rests on with their time into the call. Skip, Edit (the
-       field's own input in place) or Apply; ← Back revisits a card. A package is one card with a tick per figure. The
-       last step sums up ("4 applied · 3 skipped") with Undo per line. Loading reads "Reading the transcript…"; a call
-       that stated nothing new reads "Nothing to change". Every apply is an Activity line naming who and from which call. -->
+  <!-- Changes from the call: the transcript read against the person's record, every change on one list — the
+       convention for suggested record updates from a call. A row: a tick to keep it (on unless the record no longer lets
+       it in, which then says why), where it lands, what the record holds now → what the call suggests with Edit (the
+       field's own input in place, which ticks the row), and the words it rests on with their time into the call. A
+       package is one row with a tick per figure; an unticked row dims. "Apply 3 changes" saves what is ticked and skips
+       the rest in one go ("Skip all" with nothing ticked); Not now writes nothing and leaves them waiting. No Undo and
+       no summary step: the dialog closes on a toast, the drawer row then reads "3 changes applied" as plain text, and a
+       correction is made on the record itself. A change the server refuses is named on its own row and nothing is
+       saved. Loading reads "Reading the transcript…"; a call that stated nothing new reads "Nothing to change". Every
+       apply is an Activity line naming who and from which call. -->
   <sc-if value="{{ callChangesOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeCallChanges }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(0,0,0,.6);padding:16px">
-      <div role="dialog" aria-modal="true" aria-label="Changes from the call" data-screen-label="Changes from the call" onClick="{{ stop }}" style="width:480px;max-width:94vw;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
+      <div role="dialog" aria-modal="true" aria-label="Changes from the call" data-screen-label="Changes from the call" onClick="{{ stop }}" style="width:760px;max-width:94vw;max-height:90vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
         <div style="padding:20px 22px 0">
           <div style="font:600 15px var(--sans)">Changes from the call</div>
           <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">Coffee at DIFC · Tue 22 Apr · 10:00</div>
         </div>
-        <div style="padding:14px 22px 18px">
-          <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;height:3px;border-radius:2px;background:var(--panel2);overflow:hidden"><div style="width:14%;height:100%;background:var(--sky)"></div></div><span style="font:500 11.5px var(--mono);color:var(--text3)">1 of 7</span></div>
-          <div style="margin-top:20px;display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Notice period</span><span style="font:400 12px var(--sans);color:var(--text3)">Compensation</span></div>
-          <div style="margin-top:14px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.3fr);gap:12px;align-items:start">
-            <div><div style="font:400 11.5px var(--sans);color:var(--text3)">Now</div><div style="margin-top:4px;font:italic 400 14px var(--sans);color:var(--text3)">Not recorded</div></div>
-            <div style="padding-top:20px;color:var(--text3)">→</div>
-            <div><div style="font:400 11.5px var(--sans);color:var(--text3)">Suggested</div><div style="margin-top:4px;font:500 19px var(--sans)">3 months</div><button style="margin-top:6px;padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Edit</button></div>
+        <div style="min-height:0;flex:1;overflow-y:auto;padding:12px 22px 6px">
+          <div style="display:flex;justify-content:space-between;gap:16px;align-items:baseline;padding-bottom:8px">
+            <span style="font:400 13px var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">4 changes found</b> · 3 selected</span>
+            <span style="display:flex;gap:14px"><button style="padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Select all</button><button style="padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer">None</button></span>
           </div>
-          <div style="margin-top:20px;display:flex;gap:10px;align-items:baseline;border-top:1px solid var(--line-soft);padding-top:14px;font:400 13px var(--sans);color:var(--text2)"><span style="flex:none;font:500 11.5px var(--mono);color:var(--sky)">07:42</span><q style="font-style:italic">My contract has three months' notice, and they'd hold me to it.</q></div>
+          <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 12px;padding:16px 0;border-top:1px solid var(--line-soft)">
+            <span aria-hidden="true" style="flex:none;width:15px;height:15px;margin-top:2px;border-radius:4px;background:var(--sky);display:grid;place-items:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12l5 5L19 7"></path></svg></span>
+            <div>
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Notice period</span><span style="font:400 12px var(--sans);color:var(--text3)">Compensation</span></div>
+              <div style="margin-top:8px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.4fr);gap:8px 16px;align-items:start">
+                <div><div style="font:400 11.5px var(--sans);color:var(--text3)">Now</div><div style="margin-top:2px;font:italic 400 14px var(--sans);color:var(--text3)">Not recorded</div></div>
+                <div style="padding-top:18px;color:var(--text3)">→</div>
+                <div><div style="display:flex;gap:10px;align-items:baseline"><span style="font:400 11.5px var(--sans);color:var(--text3)">Suggested</span><button style="padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Edit</button></div><div style="margin-top:2px;font:500 17px var(--sans)">3 months</div></div>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:10px;align-items:baseline;border-left:2px solid var(--line-soft);padding-left:12px;font:400 13px var(--sans);color:var(--text2)"><span style="flex:none;font:500 11.5px var(--mono);color:var(--sky)">07:42</span><q style="font-style:italic">My contract has three months' notice, and they'd hold me to it.</q></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 12px;padding:16px 0;border-top:1px solid var(--line-soft)">
+            <span aria-hidden="true" style="flex:none;width:15px;height:15px;margin-top:2px;border-radius:4px;background:var(--sky);display:grid;place-items:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12l5 5L19 7"></path></svg></span>
+            <div>
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Current package</span><span style="font:400 12px var(--sans);color:var(--text3)">Compensation</span></div>
+              <div style="margin-top:8px;font:400 11.5px var(--sans);color:var(--text3)">Now: <span style="font-style:italic">Not recorded</span></div>
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 24px"><span style="display:inline-flex;align-items:center;gap:8px"><span aria-hidden="true" style="flex:none;width:15px;height:15px;border-radius:4px;background:var(--sky);display:grid;place-items:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12l5 5L19 7"></path></svg></span><span style="font:400 12.5px var(--sans);color:var(--text3)">Base</span><span style="font:400 14px var(--mono);color:var(--text)">AED 1,140,000</span></span><span style="display:inline-flex;align-items:center;gap:8px"><span aria-hidden="true" style="flex:none;width:15px;height:15px;border-radius:4px;background:var(--sky);display:grid;place-items:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12l5 5L19 7"></path></svg></span><span style="font:400 12.5px var(--sans);color:var(--text3)">Bonus</span><span style="font:400 14px var(--mono);color:var(--text)">AED 380,000</span></span><span style="display:inline-flex;align-items:center;gap:8px"><span aria-hidden="true" style="flex:none;width:15px;height:15px;border-radius:4px;border:1.5px solid var(--line)"></span><span style="font:400 12.5px var(--sans);color:var(--text3)">Allowances</span><span style="font:400 14px var(--mono);color:var(--text3);text-decoration:line-through">AED 216,000</span></span></div>
+              <div style="margin-top:6px;font:400 11.5px var(--sans);color:var(--text3)">Annualised from monthly: base 95,000 × 12</div>
+              <div style="margin-top:12px;display:flex;gap:10px;align-items:baseline;border-left:2px solid var(--line-soft);padding-left:12px;font:400 13px var(--sans);color:var(--text2)"><span style="flex:none;font:500 11.5px var(--mono);color:var(--sky)">09:15</span><q style="font-style:italic">Basic is ninety-five a month, and the bonus is usually four months.</q></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 12px;padding:16px 0;border-top:1px solid var(--line-soft)">
+            <span aria-hidden="true" style="flex:none;width:15px;height:15px;margin-top:2px;border-radius:4px;border:1.5px solid var(--line)"></span>
+            <div style="opacity:.6">
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Location</span><span style="font:400 12px var(--sans);color:var(--text3)">Identity</span></div>
+              <div style="margin-top:8px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.4fr);gap:8px 16px;align-items:start">
+                <div><div style="font:400 11.5px var(--sans);color:var(--text3)">Now</div><div style="margin-top:2px;font:400 14px var(--sans);color:var(--text2)">Abu Dhabi, United Arab Emirates</div></div>
+                <div style="padding-top:18px;color:var(--text3)">→</div>
+                <div><div style="display:flex;gap:10px;align-items:baseline"><span style="font:400 11.5px var(--sans);color:var(--text3)">Suggested</span><button style="padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Edit</button></div><div style="margin-top:2px;font:500 17px var(--sans)">Dubai, United Arab Emirates</div></div>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:10px;align-items:baseline;border-left:2px solid var(--line-soft);padding-left:12px;font:400 13px var(--sans);color:var(--text2)"><span style="flex:none;font:500 11.5px var(--mono);color:var(--sky)">11:30</span><q style="font-style:italic">We're thinking of moving to Dubai next year.</q></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 12px;padding:16px 0;border-top:1px solid var(--line-soft)">
+            <span aria-hidden="true" style="flex:none;width:15px;height:15px;margin-top:2px;border-radius:4px;background:var(--sky);display:grid;place-items:center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12l5 5L19 7"></path></svg></span>
+            <div>
+              <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span style="font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Task for you</span><span style="font:400 12px var(--sans);color:var(--text3)">Next action · due tomorrow</span></div>
+              <div style="margin-top:8px"><div style="display:flex;gap:10px;align-items:baseline"><span style="font:400 11.5px var(--sans);color:var(--text3)">New task</span><button style="padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer">Edit</button></div><div style="margin-top:2px;font:400 14px var(--sans)">Send the full position description by Thursday</div></div>
+              <div style="margin-top:12px;display:flex;gap:10px;align-items:baseline;border-left:2px solid var(--line-soft);padding-left:12px;font:400 13px var(--sans);color:var(--text2)"><span style="flex:none;font:500 11.5px var(--mono);color:var(--sky)">05:13</span><q style="font-style:italic">From my side, I'll send you the full position description by Thursday.</q></div>
+            </div>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid var(--line-soft)">
-          <button disabled style="padding:7px 12px;background:none;border:none;font:500 13px var(--sans);color:var(--text3);opacity:.5">← Back</button>
-          <span style="flex:1"></span>
-          <button onClick="{{ closeCallChanges }}" style="border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Skip</button>
-          <button onClick="{{ applyCallChange }}" style="border-radius:6px;padding:7px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Apply</button>
+        <div style="display:flex;align-items:center;gap:8px;padding:14px 22px;border-top:1px solid var(--line-soft)">
+          <span style="margin-right:auto;font:400 12px var(--sans);color:var(--text3)">Nothing is saved until you apply.</span>
+          <button onClick="{{ closeCallChanges }}" style="border-radius:6px;padding:8px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Not now</button>
+          <button onClick="{{ applyCallChange }}" style="border-radius:6px;padding:8px 14px;font:600 13px var(--sans);background:var(--amber-btn);border:1px solid var(--amber-btn);color:var(--on-amber);cursor:pointer">Apply 3 changes</button>
         </div>
       </div>
     </div>
@@ -4178,7 +4221,7 @@ class Component extends DCLogic {
       toggleWsMenu: () => set({ wsMenu: !this.state.wsMenu }),
       openCallChanges: () => set({ callChanges: true }),
       closeCallChanges: () => set({ callChanges: false }),
-      applyCallChange: () => { set({ callChanges: false }); this.showToast("Notice period saved from the call"); },
+      applyCallChange: () => { set({ callChanges: false }); this.showToast("3 changes saved to Fatima's record"); },
       toggleTheme: () => { const d = !this.state.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
       toggleCollapse: () => { const c = !this.state.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) { /* storage unavailable */ } set({ collapsed: c }); },
       setViewTable: () => set({ view: "table" }),
