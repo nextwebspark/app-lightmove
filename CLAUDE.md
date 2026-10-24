@@ -281,7 +281,7 @@ AI run on an executive reads the person's notes and documents too** (`CandidateM
 document (a PDF, DOCX, DOC or TXT; an image or a scan without a text layer is left out), each held to a length,
 and the audit line counts how many of each went. Assess with AI alone also reads the **transcripts** of the calls that
 position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest first, only while each call's Meeting
-note is live, redacted and held to 60k characters a call (start and end kept) and 90k in all, a staff member's voice
+note is live, redacted and held to 150k characters a call (start and end kept) and 250k in all, a staff member's voice
 marked "(your team)" in code; a claim the executive makes about themselves with no example behind it scores as
 indirect evidence, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
 fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` —

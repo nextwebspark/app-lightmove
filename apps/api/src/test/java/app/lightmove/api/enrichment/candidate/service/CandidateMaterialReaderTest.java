@@ -19,6 +19,7 @@ import app.lightmove.api.core.storage.constant.DocumentFormat;
 import app.lightmove.api.position.service.PositionDocumentTextReader;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.IntStream;
@@ -95,9 +96,10 @@ class CandidateMaterialReaderTest {
     @DisplayName("a long call keeps its start and end, a call past the budget is left out, and Background reads none")
     void transcriptsShareTheBudget() {
         Instant start = Instant.parse("2026-10-12T14:00:00Z");
+        // Words rather than one long run of letters: the contact patterns are slow on a single endless token.
         TranscriptOnFile longCall = new TranscriptOnFile("Long call", start, List.of(
-                new SpokenLine(start, "Priya Raman", "OPENING " + "a".repeat(40_000), false),
-                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "b".repeat(40_000) + " CLOSING", true)));
+                new SpokenLine(start, "Priya Raman", "OPENING " + "said ".repeat(20_000), false),
+                new SpokenLine(start.plusSeconds(60), "Yara Haddad", "asked ".repeat(16_000) + "CLOSING", true)));
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
         when(material.transcriptsOf(PROJECT, CANDIDATE)).thenReturn(List.of(longCall, longCall, longCall));
 
@@ -110,6 +112,26 @@ class CandidateMaterialReaderTest {
         assertThat(text.transcripts().split("=== Call: ")).allSatisfy(block ->
                 assertThat(block.isEmpty() || block.length() >= CandidateMaterialReader.LEAST_TRANSCRIPT).isTrue());
         assertThat(reader.read(PROJECT, CANDIDATE).transcripts()).isEqualTo(MaterialText.NONE_ON_FILE);
+    }
+
+    @Test
+    @DisplayName("a ninety-minute call reaches the assessment whole, its middle included")
+    void aNinetyMinuteCallIsReadWhole() {
+        Instant start = Instant.parse("2026-10-12T14:00:00Z");
+        List<SpokenLine> lines = new ArrayList<>();
+        for (int minute = 0; minute < 90; minute++) {
+            String words = (minute == 45 ? "MIDDLE " : "") + "we talked about the role and the team ".repeat(24);
+            lines.add(new SpokenLine(start.plusSeconds(minute * 60L), minute % 2 == 0 ? "Priya Raman" : "Yara Haddad",
+                    words, minute % 2 == 1));
+        }
+        when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(CandidateMaterial.NONE);
+        when(material.transcriptsOf(PROJECT, CANDIDATE))
+                .thenReturn(List.of(new TranscriptOnFile("Ninety minutes", start, lines)));
+
+        MaterialText text = reader.readForAssessment(PROJECT, CANDIDATE);
+
+        assertThat(text.transcripts().length()).isGreaterThan(80_000);
+        assertThat(text.transcripts()).contains("MIDDLE").doesNotContain("the middle of the call is left out");
     }
 
     private static DocumentOnFile document(String title, PersonDocumentCategory category, DocumentFormat format) {

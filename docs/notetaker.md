@@ -183,7 +183,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 - **To Gemini:** the transcript with contacts redacted, and the brief's assessment seam — once to write the note, once
   per **Suggest changes** press (with the record's notice period, location, relocation tag and motivation — no package —
   never a contact), and again on each **Assess with AI** press on that position while the note is live (`MeetingTranscriptLookup`, read by
-  `CandidateMaterialReader`, newest call first, 60k characters a call with its start and end kept, 90k in all). A
+  `CandidateMaterialReader`, newest call first, 150k characters a call with its start and end kept, 250k in all). A
   speaker whose name is a staff member's or the scheduler's is marked "(your team)" in code. A recording whose summary
   failed has no note yet, so its transcript is not read until **Try again** files one. A transcript the prompt guard
   stops is dropped and the assessment asked again without transcripts, so a remark in a call never blocks it.
