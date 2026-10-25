@@ -16,6 +16,9 @@ import app.lightmove.api.notetaker.model.RecallLiveUtterance;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.time.Clock;
@@ -24,6 +27,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -37,8 +41,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Recall.ai's bot API (v1) over HTTP, {@code Authorization: Token <key>}: a bot sent at once or scheduled for the
- * call's start, with Recall's own transcription and diarisation, its consent line said in the chat as it joins, and our
- * ids on it. Its webhooks are Svix-signed, on an endpoint of their own ({@code lightmove.recall.bot-webhook-secret}).
+ * call's start, with Recall's own transcription and diarisation, Uncava's card as its camera, its consent line said in
+ * the chat as it joins, and our ids on it. Its webhooks are Svix-signed, on an endpoint of their own ({@code lightmove.recall.bot-webhook-secret}).
  */
 public class RecallBotClient implements RecallBotApi {
 
@@ -386,6 +390,25 @@ public class RecallBotClient implements RecallBotApi {
             "bot_detection", Map.of("using_participant_events", Map.of(
                     "timeout", seconds(Duration.ofMinutes(2)), "activate_after", seconds(Duration.ofMinutes(10)))));
 
+    /**
+     * The bot's camera: Uncava's card rather than Recall's blank tile, so an executive sees who joined and whether it is
+     * recording. Drawn from {@code ops/notetaker-bot-card}; Recall takes a 16:9 JPEG.
+     */
+    static final Map<String, Object> AUTOMATIC_VIDEO_OUTPUT = Map.of(
+            "in_call_recording", jpegOf("notetaker/bot-recording.jpg"),
+            "in_call_not_recording", jpegOf("notetaker/bot-not-recording.jpg"));
+
+    private static Map<String, String> jpegOf(String resource) {
+        try (InputStream image = RecallBotClient.class.getClassLoader().getResourceAsStream(resource)) {
+            if (image == null) {
+                throw new IllegalStateException("Missing Notetaker camera image " + resource);
+            }
+            return Map.of("kind", "jpeg", "b64_data", Base64.getEncoder().encodeToString(image.readAllBytes()));
+        } catch (IOException unreadable) {
+            throw new UncheckedIOException(unreadable);
+        }
+    }
+
     private static int seconds(Duration duration) {
         return Math.toIntExact(duration.toSeconds());
     }
@@ -403,6 +426,7 @@ public class RecallBotClient implements RecallBotApi {
         body.put("chat", chatOf(request.consentLine()));
         // Recall's defaults keep a bot up to an hour in an empty or silent call, every minute of it billed.
         body.put("automatic_leave", AUTOMATIC_LEAVE);
+        body.put("automatic_video_output", AUTOMATIC_VIDEO_OUTPUT);
         return body;
     }
 

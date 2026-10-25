@@ -25,8 +25,13 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    the call (workspace, join URL, start) keeps one live bot per call, whichever teammate presses.
 3. **Sending the bot.** Recall is then asked, outside any transaction and never retried, with:
    - `join_at` one minute before the call (at once when the call is that close);
-   - the bot name "Uncava Notetaker";
-   - a chat line on join that says whose notes it records;
+   - the bot name "UNCAVA Notetaker", spelled as the wordmark;
+   - Uncava's card as its camera (`automatic_video_output`): the mark, the name and a Recording / Not recording yet
+     pill, two 1280×720 JPEGs in `apps/api/src/main/resources/notetaker`, drawn by `ops/notetaker-bot-card/render.cjs`
+     from `bot-card.svg`;
+   - a chat line on join, to everyone, naming the bot as the consultant's AI notetaker, saying the call is recorded and
+     transcribed for their notes (and followed live by an AI assistant when the copilot is on), that the recording stays
+     with their team, and that anyone who would rather not be recorded need only say so;
    - Recall's own transcription (`recallai_streaming`, accuracy mode, separate streams per participant where the
      platform gives them);
    - leave rules tighter than Recall's defaults, since every minute in a call is billed (`automatic_leave`): fifteen
