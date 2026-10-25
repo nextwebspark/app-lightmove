@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { AppIcon, Button } from "../../../../components/ui";
+import { Button } from "../../../../components/ui";
 import { Avatar } from "../../../../components/ui/Avatar";
+import { requestBlob } from "../../../../lib/apiClient";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
+import { useEscapeKey } from "../../../../lib/useEscapeKey";
 import type { Copilot, CopilotLine } from "../../api/notetakerApi";
 import * as notetakerApi from "../../api/notetakerApi";
 import {
@@ -16,8 +18,7 @@ import {
   uncoveredOf,
 } from "../../lib/copilotWords";
 import { useCopilot } from "../../lib/useCopilot";
-
-type CopilotTab = "live" | "plan" | "transcript";
+import { type CopilotView as CopilotTab, useCopilotView } from "../../lib/copilotView";
 
 /** How long the ended view stays up in a window of its own before it closes itself. */
 const CLOSE_AFTER_END_MS = 60_000;
@@ -56,9 +57,15 @@ export function CopilotPanel({
   notice?: string;
 }) {
   const { copilot, lines, isLive, error, read, setCopilot } = useCopilot(projectId, candidateId, recordingId);
-  const [tab, setTab] = useState<CopilotTab>("live");
-  const [isMuted, setMuted] = useState(false);
-  const [isMenuOpen, setMenuOpen] = useState(false);
+  const [{ view: tab, isMuted }, updateView] = useCopilotView(recordingId);
+  const setTab = (view: CopilotTab) => updateView({ view });
+  const menuState = useCopilotMenu();
+  const photoUrl = useExecutivePhoto(projectId, candidateId);
+  const faceOf = (line: CopilotLine): Face => {
+    if (!line.team) return { id: candidateId, src: photoUrl };
+    const viewer = copilot?.viewers.find((held) => held.name === line.speaker);
+    return { id: viewer?.userId ?? line.speaker, src: viewer?.avatarUrl ?? null };
+  };
   const [isConfirmingStop, setConfirmingStop] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [isStopping, setStopping] = useState(false);
@@ -115,79 +122,51 @@ export function CopilotPanel({
             : "invisible",
         )}
       />
-      <span className="truncate">
-        {copilot
-          ? // The drawer already names the person; a window over the call has nothing else to say who it is.
-            [copilot.title ?? "Recorded call", variant === "window" ? copilot.candidateName : null]
-              .filter(Boolean)
-              .join(" · ")
-          : "Interview copilot"}
-      </span>
-      {copilot && !isLive && isCallOn(copilot) && <span className="text-meta text-u-text3">Reconnecting…</span>}
+      <span className="truncate">{copilot ? (copilot.title ?? "Recorded call") : "Interview copilot"}</span>
       {copilot && copilot.status === "RECORDING" && (
-        <span className="ms-auto flex-none font-mono text-meta tabular-nums text-u-text3">
-          {elapsedSince(copilot.startsAt, now)}
-        </span>
+        <span className="flex-none font-mono tabular-nums">{elapsedSince(copilot.startsAt, now)}</span>
       )}
+      {copilot && !isLive && isCallOn(copilot) && <span className="flex-none text-u-signal">Reconnecting…</span>}
     </>
   );
-  const viewers = (
-    <span className="flex items-center">
-      {(copilot?.viewers ?? [])
-        .filter((viewer) => !viewer.you)
-        .map((viewer) => (
-          <span key={viewer.userId} className="-me-1.5 rounded-full ring-2 ring-u-surface">
-            <Avatar
-              id={viewer.userId}
-              name={viewer.name ?? "A teammate"}
-              size="xs"
-              title={`${viewer.name ?? "A teammate"} is watching`}
-            />
-          </span>
-        ))}
-      {copilot?.viewers
-        .filter((viewer) => viewer.you)
-        .map((viewer) => (
-          <span key={viewer.userId} className="ms-2 rounded-full ring-2 ring-u-surface">
-            <Avatar
-              id={viewer.userId}
-              name={viewer.name ?? "You"}
-              size="sm"
-              title={`${viewer.name ?? "You"} (you)`}
-            />
-          </span>
-        ))}
-    </span>
-  );
   const menu = (
-    <span className="relative">
+    <span ref={menuState.rootRef} className="relative">
       <button
+        ref={menuState.triggerRef}
         type="button"
         aria-label="More"
         aria-haspopup="menu"
-        aria-expanded={isMenuOpen}
-        onClick={() => setMenuOpen((open) => !open)}
-        className="grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text"
+        aria-expanded={menuState.open}
+        onClick={menuState.toggle}
+        className={cn(
+          "grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text",
+          menuState.open && "bg-u-raised text-u-text",
+        )}
       >
         <Icon d={ICONS.more} size={16} />
       </button>
-      {isMenuOpen && (
+      {menuState.open && (
         <span
+          ref={menuState.menuRef}
           role="menu"
-          className="absolute end-0 top-8 z-20 flex w-52 flex-col rounded-u-card border border-u-border-strong bg-u-surface p-1 shadow-u-e3"
+          aria-label="Copilot"
+          onKeyDown={menuState.handleKeyDown}
+          className="absolute end-0 top-8 z-20 flex w-60 animate-fade-up flex-col rounded-u-card border border-u-border-strong bg-u-surface p-1 shadow-u-e3"
         >
           <MenuItem
+            icon={ICONS.bell}
             onSelect={() => {
-              setMuted((muted) => !muted);
-              setMenuOpen(false);
+              updateView({ isMuted: !isMuted });
+              menuState.close(true);
             }}
           >
             {isMuted ? "Unmute suggestions" : "Mute suggestions"}
           </MenuItem>
           {onShowInUncava && (
             <MenuItem
+              icon={ICONS.arrowLeft}
               onSelect={() => {
-                setMenuOpen(false);
+                menuState.close();
                 onShowInUncava();
               }}
             >
@@ -198,17 +177,16 @@ export function CopilotPanel({
             <>
               <span className="my-1 h-px bg-u-border" />
               <MenuItem
+                icon={ICONS.ban}
                 tone="danger"
+                hint="Stops suggestions for everyone. The recording continues."
                 onSelect={() => {
-                  setMenuOpen(false);
+                  menuState.close();
                   setConfirmingStop(true);
                 }}
               >
                 Stop copilot
               </MenuItem>
-              <span className="px-2 pb-1 text-meta text-u-text3">
-                Stops live suggestions for everyone on this call. The recording continues.
-              </span>
             </>
           )}
         </span>
@@ -237,7 +215,6 @@ export function CopilotPanel({
           </div>
           <span className="ms-auto flex min-w-0 items-center gap-2">
             <span className="flex min-w-0 items-center gap-2 text-note text-u-text2">{callLine}</span>
-            {viewers}
             {onPopOut && (
               <Button variant="secondary" size="xs" onClick={onPopOut}>
                 <Icon d={ICONS.externalLink} size={12} />
@@ -249,11 +226,12 @@ export function CopilotPanel({
         </div>
       ) : (
         <>
-          <header className="flex flex-none items-center gap-2 border-b border-u-border px-3 py-2">
-            <AppIcon className="h-5" />
-            <h1 className="truncate text-body font-semibold">Interview copilot</h1>
-            <span className="ms-auto" />
-            {viewers}
+          <header className="flex flex-none items-center gap-2.5 px-3 pb-2.5 pt-3">
+            <Avatar id={candidateId} name={copilot?.candidateName ?? "Executive"} src={photoUrl} size="lg" />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <h1 className="truncate text-body font-semibold">{copilot?.candidateName ?? "Interview copilot"}</h1>
+              <p className="flex min-w-0 items-center gap-1.5 text-meta text-u-text3">{callLine}</p>
+            </div>
             {menu}
             <button
               type="button"
@@ -264,19 +242,22 @@ export function CopilotPanel({
               <Icon d={ICONS.close} size={15} />
             </button>
           </header>
-          <div className="flex flex-none flex-col gap-2 px-3 pt-2">
-            <p className="flex min-w-0 items-center gap-2 text-note text-u-text2">{callLine}</p>
-            <div role="tablist" aria-label="Copilot views" className="flex gap-1 border-b border-u-border">
-              <TabButton current={tab} value="live" onSelect={setTab}>
+          <div className="flex-none border-b border-u-border px-3 pb-2.5">
+            <div
+              role="tablist"
+              aria-label="Copilot views"
+              className="grid grid-cols-3 rounded-u-control border border-u-border bg-u-raised p-0.5"
+            >
+              <ViewButton current={tab} value="live" onSelect={setTab}>
                 Live
-              </TabButton>
-              <TabButton current={tab} value="plan" onSelect={setTab}>
+              </ViewButton>
+              <ViewButton current={tab} value="plan" onSelect={setTab}>
                 Plan
                 {planCount}
-              </TabButton>
-              <TabButton current={tab} value="transcript" onSelect={setTab}>
+              </ViewButton>
+              <ViewButton current={tab} value="transcript" onSelect={setTab}>
                 Transcript
-              </TabButton>
+              </ViewButton>
             </div>
           </div>
         </>
@@ -303,13 +284,14 @@ export function CopilotPanel({
               <LiveTab
                 copilot={copilot}
                 lines={lines}
+                faceOf={faceOf}
                 isMuted={isMuted}
                 onAct={act}
                 ids={{ projectId, candidateId, recordingId }}
               />
             )}
             {tab === "plan" && <PlanTab copilot={copilot} onAct={act} ids={{ projectId, candidateId, recordingId }} />}
-            {tab === "transcript" && <TranscriptTab lines={lines} speaking={copilot.speaking} />}
+            {tab === "transcript" && <TranscriptTab lines={lines} speaking={copilot.speaking} faceOf={faceOf} />}
           </>
         )}
       </div>
@@ -320,12 +302,17 @@ export function CopilotPanel({
           variant === "window" && "px-3",
         )}
       >
-        <span>{footerLineOf(copilot, isMuted)}</span>
-        <span className="ms-auto">Only you see this</span>
+        <span className="truncate">{footerLineOf(copilot, isMuted)}</span>
+        <Viewers viewers={copilot?.viewers ?? []} />
       </footer>
 
       {isConfirmingStop && (
-        <div className="absolute inset-0 z-30 grid place-items-center bg-u-scrim p-4">
+        <div
+          className="absolute inset-0 z-30 grid place-items-center bg-u-scrim p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !isStopping) setConfirmingStop(false);
+          }}
+        >
           <div
             role="alertdialog"
             aria-labelledby="copilot-stop-title"
@@ -362,12 +349,14 @@ interface CopilotIds {
 function LiveTab({
   copilot,
   lines,
+  faceOf,
   isMuted,
   onAct,
   ids,
 }: {
   copilot: Copilot;
   lines: CopilotLine[];
+  faceOf: (line: CopilotLine) => Face;
   isMuted: boolean;
   onAct: (action: () => Promise<unknown>) => Promise<void>;
   ids: CopilotIds;
@@ -499,7 +488,12 @@ function LiveTab({
 
       <div className="flex flex-col gap-2">
         <span className="type-label text-u-text3">Last said</span>
-        <TranscriptLines lines={lines.slice(-3)} speaking={copilot.speaking} empty="Nobody has spoken yet." />
+        <TranscriptLines
+          lines={lines.slice(-3)}
+          speaking={copilot.speaking}
+          faceOf={faceOf}
+          empty="Nobody has spoken yet."
+        />
       </div>
     </>
   );
@@ -565,36 +559,73 @@ function PlanTab({
   );
 }
 
-function TranscriptTab({ lines, speaking }: { lines: CopilotLine[]; speaking: CopilotLine[] }) {
+function TranscriptTab({
+  lines,
+  speaking,
+  faceOf,
+}: {
+  lines: CopilotLine[];
+  speaking: CopilotLine[];
+  faceOf: (line: CopilotLine) => Face;
+}) {
   const end = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView?.({ block: "end" });
   }, [lines.length, speaking]);
   return (
     <>
-      <TranscriptLines lines={lines} speaking={speaking} empty="The transcript appears here as people speak." />
+      <TranscriptLines
+        lines={lines}
+        speaking={speaking}
+        faceOf={faceOf}
+        empty="The transcript appears here as people speak."
+      />
       <span ref={end} />
     </>
   );
 }
 
-function TranscriptLines({ lines, speaking, empty }: { lines: CopilotLine[]; speaking: CopilotLine[]; empty: string }) {
+/** Who a line's face is: the executive's photo, or a teammate's own picture where their name is one watching. */
+interface Face {
+  id: string;
+  src: string | null;
+}
+
+function TranscriptLines({
+  lines,
+  speaking,
+  faceOf,
+  empty,
+}: {
+  lines: CopilotLine[];
+  speaking: CopilotLine[];
+  faceOf: (line: CopilotLine) => Face;
+  empty: string;
+}) {
   if (lines.length === 0 && speaking.length === 0) return <p className="text-note text-u-text3">{empty}</p>;
+  const row = (line: CopilotLine, isSpeaking: boolean) => {
+    const face = faceOf(line);
+    return (
+      <li
+        key={isSpeaking ? `speaking-${line.seq}` : line.seq}
+        className={cn("flex items-start gap-2 text-note", isSpeaking && "text-u-text3")}
+      >
+        <Avatar id={face.id} name={line.speaker} src={face.src} size="sm" className="mt-px" />
+        <span className="min-w-0">
+          <SpeakerName line={line} />: {line.text}
+          {isSpeaking && (
+            <span aria-hidden="true" className="ms-0.5 animate-pulse">
+              ▍
+            </span>
+          )}
+        </span>
+      </li>
+    );
+  };
   return (
-    <ol className="flex flex-col gap-1.5">
-      {lines.map((line) => (
-        <li key={line.seq} className="text-note">
-          <SpeakerName line={line} />: {line.text}
-        </li>
-      ))}
-      {speaking.map((line) => (
-        <li key={`speaking-${line.seq}`} className="text-note text-u-text3">
-          <SpeakerName line={line} />: {line.text}
-          <span aria-hidden="true" className="ms-0.5 animate-pulse">
-            ▍
-          </span>
-        </li>
-      ))}
+    <ol className="flex flex-col gap-2">
+      {lines.map((line) => row(line, false))}
+      {speaking.map((line) => row(line, true))}
     </ol>
   );
 }
@@ -642,7 +673,7 @@ function ViewButton({
       aria-selected={current === value}
       onClick={() => onSelect(value)}
       className={cn(
-        "rounded-u-control px-3 py-1 text-note font-medium",
+        "rounded-u-control px-3 py-1 text-center text-note font-medium",
         current === value ? "bg-u-surface text-u-text shadow-u-e1" : "text-u-text3 hover:text-u-text",
       )}
     >
@@ -651,47 +682,164 @@ function ViewButton({
   );
 }
 
-function TabButton({
-  current,
-  value,
+function MenuItem({
   onSelect,
+  icon,
+  tone,
+  hint,
   children,
 }: {
-  current: CopilotTab;
-  value: CopilotTab;
-  onSelect: (tab: CopilotTab) => void;
+  onSelect: () => void;
+  icon: string;
+  tone?: "danger";
+  hint?: string;
   children: React.ReactNode;
 }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={current === value}
-      onClick={() => onSelect(value)}
-      className={cn(
-        "-mb-px border-b-2 px-2.5 py-1.5 text-note",
-        current === value ? "border-u-accent text-u-text" : "border-transparent text-u-text3 hover:text-u-text",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-function MenuItem({ onSelect, tone, children }: { onSelect: () => void; tone?: "danger"; children: React.ReactNode }) {
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onSelect}
       className={cn(
-        "rounded-u-control px-2 py-1.5 text-start text-note hover:bg-u-raised",
-        tone === "danger" && "text-u-offlimits",
+        "flex items-start gap-2 rounded-u-control px-2 py-1.5 text-start text-note outline-none hover:bg-u-raised focus-visible:bg-u-raised",
+        tone === "danger" ? "text-u-offlimits" : "text-u-text",
       )}
     >
-      {children}
+      <Icon d={icon} size={14} className="mt-0.5 flex-none opacity-70" />
+      <span className="flex flex-col">
+        {children}
+        {hint && <span className="text-meta text-u-text3">{hint}</span>}
+      </span>
     </button>
   );
+}
+
+/** Whoever has this call's copilot open, faces first; the caller last, since they know they are here. */
+function Viewers({ viewers }: { viewers: Copilot["viewers"] }) {
+  if (viewers.length === 0) return null;
+  const ordered = [...viewers.filter((viewer) => !viewer.you), ...viewers.filter((viewer) => viewer.you)];
+  const others = ordered.filter((viewer) => !viewer.you);
+  return (
+    <span className="ms-auto flex flex-none items-center gap-1.5">
+      {others.length > 0 && (
+        <span>
+          {others.length === 1 ? `${firstNameOf(others[0].name) ?? "A teammate"} is watching` : `${others.length} watching`}
+        </span>
+      )}
+      <span className="flex items-center">
+        {ordered.map((viewer) => (
+          <span key={viewer.userId} className="-ms-1 rounded-full ring-2 ring-u-surface first:ms-0">
+            <Avatar
+              id={viewer.userId}
+              name={viewer.name ?? (viewer.you ? "You" : "A teammate")}
+              src={viewer.avatarUrl}
+              size="xs"
+              title={viewer.you ? `${viewer.name ?? "You"} (you)` : `${viewer.name ?? "A teammate"} is watching`}
+            />
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+}
+
+function firstNameOf(name: string | null): string | null {
+  return name?.trim().split(/\s+/)[0] || null;
+}
+
+/**
+ * The ⋯ menu, closed by a click anywhere else, Escape, or the window losing focus — so a click on the call behind a
+ * floating window closes it too. It listens on its own document: in a floating window that is not this page's.
+ */
+function useCopilotMenu() {
+  const [open, setOpen] = useState(false);
+  const [inOtherWindow, setInOtherWindow] = useState(false);
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLSpanElement>(null);
+
+  const close = useCallback((returnFocus = false) => {
+    setOpen(false);
+    if (returnFocus) triggerRef.current?.focus();
+  }, []);
+
+  useLayoutEffect(() => {
+    setInOtherWindow((rootRef.current?.ownerDocument ?? document) !== document);
+  }, []);
+  // In the drawer, on the shared Escape stack, so Escape closes the menu and never the drawer beneath it.
+  useEscapeKey(open && !inOtherWindow, () => close(true));
+
+  useEffect(() => {
+    if (!open) return;
+    const doc = rootRef.current?.ownerDocument ?? document;
+    const view = doc.defaultView ?? window;
+    const handleOutside = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      close(true);
+    };
+    const handleBlur = () => setOpen(false);
+    doc.addEventListener("pointerdown", handleOutside);
+    if (doc !== document) doc.addEventListener("keydown", handleEscape);
+    view.addEventListener("blur", handleBlur);
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    return () => {
+      doc.removeEventListener("pointerdown", handleOutside);
+      doc.removeEventListener("keydown", handleEscape);
+      view.removeEventListener("blur", handleBlur);
+    };
+  }, [open, close]);
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLSpanElement>) => {
+    if (event.key === "Tab") {
+      close(true);
+      return;
+    }
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const at = items.indexOf(event.currentTarget.ownerDocument.activeElement as HTMLElement);
+    const next =
+      event.key === "ArrowDown"
+        ? items[(at + 1) % items.length]
+        : event.key === "ArrowUp"
+          ? items[(at - 1 + items.length) % items.length]
+          : null;
+    if (next) {
+      event.preventDefault();
+      next.focus();
+    }
+  };
+
+  return { open, toggle: () => setOpen((wasOpen) => !wasOpen), close, rootRef, triggerRef, menuRef, handleKeyDown };
+}
+
+/**
+ * The executive's stored photo as an object URL, or null for the initials. Fetched, since the route needs the bearer
+ * token; the floating window shares this page's origin, so the URL draws there too.
+ */
+function useExecutivePhoto(projectId: string, candidateId: string): string | null {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    let created: string | null = null;
+    requestBlob(`/projects/${projectId}/candidates/${candidateId}/photo`)
+      .then((blob) => {
+        if (disposed) return;
+        created = URL.createObjectURL(blob);
+        setUrl(created);
+      })
+      .catch(() => {
+        // No photo on file: the initials stand.
+      });
+    return () => {
+      disposed = true;
+      if (created) URL.revokeObjectURL(created);
+      setUrl(null);
+    };
+  }, [projectId, candidateId]);
+  return url;
 }
 
 function footerLineOf(copilot: Copilot | null, isMuted: boolean): string {

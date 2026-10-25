@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as apiClient from "../../../../lib/apiClient";
 import * as notetakerApi from "../../api/notetakerApi";
 import type { Copilot } from "../../api/notetakerApi";
+import { clearCopilotViews } from "../../lib/copilotView";
 import { CopilotPanel } from "./CopilotPanel";
 
 vi.mock("../../api/notetakerApi", async (importOriginal) => ({
@@ -16,6 +17,7 @@ vi.mock("../../api/notetakerApi", async (importOriginal) => ({
 vi.mock("../../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../../lib/apiClient")>()),
   streamEvents: vi.fn(),
+  requestBlob: vi.fn(),
 }));
 
 function aCopilot(overrides: Partial<Copilot> = {}): Copilot {
@@ -54,8 +56,8 @@ function aCopilot(overrides: Partial<Copilot> = {}): Copilot {
     speaking: [],
     lastSeq: 2,
     viewers: [
-      { userId: "u1", name: "Omar Siddiqui", you: true },
-      { userId: "u2", name: "Lina Karam", you: false },
+      { userId: "u1", name: "Omar Siddiqui", avatarUrl: "https://pictures.example/omar.jpg", you: true },
+      { userId: "u2", name: "Lina Karam", avatarUrl: null, you: false },
     ],
     ...overrides,
   };
@@ -69,16 +71,19 @@ function renderPanel(onClose = vi.fn()) {
 describe("CopilotPanel", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    clearCopilotViews();
     vi.mocked(apiClient.streamEvents).mockReturnValue(new Promise(() => {}));
+    vi.mocked(apiClient.requestBlob).mockRejectedValue(new Error("no photo"));
   });
 
-  it("heads the window with the mark, its name and who is watching, then coverage, gaps and what to ask", async () => {
+  it("heads the window with the executive and the call, then coverage, gaps, what to ask and who is watching", async () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
     renderPanel();
 
-    expect(await screen.findByText("Intro call · Rania Haddad")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Interview copilot" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Rania Haddad" })).toBeInTheDocument();
+    expect(screen.getByText("Intro call")).toBeInTheDocument();
     expect(screen.getByTitle("Lina Karam is watching")).toBeInTheDocument();
+    expect(screen.getByText("Lina is watching")).toBeInTheDocument();
     expect(screen.getByTitle("Treasury: Evidenced")).toBeInTheDocument();
     expect(screen.getByTitle("M&A: Touched, no example")).toBeInTheDocument();
     expect(screen.getByText("Ask for an integration example.")).toBeInTheDocument();
@@ -118,7 +123,7 @@ describe("CopilotPanel", () => {
     renderPanel();
 
     await userEvent.click(await screen.findByRole("button", { name: "More" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Stop copilot" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Stop copilot/ }));
     expect(screen.getByRole("alertdialog", { name: "Stop the copilot for this call?" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Stop copilot" }));
 
@@ -159,8 +164,7 @@ describe("CopilotPanel", () => {
     render(<CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" onPopOut={onPopOut} />);
 
     expect(await screen.findByText("Intro call")).toBeInTheDocument();
-    expect(screen.queryByText("Intro call · Rania Haddad")).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Interview copilot" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Rania Haddad" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close window" })).not.toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Live" })).toHaveAttribute("aria-selected", "true");
 
@@ -198,5 +202,55 @@ describe("CopilotPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "More" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Show in Uncava" }));
     expect(onShowInUncava).toHaveBeenCalled();
+  });
+
+  it("draws the executive's photo and each teammate's own picture beside their lines", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
+    vi.mocked(apiClient.requestBlob).mockResolvedValue(new Blob(["photo"], { type: "image/jpeg" }));
+    URL.createObjectURL = vi.fn(() => "blob:rania");
+    URL.revokeObjectURL = vi.fn();
+    renderPanel();
+
+    await waitFor(() => expect(screen.getAllByRole("img", { name: "Rania Haddad" })[0]).toHaveAttribute("src", "blob:rania"));
+    expect(apiClient.requestBlob).toHaveBeenCalledWith("/projects/p1/candidates/c1/photo");
+    expect(screen.getAllByRole("img", { name: "Omar Siddiqui" })[0]).toHaveAttribute(
+      "src",
+      "https://pictures.example/omar.jpg",
+    );
+  });
+
+  it("closes its menu on a click elsewhere and on Escape, without picking anything", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
+    renderPanel();
+
+    await userEvent.click(await screen.findByRole("button", { name: "More" }));
+    expect(screen.getByRole("menuitem", { name: "Mute suggestions" })).toHaveFocus();
+    fireEvent.pointerDown(screen.getByText("Ask for an integration example."));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "More" })).toHaveFocus();
+  });
+
+  it("keeps the drawer's tab and the window on one view, muted alike", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
+    render(
+      <>
+        <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" />
+        <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="window" onClose={vi.fn()} />
+      </>,
+    );
+
+    const [, windowTranscript] = await screen.findAllByRole("tab", { name: "Transcript" });
+    await userEvent.click(windowTranscript);
+    for (const tab of screen.getAllByRole("tab", { name: "Transcript" })) {
+      expect(tab).toHaveAttribute("aria-selected", "true");
+    }
+
+    await userEvent.click(screen.getAllByRole("button", { name: "More" })[0]);
+    await userEvent.click(screen.getByRole("menuitem", { name: "Mute suggestions" }));
+    expect(screen.getAllByText("Suggestions muted")).toHaveLength(2);
   });
 });
