@@ -739,6 +739,36 @@ describe("MeetingsSection", () => {
     expect(await screen.findByText("What notice would you need to give?")).toBeInTheDocument();
     expect(notetakerApi.draftInterviewPlan).toHaveBeenCalledTimes(1);
   });
+
+  it("says a call's questions are ready once they are saved", async () => {
+    const asked = {
+      id: "q1",
+      section: "GAP" as const,
+      panel: null,
+      competency: null,
+      gap: "NOTICE" as const,
+      text: "What notice would you need to give?",
+      listenFor: null,
+      why: null,
+      included: true,
+      source: "AI" as const,
+    };
+    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue({
+      meetingId: "m1",
+      title: "First conversation",
+      startsAt: "2026-10-07T06:00:00Z",
+      drafted: true,
+      savedAt: "2026-10-05T06:00:00Z",
+      savedByName: "Yara",
+      competencies: [],
+      missing: ["NOTICE"],
+      questions: [asked, { ...asked, id: "q2", included: false }],
+    });
+    renderSection();
+
+    expect(await screen.findByRole("button", { name: /1 question ready/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Prepare questions" })).not.toBeInTheDocument();
+  });
 });
 
 /** A week from Monday 5 October 2099 in Dubai: Monday to Friday worked 08:00–18:00 (04:00–14:00 UTC). */

@@ -2592,8 +2592,13 @@
   </sc-if>
 
   <!-- Interview plan (Prepare questions): fit questions per competency of the brief — not yet evidenced first, each with
-       what to listen for — a polite question for each fact the record is missing, and at most two clarifiers. Every
-       question ticks, edits (✎) or goes (✕); + Add your own per section. Regenerate (one AI use), Copy as text, Save. -->
+       what to listen for — a polite question for each fact the record is missing (the missing facts named under the
+       heading), and at most two clarifiers. Flat sections, no nested cards; a line of section chips at the top jumps to
+       each. A question's text is clicked to reword it and its ✕ shows on hover; Add a question per section. While it
+       drafts, three steps (Reading the brief · Checking the record for gaps · Writing the questions) and only Cancel.
+       Footer: "N of M to ask" (· Unsaved changes / · Saved), Regenerate (one AI use; not over unsaved edits), Copy,
+       Save questions — which saves and closes on a toast; a saved plan with nothing changed offers Done. Closing over
+       unsaved edits asks first. The drawer row then reads "✓ N questions ready · Open". -->
   <sc-if value="{{ interviewPlanOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeInterviewPlan }}" style="position:fixed;inset:0;z-index:110;display:grid;place-items:center;background:rgba(0,0,0,.6);padding:16px">
       <div role="dialog" aria-modal="true" aria-label="Interview plan" data-screen-label="Interview plan" onClick="{{ stop }}" style="width:560px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;border-radius:12px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow);animation:fadeUp .2s ease both">
@@ -2613,7 +2618,7 @@
               <div style="font:500 12.5px var(--sans)">Board &amp; investor communication <span style="font:500 11px var(--mono);color:var(--text3)">15%</span><span style="margin-left:8px;border-radius:999px;padding:1px 8px;font:500 11px var(--sans);background:var(--green-dim);color:var(--green)">Already evidenced in notes</span></div>
               <label style="display:flex;gap:10px;font:400 13.5px/1.5 var(--sans)"><input type="checkbox" checked>How do you prepare for an audit committee that disagrees with management?</label>
             </div>
-            <button style="align-self:flex-start;padding:0;background:none;border:none;font:500 12.5px var(--sans);color:var(--sky);cursor:pointer">+ Add your own</button>
+            <button style="align-self:flex-start;padding:0;background:none;border:none;font:500 12.5px var(--sans);color:var(--sky);cursor:pointer">+ Add a question</button>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <div style="font:600 13px var(--sans)">Fill the gaps <span style="font:400 12px var(--sans);color:var(--text3)">Only what the record is missing</span></div>
@@ -2626,11 +2631,11 @@
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;padding:12px 22px;border-top:1px solid var(--line)">
-          <button style="padding:0 6px;background:none;border:none;font:500 12.5px var(--sans);color:var(--text3);cursor:pointer">✦ Regenerate</button>
-          <span style="font:400 12px var(--sans);color:var(--text3)">5 of 5 ticked</span>
+          <button style="padding:0 6px;background:none;border:none;font:500 12.5px var(--sans);color:var(--text3);cursor:pointer">Regenerate</button>
+          <span style="font:400 12px var(--sans);color:var(--text3)">5 of 5 to ask</span>
           <span style="flex:1"></span>
-          <button style="border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Copy as text</button>
-          <button onClick="{{ closeInterviewPlan }}" style="border-radius:6px;padding:7px 14px;font:600 13px var(--sans);background:var(--sky);border:1px solid var(--sky);color:#fff;cursor:pointer">Save</button>
+          <button style="border-radius:6px;padding:7px 14px;font:500 13px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text2);cursor:pointer">Copy</button>
+          <button onClick="{{ closeInterviewPlan }}" style="border-radius:6px;padding:7px 14px;font:600 13px var(--sans);background:var(--sky);border:1px solid var(--sky);color:#fff;cursor:pointer">Save questions</button>
         </div>
       </div>
     </div>
