@@ -728,13 +728,27 @@ describe("MeetingsSection", () => {
     });
 
     expect(screen.queryByRole("switch", { name: "Live copilot" })).not.toBeInTheDocument();
-    await userEvent.click(await screen.findByRole("button", { name: "Open copilot ↗" }));
+    expect(await screen.findByRole("switch", { name: "Record with Notetaker" })).toBeChecked();
+    expect(screen.getByText("Rec")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Open copilot" }));
 
     expect(openCopilotWindow).toHaveBeenCalledWith(
       { projectId: "p1", candidateId: "c1", recordingId: "r1" },
       expect.any(Function),
     );
     expect(await screen.findByRole("region", { name: "Interview copilot" })).toBeInTheDocument();
+  });
+
+  it("says in the call that a copilot can no longer be added, and that the Notetaker is still joining", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "JOINING", liveCopilot: false })],
+    });
+
+    expect(await screen.findByText("Joining…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open copilot" })).not.toBeInTheDocument();
+    await userEvent.hover(screen.getByText("Copilot off"));
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(/can't be added to this call/);
   });
 
   it("prepares questions for an upcoming call, drafting them the first time it opens", async () => {

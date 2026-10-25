@@ -1773,8 +1773,9 @@
                           <!-- Interview copilot: Prepare questions on every upcoming call opens the Interview plan; before the bot
                                joins, one strip holds both switches, Notetaker | Live copilot, with a few words of status at its
                                end and each switch explained on hover (Recall streams a call only to a bot made for it, so the
-                               copilot is chosen then). Once the bot is in, the strip offers Open copilot ↗, a small
-                               always-on-top window over the call. -->
+                               copilot is chosen then). Once the bot is in, the strip keeps its shape: the copilot's half becomes a
+                               solid Open copilot button (a small always-on-top window over the call), or "Copilot off" when none
+                               was chosen, and its end reads ● Rec with the call's running time. -->
                           <button onClick="{{ openInterviewPlan }}" style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Prepare questions</button>
                           <span style="display:flex;align-items:center;gap:10px;margin-top:6px;border-radius:6px;border:1px solid var(--line);padding:6px 10px">
                             <span style="flex:1;min-width:0"><span style="display:block;font:500 12px var(--sans)">Live copilot</span><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Prompts you during the call · only you see it</span></span>

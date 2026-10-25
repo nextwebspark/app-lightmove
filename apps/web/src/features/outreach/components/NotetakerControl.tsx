@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Toggle, useToast } from "../../../components/ui";
@@ -9,6 +9,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import type { Meeting } from "../api/meetingApi";
 import * as notetakerApi from "../api/notetakerApi";
 import type { NotetakerRecording } from "../api/notetakerApi";
+import { elapsedSince } from "../lib/copilotWords";
 import {
   canRecord,
   failureWordsOf,
@@ -218,6 +219,75 @@ export function NotetakerControl({
     );
   }
 
+  // In the call the strip keeps its shape: the copilot's half becomes the way into it, the end says how long it has run.
+  if (hasSwitch && recording && (recording.status === "JOINING" || recording.status === "RECORDING")) {
+    const isRecording = recording.status === "RECORDING";
+    return (
+      <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-u-control border border-u-accent/30 bg-u-surface px-2.5 py-[5px]">
+        <SwitchWithDetail
+          icon={ICONS.mic}
+          label="Notetaker"
+          switchLabel="Record with Notetaker"
+          checked
+          onChange={handleSwitch}
+          disabled={remove.isPending}
+          detail={
+            isRecording ? (
+              <>Recording the call. Switch it off to take the Notetaker out; nothing more is recorded.</>
+            ) : (
+              <>On its way into the call. If it waits in the lobby, let it in from the call.</>
+            )
+          }
+        />
+        <span aria-hidden="true" className="h-4 w-px flex-none bg-u-border" />
+        {recording.liveCopilot ? (
+          <WithDetail
+            label="Live copilot"
+            detail={<>Coverage, what to ask next and the transcript, in a window that floats over the call.</>}
+          >
+            <button
+              type="button"
+              onClick={() => onOpenCopilot(recording.id)}
+              className="inline-flex flex-none items-center gap-1.5 rounded-u-control bg-u-accent-solid px-2.5 py-1 text-note font-semibold text-white hover:bg-u-accent-solid-hover"
+            >
+              <Icon d={ICONS.sparkle} size={13} />
+              Open copilot
+              <Icon d={ICONS.externalLink} size={12} className="opacity-80" />
+            </button>
+          </WithDetail>
+        ) : (
+          <WithDetail
+            label="Live copilot"
+            detail={<>It is chosen before the Notetaker joins, so it can&apos;t be added to this call.</>}
+          >
+            <span className="inline-flex flex-none cursor-default items-center gap-2 text-note text-u-text3">
+              <Icon d={ICONS.sparkle} size={14} />
+              Copilot off
+            </span>
+          </WithDetail>
+        )}
+        <span className="ms-auto flex flex-none items-center gap-1.5 font-mono text-meta">
+          <span
+            aria-hidden="true"
+            className={cn(
+              "size-1.5 rounded-full",
+              isRecording ? "animate-pulse bg-u-offlimits" : "animate-pulse bg-u-text3",
+            )}
+          />
+          {isRecording ? (
+            <>
+              <span className="text-u-text2">Rec</span>
+              <ElapsedClock since={recording.startsAt} />
+            </>
+          ) : (
+            <span className="text-u-text3">Joining…</span>
+          )}
+        </span>
+        {removeDialog}
+      </span>
+    );
+  }
+
   return (
     <span
       className={cn("mt-1.5 flex items-center gap-2.5 rounded-u-control border px-2.5 py-[7px]", TONE_CLASS[tone])}
@@ -229,19 +299,7 @@ export function NotetakerControl({
       />
       <span className="min-w-0 flex-1">
         <span className="block text-note font-medium text-u-text">Notetaker</span>
-        <span
-          className={cn(
-            "block font-mono text-meta",
-            recording?.status === "RECORDING" ? "text-u-accent" : LINE_CLASS[tone],
-          )}
-        >
-          {recording?.status === "RECORDING" && (
-            <span aria-hidden="true" className="me-1.5 inline-block size-1.5 rounded-full bg-u-offlimits align-middle" />
-          )}
-          {line}
-          {recording?.liveCopilot && (recording.status === "JOINING" || recording.status === "RECORDING") &&
-            " · Live copilot on"}
-        </span>
+        <span className={cn("block font-mono text-meta", LINE_CLASS[tone])}>{line}</span>
       </span>
       {mayOpenCopilot && recording && (
         <button type="button" onClick={() => onOpenCopilot(recording.id)} className={cn(ROW_ACTION, "text-u-accent")}>
@@ -340,7 +398,17 @@ function shortLineOf(recording: NotetakerRecording | null, timing: CallTiming): 
   return SHORT_OFF_LINE[timing];
 }
 
-/** A labelled switch whose explanation opens on hover or focus, portalled so the drawer's scroll never clips it. */
+/** How long the call has run, by its booked start, ticking each second as the copilot's window does. */
+function ElapsedClock({ since }: { since: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <span className="tabular-nums text-u-text2">{elapsedSince(since, now)}</span>;
+}
+
+/** A labelled switch whose explanation opens on hover or focus. */
 function SwitchWithDetail({
   icon,
   label,
@@ -358,6 +426,19 @@ function SwitchWithDetail({
   disabled: boolean;
   detail: ReactNode;
 }) {
+  return (
+    <WithDetail label={label} detail={detail}>
+      <span className="inline-flex flex-none items-center gap-2">
+        <Icon d={icon} size={14} className={cn("flex-none", checked ? "text-u-accent" : "text-u-text3")} />
+        <span className="cursor-default text-note font-medium text-u-text">{label}</span>
+        <Toggle checked={checked} onChange={onChange} label={switchLabel} disabled={disabled} />
+      </span>
+    </WithDetail>
+  );
+}
+
+/** Opens an explanation on hover or focus, portalled so the drawer's scroll never clips it. */
+function WithDetail({ label, detail, children }: { label: string; detail: ReactNode; children: ReactNode }) {
   const ref = useRef<HTMLSpanElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const tipId = useId();
@@ -371,11 +452,9 @@ function SwitchWithDetail({
       onFocus={show}
       onBlur={hide}
       aria-describedby={anchor ? tipId : undefined}
-      className="inline-flex flex-none items-center gap-2"
+      className="inline-flex flex-none"
     >
-      <Icon d={icon} size={14} className={cn("flex-none", checked ? "text-u-accent" : "text-u-text3")} />
-      <span className="cursor-default text-note font-medium text-u-text">{label}</span>
-      <Toggle checked={checked} onChange={onChange} label={switchLabel} disabled={disabled} />
+      {children}
       {anchor &&
         createPortal(
           <span
