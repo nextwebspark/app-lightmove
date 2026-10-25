@@ -157,7 +157,14 @@ export function MeetingsSection({
               meeting={meeting}
               onReschedule={meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined}
               onCancel={meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined}
-              onPrepare={() => setPlanOf(meeting.id)}
+              prepare={
+                <PrepareQuestionsLink
+                  projectId={projectId}
+                  candidateId={candidateId}
+                  meetingId={meeting.id}
+                  onOpen={() => setPlanOf(meeting.id)}
+                />
+              }
               notetaker={notetakerFor(meeting)}
             />
           ))}
@@ -279,18 +286,59 @@ export function MeetingsSection({
   );
 }
 
+/** Opens the questions prepared for this call, drafting them the first time; once saved, says they are ready. */
+function PrepareQuestionsLink({
+  projectId,
+  candidateId,
+  meetingId,
+  onOpen,
+}: {
+  projectId: string;
+  candidateId: string;
+  meetingId: string;
+  onOpen: () => void;
+}) {
+  const plan = useQuery({
+    queryKey: notetakerApi.INTERVIEW_PLAN_KEY(projectId, candidateId, meetingId),
+    queryFn: ({ signal }) => notetakerApi.getInterviewPlan(projectId, candidateId, meetingId, signal),
+  });
+  const asking = plan.data?.questions.filter((question) => question.included).length ?? 0;
+  if (plan.data?.savedAt) {
+    return (
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-0.5 inline-flex items-center gap-1 text-note font-medium text-u-text2 hover:text-u-text hover:underline hover:underline-offset-2"
+      >
+        <Icon d={ICONS.check} size={12} className="text-u-direct" />
+        {asking === 1 ? "1 question ready" : `${asking} questions ready`}
+        <span className="text-u-accent">· Open</span>
+      </button>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="mt-0.5 inline-flex items-center gap-1 text-note font-medium text-u-accent hover:underline hover:underline-offset-2"
+    >
+      <Icon d={ICONS.checklist} size={12} />
+      Prepare questions
+    </button>
+  );
+}
+
 function UpcomingMeeting({
   meeting,
   onReschedule,
   onCancel,
-  onPrepare,
+  prepare,
   notetaker,
 }: {
   meeting: Meeting;
   onReschedule?: () => void;
   onCancel?: () => void;
-  /** Opens the questions prepared for this call, drafting them the first time. */
-  onPrepare: () => void;
+  prepare: ReactNode;
   notetaker: ReactNode;
 }) {
   const tile = dateTileOf(meeting.startsAt);
@@ -311,14 +359,7 @@ function UpcomingMeeting({
             {when}
             {meeting.ownerName ? ` · ${meeting.ownerName}` : ""}
           </span>
-          <button
-            type="button"
-            onClick={onPrepare}
-            className="mt-0.5 inline-flex items-center gap-1 text-note font-medium text-u-accent hover:underline hover:underline-offset-2"
-          >
-            <Icon d={ICONS.sparkle} size={12} />
-            Prepare questions
-          </button>
+          {prepare}
           {meeting.viaLink && (
             <span className="mt-1 inline-flex rounded-[5px] bg-u-direct-tint px-[7px] py-px font-mono text-[10px] font-semibold text-u-direct">
               Booked through your link

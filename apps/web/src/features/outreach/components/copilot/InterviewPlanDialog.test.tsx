@@ -57,14 +57,15 @@ function aPlan(overrides: Partial<InterviewPlan> = {}): InterviewPlan {
   };
 }
 
-function renderDialog() {
+function renderDialog(onClose = vi.fn()) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <ToastProvider>
-        <InterviewPlanDialog projectId="p1" candidateId="c1" meetingId="m1" firstName="Rania" onClose={vi.fn()} />
+        <InterviewPlanDialog projectId="p1" candidateId="c1" meetingId="m1" firstName="Rania" onClose={onClose} />
       </ToastProvider>
     </QueryClientProvider>,
   );
+  return onClose;
 }
 
 describe("InterviewPlanDialog", () => {
@@ -79,8 +80,19 @@ describe("InterviewPlanDialog", () => {
     expect(notetakerApi.draftInterviewPlan).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Treasury")).toBeInTheDocument();
     expect(screen.getByText("A named deal and her own call")).toBeInTheDocument();
-    expect(screen.getByText("For the record: Notice")).toBeInTheDocument();
-    expect(screen.getByText("2 of 2 ticked")).toBeInTheDocument();
+    expect(screen.getByText("Missing on record:")).toBeInTheDocument();
+    expect(screen.getByText(/^2 of 2 to ask/)).toBeInTheDocument();
+  });
+
+  it("says what it is doing while the questions are drafted, with only Cancel to press", async () => {
+    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue(aPlan({ drafted: false, questions: [] }));
+    vi.mocked(notetakerApi.draftInterviewPlan).mockReturnValue(new Promise(() => {}));
+    renderDialog();
+
+    expect(await screen.findByText("Reading the brief")).toBeInTheDocument();
+    expect(screen.getByText("Checking Rania's record for gaps")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save questions" })).not.toBeInTheDocument();
   });
 
   it("saves the questions as the consultant left them: unticked, edited and added", async () => {
@@ -88,17 +100,17 @@ describe("InterviewPlanDialog", () => {
     vi.mocked(notetakerApi.saveInterviewPlan).mockImplementation(async (_p, _c, _m, questions) =>
       aPlan({ questions: questions.map((question, index) => ({ ...question, id: question.id ?? `n${index}` })) }),
     );
-    renderDialog();
+    const onClose = renderDialog();
 
     const ask = await screen.findAllByRole("checkbox", { name: "Ask this question" });
     await userEvent.click(ask[1]);
-    await userEvent.click(screen.getAllByRole("button", { name: "Edit question" })[0]);
+    await userEvent.click(screen.getByRole("button", { name: "Tell me about a refinancing you led." }));
     const edited = screen.getByRole("textbox", { name: "Question" });
     await userEvent.clear(edited);
     await userEvent.type(edited, "Walk me through one refinancing.");
-    await userEvent.click(screen.getAllByRole("button", { name: "+ Add your own" })[2]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Add a question" })[2]);
     await userEvent.type(screen.getAllByRole("textbox", { name: "Question" }).at(-1)!, "My own question.");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save questions" }));
 
     const saved = vi.mocked(notetakerApi.saveInterviewPlan).mock.calls[0][3];
     expect(saved.map((question) => [question.id, question.text, question.included])).toEqual([
@@ -108,6 +120,23 @@ describe("InterviewPlanDialog", () => {
     ]);
     expect(saved.every((question) => !("key" in question))).toBe(true);
     expect(await screen.findByText("Questions for Rania saved.")).toBeInTheDocument();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks before closing over unsaved changes, and offers Done once saved", async () => {
+    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue(
+      aPlan({ savedAt: "2026-10-25T08:00:00Z", savedByName: "Yara" }),
+    );
+    const onClose = renderDialog();
+
+    expect(await screen.findByText(/to ask · Saved/)).toBeInTheDocument();
+    await userEvent.click(screen.getAllByRole("checkbox", { name: "Ask this question" })[0]);
+    expect(screen.getByText(/Unsaved changes/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(await screen.findByText("Discard your changes?")).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("offers Try again when the AI could not answer, and drafts again when pressed", async () => {
