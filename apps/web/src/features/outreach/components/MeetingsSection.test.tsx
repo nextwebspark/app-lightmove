@@ -237,7 +237,8 @@ describe("MeetingsSection", () => {
     expect(send).toBeDisabled();
 
     pickTime("10:30");
-    expect(screen.getByText("Mon 5 Oct · 10:30–11:00 · Asia/Dubai")).toBeInTheDocument();
+    expect(screen.getByText("Mon 5 Oct")).toBeInTheDocument();
+    expect(screen.getByText("10:30 – 11:00 · 30 min")).toBeInTheDocument();
     await userEvent.click(send);
 
     await waitFor(() =>
@@ -264,8 +265,8 @@ describe("MeetingsSection", () => {
     pickTime("19:40");
     fireEvent.change(screen.getByLabelText("Call ends"), { target: { value: "20:30" } });
 
-    expect(screen.getByText("Mon 5 Oct · 19:40–20:30 · Asia/Dubai")).toBeInTheDocument();
-    expect(screen.getByText("Outside your working hours · 50 min")).toBeInTheDocument();
+    expect(screen.getByText("19:40 – 20:30 · 50 min")).toBeInTheDocument();
+    expect(screen.getByText("Outside your working hours")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Other" })).toHaveAttribute("aria-checked", "true");
     await userEvent.click(screen.getByRole("button", { name: "Send invite" }));
 
@@ -303,13 +304,13 @@ describe("MeetingsSection", () => {
     await screen.findByRole("group", { name: "Your week" });
     fireEvent.change(screen.getByLabelText("Call date"), { target: { value: "2099-10-10" } });
     pickTime("10:00");
-    expect(screen.getByText("Sat 10 Oct · 10:00–10:30 · Asia/Dubai")).toBeInTheDocument();
+    expect(screen.getByText("Sat 10 Oct")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Later days" }));
     await waitFor(() =>
       expect(meetingApi.getMeetingCalendar).toHaveBeenLastCalledWith("p1", "c1", "2099-10-12", null, expect.anything()),
     );
-    expect(await screen.findByText("Drag on your calendar, or pick a time")).toBeInTheDocument();
+    expect(await screen.findByText("Pick a time on your calendar")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send invite" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "Earlier days" }));
@@ -665,7 +666,7 @@ describe("MeetingsSection", () => {
     expect(toggle).toHaveAttribute("aria-checked", "true");
     await userEvent.click(screen.getByRole("button", { name: "Send invite" }));
 
-    await waitFor(() => expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m9"));
+    await waitFor(() => expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m9", false));
     expect(await screen.findByText(/The Notetaker will join and file its notes\./)).toBeInTheDocument();
   });
 
@@ -683,6 +684,25 @@ describe("MeetingsSection", () => {
     await waitFor(() => expect(meetingApi.bookMeeting).toHaveBeenCalled());
     expect(await screen.findByText(/Invite sent to Priya/)).toBeInTheDocument();
     expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
+  });
+
+  it("books with the live copilot, which switches the Notetaker on with it", async () => {
+    vi.mocked(meetingApi.getMeetingCalendar).mockResolvedValue(aWeek());
+    vi.mocked(meetingApi.bookMeeting).mockResolvedValue({ meetingId: "m9" });
+    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(aRecording({ meetingId: "m9", liveCopilot: true }));
+    renderSection({ notetakerOffered: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await screen.findByRole("group", { name: "Your week" });
+    pickTime("10:00");
+    const dialog = within(screen.getByRole("dialog"));
+    await userEvent.click(dialog.getByRole("switch", { name: "Record with Notetaker" }));
+    await userEvent.click(dialog.getByRole("switch", { name: "Live copilot" }));
+    expect(dialog.getByRole("switch", { name: "Record with Notetaker" })).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Send invite" }));
+
+    await waitFor(() => expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m9", true));
+    expect(await screen.findByText(/the live copilot will follow the call for you/)).toBeInTheDocument();
   });
 
   it("offers no Notetaker in Book a call where none is set up", async () => {
