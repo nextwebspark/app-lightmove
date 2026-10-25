@@ -123,7 +123,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    copy of it is), edited, ticked and saved through `PUT …/meetings/{meetingId}/plan`; Regenerate redrafts the model's
    questions and keeps the consultant's own. A press is one `AI_ENRICH` use and its own `LlmBudget.INTERVIEW_PLAN` meter;
    a claim (`drafting_since`) keeps two presses to one call, and a failed or empty draft stores and charges nothing.
-10. **Live copilot.** Under the Notetaker's switch sits **Live copilot**, chosen before the bot joins, because Recall
+10. **Live copilot.** Under the Notetaker's switch sits **Live copilot** — on a meeting's row and in Book a call's Recording
+    card, where switching it on switches the Notetaker on too and switching the Notetaker off takes it with it — chosen before the bot joins, because Recall
     streams a transcript only to a bot made for it: sent with `realtime_endpoints` (`transcript.data`,
     `transcript.partial_data`) pointing at `/api/v1/notetaker/webhooks/recall/live`, in `recallai_streaming`'s
     `prioritize_low_latency` mode, which transcribes English only — a bot without the copilot keeps the accurate mode.

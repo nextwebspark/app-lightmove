@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Field, Input, Modal, Select, Skeleton, Toggle, useToast } from "../../../components/ui";
+import { Button, Input, Modal, Select, Skeleton, Toggle, useToast } from "../../../components/ui";
 import { DateInput } from "../../../components/ui/DateInput";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
@@ -110,6 +110,9 @@ export function BookCallDialog({
   const [inviteAddress, setInviteAddress] = useState(emails[0]?.address ?? "");
   const [title, setTitle] = useState(DEFAULT_TITLE);
   const [withNotetaker, setWithNotetaker] = useState(true);
+  const [withCopilot, setWithCopilot] = useState(false);
+  // Focus opens on the week's heading: landing in the invite's first field reads as something to fix.
+  const weekHeading = useRef<HTMLHeadingElement>(null);
 
   const calendar = useQuery({
     queryKey: meetingApi.MEETING_CALENDAR_KEY(projectId, candidateId, from, meeting?.id ?? null),
@@ -163,7 +166,7 @@ export function BookCallDialog({
       if (!(offersNotetaker && withNotetaker)) return { sent: false, failure: null };
       // The invite has gone whatever the Notetaker answers, so its refusal is told apart rather than failing the booking.
       try {
-        await notetakerApi.scheduleNotetaker(projectId, candidateId, booked.meetingId);
+        await notetakerApi.scheduleNotetaker(projectId, candidateId, booked.meetingId, withCopilot);
         return { sent: true, failure: null };
       } catch (failure) {
         return { sent: false, failure };
@@ -178,7 +181,11 @@ export function BookCallDialog({
         toast(
           `Invite sent to ${firstName} for ${when}.` +
             (movesForward ? ` They moved to ${bookedTarget.label}.` : "") +
-            (notetaker.sent ? " The Notetaker will join and file its notes." : ""),
+            (notetaker.sent
+              ? withCopilot
+                ? " The Notetaker will join, and the live copilot will follow the call for you."
+                : " The Notetaker will join and file its notes."
+              : ""),
         );
       }
       if (notetaker.failure) {
@@ -203,6 +210,17 @@ export function BookCallDialog({
       }
     },
   });
+
+  // The copilot follows the Notetaker's stream, so one can't be on without the other.
+  const handleNotetakerSwitch = (next: boolean) => {
+    setWithNotetaker(next);
+    if (!next) setWithCopilot(false);
+  };
+
+  const handleCopilotSwitch = (next: boolean) => {
+    setWithCopilot(next);
+    if (next) setWithNotetaker(true);
+  };
 
   const handleChoose = (next: CallChoice) => {
     setStart(next.start);
@@ -259,38 +277,38 @@ export function BookCallDialog({
       ? [shiftDateOf(view.from, -view.days), view.earliestDate].sort().at(-1) ?? null
       : null;
 
-  const summary =
-    choice && fields ? `${slotDayLabelOf(fields.date)} · ${fields.from}–${fields.to} · ${timeZone}` : null;
+  const whenLine = fields ? `${fields.from} – ${fields.to === "24:00" ? "00:00" : fields.to} · ${lengthLabelOf(minutes)}` : null;
+  const status: { tone: "refused" | "warn" | "ok"; words: string } | null = choice
+    ? refusal
+      ? { tone: "refused", words: refusal }
+      : isOutsideWorkingHours
+        ? { tone: "warn", words: "Outside your working hours" }
+        : { tone: "ok", words: "Free on your calendar" }
+    : null;
+  const missing = isRescheduling
+    ? null
+    : inviteAddress === ""
+      ? `Add an email for ${firstName} to send an invite`
+      : title.trim() === ""
+        ? "Give the call a title"
+        : null;
 
   const footer = (
     <div className="flex w-full items-center gap-2.5">
-      <div className="min-w-0 flex-1">
-        {summary ? (
-          <>
-            <div className="truncate text-[13px] font-semibold text-u-text">{summary}</div>
-            <div
-              className={cn(
-                "truncate font-mono text-[11.5px]",
-                refusal ? "text-u-offlimits" : isOutsideWorkingHours ? "text-u-signal" : "text-u-text3",
-              )}
-              role={refusal ? "alert" : undefined}
-            >
-              {refusal ??
-                (isOutsideWorkingHours
-                  ? `Outside your working hours · ${minutes} min`
-                  : `${minutes} min · ${isRescheduling ? "update" : "invite"} from ${view?.address}`)}
-            </div>
-          </>
-        ) : (
-          <span className="font-mono text-note text-u-text3">Drag on your calendar, or pick a time</span>
-        )}
-      </div>
+      <p className="min-w-0 flex-1 truncate text-note text-u-text3">
+        {choice === null
+          ? "Drag on your calendar, or type a time under When."
+          : (missing ??
+            (view
+              ? `${isRescheduling ? "The new time goes" : "The invite goes"} from ${view.address}`
+              : ""))}
+      </p>
       <Button type="button" variant="secondary" onClick={onClose}>
         Cancel
       </Button>
       <Button
         type="button"
-        disabled={choice === null || refusal !== null || (!isRescheduling && (inviteAddress === "" || title.trim() === ""))}
+        disabled={choice === null || refusal !== null || missing !== null}
         loading={book.isPending}
         onClick={() => book.mutate()}
       >
@@ -306,14 +324,14 @@ export function BookCallDialog({
       title={isRescheduling ? `Reschedule call with ${fullName}` : `Book a call with ${fullName}`}
       subtitle={view ? `Your calendar · ${view.address} · ${view.timeZone}` : " "}
       closeButton
+      initialFocusRef={weekHeading}
       footer={footer}
-      className="md:w-[1040px]"
+      className="md:w-[1080px]"
     >
-      <div className="grid gap-6 pb-2 md:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="grid gap-6 pb-2 md:grid-cols-[minmax(0,1fr)_300px]">
         <section aria-label="Time" className="min-w-0">
           <div className="mb-3 flex items-center gap-2">
-            <span className="type-label text-u-text3">Week</span>
-            <span className="hidden font-mono text-meta text-u-text3 sm:inline">Drag on your calendar to pick a time</span>
+            <h3 ref={weekHeading} tabIndex={-1} className="text-lead font-semibold text-u-text outline-none">{firstShown ? monthOf(firstShown) : "\u00a0"}</h3>
             {firstShown && lastShown && view && (
               <SlotPager
                 firstShown={firstShown}
@@ -328,9 +346,9 @@ export function BookCallDialog({
           </div>
 
           {calendar.isPending ? (
-            <Skeleton className="h-[420px] w-full" />
+            <Skeleton className="h-[540px] w-full" />
           ) : calendar.isError ? (
-            <p role="alert" className="text-[12.5px] text-u-offlimits">
+            <p role="alert" className="text-body text-u-offlimits">
               {messageFor(calendar.error)}
             </p>
           ) : (
@@ -351,50 +369,21 @@ export function BookCallDialog({
                   now={new Date()}
                   onChoose={handleChoose}
                 />
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-meta text-u-text3">
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-meta text-u-text3">
                   <span className="inline-flex items-center gap-1.5">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm bg-u-accent-tint" />
+                    <span aria-hidden="true" className="size-2.5 rounded-sm bg-u-accent-tint ring-1 ring-u-accent/30" />
                     {WORKING_HOURS_LABEL[view.workingHoursSource]}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-sm border border-u-border bg-u-raised" />
+                    <span aria-hidden="true" className="size-2.5 rounded-sm border border-u-border-strong bg-u-raised" />
                     Busy
                   </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="h-0.5 w-2.5 rounded-full bg-u-offlimits" />
+                    Now
+                  </span>
+                  <span className="ms-auto hidden sm:inline">Drag to pick a time · click for {lengthLabelOf(minutes)}</span>
                 </div>
-                <fieldset className="mt-4 flex flex-wrap items-end gap-2.5">
-                  <legend className="sr-only">Pick a time</legend>
-                  <Field label="Pick a time">
-                    <DateInput
-                      value={fields?.date ?? pickedDate ?? firstShown ?? ""}
-                      min={view.earliestDate}
-                      max={view.latestDate}
-                      onChange={handleDateChange}
-                      ariaLabel="Call date"
-                      className="w-[150px] px-2.5 py-2 text-note"
-                    />
-                  </Field>
-                  <Field label="From">
-                    <Input
-                      type="time"
-                      step={300}
-                      aria-label="Call starts"
-                      value={fields?.from ?? ""}
-                      onChange={(event) => handleFromChange(event.target.value)}
-                      className="w-[110px] px-2.5 py-2 text-note"
-                    />
-                  </Field>
-                  <Field label="To">
-                    <Input
-                      type="time"
-                      step={300}
-                      aria-label="Call ends"
-                      value={fields?.to === "24:00" ? "00:00" : (fields?.to ?? "")}
-                      disabled={fields === null}
-                      onChange={(event) => handleToChange(event.target.value)}
-                      className="w-[110px] px-2.5 py-2 text-note"
-                    />
-                  </Field>
-                </fieldset>
               </div>
             )
           )}
@@ -402,21 +391,96 @@ export function BookCallDialog({
 
         <section
           aria-label="Details"
-          className="border-t border-u-border pt-5 md:border-s md:border-t-0 md:ps-6 md:pt-0"
+          className="flex flex-col gap-5 border-t border-u-border pt-5 md:border-s md:border-t-0 md:ps-6 md:pt-0"
         >
-          <div className="mb-4">
-            <span className="mb-1.5 block font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-u-text3">
-              Length
-            </span>
+          <div>
+            <SectionLabel>When</SectionLabel>
+            <div
+              className={cn(
+                "rounded-u-card border px-3.5 py-3",
+                status?.tone === "refused"
+                  ? "border-u-offlimits/40 bg-u-offlimits-tint"
+                  : choice
+                    ? "border-u-accent/30 bg-u-accent-tint"
+                    : "border-dashed border-u-border-strong bg-u-surface",
+              )}
+            >
+              {fields && whenLine ? (
+                <>
+                  <div className="text-lead font-semibold text-u-text">{slotDayLabelOf(fields.date)}</div>
+                  <div className="mt-0.5 text-body text-u-text2">{whenLine}</div>
+                  {status && (
+                    <div
+                      role={status.tone === "refused" ? "alert" : undefined}
+                      className={cn(
+                        "mt-2 flex items-center gap-1.5 text-note font-medium",
+                        status.tone === "refused"
+                          ? "text-u-offlimits"
+                          : status.tone === "warn"
+                            ? "text-u-signal"
+                            : "text-u-direct",
+                      )}
+                    >
+                      <span aria-hidden="true" className="size-1.5 flex-none rounded-full bg-current" />
+                      {status.words}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-center gap-2.5 text-body text-u-text3">
+                  <Icon d={ICONS.calendar} size={16} className="flex-none" />
+                  Pick a time on your calendar
+                </div>
+              )}
+              {view && (
+                <fieldset className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+                  <legend className="sr-only">Pick a time</legend>
+                  <div className="col-span-3">
+                    <DateInput
+                      value={fields?.date ?? pickedDate ?? firstShown ?? ""}
+                      min={view.earliestDate}
+                      max={view.latestDate}
+                      onChange={handleDateChange}
+                      ariaLabel="Call date"
+                      className="w-full bg-u-bg px-2.5 py-1.5 text-note"
+                    />
+                  </div>
+                  <Input
+                    type="time"
+                    step={300}
+                    aria-label="Call starts"
+                    value={fields?.from ?? ""}
+                    onChange={(event) => handleFromChange(event.target.value)}
+                    className="w-full bg-u-bg px-2.5 py-1.5 text-note"
+                  />
+                  <span aria-hidden="true" className="text-note text-u-text3">
+                    –
+                  </span>
+                  <Input
+                    type="time"
+                    step={300}
+                    aria-label="Call ends"
+                    value={fields?.to === "24:00" ? "00:00" : (fields?.to ?? "")}
+                    disabled={fields === null}
+                    onChange={(event) => handleToChange(event.target.value)}
+                    className="w-full bg-u-bg px-2.5 py-1.5 text-note"
+                  />
+                </fieldset>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <SectionLabel>Length</SectionLabel>
             <SegmentedControl
               label="Length"
               options={LENGTHS}
               value={isOtherLength ? "other" : String(minutes)}
               onChange={handleLengthChange}
-              className="max-w-full flex-wrap"
+              className="grid w-full grid-cols-3"
             />
-            {isOtherLength ? (
-              <label className="mt-2 flex items-center gap-2 font-mono text-meta text-u-text3">
+            {isOtherLength && (
+              <label className="mt-2 flex items-center gap-2 text-note text-u-text3">
                 <Input
                   type="number"
                   aria-label="Call length in minutes"
@@ -429,78 +493,86 @@ export function BookCallDialog({
                 />
                 minutes, up to {(view?.maxMinutes ?? 480) / 60} hr
               </label>
-            ) : (
-              <p className="mt-2 font-mono text-meta text-u-text3">Or drag on your calendar for any length.</p>
             )}
           </div>
+
           {meeting ? (
-            <p className="text-note text-u-text3">
+            <p className="rounded-u-chip bg-u-surface px-3 py-2.5 text-note text-u-text2">
               Now {meetingWhenOf(meeting.startsAt, meeting.endsAt)}. {firstName} is sent the new time; the title
               {meeting.videoProvider ? ` and the ${meeting.videoProvider} link stay` : " stays"} as booked.
             </p>
           ) : (
             <>
-              <Field
-                label="Video"
-                hint={
-                  video === "MICROSOFT_TEAMS"
-                    ? "Where your organisation doesn't offer Teams, the invite goes without a link."
-                    : undefined
-                }
-              >
-                <Select
-                  aria-label="Video link"
-                  value={video}
-                  onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
-                  className="px-2.5 py-2 text-[12.5px]"
-                >
-                  {videoLinks.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field label="Invite">
-                <Select
-                  aria-label="Invite address"
-                  value={inviteAddress}
-                  onChange={(event) => setInviteAddress(event.target.value)}
-                  className="px-2.5 py-2 text-[12.5px]"
-                >
-                  {emails.map((email) => (
-                    <option key={email.address} value={email.address}>
-                      {email.kind ? `${email.address} · ${email.kind}` : email.address}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Field
-                label="Title"
-                hint={`What ${firstName} sees. Keep the business unit out of it unless you mean to name it.`}
-              >
-                <Input
-                  aria-label="Meeting title"
-                  value={title}
-                  maxLength={200}
-                  onChange={(event) => setTitle(event.target.value)}
-                  className="px-2.5 py-2 font-sans text-[13px]"
-                />
-              </Field>
+              <div>
+                <SectionLabel>Invite</SectionLabel>
+                <div className="flex flex-col gap-2">
+                  <WithIcon icon={ICONS.mail}>
+                    <Select
+                      aria-label="Invite address"
+                      value={inviteAddress}
+                      onChange={(event) => setInviteAddress(event.target.value)}
+                      className="py-2 ps-8 pe-2.5 text-body"
+                    >
+                    {emails.map((email) => (
+                      <option key={email.address} value={email.address}>
+                            {email.kind ? `${email.address} · ${email.kind}` : email.address}
+                      </option>
+                    ))}
+                    </Select>
+                  </WithIcon>
+                  <WithIcon icon={ICONS.pencil}>
+                    <Input
+                      aria-label="Meeting title"
+                      value={title}
+                      maxLength={200}
+                      onChange={(event) => setTitle(event.target.value)}
+                      className="py-2 ps-8 pe-2.5 font-sans text-body"
+                    />
+                  </WithIcon>
+                  <WithIcon icon={ICONS.video}>
+                    <Select
+                      aria-label="Video link"
+                      value={video}
+                      onChange={(event) => setChosenVideo(event.target.value as MeetingVideo)}
+                      className="py-2 ps-8 pe-2.5 text-body"
+                    >
+                      {videoLinks.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </WithIcon>
+                  <p className="text-meta text-u-text3">{firstName} sees the title. Keep the business unit out of it.</p>
+                  {video === "MICROSOFT_TEAMS" && (
+                    <p className="text-meta text-u-text3">
+                      Where your organisation doesn&apos;t offer Teams, the invite goes without a link.
+                    </p>
+                  )}
+                </div>
+              </div>
+
               {offersNotetaker && (
-                <div className="flex items-center gap-2.5 rounded-u-control border border-u-border bg-u-bg px-2.5 py-2">
-                  <Icon
-                    d={ICONS.mic}
-                    size={14}
-                    className={cn("flex-none", withNotetaker ? "text-u-accent" : "text-u-text3")}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-note font-medium text-u-text">Record with Notetaker</span>
-                    <span className="block font-mono text-meta text-u-text3">
-                      {withNotetaker ? `Joins 1 min early · files notes on ${firstName}` : "Off · nothing is recorded"}
-                    </span>
-                  </span>
-                  <Toggle checked={withNotetaker} onChange={setWithNotetaker} label="Record with Notetaker" />
+                <div>
+                  <SectionLabel>Recording</SectionLabel>
+                  <div className="divide-y divide-u-border rounded-u-card border border-u-border">
+                    <SwitchRow
+                      icon={ICONS.mic}
+                      title="Notetaker"
+                      switchLabel="Record with Notetaker"
+                      detail={withNotetaker ? "Records the call, files the notes" : "Off · nothing is recorded"}
+                      checked={withNotetaker}
+                      onChange={handleNotetakerSwitch}
+                    />
+                    <SwitchRow
+                      icon={ICONS.sparkle}
+                      title="Live copilot"
+                      switchLabel="Live copilot"
+                      detail={withCopilot ? "Live nudges, only you see them" : "Live nudges during the call"}
+                      checked={withCopilot}
+                      onChange={handleCopilotSwitch}
+                    />
+                  </div>
                 </div>
               )}
             </>
@@ -509,6 +581,73 @@ export function BookCallDialog({
       </div>
     </Modal>
   );
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return <h3 className="mb-2 type-micro-label font-mono text-u-text3">{children}</h3>;
+}
+
+function SwitchRow({
+  icon,
+  title,
+  switchLabel,
+  detail,
+  checked,
+  onChange,
+}: {
+  icon: string;
+  title: string;
+  switchLabel: string;
+  detail: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "grid size-7 flex-none place-items-center rounded-u-control",
+          checked ? "bg-u-accent-tint text-u-accent" : "bg-u-surface text-u-text3",
+        )}
+      >
+        <Icon d={icon} size={14} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-body font-medium text-u-text">{title}</span>
+        <span className="block text-meta text-u-text3">{detail}</span>
+      </span>
+      <Toggle checked={checked} onChange={onChange} label={switchLabel} />
+    </div>
+  );
+}
+
+function WithIcon({ icon, children }: { icon: string; children: ReactNode }) {
+  return (
+    <div className="relative">
+      {children}
+      <Icon
+        d={icon}
+        size={14}
+        className="pointer-events-none absolute start-2.5 top-1/2 -translate-y-1/2 text-u-text3"
+      />
+    </div>
+  );
+}
+
+function lengthLabelOf(minutes: number): string {
+  if (minutes < 60) return `${minutes} min`;
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? `${hours} hr` : `${minutes} min`;
+}
+
+function monthOf(isoDate: string): string {
+  const [year, month] = isoDate.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 function isPresetLength(minutes: number): boolean {
