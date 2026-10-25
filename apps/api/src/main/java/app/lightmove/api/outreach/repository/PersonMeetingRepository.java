@@ -15,6 +15,9 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
 
     List<PersonMeeting> findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(UUID workspaceId, UUID personId);
 
+    boolean existsByWorkspaceIdAndUserIdAndJoinUrlAndStartsAtGreaterThanAndStartsAtLessThanEqual(
+            UUID workspaceId, UUID userId, String joinUrl, Instant after, Instant until);
+
     /** Which of these people a teammate's calendar holds a meeting with. */
     @Query("select distinct m.personId from PersonMeeting m where m.workspaceId = :workspaceId "
             + "and m.personId in :personIds")
@@ -70,6 +73,10 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
     int moveEvent(UUID mailboxConnectionId, String providerEventId, Instant startsAt, Instant endsAt);
 
     Optional<PersonMeeting> findByIdAndWorkspaceIdAndPersonId(UUID id, UUID workspaceId, UUID personId);
+
+    Optional<PersonMeeting> findByMailboxConnectionIdAndProviderEventIdAndPersonId(UUID mailboxConnectionId,
+                                                                                 String providerEventId,
+                                                                                 UUID personId);
 
     /** The meetings a full read of this window no longer finds: moved out of it, deleted, or no longer a call. */
     @Modifying

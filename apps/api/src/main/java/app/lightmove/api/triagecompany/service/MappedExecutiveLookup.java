@@ -4,6 +4,7 @@ import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -17,13 +18,23 @@ import org.springframework.data.domain.Pageable;
  */
 public interface MappedExecutiveLookup {
 
-    /** Case-insensitive substring match. Never asked with a blank name. */
-    Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, String executiveName,
+    /** Case-insensitive substring match among the people listed at {@code stage}. Never asked with a blank name. */
+    Set<UUID> triageCompanyIdsMatchingExecutiveName(UUID projectId, TriageCompanyStatus stage, String executiveName,
                                                     ProjectAudience audience);
 
-    /** Never asked with an empty list. */
-    Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, List<String> executiveStatuses,
+    /** Among the people listed at {@code stage}. Never asked with an empty list. */
+    Set<UUID> triageCompanyIdsWithExecutiveStatusIn(UUID projectId, TriageCompanyStatus stage,
+                                                    List<String> executiveStatuses, ProjectAudience audience);
+
+    /**
+     * Companies at another stage with someone of theirs moved to {@code stage} on their own (#903): the stage lists
+     * them too, under those people alone.
+     */
+    Set<UUID> triageCompanyIdsWithExecutivesMovedTo(UUID projectId, TriageCompanyStatus stage,
                                                     ProjectAudience audience);
+
+    /** How many such companies each stage lists, in one read; a stage with none is absent. */
+    Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience);
 
     /** Which of these keys the workspace's pipeline does not hold — a filter naming one is a 400. */
     List<String> unknownExecutiveStatuses(UUID workspaceId, UUID projectId, Collection<String> executiveStatuses);

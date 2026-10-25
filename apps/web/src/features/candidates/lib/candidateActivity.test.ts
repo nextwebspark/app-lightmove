@@ -27,6 +27,22 @@ function lineOf(overrides: Partial<PersonTimelineEntry>) {
 }
 
 describe("timelineLines", () => {
+  it("names the fields a researcher applied from a call, never their values, and an undo as such", () => {
+    const applied = lineOf({
+      kind: "UPDATED_FROM_CALL",
+      details: { fields: "baseSalary,noticePeriod", call: "Intro call", callAt: "2026-10-21T10:00:00Z", recordingId: "r1" },
+    });
+    expect(applied.text).toBe("updated Base salary and Notice period from the call transcript");
+    expect(applied.detail).toMatch(/^Intro call · Wed 21 Oct, /);
+
+    expect(lineOf({ kind: "UPDATED_FROM_CALL", details: { fields: "task", call: "Intro call" } }).text).toBe(
+      "added a task from the call transcript",
+    );
+    expect(
+      lineOf({ kind: "UPDATED_FROM_CALL", details: { fields: "location", call: "Intro call", reverted: "true" } }).text,
+    ).toBe("undid Location from the call transcript");
+  });
+
   it("speaks of the drawer's own position as this position, and names any other", () => {
     expect(lineOf({ kind: "ADDED_TO_POOL", details: { door: "MANUAL" } })).toMatchObject({
       text: "added to this position",
@@ -72,6 +88,17 @@ describe("timelineLines", () => {
       detail: "Scored against this brief",
     });
     expect(lineOf({ kind: "AI_ASSESSED", details: {} }).text).toBe("had the AI assess them");
+  });
+
+  it("names a Companies stage move by its stages, and says when the company carried them", () => {
+    expect(lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "declined" } })).toMatchObject({
+      text: "moved them to Declined on this position",
+      detail: "In universe → Declined",
+    });
+    expect(
+      lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "shortlisted", withCompany: "true" } })
+        .detail,
+    ).toBe("In universe → Shortlisted · With their company");
   });
 
   it("says whether the executive was shown to the client or hidden from them", () => {

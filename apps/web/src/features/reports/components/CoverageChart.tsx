@@ -1,5 +1,5 @@
 import type { ReportProgress } from "../api/types";
-import { formatShortDate } from "../lib/figures";
+import { daysBetween, formatShortDate } from "../lib/figures";
 import type { Projection } from "../lib/projection";
 import { PulseRings } from "./PulseRings";
 
@@ -34,15 +34,21 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
   // "today" one and on the full-coverage caption. There is nothing to project once nothing remains.
   const hasProjection =
     Number.isFinite(projection.projectedWeek) && projection.projectedDate !== null && projection.remaining > 0;
-  const horizon = Math.max(projection.lastWeek, hasProjection ? projection.projectedWeek : 0, projection.targetWeek ?? 0);
+  // In the kickoff week the series is one point, which would put today on the axis with no line: today
+  // is placed by the days elapsed instead (a day at least), and the line climbs to it from kickoff.
+  const firstWeek = projection.lastWeek === 0;
+  const todayWeek = firstWeek ? Math.max(daysBetween(progress.kickoff, progress.asOf), 1) / 7 : projection.lastWeek;
+  const horizon = Math.max(todayWeek, hasProjection ? projection.projectedWeek : 0, projection.targetWeek ?? 0);
   const xMax = horizon + Math.max(MIN_HEADROOM_WEEKS, horizon * HEADROOM_FRACTION);
   const x = (week: number) => PAD_LEFT + (week / xMax) * (W - PAD_LEFT - PAD_RIGHT);
   const y = (count: number) => PAD_TOP + (1 - count / Math.max(progress.targetCompanies, 1)) * PLOT_H;
   const point = (week: number, count: number) => `${x(week).toFixed(1)},${y(count).toFixed(1)}`;
 
-  const actualPoints = cum.map((count, week) => point(week, count)).join(" ");
-  const areaPoints = `${point(0, 0)} ${actualPoints} ${point(projection.lastWeek, 0)}`;
-  const todayX = x(projection.lastWeek);
+  const actualPoints = firstWeek
+    ? `${point(0, 0)} ${point(todayWeek, cum[0])}`
+    : cum.map((count, week) => point(week, count)).join(" ");
+  const areaPoints = `${point(0, 0)} ${actualPoints} ${point(todayWeek, 0)}`;
+  const todayX = x(todayWeek);
   const todayY = y(cum[projection.lastWeek]);
   const fullY = y(progress.targetCompanies);
   const targetX = projection.targetWeek === null ? null : x(projection.targetWeek);
@@ -105,7 +111,7 @@ export function CoverageChart({ progress, projection }: { progress: ReportProgre
         {projectedX !== null && projectedLabel && projection.projectedDate && (
           <>
             <polyline
-              points={`${point(projection.lastWeek, cum[projection.lastWeek])} ${point(projection.projectedWeek, progress.targetCompanies)}`}
+              points={`${point(todayWeek, cum[projection.lastWeek])} ${point(projection.projectedWeek, progress.targetCompanies)}`}
               fill="none"
               className="stroke-u-offlimits"
               strokeWidth={1.75}

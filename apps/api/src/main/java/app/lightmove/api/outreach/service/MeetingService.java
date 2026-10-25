@@ -4,7 +4,6 @@ import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
@@ -14,20 +13,20 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.outreach.constant.EnrollmentStatus;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.dto.BookMeetingRequest;
+import app.lightmove.api.outreach.dto.BookedMeetingResponse;
+import app.lightmove.api.outreach.dto.MeetingCalendarResponse;
 import app.lightmove.api.outreach.dto.MeetingResponse;
-import app.lightmove.api.outreach.dto.MeetingSlotsResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
 import app.lightmove.api.outreach.dto.RescheduleMeetingRequest;
-import app.lightmove.api.outreach.dto.SlotDayResponse;
-import app.lightmove.api.outreach.model.BusyInterval;
+import app.lightmove.api.outreach.dto.TimeSpanResponse;
 import app.lightmove.api.outreach.model.CalendarEvent;
-import app.lightmove.api.outreach.model.FreeSlots;
+import app.lightmove.api.outreach.model.CalendarSchedule;
+import app.lightmove.api.outreach.model.ConsultantBooking;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutreachCallBooked;
 import app.lightmove.api.outreach.model.PersonMeeting;
-import app.lightmove.api.outreach.model.SendingWindow;
-import app.lightmove.api.outreach.model.SlotPage;
+import app.lightmove.api.outreach.model.WorkingHours;
 import app.lightmove.api.outreach.model.ZoomMeeting;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
@@ -37,6 +36,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -65,8 +64,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 public class MeetingService {
 
-    static final Set<Integer> LENGTHS = Set.of(15, 30, 45, 60, 90);
-
     /** The past is context, not a log: the newest of it is enough. */
     static final int PAST_SHOWN = 20;
 
@@ -83,7 +80,7 @@ public class MeetingService {
     private final AuditService audit;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
-    private final LightMoveProperties properties;
+    private final AvailabilityService availability;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -111,11 +108,15 @@ public class MeetingService {
     }
 
     /**
-     * A page of free times from {@code from}: today when absent or past, refused beyond {@link FreeSlots#HORIZON}.
+     * Book a call's calendar view: {@code days} days from {@code from} (today when absent or past), refused beyond
+     * the horizon. The calendar is read once for the whole view; a call being moved reads as free.
      */
-    public MeetingSlotsResponse slots(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, int minutes,
-                                      LocalDate from, UUID excludingMeetingId) {
-        Duration length = requireLength(minutes);
+    public MeetingCalendarResponse calendar(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                            LocalDate from, int days, UUID excludingMeetingId) {
+        if (days < 1 || days > ConsultantBooking.MAX_VIEW_DAYS) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "days",
+                    "Ask for 1 to " + ConsultantBooking.MAX_VIEW_DAYS + " days");
+        }
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         PersonMeeting moving = excludingMeetingId == null ? null
                 : requireChangeable(userId, workspaceId, recipient, excludingMeetingId);
@@ -123,20 +124,36 @@ public class MeetingService {
         if (moving != null) {
             requireOnMailbox(moving, mailbox);
         }
-        SlotPage page = freeSlotsOf(mailbox)
-                .page(clock.instant(), from, length, (start, end) -> busyOf(mailbox, start, end, moving))
-                .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_SLOT_INVALID));
-        return new MeetingSlotsResponse(mailbox.getAddress(), mailbox.getTimeZone(), mailbox.getProvider(), minutes,
-                page.earliestDate(), page.latestDate(), page.previousFrom(), SlotDayResponse.listOf(page.days()),
-                zoom.isUsableBy(userId, workspaceId));
+        ZoneId zone = mailbox.zone();
+        Instant now = clock.instant();
+        LocalDate today = now.atZone(zone).toLocalDate();
+        LocalDate latest = ConsultantBooking.latestDate(now, zone);
+        LocalDate firstDay = from == null || from.isBefore(today) ? today : from;
+        if (firstDay.isAfter(latest)) {
+            throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
+        }
+        Instant viewStart = firstDay.atStartOfDay(zone).toInstant();
+        Instant viewEnd = firstDay.plusDays(days).atStartOfDay(zone).toInstant();
+        CalendarSchedule schedule = scheduleOf(mailbox, viewStart, viewEnd, moving);
+        WorkingHours hours = availability.workingHoursOf(mailbox, schedule);
+        List<TimeSpanResponse> busy = schedule.busy().stream()
+                .filter(interval -> interval.overlaps(viewStart, viewEnd))
+                .map(interval -> new TimeSpanResponse(
+                        interval.start().isBefore(viewStart) ? viewStart : interval.start(),
+                        interval.end().isAfter(viewEnd) ? viewEnd : interval.end()))
+                .toList();
+        return new MeetingCalendarResponse(mailbox.getAddress(), mailbox.getTimeZone(), mailbox.getProvider(),
+                firstDay, days, today, latest, busy,
+                hours.between(viewStart, viewEnd).stream().map(TimeSpanResponse::of).toList(), hours.source(),
+                ConsultantBooking.MIN_MINUTES, ConsultantBooking.MAX_MINUTES, zoom.isUsableBy(userId, workspaceId));
     }
 
     /**
      * Everything that could refuse the booking is checked before the invite goes, and the calendar is asked
      * once more for the slot: an invite cannot be taken back quietly once the executive has it.
      */
-    public void book(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, BookMeetingRequest request,
-                     HttpServletRequest httpRequest) {
+    public BookedMeetingResponse book(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                      BookMeetingRequest request, HttpServletRequest httpRequest) {
         Duration length = requireLength(request.minutes());
         OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
         if (recipient.doNotContact()) {
@@ -149,10 +166,10 @@ public class MeetingService {
         Instant now = clock.instant();
         Instant startsAt = request.startsAt();
         Instant endsAt = startsAt.plus(length);
-        if (!freeSlotsOf(mailbox).books(now, startsAt, length)) {
+        if (!ConsultantBooking.allows(now, startsAt, mailbox.zone())) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
         }
-        if (busyOf(mailbox, startsAt, endsAt).stream().anyMatch(taken -> taken.overlaps(startsAt, endsAt))) {
+        if (scheduleOf(mailbox, startsAt, endsAt, null).isTaken(startsAt, endsAt)) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_TAKEN);
         }
 
@@ -179,8 +196,8 @@ public class MeetingService {
         }
 
         try {
-            recordBooked(userId, workspaceId, projectId, candidateId, recipient, mailbox, created,
-                    zoomMeeting == null ? null : zoomMeeting.id(), request.minutes(), now, httpRequest);
+            return new BookedMeetingResponse(recordBooked(userId, workspaceId, projectId, candidateId, recipient, mailbox, created,
+                    zoomMeeting == null ? null : zoomMeeting.id(), request.minutes(), now, httpRequest));
         } catch (RuntimeException failed) {
             // The invite has gone; without this line nothing would say that an event exists with no booking behind it.
             log.error("Invite {} went out from mailbox {} for candidate {} on project {} (user {}), but recording "
@@ -200,10 +217,10 @@ public class MeetingService {
         }
     }
 
-    private void recordBooked(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+    private UUID recordBooked(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                               OutreachRecipient recipient, MailboxConnection mailbox, CalendarEvent created,
                               String zoomMeetingId, int minutes, Instant now, HttpServletRequest httpRequest) {
-        transactions.executeWithoutResult(status -> {
+        return transactions.execute(status -> {
             MailboxConnection fresh = mailboxes.findById(mailbox.getId()).orElse(mailbox);
             meetingSync.keep(fresh, created, recipient.personId(), userId, false, zoomMeetingId);
             people.recordMeetingBooked(userId, projectId, candidateId, created.startsAt(), false);
@@ -217,6 +234,8 @@ public class MeetingService {
                     .detail("startsAt", created.startsAt().toString())
                     .detail("minutes", String.valueOf(minutes))
                     .record();
+            return meetings.findByMailboxConnectionIdAndProviderEventIdAndPersonId(fresh.getId(), created.id(),
+                    recipient.personId()).orElseThrow().getId();
         });
     }
 
@@ -241,10 +260,10 @@ public class MeetingService {
         if (startsAt.equals(meeting.getStartsAt()) && endsAt.equals(meeting.getEndsAt())) {
             return;
         }
-        if (!freeSlotsOf(mailbox).books(now, startsAt, length)) {
+        if (!ConsultantBooking.allows(now, startsAt, mailbox.zone())) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
         }
-        if (busyOf(mailbox, startsAt, endsAt, meeting).stream().anyMatch(taken -> taken.overlaps(startsAt, endsAt))) {
+        if (scheduleOf(mailbox, startsAt, endsAt, meeting).isTaken(startsAt, endsAt)) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_TAKEN);
         }
 
@@ -404,35 +423,15 @@ public class MeetingService {
                 row.isBookedViaLink(), row.getBookedByUserId() != null, editable);
     }
 
-    private List<BusyInterval> busyOf(MailboxConnection mailbox, Instant from, Instant to) {
+    /** The calendar between {@code from} and {@code to}, less the call being moved: its own time is free to move within. */
+    private CalendarSchedule scheduleOf(MailboxConnection mailbox, Instant from, Instant to, PersonMeeting moving) {
+        CalendarSchedule schedule;
         try {
-            return gateway.busyTimes(mailbox.getGrantId(), mailbox.getAddress(), from, to);
+            schedule = gateway.schedule(mailbox.getGrantId(), mailbox.getAddress(), from, to);
         } catch (VendorException failed) {
             throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_CALENDAR_UNAVAILABLE);
         }
-    }
-
-    /** The calendar's busy times, less the call being moved: its own time is free to move it within. */
-    private List<BusyInterval> busyOf(MailboxConnection mailbox, Instant from, Instant to, PersonMeeting moving) {
-        List<BusyInterval> busy = busyOf(mailbox, from, to);
-        return moving == null ? busy : withoutInterval(busy, moving.getStartsAt(), moving.getEndsAt());
-    }
-
-    static List<BusyInterval> withoutInterval(List<BusyInterval> busy, Instant start, Instant end) {
-        List<BusyInterval> left = new ArrayList<>();
-        for (BusyInterval interval : busy) {
-            if (!interval.overlaps(start, end)) {
-                left.add(interval);
-                continue;
-            }
-            if (interval.start().isBefore(start)) {
-                left.add(new BusyInterval(interval.start(), start));
-            }
-            if (interval.end().isAfter(end)) {
-                left.add(new BusyInterval(end, interval.end()));
-            }
-        }
-        return left;
+        return moving == null ? schedule : schedule.without(moving.getStartsAt(), moving.getEndsAt());
     }
 
     private ApiException failedAtMailService(MailboxConnection mailbox, VendorException failed, ErrorCode otherwise) {
@@ -462,12 +461,8 @@ public class MeetingService {
         return mailbox;
     }
 
-    private FreeSlots freeSlotsOf(MailboxConnection mailbox) {
-        return new FreeSlots(SendingWindow.of(properties.outreach()), mailbox.zone());
-    }
-
     private static Duration requireLength(Integer minutes) {
-        if (minutes == null || !LENGTHS.contains(minutes)) {
+        if (!ConsultantBooking.isLength(minutes)) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
         }
         return Duration.ofMinutes(minutes);

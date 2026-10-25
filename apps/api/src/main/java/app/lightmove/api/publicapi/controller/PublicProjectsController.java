@@ -138,8 +138,8 @@ public class PublicProjectsController {
             @Parameter(description = "Only executives whose name, title or employer contains this, ignoring case",
                     example = "Finance")
             @RequestParam(required = false) String q,
-            @Parameter(description = "Only executives mapped at a company of this stage; an executive at no company "
-                    + "is at no stage",
+            @Parameter(description = "Only executives listed at this stage. Each executive holds a stage of their own: "
+                    + "their company's when mapped, then wherever they were moved",
                     schema = @Schema(type = "string", allowableValues = {"inUniverse", "shortlisted", "declined"}))
             @RequestParam(required = false) String stage,
             @Parameter(description = "Page number, from 0", schema = @Schema(type = "integer", minimum = "0", defaultValue = "0"))

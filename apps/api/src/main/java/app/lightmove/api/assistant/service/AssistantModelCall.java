@@ -8,7 +8,6 @@ import app.lightmove.api.core.llm.service.ChatCallLog;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -20,7 +19,6 @@ import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -45,15 +43,15 @@ public class AssistantModelCall {
 
     public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
                               @Value("classpath:prompts/assistant-core.st") Resource corePrompt,
-                              @Qualifier("applicationTaskExecutor") Executor executor,
-                              ObjectProvider<ToolCallingManager> toolCalling, ModelCallThreads modelCalls) {
+                              AssistantThreads threads, ObjectProvider<ToolCallingManager> toolCalling,
+                              ModelCallThreads modelCalls) {
         this.chatClient = chatClient;
         this.modelCalls = modelCalls;
         this.settings = properties.assistant();
         this.corePrompt = corePrompt;
         ToolCallingManager oneAtATime = toolCalling.getIfAvailable(() -> ToolCallingManager.builder().build());
         this.toolLoop = ToolCallingAdvisor.builder()
-                .toolCallingManager(new ParallelToolCalls(oneAtATime, executor,
+                .toolCallingManager(new ParallelToolCalls(oneAtATime, threads.tools(),
                         AssistantToolset.READS_SAFE_SIDE_BY_SIDE, settings.toolParallelism()))
                 .build();
     }

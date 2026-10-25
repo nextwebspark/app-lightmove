@@ -18,7 +18,10 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import jakarta.servlet.http.Cookie;
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -112,7 +115,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
 
         JsonNode slots = slotsOf(priya);
         assertThat(slots.get("zoomOffered").asBoolean()).isTrue();
-        book(priya, firstStartIn(slots), "ZOOM").andExpect(status().isNoContent());
+        book(priya, firstStartIn(slots), "ZOOM").andExpect(status().isOk());
 
         assertThat(zoom.created()).hasSize(1);
         assertThat(zoom.accessTokensUsed()).containsExactly("access-for-refresh-for-zoom-code-1");
@@ -150,7 +153,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         JsonNode slots = slotsOf(priya);
         Instant slot = firstStartIn(slots);
-        book(priya, slot, "ZOOM").andExpect(status().isNoContent());
+        book(priya, slot, "ZOOM").andExpect(status().isOk());
         String zoomId = zoom.created().getFirst();
         String meetingId = body(as(consultant, get(meetings(priya))).andReturn()).get("upcoming").get(0).get("id")
                 .asText();
@@ -179,7 +182,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         JsonNode slots = slotsOf(priya);
         Instant slot = firstStartIn(slots);
-        book(priya, slot, "ZOOM").andExpect(status().isNoContent());
+        book(priya, slot, "ZOOM").andExpect(status().isOk());
         String meetingId = body(as(consultant, get(meetings(priya))).andReturn()).get("upcoming").get(0).get("id")
                 .asText();
         as(consultant, delete("/api/v1/outreach/zoom")).andExpect(status().isNoContent());
@@ -257,29 +260,18 @@ class ZoomIntegrationTest extends FlowTestSupport {
     }
 
     private JsonNode slotsOf(String candidateId) throws Exception {
-        return body(as(consultant, get(meetings(candidateId) + "/slots").param("minutes", "30"))
-                .andExpect(status().isOk()).andReturn());
+        return body(as(consultant, get(meetings(candidateId) + "/calendar")).andExpect(status().isOk()).andReturn());
     }
 
-    private static Instant firstStartIn(JsonNode slots) {
-        for (JsonNode day : slots.get("days")) {
-            if (!day.get("starts").isEmpty()) {
-                return Instant.parse(day.get("starts").get(0).asText());
-            }
-        }
-        throw new AssertionError("No free slot offered");
+    /** Ten tomorrow morning in the consultant's zone: any time the calendar does not hold is bookable. */
+    private static Instant firstStartIn(JsonNode calendar) {
+        ZoneId zone = ZoneId.of(calendar.get("timeZone").asText());
+        return LocalDate.parse(calendar.get("earliestDate").asText()).plusDays(1).atTime(10, 0).atZone(zone)
+                .toInstant();
     }
 
-    private static Instant laterStartIn(JsonNode slots, Instant taken) {
-        for (JsonNode day : slots.get("days")) {
-            for (JsonNode start : day.get("starts")) {
-                Instant offered = Instant.parse(start.asText());
-                if (offered.isAfter(taken.plusSeconds(3600))) {
-                    return offered;
-                }
-            }
-        }
-        throw new AssertionError("No later free slot offered");
+    private static Instant laterStartIn(JsonNode calendar, Instant taken) {
+        return taken.plus(Duration.ofHours(2));
     }
 
     private ResultActions book(String candidateId, Instant start, String video) throws Exception {

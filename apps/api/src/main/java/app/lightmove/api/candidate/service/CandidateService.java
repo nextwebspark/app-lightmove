@@ -15,6 +15,7 @@ import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
+import app.lightmove.api.candidate.dto.UpdateCandidateTriageStatusRequest;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.model.CandidateAttribution;
@@ -42,6 +43,7 @@ import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -57,6 +59,7 @@ import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
@@ -192,10 +195,12 @@ public class CandidateService {
         if (statusIds != null && statusIds.isEmpty()) {
             return new CandidatesResponse(List.of(), 0, page, size);
         }
+        TriageCompanyStatus triageStatus = criteria.triageStatus() == null || criteria.triageStatus().isBlank()
+                ? null : TriageCompanyStatus.parseOrInUniverse(criteria.triageStatus());
         Page<Candidate> found = candidates.findAll(CandidateListFilter.of(projectId, audience.clientVisibleOnly(),
                 statusIds, companyIds,
-                Boolean.TRUE.equals(criteria.unmapped()), nameQuery, textQuery, criteria.withinTriageCompanyIds()),
-                pageRequest);
+                Boolean.TRUE.equals(criteria.unmapped()), nameQuery, textQuery, criteria.withinTriageCompanyIds(),
+                triageStatus), pageRequest);
 
         return new CandidatesResponse(
                 found.getContent().stream().map(responses::toDto).toList(),
@@ -422,7 +427,7 @@ public class CandidateService {
         refuseRetypedCapturedProfile(person, details.linkedinUrl());
 
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
-        candidate.remapTo(request.triageCompanyId());
+        candidate.remapTo(request.triageCompanyId(), triageStatusOfCompany(projectId, request.triageCompanyId()));
         candidate.describe(details);
         // A whole-record save that names a status moves them like the status pill does, line and all; one
         // that names none (a re-imported sheet) leaves them where they stand.
@@ -470,6 +475,32 @@ public class CandidateService {
                 .detail("candidateId", candidateId.toString())
                 .detail("status", candidate.getStatus().getStatusKey())
                 .detail("statusLabel", candidate.getStatus().getLabel())
+                .record();
+        return responses.toDto(candidate);
+    }
+
+    /**
+     * Moves one executive to another Companies stage (#903). Their company stays where it is, and so does
+     * everyone else mapped at it: the company's own move is the one that carries them all.
+     */
+    @Transactional
+    public CandidateResponse changeTriageStatus(UUID userId, UUID workspaceId, UUID projectId,
+                                                UUID candidateId, UpdateCandidateTriageStatusRequest request,
+                                                HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        TriageCompanyStatus to = ApiValueEnum.require(TriageCompanyStatus.class, request.status(), "stage");
+        TriageCompanyStatus from = candidate.getTriageStatus();
+        if (!candidate.moveToStage(to)) {
+            return responses.toDto(candidate);
+        }
+        activity.record(candidate, userId, PersonActivityKind.TRIAGE_STATUS_CHANGED,
+                PersonActivityDetails.triageStatusChange(from, to, false));
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_MOVED);
+
+        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+                .detail("candidateId", candidateId.toString())
+                .detail("triageStatus", to.name())
                 .record();
         return responses.toDto(candidate);
     }
@@ -808,7 +839,7 @@ public class CandidateService {
                     company.companyName());
             return;
         }
-        candidate.employBy(company.id(), company.companyName());
+        candidate.employBy(company.id(), company.companyName(), TriageCompanyStatus.fromValue(company.status()));
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
     }
 
@@ -939,8 +970,8 @@ public class CandidateService {
             person.lockProfileUrl(details.linkedinUrl());
         }
         requests.refuseOverfullChannels(person);
-        Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId, person,
-                source, status, details));
+        Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId,
+                triageStatusOfCompany(projectId, triageCompanyId), person, source, status, details));
         activity.record(candidate, userId,
                 known.isPresent() ? PersonActivityKind.MAPPED : PersonActivityKind.ADDED_TO_POOL,
                 PersonActivityDetails.of("door", source));
@@ -1025,6 +1056,15 @@ public class CandidateService {
                     .record();
         }
         return new MapPeopleToPositionResponse(added.size(), persons.size() - added.size());
+    }
+
+    /** The stage a person filed or remapped at this company starts at; In universe at none. */
+    private TriageCompanyStatus triageStatusOfCompany(UUID projectId, UUID triageCompanyId) {
+        if (triageCompanyId == null) {
+            return TriageCompanyStatus.IN_UNIVERSE;
+        }
+        return TriageCompanyStatus.parseOrInUniverse(
+                triage.requireCompanyOfProject(projectId, triageCompanyId, false).status());
     }
 
     /** A filing's row, and whether it mapped someone the workspace already knew. */

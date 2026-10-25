@@ -50,7 +50,8 @@ public class PersonTimelineService {
             "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind", "tagId", "tag",
             "ownerUserId", "owner", "documentId", "version", "category", "versions", "fromLabel", "toLabel",
             "text", "dueAt", "cleared", "visible", "taskId", "title", "taskKind", "assignee", "previousAssignee",
-            "rule", "sequenceId", "sequence", "step", "reason", "startsAt", "viaLink", "manual");
+            "rule", "sequenceId", "sequence", "step", "reason", "startsAt", "viaLink", "manual", "withCompany",
+            "fields", "call", "callAt", "recordingId", "reverted");
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */

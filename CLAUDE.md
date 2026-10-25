@@ -41,7 +41,11 @@ where someone else filed them, read from the candidates list's staff-only `added
 Deleting one drops the project↔company row only — and its notes: the Apollo universe is read-only to the app. On top of
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
-with three of them is three lines and one with none keeps its "Add executive" slot. An executive is also
+with three of them is three lines and one with none keeps its "Add executive" slot. **Each executive holds a stage
+of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own Shortlist /
+Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
+person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
+(its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`).
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
@@ -275,10 +279,14 @@ profiles, exported by `ops/eval/export-golden.sh` — and appends counts to `doc
 AI run on an executive reads the person's notes and documents too** (`CandidateMaterialService` →
 `CandidateMaterialReader`): every note that position reads, newest first, and the text of the latest file of each
 document (a PDF, DOCX, DOC or TXT; an image or a scan without a text layer is left out), each held to a length,
-and the audit line counts how many of each went. **The model never sees a candidate's contacts, compensation
+and the audit line counts how many of each went. Assess with AI alone also reads the **transcripts** of the calls that
+position recorded (`MeetingTranscriptLookup`, answered by `notetaker`), newest first, only while each call's Meeting
+note is live, redacted and held to 150k characters a call (start and end kept) and 250k in all, a staff member's voice
+marked "(your team)" in code; a claim the executive makes about themselves with no example behind it scores as
+indirect evidence, and a transcript the prompt guard stops is dropped and the assessment asked again without it. **The model never sees a candidate's contacts, compensation
 fields or custom fields**: the profile is the `CandidateDossier` allowlist, and `core/llm`'s `ContactRedaction` —
 the one copy of the email and phone patterns, which `PositionDocumentRedactor` uses too — takes every address
-and number out of the About, the notes and
+and number out of the About, the notes, the transcripts and
 the documents first, sparing dates, ranges and money; a figure a note or a CV states is sent as written. The assessment ranks a person and the nationality reading reasons about their origin, so both are
 staff-only — `GET …/candidates/{id}/assessment` and `…/nationality-reading`, `WORK_EXECUTE` — and never on `CandidateResponse`, which a
 client seat reads; a filled seniority, like gender, is a mapping fact and is. **Nationality is counted
@@ -391,7 +399,7 @@ the mockups: if a screen isn't being built this session, its tables and entities
 
 | Path | What |
 |---|---|
-| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`) |
+| `apps/api` | Spring Boot 4.1 (Java 21, Maven). Features: `core`, `common`, `workspace`, `project`, `position`, `positiontemplate`, `strategy`, `triagecompany`, `candidate`, `enrichment` (with `sourcing`, the Find executives run, and `peoplesearch`, Strategy's People mode), `customcolumn`, `dataimport`, `dataexport`, `geocoding`, `talentmap`, `report`, `assistant`, `outreach`, `pairing`, `publicapi`, `mcp`, `billing` (epic #734: `plan`, the contact-credit ledger `credit`, fair use, `usage`, the Settings → Billing reads, `overview`, Stripe, `payment`, staff seats, `seat`, and the billing emails, `notice`), `gettingstarted` (My positions' Getting started card), `task` and `notification` (epic #862, `docs/tasks-notifications.md`), `notetaker` (Recall.ai bots, `docs/notetaker.md`) |
 | `apps/web` | React 19 SPA (Vite 8, TypeScript, Tailwind v4) |
 | `apps/extension` | LightMove Capture — the Chrome extension (Manifest V3, React 19, Vite 8). Its own workspace; shares no code with `apps/web`. |
 | `claude-design/` | HTML mockups — **the source of truth for all UI**. Read the relevant `*.dc.html` before building a screen. |
@@ -546,7 +554,7 @@ first send): whichever way the sender came to another gateway — a reconnect, o
 run stops at its next send as `MAILBOX_MOVED` and the reply poll leaves its thread alone, since the new gateway may not
 read it. **A direct mailbox's booking link opens Uncava's own page** (`DirectBookingPage`, the same slug kept across
 the move): `GET /api/v1/outreach/booking/{slug}` answers `kind: DIRECT`, `…/{slug}/slots` the consultant's free
-half-hours read as Book a call reads them, and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
+half-hours inside their working hours (`FreeSlots`: a week a page, an hour's notice, 60 days out, as Nylas's page keeps), and `POST …/{slug}` (an email address alone, nobody signed in — nothing a caller types reaches the invite but where it goes) asks the calendar
 once more, invites whoever picked the time with the calendar's own video link, and hands the booking to
 `LinkBookings` — so it counts only for an address that consultant emailed. All three are public and rate-limited per
 IP and link (`booking-page-bookings-per-hour`, 5, for the write). A Nylas mailbox's link still opens Nylas's
@@ -660,13 +668,15 @@ calendar is stored — through the `event.*` webhook (`MeetingSync`) and a 90-da
 when a mailbox is connected (`MeetingBackfill`, retried by the reply poll while `calendar_synced_at` is
 null — V103 backs each failed read off from 15 minutes to a day, ten calendars a poll, and gives up after
 five until a reconnect). A recurring series is never kept: Nylas keys it by its master in a webhook and by
-each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** offers the
-consultant's free half-hours in their own window (`FreeSlots`, `…/meetings/slots`) and `POST …/meetings`
-re-checks do not contact, the ledger and the slot, creates the event (never retried), then writes
+each occurrence in a read. A free/busy answer with an error entry is a failure, never free time. The drawer's Meetings section reads `…/candidates/{id}/meetings`; **Book a call** is the
+consultant's own week (`…/meetings/calendar`, `WeekTimeGrid`): their calendar as free/busy alone and their working
+hours, a call dragged from any time to any time on any day (`ConsultantBooking`: a five-minute mark, 5–480 minutes, five
+minutes ahead at the soonest, six months out at most) — working hours only label it — and `POST …/meetings`
+re-checks do not contact, the ledger and that the calendar is still free, creates the event (never retried), then writes
 `MEETING_BOOKED`, moves Identified or Contacted to Engaged (forward only) and ends a live run as `BOOKED`.
 A call booked in Uncava (Book a call or the link), still to come, is **moved or cancelled** from its row by whoever
 holds its calendar (`editable`; `PUT|DELETE …/meetings/{id}`, `MEETING_NOT_EDITABLE`, `MEETING_NOT_YOURS`): a move
-reads the call's own time as free (`…/slots?excluding=`), re-checks do not contact and the slot, moves its Zoom meeting
+reads the call's own time as free (`…/calendar?excluding=`), re-checks do not contact and the slot, moves its Zoom meeting
 first (V149 keeps its id; put back if the calendar refuses) and sends the update; a cancel tells the executive. Neither
 is retried, moves a status or restarts a run (`MEETING_RESCHEDULED` / `MEETING_CANCELLED`, audited).
 All `WORK_EXECUTE`. **The booking link (V104)** is `{{bookingLink}}`, offered only where the Nylas plan
@@ -682,6 +692,34 @@ webhook names the page; `LinkBookings` counts it **only for an address that cons
 (`toAddress`, never merely the ledger — the booking form's address is typed by whoever holds the link),
 keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` before the next step, and moves
 the person forward to Engaged once per position — a booking after a reply included.
+
+**The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
+its row in the executive drawer's Meetings section (Record with Notetaker, `WORK_EXECUTE`, only on a call on the caller's
+own calendar or booked by them, never for do not contact; a recording is read only from the position that sent it):
+claimed first (one live bot per call by join URL and start, whoever presses), then sent once and never retried, joining a
+minute early as "UNCAVA Notetaker" with Uncava's card as its camera, and saying in the chat whose notes it records
+and that anyone may ask it out. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
+`lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
+keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
+Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and only
+then deletes Recall's copy, so Try again can read it again; the transcript is kept unless
+`lightmove.recall.transcript-retention` is set, which clears one whose note is purged or never filed once that long untouched.
+`NotetakerReconcile` reads back a recording still live past its call. **Suggest changes** on a filed call's row (V152,
+`CallSuggestionService`) reads the transcript once per press against the record and lists every change — notice period,
+package, location, Open to relocate, motivation, expected package, the consultant's next steps as tasks — on one review,
+each ticked to keep and editable in place; one **Apply N changes** (`…/suggestions/review`) writes what is ticked and
+skips the rest, all or nothing, each through its field's owner (`CandidateCallUpdates`, `TaskService`) with an
+`UPDATED_FROM_CALL` line naming who and which call. There is no Undo: once reviewed, a change is corrected on the record,
+and the row reads "N changes applied". **The interview
+copilot** (V154) is two more: **Prepare questions** on an upcoming call drafts an interview plan (`InterviewPlanService`
+— fit questions per competency, a polite one per fact the record is missing, told which are missing and never a value
+or a figure), edited and saved per call; and **Live copilot**, chosen before the bot joins by whoever sent it, streams
+the call (`NotetakerLiveFeed`, each bot's own URL token the credential) to a coach (`InterviewCoachWorker`) that folds competency coverage, the gaps heard, the questions
+asked and up to three nudges forward only, read by a floating window (Document Picture-in-Picture, a popup, or the
+drawer's Copilot tab, first in the bar only while the copilot runs) whose ⋯ stops it for everyone; the streamed lines go when the call ends, and the note is filed from an accurate
+transcript asked of Recall after the call (`FinalTranscriptRequester`), never the English-only stream. A key without the calendar webhook secret
+leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
+`candidate` and `position`; nothing depends back.
 
 **Tasks and the bell (epic #862, V133, `docs/tasks-notifications.md`).** A **next action is a task**
 (`task`): one `app_lm_task` row per job on one executive of one position, and the Pipeline card's Next action is
@@ -1222,6 +1260,30 @@ per answered run and a bounce placeholder per bounced one, adds `app_lm_mailbox_
 it a consultant's own email's `send_at`, `sending_since` claim, `in_reply_to` and `fail_reason`, with the due index.
 V147 adds `app_lm_outreach_message_attachment` — an own email's files in order (name, read type, size, `sha256`, the
 bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
+V150 gives `app_lm_project_candidate` `triage_status` (`IN_UNIVERSE | SHORTLISTED | DECLINED`, backfilled from each
+row's company): the Companies stage the executive is listed at, their own.
+V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
+foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
+sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.
+V152 gives it `suggestions` jsonb (Suggest changes' answer, null until pressed, cleared with the transcript where a retention is set),
+`suggested_at` and the `suggesting_since` claim, and widens the activity kinds with `UPDATED_FROM_CALL`.
+V154 adds `app_lm_interview_plan` (one per call per person on a position, matched on start and title), gives the recording
+its live copilot (`live_copilot`, `live_status`, the `live` reading, the coach's cursor, runs, failures and claim, the
+live URL's `live_token_hash` and the after-call `final_transcript_id` the note is filed from), and adds
+`app_lm_meeting_live_line` (the streamed transcript, deleted when the call ends) and `app_lm_meeting_copilot_viewer`.
+V155 adds working hours and the daily email cap (**Meetings & email** in Settings, an admin's; **Availability**, each
+consultant's; `AvailabilityService`): `app_lm_workspace_availability` (one per workspace; a null `weekly_hours` is the week
+the firm's country keeps — Saudi Arabia, Qatar, Kuwait, Bahrain, Oman and most of the Arab world Sunday to Thursday,
+`WorkingWeeks` — a null `daily_email_cap` the deployment's `daily-cap`, at most `max-daily-cap`) and
+`app_lm_member_availability` (per consultant, a null column the workspace's). A consultant's working hours are their own
+first — a choice made in Uncava outranks Outlook's, which every mailbox states, chosen or not (Exchange's default is
+Monday to Friday) — then Outlook's where a direct Microsoft mailbox states them (`getSchedule`'s `workingHours`, read
+beside its free/busy in one call, `MailboxGateway.schedule`; a Windows zone name through `WindowsZones`), then the
+workspace's; Google and Nylas state none. They shape the booking link alone — Uncava's own page and, re-sent on every change
+(`updateBookingPage`), Nylas's — and a new sequence's default days and hours. The cap is the workspace's, or a
+consultant's lower one, for every send — lowering the workspace's lowers any consultant's above it — and
+`app_lm_mailbox_connection.daily_cap` is frozen. Both rows are written insert-if-missing first, so a double-clicked
+first save writes one row.
 V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kinds with `MEETING_RESCHEDULED` and
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),

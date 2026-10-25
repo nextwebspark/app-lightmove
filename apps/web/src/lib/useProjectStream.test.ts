@@ -125,6 +125,7 @@ it("names every kind for a payload it does not recognise", async () => {
   expect(onChange).toHaveBeenCalledWith([
     "candidate-captured",
     "candidate-enriched",
+    "candidate-moved",
     "company-captured",
     "company-enriched",
     "executive-sourcing",

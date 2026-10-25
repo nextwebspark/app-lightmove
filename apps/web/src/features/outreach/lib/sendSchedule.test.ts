@@ -30,6 +30,7 @@ describe("sendSchedule", () => {
     expect(daysLabelOf(["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"])).toBe("Mon–Fri");
     expect(daysLabelOf(SUNDAY_TO_THURSDAY)).toBe("Sun–Thu");
     expect(daysLabelOf(["MONDAY", "WEDNESDAY"])).toBe("Mon, Wed");
+    expect(daysLabelOf(["THURSDAY"])).toBe("Thu");
   });
 
   it("opens now inside the window, else on the next sending day's start", () => {

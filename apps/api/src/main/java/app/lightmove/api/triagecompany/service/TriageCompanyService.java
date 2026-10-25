@@ -30,6 +30,7 @@ import app.lightmove.api.triagecompany.dto.UpdateTriageCompanyRequest;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
+import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -429,7 +430,12 @@ public class TriageCompanyService {
             if (status == null) {
                 throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown status: " + request.status());
             }
+            TriageCompanyStatus from = company.getStatus();
             company.moveTo(status);
+            if (from != status || request.executiveIds() != null) {
+                events.publishEvent(new TriageCompanyMoved(projectId, triageCompanyId, from, status, userId,
+                        request.executiveIds() == null ? null : Set.copyOf(request.executiveIds())));
+            }
         }
         if (request.noExecutiveFound() != null) {
             if (request.noExecutiveFound()) {

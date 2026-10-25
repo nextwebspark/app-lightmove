@@ -80,11 +80,11 @@ class MdcPropagationTest {
      * whether Boot applied the decorator — and an inert decorator looks exactly like a working one.
      */
     @Test
-    @DisplayName("Boot applies the decorator to the virtual-thread executor @Async runs on")
+    @DisplayName("Boot applies the decorator to the pooled executor @Async runs on")
     void bootAppliesTheDecoratorToAsync() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(TaskExecutionAutoConfiguration.class))
-                .withPropertyValues("spring.threads.virtual.enabled=true")
+                .withPropertyValues("spring.threads.virtual.enabled=false")
                 .withUserConfiguration(AsyncProbeConfig.class)
                 .run(context -> {
                     MDC.put(CorrelationId.MDC_KEY, "abc123");

@@ -58,3 +58,18 @@ function weekdayDateOf(at: Date, timeZone?: string): string {
 function clockOf(at: Date, timeZone?: string): string {
   return at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone });
 }
+
+/** "Tue 7 Oct · 10:00", in the viewer's zone: when a recorded call began. */
+export function meetingDayOf(isoInstant: string): string {
+  const at = new Date(isoInstant);
+  return `${weekdayDateOf(at)} · ${clockOf(at)}`;
+}
+
+/** "04:31" into a call, or "1:04:31" past the hour. */
+export function elapsedOf(fromIso: string, atIso: string): string {
+  const seconds = Math.max(0, Math.round((new Date(atIso).getTime() - new Date(fromIso).getTime()) / 1000));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = String(Math.floor((seconds % 3600) / 60)).padStart(2, "0");
+  const rest = String(seconds % 60).padStart(2, "0");
+  return hours > 0 ? `${hours}:${minutes}:${rest}` : `${minutes}:${rest}`;
+}

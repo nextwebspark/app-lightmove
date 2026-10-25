@@ -69,6 +69,7 @@
     "summary" : null,
     "title" : "CFO",
     "triageCompanyId" : "<company:foods>",
+    "triageStatus" : "inUniverse",
     "yearsExperience" : 18
   }, {
     "addedAt" : "<instant>",
@@ -124,6 +125,7 @@
     "summary" : null,
     "title" : null,
     "triageCompanyId" : null,
+    "triageStatus" : "inUniverse",
     "yearsExperience" : null
   } ],
   "companies" : [ {

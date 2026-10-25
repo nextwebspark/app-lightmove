@@ -14,7 +14,7 @@ spring:
     username: ${DB_USER:lm_app}
     password: ${DB_PASSWORD}
     hikari:
-      # bright-gcc is db-f1-micro; its connection ceiling is low (~25) and the brightdata ETL shares it.
+      # bright-gcc is db-g1-small; its connection ceiling is low (~50) and the brightdata ETL shares it.
       # This is per *instance*, so the real ceiling is pool × Cloud Run max-instances — which is why the
       # deployed service runs a smaller pool than a laptop does. Exhaust it and you take down the
       # neighbours, not just yourself.
@@ -105,9 +105,25 @@ spring:
   # workflow (.github/workflows/deploy.yml) is the authority on which are actually set, including the
   # lightmove.auth.oauth.* lists a provider like LinkedIn cannot work without.
 
+  # Platform threads, not virtual: on one vCPU there is a single carrier, and Java 25 still pins it while a
+  # thread loads a class. On 2026-10-23 a cold instance's first burst pinned it waiting on a lock whose holder
+  # needed it back, and nothing ran for 39 minutes. One Tomcat thread per request Cloud Run admits (server.tomcat).
   threads:
     virtual:
-      enabled: true           # Java 21 virtual threads: auth endpoints are IO-bound (DB, DNS, email).
+      enabled: false
+  task:
+    execution:
+      pool:
+        # No queue, so a short listener never waits behind a sourcing run or a meeting's notes; past max-size
+        # one runs on its publisher's thread (AsyncExecutorConfig). Never park a thread here to wait a turn:
+        # CandidateAiEnrichWorker queues its runs past four rather than holding threads.
+        core-size: 8
+        max-size: 64
+        queue-capacity: 0
+    scheduling:
+      pool:
+        # Boot gives platform-thread scheduling one thread, and every job would wait on the last.
+        size: 8
 
   ai:
     # spring-ai-autoconfigure-retry is on the classpath (transitive via the GenAI starter) and is
@@ -181,6 +197,9 @@ spring:
 
 server:
   port: ${PORT:8080}          # Cloud Run injects PORT and expects the container to honour it.
+  tomcat:
+    threads:
+      max: 200                # deploy.yml's --concurrency: one thread per request Cloud Run admits. Raise both.
   error:
     include-message: never    # Error bodies are built in GlobalExceptionHandler, not leaked by the container.
   forward-headers-strategy: native
@@ -673,6 +692,7 @@ lightmove:
         shared-app-guide-url: ${ZOOM_SHARED_APP_GUIDE_URL:}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
     daily-cap: ${OUTREACH_DAILY_CAP:50}
+    max-daily-cap: ${OUTREACH_MAX_DAILY_CAP:200}
     window-start: ${OUTREACH_WINDOW_START:08:00}
     window-end: ${OUTREACH_WINDOW_END:18:00}
     working-days: ${OUTREACH_WORKING_DAYS:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY}
@@ -697,11 +717,20 @@ lightmove:
 
   # Recall.ai's Calendar API: one platform account, never one per workspace. The region is the base URL (each
   # region is its own account and key; EU is https://eu-central-1.recall.ai). Blank, calendars are read directly
-  # whatever a workspace chose. Nothing calls it before #644.
+  # whatever a workspace chose. The Notetaker's bots ride the same account; their events come to an endpoint of
+  # their own, signed with bot-webhook-secret, and with it blank no bot is offered.
   recall:
     api-key: ${RECALL_API_KEY:}
     webhook-secret: ${RECALL_WEBHOOK_SECRET:}
+    bot-webhook-secret: ${RECALL_BOT_WEBHOOK_SECRET:}
     base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
+    # Read by @Scheduled, which never sees a binding default, so it is spelled out here.
+    bot-reconcile-interval: ${RECALL_BOT_RECONCILE_INTERVAL:PT10M}
+    # Blank keeps every Notetaker transcript; a duration (e.g. 90d) clears one whose note is gone, or that never filed
+    # one, once it has sat untouched that long.
+    transcript-retention: ${NOTETAKER_TRANSCRIPT_RETENTION:}
+    copilot-coach-interval: ${NOTETAKER_COPILOT_COACH_INTERVAL:PT15S}
+    copilot-max-coach-runs: ${NOTETAKER_COPILOT_MAX_COACH_RUNS:240}
 
   # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
   # instance, so filesystem is for npm run dev and the tests only.

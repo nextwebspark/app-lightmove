@@ -11,8 +11,8 @@ import type { TriageCompany } from "../api/types";
  * screen has to show.
  *
  * <p>Exactly one side may be null, and the type says so: `candidate: null` is that empty slot;
- * `company: null` is an executive whose employer is not in the mandate's universe at all, which the
- * In-universe stage shows after the companies rather than hiding.
+ * `company: null` is an executive whose employer is not in the mandate's universe at all, which their
+ * stage shows after the companies rather than hiding.
  */
 export type TriageCompanyRow = (
   | { company: TriageCompany; candidate: Candidate | null }

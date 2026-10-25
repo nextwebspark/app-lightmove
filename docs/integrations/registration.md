@@ -70,7 +70,9 @@ Settings → Integrations prints the same URIs for the running deployment (`Prov
 2. **API keys → create** one per environment.
 3. **Webhooks → add endpoint** `<base>/api/v1/outreach/webhooks/recall`, subscribed to `calendar.update` and
    `calendar.sync_events`. Copy its signing secret (`whsec_…`).
-4. Apply for the startup programme if eligible (it matters once #651 records calls).
+4. **Webhooks → add a second endpoint** for the Notetaker, `<base>/api/v1/notetaker/webhooks/recall`, subscribed to
+   every `bot.*` status event, `transcript.done` and `transcript.failed`. Copy its own signing secret (`whsec_…`).
+5. Apply for the startup programme if eligible: the Notetaker's bots are billed per recorded hour.
 
 ## Secrets and switches
 
@@ -85,6 +87,7 @@ printf %s "$VALUE" | gcloud secrets create lightmove-zoom-client-id             
 printf %s "$VALUE" | gcloud secrets create lightmove-zoom-client-secret           --data-file=-
 printf %s "$VALUE" | gcloud secrets create lightmove-recall-api-key               --data-file=-
 printf %s "$VALUE" | gcloud secrets create lightmove-recall-webhook-secret        --data-file=-
+printf %s "$VALUE" | gcloud secrets create lightmove-recall-bot-webhook-secret    --data-file=-
 tinkey create-keyset --key-template AES256_GCM --out-format json \
   | gcloud secrets create lightmove-credential-keyset --data-file=-
 ```
@@ -94,6 +97,7 @@ Then the repository variables `deploy.yml` reads, per environment:
 | Variable | Value |
 |---|---|
 | `GOOGLE_MAIL_ENABLED`, `MICROSOFT_MAIL_ENABLED`, `ZOOM_ENABLED`, `RECALL_ENABLED` | `true` once that provider's secrets exist |
+| `NOTETAKER_ENABLED` | `true` once `lightmove-recall-api-key` and `lightmove-recall-bot-webhook-secret` exist |
 | `RECALL_BASE_URL` | the EU URL, for an EU account |
 | `CREDENTIAL_ENCRYPTION_ENABLED` | `true` once `lightmove-credential-keyset` exists (needed before any refresh token can be stored) |
 | `OUTREACH_GATEWAY` | stays `nylas` until rollout (#650) |
@@ -111,7 +115,8 @@ Publish it before submitting any review, and add:
 - **Google's Limited Use** statement: use of data from Google APIs adheres to the Google API Services User Data
   Policy, including the Limited Use requirements.
 - **Recall.ai as a sub-processor** that receives calendar access (the OAuth app's keys and a refresh token) for
-  workspaces syncing calendars through Recall.
+  workspaces syncing calendars through Recall, and the audio of every call a consultant sends the Notetaker into
+  (deleted from Recall once its transcript is filed).
 
 ## Done when (#649)
 

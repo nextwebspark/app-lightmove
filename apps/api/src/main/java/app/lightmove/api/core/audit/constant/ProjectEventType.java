@@ -144,6 +144,26 @@ public enum ProjectEventType implements AuditEventType {
     OUTREACH_MEETING_RESCHEDULED,
     OUTREACH_MEETING_CANCELLED,
 
+    /** A Recall.ai Notetaker sent into a call or called back from it; a call's audio then reaches a third party. */
+    NOTETAKER_SCHEDULED,
+    NOTETAKER_CANCELLED,
+    /** A Notetaker's transcript summarised by the model and filed as a Meeting note. */
+    NOTETAKER_NOTE_FILED,
+    /** Suggest changes asked the model to read a call's transcript against the person's record. */
+    NOTETAKER_SUGGESTIONS_ASKED,
+    /** A change the call suggested, applied or skipped by a researcher; the fields are named, never valued. */
+    NOTETAKER_SUGGESTION_APPLIED,
+    NOTETAKER_SUGGESTION_SKIPPED,
+
+    /** Prepare questions: the model drafted an interview plan for a call, or a consultant saved their edits to one. */
+    INTERVIEW_PLAN_DRAFTED,
+    INTERVIEW_PLAN_SAVED,
+    /** The live copilot switched on or off for a call before its bot joined, stopped during it, or opened by someone. */
+    NOTETAKER_COPILOT_ENABLED,
+    NOTETAKER_COPILOT_DISABLED,
+    NOTETAKER_COPILOT_STOPPED,
+    NOTETAKER_COPILOT_OPENED,
+
     /** Openers drafted by the model for a review — recorded because it spends model money. */
     OUTREACH_OPENERS_DRAFTED,
 

@@ -572,45 +572,35 @@
         <div style="flex:none;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line-soft);padding:16px 20px">
           <div>
             <div style="font:600 16px var(--sans)">Book a call with {{ bk.name }}</div>
-            <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">Free times on yara.haddad@alfuttaim.com · Asia/Dubai</div>
+            <div style="margin-top:2px;font:400 12px var(--mono);color:var(--text3)">Your calendar · yara.haddad@alfuttaim.com · Asia/Dubai</div>
           </div>
           <button onClick="{{ closeBookCall }}" aria-label="Close" style="margin-left:auto;border-radius:6px;padding:6px;color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.close }}"></path></svg></button>
         </div>
         <div style="flex:1;min-height:0;overflow-y:auto;padding:16px 20px">
           <div style="display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px">
+            <!-- The consultant's own week, read from their calendar: free/busy only (never what an event is), their working
+                 hours tinted — Outlook's own where the calendar states them, else theirs or the workspace's — and any
+                 time picked by dragging, on any day, snapped to five minutes. Working hours only label a time: outside
+                 them the footer says so and the invite still goes. The grid scrolls to 00:00–24:00; 08:00–18:00 shown. -->
             <section aria-label="Time" style="min-width:0">
-              <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
-                <span style="font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Day</span>
-                <button aria-label="Earlier days" disabled style="margin-left:auto;border:none;background:none;border-radius:6px;padding:6px;color:var(--text3);opacity:.4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></button>
-                <span style="display:inline-flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:5px 10px;font:400 12.5px var(--mono);color:var(--text)">2 Oct 2026 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>
-                <button aria-label="Later days" style="border:none;background:none;border-radius:6px;padding:6px;color:var(--text3);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+                <span style="font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Week</span>
+                <span style="font:400 11.5px var(--mono);color:var(--text3)">Drag on the calendar to pick a time</span>
+                <button aria-label="Earlier week" disabled style="margin-left:auto;border:none;background:none;border-radius:6px;padding:6px;color:var(--text3);opacity:.4"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg></button>
+                <span style="display:inline-flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:5px 10px;font:400 12.5px var(--mono);color:var(--text)">4 Oct 2026 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span>
+                <button aria-label="Later week" style="border:none;background:none;border-radius:6px;padding:6px;color:var(--text3);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
               </div>
-              <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:20px">
-                <sc-for list="{{ bk.days }}" as="dy" hint-placeholder-count="5">
-                  <button onClick="{{ pickDay }}" data-id="{{ dy.label }}" aria-pressed="{{ dy.on }}" style="{{ dy.style }}">
-                    <span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">{{ dy.weekday }}</span>
-                    <span style="margin-top:2px;font:600 20px/1 var(--sans)">{{ dy.day }}</span>
-                    <span style="margin-top:4px;font:400 11px var(--sans);color:var(--text3)">{{ dy.month }}</span>
-                    <span style="{{ dy.countStyle }}">{{ dy.count }}</span>
-                  </button>
-                </sc-for>
+              <div role="grid" aria-label="Your week" style="display:flex;overflow-x:auto;max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:8px">
+                <div style="position:sticky;left:0;z-index:1;width:44px;flex:none;background:var(--panel)"><div style="height:45px;border-bottom:1px solid var(--line-soft)"></div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">08:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">09:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">10:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">11:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">12:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">13:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">14:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">15:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">16:00</div><div style="height:32px;padding-right:6px;text-align:right;font:400 10.5px var(--mono);color:var(--text3)">17:00</div></div><div style="min-width:96px;border-left:1px solid var(--line-soft)"><div style="display:flex;flex-direction:column;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);color:var(--text2)"><span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">SUN</span><span style="font:600 16px/1.2 var(--sans)">4</span></div><div style="position:relative;height:320px;background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line-soft) 31px 32px)"><div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:320px;background:var(--accent-tint, rgba(74,86,214,.08))"></div></div></div><div style="min-width:96px;border-left:1px solid var(--line-soft)"><div style="display:flex;flex-direction:column;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);color:var(--text2)"><span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">MON</span><span style="font:600 16px/1.2 var(--sans)">5</span></div><div style="position:relative;height:320px;background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line-soft) 31px 32px)"><div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:320px;background:var(--accent-tint, rgba(74,86,214,.08))"></div><div style="position:absolute;left:3px;right:3px;top:32px;height:30px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);padding:2px 5px;font:400 10.5px var(--mono);color:var(--text3)">Busy</div></div></div><div style="min-width:96px;border-left:1px solid var(--line-soft)"><div style="display:flex;flex-direction:column;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);color:var(--text)"><span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">TUE</span><span style="font:600 16px/1.2 var(--sans)">6</span></div><div style="position:relative;height:320px;background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line-soft) 31px 32px)"><div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:320px;background:var(--accent-tint, rgba(74,86,214,.08))"></div><div style="position:absolute;left:3px;right:3px;top:128px;height:46px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);padding:2px 5px;font:400 10.5px var(--mono);color:var(--text3)">Busy</div><div style="position:absolute;left:3px;right:3px;top:72px;height:62px;border-radius:5px;background:var(--amber-btn);border:1px solid var(--amber-btn);padding:3px 6px;font:600 11px var(--sans);color:var(--on-amber);box-shadow:var(--shadow)">10:15–11:05<span style="display:block;font:400 10.5px var(--mono);opacity:.85">50 min</span><span aria-hidden="true" style="position:absolute;left:50%;bottom:2px;width:18px;height:3px;margin-left:-9px;border-radius:2px;background:currentColor;opacity:.6"></span></div></div></div><div style="min-width:96px;border-left:1px solid var(--line-soft)"><div style="display:flex;flex-direction:column;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);color:var(--text2)"><span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">WED</span><span style="font:600 16px/1.2 var(--sans)">7</span></div><div style="position:relative;height:320px;background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line-soft) 31px 32px)"><div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:320px;background:var(--accent-tint, rgba(74,86,214,.08))"></div><div style="position:absolute;left:3px;right:3px;top:64px;height:30px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);padding:2px 5px;font:400 10.5px var(--mono);color:var(--text3)">Busy</div><div style="position:absolute;left:3px;right:3px;top:192px;height:30px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);padding:2px 5px;font:400 10.5px var(--mono);color:var(--text3)">Busy</div></div></div><div style="min-width:96px;border-left:1px solid var(--line-soft)"><div style="display:flex;flex-direction:column;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);color:var(--text2)"><span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">THU</span><span style="font:600 16px/1.2 var(--sans)">8</span></div><div style="position:relative;height:320px;background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line-soft) 31px 32px)"><div aria-hidden="true" style="position:absolute;left:0;right:0;top:0;height:320px;background:var(--accent-tint, rgba(74,86,214,.08))"></div><div style="position:absolute;left:3px;right:3px;top:16px;height:30px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);padding:2px 5px;font:400 10.5px var(--mono);color:var(--text3)">Busy</div></div></div><div style="min-width:96px;border-left:1px solid var(--line-soft)"><div style="display:flex;flex-direction:column;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);color:var(--text2)"><span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">FRI</span><span style="font:600 16px/1.2 var(--sans)">9</span></div><div style="position:relative;height:320px;background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line-soft) 31px 32px)"></div></div><div style="min-width:96px;border-left:1px solid var(--line-soft)"><div style="display:flex;flex-direction:column;align-items:center;padding:6px 0;border-bottom:1px solid var(--line-soft);color:var(--text2)"><span style="font:600 10px var(--mono);letter-spacing:.1em;color:var(--text3)">SAT</span><span style="font:600 16px/1.2 var(--sans)">10</span></div><div style="position:relative;height:320px;background-image:repeating-linear-gradient(to bottom,transparent 0 31px,var(--line-soft) 31px 32px)"><div style="position:absolute;left:3px;right:3px;top:136px;font:400 10px/1.4 var(--mono);color:var(--text3);text-align:center">Not a working day — you can still book</div></div></div>
               </div>
-              <div style="min-height:220px">
-                <sc-if value="{{ bk.dayFull }}" hint-placeholder-val="{{ false }}">
-                  <div style="height:220px;display:grid;place-items:center;border:1px dashed var(--line);border-radius:8px;text-align:center">
-                    <div><div style="font:400 13px var(--sans);color:var(--text2)">No free time on {{ bk.dayLabel }}</div><div style="margin-top:4px;font:400 11.5px var(--mono);color:var(--text3)">Pick another day, or page ahead.</div></div>
-                  </div>
-                </sc-if>
-                <sc-for list="{{ bk.groups }}" as="gr" hint-placeholder-count="2">
-                  <div style="margin-bottom:16px">
-                    <div style="margin-bottom:8px;font:400 11px var(--mono);color:var(--text3)">{{ gr.label }}</div>
-                    <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
-                      <sc-for list="{{ gr.slots }}" as="sl" hint-placeholder-count="3">
-                        <button onClick="{{ pickSlot }}" data-id="{{ sl.id }}" style="{{ sl.style }}">{{ sl.time }}</button>
-                      </sc-for>
-                    </div>
-                  </div>
-                </sc-for>
+              <div style="display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:8px;font:400 11px var(--mono);color:var(--text3)">
+                <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--accent-tint, rgba(74,86,214,.12))"></span>Your working hours · Outlook</span>
+                <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:2px;background:var(--panel2);border:1px solid var(--line)"></span>Busy</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:14px">
+                <label><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Pick a time</span><span style="display:inline-block;border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:7px 10px;font:400 12.5px var(--mono)">6 Oct 2026</span></label>
+                <label><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">From</span><span style="display:inline-block;border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:7px 10px;font:400 12.5px var(--mono)">10:15</span></label>
+                <label><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">To</span><span style="display:inline-block;border:1px solid var(--line);border-radius:6px;background:var(--panel2);padding:7px 10px;font:400 12.5px var(--mono)">11:05</span></label>
               </div>
             </section>
             <section aria-label="Details" style="border-left:1px solid var(--line);padding-left:24px">
@@ -618,6 +608,7 @@
               <div role="radiogroup" aria-label="Length" style="display:inline-flex;border:1px solid var(--line);border-radius:6px;padding:2px;margin-bottom:16px">
                 <sc-for list="{{ bk.lengths }}" as="ln" hint-placeholder-count="3"><button onClick="{{ setLength }}" data-id="{{ ln.value }}" style="{{ ln.style }}">{{ ln.label }}</button></sc-for>
               </div>
+              <div style="margin:-10px 0 16px;font:400 11px/1.5 var(--mono);color:var(--text3)">Or drag on the calendar for any length, up to 8 hr.</div>
               <label style="display:block;margin-bottom:16px"><span style="display:block;margin-bottom:6px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Video</span>
                 <select aria-label="Video link" style="width:100%;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 12.5px var(--mono);color:var(--text)"><option>Google Meet</option><option>Microsoft Teams</option><option>No video link</option></select>
               </label>
@@ -628,6 +619,12 @@
                 <input value="{{ bk.title }}" aria-label="Meeting title" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 13px var(--sans);color:var(--text);outline:none">
                 <span style="display:block;margin-top:6px;font:400 11px/1.5 var(--mono);color:var(--text3)">What {{ bk.first }} sees. Keep the business unit out of it unless you mean to name it.</span>
               </label>
+              <!-- Record with Notetaker: on by default where the Notetaker is set up and a video link is chosen; the bot is sent once the invite goes. -->
+              <div style="display:flex;align-items:center;gap:10px;margin-top:14px;border-radius:7px;border:1px solid var(--line);padding:8px 10px;background:var(--bg)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--accent)"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-14 0v-1M12 18v4"></path></svg>
+                <span style="min-width:0;flex:1"><span style="display:block;font:500 12px var(--sans)">Record with Notetaker</span><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Joins 1 min early · files notes on {{ bk.first }}</span></span>
+                <span role="switch" aria-checked="true" style="position:relative;flex:none;width:32px;height:18px;border-radius:9px;background:var(--accent-solid, #4a56d6)"><span style="position:absolute;top:2px;left:16px;width:14px;height:14px;border-radius:50%;background:#fff"></span></span>
+              </div>
             </section>
           </div>
         </div>
@@ -739,9 +736,25 @@
                   <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
                   <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                   <sc-if value="{{ m.viaLink }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
+                  <span data-screen-label="Notetaker" style="display:flex;align-items:center;gap:10px;margin-top:6px;border-radius:7px;border:1px solid var(--line);padding:7px 10px;background:var(--bg)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-14 0v-1M12 18v4"></path></svg>
+                    <span style="min-width:0;flex:1"><span style="display:block;font:500 12px var(--sans)">Notetaker</span>
+                      <sc-if value="{{ m.hasNotetaker }}" hint-placeholder-val="{{ true }}"><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Joins 1 min early · files notes after</span></sc-if>
+                      <sc-if value="{{ m.canRecord }}" hint-placeholder-val="{{ false }}"><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Off · nothing is recorded</span></sc-if></span>
+                    <!-- Record with Notetaker: on sends the bot, off asks "Remove the Notetaker?" first. -->
+                    <sc-if value="{{ m.hasNotetaker }}" hint-placeholder-val="{{ true }}"><span role="switch" aria-checked="true" style="position:relative;flex:none;width:32px;height:18px;border-radius:9px;background:var(--accent-solid, #4a56d6)"><span style="position:absolute;top:2px;left:16px;width:14px;height:14px;border-radius:50%;background:#fff"></span></span></sc-if>
+                    <sc-if value="{{ m.canRecord }}" hint-placeholder-val="{{ false }}"><span role="switch" aria-checked="false" style="position:relative;flex:none;width:32px;height:18px;border-radius:9px;background:var(--line2)"><span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text3)"></span></span></sc-if>
+                  </span>
                 </span>
-                <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
+                <span style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                  <a href="#" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
+                  <!-- A call booked in Uncava: Reschedule and Cancel call as icon buttons, named by tooltip and aria-label; cancel is the app's trash. -->
+                  <span style="display:flex;gap:4px">
+                    <a href="#" title="Reschedule" aria-label="Reschedule" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--text);background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5M12 7v5l3 2"></path></svg></a>
+                    <a href="#" title="Cancel call" aria-label="Cancel call" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--red, #d93a45)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"></path></svg></a>
+                  </span>
+                </span>
               </div>
             </sc-for>
           </sc-if>
@@ -750,7 +763,11 @@
             <sc-for list="{{ mt.past }}" as="m" hint-placeholder-count="2">
               <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)">
                 <span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span>
-                <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span></span>
+                <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
+                  <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><span data-screen-label="Notetaker" style="display:flex;align-items:center;gap:12px;margin-top:4px">
+                    <span style="display:inline-flex;border-radius:6px;padding:1px 7px;font:600 9.5px var(--mono);background:var(--green-dim);color:var(--green)">Notes filed</span>
+                    <a href="#" style="font:500 11px var(--mono);color:var(--text3)" style-hover="color:var(--text);text-decoration:underline">View transcript</a></span></sc-if>
+                </span>
               </div>
             </sc-for>
           </sc-if>
@@ -798,8 +815,8 @@ const BOOKING_URL = "uncava.com/book/yara-haddad";
 // person id → meetings on the team's connected calendars with one of that person's addresses
 const MEETINGS = {
   e01: {
-    upcoming: [["OCT", "7", "Tue 7 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Google Meet", false]],
-    past: [["22 Sep", "Coffee at DIFC", "Sara Al-Mansour"], ["14 Apr", "Head of Credit Risk: intro call", "Yara Haddad"]]
+    upcoming: [["OCT", "7", "Tue 7 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Google Meet", false, "Notetaker scheduled"]],
+    past: [["22 Sep", "Coffee at DIFC", "Sara Al-Mansour", true], ["14 Apr", "Head of Credit Risk: intro call", "Yara Haddad"]]
   },
   e09: {
     upcoming: [["OCT", "2", "Thu 2 Oct · 14:00–14:30", "30-minute call with Yara Haddad", "Sara Al-Mansour", "Microsoft Teams", true]],
@@ -1043,8 +1060,12 @@ class Component extends DCLogic {
   meetingVals(dr) {
     const id = this.state.drawer;
     const found = MEETINGS[id] || { upcoming: [], past: [] };
-    const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink }));
-    const past = found.past.map(([date, title, who]) => ({ date, title, who }));
+    // The Notetaker (a Recall.ai bot): Record with Notetaker on a call with a video link, then its chip — Notetaker
+    // scheduled / Notetaker joining / Recording (each with Remove notetaker), Writing notes, Notes filed (View transcript),
+    // or "Notetaker failed: <why>" (Try again where only the write-up failed). Never offered for do not contact.
+    const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink, notetaker]) => ({ month, day, when, title, who, join, viaLink,
+      notetaker: notetaker || "", hasNotetaker: !!notetaker, canRecord: !notetaker && !dr.dnc }));
+    const past = found.past.map(([date, title, who, notesFiled]) => ({ date, title, who, notesFiled: !!notesFiled }));
     const total = upcoming.length + past.length;
     return { upcoming, past, hasUpcoming: upcoming.length > 0, hasPast: past.length > 0, isEmpty: total === 0,
       count: total === 0 ? "" : String(total), canBook: dr.show && !dr.dnc };

@@ -1,6 +1,5 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
@@ -10,12 +9,11 @@ import app.lightmove.api.outreach.dto.BookingSlotsResponse;
 import app.lightmove.api.outreach.dto.SlotDayResponse;
 import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.BookingSlug;
-import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.FreeSlots;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
-import app.lightmove.api.outreach.model.SendingWindow;
 import app.lightmove.api.outreach.model.SlotPage;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +21,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A direct mailbox's booking page, Uncava's own where a Nylas one is Nylas's scheduler: the consultant's free
- * half-hours, read from their calendar as Book a call reads them, and a booking that invites whoever picked one.
+ * half-hours inside their working hours ({@link FreeSlots}), and a booking that invites whoever picked one.
  * Nobody is signed in, so the link is the only credential, every call is rate-limited per IP and link, and a
  * booking counts towards a person only where that consultant emailed the address ({@link LinkBookings}). Nothing
  * the caller types reaches the invite but the address it goes to. Two bookers racing for one slot can both be
@@ -50,15 +49,21 @@ public class DirectBookingPage {
     private final LinkBookings linkBookings;
     private final RateLimitGuard rateLimit;
     private final TransactionTemplate transactions;
-    private final LightMoveProperties properties;
+    private final AvailabilityService availability;
     private final Clock clock;
 
     public BookingSlotsResponse slots(String slug, LocalDate from, HttpServletRequest request) {
         rateLimit.checkBookingPageOpen(slug, request);
         MailboxConnection mailbox = requireDirectPage(slug);
-        SlotPage page = freeSlotsOf(mailbox)
-                .page(clock.instant(), from, LENGTH, (start, end) -> busyOf(mailbox, start, end))
-                .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_SLOT_INVALID));
+        Instant now = clock.instant();
+        ZoneId zone = mailbox.zone();
+        LocalDate firstDay = FreeSlots.firstDayOf(now, from, zone);
+        if (firstDay == null) {
+            throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
+        }
+        CalendarSchedule schedule = scheduleOf(mailbox, FreeSlots.pageStart(firstDay, zone),
+                FreeSlots.pageEnd(firstDay, zone));
+        SlotPage page = freeSlotsOf(mailbox, schedule).page(now, firstDay, LENGTH, schedule.busy());
         return new BookingSlotsResponse(mailbox.getTimeZone(), BookingPages.CALL_MINUTES, page.earliestDate(),
                 page.latestDate(), page.previousFrom(), SlotDayResponse.listOf(page.days()));
     }
@@ -71,11 +76,16 @@ public class DirectBookingPage {
         Instant startsAt = booking.startsAt();
         Instant endsAt = startsAt.plus(LENGTH);
         String bookerAddress = booking.email().trim();
-        if (!freeSlotsOf(mailbox).books(now, startsAt, LENGTH) || bookerAddress.equalsIgnoreCase(mailbox.getAddress())) {
+        if (!FreeSlots.isOfferable(now, startsAt, mailbox.zone()) || bookerAddress.equalsIgnoreCase(mailbox.getAddress())) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
         }
         rateLimit.checkBookingPageBook(slug, request);
-        if (busyOf(mailbox, startsAt, endsAt).stream().anyMatch(taken -> taken.overlaps(startsAt, endsAt))) {
+        CalendarSchedule schedule = scheduleOf(mailbox, startsAt, endsAt);
+        FreeSlots slots = freeSlotsOf(mailbox, schedule);
+        if (!slots.books(now, startsAt, LENGTH, List.of())) {
+            throw ApiException.of(ErrorCode.MEETING_SLOT_INVALID);
+        }
+        if (schedule.isTaken(startsAt, endsAt)) {
             throw ApiException.of(ErrorCode.MEETING_SLOT_TAKEN);
         }
 
@@ -112,9 +122,9 @@ public class DirectBookingPage {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private List<BusyInterval> busyOf(MailboxConnection mailbox, Instant from, Instant to) {
+    private CalendarSchedule scheduleOf(MailboxConnection mailbox, Instant from, Instant to) {
         try {
-            return gateway.busyTimes(mailbox.getGrantId(), mailbox.getAddress(), from, to);
+            return gateway.schedule(mailbox.getGrantId(), mailbox.getAddress(), from, to);
         } catch (VendorException failed) {
             throw failedAtProvider(mailbox, failed, ErrorCode.MEETING_CALENDAR_UNAVAILABLE);
         }
@@ -131,8 +141,9 @@ public class DirectBookingPage {
         return ApiException.of(otherwise);
     }
 
-    private FreeSlots freeSlotsOf(MailboxConnection mailbox) {
-        return new FreeSlots(SendingWindow.of(properties.outreach()), mailbox.zone());
+    /** The link offers the consultant's working hours: Outlook's own where it states them, else theirs or the workspace's. */
+    private FreeSlots freeSlotsOf(MailboxConnection mailbox, CalendarSchedule schedule) {
+        return new FreeSlots(availability.workingHoursOf(mailbox, schedule), mailbox.zone());
     }
 
     private String consultantNameOf(MailboxConnection mailbox) {

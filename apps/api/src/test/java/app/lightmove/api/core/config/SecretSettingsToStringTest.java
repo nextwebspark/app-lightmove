@@ -32,8 +32,10 @@ class SecretSettingsToStringTest {
     @Test
     @DisplayName("Recall's key and webhook secret never print")
     void recallSecretsAreRedacted() {
-        RecallSettings recall = new RecallSettings("recall-key", "recall-webhook-secret", "https://us-east-1.recall.ai");
+        RecallSettings recall = new RecallSettings("recall-key", "recall-webhook-secret", "recall-bot-secret",
+                "https://us-east-1.recall.ai", null, null, null, 0);
 
-        assertThat(recall.toString()).doesNotContain("recall-key").doesNotContain("recall-webhook-secret");
+        assertThat(recall.toString()).doesNotContain("recall-key").doesNotContain("recall-webhook-secret")
+                .doesNotContain("recall-bot-secret");
     }
 }

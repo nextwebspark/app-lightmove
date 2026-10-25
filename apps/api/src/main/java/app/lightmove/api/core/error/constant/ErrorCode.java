@@ -416,6 +416,65 @@ public enum ErrorCode {
     MEETING_UPDATE_FAILED(HttpStatus.BAD_GATEWAY,
             "The call could not be changed. Check your calendar before trying again"),
 
+    /** No Recall.ai account is configured on this deployment, so no Notetaker is offered. */
+    NOTETAKER_NOT_OFFERED(HttpStatus.CONFLICT, "The Notetaker is not set up on this deployment"),
+
+    /** The call has no video link a bot could join. */
+    NOTETAKER_NO_JOIN_LINK(HttpStatus.CONFLICT, "This call has no video link for the Notetaker to join"),
+
+    /** A recorder joins a call only for someone whose calendar holds it, or who booked it; never a teammate's call. */
+    NOTETAKER_NOT_YOUR_CALL(HttpStatus.FORBIDDEN,
+            "Only someone whose calendar holds this call can send the Notetaker"),
+
+    /** The call has already ended. */
+    NOTETAKER_MEETING_OVER(HttpStatus.CONFLICT, "This call has already ended"),
+
+    /** A Notetaker is already on its way to this call, sent by this consultant or a teammate. */
+    NOTETAKER_ALREADY_SCHEDULED(HttpStatus.CONFLICT, "A Notetaker is already set to record this call"),
+
+    /** Only a recording that is still to come or under way is called back; only a failed one is tried again. */
+    NOTETAKER_NOT_CHANGEABLE(HttpStatus.CONFLICT, "This Notetaker can no longer be changed"),
+
+    /** Recall.ai refused or could not be reached; never retried, since a second bot in a call is worse. */
+    NOTETAKER_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The Notetaker could not be sent. Try again"),
+
+    /** A Recall bot webhook whose signature did not verify, or any delivery while no bot secret is configured. */
+    NOTETAKER_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
+
+    /** Suggest changes reads the transcript, which is kept only as long as the call's note. */
+    NOTETAKER_TRANSCRIPT_GONE(HttpStatus.NOT_FOUND, "This call's transcript is no longer kept"),
+
+    /** Suggest changes is offered once the call's notes are filed. */
+    NOTETAKER_NOT_READY(HttpStatus.CONFLICT, "The notes from this call are not filed yet"),
+
+    /** Another press on the same call is already reading its transcript; it answers for both. */
+    NOTETAKER_SUGGESTIONS_RUNNING(HttpStatus.CONFLICT, "This call's transcript is already being read"),
+
+    /** A suggestion is applied or skipped once; another tab or a teammate decided it first. */
+    NOTETAKER_SUGGESTION_DECIDED(HttpStatus.CONFLICT, "This change was already decided"),
+
+    /**
+     * The record moved on since the suggestion was made — the tag was retired, the package is held in another
+     * currency, or a value applied from the call was edited afterwards — so it can no longer be applied or undone.
+     */
+    NOTETAKER_SUGGESTION_UNAVAILABLE(HttpStatus.CONFLICT, "This change can no longer be made"),
+
+    /** Another press is already preparing this call's questions; its answer lands for both. */
+    INTERVIEW_PLAN_DRAFTING(HttpStatus.CONFLICT, "These questions are already being prepared"),
+
+    /** Recall streams a transcript only to a bot made for it, so the live copilot is chosen before the bot joins. */
+    NOTETAKER_COPILOT_LOCKED(HttpStatus.CONFLICT, "Live copilot can only be changed before the Notetaker joins"),
+
+    /** The copilot is read, stopped or steered only on a recording that has one. */
+    NOTETAKER_COPILOT_OFF(HttpStatus.CONFLICT, "This call has no live copilot"),
+
+    /** Stopping coaching for everyone is the switcher's, a lead's or an admin's; anyone else closes their own window. */
+    NOTETAKER_COPILOT_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who switched on the copilot, a lead or an admin can stop it"),
+
+    NOTETAKER_COPILOT_SWITCH_NOT_YOURS(HttpStatus.FORBIDDEN,
+            "Only the person who sent the Notetaker can change its copilot"),
+
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
 

@@ -323,6 +323,10 @@ public class SecurityConfig {
                         .requestMatchers(API + "/outreach/webhooks/mailbox").permitAll()
                         // Recall's likewise: its Svix signature, checked by RecallCalendarClient, is the credential.
                         .requestMatchers(HttpMethod.POST, API + "/outreach/webhooks/recall").permitAll()
+                        // And the Notetaker's bot events, checked by RecallBotClient under their own secret.
+                        .requestMatchers(HttpMethod.POST, API + "/notetaker/webhooks/recall").permitAll()
+                        // And the live copilot's real-time transcript, signed under the same secret.
+                        .requestMatchers(HttpMethod.POST, API + "/notetaker/webhooks/recall/live").permitAll()
                         // Stripe's likewise: its signature, checked by the payment gateway, is the credential.
                         .requestMatchers(HttpMethod.POST, API + "/billing/webhooks/stripe").permitAll()
 

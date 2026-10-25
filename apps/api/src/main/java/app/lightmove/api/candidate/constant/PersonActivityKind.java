@@ -16,6 +16,10 @@ public enum PersonActivityKind {
     UNMAPPED,
 
     STATUS_CHANGED,
+
+    /** Moved to another Companies stage, on their own or carried by their company's move (#903). */
+    TRIAGE_STATUS_CHANGED,
+
     PROFILE_EDITED,
     CONTACTS_EDITED,
 
@@ -85,5 +89,11 @@ public enum PersonActivityKind {
     TASK_CANCELLED,
 
     /** A consultant marked their assessment against a mandate's brief reviewed. A draft save writes no line. */
-    ASSESSMENT_REVIEWED
+    ASSESSMENT_REVIEWED,
+
+    /**
+     * A researcher applied a change a recorded call suggested; {@code reverted} marks an undo, written only while the
+     * review offered one. The line names the fields and the call, never the values.
+     */
+    UPDATED_FROM_CALL
 }

@@ -10,7 +10,7 @@ public record McpUniverse(
         @Schema(description = "The stage's companies, by name") List<McpUniverseCompany> companies,
         @Schema(description = "Every company of the stage, including any this answer was cut short of")
         int totalCompanies,
-        @Schema(description = "Executives at no company of the position; filled on inUniverse only")
+        @Schema(description = "Executives of the stage at no company of the position")
         List<McpCandidateRow> unassigned,
         @Schema(description = "Every executive at no company, including any this answer was cut short of")
         int totalUnassigned,

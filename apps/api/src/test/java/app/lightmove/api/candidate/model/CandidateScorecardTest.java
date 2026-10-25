@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.ScorecardReportSection;
 import app.lightmove.api.candidate.constant.ScorecardStatus;
 import app.lightmove.api.common.constant.CompetencyPanel;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -112,7 +113,7 @@ class CandidateScorecardTest {
 
     private static CandidateScorecard scorecard() {
         Person person = Person.founded(UUID.randomUUID(), UUID.randomUUID(), CandidateSource.MANUAL, details());
-        Candidate candidate = Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), null, person,
+        Candidate candidate = Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), null, TriageCompanyStatus.IN_UNIVERSE, person,
                 CandidateSource.MANUAL, PipelineTestStatuses.identified(), details());
         return CandidateScorecard.startFor(candidate, UUID.randomUUID());
     }

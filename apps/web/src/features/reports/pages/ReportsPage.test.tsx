@@ -211,12 +211,14 @@ describe("ReportsPage", () => {
     },
   });
 
-  it("says a first week has no line rather than drawing a projection onto today", async () => {
+  it("draws a first week's coverage from day one without projecting it onto today", async () => {
     vi.mocked(reportApi.getReport).mockResolvedValue(firstWeek({}));
 
     renderPage();
 
-    expect(await screen.findByText(/Only the kickoff week has closed/)).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /Companies covered per week/ })).toBeInTheDocument();
+    expect(screen.getByText("Actual")).toBeInTheDocument();
+    expect(screen.getByText(/The line runs from kickoff to today/)).toBeInTheDocument();
     expect(screen.getByText("Too early to project")).toBeInTheDocument();
     expect(screen.getByText(/A pace needs a second week/)).toBeInTheDocument();
     // Nothing to project from, so neither the basis control nor a projected date is offered.
@@ -231,6 +233,7 @@ describe("ReportsPage", () => {
     renderPage();
 
     expect(await screen.findByText(/already has an executive mapped, inside the kickoff week/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Companies covered per week/ })).toBeInTheDocument();
     expect(screen.queryByText("Projected")).not.toBeInTheDocument();
   });
 

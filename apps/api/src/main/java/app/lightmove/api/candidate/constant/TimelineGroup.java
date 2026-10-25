@@ -14,7 +14,8 @@ import lombok.experimental.Accessors;
 public enum TimelineGroup implements ApiValueEnum {
 
     POSITIONS("positions", EnumSet.of(PersonActivityKind.ADDED_TO_POOL, PersonActivityKind.MAPPED,
-            PersonActivityKind.UNMAPPED, PersonActivityKind.STATUS_CHANGED, PersonActivityKind.NEXT_ACTION_SET,
+            PersonActivityKind.UNMAPPED, PersonActivityKind.STATUS_CHANGED,
+            PersonActivityKind.TRIAGE_STATUS_CHANGED, PersonActivityKind.NEXT_ACTION_SET,
             PersonActivityKind.CLIENT_VISIBILITY_CHANGED, PersonActivityKind.TASK_CREATED,
             PersonActivityKind.TASK_COMPLETED, PersonActivityKind.TASK_REOPENED, PersonActivityKind.TASK_REASSIGNED,
             PersonActivityKind.TASK_CANCELLED)),
@@ -26,7 +27,8 @@ public enum TimelineGroup implements ApiValueEnum {
             PersonActivityKind.OUTREACH_STOPPED, PersonActivityKind.MEETING_BOOKED,
             PersonActivityKind.MEETING_RESCHEDULED, PersonActivityKind.MEETING_CANCELLED)),
     PROFILE("profile", EnumSet.of(PersonActivityKind.PROFILE_EDITED, PersonActivityKind.RESEARCHED,
-            PersonActivityKind.AI_ASSESSED, PersonActivityKind.ASSESSMENT_REVIEWED)),
+            PersonActivityKind.AI_ASSESSED, PersonActivityKind.ASSESSMENT_REVIEWED,
+            PersonActivityKind.UPDATED_FROM_CALL)),
     TAGS("tags", EnumSet.of(PersonActivityKind.TAGGED, PersonActivityKind.UNTAGGED,
             PersonActivityKind.OWNER_CHANGED)),
     DOCUMENTS("documents", EnumSet.of(PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,

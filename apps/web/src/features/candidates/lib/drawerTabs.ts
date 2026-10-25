@@ -1,10 +1,20 @@
 /**
  * The tabs both person drawers draw, in `Position.dc.html`'s order. A position's drawer shows every one
- * a staff seat may use; the workspace Candidates drawer leaves out what only a position can hold.
+ * a staff seat may use; the workspace Candidates drawer leaves out what only a position can hold. `copilot` is in
+ * no list: a position's drawer puts it first only while a call's live copilot runs.
  */
-export type DrawerTab = "career" | "notes" | "assessment" | "contact" | "documents" | "activity" | "positions";
+export type DrawerTab =
+  | "copilot"
+  | "career"
+  | "notes"
+  | "assessment"
+  | "contact"
+  | "documents"
+  | "activity"
+  | "positions";
 
 export const DRAWER_TAB_LABELS: Readonly<Record<DrawerTab, string>> = {
+  copilot: "Copilot",
   career: "Career",
   notes: "Notes",
   assessment: "Assessment",
@@ -65,7 +75,9 @@ export function rememberedDrawerTab(kind: DrawerKind, offered: readonly DrawerTa
   }
 }
 
+/** The copilot is never remembered: it lasts one call, and the next profile has none. */
 export function rememberDrawerTab(kind: DrawerKind, tab: DrawerTab) {
+  if (tab === "copilot") return;
   try {
     sessionStorage.setItem(REMEMBERED_TAB_KEY(kind), tab);
   } catch {
