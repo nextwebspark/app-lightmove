@@ -168,7 +168,21 @@ function renderSection({
 }
 
 describe("MeetingsSection", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    // Every upcoming row reads its call's plan; left unanswered, that read settles after the test has ended.
+    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue({
+      meetingId: "m1",
+      title: null,
+      startsAt: "2026-10-07T06:00:00Z",
+      drafted: false,
+      savedAt: null,
+      savedByName: null,
+      competencies: [],
+      missing: [],
+      questions: [],
+    });
+  });
 
   it("lists upcoming meetings with a join link and past ones without", async () => {
     renderSection();
