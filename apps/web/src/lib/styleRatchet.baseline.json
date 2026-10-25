@@ -258,9 +258,6 @@
   "features/oauth/pages/OAuthConsentPage.tsx": {
     "arbitraryText": 11
   },
-  "features/outreach/components/BookCallDialog.tsx": {
-    "arbitraryText": 7
-  },
   "features/outreach/components/BookCallTimes.tsx": {
     "arbitraryText": 6,
     "arbitraryRadius": 2

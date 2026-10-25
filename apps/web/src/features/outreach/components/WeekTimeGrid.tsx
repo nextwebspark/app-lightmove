@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { PointerEvent, ReactNode } from "react";
+import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 import type { TimeSpan } from "../api/meetingApi";
 import { slotDayPartsOf, slotTimeOf } from "../lib/meetingTimes";
@@ -16,8 +16,12 @@ import {
 /** One hour is 48px: a quarter hour is a 12px row, five minutes 4px. */
 const PIXELS_PER_MINUTE = 0.8;
 const GRID_HEIGHT = MINUTES_IN_DAY * PIXELS_PER_MINUTE;
-/** Where the grid opens when nothing is picked: an hour before a working day usually starts. */
-const OPENS_AT_MINUTES = 7 * 60;
+/** Where the grid opens when nothing is picked and the week states no working hours. */
+const OPENS_AT_MINUTES = 8 * 60;
+/** How much of the hour before the opening time stays in view, so the first hour's label is never under the header. */
+const LEAD_MINUTES = 30;
+const BUSY_HATCH =
+  "repeating-linear-gradient(135deg, transparent 0 5px, var(--color-u-border) 5px 6px)";
 
 interface Drag {
   date: string;
@@ -61,8 +65,9 @@ export function WeekTimeGrid({
   const firstDay = days[0];
   useEffect(() => {
     const [hour, minute] = choice ? wallClockOf(new Date(choice.start), timeZone).time.split(":").map(Number) : [0, 0];
-    const opensAt = choice ? hour * 60 + minute : OPENS_AT_MINUTES;
-    scroller.current?.scrollTo?.({ top: Math.max(0, opensAt - 60) * PIXELS_PER_MINUTE });
+    const workStarts = days.flatMap((date) => stretchesOn(workingHours, date, timeZone).map((stretch) => stretch.top));
+    const opensAt = choice ? hour * 60 + minute : workStarts.length > 0 ? Math.min(...workStarts) : OPENS_AT_MINUTES;
+    scroller.current?.scrollTo?.({ top: Math.max(0, opensAt - LEAD_MINUTES) * PIXELS_PER_MINUTE });
     // Only when a week is first drawn: following each pick would scroll the grid out from under the pointer.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firstDay, timeZone]);
@@ -96,17 +101,19 @@ export function WeekTimeGrid({
     : null;
   const shown = dragged ?? choice;
   const nowSpan: TimeSpan[] = [{ start: new Date(0).toISOString(), end: now.toISOString() }];
+  const today = wallClockOf(now, timeZone);
+  const nowMinutes = Number(today.time.slice(0, 2)) * 60 + Number(today.time.slice(3, 5));
 
   return (
     <div
       ref={scroller}
       role="group"
       aria-label="Your week"
-      className="relative max-h-[420px] overflow-auto rounded-u-chip border border-u-border bg-u-surface"
+      className="relative max-h-[540px] overflow-auto rounded-u-chip border border-u-border bg-u-bg"
     >
       <div className="flex min-w-max">
-        <div className="sticky start-0 z-20 w-12 flex-none bg-u-surface">
-          <div className="sticky top-0 z-10 h-12 border-b border-u-border bg-u-surface" />
+        <div className="sticky start-0 z-20 w-12 flex-none bg-u-bg">
+          <div className="sticky top-0 z-10 h-12 border-b border-u-border bg-u-bg" />
           <div className="relative" style={{ height: GRID_HEIGHT }}>
             {Array.from({ length: 24 }, (_, hour) => (
               <div
@@ -122,11 +129,22 @@ export function WeekTimeGrid({
         {days.map((date) => {
           const parts = slotDayPartsOf(date);
           const pick = shown ? stretchesOn([{ start: shown.start, end: endOf(shown) }], date, timeZone) : [];
+          const isToday = date === today.date;
           return (
             <div key={date} className="w-[104px] flex-none border-s border-u-border md:w-auto md:min-w-[80px] md:flex-1">
-              <div className="sticky top-0 z-10 flex h-12 flex-col items-center justify-center border-b border-u-border bg-u-surface">
-                <span className="type-summary-label text-u-text3">{parts.weekday}</span>
-                <span className="text-body font-semibold text-u-text">{parts.day}</span>
+              <div className="sticky top-0 z-10 flex h-12 flex-col items-center justify-center gap-0.5 border-b border-u-border bg-u-bg">
+                <span className={cn("type-summary-label", isToday ? "text-u-accent" : "text-u-text3")}>
+                  {parts.weekday}
+                </span>
+                <span
+                  aria-current={isToday ? "date" : undefined}
+                  className={cn(
+                    "grid size-6 place-items-center rounded-full text-body font-semibold",
+                    isToday ? "bg-u-accent-solid text-white" : "text-u-text",
+                  )}
+                >
+                  {parts.day}
+                </span>
               </div>
               <div
                 data-testid={`day-${date}`}
@@ -144,17 +162,27 @@ export function WeekTimeGrid({
                   <Block key={`work-${stretch.top}`} stretch={stretch} className="bg-u-accent-tint" />
                 ))}
                 {stretchesOn(nowSpan, date, timeZone).map((stretch) => (
-                  <Block key="past" stretch={stretch} className="bg-u-sunken opacity-70" />
+                  <Block key="past" stretch={stretch} className="bg-u-surface" />
                 ))}
                 {stretchesOn(busy, date, timeZone).map((stretch) => (
                   <Block
                     key={`busy-${stretch.top}`}
                     stretch={stretch}
-                    className="inset-x-1 rounded-u-control border border-u-border bg-u-raised px-1.5 py-0.5 font-mono text-meta text-u-text3"
+                    className="inset-x-1 rounded-u-control border border-u-border-strong bg-u-raised px-1.5 py-0.5 text-meta font-medium text-u-text2"
+                    style={{ backgroundImage: BUSY_HATCH }}
                   >
                     Busy
                   </Block>
                 ))}
+                {isToday && (
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-0 z-20 h-0.5 bg-u-offlimits"
+                    style={{ top: nowMinutes * PIXELS_PER_MINUTE - 1 }}
+                  >
+                    <span className="absolute -start-1 -top-1 size-2.5 rounded-full bg-u-offlimits" />
+                  </div>
+                )}
                 {pick.map((stretch) => (
                   <Block
                     key="pick"
@@ -179,17 +207,23 @@ export function WeekTimeGrid({
 function Block({
   stretch,
   className,
+  style,
   children,
 }: {
   stretch: DayStretch;
   className?: string;
+  style?: CSSProperties;
   children?: ReactNode;
 }) {
   return (
     <div
       aria-hidden="true"
       className={cn("pointer-events-none absolute inset-x-0 overflow-hidden", className)}
-      style={{ top: stretch.top * PIXELS_PER_MINUTE, height: Math.max(4, (stretch.bottom - stretch.top) * PIXELS_PER_MINUTE) }}
+      style={{
+        ...style,
+        top: stretch.top * PIXELS_PER_MINUTE,
+        height: Math.max(4, (stretch.bottom - stretch.top) * PIXELS_PER_MINUTE),
+      }}
     >
       {children}
     </div>
