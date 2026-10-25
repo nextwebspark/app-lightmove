@@ -134,7 +134,7 @@ export function CopilotPanel({
       <button
         ref={menuState.triggerRef}
         type="button"
-        aria-label="More"
+        aria-label="Copilot options"
         aria-haspopup="menu"
         aria-expanded={menuState.open}
         onClick={menuState.toggle}
@@ -199,69 +199,59 @@ export function CopilotPanel({
       aria-label="Interview copilot"
       className="relative flex h-full min-h-0 flex-col overflow-hidden bg-u-surface text-u-text"
     >
-      {variant === "tab" ? (
-        <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-u-border py-2.5">
-          <div role="tablist" aria-label="Copilot views" className="inline-flex rounded-u-control border border-u-border bg-u-raised p-0.5">
-            <ViewButton current={tab} value="live" onSelect={setTab}>
-              Live
-            </ViewButton>
-            <ViewButton current={tab} value="plan" onSelect={setTab}>
-              Plan
-              {planCount}
-            </ViewButton>
-            <ViewButton current={tab} value="transcript" onSelect={setTab}>
-              Transcript
-            </ViewButton>
-          </div>
-          <span className="ms-auto flex min-w-0 items-center gap-2">
-            <span className="flex min-w-0 items-center gap-2 text-note text-u-text2">{callLine}</span>
-            {onPopOut && (
-              <Button variant="secondary" size="xs" onClick={onPopOut}>
-                <Icon d={ICONS.externalLink} size={12} />
-                Pop out
-              </Button>
-            )}
-            {menu}
+      {/* The window heads with the executive; the drawer already does, so its tab heads with the copilot itself. */}
+      <header className={cn("flex flex-none items-center gap-2.5 pb-2.5 pt-3", variant === "window" && "px-3")}>
+        {variant === "window" ? (
+          <Avatar id={candidateId} name={copilot?.candidateName ?? "Executive"} src={photoUrl} size="lg" />
+        ) : (
+          <span aria-hidden="true" className="grid size-7.5 flex-none place-items-center rounded-full bg-u-accent-tint text-u-accent">
+            <Icon d={ICONS.mic} size={15} />
           </span>
+        )}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {variant === "window" ? (
+            <h1 className="truncate text-body font-semibold">{copilot?.candidateName ?? "Interview copilot"}</h1>
+          ) : (
+            <h2 className="truncate text-body font-semibold">Interview copilot</h2>
+          )}
+          <p className="flex min-w-0 items-center gap-1.5 text-meta text-u-text3">{callLine}</p>
         </div>
-      ) : (
-        <>
-          <header className="flex flex-none items-center gap-2.5 px-3 pb-2.5 pt-3">
-            <Avatar id={candidateId} name={copilot?.candidateName ?? "Executive"} src={photoUrl} size="lg" />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <h1 className="truncate text-body font-semibold">{copilot?.candidateName ?? "Interview copilot"}</h1>
-              <p className="flex min-w-0 items-center gap-1.5 text-meta text-u-text3">{callLine}</p>
-            </div>
-            {menu}
-            <button
-              type="button"
-              aria-label="Close window"
-              onClick={onClose}
-              className="grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text"
-            >
-              <Icon d={ICONS.close} size={15} />
-            </button>
-          </header>
-          <div className="flex-none border-b border-u-border px-3 pb-2.5">
-            <div
-              role="tablist"
-              aria-label="Copilot views"
-              className="grid grid-cols-3 rounded-u-control border border-u-border bg-u-raised p-0.5"
-            >
-              <ViewButton current={tab} value="live" onSelect={setTab}>
-                Live
-              </ViewButton>
-              <ViewButton current={tab} value="plan" onSelect={setTab}>
-                Plan
-                {planCount}
-              </ViewButton>
-              <ViewButton current={tab} value="transcript" onSelect={setTab}>
-                Transcript
-              </ViewButton>
-            </div>
-          </div>
-        </>
-      )}
+        {onPopOut && (
+          <Button variant="secondary" size="xs" onClick={onPopOut}>
+            <Icon d={ICONS.externalLink} size={12} />
+            Pop out
+          </Button>
+        )}
+        {menu}
+        {variant === "window" && (
+          <button
+            type="button"
+            aria-label="Close window"
+            onClick={onClose}
+            className="grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text"
+          >
+            <Icon d={ICONS.close} size={15} />
+          </button>
+        )}
+      </header>
+      <div className={cn("flex-none border-b border-u-border pb-2.5", variant === "window" && "px-3")}>
+        <div
+          role="tablist"
+          aria-label="Copilot views"
+          className="grid grid-cols-3 rounded-u-control border border-u-border bg-u-raised p-0.5"
+        >
+          <ViewButton current={tab} value="live" onSelect={setTab}>
+            Live
+          </ViewButton>
+          <ViewButton current={tab} value="plan" onSelect={setTab}>
+            Plan
+            {planCount}
+          </ViewButton>
+          <ViewButton current={tab} value="transcript" onSelect={setTab}>
+            Transcript
+          </ViewButton>
+        </div>
+      </div>
 
       <div className={cn("flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto", variant === "tab" ? "py-4" : "p-3")}>
         {notice && <Notice>{notice}</Notice>}

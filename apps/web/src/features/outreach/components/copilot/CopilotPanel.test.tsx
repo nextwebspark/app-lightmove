@@ -122,7 +122,7 @@ describe("CopilotPanel", () => {
     );
     renderPanel();
 
-    await userEvent.click(await screen.findByRole("button", { name: "More" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Copilot options" }));
     await userEvent.click(screen.getByRole("menuitem", { name: /^Stop copilot/ }));
     expect(screen.getByRole("alertdialog", { name: "Stop the copilot for this call?" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Stop copilot" }));
@@ -180,7 +180,7 @@ describe("CopilotPanel", () => {
     );
 
     await waitFor(() => expect(onNudgeCount).toHaveBeenLastCalledWith(1));
-    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("button", { name: "Copilot options" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Mute suggestions" }));
     expect(onNudgeCount).toHaveBeenLastCalledWith(0);
   });
@@ -199,7 +199,7 @@ describe("CopilotPanel", () => {
       />,
     );
 
-    await userEvent.click(await screen.findByRole("button", { name: "More" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Copilot options" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "Show in Uncava" }));
     expect(onShowInUncava).toHaveBeenCalled();
   });
@@ -223,15 +223,15 @@ describe("CopilotPanel", () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
     renderPanel();
 
-    await userEvent.click(await screen.findByRole("button", { name: "More" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Copilot options" }));
     expect(screen.getByRole("menuitem", { name: "Mute suggestions" })).toHaveFocus();
     fireEvent.pointerDown(screen.getByText("Ask for an integration example."));
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("button", { name: "Copilot options" }));
     await userEvent.keyboard("{Escape}");
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "More" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Copilot options" })).toHaveFocus();
   });
 
   it("keeps the drawer's tab and the window on one view, muted alike", async () => {
@@ -249,7 +249,7 @@ describe("CopilotPanel", () => {
       expect(tab).toHaveAttribute("aria-selected", "true");
     }
 
-    await userEvent.click(screen.getAllByRole("button", { name: "More" })[0]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Copilot options" })[0]);
     await userEvent.click(screen.getByRole("menuitem", { name: "Mute suggestions" }));
     expect(screen.getAllByText("Suggestions muted")).toHaveLength(2);
   });
