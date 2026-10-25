@@ -171,8 +171,7 @@ export function NotetakerControl({
           disabled={schedule.isPending || remove.isPending}
           detail={
             <>
-              Joins the call a minute early, records it and files the notes on {firstName}&apos;s record afterwards. It
-              says in the call&apos;s chat whose notes it takes.
+              Joins a minute early, records the call and files the notes on {firstName}&apos;s record.
             </>
           }
         />
@@ -187,9 +186,8 @@ export function NotetakerControl({
           detail={
             mayToggleCopilot ? (
               <>
-                Follows the call as it happens and prompts you with what is still open: competencies not yet covered,
-                facts missing from the record, questions worth asking. Only you see it. Choose it before the Notetaker
-                joins; turning it on sends the Notetaker too.
+                Nudges you during the call with what is still to cover. Only you see it. Switching it on sends the
+                Notetaker too.
               </>
             ) : (
               <>Only whoever sent the Notetaker can change the live copilot.</>

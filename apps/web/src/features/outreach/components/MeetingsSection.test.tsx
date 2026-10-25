@@ -691,11 +691,11 @@ describe("MeetingsSection", () => {
     const notetaker = await screen.findByRole("switch", { name: "Record with Notetaker" });
     expect(screen.getByText("Not recorded")).toBeInTheDocument();
     await userEvent.hover(notetaker);
-    expect(screen.getByRole("tooltip")).toHaveTextContent(/files the notes on Priya's record afterwards/);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/files the notes on Priya's record/);
     await userEvent.unhover(notetaker);
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
     await userEvent.hover(screen.getByRole("switch", { name: "Live copilot" }));
-    expect(screen.getByRole("tooltip")).toHaveTextContent(/turning it on sends the Notetaker too/);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/Switching it on sends the Notetaker too/);
   });
 
   it("switches the live copilot on a Notetaker that has not joined yet, and offers no switch once it has", async () => {
