@@ -285,7 +285,7 @@ export interface Copilot {
   /** Each voice's words so far. */
   speaking: CopilotLine[];
   lastSeq: number;
-  viewers: { userId: string; name: string | null; you: boolean }[];
+  viewers: { userId: string; name: string | null; avatarUrl: string | null; you: boolean }[];
 }
 
 function planPath(projectId: string, candidateId: string, meetingId: string): string {

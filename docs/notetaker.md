@@ -170,13 +170,18 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       — or a popup of `/copilot/:projectId/:candidateId/:recordingId` elsewhere (not on top; it says so), or the drawer's
       **Copilot tab** when the browser opens neither. That tab comes first in the executive drawer, set apart by a rule,
       only while a call's copilot is joining or listening (`liveCopilotOf`), and stays while it is open after the copilot
-      stops; it is never opened unasked and never remembered. It draws the same panel at the drawer's width under one
-      toolbar (Live · Plan · Transcript, the call, who is watching, Pop out, ⋯), counts the suggestions waiting while
+      stops; it is never opened unasked and never remembered. It draws the same panel at the drawer's width, headed
+      like the window but by the copilot rather than the executive the drawer already shows (the call, Pop out, ⋯, then
+      Live · Plan · Transcript), counts the suggestions waiting while
       another tab is open, and while the copilot is in its window says so with Show here rather than drawing a copy. It reads `GET …/notetaker/{recordingId}/copilot?after=` (the lines after the last
       one it holds) whenever `…/copilot/stream` says something changed (Postgres `lm_copilot_stream`), and every 15 s
-      regardless; a hidden tab keeps its stream, since the consultant is looking at the call. Its header carries the
-      Uncava mark, who is watching (each stream stamps `app_lm_meeting_copilot_viewer`), ⋯ — Mute suggestions, Show in
-      Uncava (the window closes and the drawer opens on the Copilot tab), Stop copilot — and ✕, which closes only that window. **Stop copilot** (`POST …/copilot/stop`) is the
+      regardless; a hidden tab keeps its stream, since the consultant is looking at the call. The window's header is the
+      executive — their stored photo, name, the call and its clock — then ⋯ (Mute suggestions, Show in Uncava — the
+      window closes and the drawer opens on the Copilot tab —, Stop copilot; closed by a click elsewhere, Escape or the
+      window losing focus) and ✕, which closes only that window. Each transcript line carries its speaker's face (the
+      executive's photo, a teammate's sign-in picture), and the foot who is watching (each stream stamps
+      `app_lm_meeting_copilot_viewer`). The view and Mute are one per call across the tab, the window and the popup
+      (`lib/copilotView.ts`, a `BroadcastChannel` for the popup), so moving between them loses neither. **Stop copilot** (`POST …/copilot/stop`) is the
       switcher's, the sender's, a lead's or an admin's (`NOTETAKER_COPILOT_NOT_YOURS`): it stops the feed and the coach
       for everyone, deletes the lines, and leaves the bot recording. Every switch, stop and first opening is audited.
 
