@@ -294,10 +294,14 @@ public class InterviewCopilotService {
 
     private List<CopilotViewerResponse> viewersOf(UUID userId, UUID recordingId) {
         List<UUID> watching = viewers.watching(recordingId, clock.instant());
-        Map<UUID, String> names = users.findAllById(watching).stream()
-                .collect(Collectors.toMap(User::getId, User::getFullName, (first, second) -> first));
+        Map<UUID, User> people = users.findAllById(watching).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity(), (first, second) -> first));
         return watching.stream()
-                .map(viewer -> new CopilotViewerResponse(viewer, names.get(viewer), viewer.equals(userId)))
+                .map(viewer -> {
+                    User person = people.get(viewer);
+                    return new CopilotViewerResponse(viewer, person == null ? null : person.getFullName(),
+                            person == null ? null : person.getAvatarUrl(), viewer.equals(userId));
+                })
                 .toList();
     }
 
