@@ -13,11 +13,11 @@ import type { Meeting } from "../api/meetingApi";
 import * as notetakerApi from "../api/notetakerApi";
 import { dateTileOf, meetingWhenOf, shortDateOf } from "../lib/meetingTimes";
 import { openCopilotWindow } from "../lib/copilotWindow";
-import { hasLiveRecording, recordingOfMeeting } from "../lib/notetakerChip";
+import { recordingOfMeeting } from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
+import { useNotetaker } from "../lib/useNotetaker";
 import { BookCallDialog } from "./BookCallDialog";
 import { CallChangesDialog } from "./CallChangesDialog";
-import { CopilotPanel } from "./copilot/CopilotPanel";
 import { InterviewPlanDialog } from "./copilot/InterviewPlanDialog";
 import { NotetakerControl } from "./NotetakerControl";
 import { TranscriptSheet } from "./TranscriptSheet";
@@ -37,6 +37,7 @@ export function MeetingsSection({
   fullName,
   candidateStatus,
   emails,
+  onShowCopilot,
 }: {
   projectId: string;
   candidateId: string;
@@ -44,6 +45,8 @@ export function MeetingsSection({
   fullName: string;
   candidateStatus: CandidateStatus;
   emails: CandidateEmail[];
+  /** Brings a call's copilot up in the drawer's Copilot tab. */
+  onShowCopilot: (recordingId: string) => void;
 }) {
   const meetings = useQuery({
     queryKey: meetingApi.MEETINGS_KEY(projectId, candidateId),
@@ -53,12 +56,7 @@ export function MeetingsSection({
     queryKey: poolApi.PERSON_RECORD_KEY(personId),
     queryFn: ({ signal }) => poolApi.getPerson(personId, signal),
   });
-  const notetaker = useQuery({
-    queryKey: notetakerApi.NOTETAKER_KEY(projectId, candidateId),
-    queryFn: ({ signal }) => notetakerApi.getNotetaker(projectId, candidateId, signal),
-    // A bot on its way, in a call or being written up moves on Recall's word, which no stream carries here.
-    refetchInterval: (query) => (query.state.data && hasLiveRecording(query.state.data.recordings) ? 30_000 : false),
-  });
+  const notetaker = useNotetaker(projectId, candidateId);
   const mailbox = useMailbox();
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -68,7 +66,6 @@ export function MeetingsSection({
   const [transcriptOf, setTranscriptOf] = useState<string | null>(null);
   const [suggestionsOf, setSuggestionsOf] = useState<string | null>(null);
   const [planOf, setPlanOf] = useState<string | null>(null);
-  const [inlineCopilotOf, setInlineCopilotOf] = useState<string | null>(null);
 
   const firstName = fullName.trim().split(/\s+/)[0];
   const upcoming = meetings.data?.upcoming ?? [];
@@ -96,13 +93,13 @@ export function MeetingsSection({
       />
     ) : null;
 
-  // Straight from the click: the floating window needs the gesture. Where the browser opens no window, the drawer does.
+  // Straight from the click: the floating window needs the gesture. Where the browser opens no window, the drawer's
+  // Copilot tab shows it.
   function handleOpenCopilot(recordingId: string) {
-    void openCopilotWindow({ projectId, candidateId, recordingId }, () => setInlineCopilotOf(recordingId)).then(
-      (opened) => {
-        if (opened === "blocked") setInlineCopilotOf(recordingId);
-      },
-    );
+    const showInDrawer = () => onShowCopilot(recordingId);
+    void openCopilotWindow({ projectId, candidateId, recordingId }, showInDrawer).then((opened) => {
+      if (opened === "blocked") showInDrawer();
+    });
   }
 
   const cancel = useMutation({
@@ -191,18 +188,6 @@ export function MeetingsSection({
             </div>
           ))}
         </>
-      )}
-
-      {inlineCopilotOf && (
-        <div className="mt-2.5">
-          <CopilotPanel
-            projectId={projectId}
-            candidateId={candidateId}
-            recordingId={inlineCopilotOf}
-            variant="inline"
-            onClose={() => setInlineCopilotOf(null)}
-          />
-        </div>
       )}
 
       {canBook && <ZoomConnectControl className="mt-2" />}

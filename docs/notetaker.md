@@ -162,12 +162,16 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       as asked must be one of the call's plan.
     - **The window.** **Open copilot ↗** on the row opens it in a Document Picture-in-Picture window in Chrome and Edge —
       always on top, dragged over Zoom, Meet or Teams, rendered from the drawer's page so it needs no sign-in of its own
-      — or a popup of `/copilot/:projectId/:candidateId/:recordingId` elsewhere (not on top; it says so), or the drawer
-      when the browser opens neither. It reads `GET …/notetaker/{recordingId}/copilot?after=` (the lines after the last
+      — or a popup of `/copilot/:projectId/:candidateId/:recordingId` elsewhere (not on top; it says so), or the drawer's
+      **Copilot tab** when the browser opens neither. That tab comes first in the executive drawer, set apart by a rule,
+      only while a call's copilot is joining or listening (`liveCopilotOf`), and stays while it is open after the copilot
+      stops; it is never opened unasked and never remembered. It draws the same panel at the drawer's width under one
+      toolbar (Live · Plan · Transcript, the call, who is watching, Pop out, ⋯), counts the suggestions waiting while
+      another tab is open, and while the copilot is in its window says so with Show here rather than drawing a copy. It reads `GET …/notetaker/{recordingId}/copilot?after=` (the lines after the last
       one it holds) whenever `…/copilot/stream` says something changed (Postgres `lm_copilot_stream`), and every 15 s
       regardless; a hidden tab keeps its stream, since the consultant is looking at the call. Its header carries the
-      Uncava mark, who is watching (each stream stamps `app_lm_meeting_copilot_viewer`), ⋯ — Mute suggestions, Open in
-      drawer, Stop copilot — and ✕, which closes only that window. **Stop copilot** (`POST …/copilot/stop`) is the
+      Uncava mark, who is watching (each stream stamps `app_lm_meeting_copilot_viewer`), ⋯ — Mute suggestions, Show in
+      Uncava (the window closes and the drawer opens on the Copilot tab), Stop copilot — and ✕, which closes only that window. **Stop copilot** (`POST …/copilot/stop`) is the
       switcher's, the sender's, a lead's or an admin's (`NOTETAKER_COPILOT_NOT_YOURS`): it stops the feed and the coach
       for everyone, deletes the lines, and leaves the bot recording. Every switch, stop and first opening is audited.
 

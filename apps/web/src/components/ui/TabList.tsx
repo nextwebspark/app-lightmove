@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { cn } from "../../lib/cn";
 import { useRadioGroupKeys } from "./useRadioGroupKeys";
 
@@ -8,6 +8,10 @@ export interface TabOption<TValue extends string> {
   icon?: ReactNode;
   /** A small count beside the label; nothing is drawn for zero. */
   count?: number;
+  /** `accent` asks for attention, as a waiting suggestion does. */
+  countTone?: "muted" | "accent";
+  /** A rule after this tab, setting it apart from the ones that follow. */
+  dividerAfter?: boolean;
 }
 
 /**
@@ -85,26 +89,35 @@ export function TabList<TValue extends string>({
       {tabs.map((tab) => {
         const selected = tab.value === value;
         return (
-          <button
-            key={tab.value}
-            type="button"
-            role="tab"
-            id={`${idPrefix}-tab-${tab.value}`}
-            aria-selected={selected}
-            aria-controls={`${idPrefix}-panel-${tab.value}`}
-            tabIndex={selected ? 0 : -1}
-            onClick={() => onChange(tab.value)}
-            className={cn(
-              "-mb-px flex flex-none items-center gap-1 whitespace-nowrap border-b-2 pb-2 text-[13px] font-semibold transition-colors",
-              selected ? "border-u-accent text-u-text" : "border-transparent text-u-text3 hover:text-u-text2",
-            )}
-          >
-            {tab.icon}
-            {tab.label}
-            {tab.count !== undefined && tab.count > 0 && (
-              <span className="rounded-full bg-u-raised px-1.5 font-mono text-[10.5px] text-u-text3">{tab.count}</span>
-            )}
-          </button>
+          <Fragment key={tab.value}>
+            <button
+              type="button"
+              role="tab"
+              id={`${idPrefix}-tab-${tab.value}`}
+              aria-selected={selected}
+              aria-controls={`${idPrefix}-panel-${tab.value}`}
+              tabIndex={selected ? 0 : -1}
+              onClick={() => onChange(tab.value)}
+              className={cn(
+                "-mb-px flex flex-none items-center gap-1 whitespace-nowrap border-b-2 pb-2 text-[13px] font-semibold transition-colors",
+                selected ? "border-u-accent text-u-text" : "border-transparent text-u-text3 hover:text-u-text2",
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 font-mono text-[10.5px]",
+                    tab.countTone === "accent" ? "bg-u-accent-solid font-semibold text-white" : "bg-u-raised text-u-text3",
+                  )}
+                >
+                  {tab.count}
+                </span>
+              )}
+            </button>
+            {tab.dividerAfter && <span aria-hidden="true" className="mb-2 w-px flex-none self-stretch bg-u-border" />}
+          </Fragment>
         );
       })}
     </div>
