@@ -2,6 +2,9 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { closeCopilotWindow, openCopilotWindow, useCopilotWindowOpen } from "./copilotWindow";
 
+// The window is what is under test: the panel it mounts would stream and poll on past the test's environment.
+vi.mock("../components/copilot/CopilotPanel", () => ({ CopilotPanel: () => null }));
+
 const TARGET = { projectId: "p1", candidateId: "c1", recordingId: "r1" };
 
 describe("openCopilotWindow", () => {
