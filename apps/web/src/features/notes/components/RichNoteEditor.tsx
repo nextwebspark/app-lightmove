@@ -314,6 +314,8 @@ function surfaceClassOf(variant: NoteEditorProps["variant"], roomy: boolean, exp
     NOTE_PROSE,
     "outline-none",
     expanded ? "min-h-[50vh]" : roomy ? "min-h-40" : variant === "note" ? "min-h-14" : "min-h-20",
+    // Inline, a long note scrolls inside its editor rather than stretching the drawer; Expand is the room to grow.
+    !expanded && "max-h-[45vh] overflow-y-auto",
   );
 }
 

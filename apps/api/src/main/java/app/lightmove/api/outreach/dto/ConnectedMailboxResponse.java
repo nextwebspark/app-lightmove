@@ -29,9 +29,10 @@ public record ConnectedMailboxResponse(String address, String provider, MailboxS
     public static ConnectedMailboxResponse of(MailboxConnection connection, String bookingLink,
                                               boolean movesOffNylas, int runsStoppedByMove,
                                               SenderLiveRunCount live, boolean readsReplies,
-                                              boolean reconnectToReadReplies, long sentToday, long scheduledEmails) {
+                                              boolean reconnectToReadReplies, long sentToday, long scheduledEmails,
+                                              int dailyCap) {
         return new ConnectedMailboxResponse(connection.getAddress(), connection.getProvider(), connection.getStatus(),
-                connection.getDailyCap(), connection.getTimeZone(), connection.getConnectedAt(), bookingLink,
+                dailyCap, connection.getTimeZone(), connection.getConnectedAt(), bookingLink,
                 movesOffNylas,
                 runsStoppedByMove,
                 (int) live.getSequences(),

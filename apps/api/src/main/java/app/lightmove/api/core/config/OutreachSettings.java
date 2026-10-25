@@ -16,14 +16,20 @@ public record OutreachSettings(
         /** How long a started mailbox connection may take to come back from the provider's consent screen. */
         @DefaultValue("10m") Duration connectWindow,
 
-        /** Emails one mailbox sends a day, whatever its sequences ask for: a mailbox that bursts is a mailbox flagged. */
+        /**
+         * Emails one mailbox sends a day, whatever its sequences ask for, until a workspace chooses its own: a mailbox
+         * that bursts is a mailbox flagged.
+         */
         @DefaultValue("50") int dailyCap,
 
-        /** The sender's working day, read in their mailbox's time zone: nothing goes outside it. */
+        /** The most a workspace may set its daily cap to. */
+        @DefaultValue("200") int maxDailyCap,
+
+        /** A new sequence's sending hours, read in the sender's time zone. */
         @DefaultValue("08:00") LocalTime windowStart,
         @DefaultValue("18:00") LocalTime windowEnd,
 
-        /** The working week. A sequence's delays count these days only. */
+        /** The working week where a workspace's country does not say otherwise. */
         @DefaultValue("MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY") List<DayOfWeek> workingDays,
 
         /** Enrollments one dispatch claims; the rest wait a minute for the next. */

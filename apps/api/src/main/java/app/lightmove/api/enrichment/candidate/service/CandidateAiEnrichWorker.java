@@ -9,9 +9,12 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.EnrichmentSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.logging.service.MdcPropagation;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -30,8 +33,11 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 class CandidateAiEnrichWorker {
 
-    /** A Find executives run files a batch at once; this many run their model calls together, the rest wait. */
-    private static final int CONCURRENT_RUNS = 4;
+    /**
+     * A Find executives run files a batch at once; this many run their model calls together, the rest wait in
+     * {@link #waiting} rather than parked on a thread of the {@code @Async} pool every listener shares.
+     */
+    static final int CONCURRENT_RUNS = 4;
 
     private final BackgroundProposer backgroundProposer;
     private final CandidateService candidates;
@@ -41,6 +47,7 @@ class CandidateAiEnrichWorker {
     private final AuditService audit;
     private final EnrichmentSettings settings;
     private final Semaphore runs = new Semaphore(CONCURRENT_RUNS);
+    private final Queue<Runnable> waiting = new ConcurrentLinkedQueue<>();
 
     CandidateAiEnrichWorker(BackgroundProposer backgroundProposer, CandidateService candidates,
                             CandidateMaterialReader materialReader, AiDraftWriter writer, LlmBudgetGuard llmBudget,
@@ -60,7 +67,28 @@ class CandidateAiEnrichWorker {
         if (!settings.aiEnrichOnCapture()) {
             return;
         }
-        runs.acquireUninterruptibly();
+        waiting.add(MdcPropagation.wrap(() -> runOne(request)));
+        drain();
+    }
+
+    /**
+     * Re-checks the queue after each release: a run queued while this thread still held its permit is not
+     * left behind.
+     */
+    private void drain() {
+        while (!waiting.isEmpty() && runs.tryAcquire()) {
+            try {
+                Runnable next;
+                while ((next = waiting.poll()) != null) {
+                    next.run();
+                }
+            } finally {
+                runs.release();
+            }
+        }
+    }
+
+    private void runOne(CandidateAiEnrichRequested request) {
         try {
             candidates.dossierOf(request.projectId(), request.candidateId())
                     .ifPresent(dossier -> enrichFrom(dossier, request));
@@ -68,8 +96,6 @@ class CandidateAiEnrichWorker {
             log.info("Candidate {} was edited while its AI run wrote", request.candidateId());
         } catch (RuntimeException ex) {
             log.error("Failed AI run for candidate {}", request.candidateId(), ex);
-        } finally {
-            runs.release();
         }
     }
 

@@ -330,6 +330,7 @@ export type PersonActivityKind =
   | "RESEARCHED"
   | "AI_ASSESSED"
   | "ASSESSMENT_REVIEWED"
+  | "UPDATED_FROM_CALL"
   | "NOTE_ADDED"
   | "NOTE_EDITED"
   | "NOTE_REMOVED"

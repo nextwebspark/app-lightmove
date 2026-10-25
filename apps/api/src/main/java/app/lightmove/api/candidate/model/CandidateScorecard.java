@@ -133,6 +133,19 @@ public class CandidateScorecard extends BaseEntity {
         return changed;
     }
 
+    /**
+     * One section rewritten by a researcher outside the tab — words applied from a call. The section is theirs from
+     * then on, and like any save it makes the assessment a draft again.
+     */
+    public void writeSection(ScorecardReportSection section, String text, UUID by) {
+        Set<String> drafted = new HashSet<>(aiDrafted);
+        drafted.remove(draftKeyOf(section));
+        this.aiDrafted = drafted;
+        this.report = report.withText(section, text);
+        this.updatedBy = by;
+        reopen();
+    }
+
     /** Whether a draft could still write anything: a criterion or section nobody holds, or one still the AI's. */
     public boolean hasOpenAmong(Collection<String> criterionKeys) {
         Set<String> held = byKey(scores).keySet();

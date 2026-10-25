@@ -1,13 +1,20 @@
 package app.lightmove.api.notetaker.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
+import app.lightmove.api.core.security.token.Tokens;
+import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
+import app.lightmove.api.notetaker.constant.CoachState;
+import app.lightmove.api.notetaker.constant.LiveCopilotStatus;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -87,6 +94,57 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "media_deleted", nullable = false)
     private boolean mediaDeleted;
 
+    /** Null until someone presses Suggest changes; empty when the call stated nothing new for the record. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "suggestions", columnDefinition = "jsonb")
+    private List<CallSuggestion> suggestions;
+
+    @Column(name = "suggested_at")
+    private Instant suggestedAt;
+
+    /** Chosen before the bot joins: Recall streams a transcript only to a bot made for it. */
+    @Column(name = "live_copilot", nullable = false)
+    private boolean liveCopilot;
+
+    @Column(name = "live_enabled_by")
+    private UUID liveEnabledBy;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "live_status")
+    private LiveCopilotStatus liveStatus;
+
+    @Column(name = "live_stopped_by")
+    private UUID liveStoppedBy;
+
+    /** SHA-256 of the token in this bot's live transcript URL; only a delivery carrying it feeds this recording. */
+    @Column(name = "live_token_hash")
+    private String liveTokenHash;
+
+    /** A live copilot bot's after-call transcript in Recall's accurate mode: the one its note is filed from. */
+    @Column(name = "final_transcript_id")
+    private String finalTranscriptId;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "live", columnDefinition = "jsonb")
+    private LiveCoaching live;
+
+    @Column(name = "coached_at")
+    private Instant coachedAt;
+
+    /** The last live line the coach has read: a run reads the call through here, the next one past it. */
+    @Column(name = "coached_through", nullable = false)
+    private long coachedThrough;
+
+    @Column(name = "coach_runs", nullable = false)
+    private int coachRuns;
+
+    @Column(name = "coach_failures", nullable = false)
+    private int coachFailures;
+
+    /** A live call is one AI use, counted at its first coaching rather than per run. */
+    @Column(name = "live_charged", nullable = false)
+    private boolean liveCharged;
+
     public static MeetingRecording claimed(UUID workspaceId, UUID personId, UUID projectId, UUID candidateId,
                                            UUID meetingId, String title, Instant startsAt, Instant endsAt,
                                            String joinUrl, UUID requestedBy) {
@@ -103,6 +161,78 @@ public class MeetingRecording extends BaseEntity {
         recording.requestedBy = requestedBy;
         recording.status = NotetakerStatus.SCHEDULED;
         return recording;
+    }
+
+    public void liveCopilot(boolean enabled, UUID by, String liveTokenHash) {
+        this.liveCopilot = enabled;
+        this.liveEnabledBy = enabled ? by : null;
+        this.liveTokenHash = enabled ? liveTokenHash : null;
+        this.liveStatus = enabled ? LiveCopilotStatus.LISTENING : null;
+        this.live = enabled ? LiveCoaching.empty() : null;
+    }
+
+    /** Lines are taken and coached only while the copilot listens on a bot still in the call. */
+    public boolean isListening() {
+        return liveCopilot && liveStatus == LiveCopilotStatus.LISTENING && status.isLive()
+                && status != NotetakerStatus.PROCESSING;
+    }
+
+    public boolean holdsLiveToken(String token) {
+        return liveTokenHash != null && token != null && !token.isBlank() && MessageDigest.isEqual(
+                liveTokenHash.getBytes(StandardCharsets.US_ASCII),
+                Tokens.hash(token).getBytes(StandardCharsets.US_ASCII));
+    }
+
+    /** A live copilot bot's own transcript is the low-latency stream's; its note waits for {@link #finalTranscriptId}. */
+    public boolean isFinalTranscript(String id) {
+        return !liveCopilot || (finalTranscriptId != null && finalTranscriptId.equals(id));
+    }
+
+    public void finalTranscriptAsked(String id) {
+        this.finalTranscriptId = id;
+    }
+
+    public void liveFeedStopped() {
+        if (liveStatus == LiveCopilotStatus.LISTENING) {
+            this.liveStatus = LiveCopilotStatus.FEED_STOPPED;
+        }
+    }
+
+    public void liveStopped(UUID by) {
+        this.liveStatus = LiveCopilotStatus.STOPPED;
+        this.liveStoppedBy = by;
+    }
+
+    public void coached(LiveCoaching reading, long through, Instant at) {
+        this.live = reading;
+        this.coachedThrough = Math.max(coachedThrough, through);
+        this.coachedAt = at;
+        this.coachRuns += 1;
+        this.coachFailures = 0;
+    }
+
+    /** A run the model failed: the same lines are read again by the next one, the failures counted to a pause. */
+    public void coachFailed(CoachState next, Instant at) {
+        this.live = (live == null ? LiveCoaching.empty() : live).withCoach(next);
+        this.coachedAt = at;
+        this.coachRuns += 1;
+        this.coachFailures += 1;
+    }
+
+    /** A stretch the prompt guard stopped is skipped, never read again, and coaching goes on after it. */
+    public void coachSkipped(long through, Instant at) {
+        this.live = (live == null ? LiveCoaching.empty() : live).withCoach(CoachState.GUARDED);
+        this.coachedThrough = Math.max(coachedThrough, through);
+        this.coachedAt = at;
+        this.coachRuns += 1;
+    }
+
+    public void liveCoaching(LiveCoaching reading) {
+        this.live = reading;
+    }
+
+    public void liveCharged() {
+        this.liveCharged = true;
     }
 
     public void sent(String botId) {
@@ -161,6 +291,34 @@ public class MeetingRecording extends BaseEntity {
     public void retrying() {
         this.failureReason = null;
         this.status = NotetakerStatus.PROCESSING;
+    }
+
+    /** Suggest changes is offered on a call whose notes are filed and whose transcript is still kept. */
+    public boolean isSuggestible() {
+        return status == NotetakerStatus.DONE && transcript != null;
+    }
+
+    public boolean hasPendingSuggestions() {
+        return suggestions != null && suggestions.stream().anyMatch(CallSuggestion::isPending);
+    }
+
+    public int suggestionsWith(CallSuggestionStatus status) {
+        return suggestions == null ? 0 : (int) suggestions.stream().filter(held -> held.status() == status).count();
+    }
+
+    /** Asking again keeps every decided suggestion beside the new ones, so what was applied stays on record. */
+    public void suggested(List<CallSuggestion> found, Instant at) {
+        List<CallSuggestion> next = new ArrayList<>(suggestions == null ? List.of()
+                : suggestions.stream().filter(held -> !held.isPending()).toList());
+        next.addAll(found);
+        this.suggestions = List.copyOf(next);
+        this.suggestedAt = at;
+    }
+
+    public void replaceSuggestion(CallSuggestion changed) {
+        this.suggestions = suggestions.stream()
+                .map(held -> held.id().equals(changed.id()) ? changed : held)
+                .toList();
     }
 
     private static String clip(String value, int longest) {

@@ -69,6 +69,7 @@ public class OutreachMessageSendService {
     private final AuditService audit;
     private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
+    private final AvailabilityService availability;
 
     public List<UUID> claimDue(Instant now) {
         return claims.claimDue(now, settings().dispatchBatch());
@@ -178,7 +179,7 @@ public class OutreachMessageSendService {
             return null;
         }
         ZoneId zone = mailbox.zone();
-        if (sentToday.of(mailbox, now) >= mailbox.getDailyCap()) {
+        if (sentToday.of(mailbox, now) >= availability.dailyCapOf(mailbox)) {
             message.deferTo(LocalDate.ofInstant(now, zone).plusDays(1).atTime(settings().windowStart()).atZone(zone)
                     .toInstant());
             return null;

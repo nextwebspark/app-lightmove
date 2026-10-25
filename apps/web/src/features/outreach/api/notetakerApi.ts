@@ -11,14 +11,10 @@ export const NOTETAKER_KEY = (projectId: string, candidateId: string) =>
 export const NOTETAKER_TRANSCRIPT_KEY = (projectId: string, candidateId: string, recordingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "transcript"] as const;
 
-export type NotetakerStatus =
-  | "SCHEDULED"
-  | "JOINING"
-  | "RECORDING"
-  | "PROCESSING"
-  | "DONE"
-  | "FAILED"
-  | "CANCELLED";
+export const CALL_SUGGESTIONS_KEY = (projectId: string, candidateId: string, recordingId: string) =>
+  ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "suggestions"] as const;
+
+export type NotetakerStatus = "SCHEDULED" | "JOINING" | "RECORDING" | "PROCESSING" | "DONE" | "FAILED" | "CANCELLED";
 
 export interface NotetakerRecording {
   id: string;
@@ -32,6 +28,17 @@ export interface NotetakerRecording {
   hasTranscript: boolean;
   retryable: boolean;
   noteId: string | null;
+  /** Someone pressed Suggest changes on this call. */
+  suggestionsAsked: boolean;
+  /** Changes it suggested that nobody has applied or skipped yet. */
+  pendingSuggestions: number;
+  /** Changes a review applied to the record. */
+  appliedSuggestions: number;
+  /** The bot streams the call to the live copilot; chosen before it joins. */
+  liveCopilot: boolean;
+  liveStatus: LiveCopilotStatus | null;
+  /** The caller sent this bot, so may switch its copilot. */
+  mayChangeCopilot: boolean;
 }
 
 export interface CandidateNotetaker {
@@ -54,17 +61,84 @@ export interface NotetakerTranscript {
   lines: NotetakerTranscriptLine[];
 }
 
+export type CallSuggestionKind =
+  | "NOTICE_PERIOD"
+  | "CURRENT_PACKAGE"
+  | "LOCATION"
+  | "OPEN_TO_RELOCATE"
+  | "MOTIVATION"
+  | "EXPECTED_PACKAGE"
+  | "TASK";
+
+export type CallSuggestionStatus = "PENDING" | "APPLIED" | "SKIPPED";
+
+/** Which parts are set follows the kind: `text`, a place, or a package's currency and annual figures. */
+export interface SuggestedValue {
+  text: string | null;
+  city: string | null;
+  country: string | null;
+  currency: string | null;
+  baseSalary: number | null;
+  bonus: number | null;
+  allowances: number | null;
+  /** How monthly figures were annualised, when they were. */
+  working: string | null;
+}
+
+export interface CallSuggestion {
+  id: string;
+  kind: CallSuggestionKind;
+  status: CallSuggestionStatus;
+  value: SuggestedValue;
+  /** What the record holds now, read live; null for a task. */
+  current: SuggestedValue | null;
+  /** The executive's own words, and when in the call they said them. */
+  said: string | null;
+  at: string | null;
+  /** False once the record moved on so it can't be applied, such as the tag being retired. */
+  available: boolean;
+  edited: boolean;
+}
+
+export interface CallSuggestions {
+  recordingId: string;
+  title: string | null;
+  startsAt: string;
+  asked: boolean;
+  mayAskAgain: boolean;
+  suggestions: CallSuggestion[];
+}
+
+export type PackageField = "baseSalary" | "bonus" | "allowances";
+
+/** One waiting change a review applies, as suggested or as edited; every change the review leaves out is skipped. */
+export interface AppliedCallSuggestion {
+  id: string;
+  value?: Partial<Omit<SuggestedValue, "working">>;
+  packageFields?: PackageField[];
+}
+
 function candidatePath(projectId: string, candidateId: string): string {
   return `/projects/${projectId}/outreach/candidates/${candidateId}`;
 }
 
-export function getNotetaker(projectId: string, candidateId: string, signal?: AbortSignal): Promise<CandidateNotetaker> {
+export function getNotetaker(
+  projectId: string,
+  candidateId: string,
+  signal?: AbortSignal,
+): Promise<CandidateNotetaker> {
   return request<CandidateNotetaker>(`${candidatePath(projectId, candidateId)}/notetaker`, { signal });
 }
 
-export function scheduleNotetaker(projectId: string, candidateId: string, meetingId: string): Promise<NotetakerRecording> {
+export function scheduleNotetaker(
+  projectId: string,
+  candidateId: string,
+  meetingId: string,
+  liveCopilot = false,
+): Promise<NotetakerRecording> {
   return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/meetings/${meetingId}/notetaker`, {
     method: "POST",
+    body: { liveCopilot },
   });
 }
 
@@ -72,7 +146,11 @@ export function cancelNotetaker(projectId: string, candidateId: string, recordin
   return request<void>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}`, { method: "DELETE" });
 }
 
-export function retryNotetaker(projectId: string, candidateId: string, recordingId: string): Promise<NotetakerRecording> {
+export function retryNotetaker(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+): Promise<NotetakerRecording> {
   return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/retry`, {
     method: "POST",
   });
@@ -86,5 +164,211 @@ export function getTranscript(
 ): Promise<NotetakerTranscript> {
   return request<NotetakerTranscript>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/transcript`, {
     signal,
+  });
+}
+
+function suggestionsPath(projectId: string, candidateId: string, recordingId: string): string {
+  return `${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/suggestions`;
+}
+
+export function getCallSuggestions(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  signal?: AbortSignal,
+): Promise<CallSuggestions> {
+  return request<CallSuggestions>(suggestionsPath(projectId, candidateId, recordingId), { signal });
+}
+
+/** Spends a model call: only ever on the consultant's press. */
+export function suggestChanges(projectId: string, candidateId: string, recordingId: string): Promise<CallSuggestions> {
+  return request<CallSuggestions>(suggestionsPath(projectId, candidateId, recordingId), { method: "POST" });
+}
+
+/** One save for the whole review: what is listed is applied, the rest skipped, and nothing is undone afterwards. */
+export function reviewCallSuggestions(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  apply: AppliedCallSuggestion[],
+): Promise<CallSuggestions> {
+  return request<CallSuggestions>(`${suggestionsPath(projectId, candidateId, recordingId)}/review`, {
+    method: "POST",
+    body: { apply },
+  });
+}
+
+/* ── Interview copilot: questions prepared for a call, and the live copilot that follows it ── */
+
+export type LiveCopilotStatus = "LISTENING" | "FEED_STOPPED" | "STOPPED";
+export type CoachState = "RUNNING" | "PAUSED" | "GUARDED" | "CAPPED";
+export type CoverageState = "NOT_YET" | "TOUCHED" | "EVIDENCED";
+export type RecordGap = "NOTICE" | "PACKAGE" | "LOCATION" | "RELOCATION" | "MOTIVATION" | "EXPECTED_PACKAGE";
+export type InterviewQuestionSection = "FIT" | "GAP" | "CLARIFY";
+export type CompetencyPanel = "TECHNICAL" | "BEHAVIOURAL";
+
+export const INTERVIEW_PLAN_KEY = (projectId: string, candidateId: string, meetingId: string) =>
+  ["outreach", projectId, "candidate", candidateId, "interview-plan", meetingId] as const;
+
+export const COPILOT_KEY = (projectId: string, candidateId: string, recordingId: string) =>
+  ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "copilot"] as const;
+
+export interface InterviewQuestion {
+  /** Null on a question added in the dialog and not yet saved. */
+  id: string | null;
+  section: InterviewQuestionSection;
+  panel: CompetencyPanel | null;
+  competency: string | null;
+  gap: RecordGap | null;
+  text: string;
+  listenFor: string | null;
+  why: string | null;
+  included: boolean;
+  source: "AI" | "MANUAL" | null;
+}
+
+export interface PlanCompetency {
+  panel: CompetencyPanel;
+  name: string;
+  weight: number;
+  /** The scorecard already shows it: a question confirms rather than proves. */
+  evidenced: boolean;
+}
+
+export interface InterviewPlan {
+  meetingId: string;
+  title: string | null;
+  startsAt: string;
+  drafted: boolean;
+  savedAt: string | null;
+  savedByName: string | null;
+  competencies: PlanCompetency[];
+  /** What the record lacks today, which the gap questions are for. */
+  missing: RecordGap[];
+  questions: InterviewQuestion[];
+}
+
+export interface CopilotCoverage {
+  panel: CompetencyPanel;
+  competency: string;
+  weight: number;
+  state: CoverageState;
+  quote: string | null;
+  at: string | null;
+}
+
+export interface CopilotLine {
+  seq: number;
+  at: string;
+  speaker: string;
+  text: string;
+  /** The consultant's or a colleague's voice. */
+  team: boolean;
+}
+
+export interface Copilot {
+  recordingId: string;
+  title: string | null;
+  candidateName: string;
+  startsAt: string;
+  status: NotetakerStatus;
+  liveStatus: LiveCopilotStatus | null;
+  coach: CoachState;
+  stoppedByName: string | null;
+  mayStop: boolean;
+  coverage: CopilotCoverage[];
+  gaps: { gap: RecordGap; heard: boolean; at: string | null }[];
+  plan: { id: string; section: InterviewQuestionSection; competency: string | null; text: string; asked: boolean }[];
+  nudges: { id: string; text: string; reason: string | null }[];
+  /** Finished lines after the cursor sent; `lastSeq` is the next cursor. */
+  lines: CopilotLine[];
+  /** Each voice's words so far. */
+  speaking: CopilotLine[];
+  lastSeq: number;
+  viewers: { userId: string; name: string | null; avatarUrl: string | null; you: boolean }[];
+}
+
+function planPath(projectId: string, candidateId: string, meetingId: string): string {
+  return `${candidatePath(projectId, candidateId)}/meetings/${meetingId}/plan`;
+}
+
+export function getInterviewPlan(
+  projectId: string,
+  candidateId: string,
+  meetingId: string,
+  signal?: AbortSignal,
+): Promise<InterviewPlan> {
+  return request<InterviewPlan>(planPath(projectId, candidateId, meetingId), { signal });
+}
+
+/** Spends a model call: only ever on the consultant's press, or on opening a plan never drafted. */
+export function draftInterviewPlan(projectId: string, candidateId: string, meetingId: string): Promise<InterviewPlan> {
+  return request<InterviewPlan>(planPath(projectId, candidateId, meetingId), { method: "POST" });
+}
+
+export function saveInterviewPlan(
+  projectId: string,
+  candidateId: string,
+  meetingId: string,
+  questions: InterviewQuestion[],
+): Promise<InterviewPlan> {
+  return request<InterviewPlan>(planPath(projectId, candidateId, meetingId), {
+    method: "PUT",
+    body: { questions },
+  });
+}
+
+export function copilotPath(projectId: string, candidateId: string, recordingId: string): string {
+  return `${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/copilot`;
+}
+
+export function switchLiveCopilot(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  enabled: boolean,
+): Promise<NotetakerRecording> {
+  return request<NotetakerRecording>(copilotPath(projectId, candidateId, recordingId), {
+    method: "PUT",
+    body: { enabled },
+  });
+}
+
+export function getCopilot(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  after: number,
+  signal?: AbortSignal,
+): Promise<Copilot> {
+  return request<Copilot>(`${copilotPath(projectId, candidateId, recordingId)}?after=${after}`, { signal });
+}
+
+export function stopCopilot(projectId: string, candidateId: string, recordingId: string): Promise<Copilot> {
+  return request<Copilot>(`${copilotPath(projectId, candidateId, recordingId)}/stop`, { method: "POST" });
+}
+
+export function decideNudge(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  nudgeId: string,
+  decision: "used" | "dismiss",
+): Promise<void> {
+  return request<void>(`${copilotPath(projectId, candidateId, recordingId)}/nudges/${nudgeId}/${decision}`, {
+    method: "POST",
+  });
+}
+
+export function markPlanQuestionAsked(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+  questionId: string,
+  asked: boolean,
+): Promise<void> {
+  return request<void>(`${copilotPath(projectId, candidateId, recordingId)}/plan/${questionId}`, {
+    method: "PUT",
+    body: { asked },
   });
 }

@@ -1,5 +1,6 @@
 package app.lightmove.api.notetaker.service;
 
+import app.lightmove.api.common.transcript.CallTranscriptText;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.service.ContactRedaction;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
@@ -10,7 +11,6 @@ import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.position.model.AssessmentBrief;
 import app.lightmove.api.position.model.BriefCompetency;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -67,30 +67,16 @@ class MeetingSummariser {
                 namesOf(answer.competenciesNotCovered(), competencyById), items(answer.briefConcerns()));
     }
 
-    /**
-     * Elapsed time into the call as the transcript sheet prints it beside each line ({@code lib/meetingTimes.ts}'s
-     * {@code elapsedOf}): {@code MM:SS}, or {@code H:MM:SS} past the hour, so a note's evidence time finds its line.
-     */
-    static String elapsed(Instant callStart, Instant at) {
-        long seconds = Math.max(0, Duration.between(callStart, at).toSeconds());
-        return seconds >= 3600 ? "%d:%02d:%02d".formatted(seconds / 3600, seconds / 60 % 60, seconds % 60)
-                : "%02d:%02d".formatted(seconds / 60, seconds % 60);
-    }
-
-    private static String transcriptText(List<TranscriptLine> transcript, Instant callStart) {
+    /** The transcript as every Notetaker prompt reads it: timed, attributed, contacts taken out, start and end kept. */
+    static String transcriptText(List<TranscriptLine> transcript, Instant callStart) {
         String text = transcript.stream()
-                .map(line -> "[%s] %s: %s".formatted(elapsed(callStart, line.at()), line.speaker(), line.text()))
+                .map(line -> "[%s] %s: %s".formatted(CallTranscriptText.elapsed(callStart, line.at()), line.speaker(),
+                        line.text()))
                 .collect(Collectors.joining("\n"));
-        String redacted = ContactRedaction.redact(text);
-        if (redacted.length() <= LONGEST_TRANSCRIPT) {
-            return redacted;
-        }
-        int half = LONGEST_TRANSCRIPT / 2;
-        return redacted.substring(0, half) + "\n[… the middle of the call is left out …]\n"
-                + redacted.substring(redacted.length() - half);
+        return CallTranscriptText.keepStartAndEnd(ContactRedaction.redact(text), LONGEST_TRANSCRIPT);
     }
 
-    private static String positionOf(AssessmentBrief brief, Map<String, BriefCompetency> competencyById) {
+    static String positionOf(AssessmentBrief brief, Map<String, BriefCompetency> competencyById) {
         String place = List.of(Objects.toString(brief.locationCity(), ""),
                         Objects.toString(brief.locationCountry(), ""))
                 .stream().filter(part -> !part.isBlank()).collect(Collectors.joining(", "));
@@ -120,7 +106,7 @@ class MeetingSummariser {
                         .collect(Collectors.joining("\n")));
     }
 
-    private static Map<String, BriefCompetency> idsOf(AssessmentBrief brief) {
+    static Map<String, BriefCompetency> idsOf(AssessmentBrief brief) {
         Map<String, BriefCompetency> byId = new LinkedHashMap<>();
         List<BriefCompetency> competencies = brief.competencies() == null ? List.of()
                 : brief.competencies().competencies();

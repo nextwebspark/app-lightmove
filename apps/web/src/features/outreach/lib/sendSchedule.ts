@@ -40,6 +40,7 @@ export function daysLabelOf(days: readonly Weekday[]): string {
   const ordered = WEEKDAYS.filter((weekday) => days.includes(weekday.day));
   if (ordered.length === 0) return "No days";
   if (ordered.length === 7) return "Every day";
+  if (ordered.length === 1) return ordered[0].label;
   const indexes = ordered.map((weekday) => WEEKDAYS.indexOf(weekday));
   for (let shift = 0; shift < 7; shift++) {
     const rotated = indexes.map((index) => (index - shift + 7) % 7).sort((a, b) => a - b);

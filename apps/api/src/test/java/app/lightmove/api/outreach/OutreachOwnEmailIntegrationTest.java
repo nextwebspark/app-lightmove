@@ -223,7 +223,8 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("at the day's cap Send now is refused, and a scheduled email waits for the next morning")
     void theDailyCapHolds() throws Exception {
-        jdbc.update("update app_lm_mailbox_connection set daily_cap = 1 where grant_id = ?", "grant-" + domain);
+        jdbc.update("insert into app_lm_workspace_availability (workspace_id, daily_email_cap) "
+                + "select workspace_id, 1 from app_lm_mailbox_connection where grant_id = ?", "grant-" + domain);
         send("""
                 {"toAddress":"%s","subject":"First","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress));
         dispatcher.dispatchAt(Instant.now().plusSeconds(5));
