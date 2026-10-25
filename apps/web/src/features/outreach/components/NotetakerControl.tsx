@@ -13,24 +13,8 @@ import { elapsedSince } from "../lib/copilotWords";
 import {
   canRecord,
   failureWordsOf,
-  type NotetakerChip,
   notetakerChipOf,
-  type NotetakerTone,
 } from "../lib/notetakerChip";
-
-const TONE_CLASS: Record<NotetakerTone, string> = {
-  waiting: "border-u-border bg-u-bg",
-  live: "border-u-border bg-u-bg",
-  done: "border-transparent bg-u-direct-tint",
-  failed: "border-u-signal/40 bg-u-signal-tint",
-};
-
-const LINE_CLASS: Record<NotetakerTone, string> = {
-  waiting: "text-u-text3",
-  live: "text-u-accent",
-  done: "text-u-direct",
-  failed: "text-u-text2",
-};
 
 /**
  * One meeting row's Notetaker, a strip with a switch while the server still offers the call — before it, during it,
@@ -119,8 +103,6 @@ export function NotetakerControl({
 
   const isOn = chip?.action === "remove";
   const hasSwitch = isOn || offerRecord;
-  const tone: NotetakerTone = isOn || !chip ? "waiting" : chip.tone;
-  const line = schedule.isPending ? "Sending…" : lineOf(recording, chip, timing);
   const handleSwitch = (next: boolean) => {
     if (next) schedule.mutate(false);
     else setIsRemoving(true);
@@ -209,7 +191,7 @@ export function NotetakerControl({
             type="button"
             disabled={retry.isPending}
             onClick={() => retry.mutate(recording.id)}
-            className={ROW_ACTION}
+            className={SECONDARY_ACTION}
           >
             Try again
           </button>
@@ -288,102 +270,121 @@ export function NotetakerControl({
     );
   }
 
+  // After the call the same strip says what came of it, and offers the one next step as its solid button.
+  if (!recording) return null;
   return (
-    <span
-      className={cn("mt-1.5 flex items-center gap-2.5 rounded-u-control border px-2.5 py-[7px]", TONE_CLASS[tone])}
-    >
-      <Icon
-        d={ICONS.mic}
-        size={14}
-        className={cn("flex-none", isOn ? "text-u-accent" : tone === "done" ? "text-u-direct" : "text-u-text3")}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="block text-note font-medium text-u-text">Notetaker</span>
-        <span className={cn("block font-mono text-meta", LINE_CLASS[tone])}>{line}</span>
+    <span className="mt-1.5 flex items-center gap-3 rounded-u-control border border-u-border bg-u-bg px-2.5 py-[5px]">
+      <AfterCallStatus recording={recording} firstName={firstName} />
+      <span className="ms-auto flex flex-none items-center gap-2">
+        {mayOpenCopilot && (
+          <button type="button" onClick={() => onOpenCopilot(recording.id)} className={SECONDARY_ACTION}>
+            <Icon d={ICONS.sparkle} size={12} />
+            Open copilot
+          </button>
+        )}
+        {chip?.action === "transcript" && (
+          <button type="button" onClick={() => onShowTranscript(recording.id)} className={SECONDARY_ACTION}>
+            <Icon d={ICONS.fileText} size={12} />
+            Transcript
+          </button>
+        )}
+        {recording.status === "DONE" && recording.hasTranscript && isReviewed(recording) && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 font-mono text-meta",
+              recording.appliedSuggestions > 0 ? "text-u-direct" : "text-u-text3",
+            )}
+          >
+            {recording.appliedSuggestions > 0 && <Icon d={ICONS.check} size={12} />}
+            {reviewedLabelOf(recording)}
+          </span>
+        )}
+        {recording.status === "DONE" && recording.hasTranscript && !isReviewed(recording) && (
+          <WithDetail
+            label={suggestLabelOf(recording)}
+            detail={
+              recording.suggestionsAsked ? (
+                <>Changes from the call, waiting for you to keep or skip.</>
+              ) : (
+                <>Finds what the call changes on {firstName}&apos;s record. You keep or skip each one.</>
+              )
+            }
+          >
+            <button type="button" onClick={() => onSuggestChanges(recording.id)} className={PRIMARY_ACTION}>
+              <Icon d={ICONS.sparkle} size={13} />
+              {suggestLabelOf(recording)}
+            </button>
+          </WithDetail>
+        )}
+        {chip?.action === "retry" && (
+          <button
+            type="button"
+            disabled={retry.isPending}
+            onClick={() => retry.mutate(recording.id)}
+            className={SECONDARY_ACTION}
+          >
+            Try again
+          </button>
+        )}
       </span>
-      {mayOpenCopilot && recording && (
-        <button type="button" onClick={() => onOpenCopilot(recording.id)} className={cn(ROW_ACTION, "text-u-accent")}>
-          {recording.status === "PROCESSING" ? "Copilot ↗" : "Open copilot ↗"}
-        </button>
-      )}
-      {chip?.action === "transcript" && recording && (
-        <button type="button" onClick={() => onShowTranscript(recording.id)} className={ROW_ACTION}>
-          View transcript
-        </button>
-      )}
-      {recording?.status === "DONE" && recording.hasTranscript && isReviewed(recording) && (
-        <span
-          className={cn(
-            "flex-none font-mono text-meta",
-            recording.appliedSuggestions > 0 ? "text-u-direct" : "text-u-text3",
-          )}
-        >
-          {reviewedLabelOf(recording)}
-        </span>
-      )}
-      {recording?.status === "DONE" && recording.hasTranscript && !isReviewed(recording) && (
-        <button
-          type="button"
-          onClick={() => onSuggestChanges(recording.id)}
-          className={cn(ROW_ACTION, "inline-flex items-center gap-1 text-u-accent")}
-        >
-          <Icon d={ICONS.sparkle} size={12} />
-          {suggestLabelOf(recording)}
-        </button>
-      )}
-      {chip?.action === "retry" && recording && (
-        <button
-          type="button"
-          disabled={retry.isPending}
-          onClick={() => retry.mutate(recording.id)}
-          className={ROW_ACTION}
-        >
-          Try again
-        </button>
-      )}
-      {hasSwitch && (
-        <Toggle
-          checked={isOn || schedule.isPending}
-          onChange={handleSwitch}
-          label="Record with Notetaker"
-          disabled={schedule.isPending || remove.isPending}
-        />
-      )}
-
-      {removeDialog}
     </span>
   );
 }
 
-/** What the strip's second line says: the switch's state, or what came of the bot. */
-type CallTiming = "ahead" | "on" | "ended";
-
-const OFF_LINE: Record<CallTiming, string> = {
-  ahead: "Off · nothing is recorded",
-  on: "Off · add it now to record the rest",
-  ended: "Booked end passed · still on? Add it now",
-};
-
-function lineOf(recording: NotetakerRecording | null, chip: NotetakerChip | null, timing: CallTiming): string {
-  const off = OFF_LINE[timing];
-  if (!recording || !chip) return off;
-  switch (recording.status) {
-    case "SCHEDULED":
-      return timing === "ahead" ? "Joins 1 min early · files notes after" : "Joining now · files notes after";
-    case "JOINING":
-      return "Joining the call";
-    case "RECORDING":
-      return "Recording";
-    case "PROCESSING":
-      return "Writing notes";
-    case "DONE":
-      return "Notes filed";
-    case "FAILED":
-      return `Failed: ${failureWordsOf(recording.failureReason)}`;
-    case "CANCELLED":
-      return off;
+/** The after-call strip's lead: what came of the Notetaker, with what it means on hover. */
+function AfterCallStatus({ recording, firstName }: { recording: NotetakerRecording; firstName: string }) {
+  if (recording.status === "PROCESSING") {
+    return (
+      <WithDetail
+        label="Writing notes"
+        detail={<>The call is over. The Notetaker is writing it up; the notes land on {firstName}&apos;s Notes tab.</>}
+      >
+        <span className="inline-flex flex-none items-center gap-2 text-note font-medium text-u-text">
+          <span
+            aria-hidden="true"
+            className="size-3.5 flex-none animate-spin rounded-full border-2 border-u-accent-ring border-t-u-accent"
+          />
+          Notetaker is writing notes…
+        </span>
+      </WithDetail>
+    );
   }
+  if (recording.status === "DONE") {
+    return (
+      <WithDetail
+        label="Notes filed"
+        detail={<>A Meeting note on {firstName}&apos;s Notes tab: what was said, read against the brief.</>}
+      >
+        <span className="inline-flex flex-none items-center gap-2 text-note font-medium text-u-direct">
+          <Icon d={ICONS.checkCircle} size={14} className="flex-none" />
+          Notes filed
+        </span>
+      </WithDetail>
+    );
+  }
+  const reason = failureWordsOf(recording.failureReason);
+  return (
+    <WithDetail
+      className="min-w-0"
+      label="Notetaker failed"
+      detail={
+        recording.retryable ? (
+          <>The call was recorded but {reason}. Try again writes them from the same recording.</>
+        ) : (
+          <>No notes were filed for this call because {reason}.</>
+        )
+      }
+    >
+      <span className="inline-flex min-w-0 items-center gap-2 text-note">
+        <Icon d={ICONS.warning} size={14} className="flex-none text-u-signal" />
+        <span className="flex-none font-medium text-u-text">Notetaker failed</span>
+        <span className="min-w-0 truncate font-mono text-meta text-u-text2">{reason}</span>
+      </span>
+    </WithDetail>
+  );
 }
+
+type CallTiming = "ahead" | "on" | "ended";
 
 const SHORT_OFF_LINE: Record<CallTiming, string> = {
   ahead: "Not recorded",
@@ -438,7 +439,17 @@ function SwitchWithDetail({
 }
 
 /** Opens an explanation on hover or focus, portalled so the drawer's scroll never clips it. */
-function WithDetail({ label, detail, children }: { label: string; detail: ReactNode; children: ReactNode }) {
+function WithDetail({
+  label,
+  detail,
+  className = "flex-none",
+  children,
+}: {
+  label: string;
+  detail: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const tipId = useId();
@@ -452,7 +463,7 @@ function WithDetail({ label, detail, children }: { label: string; detail: ReactN
       onFocus={show}
       onBlur={hide}
       aria-describedby={anchor ? tipId : undefined}
-      className="inline-flex flex-none"
+      className={cn("inline-flex", className)}
     >
       {children}
       {anchor &&
@@ -485,9 +496,7 @@ function isReviewed(recording: NotetakerRecording): boolean {
 
 function suggestLabelOf(recording: NotetakerRecording): string {
   if (!recording.suggestionsAsked) return "Suggest changes";
-  return recording.pendingSuggestions === 1
-    ? "1 change to review"
-    : `${recording.pendingSuggestions} changes to review`;
+  return recording.pendingSuggestions === 1 ? "Review 1 change" : `Review ${recording.pendingSuggestions} changes`;
 }
 
 function reviewedLabelOf(recording: NotetakerRecording): string {
@@ -495,5 +504,8 @@ function reviewedLabelOf(recording: NotetakerRecording): string {
   return recording.appliedSuggestions === 1 ? "1 change applied" : `${recording.appliedSuggestions} changes applied`;
 }
 
-const ROW_ACTION =
-  "flex-none font-mono text-meta font-medium text-u-text3 underline underline-offset-2 hover:text-u-text disabled:opacity-60";
+const SECONDARY_ACTION =
+  "inline-flex flex-none items-center gap-1.5 rounded-u-control border border-u-border bg-u-surface px-2.5 py-1 text-note font-medium text-u-text2 hover:border-u-border-strong hover:text-u-text disabled:opacity-60";
+
+const PRIMARY_ACTION =
+  "inline-flex flex-none items-center gap-1.5 rounded-u-control bg-u-accent-solid px-2.5 py-1 text-note font-semibold text-white hover:bg-u-accent-solid-hover";

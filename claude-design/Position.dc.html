@@ -1790,15 +1790,20 @@
                     <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
                     <sc-for list="{{ cd.mtPast }}" as="m">
                       <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
-                        <!-- A call the Notetaker recorded: once its notes are filed the row offers Suggest changes, which opens
-                             "Changes from the call" and reads the transcript then — one press, one AI use. After a run the link
-                             reads "3 changes to review"; once reviewed it is plain text, "3 changes applied" (or "No changes
-                             made"), and opens nothing — a correction is made on the record. Nothing else in the drawer changes. -->
+                        <!-- A call the Notetaker recorded keeps the strip the call had, one row: its status leads — a spinner
+                             and "Notetaker is writing notes…", a green "Notes filed", or "Notetaker failed" with why — and its
+                             end holds the buttons, the one next step solid: Suggest changes, which opens "Changes from the call"
+                             and reads the transcript then — one press, one AI use. After a run it reads "Review 3 changes";
+                             once reviewed it is plain text, "3 changes applied" (or "No changes made"), and opens nothing — a
+                             correction is made on the record. Transcript, Open copilot and Try again are outlined. Each status
+                             explains itself on hover. -->
                         <sc-if value="{{ m.recorded }}">
-                          <span style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:4px;font:400 11.5px var(--mono)">
-                            <span style="border-radius:999px;padding:1px 8px;font:500 11px var(--sans);background:var(--green-dim);color:var(--green)">Notes filed</span>
-                            <button style="padding:0;background:none;border:none;font:500 11.5px var(--mono);color:var(--text3);text-decoration:underline;cursor:pointer">View transcript</button>
-                            <button onClick="{{ openCallChanges }}" style="display:inline-flex;align-items:center;gap:4px;padding:0;background:none;border:none;font:500 11.5px var(--mono);color:var(--sky);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Suggest changes</button>
+                          <span style="display:flex;align-items:center;gap:12px;margin-top:6px;border:1px solid var(--line);border-radius:7px;padding:5px 10px;background:var(--bg)">
+                            <span style="display:inline-flex;align-items:center;gap:8px;font:500 12px var(--sans);color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.checkCircle }}"></path></svg>Notes filed</span>
+                            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px">
+                              <button style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:4px 10px;background:var(--surface);font:500 12px var(--sans);color:var(--text2);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fileText }}"></path></svg>Transcript</button>
+                              <button onClick="{{ openCallChanges }}" style="display:inline-flex;align-items:center;gap:6px;border:none;border-radius:6px;padding:4px 10px;background:var(--accent-solid, #4a56d6);font:600 12px var(--sans);color:#fff;cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Suggest changes</button>
+                            </span>
                           </span>
                         </sc-if>
                       </span></div>
@@ -2795,6 +2800,7 @@ const I = {
   table: "M3 5h18v14H3zM3 10h18M3 15h18M9 5v14",
   mapPin: "M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   building: "M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M2 22h20M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2M10 22v-4h4v4",
+  checkCircle: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M8.5 12.2l2.3 2.3 4.7-4.7",
   fileText: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6ZM14 2v6h6M8 13h8M8 17h5",
   moreH: "M5 12h.01M12 12h.01M19 12h.01",
   eye: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Zm10 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",

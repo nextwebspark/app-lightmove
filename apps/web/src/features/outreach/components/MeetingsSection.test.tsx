@@ -536,7 +536,7 @@ describe("MeetingsSection", () => {
     });
 
     expect(await screen.findByText("Notes filed")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "View transcript" }));
+    await userEvent.click(screen.getByRole("button", { name: "Transcript" }));
 
     expect(await screen.findByText("Happy to talk.")).toBeInTheDocument();
     expect(screen.getByText("01:05")).toBeInTheDocument();
@@ -572,7 +572,7 @@ describe("MeetingsSection", () => {
       ],
     });
 
-    expect(await screen.findByRole("button", { name: "2 changes to review" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Review 2 changes" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Suggest changes" }));
 
     expect(await screen.findByRole("dialog", { name: "Changes from the call" })).toBeInTheDocument();
@@ -623,6 +623,30 @@ describe("MeetingsSection", () => {
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(notetakerApi.retryNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
     expect(screen.getByRole("switch", { name: "Record with Notetaker" })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("says once the call is over why no notes were filed, with no switch left to press", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordableMeetingIds: [],
+      recordings: [aRecording({ status: "FAILED", failureReason: "timeout_exceeded_waiting_room" })],
+    });
+
+    expect(await screen.findByText("Notetaker failed")).toBeInTheDocument();
+    expect(screen.getByText("nobody let it in")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Record with Notetaker" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
+  it("says the notes are being written after the call, with the copilot still a click away", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordableMeetingIds: [],
+      recordings: [aRecording({ status: "PROCESSING", liveCopilot: true })],
+    });
+
+    expect(await screen.findByText("Notetaker is writing notes…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open copilot" })).toBeInTheDocument();
   });
 
   it("sends the Notetaker to a call it books, switched on by default", async () => {
