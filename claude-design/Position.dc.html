@@ -1247,6 +1247,31 @@
       </div>
 
       <div style="min-height:0;flex:1;overflow-y:auto;padding:0 20px">
+        <!-- The Copilot tab: first in the bar, its red dot pulsing and a rule after it, offered only while a call's live
+             copilot is joining or listening — never for a call without one, nor once it is stopped, dropped or the call has
+             ended, except that it stays while it is the open tab, saying why. It is never opened for anyone: Open copilot
+             floats the window over the call, and the tab is where it lands from Show in Uncava or where no window opens.
+             While another tab is open it counts the suggestions waiting. Its head is one toolbar — Live · Plan · Transcript
+             as a switch, ● the call and its running time, who is watching, Pop out ↗ and ⋯ — over the window's own Live,
+             Plan and Transcript at the drawer's width. Popped out, the tab says "Copilot is in its own window" with Show
+             here, never a second copy. -->
+        <sc-if value="{{ cdTabCopilot }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)">
+            <span style="display:inline-flex;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:2px;font:500 12px var(--sans)"><span style="border-radius:5px;padding:4px 12px;background:var(--panel);color:var(--text)">Live</span><span style="padding:4px 12px;color:var(--text3)">Plan 2/5</span><span style="padding:4px 12px;color:var(--text3)">Transcript</span></span>
+            <span style="margin-left:auto;display:flex;align-items:center;gap:7px;font:400 12px var(--sans);color:var(--text2)"><span style="width:7px;height:7px;border-radius:50%;background:var(--red)"></span>Intro call<span style="font:500 11.5px var(--mono);color:var(--text3)">12:40</span></span>
+            <span style="display:flex;align-items:center"><span style="width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font:600 8.5px var(--sans);background:var(--green-dim);color:var(--green);margin-right:-6px">LK</span><span style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font:600 10px var(--sans);background:var(--sky);color:#fff;border:2px solid var(--panel)">YH</span></span>
+            <button onClick="{{ openCopilot }}" style="border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:3px 9px;font:500 12px var(--sans);color:var(--text2);cursor:pointer">Pop out ↗</button>
+            <button style="width:26px;height:26px;border-radius:6px;border:none;background:none;color:var(--text3);cursor:pointer">⋯</button>
+          </div>
+          <div style="padding:14px 0;display:flex;flex-direction:column;gap:14px">
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Competencies</span>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;font:500 11.5px var(--sans)"><span style="border-radius:999px;padding:4px 10px;background:var(--green-dim);color:var(--green)">● Treasury</span><span style="border-radius:999px;padding:4px 10px;background:var(--amber-dim);color:var(--amber)">● M&amp;A</span><span style="border-radius:999px;padding:4px 10px;border:1px solid var(--line);color:var(--text3)">● Board</span><span style="border-radius:999px;padding:4px 10px;border:1px solid var(--line);color:var(--text3)">● Team</span></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px"><span style="font:600 10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)">Ask next</span>
+              <div style="border:1px solid var(--line);border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;gap:5px"><span style="font:500 13px var(--sans)">Walk me through one integration you led end to end.</span><span style="font:400 11.5px var(--sans);color:var(--text3)">M&amp;A integration: mentioned, no example yet</span><span style="display:flex;gap:6px;justify-content:flex-end;font:500 11.5px var(--sans)"><span style="color:var(--text3)">Dismiss</span><span style="border:1px solid var(--line);border-radius:6px;padding:2px 9px">Used</span></span></div>
+            </div>
+          </div>
+        </sc-if>
         <sc-if value="{{ cdTabProfile }}" hint-placeholder-val="{{ true }}">
         <div style="margin-bottom:-4px;display:flex;justify-content:flex-end;gap:12px;padding-top:10px">
           <button onClick="{{ expandAll }}" style="font:400 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">Expand all</button>
@@ -1774,7 +1799,8 @@
                                joins, one strip holds both switches, Notetaker | Live copilot, with a few words of status at its
                                end and each switch explained on hover (Recall streams a call only to a bot made for it, so the
                                copilot is chosen then). Once the bot is in, the strip keeps its shape: the copilot's half becomes a
-                               solid Open copilot button (a small always-on-top window over the call), or "Copilot off" when none
+                               solid Open copilot button (a small always-on-top window over the call; where the browser opens none, the
+                               drawer's Copilot tab), or "Copilot off" when none
                                was chosen, and its end reads ● Rec with the call's running time. -->
                           <button onClick="{{ openInterviewPlan }}" style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Prepare questions</button>
                           <span style="display:flex;align-items:center;gap:10px;margin-top:6px;border-radius:6px;border:1px solid var(--line);padding:6px 10px">
@@ -2648,9 +2674,10 @@
     </div>
   </sc-if>
 
-  <!-- The copilot window (~360×600, its own window floating over the call — Document Picture-in-Picture, a popup in a
-       browser without it, or the drawer): an app bar with the Uncava mark and "Interview copilot", the viewers' avatars
-       (yours, and smaller ones for teammates watching), ⋯ (Mute suggestions · Open in drawer · Stop copilot, which asks
+  <!-- The copilot window (~360×600, its own window floating over the call — Document Picture-in-Picture, or a popup in a
+       browser without it): an app bar with the Uncava mark and "Interview copilot", the viewers' avatars
+       (yours, and smaller ones for teammates watching), ⋯ (Mute suggestions · Show in Uncava, which closes the window
+       and opens the drawer's Copilot tab · Stop copilot, which asks
        first and stops it for everyone; the recording goes on) and ✕, which closes only this window. Under it the call and
        elapsed time, then Live · Plan · Transcript. Live: a chip per competency (grey not yet, amber touched, green
        evidenced; a tap shows the quote), the record's gaps ticked as they are said, at most three Ask next cards (Used /
@@ -3241,7 +3268,7 @@ class Component extends DCLogic {
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
-      cdTab: pick("cdTab", "career"), summaryMore: false, tlAll: false, aiRunning: false, outreachStopped: {},
+      cdTab: pick("cdTab", "career"), copilotLive: pick("copilotLive", false), summaryMore: false, tlAll: false, aiRunning: false, outreachStopped: {},
       assessView: "scores", assessScore: {}, assessOpen: {}, reportOpen: {}, reportAiOpen: {}, reportAiAction: {}, reportScopeOpen: true,
       noteComposerOpen: true, noteKind: "call", noteText: "", noteEventDate: "2026-09-30",
       noteFlash: null,
@@ -3301,7 +3328,7 @@ class Component extends DCLogic {
   liveCompanies(stage) { return C.filter((c) => !this.state.removed[c.id] && this.stageOf(c) === stage); }
   canWrite() { return !this.state.clientRep; }
   statusOf(e) { return this.state.statusOf[e.id] || PIPE_STATUS_OF[e.id] || e.status; }
-  cdTabOf() { const t = this.state.cdTab; const mapped = t === "records" ? "notes" : t; return this.canWrite() ? (["career", "notes", "documents", "positions", "assessment", "contact", "timeline"].includes(mapped) ? mapped : "career") : (mapped === "contact" ? "contact" : "career"); }
+  cdTabOf() { const t = this.state.cdTab; const mapped = t === "records" ? "notes" : t; if (mapped === "copilot" && this.canWrite() && this.state.copilotLive) return "copilot"; return this.canWrite() ? (["career", "notes", "documents", "positions", "assessment", "contact", "timeline"].includes(mapped) ? mapped : "career") : (mapped === "contact" ? "contact" : "career"); }
 
   assessmentVals(s) {
     const score = (id) => s.assessScore[id] ?? ASSESS_DEFAULT[id];
@@ -4329,7 +4356,7 @@ class Component extends DCLogic {
       closeCallChanges: () => set({ callChanges: false }),
       openInterviewPlan: () => set({ interviewPlan: true }),
       closeInterviewPlan: () => set({ interviewPlan: false }),
-      openCopilot: () => set({ copilot: true }),
+      openCopilot: () => set({ copilot: true, copilotLive: true }),
       closeCopilot: () => set({ copilot: false }),
       applyCallChange: () => { set({ callChanges: false }); this.showToast("3 changes saved to Fatima's record"); },
       toggleTheme: () => { const d = !this.state.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
@@ -4628,9 +4655,11 @@ class Component extends DCLogic {
       na: this.naVals(),
       cdTabProfile: this.cdTabOf() === "career", cdTabAssessment: this.cdTabOf() === "assessment", cdNotAssessment: this.cdTabOf() !== "assessment",
       av: this.cdTabOf() === "assessment" ? this.assessmentVals(s) : { sections: [] },
-      cdTabs: (cw ? [["career", "Career"], ["notes", "Notes"], ["assessment", "Assessment"], ["contact", "Contact"], ["documents", "Documents"], ["timeline", "Activity"], ["positions", "Positions"]] : [["career", "Career"], ["contact", "Contact"]]).map(([key, label]) => {
+      cdTabCopilot: this.cdTabOf() === "copilot",
+      cdTabs: (cw && s.copilotLive ? [["copilot", "● Copilot"]] : []).concat(cw ? [["career", "Career"], ["notes", "Notes"], ["assessment", "Assessment"], ["contact", "Contact"], ["documents", "Documents"], ["timeline", "Activity"], ["positions", "Positions"]] : [["career", "Career"], ["contact", "Contact"]]).map(([key, label]) => {
         const on = this.cdTabOf() === key;
-        return { key, label, on, style: `display:inline-flex;flex:none;align-items:center;gap:7px;white-space:nowrap;margin-bottom:-1px;padding:9px 10px;font:500 13px var(--sans);background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer` };
+        const live = key === "copilot";
+        return { key, label, on, style: `display:inline-flex;flex:none;align-items:center;gap:7px;white-space:nowrap;margin-bottom:-1px;padding:9px 10px;font:500 13px var(--sans);background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer${live ? ";margin-right:6px;box-shadow:inset -1px 0 0 var(--line)" : ""}` };
       }),
       compEditing: s.compEditing && cw, cf: this.compFormVals(),
       contactEditing: s.contactEditing && cw, contactReading: !(s.contactEditing && cw),

@@ -34,16 +34,24 @@ export function CopilotPanel({
   recordingId,
   variant,
   onClose,
-  onOpenInDrawer,
+  onShowInUncava,
+  onPopOut,
+  onNudgeCount,
   notice,
 }: {
   projectId: string;
   candidateId: string;
   recordingId: string;
-  /** `window`: its own window, which closes itself a minute after the call ends; `inline`: inside the drawer. */
-  variant: "window" | "inline";
-  onClose: () => void;
-  onOpenInDrawer?: () => void;
+  /** `window`: its own window, which closes itself a minute after the call ends; `tab`: the executive drawer's tab. */
+  variant: "window" | "tab";
+  /** The window's own close; the tab has none. */
+  onClose?: () => void;
+  /** The floating window's way back into the drawer. */
+  onShowInUncava?: () => void;
+  /** The tab's way out into a window over the call; called straight from the click, which the window needs. */
+  onPopOut?: () => void;
+  /** The suggestions waiting to be used, for the drawer's tab to count while another tab is open. */
+  onNudgeCount?: (count: number) => void;
   /** A line the host wants said once, such as a popup that cannot stay on top. */
   notice?: string;
 }) {
@@ -57,8 +65,12 @@ export function CopilotPanel({
   const now = useNow();
 
   const hasEnded = copilot !== null && !isCallOn(copilot);
+  const waitingNudges = isMuted ? 0 : (copilot?.nudges.length ?? 0);
   useEffect(() => {
-    if (!hasEnded || variant !== "window") return;
+    onNudgeCount?.(waitingNudges);
+  }, [waitingNudges, onNudgeCount]);
+  useEffect(() => {
+    if (!hasEnded || variant !== "window" || !onClose) return;
     const timer = window.setTimeout(onClose, CLOSE_AFTER_END_MS);
     return () => window.clearTimeout(timer);
   }, [hasEnded, variant, onClose]);
@@ -85,149 +97,192 @@ export function CopilotPanel({
     }
   };
 
+  const planCount = copilot && copilot.plan.length > 0 && (
+    <span className="ms-1 font-mono text-meta text-u-text3">
+      {copilot.plan.filter((question) => question.asked).length}/{copilot.plan.length}
+    </span>
+  );
+  const callLine = (
+    <>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "size-2 flex-none rounded-full",
+          copilot && isCallOn(copilot) && !isWaitingToJoin(copilot)
+            ? isLive
+              ? "animate-pulse bg-u-offlimits"
+              : "bg-u-text3"
+            : "invisible",
+        )}
+      />
+      <span className="truncate">
+        {copilot
+          ? // The drawer already names the person; a window over the call has nothing else to say who it is.
+            [copilot.title ?? "Recorded call", variant === "window" ? copilot.candidateName : null]
+              .filter(Boolean)
+              .join(" · ")
+          : "Interview copilot"}
+      </span>
+      {copilot && !isLive && isCallOn(copilot) && <span className="text-meta text-u-text3">Reconnecting…</span>}
+      {copilot && copilot.status === "RECORDING" && (
+        <span className="ms-auto flex-none font-mono text-meta tabular-nums text-u-text3">
+          {elapsedSince(copilot.startsAt, now)}
+        </span>
+      )}
+    </>
+  );
+  const viewers = (
+    <span className="flex items-center">
+      {(copilot?.viewers ?? [])
+        .filter((viewer) => !viewer.you)
+        .map((viewer) => (
+          <span key={viewer.userId} className="-me-1.5 rounded-full ring-2 ring-u-surface">
+            <Avatar
+              id={viewer.userId}
+              name={viewer.name ?? "A teammate"}
+              size="xs"
+              title={`${viewer.name ?? "A teammate"} is watching`}
+            />
+          </span>
+        ))}
+      {copilot?.viewers
+        .filter((viewer) => viewer.you)
+        .map((viewer) => (
+          <span key={viewer.userId} className="ms-2 rounded-full ring-2 ring-u-surface">
+            <Avatar
+              id={viewer.userId}
+              name={viewer.name ?? "You"}
+              size="sm"
+              title={`${viewer.name ?? "You"} (you)`}
+            />
+          </span>
+        ))}
+    </span>
+  );
+  const menu = (
+    <span className="relative">
+      <button
+        type="button"
+        aria-label="More"
+        aria-haspopup="menu"
+        aria-expanded={isMenuOpen}
+        onClick={() => setMenuOpen((open) => !open)}
+        className="grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text"
+      >
+        <Icon d={ICONS.more} size={16} />
+      </button>
+      {isMenuOpen && (
+        <span
+          role="menu"
+          className="absolute end-0 top-8 z-20 flex w-52 flex-col rounded-u-card border border-u-border-strong bg-u-surface p-1 shadow-u-e3"
+        >
+          <MenuItem
+            onSelect={() => {
+              setMuted((muted) => !muted);
+              setMenuOpen(false);
+            }}
+          >
+            {isMuted ? "Unmute suggestions" : "Mute suggestions"}
+          </MenuItem>
+          {onShowInUncava && (
+            <MenuItem
+              onSelect={() => {
+                setMenuOpen(false);
+                onShowInUncava();
+              }}
+            >
+              Show in Uncava
+            </MenuItem>
+          )}
+          {copilot?.mayStop && copilot.liveStatus === "LISTENING" && isCallOn(copilot) && (
+            <>
+              <span className="my-1 h-px bg-u-border" />
+              <MenuItem
+                tone="danger"
+                onSelect={() => {
+                  setMenuOpen(false);
+                  setConfirmingStop(true);
+                }}
+              >
+                Stop copilot
+              </MenuItem>
+              <span className="px-2 pb-1 text-meta text-u-text3">
+                Stops live suggestions for everyone on this call. The recording continues.
+              </span>
+            </>
+          )}
+        </span>
+      )}
+    </span>
+  );
+
   return (
     <section
       aria-label="Interview copilot"
-      className={cn(
-        "relative flex min-h-0 flex-col overflow-hidden bg-u-surface text-u-text",
-        variant === "window" ? "h-full" : "h-[560px] rounded-u-card border border-u-border-strong",
-      )}
+      className="relative flex h-full min-h-0 flex-col overflow-hidden bg-u-surface text-u-text"
     >
-      <header className="flex flex-none items-center gap-2 border-b border-u-border px-3 py-2">
-        <AppIcon className="h-5" />
-        <h1 className="truncate text-body font-semibold">Interview copilot</h1>
-        <span className="ms-auto flex items-center">
-          {(copilot?.viewers ?? [])
-            .filter((viewer) => !viewer.you)
-            .map((viewer) => (
-              <span key={viewer.userId} className="-me-1.5 rounded-full ring-2 ring-u-surface">
-                <Avatar
-                  id={viewer.userId}
-                  name={viewer.name ?? "A teammate"}
-                  size="xs"
-                  title={`${viewer.name ?? "A teammate"} is watching`}
-                />
-              </span>
-            ))}
-          {copilot?.viewers
-            .filter((viewer) => viewer.you)
-            .map((viewer) => (
-              <span key={viewer.userId} className="ms-2 rounded-full ring-2 ring-u-surface">
-                <Avatar
-                  id={viewer.userId}
-                  name={viewer.name ?? "You"}
-                  size="sm"
-                  title={`${viewer.name ?? "You"} (you)`}
-                />
-              </span>
-            ))}
-        </span>
-        <span className="relative">
-          <button
-            type="button"
-            aria-label="More"
-            aria-haspopup="menu"
-            aria-expanded={isMenuOpen}
-            onClick={() => setMenuOpen((open) => !open)}
-            className="grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text"
-          >
-            <Icon d={ICONS.more} size={16} />
-          </button>
-          {isMenuOpen && (
-            <span
-              role="menu"
-              className="absolute end-0 top-8 z-20 flex w-52 flex-col rounded-u-card border border-u-border-strong bg-u-surface p-1 shadow-u-e3"
-            >
-              <MenuItem
-                onSelect={() => {
-                  setMuted((muted) => !muted);
-                  setMenuOpen(false);
-                }}
-              >
-                {isMuted ? "Unmute suggestions" : "Mute suggestions"}
-              </MenuItem>
-              {onOpenInDrawer && (
-                <MenuItem
-                  onSelect={() => {
-                    setMenuOpen(false);
-                    onOpenInDrawer();
-                  }}
-                >
-                  Open in drawer
-                </MenuItem>
-              )}
-              {copilot?.mayStop && copilot.liveStatus === "LISTENING" && isCallOn(copilot) && (
-                <>
-                  <span className="my-1 h-px bg-u-border" />
-                  <MenuItem
-                    tone="danger"
-                    onSelect={() => {
-                      setMenuOpen(false);
-                      setConfirmingStop(true);
-                    }}
-                  >
-                    Stop copilot
-                  </MenuItem>
-                  <span className="px-2 pb-1 text-meta text-u-text3">
-                    Stops live suggestions for everyone on this call. The recording continues.
-                  </span>
-                </>
-              )}
-            </span>
-          )}
-        </span>
-        <button
-          type="button"
-          aria-label={variant === "window" ? "Close window" : "Close copilot"}
-          onClick={onClose}
-          className="grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text"
-        >
-          <Icon d={ICONS.close} size={15} />
-        </button>
-      </header>
-
-      <div className="flex flex-none flex-col gap-2 px-3 pt-2">
-        <p className="flex min-w-0 items-center gap-2 text-note text-u-text2">
-          <span
-            aria-hidden="true"
-            className={cn(
-              "size-2 flex-none rounded-full",
-              copilot && isCallOn(copilot) && !isWaitingToJoin(copilot)
-                ? isLive
-                  ? "animate-pulse bg-u-offlimits"
-                  : "bg-u-text3"
-                : "invisible",
+      {variant === "tab" ? (
+        <div className="flex flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-u-border py-2.5">
+          <div role="tablist" aria-label="Copilot views" className="inline-flex rounded-u-control border border-u-border bg-u-raised p-0.5">
+            <ViewButton current={tab} value="live" onSelect={setTab}>
+              Live
+            </ViewButton>
+            <ViewButton current={tab} value="plan" onSelect={setTab}>
+              Plan
+              {planCount}
+            </ViewButton>
+            <ViewButton current={tab} value="transcript" onSelect={setTab}>
+              Transcript
+            </ViewButton>
+          </div>
+          <span className="ms-auto flex min-w-0 items-center gap-2">
+            <span className="flex min-w-0 items-center gap-2 text-note text-u-text2">{callLine}</span>
+            {viewers}
+            {onPopOut && (
+              <Button variant="secondary" size="xs" onClick={onPopOut}>
+                <Icon d={ICONS.externalLink} size={12} />
+                Pop out
+              </Button>
             )}
-          />
-          <span className="truncate">
-            {copilot ? [copilot.title ?? "Recorded call", copilot.candidateName].join(" · ") : "Interview copilot"}
+            {menu}
           </span>
-          {copilot && !isLive && isCallOn(copilot) && <span className="text-meta text-u-text3">Reconnecting…</span>}
-          {copilot && copilot.status === "RECORDING" && (
-            <span className="ms-auto font-mono text-meta tabular-nums text-u-text3">
-              {elapsedSince(copilot.startsAt, now)}
-            </span>
-          )}
-        </p>
-        <div role="tablist" aria-label="Copilot views" className="flex gap-1 border-b border-u-border">
-          <TabButton current={tab} value="live" onSelect={setTab}>
-            Live
-          </TabButton>
-          <TabButton current={tab} value="plan" onSelect={setTab}>
-            Plan
-            {copilot && copilot.plan.length > 0 && (
-              <span className="ms-1 font-mono text-meta text-u-text3">
-                {copilot.plan.filter((question) => question.asked).length}/{copilot.plan.length}
-              </span>
-            )}
-          </TabButton>
-          <TabButton current={tab} value="transcript" onSelect={setTab}>
-            Transcript
-          </TabButton>
         </div>
-      </div>
+      ) : (
+        <>
+          <header className="flex flex-none items-center gap-2 border-b border-u-border px-3 py-2">
+            <AppIcon className="h-5" />
+            <h1 className="truncate text-body font-semibold">Interview copilot</h1>
+            <span className="ms-auto" />
+            {viewers}
+            {menu}
+            <button
+              type="button"
+              aria-label="Close window"
+              onClick={onClose}
+              className="grid size-7 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text"
+            >
+              <Icon d={ICONS.close} size={15} />
+            </button>
+          </header>
+          <div className="flex flex-none flex-col gap-2 px-3 pt-2">
+            <p className="flex min-w-0 items-center gap-2 text-note text-u-text2">{callLine}</p>
+            <div role="tablist" aria-label="Copilot views" className="flex gap-1 border-b border-u-border">
+              <TabButton current={tab} value="live" onSelect={setTab}>
+                Live
+              </TabButton>
+              <TabButton current={tab} value="plan" onSelect={setTab}>
+                Plan
+                {planCount}
+              </TabButton>
+              <TabButton current={tab} value="transcript" onSelect={setTab}>
+                Transcript
+              </TabButton>
+            </div>
+          </div>
+        </>
+      )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-3">
+      <div className={cn("flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto", variant === "tab" ? "py-4" : "p-3")}>
         {notice && <Notice>{notice}</Notice>}
         {actionError && (
           <p role="alert" className="text-note text-u-offlimits">
@@ -259,7 +314,12 @@ export function CopilotPanel({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-3 py-1.5 text-meta text-u-text3">
+      <footer
+        className={cn(
+          "flex flex-none items-center gap-2 border-t border-u-border py-1.5 text-meta text-u-text3",
+          variant === "window" && "px-3",
+        )}
+      >
         <span>{footerLineOf(copilot, isMuted)}</span>
         <span className="ms-auto">Only you see this</span>
       </footer>
@@ -561,6 +621,34 @@ function EndedSummary({ copilot }: { copilot: Copilot }) {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return <p className="rounded-u-control bg-u-signal-tint px-2.5 py-1.5 text-note text-u-signal">{children}</p>;
+}
+
+/** The tab's views, a switch rather than a second row of tabs under the drawer's own. */
+function ViewButton({
+  current,
+  value,
+  onSelect,
+  children,
+}: {
+  current: CopilotTab;
+  value: CopilotTab;
+  onSelect: (tab: CopilotTab) => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={current === value}
+      onClick={() => onSelect(value)}
+      className={cn(
+        "rounded-u-control px-3 py-1 text-note font-medium",
+        current === value ? "bg-u-surface text-u-text shadow-u-e1" : "text-u-text3 hover:text-u-text",
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
 function TabButton({

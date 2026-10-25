@@ -129,7 +129,7 @@ describe("CopilotPanel", () => {
   it("says why suggestions are not current, and what stayed open when the call ended", async () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot({ coach: "PAUSED" }));
     const { unmount } = render(
-      <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="inline" onClose={vi.fn()} />,
+      <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" />,
     );
     expect(await screen.findByText("Suggestions paused. Retrying when more is said.")).toBeInTheDocument();
     unmount();
@@ -151,5 +151,52 @@ describe("CopilotPanel", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Close window" }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("sits in the drawer's tab as one toolbar: the views, the call without a name, Pop out and the menu", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
+    const onPopOut = vi.fn();
+    render(<CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" onPopOut={onPopOut} />);
+
+    expect(await screen.findByText("Intro call")).toBeInTheDocument();
+    expect(screen.queryByText("Intro call · Rania Haddad")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Interview copilot" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close window" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Live" })).toHaveAttribute("aria-selected", "true");
+
+    await userEvent.click(screen.getByRole("button", { name: "Pop out" }));
+    expect(onPopOut).toHaveBeenCalled();
+  });
+
+  it("counts the suggestions waiting, and none while they are muted", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
+    const onNudgeCount = vi.fn();
+    render(
+      <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" onNudgeCount={onNudgeCount} />,
+    );
+
+    await waitFor(() => expect(onNudgeCount).toHaveBeenLastCalledWith(1));
+    await userEvent.click(screen.getByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Mute suggestions" }));
+    expect(onNudgeCount).toHaveBeenLastCalledWith(0);
+  });
+
+  it("offers the floating window's way back into Uncava from its menu", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
+    const onShowInUncava = vi.fn();
+    render(
+      <CopilotPanel
+        projectId="p1"
+        candidateId="c1"
+        recordingId="r1"
+        variant="window"
+        onClose={vi.fn()}
+        onShowInUncava={onShowInUncava}
+      />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "More" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Show in Uncava" }));
+    expect(onShowInUncava).toHaveBeenCalled();
   });
 });

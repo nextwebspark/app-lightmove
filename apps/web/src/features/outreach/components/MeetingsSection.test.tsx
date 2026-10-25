@@ -39,6 +39,8 @@ vi.mock("../api/notetakerApi", async (importOriginal) => ({
   draftInterviewPlan: vi.fn(),
 }));
 vi.mock("../lib/copilotWindow", () => ({ openCopilotWindow: vi.fn() }));
+
+const onShowCopilot = vi.fn();
 vi.mock("../api/zoomApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/zoomApi")>()),
   getZoom: vi.fn(),
@@ -161,6 +163,7 @@ function renderSection({
           fullName="Priya Raman"
           candidateStatus="contacted"
           emails={EMAILS}
+          onShowCopilot={onShowCopilot}
         />
       </ToastProvider>
     </QueryClientProvider>,
@@ -743,9 +746,8 @@ describe("MeetingsSection", () => {
     expect(screen.getByRole("tooltip")).toHaveTextContent("Only whoever sent the Notetaker can change the live copilot.");
   });
 
-  it("opens the copilot in its own window during the call, and in the drawer where no window opens", async () => {
+  it("opens the copilot in its own window during the call, and in the drawer's tab where no window opens", async () => {
     vi.mocked(openCopilotWindow).mockResolvedValue("blocked");
-    vi.mocked(notetakerApi.getCopilot).mockReturnValue(new Promise(() => {}));
     renderSection({
       notetakerOffered: true,
       recordings: [aRecording({ status: "RECORDING", liveCopilot: true, liveStatus: "LISTENING" })],
@@ -760,7 +762,8 @@ describe("MeetingsSection", () => {
       { projectId: "p1", candidateId: "c1", recordingId: "r1" },
       expect.any(Function),
     );
-    expect(await screen.findByRole("region", { name: "Interview copilot" })).toBeInTheDocument();
+    await waitFor(() => expect(onShowCopilot).toHaveBeenCalledWith("r1"));
+    expect(screen.queryByRole("region", { name: "Interview copilot" })).not.toBeInTheDocument();
   });
 
   it("says in the call that a copilot can no longer be added, and that the Notetaker is still joining", async () => {

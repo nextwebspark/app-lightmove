@@ -715,7 +715,7 @@ copilot** (V154) is two more: **Prepare questions** on an upcoming call drafts a
 or a figure), edited and saved per call; and **Live copilot**, chosen before the bot joins by whoever sent it, streams
 the call (`NotetakerLiveFeed`, each bot's own URL token the credential) to a coach (`InterviewCoachWorker`) that folds competency coverage, the gaps heard, the questions
 asked and up to three nudges forward only, read by a floating window (Document Picture-in-Picture, a popup, or the
-drawer) whose ⋯ stops it for everyone; the streamed lines go when the call ends, and the note is filed from an accurate
+drawer's Copilot tab, first in the bar only while the copilot runs) whose ⋯ stops it for everyone; the streamed lines go when the call ends, and the note is filed from an accurate
 transcript asked of Recall after the call (`FinalTranscriptRequester`), never the English-only stream. A key without the calendar webhook secret
 leaves calendars read directly (`RecallSettings.isCalendarOffered`). It depends on `outreach` (`KeptMeetings`),
 `candidate` and `position`; nothing depends back.

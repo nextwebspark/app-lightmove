@@ -17,7 +17,9 @@ import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/ty
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
 import { OutreachSection } from "../../outreach/components/OutreachSection";
+import { CopilotTab } from "../../outreach/components/copilot/CopilotTab";
 import { MeetingsSection } from "../../outreach/components/MeetingsSection";
+import { liveCopilotOf, useNotetaker } from "../../outreach/lib/useNotetaker";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { NextActionBar } from "../../tasks/components/NextActionBar";
 import type { TaskNote } from "../../tasks/api/types";
@@ -202,13 +204,29 @@ export function CandidateProfile({
     setTab("notes");
     setNoteFocus({ noteId, at: Date.now() });
   };
+  // The Copilot tab is offered while a call's live copilot runs, and kept while it is open after the copilot stops, so
+  // nobody is moved off what they were reading; it is never opened for them.
+  const notetaker = useNotetaker(projectId, candidate.id, canWrite);
+  const liveCopilotId = liveCopilotOf(notetaker.data?.recordings ?? [])?.id ?? null;
+  const [heldCopilotId, setHeldCopilotId] = useState<string | null>(null);
+  const copilotId = tab === "copilot" ? (heldCopilotId ?? liveCopilotId) : liveCopilotId;
+  const drawerTabs: readonly DrawerTab[] = canWrite && copilotId ? ["copilot", ...offeredTabs] : offeredTabs;
+  // Once opened, the copilot stays mounted on the other tabs, so the tab can count the suggestions waiting.
+  const [copilotOpenedFor, setCopilotOpenedFor] = useState<string | null>(null);
+  if (tab === "copilot" && copilotId && copilotOpenedFor !== copilotId) setCopilotOpenedFor(copilotId);
+  const [copilotNudges, setCopilotNudges] = useState(0);
   /** Leaving the Notes tab lets the note go, so coming back to it scrolls nowhere. */
   const chooseTab = (next: DrawerTab) => {
     setTab(next);
     rememberDrawerTab("position", next);
+    setHeldCopilotId(next === "copilot" ? liveCopilotId : null);
     if (next !== "notes") setNoteFocus(null);
     if (next !== "contact") setSectionFocus(null);
     if (body.current) body.current.scrollTop = 0;
+  };
+  const showCopilot = (recordingId: string) => {
+    chooseTab("copilot");
+    setHeldCopilotId(recordingId);
   };
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
   const startNote = () => {
@@ -389,9 +407,10 @@ export function CandidateProfile({
         </PersonHeaderLayout>
         <DrawerTabBar
           idPrefix={TAB_ID_PREFIX}
-          tabs={offeredTabs}
+          tabs={drawerTabs}
           value={tab}
           onChange={chooseTab}
+          copilotNudges={copilotNudges}
           counts={{
             notes: notes.data?.length,
             documents: documents.documents.data?.length,
@@ -701,10 +720,23 @@ export function CandidateProfile({
               fullName={candidate.fullName}
               candidateStatus={candidate.status}
               emails={candidate.contacts.emails}
+              onShowCopilot={showCopilot}
             />
           )}
         </div>
 
+        {canWrite && copilotId && copilotOpenedFor === copilotId && (
+          <div {...panelProps("copilot")} className="h-full">
+            <CopilotTab
+              projectId={projectId}
+              candidateId={candidate.id}
+              recordingId={copilotId}
+              firstName={firstName}
+              onShow={() => showCopilot(copilotId)}
+              onNudgeCount={setCopilotNudges}
+            />
+          </div>
+        )}
         {canWrite && (
           <>
             <div {...panelProps("notes")}>
