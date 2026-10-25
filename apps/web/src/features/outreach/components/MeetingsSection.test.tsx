@@ -470,7 +470,7 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "SCHEDULED" })],
     });
 
-    expect(await screen.findByText("Joins 1 min early · files notes after")).toBeInTheDocument();
+    expect(await screen.findByText("Joins 1 min early")).toBeInTheDocument();
     const toggle = screen.getByRole("switch", { name: "Record with Notetaker" });
     expect(toggle).toHaveAttribute("aria-checked", "true");
     await userEvent.click(toggle);
@@ -490,7 +490,7 @@ describe("MeetingsSection", () => {
       recordableMeetingIds: ["m4"],
     });
 
-    expect(await screen.findByText("Booked end passed · still on? Add it now")).toBeInTheDocument();
+    expect(await screen.findByText("Past its end · still on?")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("switch", { name: "Record with Notetaker" }));
 
     expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m4", false);
@@ -499,7 +499,7 @@ describe("MeetingsSection", () => {
   it("says a bot sent to a call already under way joins now", async () => {
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
 
-    expect(await screen.findByText("Joining now · files notes after")).toBeInTheDocument();
+    expect(await screen.findByText("Joining now")).toBeInTheDocument();
   });
 
   it("offers a call under way to be recorded from here on", async () => {
@@ -508,7 +508,7 @@ describe("MeetingsSection", () => {
       notetakerOffered: true,
     });
 
-    expect(await screen.findByText("Off · add it now to record the rest")).toBeInTheDocument();
+    expect(await screen.findByText("Call is on · not recorded")).toBeInTheDocument();
   });
 
   it("opens a past call's transcript once its notes are filed, matched by its start", async () => {
@@ -679,6 +679,25 @@ describe("MeetingsSection", () => {
     expect(await screen.findByText(/the live copilot will follow it for you/)).toBeInTheDocument();
   });
 
+  it("puts both switches on one line and explains each on hover", async () => {
+    renderSection({
+      meetings: {
+        ...MEETINGS,
+        upcoming: [{ ...MEETINGS.upcoming[0], startsAt: "2099-10-07T06:00:00Z", endsAt: "2099-10-07T06:30:00Z" }],
+      },
+      notetakerOffered: true,
+    });
+
+    const notetaker = await screen.findByRole("switch", { name: "Record with Notetaker" });
+    expect(screen.getByText("Not recorded")).toBeInTheDocument();
+    await userEvent.hover(notetaker);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/files the notes on Priya's record afterwards/);
+    await userEvent.unhover(notetaker);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await userEvent.hover(screen.getByRole("switch", { name: "Live copilot" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/turning it on sends the Notetaker too/);
+  });
+
   it("switches the live copilot on a Notetaker that has not joined yet, and offers no switch once it has", async () => {
     vi.mocked(notetakerApi.switchLiveCopilot).mockResolvedValue(aRecording({ liveCopilot: true }));
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED" })] });
@@ -687,14 +706,17 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.switchLiveCopilot).toHaveBeenCalledWith("p1", "c1", "r1", true);
   });
 
-  it("leaves a teammate's Notetaker copilot to the teammate who sent it", async () => {
+  it("shows a teammate's Notetaker copilot but leaves it to the teammate who sent it", async () => {
     renderSection({
       notetakerOffered: true,
       recordings: [aRecording({ status: "SCHEDULED", liveCopilot: true, mayChangeCopilot: false })],
     });
 
-    expect(await screen.findByText(/Live copilot on/)).toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: "Live copilot" })).not.toBeInTheDocument();
+    const copilot = await screen.findByRole("switch", { name: "Live copilot" });
+    expect(copilot).toHaveAttribute("aria-checked", "true");
+    expect(copilot).toBeDisabled();
+    await userEvent.hover(copilot);
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Only whoever sent the Notetaker can change the live copilot.");
   });
 
   it("opens the copilot in its own window during the call, and in the drawer where no window opens", async () => {
