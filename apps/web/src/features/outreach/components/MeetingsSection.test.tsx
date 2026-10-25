@@ -310,7 +310,7 @@ describe("MeetingsSection", () => {
     await waitFor(() =>
       expect(meetingApi.getMeetingCalendar).toHaveBeenLastCalledWith("p1", "c1", "2099-10-12", null, expect.anything()),
     );
-    expect(await screen.findByText("Pick a time on your calendar")).toBeInTheDocument();
+    expect(await screen.findByText("Drag on your calendar, or type a time")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send invite" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "Earlier days" }));
@@ -703,6 +703,23 @@ describe("MeetingsSection", () => {
 
     await waitFor(() => expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m9", true));
     expect(await screen.findByText(/the live copilot will follow the call for you/)).toBeInTheDocument();
+  });
+
+  it("explains the Notetaker and the live copilot on hover in Book a call, as the call's own row does", async () => {
+    vi.mocked(meetingApi.getMeetingCalendar).mockResolvedValue(aWeek());
+    renderSection({ notetakerOffered: true });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Book a call" }));
+    await screen.findByRole("group", { name: "Your week" });
+    const dialog = within(screen.getByRole("dialog"));
+    const notetaker = dialog.getByRole("switch", { name: "Record with Notetaker" });
+
+    await userEvent.hover(notetaker);
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/files the notes on Priya's record/);
+    await userEvent.unhover(notetaker);
+    expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
+    await userEvent.hover(dialog.getByRole("switch", { name: "Live copilot" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent(/Switching it on sends the Notetaker too/);
   });
 
   it("offers no Notetaker in Book a call where none is set up", async () => {

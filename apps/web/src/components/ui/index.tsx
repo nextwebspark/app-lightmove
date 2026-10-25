@@ -16,6 +16,7 @@ export { DateInput } from "./DateInput";
 export { Drawer } from "./Drawer";
 export { EmptyState } from "./EmptyState";
 export { FullscreenButton } from "./FullscreenButton";
+export { HoverDetail } from "./HoverDetail";
 export { Modal } from "./Modal";
 export {
   CardsSkeleton,

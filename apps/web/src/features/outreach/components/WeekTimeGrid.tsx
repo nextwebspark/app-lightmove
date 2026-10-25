@@ -33,7 +33,7 @@ interface Drag {
  * Book a call's week (`Outreach.dc.html?dialog=bookCall`): the consultant's busy times and working hours, day by day,
  * and a call picked by dragging from any time to any time — or a click, which takes the chosen length. Working hours
  * only tint the grid; a busy stretch is the calendar's, so the pick over it is drawn but the dialog refuses it. The
- * "Pick a time" fields beside it are the keyboard's way in.
+ * "Pick a time" fields in the dialog's foot are the keyboard's way in.
  */
 export function WeekTimeGrid({
   days,
@@ -46,6 +46,7 @@ export function WeekTimeGrid({
   maxMinutes,
   now,
   onChoose,
+  className,
 }: {
   days: string[];
   timeZone: string;
@@ -58,6 +59,7 @@ export function WeekTimeGrid({
   maxMinutes: number;
   now: Date;
   onChoose: (choice: CallChoice) => void;
+  className?: string;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -109,7 +111,7 @@ export function WeekTimeGrid({
       ref={scroller}
       role="group"
       aria-label="Your week"
-      className="relative max-h-[540px] overflow-auto rounded-u-chip border border-u-border bg-u-bg"
+      className={cn("relative max-h-[540px] overflow-auto rounded-u-chip border border-u-border bg-u-bg", className)}
     >
       <div className="flex min-w-max">
         <div className="sticky start-0 z-20 w-12 flex-none bg-u-bg">
