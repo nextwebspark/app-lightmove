@@ -56,7 +56,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 public class NotetakerService {
 
-    static final String BOT_NAME = "Uncava Notetaker";
+    /** Spelled as the brand's wordmark, as its camera card draws it: the one name an executive reads in a call. */
+    static final String BOT_NAME = "UNCAVA Notetaker";
 
     static final String LIVE_TRANSCRIPT_PATH = "/api/v1/notetaker/webhooks/recall/live";
 
@@ -306,9 +307,11 @@ public class NotetakerService {
     String consentLineFor(UUID userId, boolean liveCopilot) {
         String name = users.findById(userId).map(User::getFullName).map(String::strip).filter(full -> !full.isEmpty())
                 .orElse("the consultant");
-        return "Hello, I'm " + BOT_NAME + ". I'm recording and transcribing this call for " + name + "'s notes"
+        return "Hi everyone, I'm " + BOT_NAME + ", the AI notetaker for " + name + ". This call is being recorded and"
+                + " transcribed so " + name + " can keep accurate notes"
                 + (liveCopilot ? ", and an AI assistant follows it live to help them" : "")
-                + ". Ask them to remove me at any time.";
+                + ". The recording stays private to " + name + "'s team. If you'd prefer not to be recorded, just say so"
+                + " and I'll be removed.";
     }
 
     private static void requireCancellable(MeetingRecording recording) {

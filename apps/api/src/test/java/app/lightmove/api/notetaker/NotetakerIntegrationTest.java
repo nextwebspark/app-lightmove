@@ -131,7 +131,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         RecallBotRequest request = recall.sent().getFirst();
         assertThat(request.meetingUrl()).isEqualTo("https://meet.google.com/abc-defg-hij");
         assertThat(request.joinAt()).isEqualTo(start.minus(Duration.ofMinutes(1)));
-        assertThat(request.botName()).isEqualTo("Uncava Notetaker");
+        assertThat(request.botName()).isEqualTo("UNCAVA Notetaker");
         assertThat(request.consentLine()).contains("Yara Haddad");
         assertThat(request.metadata()).containsEntry("recordingId", scheduled.get("id").asText());
 

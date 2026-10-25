@@ -15,6 +15,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -121,19 +122,33 @@ class RecallBotClientTest {
     @DisplayName("a bot is scheduled for the call with its consent line, our ids, Recall's own transcription and leave rules")
     void requestBody() {
         Map<String, Object> body = RecallBotClient.bodyOf(new RecallBotRequest("https://meet.google.com/abc-defg-hij",
-                Instant.parse("2026-10-22T08:59:00Z"), "Uncava Notetaker", "Hello", Map.of("recordingId", "r1"), null));
+                Instant.parse("2026-10-22T08:59:00Z"), "UNCAVA Notetaker", "Hello", Map.of("recordingId", "r1"), null));
 
         assertThat(body).containsEntry("meeting_url", "https://meet.google.com/abc-defg-hij")
                 .containsEntry("join_at", "2026-10-22T08:59:00Z")
-                .containsEntry("bot_name", "Uncava Notetaker")
+                .containsEntry("bot_name", "UNCAVA Notetaker")
                 .containsEntry("metadata", Map.of("recordingId", "r1"))
                 .containsEntry("chat", Map.of("on_bot_join", Map.of("send_to", "everyone", "message", "Hello")));
         assertThat(body.get("recording_config").toString()).contains("recallai_streaming");
         assertThat(body.get("automatic_leave")).isEqualTo(RecallBotClient.AUTOMATIC_LEAVE);
+        assertThat(body.get("automatic_video_output")).isEqualTo(RecallBotClient.AUTOMATIC_VIDEO_OUTPUT);
         assertThat(RecallBotClient.AUTOMATIC_LEAVE).containsEntry("waiting_room_timeout", 900)
                 .containsEntry("everyone_left_timeout", Map.of("timeout", 30));
-        assertThat(RecallBotClient.bodyOf(new RecallBotRequest("https://zoom.us/j/1", null, "Uncava Notetaker",
+        assertThat(RecallBotClient.bodyOf(new RecallBotRequest("https://zoom.us/j/1", null, "UNCAVA Notetaker",
                 "Hello", Map.of(), null))).doesNotContainKey("join_at");
+    }
+
+    @Test
+    @DisplayName("the bot's camera is Uncava's card, a JPEG while recording and before")
+    void cameraCard() {
+        for (String state : List.of("in_call_recording", "in_call_not_recording")) {
+            @SuppressWarnings("unchecked")
+            Map<String, String> image = (Map<String, String>) RecallBotClient.AUTOMATIC_VIDEO_OUTPUT.get(state);
+            assertThat(image).containsEntry("kind", "jpeg");
+            byte[] jpeg = Base64.getDecoder().decode(image.get("b64_data"));
+            assertThat(jpeg).startsWith((byte) 0xFF, (byte) 0xD8);
+            assertThat(jpeg.length).isBetween(1_000, 1_000_000);
+        }
     }
 
     @Test

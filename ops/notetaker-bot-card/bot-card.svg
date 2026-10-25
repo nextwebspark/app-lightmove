@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="38%" r="55%">
+      <stop offset="0" stop-color="#6e79f2" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#08090b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="720" fill="#08090b"/>
+  <rect width="1280" height="720" fill="url(#glow)"/>
+  <svg x="570" y="78" width="140" height="201" viewBox="162 122 188 270">
+    <g transform="translate(256 253) scale(2.55)">
+      <path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" fill="none" stroke="#F2F4F8" stroke-width="5.5" stroke-linejoin="round"/>
+      <path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#F2F4F8"/>
+    </g>
+  </svg>
+  <text x="640" y="380" text-anchor="middle" font-family="Inter" font-weight="700" font-size="68" fill="#f4f6f8" letter-spacing="1">UNCAVA <tspan font-weight="400" fill="#a6adbb">Notetaker</tspan></text>
+  <text x="640" y="436" text-anchor="middle" font-family="Inter" font-size="30" fill="#a6adbb">AI notetaker · recording &amp; transcribing for the consultant's notes</text>
+  <g transform="translate(640 512)">
+    <rect x="-{{PILL_HALF}}" y="-32" width="{{PILL_WIDTH}}" height="64" rx="32" fill="{{PILL_TINT}}" stroke="{{PILL_COLOR}}" stroke-opacity="0.55" stroke-width="2"/>
+    <circle cx="-{{DOT_X}}" cy="0" r="10" fill="{{PILL_COLOR}}"/>
+    <text x="16" y="11" text-anchor="middle" font-family="Inter" font-weight="600" font-size="30" fill="{{PILL_COLOR}}">{{STATUS}}</text>
+  </g>
+  <text x="640" y="634" text-anchor="middle" font-family="Inter" font-size="24" fill="#7c8493">Ask the consultant to remove me at any time · uncava.com</text>
+</svg>
