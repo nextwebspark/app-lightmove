@@ -46,6 +46,29 @@ const STOP_REASONS: Record<string, string> = {
   BOOKED: "A call was booked",
 };
 
+/** The fields an `UPDATED_FROM_CALL` line names, by the key the server writes; never their values. */
+const CALL_FIELDS: Record<string, string> = {
+  noticePeriod: "Notice period",
+  baseSalary: "Base salary",
+  bonus: "Bonus",
+  allowances: "Allowances",
+  location: "Location",
+  motivation: "Motivation",
+  expectedPackage: "Expected package",
+  openToRelocate: "Open to relocate",
+  task: "a task",
+};
+
+/** "Notice period and Base salary"; "Notice period, Bonus and Allowances". */
+function callFieldsOf(keys: string | undefined): string {
+  const labels = (keys ?? "")
+    .split(",")
+    .filter(Boolean)
+    .map((key) => CALL_FIELDS[key] ?? key);
+  if (labels.length <= 1) return labels[0] ?? "the record";
+  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+}
+
 const NOTE_VERBS: Record<string, string> = {
   GENERAL: "wrote a note",
   CALL: "logged a call",
@@ -145,6 +168,17 @@ function phraseOf(
         text: person ? `edited${them}` : "edited the profile",
         detail: details.backgroundConfirmed === "true" ? "Background confirmed" : null,
       };
+    case "UPDATED_FROM_CALL": {
+      const fields = callFieldsOf(details.fields);
+      const day = details.callAt ? callTimeOf(details.callAt) : null;
+      return {
+        text:
+          String(details.reverted) === "true"
+            ? `undid ${fields}${forThem} from the call transcript`
+            : `${details.fields === "task" ? "added" : "updated"} ${fields}${forThem} from the call transcript`,
+        detail: [details.call, day].filter(Boolean).join(" · ") || null,
+      };
+    }
     case "CONTACTS_EDITED":
       return { text: person ? `edited the contacts of ${person}` : "edited the contacts", detail: null };
     case "CONTACT_FOUND": {

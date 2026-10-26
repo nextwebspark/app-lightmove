@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.outreach.constant.WorkingHoursSource;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
@@ -10,104 +11,128 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** The times Book a call offers: half-hourly, inside the working day, clear of the calendar, never too soon. */
+/** The times a booking link offers: half-hourly, inside each day's working hours, clear of the calendar, never soon. */
 class FreeSlotsTest {
 
     private static final ZoneId DUBAI = ZoneId.of("Asia/Dubai");
-    private static final FreeSlots SLOTS = new FreeSlots(new SendingWindow(LocalTime.of(8, 0), LocalTime.of(18, 0),
-            Set.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)),
-            DUBAI);
+    private static final Set<DayOfWeek> SUNDAY_TO_THURSDAY = Set.of(DayOfWeek.SUNDAY, DayOfWeek.MONDAY,
+            DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY);
+    private static final FreeSlots SLOTS = new FreeSlots(new WorkingHours(
+            WeeklyHours.uniform(SUNDAY_TO_THURSDAY, LocalTime.of(8, 0), LocalTime.of(18, 0)), DUBAI,
+            WorkingHoursSource.WORKSPACE), DUBAI);
     private static final Duration HALF_HOUR = Duration.ofMinutes(30);
+    /** A Thursday. */
     private static final LocalDate OCT_1 = LocalDate.of(2026, 10, 1);
 
     @Test
-    @DisplayName("five working days from today, the weekend skipped, every half hour the call fits before close")
+    @DisplayName("a week to a page, the days nobody works left off, every half hour the call fits before close")
     void workingDaysOnTheHalfHour() {
-        // Thursday 1 Oct 2026, before the day opens.
-        List<SlotDay> days = SLOTS.offered(at(2026, 10, 1, 6, 0), OCT_1, 5, HALF_HOUR, List.of());
+        SlotPage page = SLOTS.page(at(2026, 10, 1, 6, 0), OCT_1, HALF_HOUR, List.of());
 
-        assertThat(days).extracting(SlotDay::date).containsExactly(LocalDate.of(2026, 10, 1),
-                LocalDate.of(2026, 10, 2), LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 6),
+        assertThat(page.days()).extracting(SlotDay::date).containsExactly(LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 4), LocalDate.of(2026, 10, 5), LocalDate.of(2026, 10, 6),
                 LocalDate.of(2026, 10, 7));
-        assertThat(days.getFirst().starts()).hasSize(20);
-        assertThat(days.getFirst().starts().getFirst()).isEqualTo(at(2026, 10, 1, 8, 0));
-        assertThat(days.getFirst().starts().getLast()).isEqualTo(at(2026, 10, 1, 17, 30));
+        List<Instant> thursday = page.days().getFirst().starts();
+        assertThat(thursday).hasSize(20);
+        assertThat(thursday.getFirst()).isEqualTo(at(2026, 10, 1, 8, 0));
+        assertThat(thursday.getLast()).isEqualTo(at(2026, 10, 1, 17, 30));
 
-        List<SlotDay> long45 = SLOTS.offered(at(2026, 10, 1, 6, 0), OCT_1, 1, Duration.ofMinutes(45), List.of());
-        assertThat(long45.getFirst().starts().getLast()).isEqualTo(at(2026, 10, 1, 17, 0));
+        SlotPage long45 = SLOTS.page(at(2026, 10, 1, 6, 0), OCT_1, Duration.ofMinutes(45), List.of());
+        assertThat(long45.days().getFirst().starts().getLast()).isEqualTo(at(2026, 10, 1, 17, 0));
     }
 
     @Test
-    @DisplayName("nothing sooner than half an hour from now, and nothing the calendar holds even partly")
-    void leadTimeAndBusyTimes() {
+    @DisplayName("each day keeps its own hours: a short Thursday closes early")
+    void eachDayKeepsItsOwnHours() {
+        WeeklyHours week = WeeklyHours.of(Map.of(
+                DayOfWeek.WEDNESDAY, new DayHours(LocalTime.of(9, 0), LocalTime.of(17, 0)),
+                DayOfWeek.THURSDAY, new DayHours(LocalTime.of(9, 0), LocalTime.of(13, 0))));
+        FreeSlots slots = new FreeSlots(new WorkingHours(week, DUBAI, WorkingHoursSource.PERSONAL), DUBAI);
+
+        SlotPage page = slots.page(at(2026, 10, 1, 6, 0), OCT_1, HALF_HOUR, List.of());
+
+        assertThat(page.days()).extracting(SlotDay::date).containsExactly(OCT_1, LocalDate.of(2026, 10, 7));
+        assertThat(page.days().getFirst().starts().getLast()).isEqualTo(at(2026, 10, 1, 12, 30));
+        assertThat(page.days().get(1).starts().getLast()).isEqualTo(at(2026, 10, 7, 16, 30));
+    }
+
+    @Test
+    @DisplayName("nothing sooner than an hour from now, and nothing the calendar holds even partly")
+    void noticeAndBusyTimes() {
         Instant now = at(2026, 10, 1, 9, 10);
         BusyInterval lunch = new BusyInterval(at(2026, 10, 1, 12, 15), at(2026, 10, 1, 13, 0));
 
-        List<Instant> today = SLOTS.offered(now, OCT_1, 1, HALF_HOUR, List.of(lunch)).getFirst().starts();
+        List<Instant> today = SLOTS.page(now, OCT_1, HALF_HOUR, List.of(lunch)).days().getFirst().starts();
 
-        assertThat(today.getFirst()).isEqualTo(at(2026, 10, 1, 10, 0));
+        assertThat(today.getFirst()).isEqualTo(at(2026, 10, 1, 10, 30));
         assertThat(today).contains(at(2026, 10, 1, 11, 30), at(2026, 10, 1, 13, 0))
                 .doesNotContain(at(2026, 10, 1, 12, 0), at(2026, 10, 1, 12, 30));
     }
 
     @Test
-    @DisplayName("a fully booked day is offered empty rather than left out")
+    @DisplayName("a fully booked working day is offered empty rather than left out")
     void aFullDayIsEmpty() {
-        BusyInterval allDay = new BusyInterval(at(2026, 10, 2, 0, 0), at(2026, 10, 3, 0, 0));
+        BusyInterval allDay = new BusyInterval(at(2026, 10, 4, 0, 0), at(2026, 10, 5, 0, 0));
 
-        List<SlotDay> days = SLOTS.offered(at(2026, 10, 1, 6, 0), OCT_1, 2, HALF_HOUR, List.of(allDay));
+        SlotPage page = SLOTS.page(at(2026, 10, 1, 6, 0), OCT_1, HALF_HOUR, List.of(allDay));
 
-        assertThat(days.get(1).date()).isEqualTo(LocalDate.of(2026, 10, 2));
-        assertThat(days.get(1).starts()).isEmpty();
+        assertThat(page.days().get(1).date()).isEqualTo(LocalDate.of(2026, 10, 4));
+        assertThat(page.days().get(1).starts()).isEmpty();
     }
 
     @Test
-    @DisplayName("a later week starts on the day asked for, and a past day starts today")
+    @DisplayName("pages run a week from the day asked for, back to today at the earliest, and stop at the horizon")
     void pagesFromTheDayAskedFor() {
         Instant now = at(2026, 10, 1, 9, 10);
 
-        List<SlotDay> later = SLOTS.offered(now, LocalDate.of(2026, 12, 5), 5, HALF_HOUR, List.of());
-        assertThat(later).extracting(SlotDay::date).containsExactly(LocalDate.of(2026, 12, 7),
-                LocalDate.of(2026, 12, 8), LocalDate.of(2026, 12, 9), LocalDate.of(2026, 12, 10),
-                LocalDate.of(2026, 12, 11));
-        assertThat(later.getFirst().starts()).hasSize(20);
-        assertThat(SLOTS.startOf(now, LocalDate.of(2026, 12, 5), 5)).isEqualTo(at(2026, 12, 7, 8, 0));
-        assertThat(SLOTS.endOf(now, LocalDate.of(2026, 12, 5), 5)).isEqualTo(at(2026, 12, 11, 18, 0));
+        assertThat(FreeSlots.firstDayOf(now, LocalDate.of(2026, 9, 20), DUBAI)).isEqualTo(OCT_1);
+        assertThat(FreeSlots.firstDayOf(now, null, DUBAI)).isEqualTo(OCT_1);
+        assertThat(FreeSlots.firstDayOf(now, OCT_1.plusDays(FreeSlots.HORIZON_DAYS), DUBAI)).isNotNull();
+        assertThat(FreeSlots.firstDayOf(now, OCT_1.plusDays(FreeSlots.HORIZON_DAYS + 1), DUBAI)).isNull();
+        assertThat(FreeSlots.pageStart(OCT_1, DUBAI)).isEqualTo(at(2026, 10, 1, 0, 0));
+        assertThat(FreeSlots.pageEnd(OCT_1, DUBAI)).isEqualTo(at(2026, 10, 8, 0, 0));
 
-        List<SlotDay> past = SLOTS.offered(now, LocalDate.of(2026, 9, 1), 1, HALF_HOUR, List.of());
-        assertThat(past.getFirst().date()).isEqualTo(OCT_1);
-        assertThat(SLOTS.startOf(now, LocalDate.of(2026, 9, 1), 1)).isEqualTo(now);
+        assertThat(SLOTS.page(now, OCT_1, HALF_HOUR, List.of()).previousFrom()).isNull();
+        LocalDate nextWeek = LocalDate.of(2026, 10, 8);
+        SlotPage later = SLOTS.page(now, nextWeek, HALF_HOUR, List.of());
+        assertThat(later.previousFrom()).isEqualTo(OCT_1);
+        assertThat(later.earliestDate()).isEqualTo(OCT_1);
+        assertThat(later.latestDate()).isEqualTo(OCT_1.plusDays(FreeSlots.HORIZON_DAYS));
+        assertThat(SLOTS.page(now, LocalDate.of(2026, 10, 3), HALF_HOUR, List.of()).previousFrom()).isEqualTo(OCT_1);
     }
 
     @Test
-    @DisplayName("the page before starts a working week back, never before today, and the first page has none")
-    void previousPageIsAWorkingWeekBack() {
-        Instant thursdayMorning = at(2026, 10, 1, 9, 10);
+    @DisplayName("a booking is held to what a page could offer: the half hour, the working day, the horizon")
+    void bookingMatchesWhatIsOffered() {
+        Instant now = at(2026, 10, 1, 9, 10);
 
-        assertThat(SLOTS.previousFrom(thursdayMorning, LocalDate.of(2026, 12, 7), 5)).isEqualTo(LocalDate.of(2026, 11, 30));
-        assertThat(SLOTS.previousFrom(thursdayMorning, LocalDate.of(2026, 10, 8), 5)).isEqualTo(OCT_1);
-        assertThat(SLOTS.previousFrom(thursdayMorning, OCT_1, 5)).isNull();
-
-        Instant saturday = at(2026, 10, 3, 9, 0);
-        assertThat(SLOTS.previousFrom(saturday, LocalDate.of(2026, 10, 5), 5)).isNull();
+        assertThat(SLOTS.books(now, at(2026, 10, 4, 10, 0), HALF_HOUR, List.of())).isTrue();
+        assertThat(SLOTS.books(now, at(2026, 10, 4, 10, 15), HALF_HOUR, List.of())).isFalse();
+        assertThat(SLOTS.books(now, at(2026, 10, 2, 10, 0), HALF_HOUR, List.of())).as("a Friday").isFalse();
+        assertThat(SLOTS.books(now, at(2026, 10, 4, 17, 45), HALF_HOUR, List.of())).isFalse();
+        assertThat(SLOTS.books(now, at(2026, 10, 1, 9, 30), HALF_HOUR, List.of())).as("within the hour").isFalse();
+        assertThat(SLOTS.books(now, at(2026, 10, 4, 10, 0), HALF_HOUR,
+                List.of(new BusyInterval(at(2026, 10, 4, 10, 15), at(2026, 10, 4, 10, 45))))).isFalse();
+        Instant pastHorizon = OCT_1.plusDays(FreeSlots.HORIZON_DAYS + 7).atTime(10, 0).atZone(DUBAI).toInstant();
+        assertThat(SLOTS.books(now, pastHorizon, HALF_HOUR, List.of())).isFalse();
     }
 
     @Test
-    @DisplayName("a requested start counts only when it is one the grid could have offered")
-    void offersMatchesTheGrid() {
-        Instant now = at(2026, 10, 1, 9, 0);
+    @DisplayName("Outlook hours kept in another zone than the consultant's land on the right instants")
+    void hoursInAnotherZone() {
+        WorkingHours london = new WorkingHours(WeeklyHours.uniform(Set.of(DayOfWeek.MONDAY), LocalTime.of(9, 0),
+                LocalTime.of(10, 0)), ZoneId.of("Europe/London"), WorkingHoursSource.CALENDAR);
+        FreeSlots slots = new FreeSlots(london, DUBAI);
 
-        assertThat(SLOTS.offers(now, at(2026, 10, 1, 10, 0), HALF_HOUR)).isTrue();
-        assertThat(SLOTS.offers(now, at(2026, 10, 1, 17, 30), HALF_HOUR)).isTrue();
-        assertThat(SLOTS.offers(now, at(2026, 10, 1, 17, 30), Duration.ofMinutes(45))).isFalse();
-        assertThat(SLOTS.offers(now, at(2026, 10, 1, 10, 10), HALF_HOUR)).isFalse();
-        assertThat(SLOTS.offers(now, at(2026, 10, 1, 9, 0), HALF_HOUR)).isFalse();
-        assertThat(SLOTS.offers(now, at(2026, 10, 3, 10, 0), HALF_HOUR)).isFalse();
-        assertThat(SLOTS.offers(now, at(2026, 10, 1, 7, 30), HALF_HOUR)).isFalse();
+        // Monday 5 October 2026, British Summer Time: 09:00 in London is 12:00 in Dubai.
+        List<Instant> monday = slots.page(at(2026, 10, 1, 6, 0), LocalDate.of(2026, 10, 5), HALF_HOUR, List.of())
+                .days().getFirst().starts();
+        assertThat(monday).containsExactly(at(2026, 10, 5, 12, 0), at(2026, 10, 5, 12, 30));
     }
 
     private static Instant at(int year, int month, int day, int hour, int minute) {

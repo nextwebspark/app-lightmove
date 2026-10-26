@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
+import * as notetakerApi from "../../outreach/api/notetakerApi";
+import type { NotetakerRecording } from "../../outreach/api/notetakerApi";
 import * as candidatesApi from "../api/candidatesApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
@@ -60,6 +62,33 @@ vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../projects/api/projectsApi")>()),
   projects: async () => [],
 }));
+
+vi.mock("../../outreach/api/notetakerApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof notetakerApi>()),
+  getNotetaker: vi.fn(),
+}));
+
+// The copilot itself streams a live call; here it only has to say which call it is and report what it holds.
+vi.mock("../../outreach/components/copilot/CopilotTab", async () => {
+  const { useQueryClient } = await import("@tanstack/react-query");
+  const { NOTETAKER_KEY } = await import("../../outreach/api/notetakerApi");
+  return {
+    CopilotTab: ({ recordingId, onNudgeCount }: { recordingId: string; onNudgeCount: (count: number) => void }) => {
+      const queryClient = useQueryClient();
+      return (
+        <div>
+          <p>Copilot of {recordingId}</p>
+          <button type="button" onClick={() => onNudgeCount(2)}>
+            two suggestions
+          </button>
+          <button type="button" onClick={() => void queryClient.invalidateQueries({ queryKey: NOTETAKER_KEY("p1", "c1") })}>
+            read the Notetaker again
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
 vi.mock("../../contactlookup/api/contactLookupApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
@@ -214,6 +243,31 @@ const otherPosition = {
   workable: false,
 };
 
+const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecording => ({
+  id: "r1",
+  meetingId: "m1",
+  startsAt: "2026-10-25T10:00:00Z",
+  title: "Intro call",
+  status: "RECORDING",
+  failureReason: null,
+  hasTranscript: false,
+  retryable: false,
+  noteId: null,
+  suggestionsAsked: false,
+  pendingSuggestions: 0,
+  appliedSuggestions: 0,
+  liveCopilot: true,
+  liveStatus: "LISTENING",
+  mayChangeCopilot: false,
+  ...overrides,
+});
+
+const notetakerWith = (...recordings: NotetakerRecording[]) => ({
+  offered: true,
+  recordings,
+  recordableMeetingIds: [],
+});
+
 /** A tab by its label; a count beside it (Notes 2) is part of its name, so the label is matched as a prefix. */
 const openTab = async (name: string) =>
   userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
@@ -251,6 +305,7 @@ describe("CandidateDrawer", () => {
     vi.mocked(poolApi.getPerson).mockResolvedValue(yasminRecord);
     vi.mocked(poolApi.tagCatalog).mockResolvedValue([shortlistTag]);
     vi.mocked(personCrmApi.getPersonTimeline).mockResolvedValue({ entries: [], nextCursor: null });
+    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({ offered: true, recordings: [], recordableMeetingIds: [] });
   });
 
   it("refuses a nameless executive without posting", async () => {
@@ -1016,6 +1071,55 @@ describe("CandidateDrawer", () => {
     unmount();
     renderDrawer({ candidate: { ...yasmin, id: "c2", fullName: "Omar Haddad" }, company: null });
     expect(screen.getByRole("tab", { name: "Activity" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("puts a Copilot tab first only while a call's live copilot runs, and never opens it unasked", async () => {
+    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue(notetakerWith(liveCall()));
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await waitFor(() => expect(tabLabels()[0]).toBe("Copilot"));
+    expect(screen.getByRole("tab", { name: "Career" })).toHaveAttribute("aria-selected", "true");
+    await openTab("Copilot");
+    expect(screen.getByText("Copilot of r1")).toBeInTheDocument();
+  });
+
+  it("offers no Copilot tab for a call recorded without one, or one stopped", async () => {
+    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue(
+      notetakerWith(liveCall({ liveCopilot: false, liveStatus: null }), liveCall({ id: "r2", liveStatus: "STOPPED" })),
+    );
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
+    await screen.findByRole("tab", { name: "Career" });
+    expect(tabLabels()).not.toContain("Copilot");
+  });
+
+  it("keeps the Copilot tab while it is open after the copilot stops, and lets it go once left", async () => {
+    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue(notetakerWith(liveCall()));
+    renderDrawer({ candidate: yasmin, company: null });
+    await waitFor(() => expect(tabLabels()[0]).toBe("Copilot"));
+    await openTab("Copilot");
+
+    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue(notetakerWith(liveCall({ status: "PROCESSING" })));
+    await userEvent.click(screen.getByRole("button", { name: "read the Notetaker again" }));
+    await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("tab", { name: "Copilot" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Copilot of r1")).toBeInTheDocument();
+
+    await openTab("Notes");
+    expect(tabLabels()).not.toContain("Copilot");
+  });
+
+  it("counts the copilot's waiting suggestions on its tab while another tab is open", async () => {
+    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue(notetakerWith(liveCall()));
+    renderDrawer({ candidate: yasmin, company: null });
+    await waitFor(() => expect(tabLabels()[0]).toBe("Copilot"));
+    await openTab("Copilot");
+    await userEvent.click(screen.getByRole("button", { name: "two suggestions" }));
+    expect(screen.getByRole("tab", { name: "Copilot" })).toBeInTheDocument();
+
+    await openTab("Notes");
+    expect(screen.getByRole("tab", { name: /^Copilot\s*2$/ })).toBeInTheDocument();
   });
 
   it("keeps the AI assessment off the profile: it is the Assessment tab's", async () => {

@@ -28,7 +28,7 @@
 		<poi.version>5.4.1</poi.version>
 		<pdfbox.version>3.0.5</pdfbox.version>
 		<commonmark.version>0.30.0</commonmark.version>
-		<jsoup.version>1.21.2</jsoup.version>
+		<jsoup.version>1.23.2</jsoup.version>
 		<!-- 2.55 resolves the google-auth (1.37.1) and google-http-client (1.47.1) the Cloud SQL socket factory
 		     already brings; later releases move http-client to 2.x underneath the connector. -->
 		<google-cloud-storage.version>2.55.0</google-cloud-storage.version>

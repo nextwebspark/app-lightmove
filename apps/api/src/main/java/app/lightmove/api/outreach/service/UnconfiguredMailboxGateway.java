@@ -94,6 +94,11 @@ public class UnconfiguredMailboxGateway implements MailboxGateway {
         throw unavailable();
     }
 
+    @Override
+    public void updateBookingPage(String grantId, String configurationId, BookingPageSpec page) {
+        throw unavailable();
+    }
+
     private static ApiException unavailable() {
         return ApiException.of(ErrorCode.MAILBOX_UNAVAILABLE);
     }

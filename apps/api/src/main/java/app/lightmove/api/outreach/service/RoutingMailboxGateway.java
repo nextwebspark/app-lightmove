@@ -7,6 +7,7 @@ import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.MailboxGrants;
@@ -130,6 +131,16 @@ public class RoutingMailboxGateway implements MailboxGateway {
     }
 
     @Override
+    public CalendarSchedule schedule(String grantId, String address, Instant from, Instant to) {
+        return holding(grantId).schedule(grantId, address, from, to);
+    }
+
+    @Override
+    public boolean statesWorkingHours(String grantId) {
+        return holding(grantId).statesWorkingHours(grantId);
+    }
+
+    @Override
     public CalendarEvent createEvent(String grantId, NewCalendarEvent event) {
         return holding(grantId).createEvent(grantId, event);
     }
@@ -163,6 +174,11 @@ public class RoutingMailboxGateway implements MailboxGateway {
     @Override
     public String createBookingPage(String grantId, BookingPageSpec page) {
         return holding(grantId).createBookingPage(grantId, page);
+    }
+
+    @Override
+    public void updateBookingPage(String grantId, String configurationId, BookingPageSpec page) {
+        holding(grantId).updateBookingPage(grantId, configurationId, page);
     }
 
     /** A workspace with no app at the provider, shared or its own, still connects through Nylas. */

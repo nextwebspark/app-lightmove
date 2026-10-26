@@ -6,7 +6,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 
-/** A call to book: one of the offered starts, its length, the video link, which of their addresses, and the title they see. */
+/**
+ * A call to book: any start on a five-minute mark, its length, the video link, which of their addresses, and the title
+ * they see.
+ */
 public record BookMeetingRequest(
         @NotNull Instant startsAt,
         @NotNull Integer minutes,

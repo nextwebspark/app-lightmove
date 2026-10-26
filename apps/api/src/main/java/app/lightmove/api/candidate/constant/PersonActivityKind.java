@@ -89,5 +89,11 @@ public enum PersonActivityKind {
     TASK_CANCELLED,
 
     /** A consultant marked their assessment against a mandate's brief reviewed. A draft save writes no line. */
-    ASSESSMENT_REVIEWED
+    ASSESSMENT_REVIEWED,
+
+    /**
+     * A researcher applied a change a recorded call suggested; {@code reverted} marks an undo, written only while the
+     * review offered one. The line names the fields and the call, never the values.
+     */
+    UPDATED_FROM_CALL
 }

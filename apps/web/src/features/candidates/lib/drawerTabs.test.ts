@@ -37,4 +37,12 @@ describe("the remembered tab", () => {
     expect(rememberedDrawerTab("position", POSITION_CLIENT_TABS)).toBe("career");
     expect(rememberedDrawerTab("workspace", WORKSPACE_TABS)).toBe("career");
   });
+
+  it("never remembers the copilot, which lasts one call", () => {
+    sessionStorage.clear();
+    rememberDrawerTab("position", "notes");
+    rememberDrawerTab("position", "copilot");
+
+    expect(rememberedDrawerTab("position", POSITION_STAFF_TABS)).toBe("notes");
+  });
 });

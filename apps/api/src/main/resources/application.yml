@@ -115,7 +115,8 @@ spring:
     execution:
       pool:
         # No queue, so a short listener never waits behind a sourcing run or a meeting's notes; past max-size
-        # one runs on its publisher's thread (AsyncExecutorConfig).
+        # one runs on its publisher's thread (AsyncExecutorConfig). Never park a thread here to wait a turn:
+        # CandidateAiEnrichWorker queues its runs past four rather than holding threads.
         core-size: 8
         max-size: 64
         queue-capacity: 0
@@ -691,6 +692,7 @@ lightmove:
         shared-app-guide-url: ${ZOOM_SHARED_APP_GUIDE_URL:}
     connect-window: ${OUTREACH_CONNECT_WINDOW:10m}
     daily-cap: ${OUTREACH_DAILY_CAP:50}
+    max-daily-cap: ${OUTREACH_MAX_DAILY_CAP:200}
     window-start: ${OUTREACH_WINDOW_START:08:00}
     window-end: ${OUTREACH_WINDOW_END:18:00}
     working-days: ${OUTREACH_WORKING_DAYS:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY}
@@ -724,6 +726,11 @@ lightmove:
     base-url: ${RECALL_BASE_URL:https://us-east-1.recall.ai}
     # Read by @Scheduled, which never sees a binding default, so it is spelled out here.
     bot-reconcile-interval: ${RECALL_BOT_RECONCILE_INTERVAL:PT10M}
+    # Blank keeps every Notetaker transcript; a duration (e.g. 90d) clears one whose note is gone, or that never filed
+    # one, once it has sat untouched that long.
+    transcript-retention: ${NOTETAKER_TRANSCRIPT_RETENTION:}
+    copilot-coach-interval: ${NOTETAKER_COPILOT_COACH_INTERVAL:PT15S}
+    copilot-max-coach-runs: ${NOTETAKER_COPILOT_MAX_COACH_RUNS:240}
 
   # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
   # instance, so filesystem is for npm run dev and the tests only.

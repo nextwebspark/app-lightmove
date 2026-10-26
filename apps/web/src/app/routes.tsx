@@ -25,6 +25,7 @@ import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { MCP_GUIDE_PATH } from "../features/docs/lib/paths";
 import { McpGuidePage } from "../features/docs/pages/McpGuidePage";
 import { ExtensionConnectPage } from "../features/extension/pages/ExtensionConnectPage";
+import CopilotWindowPage from "../features/outreach/pages/CopilotWindowPage";
 import { OAuthConsentPage } from "../features/oauth/pages/OAuthConsentPage";
 import { MAILBOX_CALLBACK_PATH } from "../features/outreach/lib/mailboxPopup";
 import BookingPage from "../features/outreach/pages/BookingPage";
@@ -40,11 +41,13 @@ import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
 import { SettingsBillingPage } from "../features/billing/pages/SettingsBillingPage";
 import { SettingsAiAppsPage } from "../features/settings/pages/SettingsAiAppsPage";
 import { SettingsApiKeysPage } from "../features/settings/pages/SettingsApiKeysPage";
+import { SettingsAvailabilityPage } from "../features/settings/pages/SettingsAvailabilityPage";
 import { SettingsCandidateTagsPage } from "../features/settings/pages/SettingsCandidateTagsPage";
 import { SettingsNotificationsPage } from "../features/settings/pages/SettingsNotificationsPage";
 import { SettingsTaskPresetsPage } from "../features/settings/pages/SettingsTaskPresetsPage";
 import { PipelineStagesPage } from "../features/settings/pages/PipelineStagesPage";
 import { SettingsIntegrationsPage } from "../features/settings/pages/SettingsIntegrationsPage";
+import { SettingsMeetingsPage } from "../features/settings/pages/SettingsMeetingsPage";
 import { SettingsGeneralPage } from "../features/settings/pages/SettingsGeneralPage";
 import { SettingsProfilePage } from "../features/settings/pages/SettingsProfilePage";
 import { SettingsSecurityPage } from "../features/settings/pages/SettingsSecurityPage";
@@ -113,6 +116,12 @@ export function AppRoutes() {
         element={<RequireWorkspace><ExtensionConnectPage /></RequireWorkspace>}
       />
 
+      {/* A call's copilot in a popup of its own, for a browser with no floating windows: no app chrome, staff only. */}
+      <Route
+        path="/copilot/:projectId/:candidateId/:recordingId"
+        element={<RequireWorkspace><RequireStaff><CopilotWindowPage /></RequireStaff></RequireWorkspace>}
+      />
+
       {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
         {/* The project list is everyone's, portal guests included: the server scopes theirs to the
@@ -172,6 +181,7 @@ export function AppRoutes() {
         <Route path="/settings" element={<SettingsLanding />} />
         <Route path="/settings/profile" element={<SettingsProfilePage />} />
         <Route path="/settings/notifications" element={<RequireStaff><SettingsNotificationsPage /></RequireStaff>} />
+        <Route path="/settings/availability" element={<RequireStaff><SettingsAvailabilityPage /></RequireStaff>} />
         <Route path="/settings/security" element={<SettingsSecurityPage />} />
         <Route path="/settings/workspaces" element={<SettingsWorkspacesPage />} />
         <Route path="/settings/api-keys" element={<RequireStaff><SettingsApiKeysPage /></RequireStaff>} />
@@ -181,6 +191,7 @@ export function AppRoutes() {
         <Route path="/settings/pipeline-stages" element={<RequireStaff><PipelineStagesPage /></RequireStaff>} />
         <Route element={<RequireAdmin><Outlet /></RequireAdmin>}>
           <Route path="/settings/general" element={<SettingsGeneralPage />} />
+          <Route path="/settings/meetings" element={<SettingsMeetingsPage />} />
           <Route path="/settings/candidate-tags" element={<SettingsCandidateTagsPage />} />
           <Route path="/settings/task-presets" element={<SettingsTaskPresetsPage />} />
           <Route path="/settings/integrations" element={<SettingsIntegrationsPage />} />

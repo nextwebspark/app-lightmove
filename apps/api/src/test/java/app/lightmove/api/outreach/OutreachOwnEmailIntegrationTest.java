@@ -28,6 +28,8 @@ import java.net.URI;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -223,7 +225,13 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("at the day's cap Send now is refused, and a scheduled email waits for the next morning")
     void theDailyCapHolds() throws Exception {
-        jdbc.update("update app_lm_mailbox_connection set daily_cap = 1 where grant_id = ?", "grant-" + domain);
+        // The cap counts the mailbox's own day: run within minutes of its midnight (19:55 UTC in Dubai), the "soon"
+        // email fell on tomorrow and went. Pin a zone at least six hours from midnight; Auckland is UTC+12/13.
+        int utcHour = LocalTime.now(ZoneOffset.UTC).getHour();
+        jdbc.update("update app_lm_mailbox_connection set time_zone = ? where grant_id = ?",
+                utcHour >= 6 && utcHour < 18 ? "UTC" : "Pacific/Auckland", "grant-" + domain);
+        jdbc.update("insert into app_lm_workspace_availability (workspace_id, daily_email_cap) "
+                + "select workspace_id, 1 from app_lm_mailbox_connection where grant_id = ?", "grant-" + domain);
         send("""
                 {"toAddress":"%s","subject":"First","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress));
         dispatcher.dispatchAt(Instant.now().plusSeconds(5));

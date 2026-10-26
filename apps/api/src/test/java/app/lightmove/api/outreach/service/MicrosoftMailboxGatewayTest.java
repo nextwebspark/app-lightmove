@@ -18,6 +18,8 @@ import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarSchedule;
+import app.lightmove.api.outreach.model.DayHours;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
@@ -34,8 +36,11 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -378,6 +383,39 @@ class MicrosoftMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("the same free/busy answer carries Outlook's working week, its Windows zone read as IANA's")
+    void freeBusyCarriesOutlooksWorkingHours() {
+        String grantId = MailboxGrants.mintDirect("microsoft");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+
+        CalendarSchedule schedule = gateway.schedule(grantId, "yara.haddad@meridian.example",
+                Instant.parse("2026-10-05T00:00:00Z"), Instant.parse("2026-10-10T00:00:00Z"));
+
+        assertThat(schedule.busy()).hasSize(3);
+        assertThat(schedule.workingZone()).isEqualTo(ZoneId.of("Asia/Riyadh"));
+        assertThat(schedule.workingWeek().days()).containsExactlyInAnyOrder(DayOfWeek.SUNDAY, DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY);
+        assertThat(schedule.workingWeek().on(DayOfWeek.SUNDAY))
+                .contains(new DayHours(LocalTime.of(8, 30), LocalTime.of(17, 0)));
+        assertThat(gateway.statesWorkingHours(grantId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a working week Outlook writes oddly is no week at all, and a day to midnight runs to the day's end")
+    void anOddWorkingWeekIsNone() {
+        assertThat(MicrosoftMailboxGateway.workingWeekOf(JSON.readTree("{}"))).isNull();
+        assertThat(MicrosoftMailboxGateway.workingWeekOf(JSON.readTree("""
+                {"daysOfWeek":["funday"],"startTime":"09:00:00","endTime":"17:00:00"}"""))).isNull();
+        assertThat(MicrosoftMailboxGateway.workingWeekOf(JSON.readTree("""
+                {"daysOfWeek":[],"startTime":"09:00:00","endTime":"17:00:00"}"""))).isNull();
+        assertThat(MicrosoftMailboxGateway.workingWeekOf(JSON.readTree("""
+                {"daysOfWeek":["monday"],"startTime":"17:00:00","endTime":"09:00:00"}"""))).isNull();
+        assertThat(MicrosoftMailboxGateway.workingWeekOf(JSON.readTree("""
+                {"daysOfWeek":["monday"],"startTime":"18:00:00","endTime":"00:00:00"}""")).on(DayOfWeek.MONDAY))
+                .contains(new DayHours(LocalTime.of(18, 0), LocalTime.MAX));
+    }
+
+    @Test
     @DisplayName("a booked call asks Teams where the calendar offers it, and reads the join link back")
     void aBookedCallCarriesTeams() throws Exception {
         String grantId = MailboxGrants.mintDirect("microsoft");
@@ -602,7 +640,10 @@ class MicrosoftMailboxGatewayTest {
                             {"status":"workingElsewhere","start":{"dateTime":"2026-10-07T07:00:00.0000000","timeZone":"UTC"},
                              "end":{"dateTime":"2026-10-07T08:00:00.0000000","timeZone":"UTC"}},
                             {"status":"unknown","start":{"dateTime":"2026-10-08T05:00:00.0000000","timeZone":"UTC"},
-                             "end":{"dateTime":"2026-10-08T05:30:00.0000000","timeZone":"UTC"}}]}]}""");
+                             "end":{"dateTime":"2026-10-08T05:30:00.0000000","timeZone":"UTC"}}],
+                          "workingHours":{"daysOfWeek":["sunday","monday","tuesday","wednesday","thursday"],
+                            "startTime":"08:30:00.0000000","endTime":"17:00:00.0000000",
+                            "timeZone":{"name":"Arab Standard Time"}}}]}""");
             } else if (key.equals("GET /graph/v1.0/me/calendar")) {
                 respond(exchange, 200, offersTeams
                         ? "{\"allowedOnlineMeetingProviders\":[\"teamsForBusiness\"]}"

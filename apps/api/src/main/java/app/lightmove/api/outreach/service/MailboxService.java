@@ -73,6 +73,7 @@ public class MailboxService {
     private final BookingPages bookingPages;
     private final ReplyTextAccess replyText;
     private final DailySendCount sentToday;
+    private final AvailabilityService availability;
     private final OutreachMessageRepository messages;
     private final MailboxTokens tokens;
     private final SecretCipher cipher;
@@ -99,7 +100,8 @@ public class MailboxService {
                         mailbox.getProvider()),
                 sentToday.of(mailbox, clock.instant()),
                 messages.countByWorkspaceIdAndSenderUserIdAndKindAndStatus(workspaceId, userId, MessageKind.MANUAL,
-                        MessageStatus.SCHEDULED));
+                        MessageStatus.SCHEDULED),
+                availability.dailyCapOf(mailbox));
     }
 
     /**
