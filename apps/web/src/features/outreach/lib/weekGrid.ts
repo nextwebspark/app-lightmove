@@ -91,6 +91,56 @@ export function choiceOfDrag(
   return { start: start.toISOString(), minutes };
 }
 
+/** How close to a picked call's start or end, in minutes, a press takes hold of that edge rather than its middle. */
+export const EDGE_GRAB_MINUTES = 8;
+
+export type PickEdge = "start" | "end";
+
+/** What a press at `minutes` on `date` lands on of a picked call: an edge to drag, its middle, or nothing. */
+export type PickHit = { kind: PickEdge; edgeAt: number } | { kind: "inside" };
+
+/** Whether the call's start and its end fall on `date`, where a call running past midnight has only one of them. */
+export function pickEdgesOn(choice: CallChoice, date: string, timeZone: string): { startsHere: boolean; endsHere: boolean } {
+  const opens = dayStartOf(date, timeZone).getTime();
+  const closes = dayStartOf(shiftDateOf(date, 1), timeZone).getTime();
+  const start = Date.parse(choice.start);
+  const end = Date.parse(endOf(choice));
+  return { startsHere: start >= opens && start < closes, endsHere: end > opens && end <= closes };
+}
+
+/** A short call's two edges overlap: the press takes the nearer, and its end on a tie. */
+export function pickHitOf(choice: CallChoice, date: string, minutes: number, timeZone: string): PickHit | null {
+  const [stretch] = stretchesOn([{ start: choice.start, end: endOf(choice) }], date, timeZone);
+  if (!stretch) return null;
+  const { startsHere, endsHere } = pickEdgesOn(choice, date, timeZone);
+  const toStart = startsHere ? Math.abs(minutes - stretch.top) : Infinity;
+  const toEnd = endsHere ? Math.abs(minutes - stretch.bottom) : Infinity;
+  if (Math.min(toStart, toEnd) <= EDGE_GRAB_MINUTES) {
+    return toStart < toEnd ? { kind: "start", edgeAt: stretch.top } : { kind: "end", edgeAt: stretch.bottom };
+  }
+  return minutes >= stretch.top && minutes <= stretch.bottom ? { kind: "inside" } : null;
+}
+
+/**
+ * The picked call with one edge dragged to `minutes` past midnight on `date`: the other edge stays put, the dragged
+ * one lands on a five-minute mark, and the call stays `minMinutes` to `maxMinutes` long rather than turning over.
+ */
+export function choiceOfResize(
+  choice: CallChoice,
+  edge: PickEdge,
+  date: string,
+  minutes: number,
+  timeZone: string,
+  { minMinutes, maxMinutes }: { minMinutes: number; maxMinutes: number },
+): CallChoice {
+  const at = instantAt(date, snapTo(Math.min(MINUTES_IN_DAY, Math.max(0, minutes)), SNAP_MINUTES), timeZone).getTime();
+  const lengthOf = (milliseconds: number) => Math.min(maxMinutes, Math.max(minMinutes, Math.round(milliseconds / 60_000)));
+  if (edge === "end") return { start: choice.start, minutes: lengthOf(at - Date.parse(choice.start)) };
+  const end = Date.parse(endOf(choice));
+  const length = lengthOf(end - at);
+  return { start: new Date(end - length * 60_000).toISOString(), minutes: length };
+}
+
 export function endOf(choice: CallChoice): string {
   return new Date(Date.parse(choice.start) + choice.minutes * 60_000).toISOString();
 }

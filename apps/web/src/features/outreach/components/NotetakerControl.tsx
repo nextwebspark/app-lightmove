@@ -1,15 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { type ReactNode, useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Toggle, useToast } from "../../../components/ui";
+import { HoverDetail, Toggle, useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import type { Meeting } from "../api/meetingApi";
 import * as notetakerApi from "../api/notetakerApi";
 import type { NotetakerRecording } from "../api/notetakerApi";
-import { elapsedSince } from "../lib/copilotWords";
+import { elapsedSince, LIVE_COPILOT_DETAIL, notetakerDetailOf } from "../lib/copilotWords";
 import {
   canRecord,
   failureWordsOf,
@@ -152,11 +151,7 @@ export function NotetakerControl({
           checked={isNotetakerOn}
           onChange={handleSwitch}
           disabled={schedule.isPending || remove.isPending}
-          detail={
-            <>
-              Joins a minute early, records the call and files the notes on {firstName}&apos;s record.
-            </>
-          }
+          detail={notetakerDetailOf(firstName)}
         />
         <span aria-hidden="true" className="h-4 w-px flex-none bg-u-border" />
         <SwitchWithDetail
@@ -167,14 +162,7 @@ export function NotetakerControl({
           onChange={handleCopilotSwitch}
           disabled={!mayToggleCopilot || schedule.isPending || switchLive.isPending || remove.isPending}
           detail={
-            mayToggleCopilot ? (
-              <>
-                Nudges you during the call with what is still to cover. Only you see it. Switching it on sends the
-                Notetaker too.
-              </>
-            ) : (
-              <>Only whoever sent the Notetaker can change the live copilot.</>
-            )
+            mayToggleCopilot ? LIVE_COPILOT_DETAIL : "Only whoever sent the Notetaker can change the live copilot."
           }
         />
         <span
@@ -223,7 +211,7 @@ export function NotetakerControl({
         />
         <span aria-hidden="true" className="h-4 w-px flex-none bg-u-border" />
         {recording.liveCopilot ? (
-          <WithDetail
+          <HoverDetail
             label="Live copilot"
             detail={<>Coverage, what to ask next and the transcript, in a window that floats over the call.</>}
           >
@@ -236,9 +224,9 @@ export function NotetakerControl({
               Open copilot
               <Icon d={ICONS.externalLink} size={12} className="opacity-80" />
             </button>
-          </WithDetail>
+          </HoverDetail>
         ) : (
-          <WithDetail
+          <HoverDetail
             label="Live copilot"
             detail={<>It is chosen before the Notetaker joins, so it can&apos;t be added to this call.</>}
           >
@@ -246,7 +234,7 @@ export function NotetakerControl({
               <Icon d={ICONS.sparkle} size={14} />
               Copilot off
             </span>
-          </WithDetail>
+          </HoverDetail>
         )}
         <span className="ms-auto flex flex-none items-center gap-1.5 font-mono text-meta">
           <span
@@ -300,7 +288,7 @@ export function NotetakerControl({
           </span>
         )}
         {recording.status === "DONE" && recording.hasTranscript && !isReviewed(recording) && (
-          <WithDetail
+          <HoverDetail
             label={suggestLabelOf(recording)}
             detail={
               recording.suggestionsAsked ? (
@@ -314,7 +302,7 @@ export function NotetakerControl({
               <Icon d={ICONS.sparkle} size={13} />
               {suggestLabelOf(recording)}
             </button>
-          </WithDetail>
+          </HoverDetail>
         )}
         {chip?.action === "retry" && (
           <button
@@ -335,7 +323,7 @@ export function NotetakerControl({
 function AfterCallStatus({ recording, firstName }: { recording: NotetakerRecording; firstName: string }) {
   if (recording.status === "PROCESSING") {
     return (
-      <WithDetail
+      <HoverDetail
         label="Writing notes"
         detail={<>The call is over. The Notetaker is writing it up; the notes land on {firstName}&apos;s Notes tab.</>}
       >
@@ -346,12 +334,12 @@ function AfterCallStatus({ recording, firstName }: { recording: NotetakerRecordi
           />
           Notetaker is writing notes…
         </span>
-      </WithDetail>
+      </HoverDetail>
     );
   }
   if (recording.status === "DONE") {
     return (
-      <WithDetail
+      <HoverDetail
         label="Notes filed"
         detail={<>A Meeting note on {firstName}&apos;s Notes tab: what was said, read against the brief.</>}
       >
@@ -359,12 +347,12 @@ function AfterCallStatus({ recording, firstName }: { recording: NotetakerRecordi
           <Icon d={ICONS.checkCircle} size={14} className="flex-none" />
           Notes filed
         </span>
-      </WithDetail>
+      </HoverDetail>
     );
   }
   const reason = failureWordsOf(recording.failureReason);
   return (
-    <WithDetail
+    <HoverDetail
       className="min-w-0"
       label="Notetaker failed"
       detail={
@@ -380,7 +368,7 @@ function AfterCallStatus({ recording, firstName }: { recording: NotetakerRecordi
         <span className="flex-none font-medium text-u-text">Notetaker failed</span>
         <span className="min-w-0 truncate font-mono text-meta text-u-text2">{reason}</span>
       </span>
-    </WithDetail>
+    </HoverDetail>
   );
 }
 
@@ -428,66 +416,15 @@ function SwitchWithDetail({
   detail: ReactNode;
 }) {
   return (
-    <WithDetail label={label} detail={detail}>
+    <HoverDetail label={label} detail={detail}>
       <span className="inline-flex flex-none items-center gap-2">
         <Icon d={icon} size={14} className={cn("flex-none", checked ? "text-u-accent" : "text-u-text3")} />
         <span className="cursor-default text-note font-medium text-u-text">{label}</span>
         <Toggle checked={checked} onChange={onChange} label={switchLabel} disabled={disabled} />
       </span>
-    </WithDetail>
+    </HoverDetail>
   );
 }
-
-/** Opens an explanation on hover or focus, portalled so the drawer's scroll never clips it. */
-function WithDetail({
-  label,
-  detail,
-  className = "flex-none",
-  children,
-}: {
-  label: string;
-  detail: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [anchor, setAnchor] = useState<DOMRect | null>(null);
-  const tipId = useId();
-  const show = () => ref.current && setAnchor(ref.current.getBoundingClientRect());
-  const hide = () => setAnchor(null);
-  return (
-    <span
-      ref={ref}
-      onMouseEnter={show}
-      onMouseLeave={hide}
-      onFocus={show}
-      onBlur={hide}
-      aria-describedby={anchor ? tipId : undefined}
-      className={cn("inline-flex", className)}
-    >
-      {children}
-      {anchor &&
-        createPortal(
-          <span
-            id={tipId}
-            role="tooltip"
-            style={{
-              top: anchor.bottom + 8,
-              left: Math.max(12, Math.min(anchor.left - 4, window.innerWidth - DETAIL_WIDTH - 12)),
-              width: DETAIL_WIDTH,
-            }}
-            className="pointer-events-none fixed z-[200] rounded-u-chip border border-u-border-strong bg-u-surface px-3 py-2.5 text-note leading-relaxed text-u-text2 shadow-u-e3"
-          >
-            <span className="mb-0.5 block font-medium text-u-text">{label}</span>
-            {detail}
-          </span>,
-          document.body,
-        )}
-    </span>
-  );
-}
-
-const DETAIL_WIDTH = 300;
 
 /** Every change decided: the review is over, the row says what came of it, and the record takes it from there. */
 function isReviewed(recording: NotetakerRecording): boolean {
