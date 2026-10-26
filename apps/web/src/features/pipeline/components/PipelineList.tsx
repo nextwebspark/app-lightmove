@@ -62,7 +62,20 @@ export function PipelineList({
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
-      <div role="table" aria-label="Pipeline" className="min-w-[960px]">
+      <ul aria-label="Pipeline" className="flex flex-col md:hidden">
+        {rows.map((row) => (
+          <PipelineCard
+            key={row.candidateId}
+            projectId={projectId}
+            row={row}
+            selected={selectedIds.has(row.candidateId)}
+            onToggleSelected={() => onToggleSelected(row.candidateId)}
+            onOpen={() => onOpen(row.candidateId)}
+            onOpenNextAction={onOpenNextAction}
+          />
+        ))}
+      </ul>
+      <div role="table" aria-label="Pipeline" className="hidden min-w-[960px] md:block">
         <div
           role="row"
           className={cn(ROW_GRID, "sticky top-0 z-[2] border-b border-u-border-strong bg-u-raised py-2.5")}
@@ -166,6 +179,53 @@ export function PipelineList({
         ))}
       </div>
     </div>
+  );
+}
+
+/** One executive as a phone reads them: who, where they stand and what is next — a tap opens the drawer. */
+function PipelineCard({
+  projectId,
+  row,
+  selected,
+  onToggleSelected,
+  onOpen,
+  onOpenNextAction,
+}: {
+  projectId: string;
+  row: PipelineRow;
+  selected: boolean;
+  onToggleSelected: () => void;
+  onOpen: () => void;
+  onOpenNextAction: (row: PipelineRow) => void;
+}) {
+  return (
+    <li className="flex items-start gap-3 border-b border-u-border px-4 py-3">
+      <span className="pt-2.5">
+        <SelectionCheckbox checked={selected} label={`Select ${row.fullName}`} onChange={onToggleSelected} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 text-start">
+          <CandidateAvatar
+            projectId={projectId}
+            candidate={{ id: row.candidateId, fullName: row.fullName, enrichedAt: row.enrichedAt ?? null }}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-semibold text-u-text">{row.fullName}</span>
+            <span className="mt-0.5 block truncate text-meta text-u-text3">
+              {[row.title, row.companyName].filter(Boolean).join(" · ") || "—"}
+            </span>
+          </span>
+          <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
+        </button>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <StageBadge row={row} />
+          <span className="truncate text-meta text-u-text3">{row.statusLabel}</span>
+        </div>
+        <div className="mt-2 min-w-0">
+          <ListNextAction row={row} onOpen={onOpenNextAction} />
+        </div>
+      </div>
+    </li>
   );
 }
 

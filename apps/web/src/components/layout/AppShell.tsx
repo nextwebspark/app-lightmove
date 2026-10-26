@@ -4,6 +4,7 @@ import { cn } from "../../lib/cn";
 import { useAssistant } from "../../features/assistant/AssistantProvider";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
 import { HelpProvider } from "../../features/help/HelpProvider";
+import { MobileTabBar, type MobileTab } from "./mobile/MobileTabBar";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
@@ -21,6 +22,8 @@ export function AppShell({
   contentClassName,
   assistantContext = "Workspace",
   assistantProjectId = null,
+  mobileTabs,
+  onQuickAction,
   children,
 }: {
   navGroups: SidebarGroup[];
@@ -36,6 +39,10 @@ export function AppShell({
   /** Which mandate the assistant is asking about here. A workspace screen has none. */
   assistantContext?: string;
   assistantProjectId?: string | null;
+  /** The phone's bottom bar below `lg`; without it the topbar's menu button opens the rail, as before. */
+  mobileTabs?: readonly MobileTab[];
+  /** The bottom bar's centre +. */
+  onQuickAction?: () => void;
   children: ReactNode;
 }) {
   const { pathname } = useLocation();
@@ -61,14 +68,24 @@ export function AppShell({
           actions={topbarActions}
           navOpen={navOpen}
           onMenuClick={() => setNavOpen(true)}
+          menuInBottomBar={!!mobileTabs}
         />
 
         {notice && <div className="px-3.5 pb-2.5">{notice}</div>}
 
-        <div className="flex min-h-0 flex-1 px-3.5 pb-3.5">
+        <div
+          className={cn(
+            "flex min-h-0 flex-1 px-3.5 pb-3.5",
+            // The bottom bar's own height, so main ends above it rather than under it.
+            mobileTabs && "max-lg:pb-[calc(4rem+env(safe-area-inset-bottom))]",
+          )}
+        >
           {navOpen && (
             <div
-              className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
+              className={cn(
+                "fixed inset-0 z-[90] bg-u-scrim lg:hidden",
+                mobileTabs && "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]",
+              )}
               onClick={() => setNavOpen(false)}
             />
           )}
@@ -78,6 +95,7 @@ export function AppShell({
             backLink={navBackLink}
             open={navOpen}
             onClose={() => setNavOpen(false)}
+            aboveBottomBar={!!mobileTabs}
             assistantOpen={
               !!assistantProjectId && isOpenFor(assistantProjectId)
             }
@@ -99,6 +117,16 @@ export function AppShell({
             />
           )}
         </div>
+
+        {mobileTabs && (
+          <MobileTabBar
+            tabs={mobileTabs}
+            pathname={pathname}
+            moreOpen={navOpen}
+            onMore={() => setNavOpen((open) => !open)}
+            onQuickAction={onQuickAction}
+          />
+        )}
       </div>
     </HelpProvider>
   );

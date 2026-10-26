@@ -228,6 +228,11 @@ export function CandidateProfile({
     chooseTab("copilot");
     setHeldCopilotId(recordingId);
   };
+  /** The phone footer's Call: the Contact tab, scrolled to Meetings and its Book a call. */
+  const startCall = () => {
+    chooseTab("contact");
+    setSectionFocus({ section: "meetings", at: Date.now() });
+  };
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
   const startNote = () => {
     chooseTab("notes");
@@ -781,7 +786,7 @@ export function CandidateProfile({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
+      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:pb-3">
         {onRemove && (
           <Button
             type="button"
@@ -823,19 +828,27 @@ export function CandidateProfile({
             </Button>
           </>
         ) : canWrite ? (
-          <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" onClick={startNote}>
-            <Icon d={ICONS.plus} size={14} />
-            Add note
-          </Button>
+          <>
+            <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" aria-label="Add note" onClick={startNote}>
+              <Icon d={ICONS.plus} size={14} />
+              <span className="sm:hidden">Note</span>
+              <span className="hidden sm:inline">Add note</span>
+            </Button>
+            <Button type="button" variant="secondary" className="whitespace-nowrap sm:hidden" onClick={startCall}>
+              <Icon d={ICONS.calendar} size={14} />
+              Call
+            </Button>
+          </>
         ) : (
           <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
             Close
           </Button>
         )}
         {canWrite && tab !== "assessment" && (
-          <Button type="button" className="whitespace-nowrap" onClick={() => openNextAction(null)}>
+          <Button type="button" className="whitespace-nowrap" aria-label="Set next action" onClick={() => openNextAction(null)}>
             <Icon d={ICONS.plus} size={14} />
-            Set next action
+            <span className="sm:hidden">Next action</span>
+            <span className="hidden sm:inline">Set next action</span>
           </Button>
         )}
       </footer>

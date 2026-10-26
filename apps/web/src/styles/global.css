@@ -119,6 +119,25 @@ body {
   right: 16px;
 }
 
+/* The phone's bottom bar (MobileTabBar, below `lg`): what floats at the bottom edge rises above it. */
+@media (max-width: 63.999rem) {
+  body:has([data-mobile-nav]) {
+    --mobile-nav-clearance: calc(3.5rem + env(safe-area-inset-bottom));
+  }
+  body:has([data-mobile-nav]) .toast-stack {
+    bottom: calc(16px + var(--mobile-nav-clearance));
+  }
+}
+
+/* iOS zooms into any field set under 16px the moment it takes focus, and never zooms back out. */
+@media (max-width: 39.999rem) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
 @media (min-width: 640px) {
   .toast-stack {
     bottom: 24px;

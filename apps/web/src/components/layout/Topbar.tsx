@@ -27,12 +27,15 @@ export function Topbar({
   actions,
   navOpen = false,
   onMenuClick,
+  menuInBottomBar = false,
 }: {
   breadcrumb?: ReactNode;
   /** Drawn beside the avatar — a project header's people. */
   actions?: ReactNode;
   navOpen?: boolean;
   onMenuClick?: () => void;
+  /** The phone's bottom bar carries More, so the menu button would be a second way to the same rail. */
+  menuInBottomBar?: boolean;
 }) {
   const { user } = useAuth();
   const toast = useToast();
@@ -45,7 +48,7 @@ export function Topbar({
 
   return (
     <header className="relative z-[60] flex h-[46px] flex-none items-center gap-2 px-3.5 sm:gap-3">
-      {onMenuClick && (
+      {onMenuClick && !menuInBottomBar && (
         <button
           type="button"
           onClick={onMenuClick}
@@ -64,7 +67,10 @@ export function Topbar({
         <CreditChip />
         {actions}
         {isStaff && <NotificationBell />}
-        <HelpButton />
+        {/* Help is also in the account menu, which is where a phone finds it. */}
+        <span className="hidden sm:contents">
+          <HelpButton />
+        </span>
         {user && <AccountMenu />}
       </div>
     </header>

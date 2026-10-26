@@ -18,6 +18,8 @@ import { cn } from "../../lib/cn";
 import { Spinner, useToast } from "../ui";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
+import type { MobileTab } from "./mobile/MobileTabBar";
+import { PositionQuickActions } from "./mobile/PositionQuickActions";
 import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
 import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
@@ -60,6 +62,7 @@ export function ProjectLayout() {
   const navigate = useNavigate();
   const toast = useToast();
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   // `includes`, not `endsWith`: the Companies stages are a path segment deep (/companies/universe),
   // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
   // wide grid ending in mid-air.
@@ -159,8 +162,24 @@ export function ProjectLayout() {
     },
   ];
 
+  const onCompanies = (path: string) => path.startsWith(`${base}/companies/`);
+  // A researcher's day is the companies, the pipeline and the conversations; a client seat reads the brief and the map.
+  const mobileTabs: MobileTab[] = isStaff
+    ? [
+        { to: `${base}/companies/universe`, label: "Companies", icon: ICONS.globe, activeWhen: onCompanies },
+        { to: `${base}/pipeline`, label: "Pipeline", icon: ICONS.pipeline },
+        { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
+      ]
+    : [
+        { to: base, label: "Brief", icon: ICONS.position, end: true },
+        { to: `${base}/companies/universe`, label: "Companies", icon: ICONS.globe, activeWhen: onCompanies },
+        { to: `${base}/reports`, label: "Reports", icon: ICONS.reports },
+      ];
+
   return (
     <AppShell
+      mobileTabs={mobileTabs}
+      onQuickAction={isStaff && !isArchived(project) ? () => setQuickActionsOpen(true) : undefined}
       breadcrumb={
         <ProjectBreadcrumb
           clientName={project.clientName}
@@ -187,6 +206,13 @@ export function ProjectLayout() {
       )}
     >
       <Outlet context={{ project } satisfies ProjectOutletContext} />
+      {isStaff && (
+        <PositionQuickActions
+          projectId={project.id}
+          open={quickActionsOpen}
+          onClose={() => setQuickActionsOpen(false)}
+        />
+      )}
       {confirmingArchive && (
         <ArchivePositionDialog
           project={project}

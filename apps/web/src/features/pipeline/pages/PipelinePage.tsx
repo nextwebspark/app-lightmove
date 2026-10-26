@@ -13,6 +13,7 @@ import { EnrolDialog } from "../../outreach/components/EnrolDialog";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
+import { hasRoomForRails } from "../../../lib/viewport";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as pipelineApi from "../api/pipelineApi";
 import type { PipelineRow } from "../api/types";
@@ -89,12 +90,18 @@ function StaffPipeline() {
     });
 
   const requestedView = searchParams.get("view");
+  // A board of columns is a desk's reading; a phone opens on the list unless a link asks for the board.
+  const [boardFits] = useState(hasRoomForRails);
   const view: PipelineView =
-    requestedView === "list" || requestedView === "board" ? requestedView : requestedStage ? "list" : "board";
+    requestedView === "list" || requestedView === "board"
+      ? requestedView
+      : requestedStage || !boardFits
+        ? "list"
+        : "board";
   const setView = (next: PipelineView) =>
     setSearchParams((current) => {
       const params = new URLSearchParams(current);
-      if (next === "board" && !params.has("stage")) params.delete("view");
+      if (next === "board" && !params.has("stage") && boardFits) params.delete("view");
       else params.set("view", next);
       return params;
     });

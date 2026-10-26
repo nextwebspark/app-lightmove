@@ -40,8 +40,10 @@ export function Drawer({
         aria-label={label}
         data-edge-panel={wide ? "drawer-wide" : "drawer"}
         className={cn(
-          "fixed inset-x-2.5 bottom-2.5 top-14 z-[95] flex animate-fade-up flex-col rounded-[10px] outline-none",
-          "border border-u-border-strong bg-u-surface shadow-u-e3 sm:inset-x-auto sm:right-2.5 sm:top-2.5 sm:max-w-[92vw]",
+          // A phone gets the whole screen, clear of the notch and the home bar; from `sm` it floats at the right.
+          "fixed inset-0 z-[95] flex animate-fade-up flex-col pt-[env(safe-area-inset-top)] outline-none",
+          "bg-u-surface shadow-u-e3 sm:inset-x-auto sm:bottom-2.5 sm:right-2.5 sm:top-2.5 sm:max-w-[92vw] sm:pt-0",
+          "sm:rounded-[10px] sm:border sm:border-u-border-strong",
           wide ? "sm:w-[560px]" : "sm:w-[420px]",
         )}
       >
