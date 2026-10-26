@@ -195,7 +195,13 @@ export function MeetingsSection({
                 {meeting.title ?? "Untitled"}
                 {meeting.ownerName && <span className="font-mono text-[11.5px] text-u-text3"> · {meeting.ownerName}</span>}
               </span>
-              {notetaker.isSuccess && menuOf(meeting)}
+              {notetaker.isSuccess &&
+                menuOf(
+                  meeting,
+                  offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
+                    ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
+                    : undefined,
+                )}
             </div>
           ))}
         </>

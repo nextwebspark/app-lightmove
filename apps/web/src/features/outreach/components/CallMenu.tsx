@@ -30,7 +30,10 @@ export function CallMenu({
   firstName: string;
   /** The call's latest bot, where one was ever sent. */
   recording: NotetakerRecording | null;
-  /** The call's panel, or the Interview plan where no Notetaker is offered; only on a call still to come. */
+  /**
+   * The call's panel, or the Interview plan where no Notetaker is offered: on a call still to come, or one past its
+   * booked end that the Notetaker has not left.
+   */
   options?: { label: string; icon: string; onSelect: () => void };
   onShowTranscript: (recordingId: string) => void;
   /** Opens what the transcript changes on the record: the review while changes wait, what was done after. */
@@ -83,7 +86,7 @@ export function CallMenu({
         };
         return (
           <>
-            {bot && <CallState recording={bot} />}
+            {bot && <CallState recording={bot} changesWords={changes?.words ?? null} />}
             {(hasCallItems || hasChangeItems) && (
               <div role="menu" aria-label="Call options" className="flex flex-col">
                 {options && (
@@ -146,10 +149,11 @@ function markOf(recording: NotetakerRecording | null): { tone: "recording" | "wa
 }
 
 /** Where the call has got to, in the words the menu opens on. */
-function CallState({ recording }: { recording: NotetakerRecording }) {
+function CallState({ recording, changesWords }: { recording: NotetakerRecording; changesWords: string | null }) {
   switch (recording.status) {
     case "SCHEDULED":
     case "JOINING":
+      // A bot sent at once is SCHEDULED with no join time until Recall reports it joining.
       if (recording.status === "SCHEDULED" && recording.joinAt !== null) {
         return (
           <MenuHead icon={<Icon d={ICONS.mic} size={13} className="text-u-accent" />}>
@@ -184,7 +188,7 @@ function CallState({ recording }: { recording: NotetakerRecording }) {
       return (
         <MenuHead icon={<Icon d={ICONS.checkCircle} size={13} className="text-u-direct" />}>
           Notes filed
-          <Dim parts={[changesStepOf(recording).words]} />
+          <Dim parts={[changesWords]} />
         </MenuHead>
       );
     case "FAILED":

@@ -70,7 +70,7 @@ export function InterviewPlanDialog({
   // The draft's state is read from the cache and its own callbacks, never `draft.isPending`: a draft started as the
   // dialog mounts outlived StrictMode's rehearsal unmount, which detaches the observer for good, and the progress spun
   // on over a stored plan.
-  const draftKey = [...key, "draft"];
+  const draftKey = notetakerApi.INTERVIEW_PLAN_DRAFT_KEY(projectId, candidateId, meetingId);
   const isDraftPending = useIsMutating({ mutationKey: draftKey }) > 0;
   const [draftFailure, setDraftFailure] = useState<unknown>(null);
   const draft = useMutation({

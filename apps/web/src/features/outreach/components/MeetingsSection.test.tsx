@@ -654,6 +654,31 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.cancelNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
   });
 
+  it("keeps a call recorded past its booked end ended from its panel, through the ⋯ of its past row", async () => {
+    vi.mocked(notetakerApi.endNotetaker).mockResolvedValue(aRecording({ status: "RECORDING", endRequested: true }));
+    renderSection({
+      meetings: { upcoming: [], past: [MEETINGS.upcoming[0]] },
+      notetakerOffered: true,
+      recordableMeetingIds: [],
+      recordings: [aRecording({ status: "RECORDING" })],
+    });
+
+    await openCallMenu("Confidential: first conversation", "Call options · recording");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Notetaker…" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "Notetaker & questions" })).getByRole("button", {
+        name: "End & file notes",
+      }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "End the recording and file the notes?" })).getByRole("button", {
+        name: "End & file notes",
+      }),
+    );
+
+    expect(notetakerApi.endNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+  });
+
   it("moves a call the Notetaker has left to Past, its notes on their way", async () => {
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "RECORDING", endRequested: true })] });
 
@@ -674,7 +699,7 @@ describe("MeetingsSection", () => {
   });
 
   it("offers the copilot from the ⋯ while the notes are written", async () => {
-    vi.mocked(openCopilotWindow).mockResolvedValue("opened");
+    vi.mocked(openCopilotWindow).mockResolvedValue("floating");
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "PROCESSING", liveCopilot: true })] });
 
     await untilMovedToPast();

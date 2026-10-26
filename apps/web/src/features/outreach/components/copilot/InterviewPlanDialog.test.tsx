@@ -121,6 +121,30 @@ describe("InterviewPlanDialog", () => {
     expect(notetakerApi.draftInterviewPlan).toHaveBeenCalledTimes(1);
   });
 
+  it("waits on a draft still running when reopened, rather than drafting again", async () => {
+    let finish: (plan: InterviewPlan) => void = () => {};
+    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue(aPlan({ drafted: false, questions: [] }));
+    vi.mocked(notetakerApi.draftInterviewPlan).mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+    const dialog = (
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <InterviewPlanDialog projectId="p1" candidateId="c1" meetingId="m1" firstName="Rania" onClose={vi.fn()} />
+        </ToastProvider>
+      </QueryClientProvider>
+    );
+    const first = render(dialog);
+    expect(await screen.findByText("Reading the brief")).toBeInTheDocument();
+    first.unmount();
+
+    render(dialog);
+    expect(await screen.findByText("Reading the brief")).toBeInTheDocument();
+    finish(aPlan());
+
+    expect(await screen.findByText("Tell me about a refinancing you led.")).toBeInTheDocument();
+    expect(notetakerApi.draftInterviewPlan).toHaveBeenCalledTimes(1);
+  });
+
   it("says a draft failed when opened from the call's panel, rather than preparing on", async () => {
     vi.mocked(notetakerApi.draftInterviewPlan).mockRejectedValue(
       new ApiRequestError({ code: "AI_UNAVAILABLE", detail: "x", status: 502, correlationId: "c" }),
