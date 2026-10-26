@@ -114,6 +114,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     <AppShell
       navGroups={groups}
       mobileTabs={mobileTabs}
+      mobileTitle={user?.workspace?.name}
       contentClassName={
         fullBleed ? "flex h-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
       }

@@ -4,6 +4,7 @@ import { cn } from "../../lib/cn";
 import { useAssistant } from "../../features/assistant/AssistantProvider";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
 import { HelpProvider } from "../../features/help/HelpProvider";
+import { MobileMoreSheet } from "./mobile/MobileMoreSheet";
 import { MobileTabBar, type MobileTab } from "./mobile/MobileTabBar";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -23,6 +24,7 @@ export function AppShell({
   assistantContext = "Workspace",
   assistantProjectId = null,
   mobileTabs,
+  mobileTitle,
   onQuickAction,
   children,
 }: {
@@ -41,15 +43,21 @@ export function AppShell({
   assistantProjectId?: string | null;
   /** The phone's bottom bar below `lg`; without it the topbar's menu button opens the rail, as before. */
   mobileTabs?: readonly MobileTab[];
+  /** The phone's More panel's heading: the position, or the workspace. */
+  mobileTitle?: string;
   /** The bottom bar's centre +. */
   onQuickAction?: () => void;
   children: ReactNode;
 }) {
   const { pathname } = useLocation();
   const [navOpen, setNavOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const { isOpenFor } = useAssistant();
 
-  useEffect(() => setNavOpen(false), [pathname]);
+  useEffect(() => {
+    setNavOpen(false);
+    setMoreOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!navOpen) return;
@@ -82,10 +90,7 @@ export function AppShell({
         >
           {navOpen && (
             <div
-              className={cn(
-                "fixed inset-0 z-[90] bg-u-scrim lg:hidden",
-                mobileTabs && "bottom-[calc(3.5rem+env(safe-area-inset-bottom))]",
-              )}
+              className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
               onClick={() => setNavOpen(false)}
             />
           )}
@@ -95,7 +100,7 @@ export function AppShell({
             backLink={navBackLink}
             open={navOpen}
             onClose={() => setNavOpen(false)}
-            aboveBottomBar={!!mobileTabs}
+            desktopOnly={!!mobileTabs}
             assistantOpen={
               !!assistantProjectId && isOpenFor(assistantProjectId)
             }
@@ -122,9 +127,18 @@ export function AppShell({
           <MobileTabBar
             tabs={mobileTabs}
             pathname={pathname}
-            moreOpen={navOpen}
-            onMore={() => setNavOpen((open) => !open)}
+            moreOpen={moreOpen}
+            onMore={() => setMoreOpen((open) => !open)}
             onQuickAction={onQuickAction}
+          />
+        )}
+        {mobileTabs && (
+          <MobileMoreSheet
+            open={moreOpen}
+            onClose={() => setMoreOpen(false)}
+            title={mobileTitle ?? "Menu"}
+            groups={navGroups}
+            backLink={navBackLink}
           />
         )}
       </div>

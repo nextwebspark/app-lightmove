@@ -42,15 +42,15 @@ export function Sidebar({
   open = false,
   onClose,
   assistantOpen = false,
-  aboveBottomBar = false,
+  desktopOnly = false,
 }: {
   groups: SidebarGroup[];
   backLink?: SidebarItem;
   open?: boolean;
   onClose?: () => void;
   assistantOpen?: boolean;
-  /** Ends the phone drawer above the bottom bar, so More stays in reach to close it again. */
-  aboveBottomBar?: boolean;
+  /** A phone has the bottom bar's More panel instead, so the rail is drawn from `lg` only. */
+  desktopOnly?: boolean;
 }) {
   const preference = useSidebarCollapsed();
   const { openHelp } = useHelp();
@@ -92,7 +92,7 @@ export function Sidebar({
         // `lg:z-auto` is load-bearing: a flex item keeps its stacking context while static, so
         // without the reset the rail floats above an open drawer's scrim instead of dimming.
         "fixed bottom-3.5 left-3.5 top-[52px] z-[95] w-60 shadow-u-e3 transition-transform duration-200",
-        aboveBottomBar && "max-lg:bottom-[calc(4.5rem+env(safe-area-inset-bottom))]",
+        desktopOnly && "max-lg:hidden",
         open ? "translate-x-0" : "-translate-x-[calc(100%+18px)]",
         "lg:static lg:z-auto lg:translate-x-0 lg:rounded-none lg:border-0 lg:bg-transparent",
         "lg:shadow-none lg:transition-[width] lg:duration-[180ms]",

@@ -77,6 +77,20 @@ body {
   animation: fade-up 0.5s ease both;
 }
 
+/* A phone's side panel arriving from the right edge, as a native app's does. */
+@keyframes slide-in-end {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.animate-slide-in-end {
+  animation: slide-in-end 0.2s ease-out both;
+}
+
 /* The report's "you are here" marker: a ring that swells out of the current point and fades. */
 @keyframes pulse-ring {
   from {

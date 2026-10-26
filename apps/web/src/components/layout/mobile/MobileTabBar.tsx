@@ -1,6 +1,7 @@
 import { Link, matchPath } from "react-router-dom";
 import { cn } from "../../../lib/cn";
 import { Icon, ICONS } from "../Icon";
+import { MOBILE_MORE_ID } from "./MobileMoreSheet";
 
 export interface MobileTab {
   to: string;
@@ -66,7 +67,7 @@ export function MobileTabBar({
             type="button"
             onClick={onMore}
             aria-expanded={moreOpen}
-            aria-controls="app-nav"
+            aria-controls={MOBILE_MORE_ID}
             className={cn(tabClass(false), moreOpen && "text-u-text")}
           >
             <Icon d={ICONS.menu} size={20} />

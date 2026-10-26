@@ -179,6 +179,7 @@ export function ProjectLayout() {
   return (
     <AppShell
       mobileTabs={mobileTabs}
+      mobileTitle={project.positionTitle}
       onQuickAction={isStaff && !isArchived(project) ? () => setQuickActionsOpen(true) : undefined}
       breadcrumb={
         <ProjectBreadcrumb
