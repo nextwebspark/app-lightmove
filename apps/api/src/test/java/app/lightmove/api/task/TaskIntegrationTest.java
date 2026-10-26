@@ -9,8 +9,6 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.PipelineFlowSupport;
 import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.task.service.TaskDueScanner;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -138,23 +136,20 @@ class TaskIntegrationTest extends PipelineFlowSupport {
     @DisplayName("My tasks reads overdue, today and upcoming in the viewer's own day, and what they set others")
     void myTasksReadTheViewersDay() throws Exception {
         Instant now = Instant.now();
-        int offsetHours = Math.clamp(12 - now.atZone(ZoneOffset.UTC).getHour(), -12, 14);
-        String zone = URLEncoder.encode(ZoneOffset.ofHours(offsetHours).getId(), StandardCharsets.UTF_8);
+        ZoneOffset zone = ZoneOffset.ofHours(Math.clamp(12 - now.atZone(ZoneOffset.UTC).getHour(), -12, 14));
         created(admin, layla, "Overdue one", adminId, now.minus(30, ChronoUnit.MINUTES).toString());
         created(admin, layla, "Today one", adminId, now.plus(30, ChronoUnit.MINUTES).toString());
         created(admin, layla, "Later one", adminId, now.plus(3, ChronoUnit.DAYS).toString());
         created(admin, layla, "Sara's one", researcherId, now.plus(1, ChronoUnit.DAYS).toString());
 
-        JsonNode today = read(admin, "/api/v1/me/tasks?view=today&tz=" + zone);
+        JsonNode today = myTasks(admin, "today", zone);
         assertThat(titles(today)).containsExactly("Today one");
         assertThat(today.at("/counts/overdue").asInt()).isEqualTo(1);
         assertThat(today.at("/counts/upcoming").asInt()).isEqualTo(1);
         assertThat(today.at("/counts/assignedByMe").asInt()).isEqualTo(1);
-        assertThat(titles(read(admin, "/api/v1/me/tasks?view=overdue&tz=" + zone))).containsExactly("Overdue one");
-        assertThat(titles(read(admin, "/api/v1/me/tasks?view=assigned_by_me&tz=" + zone)))
-                .containsExactly("Sara's one");
-        assertThat(titles(read(researcher, "/api/v1/me/tasks?view=upcoming&tz=" + zone)))
-                .containsExactly("Sara's one");
+        assertThat(titles(myTasks(admin, "overdue", zone))).containsExactly("Overdue one");
+        assertThat(titles(myTasks(admin, "assigned_by_me", zone))).containsExactly("Sara's one");
+        assertThat(titles(myTasks(researcher, "upcoming", zone))).containsExactly("Sara's one");
     }
 
     @Test
@@ -366,6 +361,17 @@ class TaskIntegrationTest extends PipelineFlowSupport {
         return write(token, "POST", tasksUrl(candidateId), """
                 {"title":"%s","kind":"todo","assigneeUserId":"%s","dueAt":"%s"}"""
                 .formatted(title, assigneeId, dueAt));
+    }
+
+    /**
+     * My tasks, the zone sent as a parameter. Hand-encoded into the URL it was encoded twice, so the server read UTC
+     * and the today tab lost a task due in the half hour before UTC midnight.
+     */
+    private JsonNode myTasks(String token, String view, ZoneOffset zone) throws Exception {
+        return body(mvc.perform(get("/api/v1/me/tasks").param("view", view).param("tz", zone.getId())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn());
     }
 
     private JsonNode read(String token, String url) throws Exception {
