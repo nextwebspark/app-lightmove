@@ -694,24 +694,33 @@ keeps the meeting `booked_via_link`, ends their listening runs as `BOOKED` befor
 the person forward to Engaged once per position — a booking after a reply included.
 
 **The Notetaker (V151, `docs/notetaker.md`, `notetaker`)** is a Recall.ai bot a consultant sends into a kept call from
-its row in the executive drawer's Meetings section (Record with Notetaker, `WORK_EXECUTE`, only on a call on the caller's
-own calendar or booked by them, never for do not contact; a recording is read only from the position that sent it):
-claimed first (one live bot per call by join URL and start, whoever presses), then sent once and never retried, joining a
-minute early as "UNCAVA Notetaker" with Uncava's card as its camera, and saying in the chat whose notes it records
-and that anyone may ask it out. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
+the executive drawer's Meetings section (`WORK_EXECUTE`, only on a call on the caller's own calendar or booked by them,
+never for do not contact; a recording is read only from the position that sent it). It is kept out of the way: a call's
+row is the call, its Join link and its ⋯, whose **Notetaker & questions…** opens the call's panel (`CallAssistantPanel`,
+one section per job), and one line under the call (`CallStatusLine`) says what is set and, after, what came of it, with
+at most one strong button. Nothing is recorded until asked (V157): **Start now** sends it in at once from the call's day
+in the caller's time zone, never onto a link an earlier call still holds, and **Join at start** schedules it a minute
+early, which **Start now instead** brings forward (a new bot first, the scheduled one called back after); Book a call
+carries no Notetaker. It is claimed first (one live
+bot per call by join URL and start, whoever presses), then sent once and never retried — an empty pool of at-once bots
+is `NOTETAKER_BUSY` — as "UNCAVA Notetaker" with Uncava's card as its camera, saying in the chat whose notes it records
+and that anyone may ask it out. **End & file notes** takes a recording bot out of a call that finished early, and the
+notes follow as after any call; Remove discards. A call the bot has left is listed under Past. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
 Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and only
 then deletes Recall's copy, so Try again can read it again; the transcript is kept unless
 `lightmove.recall.transcript-retention` is set, which clears one whose note is purged or never filed once that long untouched.
-`NotetakerReconcile` reads back a recording still live past its call. **Suggest changes** on a filed call's row (V152,
-`CallSuggestionService`) reads the transcript once per press against the record and lists every change — notice period,
+`NotetakerReconcile` reads back a recording still live past its call. **Suggest changes** (V152, `CallSuggestionService`)
+reads the transcript against the record once the note is filed, with no press — claimed in the filing's own transaction,
+in the sender's name and on their meters, a refusal leaving it to a press — and lists every change — notice period,
 package, location, Open to relocate, motivation, expected package, the consultant's next steps as tasks — on one review,
 each ticked to keep and editable in place; one **Apply N changes** (`…/suggestions/review`) writes what is ticked and
 skips the rest, all or nothing, each through its field's owner (`CandidateCallUpdates`, `TaskService`) with an
 `UPDATED_FROM_CALL` line naming who and which call. There is no Undo: once reviewed, a change is corrected on the record,
-and the row reads "N changes applied". **The interview
-copilot** (V154) is two more: **Prepare questions** on an upcoming call drafts an interview plan (`InterviewPlanService`
+and the call's line reads "N changes applied", its **Changes** reopening each one with what it replaced, who applied it
+and the words it rests on. **The interview
+copilot** (V154) is two more: **Prepare questions** on an upcoming call (in its panel) drafts an interview plan (`InterviewPlanService`
 — fit questions per competency, a polite one per fact the record is missing, told which are missing and never a value
 or a figure), edited and saved per call; and **Live copilot**, chosen before the bot joins by whoever sent it, streams
 the call (`NotetakerLiveFeed`, each bot's own URL token the credential) to a coach (`InterviewCoachWorker`) that folds competency coverage, the gaps heard, the questions
@@ -1271,6 +1280,9 @@ V154 adds `app_lm_interview_plan` (one per call per person on a position, matche
 its live copilot (`live_copilot`, `live_status`, the `live` reading, the coach's cursor, runs, failures and claim, the
 live URL's `live_token_hash` and the after-call `final_transcript_id` the note is filed from), and adds
 `app_lm_meeting_live_line` (the streamed transcript, deleted when the call ends) and `app_lm_meeting_copilot_viewer`.
+V157 gives the recording `join_at` (null for a bot sent at once, and while Join now replaces a scheduled one),
+`recording_started_at` (where the call clock counts from) and End & file notes' `end_requested_at`/`end_requested_by`
+(both or neither, by CHECK).
 V155 adds working hours and the daily email cap (**Meetings & email** in Settings, an admin's; **Availability**, each
 consultant's; `AvailabilityService`): `app_lm_workspace_availability` (one per workspace; a null `weekly_hours` is the week
 the firm's country keeps — Saudi Arabia, Qatar, Kuwait, Bahrain, Oman and most of the Arab world Sunday to Thursday,

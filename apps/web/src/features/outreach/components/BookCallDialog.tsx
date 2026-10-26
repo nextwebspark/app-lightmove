@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, HoverDetail, Input, Modal, Select, Skeleton, Toggle, useToast } from "../../../components/ui";
+import { Button, Input, Modal, Select, Skeleton, useToast } from "../../../components/ui";
 import { DateInput } from "../../../components/ui/DateInput";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
@@ -12,9 +12,7 @@ import { statusById, useStatusAutomations, wouldMoveForward } from "../../worksp
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as meetingApi from "../api/meetingApi";
 import type { Meeting, MeetingVideo } from "../api/meetingApi";
-import * as notetakerApi from "../api/notetakerApi";
 import type { WorkingHoursSource } from "../api/meetingApi";
-import { LIVE_COPILOT_DETAIL, notetakerDetailOf } from "../lib/copilotWords";
 import { meetingWhenOf, shiftDateOf, slotDayLabelOf } from "../lib/meetingTimes";
 import { instantOf } from "../lib/sendSchedule";
 import {
@@ -65,11 +63,6 @@ function videoLinksFor(provider: string | undefined, isZoomOffered: boolean) {
 
 const DEFAULT_TITLE = "Confidential: first conversation";
 
-interface NotetakerOutcome {
-  sent: boolean;
-  failure: unknown;
-}
-
 /**
  * Book a call (`Outreach.dc.html?dialog=bookCall`): any time on the consultant's own week, dragged on the calendar or
  * typed, and an invite from it. Their calendar's busy times are what refuse a time; working hours only label it.
@@ -82,7 +75,6 @@ export function BookCallDialog({
   candidateStatus,
   emails,
   meeting,
-  notetakerOffered = false,
   onClose,
 }: {
   projectId: string;
@@ -93,8 +85,6 @@ export function BookCallDialog({
   emails: CandidateEmail[];
   /** The call to move, where this is a reschedule rather than a booking. */
   meeting?: Meeting;
-  /** The Notetaker is set up and the person may be recorded: a booking offers to send it, switched on. */
-  notetakerOffered?: boolean;
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -110,8 +100,6 @@ export function BookCallDialog({
   const [pickedDate, setPickedDate] = useState<string | null>(null);
   const [inviteAddress, setInviteAddress] = useState(emails[0]?.address ?? "");
   const [title, setTitle] = useState(DEFAULT_TITLE);
-  const [withNotetaker, setWithNotetaker] = useState(true);
-  const [withCopilot, setWithCopilot] = useState(false);
   // Focus opens on the week's heading: landing in the invite's first field reads as something to fix.
   const weekHeading = useRef<HTMLHeadingElement>(null);
 
@@ -150,50 +138,28 @@ export function BookCallDialog({
   const bookedTarget =
     bookedRule?.enabled && !bookedRule.broken ? statusById(catalog, bookedRule.statusId) : null;
 
-  const offersNotetaker = !isRescheduling && notetakerOffered && video !== "NONE";
   const book = useMutation({
-    mutationFn: async (): Promise<NotetakerOutcome> => {
+    mutationFn: async () => {
       if (meeting) {
         await meetingApi.rescheduleMeeting(projectId, candidateId, meeting.id, { startsAt: start as string, minutes });
-        return { sent: false, failure: null };
+        return;
       }
-      const booked = await meetingApi.bookMeeting(projectId, candidateId, {
+      await meetingApi.bookMeeting(projectId, candidateId, {
         startsAt: start as string,
         minutes,
         video,
         inviteAddress,
         title: title.trim(),
       });
-      if (!(offersNotetaker && withNotetaker)) return { sent: false, failure: null };
-      // The invite has gone whatever the Notetaker answers, so its refusal is told apart rather than failing the booking.
-      try {
-        await notetakerApi.scheduleNotetaker(projectId, candidateId, booked.meetingId, withCopilot);
-        return { sent: true, failure: null };
-      } catch (failure) {
-        return { sent: false, failure };
-      }
     },
-    onSuccess: (notetaker) => {
+    onSuccess: () => {
       const when = fields ? `${slotDayLabelOf(fields.date)}, ${fields.from}` : "";
       if (isRescheduling) {
         toast(`Call with ${firstName} moved to ${when}. They've been sent the new time.`);
       } else {
         const movesForward = bookedTarget !== null && wouldMoveForward(catalog, candidateStatus, bookedTarget.id);
         toast(
-          `Invite sent to ${firstName} for ${when}.` +
-            (movesForward ? ` They moved to ${bookedTarget.label}.` : "") +
-            (notetaker.sent
-              ? withCopilot
-                ? " The Notetaker will join, and the live copilot will follow the call for you."
-                : " The Notetaker will join and file its notes."
-              : ""),
-        );
-      }
-      if (notetaker.failure) {
-        toast.error(
-          codeOf(notetaker.failure) === "NOTETAKER_SEND_FAILED"
-            ? "The Notetaker couldn't be sent. Switch it on from the call under Meetings to try again."
-            : `The Notetaker wasn't sent: ${messageFor(notetaker.failure)}`,
+          `Invite sent to ${firstName} for ${when}.` + (movesForward ? ` They moved to ${bookedTarget.label}.` : ""),
         );
       }
       void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
@@ -211,17 +177,6 @@ export function BookCallDialog({
       }
     },
   });
-
-  // The copilot follows the Notetaker's stream, so one can't be on without the other.
-  const handleNotetakerSwitch = (next: boolean) => {
-    setWithNotetaker(next);
-    if (!next) setWithCopilot(false);
-  };
-
-  const handleCopilotSwitch = (next: boolean) => {
-    setWithCopilot(next);
-    if (next) setWithNotetaker(true);
-  };
 
   const handleChoose = (next: CallChoice) => {
     setStart(next.start);
@@ -550,32 +505,6 @@ export function BookCallDialog({
                   )}
                 </div>
               </div>
-
-              {offersNotetaker && (
-                <div>
-                  <SectionLabel>Recording</SectionLabel>
-                  <div className="divide-y divide-u-border rounded-u-card border border-u-border">
-                    <SwitchRow
-                      icon={ICONS.mic}
-                      title="Notetaker"
-                      switchLabel="Record with Notetaker"
-                      detail={withNotetaker ? "Records the call, files the notes" : "Off · nothing is recorded"}
-                      hint={notetakerDetailOf(firstName)}
-                      checked={withNotetaker}
-                      onChange={handleNotetakerSwitch}
-                    />
-                    <SwitchRow
-                      icon={ICONS.sparkle}
-                      title="Live copilot"
-                      switchLabel="Live copilot"
-                      detail={withCopilot ? "Live nudges, only you see them" : "Live nudges during the call"}
-                      hint={LIVE_COPILOT_DETAIL}
-                      checked={withCopilot}
-                      onChange={handleCopilotSwitch}
-                    />
-                  </div>
-                </div>
-              )}
             </>
           )}
         </section>
@@ -586,46 +515,6 @@ export function BookCallDialog({
 
 function SectionLabel({ children }: { children: ReactNode }) {
   return <h3 className="mb-2 type-micro-label font-mono text-u-text3">{children}</h3>;
-}
-
-function SwitchRow({
-  icon,
-  title,
-  switchLabel,
-  detail,
-  hint,
-  checked,
-  onChange,
-}: {
-  icon: string;
-  title: string;
-  switchLabel: string;
-  detail: string;
-  /** What the switch does, on hover or focus — the same words as the call's own row in Meetings. */
-  hint: string;
-  checked: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <HoverDetail label={title} detail={hint} className="flex">
-      <span className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5">
-        <span
-          aria-hidden="true"
-          className={cn(
-            "grid size-7 flex-none place-items-center rounded-u-control",
-            checked ? "bg-u-accent-tint text-u-accent" : "bg-u-surface text-u-text3",
-          )}
-        >
-          <Icon d={icon} size={14} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-body font-medium text-u-text">{title}</span>
-          <span className="block text-meta text-u-text3">{detail}</span>
-        </span>
-        <Toggle checked={checked} onChange={onChange} label={switchLabel} />
-      </span>
-    </HoverDetail>
-  );
 }
 
 function WithIcon({ icon, children }: { icon: string; children: ReactNode }) {

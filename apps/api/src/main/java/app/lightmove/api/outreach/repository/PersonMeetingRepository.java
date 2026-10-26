@@ -18,6 +18,11 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
     boolean existsByWorkspaceIdAndUserIdAndJoinUrlAndStartsAtGreaterThanAndStartsAtLessThanEqual(
             UUID workspaceId, UUID userId, String joinUrl, Instant after, Instant until);
 
+    /** A call on this calendar and link that began before {@code startsAt}, has begun by now and has not ended. */
+    @Query("select count(m) > 0 from PersonMeeting m where m.workspaceId = :workspaceId and m.userId = :userId "
+            + "and m.joinUrl = :joinUrl and m.startsAt < :startsAt and m.startsAt <= :now and m.endsAt > :now")
+    boolean existsEarlierCallUnderWay(UUID workspaceId, UUID userId, String joinUrl, Instant startsAt, Instant now);
+
     /** Which of these people a teammate's calendar holds a meeting with. */
     @Query("select distinct m.personId from PersonMeeting m where m.workspaceId = :workspaceId "
             + "and m.personId in :personIds")

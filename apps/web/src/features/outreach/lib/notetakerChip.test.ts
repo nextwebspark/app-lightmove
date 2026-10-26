@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { Meeting } from "../api/meetingApi";
 import type { NotetakerRecording } from "../api/notetakerApi";
-import { canRecord, failureWordsOf, hasLiveRecording, notetakerChipOf, recordingOfMeeting } from "./notetakerChip";
+import {
+  canRecord,
+  failureWordsOf,
+  hasCallEnded,
+  hasLiveRecording,
+  hasRecordingAboutToMove,
+  isNotetakerLive,
+  recordingOfMeeting,
+} from "./notetakerChip";
 
 const recording = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecording => ({
   id: "r1",
@@ -16,27 +24,29 @@ const recording = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecord
   suggestionsAsked: false,
   pendingSuggestions: 0,
   appliedSuggestions: 0,
+  foundSuggestions: 0,
+  suggesting: false,
   liveCopilot: false,
   liveStatus: null,
   mayChangeCopilot: true,
+  joinAt: "2026-10-07T05:59:00Z",
+  recordingStartedAt: null,
+  endRequested: false,
   ...overrides,
 });
 
 describe("notetakerChip", () => {
-  it("offers Remove until the call is over, the transcript once filed, and Try again only where it helps", () => {
-    expect(notetakerChipOf(recording({ status: "RECORDING" }))).toEqual({
-      label: "Recording",
-      tone: "live",
-      action: "remove",
-    });
-    expect(notetakerChipOf(recording({ status: "PROCESSING" }))?.action).toBeNull();
-    expect(notetakerChipOf(recording({ status: "DONE", hasTranscript: true }))?.action).toBe("transcript");
-    expect(notetakerChipOf(recording({ status: "FAILED", failureReason: "NEVER_RECORDED" }))).toEqual({
-      label: "Notetaker failed: it never got into the call",
-      tone: "failed",
-      action: null,
-    });
-    expect(notetakerChipOf(recording({ status: "CANCELLED" }))).toBeNull();
+  it("takes a call for over once its Notetaker has left it, and for set up while its bot is on its way or in it", () => {
+    expect(hasCallEnded(recording({ status: "RECORDING", endRequested: true }))).toBe(true);
+    expect(hasCallEnded(recording({ status: "PROCESSING" }))).toBe(true);
+    expect(hasCallEnded(recording({ status: "DONE" }))).toBe(true);
+    expect(hasCallEnded(recording({ status: "RECORDING" }))).toBe(false);
+    expect(hasCallEnded(recording({ status: "FAILED" }))).toBe(false);
+    expect(hasCallEnded(null)).toBe(false);
+    expect(isNotetakerLive(recording({ status: "SCHEDULED" }))).toBe(true);
+    expect(isNotetakerLive(recording({ status: "RECORDING" }))).toBe(true);
+    expect(isNotetakerLive(recording({ status: "CANCELLED" }))).toBe(false);
+    expect(isNotetakerLive(null)).toBe(false);
   });
 
   it("words a reason it has never met as something true", () => {
@@ -57,5 +67,16 @@ describe("notetakerChip", () => {
     expect(canRecord(recording({ status: "JOINING" }))).toBe(false);
     expect(hasLiveRecording([recording({ status: "DONE" }), recording({ status: "PROCESSING" })])).toBe(true);
     expect(hasLiveRecording([recording({ status: "DONE" })])).toBe(false);
+  });
+
+  it("reads sooner while a bot joins, leaves or is written up, never while it waits for the start", () => {
+    expect(hasRecordingAboutToMove([recording({ status: "SCHEDULED", joinAt: null })])).toBe(true);
+    expect(hasRecordingAboutToMove([recording({ status: "JOINING" })])).toBe(true);
+    expect(hasRecordingAboutToMove([recording({ status: "RECORDING", endRequested: true })])).toBe(true);
+    expect(hasRecordingAboutToMove([recording({ status: "PROCESSING" })])).toBe(true);
+    expect(hasRecordingAboutToMove([recording({ status: "DONE", suggesting: true })])).toBe(true);
+    expect(hasRecordingAboutToMove([recording({ status: "SCHEDULED" })])).toBe(false);
+    expect(hasRecordingAboutToMove([recording({ status: "RECORDING" })])).toBe(false);
+    expect(hasRecordingAboutToMove([recording({ status: "DONE" })])).toBe(false);
   });
 });

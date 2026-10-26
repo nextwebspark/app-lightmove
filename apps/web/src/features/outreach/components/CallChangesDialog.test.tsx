@@ -36,6 +36,9 @@ const NOTICE: CallSuggestion = {
   at: "07:42",
   available: true,
   edited: false,
+  was: null,
+  appliedAt: null,
+  appliedBy: null,
 };
 
 const PACKAGE: CallSuggestion = {
@@ -55,6 +58,9 @@ const PACKAGE: CallSuggestion = {
   at: "09:15",
   available: true,
   edited: false,
+  was: null,
+  appliedAt: null,
+  appliedBy: null,
 };
 
 function answerOf(suggestions: CallSuggestion[], asked = true): CallSuggestions {
@@ -185,14 +191,24 @@ describe("CallChangesDialog", () => {
     expect(notetakerApi.reviewCallSuggestions).not.toHaveBeenCalled();
   });
 
-  it("reads a reviewed call back as a record, with no way to undo it", async () => {
+  it("reads a reviewed call back as a record of what changed, with no way to undo it", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([decided(NOTICE, "APPLIED"), decided(PACKAGE, "SKIPPED")]),
+      answerOf([
+        {
+          ...decided(NOTICE, "APPLIED"),
+          was: { ...EMPTY, text: "1 month" },
+          appliedAt: "2026-10-21T11:00:00Z",
+          appliedBy: "Yara Haddad",
+        },
+        decided(PACKAGE, "SKIPPED"),
+      ]),
     );
     renderDialog();
 
     expect(await screen.findByText(/^1 applied/)).toBeInTheDocument();
-    expect(screen.getByText("Applied")).toBeInTheDocument();
+    expect(screen.getByText("Applied by Yara")).toBeInTheDocument();
+    expect(screen.getByText("1 month").tagName).toBe("DEL");
+    expect(screen.getByText("My notice is ninety days.")).toBeInTheDocument();
     expect(screen.getByText("Skipped")).toBeInTheDocument();
     expect(screen.getByText("To change any of it, edit Priya's record.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();

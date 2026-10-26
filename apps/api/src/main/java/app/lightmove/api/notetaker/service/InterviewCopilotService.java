@@ -20,7 +20,6 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.CoverageState;
 import app.lightmove.api.notetaker.constant.LiveCopilotStatus;
-import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.constant.NudgeStatus;
 import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.dto.CopilotCoverageResponse;
@@ -103,7 +102,7 @@ public class InterviewCopilotService {
             throw ApiException.of(ErrorCode.NOTETAKER_COPILOT_SWITCH_NOT_YOURS);
         }
         if (recording.isLiveCopilot() == enabled) {
-            return NotetakerService.responseOf(recording, userId);
+            return NotetakerService.responseOf(recording, userId, clock.instant());
         }
         requireSwitchable(recording);
         if (enabled) {
@@ -123,13 +122,16 @@ public class InterviewCopilotService {
         return transactions.execute(status -> {
             MeetingRecording held = recordings.lockForDecision(recordingId, workspaceId, projectId,
                     recipient.personId()).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+            if (!held.isScheduledAhead() || !held.getRecallBotId().equals(recording.getRecallBotId())) {
+                throw ApiException.of(ErrorCode.NOTETAKER_COPILOT_LOCKED);
+            }
             held.liveCopilot(enabled, userId, liveToken == null ? null : Tokens.hash(liveToken));
             audit.projectEvent(enabled ? ProjectEventType.NOTETAKER_COPILOT_ENABLED
                             : ProjectEventType.NOTETAKER_COPILOT_DISABLED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
                     .record();
-            return NotetakerService.responseOf(held, userId);
+            return NotetakerService.responseOf(held, userId, clock.instant());
         });
     }
 
@@ -149,7 +151,8 @@ public class InterviewCopilotService {
                 recordingId, Math.max(0, afterSeq));
         long lastSeq = finished.isEmpty() ? Math.max(0, afterSeq) : finished.getLast().getSeq();
         return new CopilotResponse(recording.getId(), recording.getTitle(), recipient.fullName(),
-                recording.getStartsAt(), recording.getStatus(), recording.getLiveStatus(), reading.coach(),
+                recording.getStartsAt(), recording.getRecordingStartedAt(), recording.getStatus(),
+                recording.getLiveStatus(), reading.coach(),
                 nameOf(recording.getLiveStoppedBy()), mayStop(userId, workspaceId, projectId, recording),
                 coverageOf(competencies, reading), gapsOf(missingNow(workspaceId, projectId, recipient), reading),
                 plan.stream()
@@ -329,8 +332,9 @@ public class InterviewCopilotService {
         return userId == null ? null : users.findById(userId).map(User::getFullName).orElse(null);
     }
 
+    /** A bot sent at once, or one Join now is replacing, is past changing: Recall patches only a bot still waiting. */
     private static void requireSwitchable(MeetingRecording recording) {
-        if (recording.getStatus() != NotetakerStatus.SCHEDULED || recording.getRecallBotId() == null) {
+        if (!recording.isScheduledAhead()) {
             throw ApiException.of(ErrorCode.NOTETAKER_COPILOT_LOCKED);
         }
     }

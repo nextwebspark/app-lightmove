@@ -3,6 +3,7 @@ package app.lightmove.api.notetaker.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
+import app.lightmove.api.notetaker.constant.NotetakerJoin;
 import app.lightmove.api.notetaker.dto.CallSuggestionsResponse;
 import app.lightmove.api.notetaker.dto.CandidateNotetakerResponse;
 import app.lightmove.api.notetaker.dto.NotetakerRecordingResponse;
@@ -27,8 +28,10 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * The Notetaker from the executive drawer: send a bot to a call, call it back, try a failed note again, read what it
- * heard, and review the changes it suggests for the person's record. {@code WORK_EXECUTE}: a client seat sees none of a firm's calls, and sends nothing into one.
+ * The Notetaker from the executive drawer: send a bot to a call now or for its start, bring a scheduled one in now,
+ * end its recording early or call it back, try a failed note again, read what it heard, and review the changes it
+ * suggests for the person's record. {@code WORK_EXECUTE}: a client seat sees none of a firm's calls, and sends nothing
+ * into one.
  */
 @RestController
 @RequestMapping("/api/v1/projects/{projectId}/outreach/candidates/{candidateId}")
@@ -54,7 +57,27 @@ public class NotetakerController {
                                                @RequestBody(required = false) ScheduleNotetakerRequest request,
                                                HttpServletRequest httpRequest) {
         return notetaker.schedule(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
-                meetingId, request != null && request.liveCopilot(), httpRequest);
+                meetingId, request != null && request.liveCopilot(),
+                request == null || request.join() == null ? NotetakerJoin.AT_START : request.join(), httpRequest);
+    }
+
+    @PostMapping("/notetaker/{recordingId}/join-now")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public NotetakerRecordingResponse joinNow(@AuthenticationPrincipal AuthPrincipal principal,
+                                              @PathVariable UUID projectId, @PathVariable UUID candidateId,
+                                              @PathVariable UUID recordingId, HttpServletRequest httpRequest) {
+        return notetaker.joinNow(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
+                recordingId, httpRequest);
+    }
+
+    /** End & file notes: the bot leaves the call now, and its notes are filed as after any call. */
+    @PostMapping("/notetaker/{recordingId}/end")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public NotetakerRecordingResponse end(@AuthenticationPrincipal AuthPrincipal principal,
+                                          @PathVariable UUID projectId, @PathVariable UUID candidateId,
+                                          @PathVariable UUID recordingId, HttpServletRequest httpRequest) {
+        return notetaker.endAndFile(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId,
+                recordingId, httpRequest);
     }
 
     @DeleteMapping("/notetaker/{recordingId}")

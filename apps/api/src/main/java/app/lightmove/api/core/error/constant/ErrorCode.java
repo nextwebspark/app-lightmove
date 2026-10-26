@@ -438,6 +438,21 @@ public enum ErrorCode {
     /** Recall.ai refused or could not be reached; never retried, since a second bot in a call is worse. */
     NOTETAKER_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The Notetaker could not be sent. Try again"),
 
+    /** Recall's pool of bots that join at once was empty (its 507): no bot was made, so asking again is safe. */
+    NOTETAKER_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "No Notetaker is free this moment. Try again in half a minute"),
+
+    /** Start now is offered from the start of the call's day, in the consultant's own time zone. */
+    NOTETAKER_TOO_EARLY(HttpStatus.CONFLICT, "The Notetaker can be started from the day of the call"),
+
+    /** An earlier call on the same link is still under way: a bot sent now would record it on this person. */
+    NOTETAKER_LINK_IN_USE(HttpStatus.CONFLICT, "An earlier call on this link is still under way"),
+
+    /** End & file notes ends a recording; a bot still waiting to be let in is removed instead. */
+    NOTETAKER_NOT_RECORDING(HttpStatus.CONFLICT, "The Notetaker is not recording this call"),
+
+    /** Recall would not take the bot out of the call; it is still recording. */
+    NOTETAKER_END_FAILED(HttpStatus.BAD_GATEWAY, "The Notetaker could not be stopped. Try again"),
+
     /** A Recall bot webhook whose signature did not verify, or any delivery while no bot secret is configured. */
     NOTETAKER_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 

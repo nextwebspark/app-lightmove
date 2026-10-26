@@ -3,6 +3,7 @@ package app.lightmove.api.notetaker.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,22 @@ class NotetakerServiceTest {
         assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T09:30:00Z"), NOW)).isTrue();
         assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:45:00Z"), NOW)).isTrue();
         assertThat(NotetakerService.isStillJoinable(Instant.parse("2026-10-22T08:35:00Z"), NOW)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Start now opens at midnight of the call's day in the consultant's own zone, not in UTC")
+    void startNowOpensOnTheCallsDay() {
+        ZoneId dubai = ZoneId.of("Asia/Dubai");
+        Instant callAtNineDubai = Instant.parse("2026-10-23T05:00:00Z");
+
+        assertThat(NotetakerService.hasCallDayBegun(callAtNineDubai, Instant.parse("2026-10-22T19:59:00Z"), dubai))
+                .isFalse();
+        assertThat(NotetakerService.hasCallDayBegun(callAtNineDubai, Instant.parse("2026-10-22T20:00:00Z"), dubai))
+                .isTrue();
+        assertThat(NotetakerService.hasCallDayBegun(callAtNineDubai, Instant.parse("2026-10-23T06:00:00Z"), dubai))
+                .isTrue();
+        assertThat(NotetakerService.hasCallDayBegun(callAtNineDubai, Instant.parse("2026-10-22T20:00:00Z"),
+                ZoneId.of("UTC"))).isFalse();
     }
 
     @Test
