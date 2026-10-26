@@ -26,6 +26,7 @@ function aCopilot(overrides: Partial<Copilot> = {}): Copilot {
     title: "Intro call",
     candidateName: "Rania Haddad",
     startsAt: "2026-10-23T10:00:00Z",
+    recordingStartedAt: null,
     status: "RECORDING",
     liveStatus: "LISTENING",
     coach: "RUNNING",

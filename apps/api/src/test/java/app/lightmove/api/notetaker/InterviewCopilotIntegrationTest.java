@@ -439,6 +439,37 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a bot sent at once keeps the copilot it was sent with, and Recall is never asked to change it")
+    void aBotSentAtOnceKeepsItsCopilot() throws Exception {
+        String recordingId = liveRecording();
+        jdbc.update("update app_lm_meeting_recording set join_at = null where id = ?::uuid", recordingId);
+
+        switchLive(recordingId, false).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_COPILOT_LOCKED"));
+        assertThat(recall.liveUpdates()).isEmpty();
+        assertThat(liveCopilotOf(recordingId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a live copilot call ended early still has its note filed from the accurate transcript")
+    void aCopilotCallEndedEarlyAsksForTheAccurateTranscript() throws Exception {
+        String recordingId = liveRecording();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+
+        as(consultant, post(outreach("/candidates/" + priya + "/notetaker/" + recordingId + "/end")))
+                .andExpect(status().isOk());
+        assertThat(recall.left()).containsExactly(bot);
+        recall.botIs(bot, new app.lightmove.api.notetaker.model.RecallBotState("done", "bot_received_leave_call",
+                Instant.now(), "t-stream", "done", "rec-7"));
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+
+        awaitFinalTranscript(recordingId, "final-rec-7");
+    }
+
+    @Test
     @DisplayName("a recording without the copilot has none to read, and a client seat reads nothing of a call")
     void copilotRefusals() throws Exception {
         String recordingId = body(as(consultant, post(schedulePath())).andExpect(status().isCreated()).andReturn())

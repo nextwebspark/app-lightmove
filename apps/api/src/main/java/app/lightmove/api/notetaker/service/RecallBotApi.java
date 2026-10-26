@@ -15,7 +15,10 @@ public interface RecallBotApi {
 
     boolean isOffered();
 
-    /** Sends or schedules a bot; answers Recall's id for it. Never retried: a second bot in a call is worse. */
+    /**
+     * Sends or schedules a bot; answers Recall's id for it. Never retried: a second bot in a call is worse. A bot sent
+     * at once comes from Recall's warm pool, and an empty pool is {@code NOTETAKER_BUSY} with no bot made.
+     */
     String send(RecallBotRequest request);
 
     /**
@@ -35,6 +38,9 @@ public interface RecallBotApi {
 
     /** Calls a bot back: a scheduled one is deleted, one already in the call is asked to leave. */
     void remove(String botId);
+
+    /** Takes a bot out of its call for good; what it recorded is transcribed as after any call. */
+    void leave(String botId);
 
     RecallBotState state(String botId);
 

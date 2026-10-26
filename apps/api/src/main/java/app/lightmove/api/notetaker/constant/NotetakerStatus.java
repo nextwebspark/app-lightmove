@@ -19,6 +19,9 @@ public enum NotetakerStatus {
     /** Recording counted against the one-bot-per-call claim (V151's partial unique index). */
     public static final Set<NotetakerStatus> LIVE = Set.of(SCHEDULED, JOINING, RECORDING, PROCESSING);
 
+    /** A bot in a call's room, or in its lobby: the link is taken. */
+    public static final Set<NotetakerStatus> IN_CALL = Set.of(JOINING, RECORDING);
+
     public boolean isLive() {
         return LIVE.contains(this);
     }

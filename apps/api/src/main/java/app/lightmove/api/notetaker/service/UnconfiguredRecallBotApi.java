@@ -47,6 +47,10 @@ public class UnconfiguredRecallBotApi implements RecallBotApi {
     }
 
     @Override
+    public void leave(String botId) {
+    }
+
+    @Override
     public RecallBotState state(String botId) {
         throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
     }
