@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../../components/ui";
 import { ApiRequestError } from "../../../../lib/apiClient";
@@ -68,6 +69,21 @@ function renderDialog(onClose = vi.fn()) {
   return onClose;
 }
 
+/** As the drawer opens it: under StrictMode, over the plan the call's panel has already read. */
+function renderFromPanel(cached: InterviewPlan) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+  client.setQueryData(notetakerApi.INTERVIEW_PLAN_KEY("p1", "c1", "m1"), cached);
+  render(
+    <StrictMode>
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <InterviewPlanDialog projectId="p1" candidateId="c1" meetingId="m1" firstName="Rania" onClose={vi.fn()} />
+        </ToastProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+}
+
 describe("InterviewPlanDialog", () => {
   beforeEach(() => vi.resetAllMocks());
 
@@ -93,6 +109,26 @@ describe("InterviewPlanDialog", () => {
     expect(screen.getByText("Checking Rania's record for gaps")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save questions" })).not.toBeInTheDocument();
+  });
+
+  it("shows the questions once drafted when opened from the call's panel, the progress gone", async () => {
+    vi.mocked(notetakerApi.draftInterviewPlan).mockResolvedValue(aPlan());
+    renderFromPanel(aPlan({ drafted: false, questions: [] }));
+
+    expect(await screen.findByText("Tell me about a refinancing you led.")).toBeInTheDocument();
+    expect(screen.queryByText("Writing the questions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save questions" })).toBeInTheDocument();
+    expect(notetakerApi.draftInterviewPlan).toHaveBeenCalledTimes(1);
+  });
+
+  it("says a draft failed when opened from the call's panel, rather than preparing on", async () => {
+    vi.mocked(notetakerApi.draftInterviewPlan).mockRejectedValue(
+      new ApiRequestError({ code: "AI_UNAVAILABLE", detail: "x", status: 502, correlationId: "c" }),
+    );
+    renderFromPanel(aPlan({ drafted: false, questions: [] }));
+
+    expect(await screen.findByText("Couldn't prepare the questions just now.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
   });
 
   it("saves the questions as the consultant left them: unticked, edited and added", async () => {

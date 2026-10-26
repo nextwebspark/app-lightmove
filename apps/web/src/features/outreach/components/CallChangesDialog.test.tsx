@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -95,6 +96,28 @@ function renderDialog() {
     </QueryClientProvider>,
   );
   return onClose;
+}
+
+/** Opened again under StrictMode, over the answer an earlier opening read. */
+function renderReopened(cached: CallSuggestions) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+  client.setQueryData(notetakerApi.CALL_SUGGESTIONS_KEY("p1", "c1", "r1"), cached);
+  render(
+    <StrictMode>
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <CallChangesDialog
+            projectId="p1"
+            candidateId="c1"
+            personId="person-1"
+            recordingId="r1"
+            firstName="Priya"
+            onClose={vi.fn()}
+          />
+        </ToastProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
 }
 
 describe("CallChangesDialog", () => {
@@ -254,6 +277,16 @@ describe("CallChangesDialog", () => {
 
     expect(await screen.findByText("3 months")).toBeInTheDocument();
     await waitFor(() => expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(2));
+  });
+
+  it("says a reading failed when opened again over an unread transcript, rather than reading on", async () => {
+    vi.mocked(notetakerApi.suggestChanges).mockRejectedValue(
+      new ApiRequestError({ code: "AI_UNAVAILABLE", detail: "x", status: 502, correlationId: "c" }),
+    );
+    renderReopened(answerOf([], false));
+
+    expect(await screen.findByText("Couldn't read the transcript just now.")).toBeInTheDocument();
+    expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(1);
   });
 
   it("explains a change the record no longer lets in, and leaves it unticked", async () => {

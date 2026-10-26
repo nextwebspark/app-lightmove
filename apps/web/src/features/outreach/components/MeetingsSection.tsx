@@ -3,8 +3,6 @@ import { type ReactNode, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { Popover } from "../../../components/ui/Popover";
-import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import * as poolApi from "../../candidates/api/poolApi";
@@ -17,11 +15,10 @@ import { openCopilotWindow } from "../lib/copilotWindow";
 import { canRecord, hasCallEnded, isNotetakerLive, recordingOfMeeting } from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
 import { useNotetaker } from "../lib/useNotetaker";
-import { useQuestionsReady } from "../lib/useQuestionsReady";
 import { BookCallDialog } from "./BookCallDialog";
 import { CallAssistantPanel } from "./CallAssistantPanel";
 import { CallChangesDialog } from "./CallChangesDialog";
-import { CallStatusLine } from "./CallStatusLine";
+import { CallMenu } from "./CallMenu";
 import { InterviewPlanDialog } from "./copilot/InterviewPlanDialog";
 import { TranscriptSheet } from "./TranscriptSheet";
 import { ZoomConnectControl } from "./ZoomConnectControl";
@@ -30,9 +27,9 @@ import { ZoomConnectControl } from "./ZoomConnectControl";
  * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
  * connected calendars, and Book a call from the consultant's own. Always open, unlike the folds below
  * it. Staff-only; Book a call is never offered for someone marked do not contact. A call's row is the call and
- * its Join link; everything else is behind its ⋯ — Reschedule and Cancel for a call booked in Uncava on the
- * consultant's own calendar (`editable`, the server's say), and Notetaker & questions. Once anything is set for a
- * call, one line under it says what, and after the call what came of it. A call the Notetaker has left is past.
+ * its Join link; everything else is behind its ⋯ — Notetaker & questions, what came of the call once its notes are
+ * filed, and Reschedule and Cancel for a call booked in Uncava on the consultant's own calendar (`editable`, the
+ * server's say). A call the Notetaker has left is past.
  */
 export function MeetingsSection({
   projectId,
@@ -89,20 +86,25 @@ export function MeetingsSection({
   const mayRecord = (meeting: Meeting) => isRecordable(meeting) && canRecord(recordingOf(meeting));
   const offersNotetaker = (meeting: Meeting) => mayRecord(meeting) || isNotetakerLive(recordingOf(meeting));
   const panelMeeting = [...upcoming, ...past].find((meeting) => meeting.id === panelOf) ?? null;
-  const lineOf = (meeting: Meeting, questionsReady: number | null, onOpenPanel?: () => void) =>
-    notetaker.isSuccess ? (
-      <CallStatusLine
-        projectId={projectId}
-        candidateId={candidateId}
-        recording={recordingOf(meeting)}
-        questionsReady={questionsReady}
-        firstName={firstName}
-        onOpenPanel={onOpenPanel}
-        onShowTranscript={setTranscriptOf}
-        onShowChanges={setSuggestionsOf}
-        onOpenCopilot={handleOpenCopilot}
-      />
-    ) : null;
+  const menuOf = (
+    meeting: Meeting,
+    options?: { label: string; icon: string; onSelect: () => void },
+    onReschedule?: () => void,
+    onCancel?: () => void,
+  ) => (
+    <CallMenu
+      projectId={projectId}
+      candidateId={candidateId}
+      firstName={firstName}
+      recording={recordingOf(meeting)}
+      options={options}
+      onShowTranscript={setTranscriptOf}
+      onShowChanges={setSuggestionsOf}
+      onOpenCopilot={handleOpenCopilot}
+      onReschedule={onReschedule}
+      onCancel={onCancel}
+    />
+  );
 
   // Straight from the click: the floating window needs the gesture. Where the browser opens no window, the drawer's
   // Copilot tab shows it.
@@ -161,22 +163,18 @@ export function MeetingsSection({
           </div>
           {upcoming.map((meeting) => {
             const opensPanel = offersNotetaker(meeting);
-            const openOptions = () => (opensPanel ? setPanelOf(meeting.id) : setPlanOf(meeting.id));
             return (
               <UpcomingMeeting
                 key={meeting.id}
-                projectId={projectId}
-                candidateId={candidateId}
                 meeting={meeting}
-                menu={
-                  <MeetingMenu
-                    optionsLabel={opensPanel ? "Notetaker & questions…" : "Prepare questions…"}
-                    onOptions={openOptions}
-                    onReschedule={meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined}
-                    onCancel={meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined}
-                  />
-                }
-                line={(questionsReady) => lineOf(meeting, questionsReady, openOptions)}
+                menu={menuOf(
+                  meeting,
+                  opensPanel
+                    ? { label: "Notetaker & questions…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
+                    : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
+                  meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
+                  meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
+                )}
               />
             );
           })}
@@ -188,28 +186,18 @@ export function MeetingsSection({
           <div className="mb-1 mt-1.5 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">
             Past
           </div>
-          {past.map((meeting) => {
-            const opensPanel = offersNotetaker(meeting);
-            return (
-              <div key={meeting.id} className="py-[5px]">
-                <div className="flex items-center gap-2.5 text-[12.5px] text-u-text2">
-                  <span className="w-[52px] flex-none font-mono text-[11.5px] text-u-text3">
-                    {shortDateOf(meeting.startsAt)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    {meeting.title ?? "Untitled"}
-                    {meeting.ownerName && (
-                      <span className="font-mono text-[11.5px] text-u-text3"> · {meeting.ownerName}</span>
-                    )}
-                  </span>
-                  {opensPanel && <MeetingMenu optionsLabel="Notetaker…" onOptions={() => setPanelOf(meeting.id)} />}
-                </div>
-                <div className="ms-[62px]">
-                  {lineOf(meeting, null, opensPanel ? () => setPanelOf(meeting.id) : undefined)}
-                </div>
-              </div>
-            );
-          })}
+          {past.map((meeting) => (
+            <div key={meeting.id} className="flex items-center gap-2.5 py-[5px] text-[12.5px] text-u-text2">
+              <span className="w-[52px] flex-none font-mono text-[11.5px] text-u-text3">
+                {shortDateOf(meeting.startsAt)}
+              </span>
+              <span className="min-w-0 flex-1">
+                {meeting.title ?? "Untitled"}
+                {meeting.ownerName && <span className="font-mono text-[11.5px] text-u-text3"> · {meeting.ownerName}</span>}
+              </span>
+              {notetaker.isSuccess && menuOf(meeting)}
+            </div>
+          ))}
         </>
       )}
 
@@ -312,21 +300,7 @@ export function MeetingsSection({
   );
 }
 
-function UpcomingMeeting({
-  projectId,
-  candidateId,
-  meeting,
-  menu,
-  line,
-}: {
-  projectId: string;
-  candidateId: string;
-  meeting: Meeting;
-  menu: ReactNode;
-  /** The call's one line, given how many questions are ready for it. */
-  line: (questionsReady: number | null) => ReactNode;
-}) {
-  const questionsReady = useQuestionsReady(projectId, candidateId, meeting.id);
+function UpcomingMeeting({ meeting, menu }: { meeting: Meeting; menu: ReactNode }) {
   const tile = dateTileOf(meeting.startsAt);
   const when = meetingWhenOf(meeting.startsAt, meeting.endsAt);
   return (
@@ -366,88 +340,6 @@ function UpcomingMeeting({
           {menu}
         </span>
       </div>
-      <div className="ms-[54px]">{line(questionsReady)}</div>
     </div>
   );
 }
-
-/** A call's ⋯: its Notetaker & questions first, then moving or cancelling it where it is the consultant's to change. */
-function MeetingMenu({
-  optionsLabel,
-  onOptions,
-  onReschedule,
-  onCancel,
-}: {
-  optionsLabel: string;
-  onOptions: () => void;
-  onReschedule?: () => void;
-  onCancel?: () => void;
-}) {
-  return (
-    <Popover
-      label="Call options"
-      title="Call options"
-      align="right"
-      placement="auto"
-      width={220}
-      hasPopup="menu"
-      triggerClassName={cn(ICON_ACTION, "hover:bg-u-raised hover:text-u-text")}
-      trigger={() => <Icon d={ICONS.more} size={14} />}
-    >
-      {(close) => {
-        const choose = (action: () => void) => () => {
-          close();
-          action();
-        };
-        return (
-          <div role="menu" aria-label="Call options" className="flex flex-col">
-            <MenuItem icon={ICONS.sparkle} onSelect={choose(onOptions)}>
-              {optionsLabel}
-            </MenuItem>
-            {(onReschedule || onCancel) && <div role="separator" className="my-1 h-px bg-u-border" />}
-            {onReschedule && (
-              <MenuItem icon={ICONS.reschedule} onSelect={choose(onReschedule)}>
-                Reschedule
-              </MenuItem>
-            )}
-            {onCancel && (
-              <MenuItem icon={ICONS.trash} tone="danger" onSelect={choose(onCancel)}>
-                Cancel call
-              </MenuItem>
-            )}
-          </div>
-        );
-      }}
-    </Popover>
-  );
-}
-
-function MenuItem({
-  icon,
-  tone,
-  onSelect,
-  children,
-}: {
-  icon: string;
-  tone?: "danger";
-  onSelect: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={onSelect}
-      className={cn(
-        "flex w-full items-center gap-2.5 rounded-u-control px-2 py-1.5 text-start text-note hover:bg-u-raised",
-        tone === "danger" ? "text-u-offlimits" : "text-u-text",
-      )}
-    >
-      <Icon d={icon} size={13} className="flex-none opacity-80" />
-      {children}
-    </button>
-  );
-}
-
-const ICON_ACTION =
-  "grid size-[26px] place-items-center rounded-u-control border border-u-border text-u-text3 transition-colors focus-visible:outline-2 focus-visible:outline-u-accent";

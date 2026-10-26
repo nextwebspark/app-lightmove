@@ -60,7 +60,7 @@ export function hasLiveRecording(recordings: NotetakerRecording[]): boolean {
 
 /**
  * A bot about to move — sent at once, waiting in the lobby, asked to leave, its notes being written or its changes
- * being found — is read again sooner, since the consultant is watching the row for the next step.
+ * being found — is read again sooner, since the consultant is watching the call for the next step.
  */
 export function hasRecordingAboutToMove(recordings: NotetakerRecording[]): boolean {
   return recordings.some(
