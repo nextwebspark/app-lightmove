@@ -1,10 +1,11 @@
 import type { ColumnVisibilityState, OnChangeFn } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
+import { readsAsCards } from "../../../lib/viewport";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Candidate, CandidateStatus } from "../../candidates/api/types";
@@ -151,6 +152,7 @@ export function TriageCompanyTable({
   const allOnPageSelected =
     pageCompanyIds.length > 0 && pageCompanyIds.every((id) => selection?.selectedIds.has(id));
   const someOnPageSelected = pageCompanyIds.some((id) => selection?.selectedIds.has(id));
+  const [asCards] = useState(readsAsCards);
 
   return (
     <DataGrid
@@ -183,7 +185,7 @@ export function TriageCompanyTable({
           );
         })
       }
-      renderCard={(row) => (
+      renderCard={asCards ? (row) => (
         <TriageLineCard
           row={row}
           canWrite={canWrite}
@@ -198,7 +200,7 @@ export function TriageCompanyTable({
           onEditCandidate={onEditCandidate}
           onChangeCandidateStatus={onChangeCandidateStatus}
         />
-      )}
+      ) : undefined}
       layout={layout}
       onLayoutChange={onLayoutChange}
       loading={loading}
@@ -244,7 +246,7 @@ function TriageLineCard({
   const place = company ? [company.industry, company.companyCity ?? company.companyCountry].filter(Boolean).join(" · ") : null;
 
   return (
-    <article className="rounded-[10px] border border-u-border bg-u-surface">
+    <article className="rounded-u-card border border-u-border bg-u-surface">
       <div className="flex items-center gap-3 px-3.5 pt-3">
         {selection && (
           <SelectionCheckbox

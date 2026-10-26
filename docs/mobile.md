@@ -12,7 +12,9 @@ is for that loop, not for building a Strategy filter or editing a brief — thos
 
 | Job | Before | Now |
 |---|---|---|
-| Move between screens | Hamburger → rail | **Bottom bar**: in a position Companies · Pipeline · **+** · Outreach · More (a client seat: Brief · Companies · Reports · More); in the workspace My positions · All · Candidates · More |
+| Move between screens | Hamburger → rail | **Bottom bar**: in a position Companies · Pipeline · **+** · Outreach · More (a client seat: Brief · Companies · Reports · More); in the workspace Positions · Tasks · Candidates · More |
+| My tasks | A card under the positions list | The **Tasks** tab: `/tasks`, every task as a two-line card with its tick |
+| Notifications | — | The bell stays in the topbar on every screen; its panel spans the phone |
 | Add company / executive | Toolbar buttons that wrap | **+** → Quick actions → the Companies page's own add form (`?add=company\|executive`) |
 | Note / call / status on one person | Find them in a 960px table | **+** → pick the executive → their drawer on Notes, on Meetings, or on Career with the status picker |
 | Read the Companies stage | 20-column grid scrolled sideways | One **card** per line: the company, the person at it with their status picker, or Add executive |
@@ -25,7 +27,9 @@ is for that loop, not for building a Strategy filter or editing a brief — thos
 | Home screen | A browser tab | `manifest.webmanifest`, standalone, `viewport-fit=cover` |
 
 Pieces: `components/layout/mobile/` (`MobileTabBar.tsx`, `PositionQuickActions.tsx`), `components/ui/BottomSheet.tsx`; the
-layouts pass `mobileTabs` to `AppShell`, which hides the topbar's menu button when a bar is drawn.
+layouts pass `mobileTabs` to `AppShell`, which hides the topbar's menu button when a bar is drawn. A list draws cards
+or a table, never both: `lib/viewport.ts`'s `readsAsCards()` is read once when it mounts, so a desktop never pays for
+a hidden phone copy of a long grid.
 
 ## v2 (next)
 

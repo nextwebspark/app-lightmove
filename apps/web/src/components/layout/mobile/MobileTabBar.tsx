@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link, matchPath } from "react-router-dom";
 import { cn } from "../../../lib/cn";
 import { Icon, ICONS } from "../Icon";
 
@@ -79,18 +79,15 @@ export function MobileTabBar({
 }
 
 function TabItem({ tab, pathname }: { tab: MobileTab; pathname: string }) {
-  const alsoActive = tab.activeWhen?.(pathname) ?? false;
+  const target = tab.to.split("?")[0];
+  const isActive =
+    !!matchPath({ path: target, end: tab.end ?? false }, pathname) || (tab.activeWhen?.(pathname) ?? false);
   return (
     <li className="flex flex-1">
-      <NavLink
-        to={tab.to}
-        end={tab.end}
-        className={({ isActive }) => tabClass(isActive || alsoActive)}
-        aria-current={alsoActive ? "page" : undefined}
-      >
+      <Link to={tab.to} className={tabClass(isActive)} aria-current={isActive ? "page" : undefined}>
         <Icon d={tab.icon} size={20} />
         <span className="max-w-full truncate">{tab.label}</span>
-      </NavLink>
+      </Link>
     </li>
   );
 }

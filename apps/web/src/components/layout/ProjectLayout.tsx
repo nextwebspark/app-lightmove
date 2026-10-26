@@ -190,7 +190,10 @@ export function ProjectLayout() {
       }
       topbarActions={
         <div className="flex min-w-0 items-center gap-1">
-          <ProjectPeopleBar project={project} />
+          {/* A phone gives the position's title the room; the team is under More → Team & access. */}
+          <span className="hidden sm:contents">
+            <ProjectPeopleBar project={project} />
+          </span>
           <PositionActionsMenu project={project} onArchive={() => setConfirmingArchive(true)} />
         </div>
       }

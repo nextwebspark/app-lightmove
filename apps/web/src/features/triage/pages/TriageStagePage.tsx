@@ -182,6 +182,8 @@ function TriageStage() {
   const addRequest = searchParams.get("add");
   useEffect(() => {
     if (addRequest !== "company" && addRequest !== "executive") return;
+    // Who may write is read off the signed-in user, so the request waits for them rather than being dropped.
+    if (!user) return;
     if (canWrite) {
       if (addRequest === "company") setOpenCompany({ company: null });
       else setProfile({ candidate: null, company: null });
@@ -194,7 +196,7 @@ function TriageStage() {
       },
       { replace: true },
     );
-  }, [addRequest, canWrite, setSearchParams]);
+  }, [addRequest, user, canWrite, setSearchParams]);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);

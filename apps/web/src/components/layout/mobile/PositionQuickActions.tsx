@@ -137,7 +137,7 @@ function ExecutivePicker({ projectId, onPick }: { projectId: string; onPick: (ca
 
   return (
     <div className="flex min-h-[50dvh] flex-col">
-      <label className="sticky top-0 z-10 mx-2 mb-2 flex items-center gap-2 rounded-[10px] border border-u-border-strong bg-u-bg px-3">
+      <label className="sticky top-0 z-10 mx-2 mb-2 flex items-center gap-2 rounded-u-chip border border-u-border-strong bg-u-bg px-3">
         <Icon d={ICONS.search} size={15} className="flex-none text-u-text3" />
         <input
           type="search"
@@ -161,7 +161,7 @@ function ExecutivePicker({ projectId, onPick }: { projectId: string; onPick: (ca
               <button
                 type="button"
                 onClick={() => onPick(row.candidateId)}
-                className="flex min-h-12 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left hover:bg-u-raised focus-visible:bg-u-raised focus-visible:outline-none"
+                className="flex min-h-12 w-full items-center gap-3 rounded-u-chip px-3 py-2 text-left hover:bg-u-raised focus-visible:bg-u-raised focus-visible:outline-none"
               >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body font-medium text-u-text">{row.fullName}</span>

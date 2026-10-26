@@ -1,4 +1,5 @@
 import { useState, type DragEvent, type KeyboardEvent } from "react";
+import { readsAsCards } from "../../../lib/viewport";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
@@ -38,6 +39,7 @@ export function PipelineList({
   onOpenNextAction: (row: PipelineRow) => void;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [asCards] = useState(readsAsCards);
   const ids = rows.map((row) => row.candidateId);
   const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
   const someSelected = ids.some((id) => selectedIds.has(id));
@@ -60,9 +62,9 @@ export function PipelineList({
     if (moved) onMove(moved, row.candidateId);
   };
 
-  return (
-    <div className="min-h-0 flex-1 overflow-auto">
-      <ul aria-label="Pipeline" className="flex flex-col md:hidden">
+  if (asCards) {
+    return (
+      <ul aria-label="Pipeline" className="min-h-0 flex-1 overflow-auto">
         {rows.map((row) => (
           <PipelineCard
             key={row.candidateId}
@@ -75,7 +77,12 @@ export function PipelineList({
           />
         ))}
       </ul>
-      <div role="table" aria-label="Pipeline" className="hidden min-w-[960px] md:block">
+    );
+  }
+
+  return (
+    <div className="min-h-0 flex-1 overflow-auto">
+      <div role="table" aria-label="Pipeline" className="min-w-[960px]">
         <div
           role="row"
           className={cn(ROW_GRID, "sticky top-0 z-[2] border-b border-u-border-strong bg-u-raised py-2.5")}
@@ -219,7 +226,9 @@ function PipelineCard({
         </button>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StageBadge row={row} />
-          <span className="truncate text-meta text-u-text3">{row.statusLabel}</span>
+          {row.statusLabel !== row.pipelineStage.label && (
+            <span className="truncate text-meta text-u-text3">{row.statusLabel}</span>
+          )}
         </div>
         <div className="mt-2 min-w-0">
           <ListNextAction row={row} onOpen={onOpenNextAction} />

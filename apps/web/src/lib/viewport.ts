@@ -12,3 +12,14 @@ export const SHELL_MIN_WIDTH = "64rem";
 export function hasRoomForRails(): boolean {
   return window.matchMedia(`(min-width: ${SHELL_MIN_WIDTH})`).matches;
 }
+
+/** Where a list stops being a stack of cards and becomes a table — Tailwind's `md`. */
+export const TABLE_MIN_WIDTH = "48rem";
+
+/**
+ * Whether a list this wide reads as cards. Read once when the list mounts, as {@link hasRoomForRails} is: a grid of
+ * hundreds of lines drawn twice, once hidden, cost every desktop the phone's copy.
+ */
+export function readsAsCards(): boolean {
+  return !window.matchMedia(`(min-width: ${TABLE_MIN_WIDTH})`).matches;
+}

@@ -13,6 +13,7 @@ import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useDebouncedValue } from "../../../../lib/useComboboxList";
 import { useDataGridTable } from "../../../../lib/useDataGridTable";
+import { readsAsCards } from "../../../../lib/viewport";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../../lib/useFullscreen";
 import { layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
 import { useGridPaging } from "../../../../lib/useGridPaging";
@@ -61,6 +62,7 @@ export function PeopleView({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
+  const [asCards] = useState(readsAsCards);
   const [dialog, setDialog] = useState<BulkDialog>(null);
   const [layout, setLayout] = useGridLayout("candidatePool", POOL_LAYOUT_COLUMNS);
   const { reset: resetPaging, clampTo, page: pageIndex, size: pageSize } = paging;
@@ -180,14 +182,14 @@ export function PeopleView({
                   errorMessage={page.isError ? messageFor(page.error) : "The candidates could not be loaded."}
                   emptyMessage="Nobody matches. Loosen a filter or clear the search."
                   onRowClick={(row) => onOpen(row.personId)}
-                  renderCard={(row) => (
+                  renderCard={asCards ? (row) => (
                     <PersonCard
                       row={row}
                       selected={Boolean(rowSelection[row.personId])}
                       onToggle={table.getRow(row.personId).getToggleSelectedHandler()}
                       onOpen={() => onOpen(row.personId)}
                     />
-                  )}
+                  ) : undefined}
                   headerLead={
                     <SelectionCheckbox
                       checked={rows.length > 0 && tickedOnPage === rows.length}
@@ -317,7 +319,7 @@ function PersonCard({
   const latest = row.positions[0];
   const where = [row.companyName, row.locationCity ?? row.locationCountry].filter(Boolean).join(" · ");
   return (
-    <article className="flex items-start gap-3 rounded-[10px] border border-u-border bg-u-surface px-3.5 py-3">
+    <article className="flex items-start gap-3 rounded-u-card border border-u-border bg-u-surface px-3.5 py-3">
       <span className="pt-1.5">
         <SelectionCheckbox checked={selected} label={`Select ${row.fullName}`} onChange={onToggle} />
       </span>

@@ -103,8 +103,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const mobileTabs: MobileTab[] = clientOnly
     ? [{ to: "/", label: "Positions", icon: ICONS.myProjects, end: true }]
     : [
-        { to: `/${listSearch}`, label: "My positions", icon: ICONS.myProjects, end: true },
-        { to: `/all${listSearch}`, label: "All", icon: ICONS.allProjects },
+        { to: `/${listSearch}`, label: "Positions", icon: ICONS.myProjects, end: true },
+        { to: "/tasks", label: "Tasks", icon: ICONS.checkCircle },
         { to: "/candidates", label: "Candidates", icon: ICONS.candidates },
       ];
 
