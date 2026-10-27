@@ -487,26 +487,24 @@ describe("MeetingsSection", () => {
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     expect(panel.getByText("Send now opens on the day of the call.")).toBeInTheDocument();
     expect(panel.queryByRole("button", { name: "Send Notetaker now" })).toBeNull();
-    expect(panel.getByRole("switch", { name: /Join at start/ })).toBeChecked();
     expect(panel.getByRole("switch", { name: "Live copilot" })).toBeChecked();
-    await userEvent.click(panel.getByRole("button", { name: "Schedule Notetaker" }));
+    expect(panel.queryByRole("switch", { name: /Join at start/ })).toBeNull();
+    await userEvent.click(panel.getByRole("button", { name: /^Join at start/ }));
 
     expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", true);
     expect(await screen.findByText(/The Notetaker will join the call with Priya at its start/)).toBeInTheDocument();
   });
 
-  it("offers no schedule once Join at start is switched off, and links the meeting in a new tab", async () => {
+  it("links the meeting in a new tab from the panel", async () => {
     renderSection({ meetings: LATER, notetakerOffered: true, startableMeetingIds: [] });
 
     await openMenuItem("Notetaker & questions…");
-    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
-    const link = panel.getByRole("link", { name: /^Open / });
+    const link = within(screen.getByRole("dialog", { name: "Notetaker & questions" })).getByRole("link", {
+      name: /^Open /,
+    });
+
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("href", expect.stringContaining("http"));
-    await userEvent.click(panel.getByRole("switch", { name: /Join at start/ }));
-
-    expect(panel.queryByRole("button", { name: "Schedule Notetaker" })).toBeNull();
-    expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
   });
 
   it("offers only questions where no Notetaker is set up, on a teammate's call, or for someone marked do not contact", async () => {
