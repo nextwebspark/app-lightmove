@@ -633,6 +633,13 @@ function SpeakerName({ line }: { line: CopilotLine }) {
 
 function EndedSummary({ copilot }: { copilot: Copilot }) {
   const open = uncoveredOf(copilot);
+  if (!hasRecorded(copilot)) {
+    return (
+      <div className="rounded-u-control bg-u-raised px-2.5 py-2 text-note text-u-text2">
+        <b className="font-semibold text-u-text">The Notetaker left.</b> Nothing was recorded, so no notes are filed.
+      </div>
+    );
+  }
   return (
     <div className="rounded-u-control bg-u-raised px-2.5 py-2 text-note text-u-text2">
       <b className="font-semibold text-u-text">Call ended.</b>{" "}
@@ -640,6 +647,11 @@ function EndedSummary({ copilot }: { copilot: Copilot }) {
       {open.length > 0 ? `Not covered: ${open.join(" · ")}` : "Everything was covered."}
     </div>
   );
+}
+
+/** A removed bot, or one that never got in, recorded nothing: there are no notes to promise. */
+function hasRecorded(copilot: Copilot): boolean {
+  return copilot.status !== "CANCELLED" && copilot.status !== "FAILED";
 }
 
 function Notice({ children }: { children: React.ReactNode }) {
@@ -836,8 +848,8 @@ function useExecutivePhoto(projectId: string, candidateId: string): string | nul
 
 function footerLineOf(copilot: Copilot | null, isMuted: boolean): string {
   if (!copilot) return "Connecting…";
+  if (!isCallOn(copilot)) return hasRecorded(copilot) ? "Call ended · notes on the way" : "Notetaker left · nothing recorded";
   if (copilot.liveStatus === "STOPPED") return "Copilot stopped · recording continues";
-  if (!isCallOn(copilot)) return "Call ended · notes on the way";
   if (isWaitingToJoin(copilot)) return "Waiting to be let in…";
   return isMuted ? "Suggestions muted" : "Listening";
 }

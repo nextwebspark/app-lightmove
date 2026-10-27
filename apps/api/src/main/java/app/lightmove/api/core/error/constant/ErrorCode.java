@@ -442,7 +442,6 @@ public enum ErrorCode {
     NOTETAKER_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "No Notetaker is free this moment. Try again in half a minute"),
 
     /** Start now is offered from the start of the call's day, in the consultant's own time zone. */
-    NOTETAKER_TOO_EARLY(HttpStatus.CONFLICT, "The Notetaker can be started from the day of the call"),
 
     /** An earlier call on the same link is still under way: a bot sent now would record it on this person. */
     NOTETAKER_LINK_IN_USE(HttpStatus.CONFLICT, "An earlier call on this link is still under way"),

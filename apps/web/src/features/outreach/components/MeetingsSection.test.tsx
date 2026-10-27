@@ -120,7 +120,7 @@ function renderSection({
   notetakerOffered = false,
   recordings = [],
   recordableMeetingIds = ["m1"],
-  startableMeetingIds = ["m1"],
+  callDayMeetingIds = ["m1"],
 }: {
   meetings?: PersonMeetings;
   doNotContact?: boolean;
@@ -129,14 +129,14 @@ function renderSection({
   notetakerOffered?: boolean;
   recordings?: NotetakerRecording[];
   recordableMeetingIds?: string[];
-  startableMeetingIds?: string[];
+  callDayMeetingIds?: string[];
 } = {}) {
   vi.mocked(meetingApi.getMeetings).mockResolvedValue(meetings);
   vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({
     offered: notetakerOffered,
     recordings,
     recordableMeetingIds: notetakerOffered && !doNotContact ? recordableMeetingIds : [],
-    startableMeetingIds: notetakerOffered && !doNotContact ? startableMeetingIds : [],
+    callDayMeetingIds: notetakerOffered && !doNotContact ? callDayMeetingIds : [],
   });
   vi.mocked(zoomApi.getZoom).mockResolvedValue({ offered: true, status: zoomStatus, connectedAt: null });
   vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
@@ -458,7 +458,7 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.getInterviewPlan).not.toHaveBeenCalled();
   });
 
-  it("sends the Notetaker now from the call's panel, the copilot on unless unticked, and opens no meeting", async () => {
+  it("sends the Notetaker now from the call's panel with its copilot, and opens no meeting", async () => {
     vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(
       aRecording({ status: "SCHEDULED", joinAt: null, liveCopilot: true }),
     );
@@ -468,7 +468,8 @@ describe("MeetingsSection", () => {
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     const open = vi.spyOn(window, "open").mockImplementation(() => null);
     expect(panel.getByText("Off")).toBeInTheDocument();
-    expect(panel.getByRole("switch", { name: "Live copilot" })).toBeChecked();
+    expect(panel.getByRole("switch", { name: "Join at start" })).toBeDisabled();
+    expect(panel.getByRole("switch", { name: "Live copilot" })).not.toBeChecked();
     expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
     await userEvent.click(panel.getByRole("button", { name: "Send Notetaker now" }));
 
@@ -479,24 +480,103 @@ describe("MeetingsSection", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Notetaker & questions" })).toBeNull());
   });
 
-  it("schedules the Notetaker for the start of a call on a later day, Send now opening on its day", async () => {
-    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(aRecording({ status: "SCHEDULED" }));
-    renderSection({ meetings: LATER, notetakerOffered: true, startableMeetingIds: [] });
+  it("switches Join at start on for a call to come, the copilot off and fixed until then, and leaves the panel open", async () => {
+    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(laterRecording());
+    renderSection({ meetings: LATER, notetakerOffered: true, callDayMeetingIds: [] });
 
     await openMenuItem("Notetaker & questions…");
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
-    expect(panel.getByText("Send now opens on the day of the call.")).toBeInTheDocument();
-    expect(panel.queryByRole("button", { name: "Send Notetaker now" })).toBeNull();
-    expect(panel.getByRole("switch", { name: "Live copilot" })).toBeChecked();
-    expect(panel.queryByRole("switch", { name: /Join at start/ })).toBeNull();
-    await userEvent.click(panel.getByRole("button", { name: /^Join at start/ }));
+    const joinAtStart = panel.getByRole("switch", { name: "Join at start" });
+    expect(joinAtStart).not.toBeChecked();
+    const copilot = panel.getByRole("switch", { name: "Live copilot" });
+    expect(copilot).not.toBeChecked();
+    expect(copilot).toBeDisabled();
+    await userEvent.click(joinAtStart);
 
     expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", true);
     expect(await screen.findByText(/The Notetaker will join the call with Priya at its start/)).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Notetaker & questions" })).toBeInTheDocument();
+  });
+
+  it("sends the Notetaker now ahead of the call's day only once asked, saying when the call is booked", async () => {
+    vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(laterRecording({ joinAt: null }));
+    renderSection({ meetings: LATER, notetakerOffered: true, callDayMeetingIds: [] });
+
+    await openMenuItem("Notetaker & questions…");
+    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    await userEvent.click(panel.getByRole("button", { name: "Send Notetaker now" }));
+    const asked = within(screen.getByRole("dialog", { name: "Send the Notetaker now?" }));
+    expect(asked.getByText(/This call is booked for/)).toBeInTheDocument();
+    expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
+    await userEvent.click(asked.getByRole("button", { name: "Keep it" }));
+    expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
+
+    await userEvent.click(panel.getByRole("button", { name: "Send Notetaker now" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "Send the Notetaker now?" })).getByRole("button", { name: "Send now" }),
+    );
+
+    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", true, "NOW");
+  });
+
+  it("brings a bot set for the start of a later day's call in now once asked", async () => {
+    vi.mocked(notetakerApi.joinNotetakerNow).mockResolvedValue(laterRecording({ joinAt: null }));
+    renderSection({ meetings: LATER, notetakerOffered: true, callDayMeetingIds: [], recordings: [laterRecording()] });
+
+    await openMenuItem("Notetaker & questions…");
+    await userEvent.click(screen.getByRole("button", { name: "Send Notetaker now" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "Send the Notetaker now?" })).getByRole("button", { name: "Send now" }),
+    );
+
+    expect(notetakerApi.joinNotetakerNow).toHaveBeenCalledWith("p1", "c1", "r1");
+  });
+
+  it("switches a scheduled Notetaker off without asking, nothing having been recorded", async () => {
+    vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
+    renderSection({ meetings: LATER, notetakerOffered: true, recordings: [laterRecording()] });
+
+    await openMenuItem("Notetaker & questions…");
+    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    expect(panel.getByText("Joins at start")).toBeInTheDocument();
+    const joinAtStart = panel.getByRole("switch", { name: "Join at start" });
+    expect(joinAtStart).toBeChecked();
+    await userEvent.click(joinAtStart);
+
+    expect(notetakerApi.cancelNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+    expect(screen.queryByRole("dialog", { name: "Remove the Notetaker?" })).toBeNull();
+  });
+
+  it("brings a Notetaker scheduled for the start in now when the call starts early", async () => {
+    vi.mocked(notetakerApi.joinNotetakerNow).mockResolvedValue(laterRecording({ joinAt: null }));
+    renderSection({ meetings: LATER, notetakerOffered: true, recordings: [laterRecording()] });
+
+    await openMenuItem("Notetaker & questions…");
+    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    expect(panel.getByText("Call started early? Send the Notetaker now.")).toBeInTheDocument();
+    await userEvent.click(panel.getByRole("button", { name: "Send Notetaker now" }));
+
+    expect(notetakerApi.joinNotetakerNow).toHaveBeenCalledWith("p1", "c1", "r1");
+    expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
+    expect(await screen.findByText(/The Notetaker is joining the call with Priya now/)).toBeInTheDocument();
+  });
+
+  it("leaves a bot sent before its call moved off the call, offering the new time afresh", async () => {
+    renderSection({
+      meetings: LATER,
+      notetakerOffered: true,
+      recordings: [laterRecording({ startsAt: "2099-10-08T06:00:00Z", joinAt: "2099-10-08T05:59:00Z" })],
+    });
+
+    await openMenuItem("Notetaker & questions…");
+    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    expect(panel.getByText("Off")).toBeInTheDocument();
+    expect(panel.getByRole("switch", { name: "Join at start" })).not.toBeChecked();
+    expect(panel.getByRole("button", { name: "Send Notetaker now" })).toBeInTheDocument();
   });
 
   it("links the meeting in a new tab from the panel", async () => {
-    renderSection({ meetings: LATER, notetakerOffered: true, startableMeetingIds: [] });
+    renderSection({ meetings: LATER, notetakerOffered: true, callDayMeetingIds: [] });
 
     await openMenuItem("Notetaker & questions…");
     const link = within(screen.getByRole("dialog", { name: "Notetaker & questions" })).getByRole("link", {
@@ -532,7 +612,7 @@ describe("MeetingsSection", () => {
     renderSection({
       meetings: LATER,
       notetakerOffered: true,
-      recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z", liveCopilot: true })],
+      recordings: [laterRecording({ liveCopilot: true })],
     });
 
     await userEvent.click(await screen.findByRole("button", { name: "Call options" }));
@@ -553,61 +633,13 @@ describe("MeetingsSection", () => {
     renderSection({
       meetings: LATER,
       notetakerOffered: true,
-      recordings: [aRecording({ status: "SCHEDULED", liveCopilot: true, mayChangeCopilot: false })],
+      recordings: [laterRecording({ liveCopilot: true, mayChangeCopilot: false })],
     });
 
     await openMenuItem("Notetaker & questions…");
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     expect(panel.getByRole("switch", { name: "Live copilot" })).toBeDisabled();
     expect(panel.getByText("Only whoever sent the Notetaker can change it.")).toBeInTheDocument();
-  });
-
-  it("removes a scheduled Notetaker from its panel after asking", async () => {
-    vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
-    renderSection({
-      meetings: LATER,
-      notetakerOffered: true,
-      recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z" })],
-    });
-
-    await openMenuItem("Notetaker & questions…");
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
-    await userEvent.click(
-      within(screen.getByRole("dialog", { name: "Remove the Notetaker?" })).getByRole("button", {
-        name: "Remove notetaker",
-      }),
-    );
-
-    expect(notetakerApi.cancelNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
-  });
-
-  it("brings a Notetaker scheduled for the start in now, once the call's day has begun", async () => {
-    vi.mocked(notetakerApi.joinNotetakerNow).mockResolvedValue(aRecording({ status: "SCHEDULED", joinAt: null }));
-    renderSection({
-      meetings: LATER,
-      notetakerOffered: true,
-      recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z" })],
-    });
-
-    await openMenuItem("Notetaker & questions…");
-    await userEvent.click(screen.getByRole("button", { name: "Send now instead" }));
-
-    expect(notetakerApi.joinNotetakerNow).toHaveBeenCalledWith("p1", "c1", "r1");
-    expect(await screen.findByText(/The Notetaker is joining the call with Priya now/)).toBeInTheDocument();
-  });
-
-  it("offers no Send now instead before the call's day", async () => {
-    renderSection({
-      meetings: LATER,
-      notetakerOffered: true,
-      startableMeetingIds: [],
-      recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z" })],
-    });
-
-    await openMenuItem("Notetaker & questions…");
-    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
-    expect(panel.getByText("Send now opens on the day of the call.")).toBeInTheDocument();
-    expect(panel.queryByRole("button", { name: "Send now instead" })).toBeNull();
   });
 
   it("says a Notetaker on its way in is joining, with its copilot as it was sent", async () => {
@@ -621,7 +653,19 @@ describe("MeetingsSection", () => {
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     expect(panel.queryByRole("switch", { name: "Live copilot" })).toBeNull();
     expect(panel.getByText(/Live copilot is off for this call/)).toBeInTheDocument();
-    expect(panel.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    expect(panel.getByRole("button", { name: "Remove Notetaker" })).toBeInTheDocument();
+  });
+
+  it("removes a Notetaker on its way in at once, nothing having been recorded", async () => {
+    vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
+    renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "JOINING", joinAt: null })] });
+
+    await openMenuItem("Notetaker & questions…");
+    await userEvent.click(screen.getByRole("button", { name: "Remove Notetaker" }));
+
+    expect(notetakerApi.cancelNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+    expect(screen.queryByRole("dialog", { name: "Remove and discard?" })).toBeNull();
+    expect(await screen.findByText("Notetaker removed. Nothing more is recorded.")).toBeInTheDocument();
   });
 
   it("marks a call being recorded on its ⋯ alone, and ends it from its panel once asked", async () => {
@@ -664,7 +708,7 @@ describe("MeetingsSection", () => {
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "RECORDING" })] });
 
     await openMenuItem("Notetaker & questions…");
-    await userEvent.click(screen.getByRole("button", { name: "Remove and discard" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove Notetaker" }));
     const dialog = within(screen.getByRole("dialog", { name: "Remove and discard?" }));
     expect(dialog.getByText(/nothing it recorded is kept or filed/)).toBeInTheDocument();
     await userEvent.click(dialog.getByRole("button", { name: "Remove and discard" }));
@@ -1069,6 +1113,11 @@ const A_QUESTION: notetakerApi.InterviewQuestion = {
 /** Types a start into "Pick a time" on the week's first day, the keyboard's way in; the length is the dialog's. */
 function pickTime(start: string) {
   fireEvent.change(screen.getByLabelText("Call starts"), { target: { value: start } });
+}
+
+/** A Notetaker scheduled for the start of the call in LATER. */
+function laterRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecording {
+  return aRecording({ startsAt: "2099-10-07T06:00:00Z", joinAt: "2099-10-07T05:59:00Z", ...overrides });
 }
 
 function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecording {

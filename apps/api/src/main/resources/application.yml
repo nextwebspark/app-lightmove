@@ -731,6 +731,8 @@ lightmove:
     transcript-retention: ${NOTETAKER_TRANSCRIPT_RETENTION:}
     copilot-coach-interval: ${NOTETAKER_COPILOT_COACH_INTERVAL:PT15S}
     copilot-max-coach-runs: ${NOTETAKER_COPILOT_MAX_COACH_RUNS:240}
+    # Where Recall reaches this API for the live copilot's stream; blank is web.base-url. Locally, the tunnel's URL.
+    public-base-url: ${RECALL_PUBLIC_BASE_URL:}
 
   # Uploaded files. gcs in every deployment (ops/gcp/deploy.sh sets both): Cloud Run's disk dies with the
   # instance, so filesystem is for npm run dev and the tests only.

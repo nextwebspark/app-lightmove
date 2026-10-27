@@ -273,7 +273,7 @@ const notetakerWith = (...recordings: NotetakerRecording[]) => ({
   offered: true,
   recordings,
   recordableMeetingIds: [],
-  startableMeetingIds: [],
+  callDayMeetingIds: [],
 });
 
 /** A tab by its label; a count beside it (Notes 2) is part of its name, so the label is matched as a prefix. */
@@ -317,7 +317,7 @@ describe("CandidateDrawer", () => {
       offered: true,
       recordings: [],
       recordableMeetingIds: [],
-      startableMeetingIds: [],
+      callDayMeetingIds: [],
     });
   });
 

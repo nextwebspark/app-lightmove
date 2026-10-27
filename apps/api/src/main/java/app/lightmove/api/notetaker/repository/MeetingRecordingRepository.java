@@ -27,6 +27,8 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
 
     Optional<MeetingRecording> findByRecallBotId(String recallBotId);
 
+    List<MeetingRecording> findByStatusAndJoinAtAfter(NotetakerStatus status, Instant after);
+
     Optional<MeetingRecording> findByFinalTranscriptId(String finalTranscriptId);
 
     /** The row a Suggest changes decision writes, locked first so two tabs' decisions queue rather than collide. */

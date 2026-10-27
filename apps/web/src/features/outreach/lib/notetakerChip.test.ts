@@ -63,6 +63,12 @@ describe("notetakerChip", () => {
     expect(recordingOfMeeting([recording({ meetingId: "gone", title: "Another call" })], meeting)).toBeNull();
   });
 
+  it("leaves a bot sent before its call moved off the call, whose row it still names", () => {
+    const moved = { id: "m1", startsAt: "2026-10-07T15:40:00.000Z", title: "First conversation" } as Meeting;
+    expect(recordingOfMeeting([recording({ meetingId: "m1", startsAt: "2026-10-08T05:40:00Z" })], moved)).toBeNull();
+    expect(recordingOfMeeting([recording({ meetingId: "m1", startsAt: "2026-10-07T15:40:00Z" })], moved)?.id).toBe("r1");
+  });
+
   it("records again only once no bot is on its way", () => {
     expect(canRecord(null)).toBe(true);
     expect(canRecord(recording({ status: "FAILED" }))).toBe(true);
