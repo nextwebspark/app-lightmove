@@ -94,7 +94,7 @@ class MeetingNotesWorker {
         List<TranscriptLine> lines = recording.getTranscript();
         if (lines == null) {
             try {
-                lines = recall.transcript(recording.getTranscriptId());
+                lines = recall.transcript(recording.getTranscriptId(), recording.callClockStart());
             } catch (VendorException | IllegalStateException unavailable) {
                 log.warn("Notetaker recording {}: the transcript could not be read: {}", recordingId,
                         unavailable.getMessage());

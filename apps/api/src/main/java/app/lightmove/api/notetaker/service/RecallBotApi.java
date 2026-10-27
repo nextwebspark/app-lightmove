@@ -5,6 +5,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -47,8 +48,11 @@ public interface RecallBotApi {
     /** Deletes what Recall kept of the call, once its transcript is ours. */
     void deleteMedia(String botId);
 
-    /** The call's transcript, a line per turn, each named by the participant Recall heard. */
-    List<TranscriptLine> transcript(String transcriptId);
+    /**
+     * The call's transcript, a line per turn, each named by the participant Recall heard. A transcript made after the
+     * call carries seconds into the recording alone, which {@code callClockStart} turns into a time.
+     */
+    List<TranscriptLine> transcript(String transcriptId, Instant callClockStart);
 
     /** What a webhook delivery says; refused with {@code NOTETAKER_WEBHOOK_REJECTED} when its signature fails. */
     List<RecallBotNotice> notices(byte[] body, String id, String timestamp, String signature);

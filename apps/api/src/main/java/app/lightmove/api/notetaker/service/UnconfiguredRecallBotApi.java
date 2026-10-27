@@ -7,6 +7,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 
 /** No Recall bot account: no Notetaker is offered, and every webhook delivery is refused. */
@@ -60,7 +61,7 @@ public class UnconfiguredRecallBotApi implements RecallBotApi {
     }
 
     @Override
-    public List<TranscriptLine> transcript(String transcriptId) {
+    public List<TranscriptLine> transcript(String transcriptId, Instant callClockStart) {
         throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
     }
 
