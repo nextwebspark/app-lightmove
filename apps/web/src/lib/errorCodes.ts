@@ -319,7 +319,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOTETAKER_NOT_CHANGEABLE: "This Notetaker can no longer be changed. Reload to see where it got to.",
   NOTETAKER_SEND_FAILED: "The Notetaker couldn't be sent. Try again in a moment.",
   NOTETAKER_BUSY: "No Notetaker is free this moment. Try again in half a minute.",
-  NOTETAKER_TOO_EARLY: "The Notetaker can be started from the day of the call. Use Join at start to send it ahead.",
+  NOTETAKER_TOO_EARLY: "The Notetaker can be sent from the day of the call. Use Join at start to send it ahead.",
   NOTETAKER_LINK_IN_USE: "An earlier call on this link is still under way. Start the Notetaker once it has ended.",
   NOTETAKER_NOT_RECORDING: "The Notetaker isn't recording this call. Remove it if it's still waiting to be let in.",
   NOTETAKER_END_FAILED: "The Notetaker couldn't be stopped, and it's still recording. Try again in a moment.",
