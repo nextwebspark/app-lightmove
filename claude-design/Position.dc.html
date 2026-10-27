@@ -1795,22 +1795,20 @@
                           <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
                           <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                           <sc-if value="{{ m.viaLink }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
-                          <!-- The Notetaker and the interview copilot are kept out of the way. A call's row is the call, its Join
-                               link and ⋯; ⋯ holds "Notetaker & questions…" (then Reschedule and Cancel call where the call is the
-                               consultant's to change), which opens the call's panel: one section per job, each with its own
-                               button — Prepare questions (gives way to the Interview plan), then the Notetaker with its Live
-                               copilot switch, Start now (solid, from the call's day, once the executive agrees) and Join at start
-                               (a minute before the booked start). A press closes the panel. Once anything is set, ONE quiet line
-                               under the call says what, in words ("Notetaker joins at start · Live copilot · 6 questions ready");
-                               clicking it opens the panel on what is set and the next step (Start now instead, Remove, the copilot
-                               switch). In the call the line reads ● Recording with the time recorded, a Copilot ↗ link and the
-                               one solid button, End & file notes (asks first); Remove and discard is the panel's. A call with
-                               nothing set has no line at all. -->
-                          <button onClick="{{ openInterviewPlan }}" style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:0;background:none;border:none;font:400 12px var(--sans);color:var(--text2);cursor:pointer;text-align:left"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--sky)"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-14 0v-1M12 18v4"></path></svg>Notetaker joins at start<span style="color:var(--text3)">· Live copilot · 6 questions ready</span></button>
+                          <!-- The Notetaker and the interview copilot are kept out of the way: nothing about them is drawn under
+                               the call. A call's row is the call, its Join link and ⋯; ⋯ opens on where the call has got to, in
+                               words ("Notetaker joins at start · Live copilot", "● Recording 31:42"), then "Notetaker &
+                               questions…" (then Reschedule and Cancel call where the call is the consultant's to change), which
+                               opens the call's panel: one section per job, each with its own button — Prepare questions (gives
+                               way to the Interview plan; "6 ready" and Open questions from its first draft), then the Notetaker
+                               with its Live copilot switch, Start now (solid, from the call's day, once the executive agrees) and
+                               Join at start (a minute before the booked start); in the call End & file notes (asks first), Open
+                               copilot and Remove and discard. A press closes the panel. While the call records the ⋯ wears a red
+                               dot. -->
                         </span>
                         <span style="flex:none;display:flex;align-items:center;gap:6px">
                           <a href="#" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
-                          <button aria-label="Call options" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer">⋯</button>
+                          <button onClick="{{ openInterviewPlan }}" aria-label="Call options" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer">⋯</button>
                         </span>
                       </div>
                     </sc-for>
@@ -1819,24 +1817,20 @@
                     <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
                     <sc-for list="{{ cd.mtPast }}" as="m">
                       <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
-                        <!-- A recorded call keeps its one line, and each step arrives with no press: "Writing notes…" (also the
-                             moment End & file notes or the call's own end moves it here, to Past), then "Notes filed · finding
-                             changes…", then "Notes filed · 3 changes to review" with Review, the one solid button, which opens
-                             "Changes from the call". Once reviewed it reads "Notes filed · 3 changes applied" (or "no changes
-                             applied", or "no changes found") and Changes reopens it as the record of what the call changed:
-                             each change with what it replaced struck through, the words it rests on and who applied it.
-                             Transcript is a quiet link; a call with no notes says why ("Not recorded · nobody let it in"), with
-                             Try again where only the write-up failed. -->
+                      </span>
+                        <!-- A recorded call has a ⋯ and nothing under it; each step arrives with no press, said where the ⋯
+                             opens: "Writing notes…" (also the moment End & file notes or the call's own end moves it here, to
+                             Past), then "Notes filed · finding changes…", then "Notes filed · 3 changes to review" over Review 3
+                             changes, which opens "Changes from the call", and an accent dot on the ⋯ while they wait. Once
+                             reviewed it reads "Notes filed · 3 changes applied" (or "no changes applied", or "no changes
+                             found") and Changes from the call reopens it as the record of what the call changed: each change
+                             with what it replaced struck through, the words it rests on and who applied it. Transcript is the
+                             next item; a call with no notes says why ("Not recorded · nobody let it in"), with Try again (and
+                             the dot) where only the write-up failed. -->
                         <sc-if value="{{ m.recorded }}">
-                          <span style="display:flex;align-items:center;gap:12px;margin-top:6px;font:400 12px var(--sans);color:var(--text2)">
-                            <span style="display:inline-flex;align-items:center;gap:8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="{{ ic.checkCircle }}"></path></svg>Notes filed<span style="color:var(--text3)">· 3 changes to review</span></span>
-                            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:12px">
-                              <button style="padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--text3);cursor:pointer">Transcript</button>
-                              <button onClick="{{ openCallChanges }}" style="border:none;border-radius:6px;padding:4px 12px;background:var(--accent-solid, #4a56d6);font:500 12px var(--sans);color:#fff;cursor:pointer">Review</button>
-                            </span>
-                          </span>
+                          <button onClick="{{ openCallChanges }}" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent-solid, #4a56d6);box-shadow:0 0 0 2px var(--panel)"></span></button>
                         </sc-if>
-                      </span></div>
+                      </div>
                     </sc-for>
                   </sc-if>
                   <sc-if value="{{ cd.zoomReconnect }}" hint-placeholder-val="{{ false }}">
