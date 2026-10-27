@@ -13,7 +13,7 @@ import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useDebouncedValue } from "../../../../lib/useComboboxList";
 import { useDataGridTable } from "../../../../lib/useDataGridTable";
-import { readsAsCards } from "../../../../lib/viewport";
+import { isBelowTableWidth } from "../../../../lib/viewport";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../../lib/useFullscreen";
 import { layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
 import { useGridPaging } from "../../../../lib/useGridPaging";
@@ -62,7 +62,7 @@ export function PeopleView({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
-  const [asCards] = useState(readsAsCards);
+  const [asCards] = useState(isBelowTableWidth);
   const [dialog, setDialog] = useState<BulkDialog>(null);
   const [layout, setLayout] = useGridLayout("candidatePool", POOL_LAYOUT_COLUMNS);
   const { reset: resetPaging, clampTo, page: pageIndex, size: pageSize } = paging;

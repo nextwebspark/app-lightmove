@@ -1,5 +1,5 @@
 import { useState, type DragEvent, type KeyboardEvent } from "react";
-import { readsAsCards } from "../../../lib/viewport";
+import { isBelowTableWidth } from "../../../lib/viewport";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
@@ -39,7 +39,7 @@ export function PipelineList({
   onOpenNextAction: (row: PipelineRow) => void;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [asCards] = useState(readsAsCards);
+  const [asCards] = useState(isBelowTableWidth);
   const ids = rows.map((row) => row.candidateId);
   const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
   const someSelected = ids.some((id) => selectedIds.has(id));

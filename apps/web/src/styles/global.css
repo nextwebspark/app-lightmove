@@ -133,10 +133,16 @@ body {
   right: 16px;
 }
 
-/* The phone's bottom bar (MobileTabBar, below `lg`): what floats at the bottom edge rises above it. */
+/* The phone's bottom bar (MobileTabBar, below `lg`): its height, and how far what floats at the bottom edge rises
+   to clear it. Zero from `lg`, where there is no bar. */
+:root {
+  --mobile-nav-height: 3.5rem;
+  --mobile-nav-clearance: 0px;
+}
+
 @media (max-width: 63.999rem) {
   body:has([data-mobile-nav]) {
-    --mobile-nav-clearance: calc(3.5rem + env(safe-area-inset-bottom));
+    --mobile-nav-clearance: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
   }
   body:has([data-mobile-nav]) .toast-stack {
     bottom: calc(16px + var(--mobile-nav-clearance));

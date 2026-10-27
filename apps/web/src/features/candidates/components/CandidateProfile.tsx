@@ -133,6 +133,7 @@ export function CandidateProfile({
   onRemove,
   focusNoteId = null,
   focusSection = null,
+  focusTab = null,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -150,6 +151,7 @@ export function CandidateProfile({
   focusNoteId?: string | null;
   /** A part of the Contact tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
   focusSection?: DrawerSection | null;
+  focusTab?: DrawerTab | null;
 }) {
   const sections = useProfileSections();
   /**
@@ -169,7 +171,9 @@ export function CandidateProfile({
       ? "notes"
       : canWrite && focusSection
         ? "contact"
-        : rememberedDrawerTab("position", offeredTabs),
+        : focusTab && offeredTabs.includes(focusTab)
+          ? focusTab
+          : rememberedDrawerTab("position", offeredTabs),
   );
   const [noteFocus, setNoteFocus] = useState<NoteFocus | null>(() =>
     canWrite && focusNoteId ? { noteId: focusNoteId, at: Date.now() } : null,
@@ -786,7 +790,7 @@ export function CandidateProfile({
         )}
       </div>
 
-      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:pb-3">
+      <footer className="flex flex-none items-center gap-2 border-t border-u-border px-5 py-3">
         {onRemove && (
           <Button
             type="button"

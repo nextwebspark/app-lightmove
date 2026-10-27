@@ -22,7 +22,7 @@ import { PipelineList } from "../components/PipelineList";
 import { StagePills } from "../components/StagePills";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { useBoardMove, useClientVisibility, useRankMove } from "../lib/usePipelineWrites";
-import { drawerSectionOf } from "../../candidates/lib/drawerTabs";
+import { drawerSectionOf, POSITION_STAFF_TABS } from "../../candidates/lib/drawerTabs";
 
 type PipelineView = "list" | "board";
 
@@ -67,6 +67,8 @@ function StaffPipeline() {
   const openCandidateId = searchParams.get("candidate");
   const focusNoteId = searchParams.get("note");
   const focusSection = drawerSectionOf(searchParams.get("section"));
+  const requestedTab = searchParams.get("tab");
+  const focusTab = POSITION_STAFF_TABS.find((tab) => tab === requestedTab) ?? null;
   const setOpenCandidateId = (candidateId: string | null) =>
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
@@ -74,6 +76,7 @@ function StaffPipeline() {
       else next.delete("candidate");
       next.delete("note");
       next.delete("section");
+      next.delete("tab");
       return next;
     });
 
@@ -230,6 +233,7 @@ function StaffPipeline() {
         candidateId={openCandidateId}
         focusNoteId={focusNoteId}
         focusSection={focusSection}
+        focusTab={focusTab}
         onClose={() => setOpenCandidateId(null)}
         onChanged={() => void queryClient.invalidateQueries({ queryKey: pipelineApi.PIPELINE_KEY_PREFIX(project.id) })}
       />

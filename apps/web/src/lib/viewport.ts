@@ -13,13 +13,14 @@ export function hasRoomForRails(): boolean {
   return window.matchMedia(`(min-width: ${SHELL_MIN_WIDTH})`).matches;
 }
 
-/** Where a list stops being a stack of cards and becomes a table — Tailwind's `md`. */
+/** Where a list's cards give way to its table — Tailwind's `md`. */
 export const TABLE_MIN_WIDTH = "48rem";
 
 /**
- * Whether a list this wide reads as cards. Read once when the list mounts, as {@link hasRoomForRails} is: a grid of
- * hundreds of lines drawn twice, once hidden, cost every desktop the phone's copy.
+ * Whether the viewport is narrower than a table needs, for a component that draws a different structure on a phone
+ * (cards for rows, one day for a week). Read once at mount, as {@link hasRoomForRails} is: a rotation or a resize keeps
+ * the layout it opened with until the next mount.
  */
-export function readsAsCards(): boolean {
+export function isBelowTableWidth(): boolean {
   return !window.matchMedia(`(min-width: ${TABLE_MIN_WIDTH})`).matches;
 }

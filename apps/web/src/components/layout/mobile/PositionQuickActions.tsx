@@ -2,12 +2,13 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import * as pipelineApi from "../../../features/pipeline/api/pipelineApi";
-import { rememberDrawerTab } from "../../../features/candidates/lib/drawerTabs";
 import { cn } from "../../../lib/cn";
 import { BottomSheet, BottomSheetAction } from "../../ui/BottomSheet";
 import { Icon, ICONS } from "../Icon";
 
 const SEARCH_DEBOUNCE_MS = 250;
+/** A position can map hundreds; past this many the sheet asks for a few letters rather than drawing them all. */
+const MOST_LISTED = 30;
 
 /** What the picked executive's drawer opens on. */
 type PersonAction = "note" | "call" | "status";
@@ -46,11 +47,10 @@ export function PositionQuickActions({
   };
 
   const openPerson = (candidateId: string, action: PersonAction) => {
+    // Status needs no tab: its picker is in the drawer's header, over every tab.
     const params = new URLSearchParams({ view: "list", candidate: candidateId });
+    if (action === "note") params.set("tab", "notes");
     if (action === "call") params.set("section", "meetings");
-    // The drawer opens on the tab this viewer last read; a note is written on Notes, so that is the one left behind.
-    if (action === "note") rememberDrawerTab("position", "notes");
-    if (action === "status") rememberDrawerTab("position", "career");
     close();
     navigate(`${base}/pipeline?${params.toString()}`);
   };
@@ -134,6 +134,8 @@ function ExecutivePicker({ projectId, onPick }: { projectId: string; onPick: (ca
     placeholderData: keepPreviousData,
   });
   const rows = people.data?.rows ?? [];
+  const listed = rows.slice(0, MOST_LISTED);
+  const unlisted = rows.length - listed.length;
 
   return (
     <div className="flex min-h-[50dvh] flex-col">
@@ -156,7 +158,7 @@ function ExecutivePicker({ projectId, onPick }: { projectId: string; onPick: (ca
         </p>
       ) : (
         <ul className={cn("pb-1", people.isFetching && "opacity-70")}>
-          {rows.map((row) => (
+          {listed.map((row) => (
             <li key={row.candidateId}>
               <button
                 type="button"
@@ -175,6 +177,11 @@ function ExecutivePicker({ projectId, onPick }: { projectId: string; onPick: (ca
               </button>
             </li>
           ))}
+          {unlisted > 0 && (
+            <li className="px-3 py-3 text-center text-meta text-u-text3">
+              Keep typing to narrow — {unlisted} more
+            </li>
+          )}
         </ul>
       )}
     </div>

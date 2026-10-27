@@ -12,7 +12,7 @@ import * as workspaceApi from "../../features/workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
-import type { MobileTab } from "./mobile/MobileTabBar";
+import { workspaceTabs } from "./mobile/mobileTabs";
 import { type SidebarGroup } from "./Sidebar";
 
 /** Screens that draw their own toolbar and rail edge to edge and scroll inside, as Strategy does. */
@@ -100,21 +100,13 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         },
       ];
 
-  const mobileTabs: MobileTab[] = clientOnly
-    ? [{ to: "/", label: "Positions", icon: ICONS.myProjects, end: true }]
-    : [
-        { to: `/${listSearch}`, label: "Positions", icon: ICONS.myProjects, end: true },
-        { to: "/tasks", label: "Tasks", icon: ICONS.checkCircle },
-        { to: "/candidates", label: "Candidates", icon: ICONS.candidates },
-      ];
-
   return (
     /* Wider than the mockups' 1160px on purpose: the data tables need the room, and a wide monitor
        was otherwise leaving ~280px unused. Text blocks cap themselves. */
     <AppShell
       navGroups={groups}
-      mobileTabs={mobileTabs}
-      mobileTitle={user?.workspace?.name}
+      mobileTabs={workspaceTabs(clientOnly, listSearch)}
+      mobileTitle={user?.workspace?.name ?? "Workspace"}
       contentClassName={
         fullBleed ? "flex h-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
       }

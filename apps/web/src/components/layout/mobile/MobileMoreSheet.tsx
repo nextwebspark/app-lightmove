@@ -1,14 +1,15 @@
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
 import { createPortal } from "react-dom";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../../features/auth/AuthProvider";
 import { useHelp } from "../../../features/help/HelpProvider";
-import { useTheme } from "../../../features/theme/useTheme";
 import { cn } from "../../../lib/cn";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import { useFocusTrap } from "../../../lib/useFocusTrap";
 import { APP_VERSION } from "../../../lib/version";
+import { Toggle } from "../../ui";
 import { Icon, ICONS } from "../Icon";
+import { useAccountActions, type AccountAction } from "../useAccountActions";
 import type { SidebarGroup, SidebarItem } from "../Sidebar";
 
 export const MOBILE_MORE_ID = "mobile-more";
@@ -30,9 +31,9 @@ export function MobileMoreSheet({
   groups: readonly SidebarGroup[];
   backLink?: SidebarItem;
 }) {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { openHelp } = useHelp();
-  const { theme, toggle: toggleTheme } = useTheme();
+  const accountActions = useAccountActions();
   const panelRef = useRef<HTMLDivElement>(null);
   useEscapeKey(open, onClose);
   useFocusTrap(panelRef, open, { startAt: "panel" });
@@ -104,66 +105,15 @@ export function MobileMoreSheet({
             <section aria-label="Account">
               <h3 className="px-3 pb-1.5 pt-5 type-summary-label text-u-text3">Account</h3>
               <ul className="overflow-hidden rounded-u-card border border-u-border">
-                <AccountRow>
-                  <NavLink to="/settings/profile" onClick={onClose} className={rowClass(false, "rounded-none")}>
-                    <Icon d={ICONS.profile} size={18} className="flex-none text-u-text3" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate">{user.fullName}</span>
-                      <span className="block truncate text-meta text-u-text3">{user.email}</span>
-                    </span>
-                    <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
-                  </NavLink>
-                </AccountRow>
-                <AccountRow>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={theme === "dark"}
-                    onClick={toggleTheme}
-                    className={rowClass(false, "rounded-none")}
-                  >
-                    <Icon d={ICONS.moon} size={18} className="flex-none text-u-text3" />
-                    <span className="flex-1 text-start">Dark mode</span>
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "relative h-6 w-10 flex-none rounded-full transition",
-                        theme === "dark" ? "bg-u-accent" : "bg-u-border-strong",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "absolute top-0.5 size-5 rounded-full bg-white shadow transition-[inset-inline-start]",
-                          theme === "dark" ? "start-[18px]" : "start-0.5",
-                        )}
-                      />
-                    </span>
-                  </button>
-                </AccountRow>
-                <AccountRow>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      openHelp();
-                    }}
-                    className={rowClass(false, "rounded-none")}
-                  >
-                    <Icon d={ICONS.help} size={18} className="flex-none text-u-text3" />
-                    <span className="flex-1 text-start">Help</span>
-                    <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
-                  </button>
-                </AccountRow>
-                <AccountRow>
-                  <button
-                    type="button"
-                    onClick={() => void signOut()}
-                    className={rowClass(false, "rounded-none text-u-offlimits")}
-                  >
-                    <Icon d={ICONS.signOut} size={18} className="flex-none" />
-                    <span className="flex-1 text-start">Sign out</span>
-                  </button>
-                </AccountRow>
+                <li className="border-b border-u-border px-3 py-2.5">
+                  <span className="block truncate text-body font-medium text-u-text">{user.fullName}</span>
+                  <span className="block truncate text-meta text-u-text3">{user.email}</span>
+                </li>
+                {accountActions.map((action) => (
+                  <li key={action.key} className="border-b border-u-border last:border-b-0">
+                    <AccountRow action={action} onClose={onClose} />
+                  </li>
+                ))}
               </ul>
             </section>
           )}
@@ -185,8 +135,43 @@ export function MobileMoreSheet({
   );
 }
 
-function AccountRow({ children }: { children: ReactNode }) {
-  return <li className="border-b border-u-border last:border-b-0">{children}</li>;
+function AccountRow({ action, onClose }: { action: AccountAction; onClose: () => void }) {
+  const icon = (
+    <Icon d={action.icon} size={18} className={cn("flex-none", action.key !== "signOut" && "text-u-text3")} />
+  );
+  const tone = action.key === "signOut" ? "rounded-none text-u-offlimits" : "rounded-none";
+  if (action.to) {
+    return (
+      <NavLink to={action.to} onClick={onClose} className={rowClass(false, tone)}>
+        {icon}
+        <span className="min-w-0 flex-1 truncate">{action.label}</span>
+        <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
+      </NavLink>
+    );
+  }
+  if (action.checked !== undefined) {
+    // A label round the switch, so the whole row flips it rather than the 32px pill alone.
+    return (
+      <label className={rowClass(false, cn(tone, "cursor-pointer"))}>
+        {icon}
+        <span className="flex-1">{action.label}</span>
+        <Toggle checked={action.checked} onChange={() => action.onSelect?.()} label={action.label} />
+      </label>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (action.key === "help") onClose();
+        action.onSelect?.();
+      }}
+      className={rowClass(false, tone)}
+    >
+      {icon}
+      <span className="flex-1 text-start">{action.label}</span>
+    </button>
+  );
 }
 
 function rowClass(isActive: boolean, extra?: string) {

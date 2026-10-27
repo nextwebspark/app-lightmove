@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { cn } from "../../lib/cn";
 import { useHelp } from "../../features/help/HelpProvider";
@@ -29,9 +29,7 @@ export interface SidebarGroup {
  * wide or 56px collapsed (labels, group headers and counts disappear). On desktop it is a bare column
  * on the page ground, not a card — the main panel is the only card the mockups draw.
  *
- * <p>Below `lg` it slides in over the content as a drawer, ignoring the collapsed preference — a
- * 56px icon-only overlay would be all cost and no benefit on a phone. There it <i>is</i> a card: the
- * border, fill and shadow in the base classes are the drawer's, and the `lg:` group strips them.
+ * <p>It is drawn from `lg` only: below it the bottom bar's More opens the same screens in a panel.
  *
  * <p>`assistantOpen` collapses it without touching the stored preference, so shutting the assistant
  * restores whatever the user had chosen.
@@ -39,18 +37,11 @@ export interface SidebarGroup {
 export function Sidebar({
   groups,
   backLink,
-  open = false,
-  onClose,
   assistantOpen = false,
-  desktopOnly = false,
 }: {
   groups: SidebarGroup[];
   backLink?: SidebarItem;
-  open?: boolean;
-  onClose?: () => void;
   assistantOpen?: boolean;
-  /** A phone has the bottom bar's More panel instead, so the rail is drawn from `lg` only. */
-  desktopOnly?: boolean;
 }) {
   const preference = useSidebarCollapsed();
   const { openHelp } = useHelp();
@@ -62,41 +53,25 @@ export function Sidebar({
   }
   const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
   const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
-  const navRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const previous = document.activeElement as HTMLElement | null;
-    navRef.current?.focus();
-    return () => previous?.focus();
-  }, [open]);
-
   const rowClass = (extra?: string) =>
     cn(
       "flex w-full items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[13.5px] transition",
       "hover:bg-u-raised hover:text-u-text",
-      collapsed && "lg:justify-center",
+      collapsed && "justify-center",
       extra,
     );
 
-  const labelsHidden = collapsed ? "lg:hidden" : "";
+  const labelsHidden = collapsed ? "hidden" : "";
 
   return (
     <nav
-      ref={navRef}
       id="app-nav"
-      tabIndex={-1}
       aria-label="Main"
       className={cn(
-        "flex flex-none flex-col overflow-y-auto overflow-x-hidden rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-3.5 outline-none",
-        // `lg:z-auto` is load-bearing: a flex item keeps its stacking context while static, so
-        // without the reset the rail floats above an open drawer's scrim instead of dimming.
-        "fixed bottom-3.5 left-3.5 top-[52px] z-[95] w-60 shadow-u-e3 transition-transform duration-200",
-        desktopOnly && "max-lg:hidden",
-        open ? "translate-x-0" : "-translate-x-[calc(100%+18px)]",
-        "lg:static lg:z-auto lg:translate-x-0 lg:rounded-none lg:border-0 lg:bg-transparent",
-        "lg:shadow-none lg:transition-[width] lg:duration-[180ms]",
-        collapsed ? "lg:w-14" : "lg:w-[210px]",
+        // No z-index of its own: a rail with one floats above an open drawer's scrim instead of dimming under it.
+        "hidden flex-none flex-col overflow-y-auto overflow-x-hidden px-2.5 py-3.5 lg:flex",
+        "transition-[width] duration-[180ms]",
+        collapsed ? "w-14" : "w-[210px]",
       )}
     >
       {backLink && (
@@ -159,25 +134,14 @@ export function Sidebar({
           type="button"
           onClick={toggle}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={rowClass("hidden text-u-text2 lg:flex")}
+          className={rowClass("text-u-text2")}
         >
           <Icon d={collapsed ? ICONS.expand : ICONS.collapse} className="flex-none" />
           <span className={cn("whitespace-nowrap", labelsHidden)}>Collapse</span>
         </button>
         <button
           type="button"
-          onClick={onClose}
-          className={rowClass("text-u-text2 lg:hidden")}
-        >
-          <Icon d={ICONS.close} className="flex-none" />
-          <span className="whitespace-nowrap">Close menu</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            onClose?.();
-            openHelp("whatsNew");
-          }}
+          onClick={() => openHelp("whatsNew")}
           title="What's new"
           className={cn(
             "px-2.5 pt-2 text-left font-mono text-[11px] text-u-text3 underline decoration-dotted underline-offset-2 hover:text-u-accent",

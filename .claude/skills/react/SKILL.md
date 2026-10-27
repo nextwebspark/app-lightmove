@@ -100,16 +100,27 @@ The app is one codebase for phone, tablet and desktop. Two breakpoints carry alm
 they are Tailwind v4's defaults — there is no custom `--breakpoint-*` and there should not be one.
 
 - **`lg` (1024px) is the shell threshold.** The nav rail costs ~268px with its gutters, which a 390px
-  viewport does not have. Below `lg` the rail is an off-canvas drawer `AppShell` owns; at `lg` and up
-  it is the static rail. Strategy's filter rail follows the same rule.
+  viewport does not have. Below `lg` there is no rail: `AppShell` draws the phone's bottom bar
+  (`components/layout/mobile/`), whose More opens the same screens in a panel from the right; at `lg`
+  and up it is the static rail. Strategy's filter rail is still an off-canvas drawer below `lg`.
 - **`md` (768px) is the content threshold.** Two-column grids collapse to one, toolbars stop needing
   to wrap, and the list screens swap their card stack for a table.
 
 Write classes **mobile-first**: the unprefixed class is the phone and `md:`/`lg:` restore the desktop
 value. Reach for a Tailwind variant, not JavaScript — there is no `useMediaQuery` here and adding one
-would duplicate the thresholds somewhere that can drift. The single exception is
-`lib/viewport.ts#hasRoomForRails()`, a non-reactive one-shot read for the *initial* open state of a
-disclosure, which CSS genuinely cannot express.
+would duplicate the thresholds somewhere that can drift. There are two exceptions, both in
+`lib/viewport.ts`, both non-reactive one-shot reads at mount:
+
+- `hasRoomForRails()` (`lg`): the *initial* open state of a disclosure, which CSS cannot express.
+- `isBelowTableWidth()` (`md`): a component that draws a **different structure** on a phone, where
+  drawing both and hiding one would double a long list — `PipelineList` and My tasks' rows (cards or the
+  table), Book a call's week (one day or seven), and whether a `DataGrid` gets `renderCard` at all. Read
+  it into state once (`useState(isBelowTableWidth)`); a rotation or a resize keeps the layout the screen
+  opened with until it remounts, which is accepted because a phone does not become a desktop.
+
+A `DataGrid` given `renderCard` still keeps its own CSS swap (`hidden md:flex` grid, `md:hidden` cards),
+so on a phone it carries the hidden grid as well as the cards. Anything that is only *restyled* between
+widths stays a Tailwind variant.
 
 Wide data grids scroll horizontally inside their own `overflow-x` box with a `sticky start-0` first
 column, per `CompanyResultsTable`. Lists people *scan* (mandates, clients) render as cards below `md`
@@ -127,9 +138,13 @@ the document sideways.
   every caller's width override must gain the same prefix.
 - **A blank page has no horizontal overflow.** Any layout check must prove the screen rendered before
   it believes the measurement, or a crashed route reads as a pass.
-- **Both card and table markup are in the DOM**, with CSS showing one. jsdom applies no CSS, so a test
-  asserting on a row matches twice — use `findAllByText`. jsdom also answers `false` to every media
-  query, so `src/test/setup.ts` reports a desktop width; a test wanting the narrow layout overrides it.
+- **Both card and table markup are in the DOM** where a list uses the CSS swap (`DataGrid`'s
+  `renderCard` on a phone, the projects and clients lists). jsdom applies no CSS, so a test asserting on
+  a row matches twice — use `findAllByText`.
+- **`src/test/setup.ts` reports a desktop width** to `matchMedia`, so every `isBelowTableWidth()` reads
+  false in a test and the phone structure is never drawn. A test of the phone path overrides
+  `window.matchMedia` before rendering and restores it after (`WeekTimeGrid.test.tsx`'s phone block) —
+  and because the read is once at mount, overriding it after the render changes nothing.
 
 ## Visual system
 

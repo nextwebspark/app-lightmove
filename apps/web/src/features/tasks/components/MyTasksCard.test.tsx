@@ -249,6 +249,49 @@ describe("MyTasksCard", () => {
     expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
   });
 
+  it("on its own screen shows every row and reads the rest as the end of the list comes into view", async () => {
+    const upcoming = Array.from({ length: 25 }, (_, index) =>
+      aTask({ id: `u${index}`, title: `Upcoming task ${index + 1}`, dueAt: at(20, 9) }),
+    );
+    vi.mocked(tasksApi.getMyTasks).mockImplementation(async (view, { offset = 0 } = {}) => {
+      const counts = { today: 0, overdue: 0, upcoming: 25, assignedByMe: 0 };
+      if (view !== "upcoming") return { tasks: [], counts, hasMore: false };
+      return offset === 0
+        ? { tasks: upcoming.slice(0, 20), counts, hasMore: true }
+        : { tasks: upcoming.slice(20), counts, hasMore: false };
+    });
+    const watched: IntersectionObserverCallback[] = [];
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(callback: IntersectionObserverCallback) {
+          watched.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <ToastProvider>
+            <MyTasksCard page />
+          </ToastProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    const list = await screen.findByRole("list", { name: "Upcoming tasks" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(20);
+    expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Collapse My tasks" })).toBeNull();
+
+    watched.at(-1)!([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver);
+
+    expect(await within(list).findByText("Upcoming task 25")).toBeInTheDocument();
+    expect(tasksApi.getMyTasks).toHaveBeenLastCalledWith("upcoming", expect.objectContaining({ offset: 20 }));
+    vi.unstubAllGlobals();
+  });
+
   it("counts a tick against the tab it was made on, though the reader has moved on", async () => {
     let answer!: (task: TaskResponse) => void;
     vi.mocked(tasksApi.updateTask).mockImplementation(

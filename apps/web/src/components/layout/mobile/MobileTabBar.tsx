@@ -23,7 +23,6 @@ export function MobileTabBar({
   onMore,
   moreOpen,
   onQuickAction,
-  quickActionLabel = "Quick actions",
 }: {
   tabs: readonly MobileTab[];
   pathname: string;
@@ -31,7 +30,6 @@ export function MobileTabBar({
   moreOpen: boolean;
   /** The centre +; absent where the viewer has nothing to add. */
   onQuickAction?: () => void;
-  quickActionLabel?: string;
 }) {
   const half = Math.ceil(tabs.length / 2);
   const leading = onQuickAction ? tabs.slice(0, half) : tabs;
@@ -43,7 +41,7 @@ export function MobileTabBar({
       data-mobile-nav=""
       className="fixed inset-x-0 bottom-0 z-[85] border-t border-u-border-strong bg-u-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
-      <ul className="mx-auto flex h-14 max-w-xl items-stretch">
+      <ul className="mx-auto flex h-[var(--mobile-nav-height)] max-w-xl items-stretch">
         {leading.map((tab) => (
           <TabItem key={tab.to} tab={tab} pathname={pathname} />
         ))}
@@ -52,7 +50,7 @@ export function MobileTabBar({
             <button
               type="button"
               onClick={onQuickAction}
-              aria-label={quickActionLabel}
+              aria-label="Quick actions"
               className="grid size-12 -translate-y-2 place-items-center rounded-full bg-u-accent text-u-bg shadow-u-e3 transition active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent"
             >
               <Icon d={ICONS.plus} size={22} />

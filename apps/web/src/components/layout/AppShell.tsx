@@ -10,9 +10,8 @@ import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 /**
- * The chrome every signed-in screen shares. Below `lg` the rail becomes an overlay drawer this
- * component opens and closes — the state lives here because closing it on navigation is the shell's
- * job, not the rail's.
+ * The chrome every signed-in screen shares: the rail from `lg`, and below it the bottom bar whose More opens the
+ * same screens in a panel — the state lives here because closing it on navigation is the shell's job.
  */
 export function AppShell({
   navGroups,
@@ -41,69 +40,34 @@ export function AppShell({
   /** Which mandate the assistant is asking about here. A workspace screen has none. */
   assistantContext?: string;
   assistantProjectId?: string | null;
-  /** The phone's bottom bar below `lg`; without it the topbar's menu button opens the rail, as before. */
-  mobileTabs?: readonly MobileTab[];
-  /** The phone's More panel's heading: the position, or the workspace. */
-  mobileTitle?: string;
+  /** The phone's bottom bar below `lg`. */
+  mobileTabs: readonly MobileTab[];
+  /** The phone's More panel's heading: the position, the workspace, or Settings. */
+  mobileTitle: string;
   /** The bottom bar's centre +. */
   onQuickAction?: () => void;
   children: ReactNode;
 }) {
   const { pathname } = useLocation();
-  const [navOpen, setNavOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const { isOpenFor } = useAssistant();
 
-  useEffect(() => {
-    setNavOpen(false);
-    setMoreOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (!navOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setNavOpen(false);
-    };
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
-  }, [navOpen]);
+  useEffect(() => setMoreOpen(false), [pathname]);
 
   return (
     <HelpProvider>
-      <div className="flex h-dvh flex-col overflow-hidden">
-        <Topbar
-          breadcrumb={breadcrumb}
-          actions={topbarActions}
-          navOpen={navOpen}
-          onMenuClick={() => setNavOpen(true)}
-          menuInBottomBar={!!mobileTabs}
-        />
+      {/* Clear of the notch and the status bar: the home-screen app is drawn edge to edge (viewport-fit=cover). */}
+      <div className="flex h-dvh flex-col overflow-hidden pt-[env(safe-area-inset-top)] ps-[env(safe-area-inset-left)] pe-[env(safe-area-inset-right)]">
+        <Topbar breadcrumb={breadcrumb} actions={topbarActions} />
 
         {notice && <div className="px-3.5 pb-2.5">{notice}</div>}
 
-        <div
-          className={cn(
-            "flex min-h-0 flex-1 px-3.5 pb-3.5",
-            // The bottom bar's own height, so main ends above it rather than under it.
-            mobileTabs && "max-lg:pb-[calc(4rem+env(safe-area-inset-bottom))]",
-          )}
-        >
-          {navOpen && (
-            <div
-              className="fixed inset-0 z-[90] bg-u-scrim lg:hidden"
-              onClick={() => setNavOpen(false)}
-            />
-          )}
-
+        {/* Below `lg` main ends above the bottom bar rather than under it. */}
+        <div className="flex min-h-0 flex-1 px-3.5 pb-3.5 max-lg:pb-[calc(var(--mobile-nav-clearance)+0.875rem)]">
           <Sidebar
             groups={navGroups}
             backLink={navBackLink}
-            open={navOpen}
-            onClose={() => setNavOpen(false)}
-            desktopOnly={!!mobileTabs}
-            assistantOpen={
-              !!assistantProjectId && isOpenFor(assistantProjectId)
-            }
+            assistantOpen={!!assistantProjectId && isOpenFor(assistantProjectId)}
           />
 
           <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">
@@ -123,24 +87,20 @@ export function AppShell({
           )}
         </div>
 
-        {mobileTabs && (
-          <MobileTabBar
-            tabs={mobileTabs}
-            pathname={pathname}
-            moreOpen={moreOpen}
-            onMore={() => setMoreOpen((open) => !open)}
-            onQuickAction={onQuickAction}
-          />
-        )}
-        {mobileTabs && (
-          <MobileMoreSheet
-            open={moreOpen}
-            onClose={() => setMoreOpen(false)}
-            title={mobileTitle ?? "Menu"}
-            groups={navGroups}
-            backLink={navBackLink}
-          />
-        )}
+        <MobileTabBar
+          tabs={mobileTabs}
+          pathname={pathname}
+          moreOpen={moreOpen}
+          onMore={() => setMoreOpen((open) => !open)}
+          onQuickAction={onQuickAction}
+        />
+        <MobileMoreSheet
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          title={mobileTitle}
+          groups={navGroups}
+          backLink={navBackLink}
+        />
       </div>
     </HelpProvider>
   );

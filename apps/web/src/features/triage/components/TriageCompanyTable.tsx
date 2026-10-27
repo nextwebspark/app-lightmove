@@ -5,7 +5,7 @@ import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
-import { readsAsCards } from "../../../lib/viewport";
+import { isBelowTableWidth } from "../../../lib/viewport";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Candidate, CandidateStatus } from "../../candidates/api/types";
@@ -152,7 +152,7 @@ export function TriageCompanyTable({
   const allOnPageSelected =
     pageCompanyIds.length > 0 && pageCompanyIds.every((id) => selection?.selectedIds.has(id));
   const someOnPageSelected = pageCompanyIds.some((id) => selection?.selectedIds.has(id));
-  const [asCards] = useState(readsAsCards);
+  const [asCards] = useState(isBelowTableWidth);
 
   return (
     <DataGrid

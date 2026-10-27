@@ -5,13 +5,13 @@ import {
   useQueryClient,
   type InfiniteData,
 } from "@tanstack/react-query";
-import { useId, useState, type UIEvent } from "react";
+import { useEffect, useId, useRef, useState, type UIEvent } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton, useToast } from "../../../components/ui";
 import { Avatar } from "../../../components/ui/Avatar";
 import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
-import { readsAsCards } from "../../../lib/viewport";
+import { isBelowTableWidth } from "../../../lib/viewport";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as tasksApi from "../api/tasksApi";
@@ -89,7 +89,7 @@ export function MyTasksCard({ page = false }: {
   const view = chosen ?? "today";
   const [expanded, setExpanded] = useState(page);
   const [collapsed, setCollapsed] = useState(() => !page && readCollapsed());
-  const [asCards] = useState(readsAsCards);
+  const [asCards] = useState(isBelowTableWidth);
   const [nextFor, setNextFor] = useState<NextActionTarget | null>(null);
   const tab = TABS.find((candidate) => candidate.view === view) ?? TABS[0];
 
@@ -161,6 +161,23 @@ export function MyTasksCard({ page = false }: {
     if (nearEnd && mine.hasNextPage && !mine.isFetching) void mine.fetchNextPage();
   };
 
+  // On its own screen the page scrolls, not the card, so the end of the list is watched instead of the box's scroll.
+  // Load more below stays the way on where IntersectionObserver is missing.
+  const listEnd = useRef<HTMLDivElement>(null);
+  const { hasNextPage, isFetching, fetchNextPage } = mine;
+  useEffect(() => {
+    const end = listEnd.current;
+    if (!page || !end || !hasNextPage || isFetching || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void fetchNextPage();
+      },
+      { rootMargin: `${LOAD_AHEAD_PX}px` },
+    );
+    observer.observe(end);
+    return () => observer.disconnect();
+  }, [page, hasNextPage, isFetching, fetchNextPage]);
+
   return (
     <section aria-label="My tasks" className="mb-5 overflow-hidden rounded-u-card border border-u-border-strong bg-u-surface">
       <div
@@ -201,20 +218,20 @@ export function MyTasksCard({ page = false }: {
           })}
         </div>
         {!page && (
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          aria-controls={bodyId}
-          aria-label={collapsed ? "Expand My tasks" : "Collapse My tasks"}
-          onClick={() => fold(!collapsed)}
-          className="ms-auto grid size-7 place-items-center rounded-u-control text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-        >
-          <Icon
-            d={ICONS.chevronDown}
-            size={15}
-            className={cn("transition-transform duration-200 motion-reduce:transition-none", collapsed && "-rotate-90")}
-          />
-        </button>
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-controls={bodyId}
+            aria-label={collapsed ? "Expand My tasks" : "Collapse My tasks"}
+            onClick={() => fold(!collapsed)}
+            className="ms-auto grid size-7 place-items-center rounded-u-control text-u-text3 transition hover:bg-u-raised hover:text-u-text"
+          >
+            <Icon
+              d={ICONS.chevronDown}
+              size={15}
+              className={cn("transition-transform duration-200 motion-reduce:transition-none", collapsed && "-rotate-90")}
+            />
+          </button>
         )}
       </div>
 
@@ -259,6 +276,7 @@ export function MyTasksCard({ page = false }: {
                 />
               ))}
             </div>
+            {page && <div ref={listEnd} aria-hidden="true" />}
             {loadingMore && (
               <div className="flex items-center justify-center gap-2 px-4 py-2.5 text-note text-u-text3">
                 {mine.isFetchingNextPage ? (

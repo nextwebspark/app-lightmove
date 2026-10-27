@@ -12,7 +12,7 @@ is for that loop, not for building a Strategy filter or editing a brief — thos
 
 | Job | Before | Now |
 |---|---|---|
-| Move between screens | Hamburger → rail | **Bottom bar**: in a position Companies · Pipeline · **+** · Outreach · More (a client seat: Brief · Companies · Reports · More); in the workspace Positions · Tasks · Candidates · More |
+| Move between screens | Hamburger → rail | **Bottom bar**: in a position Companies · Pipeline · **+** · Outreach · More (a client seat: Brief · Companies · Reports · More); in the workspace and Settings Positions · Tasks · Candidates · More |
 | Every other screen | The desktop rail squeezed into a left-hand card | **More** opens a panel from the right: the rail's screens as full-width rows under their groups, then the account (profile, dark mode, help, sign out) |
 | My tasks | A card under the positions list | The **Tasks** tab: `/tasks`, every task as a two-line card with its tick |
 | Notifications | — | The bell stays in the topbar on every screen; its panel spans the phone |
@@ -21,16 +21,23 @@ is for that loop, not for building a Strategy filter or editing a brief — thos
 | Read the Companies stage | 20-column grid scrolled sideways | One **card** per line: the company, the person at it with their status picker, or Add executive |
 | Read the pipeline | Board of columns | Opens on the **list**, drawn as cards below `md` |
 | Read the Candidates page | Wide grid | Cards: person, role, place, latest position |
-| Work an executive | Drawer inset under the topbar | **Full-screen** drawer clear of the notch; footer Note · Call · Next action in thumb reach |
+| Work an executive | Drawer inset under the topbar | Every drawer is **full-screen** on a phone, clear of the notch and the home bar; the executive's footer reads Note · Call · Next action |
 | Book a call | Seven 104px columns | A day strip and **one day**; a swipe scrolls the day, a tap picks |
 | Toasts, selection bar | Under the bottom bar | Lifted above it (`--mobile-nav-clearance`) |
 | Typing | iOS zoomed into every field under 16px | Fields are 16px below `sm` |
-| Home screen | A browser tab | `manifest.webmanifest`, standalone, `viewport-fit=cover` |
+| Home screen | A browser tab | `manifest.webmanifest` (192, 512 and maskable icons), standalone, `viewport-fit=cover`; the shell pads every edge by its safe-area inset |
 
-Pieces: `components/layout/mobile/` (`MobileTabBar.tsx`, `MobileMoreSheet.tsx`, `PositionQuickActions.tsx`), `components/ui/BottomSheet.tsx`; the
-layouts pass `mobileTabs` to `AppShell`, which hides the topbar's menu button when a bar is drawn. A list draws cards
-or a table, never both: `lib/viewport.ts`'s `readsAsCards()` is read once when it mounts, so a desktop never pays for
-a hidden phone copy of a long grid.
+Pieces: `components/layout/mobile/` (`MobileTabBar.tsx`, `MobileMoreSheet.tsx`, `PositionQuickActions.tsx`,
+`mobileTabs.ts`), `components/ui/BottomSheet.tsx`, `components/layout/useAccountActions.ts` (the account actions the
+avatar menu and More both draw). Every shell passes `mobileTabs` to `AppShell`, Settings included; below `lg` there
+is no rail and no hamburger. The bar's height is `--mobile-nav-height`, and what clears it reads
+`--mobile-nav-clearance` (`global.css`).
+
+A screen that draws a different structure on a phone reads `lib/viewport.ts`'s `isBelowTableWidth()` once when it
+mounts (the `react` skill's Responsive section has the rule): the Pipeline list and My tasks draw cards *or* the
+table, and Book a call one day or seven. The `DataGrid` lists (Companies, Candidates) get their cards only on a phone,
+but `DataGrid` keeps its CSS swap, so a phone still carries the hidden grid beside them. A rotation or a resize keeps
+the layout a screen opened with until it is opened again.
 
 ## v2 (next)
 
