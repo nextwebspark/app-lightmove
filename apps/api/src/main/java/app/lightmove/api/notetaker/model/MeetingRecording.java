@@ -107,6 +107,9 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "media_deleted", nullable = false)
     private boolean mediaDeleted;
 
+    @Column(name = "media_expires_at")
+    private Instant mediaExpiresAt;
+
     /** Null until someone presses Suggest changes; empty when the call stated nothing new for the record. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "suggestions", columnDefinition = "jsonb")
@@ -328,8 +331,16 @@ public class MeetingRecording extends BaseEntity {
         this.status = NotetakerStatus.DONE;
     }
 
-    public void mediaDeleted() {
-        this.mediaDeleted = true;
+    public void mediaHeldUntil(Instant expiresAt) {
+        if (mediaExpiresAt == null) {
+            this.mediaExpiresAt = expiresAt;
+        }
+    }
+
+    /** Whether Recall still holds a finished call's recording, by the retention it was sent with. */
+    public boolean isRecordingKept(Instant now) {
+        return (status == NotetakerStatus.DONE || status == NotetakerStatus.FAILED) && !mediaDeleted
+                && recallBotId != null && mediaExpiresAt != null && now.isBefore(mediaExpiresAt);
     }
 
     public void failed(String reason) {

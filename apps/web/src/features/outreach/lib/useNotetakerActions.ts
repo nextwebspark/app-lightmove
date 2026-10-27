@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
+import { saveBlob } from "../../../lib/saveBlob";
 import * as notetakerApi from "../api/notetakerApi";
 import type { NotetakerJoin, NotetakerRecording } from "../api/notetakerApi";
 
@@ -64,7 +65,23 @@ export function useNotetakerActions(projectId: string, candidateId: string, firs
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  return { send, joinNow, end, remove, switchLive, retry };
+  const downloadRecording = useMutation({
+    mutationFn: async (recording: NotetakerRecording) => {
+      saveBlob(
+        await notetakerApi.downloadRecording(projectId, candidateId, recording.id),
+        recordingFileNameOf(recording),
+      );
+    },
+    onError,
+  });
+
+  return { send, joinNow, end, remove, switchLive, retry, downloadRecording };
+}
+
+/** "First conversation 2026-10-29.mp4": the call's title and day, with nothing a file system refuses. */
+export function recordingFileNameOf(recording: NotetakerRecording): string {
+  const title = (recording.title ?? "").replace(/[^\p{L}\p{N}._ -]/gu, "_").trim() || "Call";
+  return `${title} ${recording.startsAt.slice(0, 10)}.mp4`;
 }
 
 function sentLineOf(sent: NotetakerRecording, firstName: string): string {

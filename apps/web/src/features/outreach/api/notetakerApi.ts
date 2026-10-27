@@ -1,4 +1,4 @@
-import { request } from "../../../lib/apiClient";
+import { request, requestBlob } from "../../../lib/apiClient";
 
 /**
  * The Notetaker: a Recall.ai bot sent into a call with an executive, whose transcript becomes a Meeting note. The
@@ -49,6 +49,10 @@ export interface NotetakerRecording {
   recordingStartedAt: string | null;
   /** End & file notes was pressed: the bot is leaving and its notes follow. */
   endRequested: boolean;
+  /** When Recall drops the call's recording; null once it is gone, or before the call has ended. */
+  recordingAvailableUntil: string | null;
+  /** The caller sent this bot and Recall still holds the recording: the only person who may download it. */
+  mayDownloadRecording: boolean;
 }
 
 /** Start now sends the bot at once; a send naming neither joins at the call's start. */
@@ -192,6 +196,11 @@ export function retryNotetaker(
   return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/retry`, {
     method: "POST",
   });
+}
+
+/** The call's video, fetched through the server (Recall's link never reaches the browser); the bytes are held in memory. */
+export function downloadRecording(projectId: string, candidateId: string, recordingId: string): Promise<Blob> {
+  return requestBlob(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/recording`);
 }
 
 export function getTranscript(

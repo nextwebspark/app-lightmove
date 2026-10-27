@@ -28,16 +28,20 @@ import app.lightmove.api.notetaker.model.MeetingRecording;
 import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
+import app.lightmove.api.notetaker.model.RecordingDownload;
 import app.lightmove.api.notetaker.repository.MeetingLiveLineRepository;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.outreach.model.KeptMeeting;
 import app.lightmove.api.outreach.service.KeptMeetings;
 import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -374,6 +378,50 @@ public class NotetakerService {
         return responseOf(recording, userId, clock.instant());
     }
 
+    /**
+     * Checks that the caller sent this bot and that Recall still holds its video, and audits the download. Streaming
+     * follows: the link is read here, before a byte is sent, so a gone recording answers 410 rather than a broken file.
+     */
+    public RecordingDownload openRecording(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                           UUID recordingId, HttpServletRequest httpRequest) {
+        OutreachRecipient recipient = requireRecipient(workspaceId, projectId, candidateId);
+        MeetingRecording recording = recordings
+                .findByIdAndWorkspaceIdAndProjectIdAndPersonId(recordingId, workspaceId, projectId,
+                        recipient.personId())
+                .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+        if (!recording.getRequestedBy().equals(userId)) {
+            throw ApiException.of(ErrorCode.NOTETAKER_RECORDING_NOT_YOURS);
+        }
+        if (!recording.isRecordingKept(clock.instant())) {
+            throw ApiException.of(ErrorCode.NOTETAKER_RECORDING_GONE);
+        }
+        URI video;
+        try {
+            video = recall.recordingVideo(recording.getRecallBotId())
+                    .orElseThrow(() -> ApiException.of(ErrorCode.NOTETAKER_RECORDING_GONE));
+        } catch (VendorException failed) {
+            log.warn("Notetaker recording {}: Recall could not give the video: {}", recordingId, failed.getMessage());
+            throw ApiException.of(ErrorCode.NOTETAKER_RECORDING_UNAVAILABLE);
+        }
+        audit.projectEvent(ProjectEventType.NOTETAKER_RECORDING_DOWNLOADED, userId, workspaceId, projectId,
+                        httpRequest)
+                .detail("candidateId", candidateId.toString())
+                .detail("recordingId", recordingId.toString())
+                .record();
+        return new RecordingDownload(video, recordingFileName(recording));
+    }
+
+    public void copyRecording(RecordingDownload download, OutputStream out) throws IOException {
+        recall.copyVideo(download.video(), out);
+    }
+
+    static String recordingFileName(MeetingRecording recording) {
+        String title = recording.getTitle() == null || recording.getTitle().isBlank() ? "Call"
+                : recording.getTitle().strip().replaceAll("[^\\p{L}\\p{N}._ -]", "_");
+        String date = recording.getStartsAt().atZone(ZoneOffset.UTC).toLocalDate().toString();
+        return title + " " + date + ".mp4";
+    }
+
     @Transactional(readOnly = true)
     public NotetakerTranscriptResponse transcript(UUID workspaceId, UUID projectId, UUID candidateId,
                                                   UUID recordingId) {
@@ -530,6 +578,7 @@ public class NotetakerService {
 
     /** {@code mayChangeCopilot}: only the bot's sender switches its copilot, since it reconfigures their bot. */
     static NotetakerRecordingResponse responseOf(MeetingRecording recording, UUID userId, Instant now) {
+        boolean heldRecording = recording.isRecordingKept(now);
         return new NotetakerRecordingResponse(recording.getId(), recording.getMeetingId(), recording.getStartsAt(),
                 recording.getTitle(), recording.getStatus(), recording.getFailureReason(),
                 recording.getTranscript() != null, recording.isRetryable(), recording.getNoteId(),
@@ -538,7 +587,9 @@ public class NotetakerService {
                 recording.getSuggestions() == null ? 0 : recording.getSuggestions().size(),
                 recording.isSuggesting(now.minus(CallSuggestionService.CLAIM_LIFETIME)), recording.isLiveCopilot(),
                 recording.getLiveStatus(), recording.getRequestedBy().equals(userId),
-                recording.getJoinAt(), recording.getRecordingStartedAt(), recording.isEnding());
+                recording.getJoinAt(), recording.getRecordingStartedAt(), recording.isEnding(),
+                heldRecording ? recording.getMediaExpiresAt() : null,
+                heldRecording && recording.getRequestedBy().equals(userId));
     }
 
     /** The bot Join now replaces, as the claim found it: put back if Recall will not send the one replacing it. */

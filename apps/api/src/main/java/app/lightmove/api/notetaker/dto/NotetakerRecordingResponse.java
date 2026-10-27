@@ -14,7 +14,9 @@ import java.util.UUID;
  * {@code liveCopilot} and {@code liveStatus} its live copilot's toggle and Open copilot link, and
  * {@code mayChangeCopilot} whether the caller, being the bot's sender, may switch it. {@code joinAt} is null for a bot
  * sent at once, {@code recordingStartedAt} where the call clock starts, and {@code endRequested} that End & file notes
- * was pressed and the bot is leaving.
+ * was pressed and the bot is leaving. {@code recordingAvailableUntil} is when Recall drops the call's recording,
+ * null once it is gone or before the call ended, and {@code mayDownloadRecording} that the caller, being the bot's
+ * sender, may still fetch it.
  */
 public record NotetakerRecordingResponse(UUID id, UUID meetingId, Instant startsAt, String title,
                                          NotetakerStatus status, String failureReason, boolean hasTranscript,
@@ -22,4 +24,5 @@ public record NotetakerRecordingResponse(UUID id, UUID meetingId, Instant starts
                                          int pendingSuggestions, int appliedSuggestions, int foundSuggestions,
                                          boolean suggesting, boolean liveCopilot,
                                          LiveCopilotStatus liveStatus, boolean mayChangeCopilot, Instant joinAt,
-                                         Instant recordingStartedAt, boolean endRequested) {}
+                                         Instant recordingStartedAt, boolean endRequested,
+                                         Instant recordingAvailableUntil, boolean mayDownloadRecording) {}

@@ -80,11 +80,22 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       is role, criteria and competencies, never compensation. Every email address and phone number is redacted first.
    4. Files a Markdown `MEETING` note in the scheduler's name, through `PersonNoteService.fileMeetingNote`.
    5. Records one `AI_ENRICH` use against fair use.
-   6. Asks Recall to **delete its copy of the call** (`delete_media`).
+
+   Recall's copy of the call is **not deleted here** (V158): every bot is made with timed retention
+   (`RecallBotApi.MEDIA_RETENTION`, 7 days, Recall's free storage span), so Recall drops the recording itself, and the
+   call's sender may **download the video** meanwhile (below). A call that is discarded (Remove) still has its media
+   deleted at once.
 
    No model or vendor call holds a transaction. A failed summary leaves `FAILED` (`SUMMARY_FAILED`) with Recall's
    copy kept, so **Try again** can read the transcript once more. Try again is a press, so it takes the
    `CANDIDATE_AI_ENRICH` meter and the fair-use check.
+   - **The recording** (V158 `media_expires_at`, stamped when the call ends). Once a call is filed or failed, its ⋯
+     offers **Recording — Available until …** to the consultant who sent the bot alone
+     (`mayDownloadRecording`; `NOTETAKER_RECORDING_NOT_YOURS` for anyone else, `NOTETAKER_RECORDING_GONE` past the
+     retention). `GET …/notetaker/{id}/recording` (`WORK_EXECUTE`) reads a fresh pre-signed link from the bot's latest
+     recording (`video_mixed`), streams the MP4 through the API (the link never reaches a browser; Recall's or AWS's
+     hosts only) and audits each download (`NOTETAKER_RECORDING_DOWNLOADED`, ids alone). The SPA fetches it with the
+     bearer token and saves the blob, so the file is held in the browser's memory while it downloads.
 6. **Safety net.** `NotetakerReconcile` runs every `lightmove.recall.bot-reconcile-interval` (10 min). It claims any
    recording still live 30 minutes after its call ended, or 5 minutes after End & file notes was pressed
    (`reconciled_at`, `FOR UPDATE SKIP LOCKED`, so one instance reads each bot), reads it back from Recall and folds it
@@ -227,8 +238,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 ## What leaves Uncava
 
-- **To Recall:** the call's join link, and the call's audio and video while the bot is in it. Recall's copy is
-  deleted once the note is filed.
+- **To Recall:** the call's join link, and the call's audio and video while the bot is in it. Recall keeps its copy
+  for seven days after the call and then deletes it.
 - **To Recall, with the live copilot:** the bot streams the transcript back to our own endpoint as it is spoken, and the
   recording is transcribed a second time after the call in the accurate mode, for the note.
 - **To Gemini, for the interview copilot:** for Prepare questions, the brief's assessment seam, the profile, the notes and

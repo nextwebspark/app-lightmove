@@ -709,8 +709,9 @@ and that anyone may ask it out. **End & file notes** takes a recording bot out o
 notes follow as after any call; Remove discards. A call the bot has left is listed under Past. Recall's Svix-signed webhook (`/api/v1/notetaker/webhooks/recall`,
 `lightmove.recall.bot-webhook-secret`, blank offers nothing) walks its status; on `transcript.done`, `MeetingNotesWorker`
 keeps the transcript (staff-only), summarises it against the brief's `AssessmentBrief` with contacts redacted, files one
-Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and only
-then deletes Recall's copy, so Try again can read it again; the transcript is kept unless
+Markdown `MEETING` note in the scheduler's name (one worker per transcript, by claim; an `AI_ENRICH` use) and leaves
+Recall's copy of the call to its 7-day retention (V158), during which the bot's sender alone may download the video from the
+call's ⋯ — streamed by the API and audited, never a link — so Try again can read it again; the transcript is kept unless
 `lightmove.recall.transcript-retention` is set, which clears one whose note is purged or never filed once that long untouched.
 `NotetakerReconcile` reads back a recording still live past its call. **Suggest changes** (V152, `CallSuggestionService`)
 reads the transcript against the record once the note is filed, with no press — claimed in the filing's own transaction,

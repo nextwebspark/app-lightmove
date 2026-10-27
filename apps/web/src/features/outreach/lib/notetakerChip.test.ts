@@ -32,6 +32,8 @@ const recording = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecord
   joinAt: "2026-10-07T05:59:00Z",
   recordingStartedAt: null,
   endRequested: false,
+  recordingAvailableUntil: null,
+  mayDownloadRecording: false,
   ...overrides,
 });
 

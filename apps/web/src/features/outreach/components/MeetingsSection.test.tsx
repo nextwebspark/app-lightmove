@@ -33,6 +33,7 @@ vi.mock("../api/notetakerApi", async (importOriginal) => ({
   cancelNotetaker: vi.fn(),
   retryNotetaker: vi.fn(),
   getTranscript: vi.fn(),
+  downloadRecording: vi.fn(),
   getCallSuggestions: vi.fn(),
   suggestChanges: vi.fn(),
   switchLiveCopilot: vi.fn(),
@@ -746,6 +747,44 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.getCallSuggestions).toHaveBeenCalledWith("p1", "c1", "r1", expect.anything());
   });
 
+  it("offers the call's recording to its sender while Recall keeps it, and saves what the server streams", async () => {
+    vi.mocked(notetakerApi.downloadRecording).mockResolvedValue(new Blob(["video"], { type: "video/mp4" }));
+    const saved = vi.spyOn(window.HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    URL.createObjectURL = vi.fn(() => "blob:recording");
+    URL.revokeObjectURL = vi.fn();
+    renderSection({
+      notetakerOffered: true,
+      recordings: [
+        aRecording({
+          status: "DONE",
+          hasTranscript: true,
+          mayDownloadRecording: true,
+          recordingAvailableUntil: "2026-10-14T06:30:00Z",
+        }),
+      ],
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Call options/ }));
+    const item = await screen.findByRole("menuitem", { name: /Recording/ });
+    expect(item).toHaveTextContent("Available until");
+    await userEvent.click(item);
+
+    await waitFor(() => expect(notetakerApi.downloadRecording).toHaveBeenCalledWith("p1", "c1", "r1"));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    saved.mockRestore();
+  });
+
+  it("offers no recording to anyone but the Notetaker's sender, or once Recall has dropped it", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "DONE", hasTranscript: true, mayDownloadRecording: false })],
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Call options/ }));
+    await screen.findByRole("menuitem", { name: "Transcript" });
+    expect(screen.queryByRole("menuitem", { name: /Recording/ })).toBeNull();
+  });
+
   it("keeps what a review changed in a past call's ⋯", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue({
       recordingId: "r2",
@@ -1037,6 +1076,8 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     joinAt: "2026-10-07T05:59:00Z",
     recordingStartedAt: null,
     endRequested: false,
+    recordingAvailableUntil: null,
+    mayDownloadRecording: false,
     ...overrides,
   };
 }

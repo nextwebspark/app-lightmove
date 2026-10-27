@@ -107,7 +107,6 @@ class MeetingNotesWorker {
         }
         if (lines.isEmpty()) {
             fail(recordingId, "NOTHING_HEARD");
-            deleteMedia(recordingId, recording.getRecallBotId());
             return;
         }
         MeetingSummary summary;
@@ -141,7 +140,6 @@ class MeetingNotesWorker {
         }
         usage.record(new MeteredUse(recording.getWorkspaceId(), recording.getRequestedBy(), recording.getProjectId(),
                 UsageKind.AI_ENRICH, 1, "notetaker:" + recordingId));
-        deleteMedia(recordingId, recording.getRecallBotId());
         if (claimedForChanges > 0) {
             suggestions.suggestOnceFiled(recordingId);
         }
@@ -164,15 +162,5 @@ class MeetingNotesWorker {
     private void fail(UUID recordingId, String reason) {
         transactions.executeWithoutResult(status ->
                 recordings.findById(recordingId).ifPresent(found -> found.failed(reason)));
-    }
-
-    private void deleteMedia(UUID recordingId, String botId) {
-        try {
-            recall.deleteMedia(botId);
-            transactions.executeWithoutResult(status ->
-                    recordings.findById(recordingId).ifPresent(MeetingRecording::mediaDeleted));
-        } catch (VendorException failed) {
-            log.warn("Notetaker recording {}: Recall kept the call's media: {}", recordingId, failed.getMessage());
-        }
     }
 }

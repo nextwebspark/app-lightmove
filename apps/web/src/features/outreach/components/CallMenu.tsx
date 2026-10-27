@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
+import { formatInstantDateTime } from "../../../lib/format";
 import type { NotetakerRecording } from "../api/notetakerApi";
 import { elapsedSince } from "../lib/copilotWords";
 import { failureWordsOf } from "../lib/notetakerChip";
@@ -48,9 +49,12 @@ export function CallMenu({
   const changes = bot?.status === "DONE" ? changesStepOf(bot) : null;
   const offersTranscript = bot?.status === "DONE" && bot.hasTranscript;
   const offersRetry = bot?.status === "FAILED" && bot.retryable;
+  const offersRecording = bot?.mayDownloadRecording === true && bot.recordingAvailableUntil !== null;
   const offersCopilot =
     bot?.liveCopilot === true && (bot.status === "PROCESSING" || (bot.status === "RECORDING" && bot.endRequested));
-  const hasCallItems = Boolean(options || changes?.action || offersTranscript || offersRetry || offersCopilot);
+  const hasCallItems = Boolean(
+    options || changes?.action || offersTranscript || offersRecording || offersRetry || offersCopilot,
+  );
   const hasChangeItems = Boolean(onReschedule || onCancel);
   if (!bot && !hasCallItems && !hasChangeItems) return null;
   const mark = markOf(bot);
@@ -106,6 +110,15 @@ export function CallMenu({
                 {bot && offersTranscript && (
                   <MenuItem icon={ICONS.fileText} onSelect={choose(() => onShowTranscript(bot.id))}>
                     Transcript
+                  </MenuItem>
+                )}
+                {bot && offersRecording && (
+                  <MenuItem
+                    icon={ICONS.video}
+                    note={`Available until ${formatInstantDateTime(bot.recordingAvailableUntil)}`}
+                    onSelect={choose(() => actions.downloadRecording.mutate(bot))}
+                  >
+                    Recording
                   </MenuItem>
                 )}
                 {bot && offersRetry && (
@@ -265,11 +278,13 @@ function ElapsedClock({ since }: { since: string }) {
 function MenuItem({
   icon,
   tone,
+  note,
   onSelect,
   children,
 }: {
   icon: string;
   tone?: "danger";
+  note?: string;
   onSelect: () => void;
   children: ReactNode;
 }) {
@@ -284,7 +299,14 @@ function MenuItem({
       )}
     >
       <Icon d={icon} size={13} className="flex-none opacity-80" />
-      {children}
+      {note ? (
+        <span className="flex flex-col">
+          {children}
+          <span className="text-meta text-u-text3">{note}</span>
+        </span>
+      ) : (
+        children
+      )}
     </button>
   );
 }
