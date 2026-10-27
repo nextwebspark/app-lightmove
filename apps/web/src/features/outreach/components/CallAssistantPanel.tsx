@@ -99,7 +99,9 @@ export function CallAssistantPanel({
                   Records the call and files the notes on {firstName}&apos;s record. Ask {firstName} first.
                 </p>
                 {recording?.status === "FAILED" && (
-                  <p className="text-note text-u-text2">Last time: {failureWordsOf(recording.failureReason)}.</p>
+                  <p className="text-note text-u-text2">
+                    The last attempt didn&apos;t work: {failureWordsOf(recording.failureReason)}. You can send it again.
+                  </p>
                 )}
                 <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                   <CopilotSwitch checked={wantsCopilot} disabled={isBusy} onChange={setWantsCopilot} />
