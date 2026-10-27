@@ -1,5 +1,6 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, LinesSkeleton, SegmentedControl } from "../../../components/ui";
+import { LinesSkeleton, SegmentedControl } from "../../../components/ui";
+import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import type { ConversationList, ConversationRow, ConversationScope, ConversationView } from "../api/conversationApi";
@@ -164,7 +165,7 @@ function QueueRow({
         isSelected && "bg-u-raised",
       )}
     >
-      <Avatar id={row.personId} name={row.fullName} size="md" className="mt-0.5 flex-none" />
+      <PersonAvatar person={row} size="md" className="mt-0.5 flex-none" />
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline gap-2">
           <span className="min-w-0 flex-1 truncate text-note font-semibold text-u-text">{row.fullName}</span>

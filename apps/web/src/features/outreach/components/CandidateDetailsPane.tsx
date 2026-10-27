@@ -2,8 +2,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, Toggle } from "../../../components/ui";
+import { Toggle } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
 import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import { useClientVisibility } from "../../pipeline/lib/usePipelineWrites";
 import { CONVERSATION_KEY, type Conversation } from "../api/conversationApi";
@@ -37,7 +38,7 @@ export function CandidateDetailsPane({
     <aside aria-label="Candidate details" className="flex flex-col gap-5 px-5 py-4">
       <div className="type-label text-u-text3">Candidate details</div>
       <div className="flex items-center gap-3">
-        <Avatar id={executive.personId} name={executive.fullName} size="lg" />
+        <PersonAvatar person={{ ...executive, enrichedAt: executive.enrichedAt ?? null }} size="lg" />
         <div className="min-w-0">
           <div className="truncate text-body font-semibold text-u-text">{executive.fullName}</div>
           <div className="truncate text-note text-u-text3">{roleOf(executive.title, executive.companyName)}</div>
