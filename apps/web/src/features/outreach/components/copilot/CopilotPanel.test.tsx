@@ -131,18 +131,18 @@ describe("CopilotPanel", () => {
     expect(await screen.findByText(/Copilot stopped by Omar Siddiqui/)).toBeInTheDocument();
   });
 
-  it("says why suggestions are not current, and what stayed open when the call ended", async () => {
+  it("says why coverage is not current, and what stayed open when the call ended", async () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot({ coach: "PAUSED" }));
     const { unmount } = render(
       <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" />,
     );
-    expect(await screen.findByText("Suggestions paused. Retrying when more is said.")).toBeInTheDocument();
+    expect(await screen.findByText("Coverage paused. Retrying when more is said.")).toBeInTheDocument();
     unmount();
 
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot({ status: "PROCESSING" }));
     renderPanel();
     expect(await screen.findByText(/Not covered: M&A · Board · Package/)).toBeInTheDocument();
-    expect(screen.getByText("No more suggestions for this call.")).toBeInTheDocument();
+    expect(screen.getByText("Call ended · notes on the way")).toBeInTheDocument();
   });
 
   it("says only that the call ended once it has, its feed stopped or the copilot stopped along the way", async () => {

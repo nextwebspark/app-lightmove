@@ -165,7 +165,7 @@ export function CopilotPanel({
               <MenuItem
                 icon={ICONS.ban}
                 tone="danger"
-                hint="Stops suggestions for everyone. The recording continues."
+                hint="Stops the live reading for everyone. The recording continues."
                 onSelect={() => {
                   menuState.close();
                   setConfirmingStop(true);
@@ -302,7 +302,7 @@ export function CopilotPanel({
               Stop the copilot for this call?
             </h2>
             <p className="text-note text-u-text2">
-              Live suggestions stop for everyone watching. Coverage stays as it is now. The Notetaker keeps recording
+              The live reading stops for everyone watching. Coverage stays as it is now. The Notetaker keeps recording
               and the notes are still filed after the call.
             </p>
             <div className="flex justify-end gap-2">

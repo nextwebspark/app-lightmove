@@ -112,25 +112,43 @@ class InterviewCopilotRulesTest {
     }
 
     @Test
-    @DisplayName("a reading counts only where an executive's own line backs it, never the team's")
-    void readingIsHeldToWhatTheExecutiveSaid() {
+    @DisplayName("a competency moves only on the executive's own words, joined across the lines of one answer")
+    void coverageIsHeldToWhatTheExecutiveSaid() {
         Instant start = Instant.parse("2026-10-27T10:00:00Z");
         List<InterviewCoach.HeardLine> lines = List.of(
                 new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "Tell me about the refinancing.", true),
+                new InterviewCoach.HeardLine(start.plusSeconds(20), "Priya", "We refinanced 1.2 billion in 2024,", false),
+                new InterviewCoach.HeardLine(start.plusSeconds(24), "Priya", "and I led the bank talks myself.", false),
+                new InterviewCoach.HeardLine(start.plusSeconds(30), "Yara", "Impressive, you clearly built the team.",
+                        true));
+
+        List<CoachAnswer.Coverage> kept = InterviewCoach.verifiedCoverage(List.of(
+                new CoachAnswer.Coverage("c1", "EVIDENCED", "in 2024, and I led the bank talks", "00:20"),
+                new CoachAnswer.Coverage("c2", "EVIDENCED", "you clearly built the team", "00:30"),
+                new CoachAnswer.Coverage("c2", "TOUCHED", "myself. Impressive", "00:24"),
+                new CoachAnswer.Coverage("c2", "TOUCHED", "Never said this", "00:40"),
+                new CoachAnswer.Coverage("c2", "TOUCHED", null, null)), lines);
+
+        assertThat(kept).extracting(CoachAnswer.Coverage::id).containsExactly("c1");
+    }
+
+    @Test
+    @DisplayName("a gap is heard only at a time inside one of the executive's lines, never without a time")
+    void gapsAreHeldToWhenTheExecutiveSpoke() {
+        Instant start = Instant.parse("2026-10-27T10:00:00Z");
+        List<InterviewCoach.HeardLine> lines = List.of(
+                new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "What notice do you have?", true),
                 new InterviewCoach.HeardLine(start.plusSeconds(20), "Priya",
-                        "We refinanced 1.2 billion in 2024, and I led the bank talks.", false),
-                new InterviewCoach.HeardLine(start.plusSeconds(30), "Yara", "What notice do you have?", true));
+                        "A long answer about my team, the board, and three months notice at the end.", false),
+                new InterviewCoach.HeardLine(start.plusSeconds(80), "Yara", "And the package?", true));
 
-        CoachAnswer kept = InterviewCoach.verified(new CoachAnswer(null,
-                List.of(new CoachAnswer.Coverage("c1", "EVIDENCED", "I led the bank talks", "00:20"),
-                        new CoachAnswer.Coverage("c2", "EVIDENCED", "Tell me about the refinancing", "00:10"),
-                        new CoachAnswer.Coverage("c2", "TOUCHED", "Never said this", "00:40"),
-                        new CoachAnswer.Coverage("c2", "TOUCHED", null, null)),
-                List.of(new CoachAnswer.GapHeard("NOTICE", "00:21"), new CoachAnswer.GapHeard("PACKAGE", "00:31")),
-                List.of()), lines, start);
+        List<CoachAnswer.GapHeard> kept = InterviewCoach.verifiedGaps(List.of(
+                new CoachAnswer.GapHeard("NOTICE", "[01:05]"),
+                new CoachAnswer.GapHeard("PACKAGE", "01:30"),
+                new CoachAnswer.GapHeard("LOCATION", "00:12"),
+                new CoachAnswer.GapHeard("MOTIVATION", null)), lines, start);
 
-        assertThat(kept.coverage()).extracting(CoachAnswer.Coverage::id).containsExactly("c1");
-        assertThat(kept.gapsHeard()).extracting(CoachAnswer.GapHeard::gap).containsExactly("NOTICE");
+        assertThat(kept).extracting(CoachAnswer.GapHeard::gap).containsExactly("NOTICE");
     }
 
     @Test

@@ -222,8 +222,10 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       team's voices marked "(your team)" in code), and folds the answer forward only: a competency goes from not yet to
       touched to evidenced and never back, a gap heard stays heard, a question asked stays asked — what the consultant
       ticked while a run was reading wins over that run. **It suggests no next question**: it only reads coverage and
-      gaps, and code keeps a reading only where an executive's own line backs it (`InterviewCoach.verified`: a
-      competency moves only on words quoted from a non-team line, a gap is heard only where an executive was speaking).
+      gaps, and code keeps a reading only where an executive's own line backs it (`InterviewCoach.verifiedCoverage` /
+      `verifiedGaps`: a competency moves only on words quoted from the executive's own turn — their consecutive lines
+      joined, never a team line — and a gap only at a time inside one of their lines, from its start to the next
+      line's; a gap with no time is never heard).
       The `nudges` key of an older row is ignored. A failed run keeps what the window shows and reads the same lines again; three in a row pause
       it until more is said. A stretch the guard stops is skipped. Past the cap the reading freezes. A live call is one
       `AI_ENRICH` use, counted once its first reading is on file: a call no run answered costs nothing. A question ticked

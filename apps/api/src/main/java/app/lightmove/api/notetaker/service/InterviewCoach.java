@@ -23,15 +23,16 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
  * One model call reading a live call so far, and the code that folds its answer into what the copilot already showed:
- * a competency only ever moves forward, a gap heard stays heard and a prepared question asked stays asked. A reading
- * counts only when the words it quotes are on an executive's line — never the team's. The model sees the brief, the plan and which facts are missing
- * — never a held value or a package figure — and the transcript with contacts taken out and the team's voices marked.
+ * a competency only ever moves forward, a gap heard stays heard and a prepared question asked stays asked, and a
+ * reading counts only where the executive's own words back it. The model sees the brief, the plan and which facts are
+ * missing — never a held value or a package figure — and the transcript with contacts out and the team's voices marked.
  */
 @Component
 class InterviewCoach {
@@ -42,8 +43,9 @@ class InterviewCoach {
     static final int LONGEST_TRANSCRIPT = 40_000;
     private static final int LONGEST_QUOTE = 300;
     private static final long GAP_TIME_SLACK_SECONDS = 5;
+    private static final long LAST_LINE_SECONDS = 60;
     private static final String TEAM_MARK = " (your team)";
-    private static final Pattern CALL_TIME = Pattern.compile("\\d{1,2}:\\d{2}(:\\d{2})?");
+    private static final Pattern CALL_TIME = Pattern.compile("\\b\\d{1,2}:\\d{2}(:\\d{2})?\\b");
 
     private final StructuredPrompt prompt;
 
@@ -98,7 +100,9 @@ class InterviewCoach {
         if (BlockedAnswer.matches(answer.guard())) {
             throw new CoachGuarded();
         }
-        return merged(start, verified(answer, lines, callStart), competencyById, questionById, missing);
+        CoachAnswer backed = answer.withCoverage(verifiedCoverage(answer.coverage(), lines))
+                .withGapsHeard(verifiedGaps(answer.gapsHeard(), lines, callStart));
+        return merged(start, backed, competencyById, questionById, missing);
     }
 
     static String transcriptText(List<HeardLine> lines, Instant callStart) {
@@ -214,29 +218,71 @@ class InterviewCoach {
     }
 
     /**
-     * Keeps a reading only where the call backs it: a competency moves only on words quoted from an executive's line,
-     * and a gap is heard only where an executive was speaking. The team's voice raises nothing, whatever the model says.
+     * A competency moves only on words quoted from the executive's own turn — consecutive lines of theirs, since the
+     * stream cuts one answer into several — never from a line of the team's, whatever the model says.
      */
-    static CoachAnswer verified(CoachAnswer answer, List<HeardLine> lines, Instant callStart) {
-        List<HeardLine> executive = lines.stream().filter(line -> !line.team()).toList();
-        List<String> spoken = executive.stream()
-                .map(line -> textKeyOf(ContactRedaction.redact(line.text())))
-                .toList();
-        List<Long> spokenAt = executive.stream()
-                .map(line -> secondsOf(CallTranscriptText.elapsed(callStart, line.at())))
-                .toList();
-        List<CoachAnswer.Coverage> coverage = answer.coverage() == null ? List.of() : answer.coverage().stream()
+    static List<CoachAnswer.Coverage> verifiedCoverage(List<CoachAnswer.Coverage> coverage, List<HeardLine> lines) {
+        if (coverage == null) {
+            return List.of();
+        }
+        List<String> turns = executiveTurnsOf(lines);
+        return coverage.stream()
                 .filter(moved -> {
                     String quote = textKeyOf(moved.quote());
-                    return !quote.isEmpty() && spoken.stream().anyMatch(line -> line.contains(quote));
+                    return !quote.isEmpty() && turns.stream().anyMatch(turn -> turn.contains(quote));
                 })
                 .toList();
-        List<CoachAnswer.GapHeard> gaps = answer.gapsHeard() == null ? List.of() : answer.gapsHeard().stream()
-                .filter(heard -> !spokenAt.isEmpty() && (timeOf(heard.at()) == null
-                        || spokenAt.stream().anyMatch(second -> Math.abs(second - secondsOf(timeOf(heard.at())))
-                        <= GAP_TIME_SLACK_SECONDS)))
+    }
+
+    /** A gap is heard only at a time inside one of the executive's lines, from its start to the next line's. */
+    static List<CoachAnswer.GapHeard> verifiedGaps(List<CoachAnswer.GapHeard> gaps, List<HeardLine> lines,
+                                                  Instant callStart) {
+        if (gaps == null) {
+            return List.of();
+        }
+        List<long[]> spans = new ArrayList<>();
+        for (int index = 0; index < lines.size(); index++) {
+            if (lines.get(index).team()) {
+                continue;
+            }
+            long start = secondsOf(CallTranscriptText.elapsed(callStart, lines.get(index).at()));
+            long end = index + 1 < lines.size()
+                    ? secondsOf(CallTranscriptText.elapsed(callStart, lines.get(index + 1).at()))
+                    : start + LAST_LINE_SECONDS;
+            spans.add(new long[] {start - GAP_TIME_SLACK_SECONDS, Math.max(start, end) + GAP_TIME_SLACK_SECONDS});
+        }
+        return gaps.stream()
+                .filter(heard -> {
+                    String at = timeOf(heard.at());
+                    if (at == null) {
+                        return false;
+                    }
+                    long second = secondsOf(at);
+                    return spans.stream().anyMatch(span -> second >= span[0] && second <= span[1]);
+                })
                 .toList();
-        return new CoachAnswer(answer.guard(), coverage, gaps, answer.asked());
+    }
+
+    private static List<String> executiveTurnsOf(List<HeardLine> lines) {
+        List<String> turns = new ArrayList<>();
+        StringBuilder turn = new StringBuilder();
+        String speaker = null;
+        for (HeardLine line : lines) {
+            if (line.team() || !Objects.equals(line.speaker(), speaker)) {
+                if (!turn.isEmpty()) {
+                    turns.add(textKeyOf(turn.toString()));
+                    turn.setLength(0);
+                }
+                speaker = line.team() ? null : line.speaker();
+            }
+            if (!line.team()) {
+                turn.append(' ').append(ContactRedaction.redact(line.text()));
+            }
+        }
+        if (!turn.isEmpty()) {
+            turns.add(textKeyOf(turn.toString()));
+        }
+        return turns;
     }
 
     private static long secondsOf(String callTime) {
@@ -251,11 +297,24 @@ class InterviewCoach {
         return text == null ? "" : text.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").strip();
     }
 
+    /** The model copies a line's time as the transcript writes it, brackets included ("[01:40]"). */
     private static String timeOf(String at) {
-        return at != null && CALL_TIME.matcher(at.strip()).matches() ? at.strip() : null;
+        if (at == null) {
+            return null;
+        }
+        Matcher time = CALL_TIME.matcher(at);
+        return time.find() ? time.group() : null;
     }
 
     record CoachAnswer(String guard, List<Coverage> coverage, List<GapHeard> gapsHeard, List<String> asked) {
+
+        CoachAnswer withCoverage(List<Coverage> next) {
+            return new CoachAnswer(guard, next, gapsHeard, asked);
+        }
+
+        CoachAnswer withGapsHeard(List<GapHeard> next) {
+            return new CoachAnswer(guard, coverage, next, asked);
+        }
 
         record Coverage(String id, String state, String quote, String at) {}
 

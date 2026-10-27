@@ -284,9 +284,16 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from app_lm_usage_event where idempotency_key = ?",
                 Integer.class, "interview-copilot:" + recordingId)).isEqualTo(1);
 
+        String noticeSaidAt = jdbc.queryForObject("""
+                select to_char(make_interval(secs => greatest(0, floor(extract(epoch from l.said_at
+                       - coalesce(r.recording_started_at, r.starts_at))))), 'MI:SS')
+                from app_lm_meeting_live_line l join app_lm_meeting_recording r on r.id = l.recording_id
+                where l.recording_id = ?::uuid and l.text like 'Three months%' and not l.partial""",
+                String.class, recordingId);
         chat.answerWhenSystemContains(COACH_MARKER, """
                 {"coverage":[{"id":"c1","state":"NOT_YET","quote":null,"at":null}],
-                 "gapsHeard":[{"gap":"NOTICE","at":null}],"asked":[]}""");
+                 "gapsHeard":[{"gap":"NOTICE","at":"%s"},{"gap":"MOTIVATION","at":null}],"asked":[]}"""
+                .formatted(noticeSaidAt));
         liveDeliver(bot, finished("p2", "Priya Raman", "Happy to share more.", 40.0));
         rewindCoach(recordingId);
         assertThat(coachWorker.coachIfDue(java.util.UUID.fromString(recordingId), Instant.now().plusSeconds(60)))
@@ -298,6 +305,8 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(stillTouched.get("state").asText()).isEqualTo("TOUCHED");
         assertThat(again.get("gaps").valueStream().filter(gap -> gap.get("gap").asText().equals("NOTICE"))
                 .findFirst().orElseThrow().get("heard").asBoolean()).isTrue();
+        assertThat(again.get("gaps").valueStream().filter(gap -> gap.get("gap").asText().equals("MOTIVATION"))
+                .noneMatch(gap -> gap.get("heard").asBoolean())).isTrue();
         assertThat(again.get("plan").valueStream().filter(question -> question.get("asked").asBoolean()).count())
                 .isEqualTo(1);
 

@@ -17,14 +17,13 @@ passing mention. When unsure between two states, choose the lower.
 
 THE READING.
   - coverage: each competency whose state the call has moved, with state TOUCHED or EVIDENCED, quote — the
-    executive's own words that showed it most, quoted exactly from one line, at most two sentences — and at, that
-    line's time exactly as written. The quote must be copied word for word from an executive line, never
-    paraphrased, never from a "(your team)" line. Leave out a competency the call has not reached, and one you
-    cannot quote.
-  - gapsHeard: each missing fact the executive has now spoken to, by its gap name exactly as listed, with at.
-    A fact is heard only when the executive themself stated it, with a value, on a line that
-    is not marked "(your team)"; the consultant asking about it is not hearing it. Record only that they spoke to
-    it, never what they said. at is that executive line's time exactly as written.
+    executive's own words that showed it most, copied word for word from their lines (never paraphrased, never from
+    a "(your team)" line), at most two sentences — and at, the time of the line the quote starts on, without the
+    brackets ("01:40"). Leave out a competency the call has not reached, and one you cannot quote.
+  - gapsHeard: each missing fact the executive has now spoken to, by its gap name exactly as listed, with at. A fact
+    is heard only when the executive themself stated it, with a value, on a line not marked "(your team)"; the
+    consultant asking about it is not hearing it. Record only that they spoke to it, never what they said. at is the
+    time of that executive line, without the brackets.
   - asked: the ids of the prepared questions the consultant has asked so far, in substance or in their own words.
 
 Write in English. Never write an email address, a phone number or a salary figure.
