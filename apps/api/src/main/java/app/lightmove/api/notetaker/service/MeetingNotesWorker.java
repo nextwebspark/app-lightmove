@@ -33,8 +33,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Turns a finished recording into its Meeting note, off the webhook's thread: the transcript from Recall, a summary
  * from the model against the position's brief, the note filed in the scheduler's name, and Recall's copy of the call
- * deleted. Not {@code @Transactional}: neither vendor call may hold a connection, so each write is its own short
- * transaction. Recall's copy is deleted only once the note is filed, so Try again can still read the transcript.
+ * deleted, then Suggest changes asked of the transcript with no press. Not {@code @Transactional}: neither vendor call
+ * may hold a connection, so each write is its own short transaction. Recall's copy is deleted only once the note is
+ * filed, so Try again can still read the transcript.
  */
 @Component
 @Slf4j
@@ -50,12 +51,13 @@ class MeetingNotesWorker {
     private final PersonNoteService notes;
     private final AuditService audit;
     private final UsageRecorder usage;
+    private final CallSuggestionService suggestions;
     private final Clock clock;
     private final TransactionTemplate transactions;
 
     MeetingNotesWorker(RecallBotApi recall, MeetingRecordingRepository recordings, MeetingSummariser summariser,
                        PositionService positions, PersonNoteService notes, AuditService audit, UsageRecorder usage,
-                       Clock clock, PlatformTransactionManager transactionManager) {
+                       CallSuggestionService suggestions, Clock clock, PlatformTransactionManager transactionManager) {
         this.recall = recall;
         this.recordings = recordings;
         this.summariser = summariser;
@@ -63,6 +65,7 @@ class MeetingNotesWorker {
         this.notes = notes;
         this.audit = audit;
         this.usage = usage;
+        this.suggestions = suggestions;
         this.clock = clock;
         // An after-commit listener run on the publishing thread would otherwise join the finished transaction, and
         // every write here would be silently dropped with it.
@@ -91,7 +94,7 @@ class MeetingNotesWorker {
         List<TranscriptLine> lines = recording.getTranscript();
         if (lines == null) {
             try {
-                lines = recall.transcript(recording.getTranscriptId());
+                lines = recall.transcript(recording.getTranscriptId(), recording.callClockStart());
             } catch (VendorException | IllegalStateException unavailable) {
                 log.warn("Notetaker recording {}: the transcript could not be read: {}", recordingId,
                         unavailable.getMessage());
@@ -104,7 +107,6 @@ class MeetingNotesWorker {
         }
         if (lines.isEmpty()) {
             fail(recordingId, "NOTHING_HEARD");
-            deleteMedia(recordingId, recording.getRecallBotId());
             return;
         }
         MeetingSummary summary;
@@ -117,10 +119,10 @@ class MeetingNotesWorker {
             return;
         }
         String body = MeetingNoteMarkdown.of(summary);
-        boolean filed = Boolean.TRUE.equals(transactions.execute(status -> {
+        Integer claimedForChanges = transactions.execute(status -> {
             MeetingRecording held = recordings.findById(recordingId).orElseThrow();
             if (held.getStatus() != NotetakerStatus.PROCESSING || held.getNoteId() != null) {
-                return false;
+                return null;
             }
             UUID noteId = notes.fileMeetingNote(held.getWorkspaceId(), held.getPersonId(), held.getProjectId(),
                     held.getRequestedBy(), body);
@@ -131,14 +133,16 @@ class MeetingNotesWorker {
                     .detail("noteId", noteId.toString())
                     .detail("lines", String.valueOf(held.getTranscript().size()))
                     .record();
-            return true;
-        }));
-        if (!filed) {
+            return recordings.claimSuggestingOnFiling(recordingId, clock.instant());
+        });
+        if (claimedForChanges == null) {
             return;
         }
         usage.record(new MeteredUse(recording.getWorkspaceId(), recording.getRequestedBy(), recording.getProjectId(),
                 UsageKind.AI_ENRICH, 1, "notetaker:" + recordingId));
-        deleteMedia(recordingId, recording.getRecallBotId());
+        if (claimedForChanges > 0) {
+            suggestions.suggestOnceFiled(recordingId);
+        }
     }
 
     /** The first word said, which is what the summary's times count from; the calendar's start without one. */
@@ -158,15 +162,5 @@ class MeetingNotesWorker {
     private void fail(UUID recordingId, String reason) {
         transactions.executeWithoutResult(status ->
                 recordings.findById(recordingId).ifPresent(found -> found.failed(reason)));
-    }
-
-    private void deleteMedia(UUID recordingId, String botId) {
-        try {
-            recall.deleteMedia(botId);
-            transactions.executeWithoutResult(status ->
-                    recordings.findById(recordingId).ifPresent(MeetingRecording::mediaDeleted));
-        } catch (VendorException failed) {
-            log.warn("Notetaker recording {}: Recall kept the call's media: {}", recordingId, failed.getMessage());
-        }
     }
 }

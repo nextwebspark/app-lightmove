@@ -7,6 +7,8 @@ import app.lightmove.api.notetaker.model.MeetingTranscriptReady;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.repository.MeetingLiveLineRepository;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -31,11 +33,13 @@ public class NotetakerWebhook {
     private final CopilotStreamPublisher copilotStream;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
     public void receive(byte[] body, String id, String timestamp, String signature) {
         for (RecallBotNotice notice : recall.notices(body, id, timestamp, signature)) {
             transactions.executeWithoutResult(status -> recordingOf(notice)
-                    .filter(recording -> recording.getStatus().isLive())
+                    .filter(recording -> recording.getStatus().isLive()
+                            || (notice instanceof RecallBotNotice.StatusChanged && recording.awaitsItsReason()))
                     .ifPresent(recording -> apply(recording, notice)));
         }
     }
@@ -58,7 +62,7 @@ public class NotetakerWebhook {
     void apply(MeetingRecording recording, RecallBotNotice notice) {
         switch (notice) {
             case RecallBotNotice.StatusChanged changed -> {
-                applyStatus(recording, changed.code(), changed.subCode());
+                applyStatus(recording, changed.code(), changed.subCode(), changed.at());
                 if (recording.isLiveCopilot() && changed.code().equals("done")) {
                     wantFinalTranscript(recording, null);
                 }
@@ -107,20 +111,23 @@ public class NotetakerWebhook {
         copilotStream.publish(recording.getId());
     }
 
-    void applyStatus(MeetingRecording recording, String code, String subCode) {
+    void applyStatus(MeetingRecording recording, String code, String subCode, Instant at) {
         switch (code) {
             case "joining_call", "in_waiting_room", "in_call_not_recording" ->
                     recording.heard(code, subCode, NotetakerStatus.JOINING);
-            case "in_call_recording", "recording_permission_allowed" ->
-                    recording.heard(code, subCode, NotetakerStatus.RECORDING);
+            case "in_call_recording", "recording_permission_allowed" -> {
+                recording.heard(code, subCode, NotetakerStatus.RECORDING);
+                recording.recordingSince(at == null ? clock.instant() : at);
+            }
             case "call_ended", "done" -> {
                 if (recording.getStatus() == NotetakerStatus.RECORDING
                         || recording.getStatus() == NotetakerStatus.PROCESSING) {
                     recording.heard(code, subCode, NotetakerStatus.PROCESSING);
+                    recording.mediaHeldUntil((at == null ? clock.instant() : at).plus(RecallBotApi.MEDIA_RETENTION));
                 } else {
                     // It left without ever recording: nobody let it in, the call never started, or the host refused.
                     recording.heard(code, subCode, null);
-                    recording.failed(reasonOf(subCode, "NEVER_RECORDED"));
+                    recording.failed(reasonOf(subCode, MeetingRecording.NEVER_RECORDED));
                 }
             }
             case "fatal", "recording_permission_denied" -> {

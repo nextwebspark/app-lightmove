@@ -2,11 +2,14 @@ package app.lightmove.api.notetaker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FlowTestSupport;
@@ -14,6 +17,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.RecordingMailboxGateway;
 import app.lightmove.api.RecordingRecallBotApi;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.candidate.model.SpokenLine;
 import app.lightmove.api.candidate.model.TranscriptOnFile;
 import app.lightmove.api.candidate.service.CandidateMaterialService;
@@ -21,6 +25,7 @@ import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.NotetakerReconcile;
+import app.lightmove.api.notetaker.service.NotetakerService;
 import app.lightmove.api.notetaker.service.NotetakerTranscriptPurge;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
@@ -30,6 +35,7 @@ import java.net.URI;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +56,7 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The Notetaker against a recording Recall: a bot sent to a kept call, claimed once, followed through Recall's own
- * webhook bodies, and its transcript filed as one Meeting note with Recall's copy deleted after.
+ * webhook bodies, and its transcript filed as one Meeting note, with Recall's copy kept for its sender to download.
  */
 @IntegrationTest
 class NotetakerIntegrationTest extends FlowTestSupport {
@@ -81,6 +87,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingRecallBotApi recall;
     @Autowired private StubChatModel chat;
     @Autowired private NotetakerReconcile reconcile;
+    @Autowired private NotetakerService notetakers;
     @Autowired private NotetakerTranscriptPurge transcriptPurge;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private CandidateMaterialService material;
@@ -181,9 +188,11 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 + "and n.project_id = r.project_id", String.class, recordingId);
         assertThat(body).startsWith("Spoke with Priya about the Group CFO role")
                 .contains("- **Notice:** Three months", "## Next steps");
-        assertThat(chat.lastPrompt().getUserMessage().getText()).contains("My notice is three months.")
-                .contains("Group CFO");
-        assertThat(recall.mediaDeleted()).containsExactly(bot);
+        assertThat(chat.prompts().stream()
+                .filter(prompt -> prompt.getSystemMessage().getText().contains(SUMMARY_MARKER))
+                .map(prompt -> prompt.getUserMessage().getText()).findFirst().orElseThrow())
+                .contains("My notice is three months.").contains("Group CFO");
+        assertThat(recall.mediaDeleted()).isEmpty();
 
         JsonNode transcript = body(as(consultant, get(notetakerPath() + "/" + recordingId + "/transcript"))
                 .andExpect(status().isOk()).andReturn());
@@ -218,7 +227,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         as(consultant, post(notetakerPath() + "/" + recordingId + "/retry")).andExpect(status().isOk());
 
         assertThat(statusOf(recordingId)).isEqualTo("DONE");
-        assertThat(recall.mediaDeleted()).containsExactly(bot);
+        assertThat(recall.mediaDeleted()).isEmpty();
         as(consultant, post(notetakerPath() + "/" + recordingId + "/retry")).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("NOTETAKER_NOT_CHANGEABLE"));
     }
@@ -250,6 +259,29 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a bot nobody let in keeps Recall's reason when its done arrives before its call_ended")
+    void theReasonArrivesAfterTheDone() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_waiting_room","data":{"bot":{"id":"%s"},"data":{"code":"in_waiting_room"}}}""");
+
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+        assertThat(notetaker().get("recordings").get(0).get("failureReason").asText()).isEqualTo("NEVER_RECORDED");
+        deliver(bot, """
+                {"event":"bot.call_ended","data":{"bot":{"id":"%s"},
+                 "data":{"code":"call_ended","sub_code":"timeout_exceeded_waiting_room"}}}""");
+
+        JsonNode failed = notetaker().get("recordings").get(0);
+        assertThat(failed.get("status").asText()).isEqualTo("FAILED");
+        assertThat(failed.get("failureReason").asText()).isEqualTo("timeout_exceeded_waiting_room");
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("FAILED");
+    }
+
+    @Test
     @DisplayName("a recording whose webhooks never came is read back from Recall once its call is long over")
     void reconcileReadsBackLostDeliveries() throws Exception {
         chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
@@ -264,7 +296,7 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         reconcile.reconcileAt(start.plus(Duration.ofHours(2)));
 
         assertThat(statusOf(recordingId)).isEqualTo("DONE");
-        assertThat(recall.mediaDeleted()).containsExactly(bot);
+        assertThat(recall.mediaDeleted()).isEmpty();
     }
 
     @Test
@@ -392,6 +424,236 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("Send now sends a bot at once whatever day the call is booked for, and says which calls are today")
+    void startNowJoinsAtOnceWhateverTheDay() throws Exception {
+        consultantAtMidday();
+        assertThat(notetaker().get("callDayMeetingIds")).isEmpty();
+
+        JsonNode started = body(startNow().andExpect(status().isCreated()).andReturn());
+
+        assertThat(started.get("status").asText()).isEqualTo("SCHEDULED");
+        assertThat(started.get("joinAt").isNull()).isTrue();
+        assertThat(recall.sent()).singleElement().satisfies(request -> assertThat(request.joinAt()).isNull());
+
+        Instant later = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofHours(3));
+        moveCallTo(later, later.plus(Duration.ofMinutes(30)));
+        assertThat(notetaker().get("callDayMeetingIds")).extracting(JsonNode::asText).containsExactly(meetingId());
+    }
+
+    @Test
+    @DisplayName("a bot scheduled for a call on a later day can still be brought in now, the call having started early")
+    void joinNowBringsInABotForALaterDay() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String scheduledBot = recall.lastBotId();
+
+        JsonNode joined = body(joinNow(recordingId).andExpect(status().isOk()).andReturn());
+
+        assertThat(joined.get("joinAt").isNull()).isTrue();
+        assertThat(recall.sent().getLast().joinAt()).isNull();
+        assertThat(recall.removed()).containsExactly(scheduledBot);
+    }
+
+    @Test
+    @DisplayName("Start now waits while an earlier call on the same link is still under way")
+    void startNowWaitsForAnEarlierCallOnTheLink() throws Exception {
+        consultantAtMidday();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        moveCallTo(now.plus(Duration.ofMinutes(10)), now.plus(Duration.ofMinutes(40)));
+        gateway.deliverNext(List.of(new CalendarEventChanged(grantId, new CalendarEvent("call-0",
+                "Earlier interview", now.minus(Duration.ofMinutes(20)), now.plus(Duration.ofMinutes(5)),
+                List.of(MAILBOX, "priya@" + domain), "https://meet.google.com/abc-defg-hij", "Google Meet"))));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+
+        startNow().andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("NOTETAKER_LINK_IN_USE"));
+        assertThat(recall.sent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Join now brings a scheduled bot in at once, and an empty Recall pool leaves the scheduled one")
+    void joinNowReplacesTheScheduledBot() throws Exception {
+        consultantAtMidday();
+        Instant later = Instant.now().truncatedTo(ChronoUnit.SECONDS).plus(Duration.ofHours(3));
+        moveCallTo(later, later.plus(Duration.ofMinutes(30)));
+        String recordingId = scheduledRecordingId();
+        String scheduledBot = recall.lastBotId();
+        assertThat(recall.sent().getFirst().joinAt()).isEqualTo(later.minus(Duration.ofMinutes(1)));
+
+        recall.busySends(true);
+        joinNow(recordingId).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_BUSY"));
+        assertThat(recall.removed()).isEmpty();
+        assertThat(jdbc.queryForObject("select join_at is not null and recall_bot_id = ? from "
+                + "app_lm_meeting_recording where id = ?::uuid", Boolean.class, scheduledBot, recordingId)).isTrue();
+        recall.busySends(false);
+
+        JsonNode joined = body(joinNow(recordingId).andExpect(status().isOk()).andReturn());
+
+        String bot = recall.lastBotId();
+        assertThat(bot).isNotEqualTo(scheduledBot);
+        assertThat(recall.sent().getLast().joinAt()).isNull();
+        assertThat(joined.get("joinAt").isNull()).isTrue();
+        assertThat(recall.removed()).containsExactly(scheduledBot);
+        assertThat(auditedFor("NOTETAKER_JOINED_NOW", recordingId, 1)).isEqualTo(1);
+
+        deliver(scheduledBot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
+        deliver(bot, """
+                {"event":"bot.joining_call","data":{"bot":{"id":"%s"},"data":{"code":"joining_call"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("JOINING");
+        joinNow(recordingId).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_NOT_CHANGEABLE"));
+    }
+
+    @Test
+    @DisplayName("End & file notes takes the bot out of the call and files its notes before the booked end")
+    void endAndFileNotesBeforeTheBookedEnd() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.in_waiting_room","data":{"bot":{"id":"%s"},"data":{"code":"in_waiting_room"}}}""");
+        end(recordingId).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_NOT_RECORDING"));
+
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording",
+                 "updated_at":"2026-10-26T10:00:05Z"}}}""");
+        JsonNode ending = body(end(recordingId).andExpect(status().isOk()).andReturn());
+
+        assertThat(ending.get("status").asText()).isEqualTo("RECORDING");
+        assertThat(ending.get("endRequested").asBoolean()).isTrue();
+        assertThat(ending.get("recordingStartedAt").asText()).isEqualTo("2026-10-26T10:00:05Z");
+        assertThat(recall.left()).containsExactly(bot);
+        end(recordingId).andExpect(status().isOk());
+        assertThat(recall.left()).hasSize(1);
+        as(consultant, delete(notetakerPath() + "/" + recordingId)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_NOT_CHANGEABLE"));
+        assertThat(recall.removed()).isEmpty();
+
+        deliver(bot, """
+                {"event":"bot.call_ended","data":{"bot":{"id":"%s"},
+                 "data":{"code":"call_ended","sub_code":"bot_received_leave_call"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("PROCESSING");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+        assertThat(auditedFor("NOTETAKER_ENDED_EARLY", recordingId, 1)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a call that ends on its own files its notes with nobody pressing End & file notes")
+    void aCallEndingOnItsOwnFilesItsNotes() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+
+        deliver(bot, """
+                {"event":"bot.call_ended","data":{"bot":{"id":"%s"},
+                 "data":{"code":"call_ended","sub_code":"everyone_left_timeout"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("PROCESSING");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+        assertThat(recall.left()).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_person_note n join app_lm_meeting_recording r "
+                + "on r.note_id = n.id where r.id = ?::uuid and n.kind = 'MEETING'", Integer.class, recordingId))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a bot waiting for a call that moved or went is called back; one for an unchanged call is left")
+    void aMovedCallsBotIsCalledBack() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+
+        notetakers.callBackMovedCalls(Instant.now());
+        assertThat(statusOf(recordingId)).isEqualTo("SCHEDULED");
+        assertThat(recall.removed()).doesNotContain(bot);
+
+        Instant moved = start.plus(Duration.ofHours(10));
+        moveCallTo(moved, moved.plus(Duration.ofMinutes(30)));
+        notetakers.callBackMovedCalls(Instant.now());
+
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.removed()).containsOnlyOnce(bot);
+        assertThat(auditedFor("NOTETAKER_CANCELLED", recordingId, 1)).isEqualTo(1);
+
+        schedule().andExpect(status().isCreated());
+        assertThat(recall.sent().getLast().joinAt()).isEqualTo(moved.minus(Duration.ofMinutes(1)));
+
+        String rescheduled = recall.lastBotId();
+        jdbc.update("delete from app_lm_person_meeting where id = ?::uuid", meetingId());
+        notetakers.callBackMovedCalls(Instant.now());
+        assertThat(recall.removed()).contains(rescheduled).containsOnlyOnce(bot);
+    }
+
+    @Test
+    @DisplayName("a bot already on its way in or in the call is never called back for a move")
+    void aBotInTheCallStaysWhateverTheCalendarSays() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+
+        moveCallTo(start.plus(Duration.ofHours(10)), start.plus(Duration.ofHours(11)));
+        notetakers.callBackMovedCalls(Instant.now());
+
+        assertThat(statusOf(recordingId)).isEqualTo("RECORDING");
+        assertThat(recall.removed()).doesNotContain(bot);
+    }
+
+    @Test
+    @DisplayName("a leave Recall refuses keeps the bot recording, unless Recall says the bot had already left")
+    void aRefusedLeaveKeepsRecording() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+
+        recall.refuseLeaves(VendorFailureKind.UNAVAILABLE);
+        end(recordingId).andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_END_FAILED"));
+        assertThat(notetaker().get("recordings").get(0).get("endRequested").asBoolean()).isFalse();
+
+        recall.refuseLeaves(VendorFailureKind.BAD_REQUEST);
+        recall.botIs(bot, new RecallBotState("in_call_recording", null, Instant.now(), null, null, null));
+        end(recordingId).andExpect(status().isBadGateway());
+
+        recall.botIs(bot, new RecallBotState("call_ended", "bot_received_leave_call", Instant.now(), null, null,
+                null));
+        JsonNode ended = body(end(recordingId).andExpect(status().isOk()).andReturn());
+        assertThat(ended.get("endRequested").asBoolean()).isTrue();
+    }
+
+    @Test
+    @DisplayName("an early end whose webhooks never came is read back minutes later, not after the booked end")
+    void anEarlyEndIsReadBackSoon() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        end(recordingId).andExpect(status().isOk());
+        recall.holdsTranscript("t-9", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        recall.botIs(bot, new RecallBotState("done", null, Instant.now(), "t-9", "done", null));
+
+        reconcile.reconcileAt(Instant.now().plus(Duration.ofMinutes(1)));
+        assertThat(statusOf(recordingId)).isEqualTo("RECORDING");
+
+        reconcile.reconcileAt(Instant.now().plus(Duration.ofMinutes(6)));
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+    }
+
+    @Test
     @DisplayName("the assessment reads a call's transcript from its position while its note is live, the team marked")
     void transcriptReachesTheAssessmentWhileItsNoteIsLive() throws Exception {
         chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
@@ -467,6 +729,58 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the sender downloads the call's recording while Recall keeps it; nobody else, and nobody after")
+    void recordingIsTheSendersWhileKept() throws Exception {
+        String recordingId = filedRecordingWithVideo("the-video".getBytes());
+        String path = notetakerPath() + "/" + recordingId + "/recording";
+
+        JsonNode listed = notetaker().get("recordings").get(0);
+        assertThat(listed.get("mayDownloadRecording").asBoolean()).isTrue();
+        assertThat(Instant.parse(listed.get("recordingAvailableUntil").asText()))
+                .isBetween(Instant.now().plus(Duration.ofDays(6)), Instant.now().plus(Duration.ofDays(8)));
+
+        MvcResult started = as(consultant, get(path)).andExpect(request().asyncStarted()).andReturn();
+        MvcResult sent = mvc.perform(asyncDispatch(started)).andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "video/mp4"))
+                .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment")))
+                .andReturn();
+        assertThat(sent.getResponse().getContentAsByteArray()).isEqualTo("the-video".getBytes());
+        assertThat(auditedFor("NOTETAKER_RECORDING_DOWNLOADED", recordingId, 1)).isEqualTo(1);
+
+        as(clientSeat(), get(path)).andExpect(status().isForbidden());
+
+        String teammate = jdbc.queryForObject("select id::text from app_lm_user where id <> "
+                + "(select requested_by from app_lm_meeting_recording where id = ?::uuid) limit 1", String.class,
+                recordingId);
+        jdbc.update("update app_lm_meeting_recording set requested_by = ?::uuid where id = ?::uuid", teammate,
+                recordingId);
+        assertThat(notetaker().get("recordings").get(0).get("mayDownloadRecording").asBoolean()).isFalse();
+        as(consultant, get(path)).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_RECORDING_NOT_YOURS"));
+    }
+
+    @Test
+    @DisplayName("a recording past Recall's retention, or one it no longer holds, is gone")
+    void recordingIsGonePastRetention() throws Exception {
+        String recordingId = filedRecordingWithVideo("the-video".getBytes());
+        String path = notetakerPath() + "/" + recordingId + "/recording";
+
+        jdbc.update("update app_lm_meeting_recording set media_expires_at = now() - interval '1 minute' "
+                + "where id = ?::uuid", recordingId);
+
+        JsonNode listed = notetaker().get("recordings").get(0);
+        assertThat(listed.get("mayDownloadRecording").asBoolean()).isFalse();
+        assertThat(listed.get("recordingAvailableUntil").isNull()).isTrue();
+        as(consultant, get(path)).andExpect(status().isGone())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_RECORDING_GONE"));
+
+        jdbc.update("update app_lm_meeting_recording set media_expires_at = now() + interval '1 day' "
+                + "where id = ?::uuid", recordingId);
+        recall.clear();
+        as(consultant, get(path)).andExpect(status().isGone());
+    }
+
+    @Test
     @DisplayName("no bot goes to someone marked do not contact, to a deployment without Recall, or for a client seat")
     void refusals() throws Exception {
         recall.offered(false);
@@ -532,6 +846,12 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         assertThat(reviewed.get("suggestions")).extracting(each -> each.get("status").asText()).containsExactly(
                 "APPLIED", "APPLIED", "APPLIED", "APPLIED", "APPLIED", "SKIPPED", "APPLIED");
         assertThat(suggestion(reviewed, "location").get("edited").asBoolean()).isTrue();
+        JsonNode applied = suggestion(reviewed, "current-package");
+        assertThat(applied.get("was").get("baseSalary").asLong()).isEqualTo(777_777L);
+        assertThat(applied.get("appliedBy").asText()).isEqualTo("Yara Haddad");
+        assertThat(applied.get("appliedAt").isNull()).isFalse();
+        assertThat(suggestion(reviewed, "task-1").get("was").isNull()).isTrue();
+        assertThat(suggestion(reviewed, "expected-package").get("appliedBy").isNull()).isTrue();
         JsonNode executive = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
                 .andExpect(status().isOk()).andReturn());
         assertThat(executive.get("compensation").get("noticePeriod").asText()).isEqualTo("3 months");
@@ -639,6 +959,33 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("once the notes are filed the transcript is read for changes with no press, in the sender's name")
+    void changesAreFoundOnceTheNotesAreFiled() throws Exception {
+        chat.answerWhenSystemContains(CHANGES_MARKER, CHANGES);
+
+        String recordingId = filedRecording();
+
+        JsonNode row = notetaker().get("recordings").get(0);
+        assertThat(row.get("suggestionsAsked").asBoolean()).isTrue();
+        assertThat(row.get("pendingSuggestions").asInt()).isPositive()
+                .isEqualTo(row.get("foundSuggestions").asInt());
+        assertThat(row.get("suggesting").asBoolean()).isFalse();
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_usage_event where idempotency_key like "
+                + "'notetaker-suggest:' || ?", Integer.class, recordingId + ":%")).isEqualTo(1);
+        assertThat(auditedFor("NOTETAKER_SUGGESTIONS_ASKED", recordingId, 1)).isEqualTo(1);
+
+        int promptsBefore = chat.prompts().size();
+        as(consultant, post(suggestionsPath(recordingId))).andExpect(status().isOk());
+        assertThat(chat.prompts()).hasSize(promptsBefore);
+
+        jdbc.update("update app_lm_meeting_recording set suggesting_since = now() where id = ?::uuid", recordingId);
+        assertThat(notetaker().get("recordings").get(0).get("suggesting").asBoolean()).isTrue();
+        jdbc.update("update app_lm_meeting_recording set suggesting_since = now() - interval '10 minutes' "
+                + "where id = ?::uuid", recordingId);
+        assertThat(notetaker().get("recordings").get(0).get("suggesting").asBoolean()).isFalse();
+    }
+
+    @Test
     @DisplayName("a model that fails, answers off-schema or is stopped by the guard stores and charges nothing")
     void suggestFailsGracefully() throws Exception {
         String recordingId = filedRecording();
@@ -705,6 +1052,31 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         return as(consultant, post(outreach("/candidates/" + priya + "/meetings/" + meetingId() + "/notetaker")));
     }
 
+    private ResultActions startNow() throws Exception {
+        return as(consultant, post(outreach("/candidates/" + priya + "/meetings/" + meetingId() + "/notetaker"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"liveCopilot\":false,\"join\":\"NOW\"}"));
+    }
+
+    private ResultActions joinNow(String recordingId) throws Exception {
+        return as(consultant, post(notetakerPath() + "/" + recordingId + "/join-now"));
+    }
+
+    private ResultActions end(String recordingId) throws Exception {
+        return as(consultant, post(notetakerPath() + "/" + recordingId + "/end"));
+    }
+
+    private void moveCallTo(Instant startsAt, Instant endsAt) {
+        jdbc.update("update app_lm_person_meeting set starts_at = ?, ends_at = ? where id = ?::uuid",
+                Timestamp.from(startsAt), Timestamp.from(endsAt), meetingId());
+    }
+
+    /** Puts the consultant where it is midday, so a call a few hours away falls on their today whenever this runs. */
+    private void consultantAtMidday() {
+        int utcHour = Instant.now().atZone(ZoneOffset.UTC).getHour();
+        jdbc.update("update app_lm_user set timezone = ? where id = (select user_id from app_lm_person_meeting "
+                + "where id = ?::uuid)", ZoneOffset.ofHours(12 - utcHour).getId(), meetingId());
+    }
+
     private String scheduledRecordingId() throws Exception {
         return body(schedule().andExpect(status().isCreated()).andReturn()).get("id").asText();
     }
@@ -718,6 +1090,24 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 new TranscriptLine(start.plusSeconds(20), "Priya Raman", "My notice is three months.", true)));
         deliver(bot, """
                 {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+        return recordingId;
+    }
+
+    private String filedRecordingWithVideo(byte[] video) throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsVideo(bot, video);
+        recall.holdsTranscript("t-1", List.of(
+                new TranscriptLine(start.plusSeconds(5), "Yara Haddad", "Thanks for making the time.", true),
+                new TranscriptLine(start.plusSeconds(20), "Priya Raman", "My notice is three months.", true)));
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
         deliver(bot, """
                 {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
         assertThat(statusOf(recordingId)).isEqualTo("DONE");

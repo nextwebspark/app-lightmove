@@ -16,6 +16,11 @@ export function meetingWhenOf(startsAt: string, endsAt: string): string {
   return `${weekdayDateOf(start)} · ${clockOf(start)}–${clockOf(end)}`;
 }
 
+/** "10:59", in the viewer's zone. */
+export function timeOfDayOf(isoInstant: string): string {
+  return clockOf(new Date(isoInstant));
+}
+
 /** "22 Sep": a past meeting's mono date. */
 export function shortDateOf(isoInstant: string): string {
   return new Date(isoInstant).toLocaleDateString("en-GB", { day: "numeric", month: "short" });

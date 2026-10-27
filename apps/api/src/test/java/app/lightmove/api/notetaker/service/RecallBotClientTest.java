@@ -2,22 +2,36 @@ package app.lightmove.api.notetaker.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.RecallSettings;
+import app.lightmove.api.core.config.ResilienceSettings;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.resilience.service.VendorCallGuard;
+import app.lightmove.api.core.resilience.service.VendorClientFactory;
+import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
@@ -26,6 +40,7 @@ import tools.jackson.databind.json.JsonMapper;
 class RecallBotClientTest {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final Instant CALL_START = Instant.parse("2026-10-22T09:00:00Z");
 
     @Test
     @DisplayName("a transcript link is fetched only over https from Recall's own hosts or its storage")
@@ -49,12 +64,23 @@ class RecallBotClientTest {
                            {"text":" the plan.","start_timestamp":{"absolute":"2026-10-22T09:00:03Z"}}]},
                  {"participant":{"id":8,"name":null},
                   "words":[{"text":"Thanks","start_timestamp":{"absolute":"2026-10-22T09:00:09Z"}}]},
-                 {"participant":{"id":9,"name":"Silent"},"words":[]}]"""));
+                 {"participant":{"id":9,"name":"Silent"},"words":[]}]"""), CALL_START);
 
         assertThat(lines).containsExactly(
                 new TranscriptLine(Instant.parse("2026-10-22T09:00:02Z"), "Priya Raman", "I led the plan.", true),
                 new TranscriptLine(Instant.parse("2026-10-22T09:00:09Z"), "Speaker 8", "Thanks", false));
-        assertThat(RecallBotClient.linesOf(JSON.readTree("{}"))).isEmpty();
+        assertThat(RecallBotClient.linesOf(JSON.readTree("{}"), CALL_START)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a transcript made after the call, which states seconds into the recording only, is timed from the call's start")
+    void afterCallTranscriptIsTimedFromTheCallStart() {
+        List<TranscriptLine> lines = RecallBotClient.linesOf(JSON.readTree("""
+                [{"participant":{"id":7,"name":"Priya Raman"},
+                  "words":[{"text":"Hello","start_timestamp":{"absolute":null,"relative":2.5}}]}]"""), CALL_START);
+
+        assertThat(lines).containsExactly(
+                new TranscriptLine(Instant.parse("2026-10-22T09:00:02.500Z"), "Priya Raman", "Hello", true));
     }
 
     @Test
@@ -66,7 +92,7 @@ class RecallBotClientTest {
         try {
             URI file = URI.create("http://127.0.0.1:" + storage.getAddress().getPort() + "/transcript.json");
 
-            assertThat(RecallBotClient.linesOf(RecallBotClient.turnsAt(RestClient.create(), file))).containsExactly(
+            assertThat(RecallBotClient.linesOf(RecallBotClient.turnsAt(RestClient.create(), file), CALL_START)).containsExactly(
                     new TranscriptLine(Instant.parse("2026-10-22T09:00:02Z"), "Priya Raman", "Hello", true));
         } finally {
             storage.stop(0);
@@ -130,12 +156,33 @@ class RecallBotClientTest {
                 .containsEntry("metadata", Map.of("recordingId", "r1"))
                 .containsEntry("chat", Map.of("on_bot_join", Map.of("send_to", "everyone", "message", "Hello")));
         assertThat(body.get("recording_config").toString()).contains("recallai_streaming");
+        assertThat(RecallBotClient.recordingConfigOf(null).get("retention"))
+                .isEqualTo(Map.of("type", "timed", "hours", 168L));
+        assertThat(((Map<?, ?>) body.get("recording_config")).get("retention"))
+                .isEqualTo(Map.of("type", "timed", "hours", 168L));
         assertThat(body.get("automatic_leave")).isEqualTo(RecallBotClient.AUTOMATIC_LEAVE);
         assertThat(body.get("automatic_video_output")).isEqualTo(RecallBotClient.AUTOMATIC_VIDEO_OUTPUT);
         assertThat(RecallBotClient.AUTOMATIC_LEAVE).containsEntry("waiting_room_timeout", 900)
                 .containsEntry("everyone_left_timeout", Map.of("timeout", 30));
         assertThat(RecallBotClient.bodyOf(new RecallBotRequest("https://zoom.us/j/1", null, "UNCAVA Notetaker",
                 "Hello", Map.of(), null))).doesNotContainKey("join_at");
+    }
+
+    @Test
+    @DisplayName("only a pre-signed file on Recall's or AWS's hosts is copied as a recording")
+    void recordingVideoIsRecallsOwn() throws IOException {
+        assertThat(RecallBotClient.downloadOf("https://bot-data.s3.amazonaws.com/v.mp4?X=1")).isNotNull();
+        assertThat(RecallBotClient.downloadOf("https://evil.example/v.mp4")).isNull();
+        HttpServer recall = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        recall.start();
+        try {
+            RecallBotClient client = clientOf(recall);
+
+            assertThatThrownBy(() -> client.copyVideo(URI.create("https://evil.example/v.mp4"),
+                    OutputStream.nullOutputStream())).isInstanceOf(IOException.class);
+        } finally {
+            recall.stop(0);
+        }
     }
 
     @Test
@@ -165,6 +212,73 @@ class RecallBotClientTest {
                 Instant.parse("2026-10-22T09:40:00Z"), "t1", "done", "rec1"));
         assertThat(RecallBotClient.stateOf(JSON.readTree("{\"id\":\"b1\"}")))
                 .isEqualTo(new RecallBotState(null, null, null, null, null, null));
+    }
+
+    @Test
+    @DisplayName("Recall's 507 is an empty pool of bots that join at once, answered busy; any other 5xx is a failure")
+    void anEmptyPoolIsBusy() throws IOException {
+        HttpServer recall = recallAnswering(507);
+        try {
+            RecallBotRequest atOnce = new RecallBotRequest("https://meet.google.com/abc-defg-hij", null,
+                    "UNCAVA Notetaker", "Hi everyone", Map.of(), null);
+            assertThatThrownBy(() -> clientOf(recall).send(atOnce)).isInstanceOfSatisfying(ApiException.class,
+                    refused -> assertThat(refused.getCode()).isEqualTo(ErrorCode.NOTETAKER_BUSY));
+        } finally {
+            recall.stop(0);
+        }
+        HttpServer failing = recallAnswering(503);
+        try {
+            assertThatThrownBy(() -> clientOf(failing).send(new RecallBotRequest("https://meet.google.com/x", null,
+                    "UNCAVA Notetaker", "Hi", Map.of(), null))).isInstanceOfSatisfying(VendorException.class,
+                    failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.UNAVAILABLE));
+        } finally {
+            failing.stop(0);
+        }
+    }
+
+    @Test
+    @DisplayName("a leave takes the bot out of its call, and a remove falls back to it once the bot has joined")
+    void leaveAndRemove() throws IOException {
+        List<String> asked = new CopyOnWriteArrayList<>();
+        HttpServer recall = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        recall.createContext("/", exchange -> {
+            asked.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath());
+            exchange.sendResponseHeaders(exchange.getRequestMethod().equals("DELETE") ? 405 : 200, -1);
+            exchange.close();
+        });
+        recall.start();
+        try {
+            RecallBotClient client = clientOf(recall);
+            client.leave("bot-1");
+            client.remove("bot-2");
+        } finally {
+            recall.stop(0);
+        }
+
+        assertThat(asked).containsExactly("POST /api/v1/bot/bot-1/leave_call/", "DELETE /api/v1/bot/bot-2/",
+                "POST /api/v1/bot/bot-2/leave_call/");
+    }
+
+    private static RecallBotClient clientOf(HttpServer recall) {
+        LightMoveProperties properties = mock(LightMoveProperties.class);
+        when(properties.resilience()).thenReturn(new ResilienceSettings(Duration.ofSeconds(2), 0,
+                Duration.ofMillis(1), 1.0, Duration.ZERO, Duration.ofMillis(1), Duration.ofSeconds(1)));
+        VendorRateLimiter limiter = new VendorRateLimiter();
+        RecallSettings settings = new RecallSettings("recall-key", null, "bot-secret",
+                "http://127.0.0.1:" + recall.getAddress().getPort(), Duration.ofMinutes(10), null,
+                Duration.ofSeconds(15), 240, null);
+        return new RecallBotClient(settings, new VendorClientFactory(properties), limiter,
+                new VendorCallGuard(limiter, properties), RestClient.builder(), Clock.systemUTC());
+    }
+
+    private static HttpServer recallAnswering(int status) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.sendResponseHeaders(status, -1);
+            exchange.close();
+        });
+        server.start();
+        return server;
     }
 
     private static List<RecallBotNotice> notices(String body) {

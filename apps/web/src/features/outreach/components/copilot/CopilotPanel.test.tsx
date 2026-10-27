@@ -26,6 +26,7 @@ function aCopilot(overrides: Partial<Copilot> = {}): Copilot {
     title: "Intro call",
     candidateName: "Rania Haddad",
     startsAt: "2026-10-23T10:00:00Z",
+    recordingStartedAt: null,
     status: "RECORDING",
     liveStatus: "LISTENING",
     coach: "RUNNING",
@@ -143,6 +144,41 @@ describe("CopilotPanel", () => {
     renderPanel();
     expect(await screen.findByText(/Not covered: M&A · Board · Package/)).toBeInTheDocument();
     expect(screen.getByText("No more suggestions for this call.")).toBeInTheDocument();
+  });
+
+  it("says only that the call ended once it has, its feed stopped or the copilot stopped along the way", async () => {
+    for (const ended of [
+      aCopilot({ status: "PROCESSING", liveStatus: "FEED_STOPPED" }),
+      aCopilot({ status: "DONE", liveStatus: "STOPPED", stoppedByName: "Omar Siddiqui" }),
+    ]) {
+      vi.mocked(notetakerApi.getCopilot).mockResolvedValue(ended);
+      const { unmount } = render(
+        <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="window" onClose={vi.fn()} />,
+      );
+
+      expect(await screen.findByText(/Call ended\./)).toBeInTheDocument();
+      expect(screen.queryByText(/Live transcript stopped/)).toBeNull();
+      expect(screen.queryByText("Nobody has spoken yet.")).toBeNull();
+      expect(
+        screen.getByText(ended.status === "DONE" ? "Call ended · notes filed" : "Call ended · notes on the way"),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/recording continues/)).toBeNull();
+      unmount();
+    }
+  });
+
+  it("promises no notes when the Notetaker left without recording, removed or never let in", async () => {
+    for (const status of ["CANCELLED", "FAILED"] as const) {
+      vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot({ status }));
+      const { unmount } = render(
+        <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="window" onClose={vi.fn()} />,
+      );
+
+      expect(await screen.findByText(/Nothing was recorded, so no notes are filed\./)).toBeInTheDocument();
+      expect(screen.queryByText(/Notes are filed from the recording/)).toBeNull();
+      expect(screen.getByText("Notetaker left · nothing recorded")).toBeInTheDocument();
+      unmount();
+    }
   });
 
   it("ticks a prepared question as asked by hand, and closes its window on ✕", async () => {

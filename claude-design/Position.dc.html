@@ -1795,20 +1795,21 @@
                           <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
                           <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                           <sc-if value="{{ m.viaLink }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
-                          <!-- Interview copilot: Prepare questions on every upcoming call opens the Interview plan; before the bot
-                               joins, one strip holds both switches, Notetaker | Live copilot, with a few words of status at its
-                               end and each switch explained on hover (Recall streams a call only to a bot made for it, so the
-                               copilot is chosen then). Once the bot is in, the strip keeps its shape: the copilot's half becomes a
-                               solid Open copilot button (a small always-on-top window over the call; where the browser opens none, the
-                               drawer's Copilot tab), or "Copilot off" when none
-                               was chosen, and its end reads ● Rec with the call's running time. -->
-                          <button onClick="{{ openInterviewPlan }}" style="display:inline-flex;align-items:center;gap:4px;margin-top:3px;padding:0;background:none;border:none;font:500 12px var(--sans);color:var(--sky);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Prepare questions</button>
-                          <span style="display:flex;align-items:center;gap:10px;margin-top:6px;border-radius:6px;border:1px solid var(--line);padding:6px 10px">
-                            <span style="flex:1;min-width:0"><span style="display:block;font:500 12px var(--sans)">Live copilot</span><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Prompts you during the call · only you see it</span></span>
-                            <button onClick="{{ openCopilot }}" style="padding:0;background:none;border:none;font:500 11px var(--mono);color:var(--sky);text-decoration:underline;cursor:pointer">Open copilot ↗</button>
-                          </span>
+                          <!-- The Notetaker and the interview copilot are kept out of the way: nothing about them is drawn under
+                               the call. A call's row is the call, its Join link and ⋯; ⋯ opens on where the call has got to, in
+                               words ("Notetaker joins at start · Live copilot", "● Recording 31:42"), then "Notetaker &
+                               questions…" (then Reschedule and Cancel call where the call is the consultant's to change), which
+                               opens the call's panel: one section per job, each with its own button — Prepare questions (gives
+                               way to the Interview plan; "6 ready" and Open questions from its first draft), then the Notetaker
+                               with its Live copilot switch, Start now (solid, from the call's day, once the executive agrees) and
+                               Join at start (a minute before the booked start); in the call End & file notes (asks first), Open
+                               copilot and Remove and discard. A press closes the panel. While the call records the ⋯ wears a red
+                               dot. -->
                         </span>
-                        <a href="#" style="flex:none;display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
+                        <span style="flex:none;display:flex;align-items:center;gap:6px">
+                          <a href="#" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
+                          <button onClick="{{ openInterviewPlan }}" aria-label="Call options" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer">⋯</button>
+                        </span>
                       </div>
                     </sc-for>
                   </sc-if>
@@ -1816,23 +1817,20 @@
                     <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
                     <sc-for list="{{ cd.mtPast }}" as="m">
                       <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
-                        <!-- A call the Notetaker recorded keeps the strip the call had, one row: its status leads — a spinner
-                             and "Notetaker is writing notes…", a green "Notes filed", or "Notetaker failed" with why — and its
-                             end holds the buttons, the one next step solid: Suggest changes, which opens "Changes from the call"
-                             and reads the transcript then — one press, one AI use. After a run it reads "Review 3 changes";
-                             once reviewed it is plain text, "3 changes applied" (or "No changes made"), and opens nothing — a
-                             correction is made on the record. Transcript, Open copilot and Try again are outlined. Each status
-                             explains itself on hover. -->
+                      </span>
+                        <!-- A recorded call has a ⋯ and nothing under it; each step arrives with no press, said where the ⋯
+                             opens: "Writing notes…" (also the moment End & file notes or the call's own end moves it here, to
+                             Past), then "Notes filed · finding changes…", then "Notes filed · 3 changes to review" over Review 3
+                             changes, which opens "Changes from the call", and an accent dot on the ⋯ while they wait. Once
+                             reviewed it reads "Notes filed · 3 changes applied" (or "no changes applied", or "no changes
+                             found") and Changes from the call reopens it as the record of what the call changed: each change
+                             with what it replaced struck through, the words it rests on and who applied it. Transcript is the
+                             next item; a call with no notes says why ("Not recorded · nobody let it in"), with Try again (and
+                             the dot) where only the write-up failed. -->
                         <sc-if value="{{ m.recorded }}">
-                          <span style="display:flex;align-items:center;gap:12px;margin-top:6px;border:1px solid var(--line);border-radius:7px;padding:5px 10px;background:var(--bg)">
-                            <span style="display:inline-flex;align-items:center;gap:8px;font:500 12px var(--sans);color:var(--green)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.checkCircle }}"></path></svg>Notes filed</span>
-                            <span style="margin-left:auto;display:inline-flex;align-items:center;gap:8px">
-                              <button style="display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:4px 10px;background:var(--surface);font:500 12px var(--sans);color:var(--text2);cursor:pointer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.fileText }}"></path></svg>Transcript</button>
-                              <button onClick="{{ openCallChanges }}" style="display:inline-flex;align-items:center;gap:6px;border:none;border-radius:6px;padding:4px 10px;background:var(--accent-solid, #4a56d6);font:600 12px var(--sans);color:#fff;cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.sparkle }}"></path></svg>Suggest changes</button>
-                            </span>
-                          </span>
+                          <button onClick="{{ openCallChanges }}" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent-solid, #4a56d6);box-shadow:0 0 0 2px var(--panel)"></span></button>
                         </sc-if>
-                      </span></div>
+                      </div>
                     </sc-for>
                   </sc-if>
                   <sc-if value="{{ cd.zoomReconnect }}" hint-placeholder-val="{{ false }}">

@@ -256,9 +256,16 @@ const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecordi
   suggestionsAsked: false,
   pendingSuggestions: 0,
   appliedSuggestions: 0,
+  foundSuggestions: 0,
+  suggesting: false,
   liveCopilot: true,
   liveStatus: "LISTENING",
   mayChangeCopilot: false,
+  joinAt: null,
+  recordingStartedAt: "2026-10-25T10:01:00Z",
+  endRequested: false,
+  recordingAvailableUntil: null,
+  mayDownloadRecording: false,
   ...overrides,
 });
 
@@ -266,6 +273,7 @@ const notetakerWith = (...recordings: NotetakerRecording[]) => ({
   offered: true,
   recordings,
   recordableMeetingIds: [],
+  callDayMeetingIds: [],
 });
 
 /** A tab by its label; a count beside it (Notes 2) is part of its name, so the label is matched as a prefix. */
@@ -305,7 +313,12 @@ describe("CandidateDrawer", () => {
     vi.mocked(poolApi.getPerson).mockResolvedValue(yasminRecord);
     vi.mocked(poolApi.tagCatalog).mockResolvedValue([shortlistTag]);
     vi.mocked(personCrmApi.getPersonTimeline).mockResolvedValue({ entries: [], nextCursor: null });
-    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({ offered: true, recordings: [], recordableMeetingIds: [] });
+    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({
+      offered: true,
+      recordings: [],
+      recordableMeetingIds: [],
+      callDayMeetingIds: [],
+    });
   });
 
   it("refuses a nameless executive without posting", async () => {

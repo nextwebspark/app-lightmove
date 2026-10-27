@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent, ReactNode } from "react";
 import { cn } from "../../../lib/cn";
+import { isBelowTableWidth } from "../../../lib/viewport";
 import type { TimeSpan } from "../api/meetingApi";
 import { slotDayPartsOf, slotTimeOf } from "../lib/meetingTimes";
 import { wallClockOf } from "../lib/sendSchedule";
@@ -71,6 +72,10 @@ export function WeekTimeGrid({
   const scroller = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [hover, setHover] = useState<{ date: string; kind: PickHit["kind"] } | null>(null);
+  const [focusedDay, setFocusedDay] = useState<string | null>(null);
+  // A phone shows one day at a time, picked from a strip: seven 104px columns were a sideways scroll, and a thumb
+  // dragging out a time kept landing on the wrong day.
+  const [oneDayAtATime] = useState(isBelowTableWidth);
 
   const firstDay = days[0];
   useEffect(() => {
@@ -142,15 +147,42 @@ export function WeekTimeGrid({
   const nowSpan: TimeSpan[] = [{ start: new Date(0).toISOString(), end: now.toISOString() }];
   const today = wallClockOf(now, timeZone);
   const nowMinutes = Number(today.time.slice(0, 2)) * 60 + Number(today.time.slice(3, 5));
+  const chosenDay = choice ? wallClockOf(new Date(choice.start), timeZone).date : null;
+  const shownDay =
+    [focusedDay, chosenDay, today.date].find((day): day is string => !!day && days.includes(day)) ?? days[0];
 
   return (
+    <>
+    {oneDayAtATime && (
+      <div role="group" aria-label="Day" className="mb-2 flex gap-1.5 overflow-x-auto">
+        {days.map((date) => {
+          const parts = slotDayPartsOf(date);
+          return (
+            <button
+              key={date}
+              type="button"
+              aria-pressed={date === shownDay}
+              aria-label={`${parts.weekday} ${parts.day} ${parts.month}`}
+              onClick={() => setFocusedDay(date)}
+              className={cn(
+                "flex min-w-11 flex-1 flex-col items-center rounded-u-control border px-1.5 py-1.5",
+                date === shownDay ? "border-u-accent bg-u-accent-tint text-u-text" : "border-u-border text-u-text2",
+              )}
+            >
+              <span className="type-summary-label">{parts.weekday}</span>
+              <span className="text-body font-semibold">{parts.day}</span>
+            </button>
+          );
+        })}
+      </div>
+    )}
     <div
       ref={scroller}
       role="group"
       aria-label="Your week"
       className={cn("relative max-h-[540px] overflow-auto rounded-u-chip border border-u-border bg-u-bg", className)}
     >
-      <div className="flex min-w-max">
+      <div className={cn("flex", !oneDayAtATime && "min-w-max")}>
         <div className="sticky start-0 z-20 w-12 flex-none bg-u-bg">
           <div className="sticky top-0 z-10 h-12 border-b border-u-border bg-u-bg" />
           <div className="relative" style={{ height: GRID_HEIGHT }}>
@@ -170,7 +202,14 @@ export function WeekTimeGrid({
           const pick = shown ? stretchesOn([{ start: shown.start, end: endOf(shown) }], date, timeZone) : [];
           const isToday = date === today.date;
           return (
-            <div key={date} className="w-[104px] flex-none border-s border-u-border md:w-auto md:min-w-[80px] md:flex-1">
+            <div
+              key={date}
+              hidden={oneDayAtATime && date !== shownDay}
+              className={cn(
+                "w-[104px] flex-none border-s border-u-border md:w-auto md:min-w-[80px] md:flex-1",
+                oneDayAtATime && "w-auto min-w-0 flex-1",
+              )}
+            >
               <div className="sticky top-0 z-10 flex h-12 flex-col items-center justify-center gap-0.5 border-b border-u-border bg-u-bg">
                 <span className={cn("type-summary-label", isToday ? "text-u-accent" : "text-u-text3")}>
                   {parts.weekday}
@@ -187,7 +226,8 @@ export function WeekTimeGrid({
               </div>
               <div
                 data-testid={`day-${date}`}
-                className={cn("relative touch-none select-none", cursorOn(date))}
+                // On a phone a vertical swipe scrolls the day; a tap still picks, and a swipe cancels the drag.
+                className={cn("relative select-none", oneDayAtATime ? "touch-pan-y" : "touch-none", cursorOn(date))}
                 style={{
                   height: GRID_HEIGHT,
                   backgroundImage: `repeating-linear-gradient(to bottom, transparent 0 ${60 * PIXELS_PER_MINUTE - 1}px, var(--color-u-border) ${60 * PIXELS_PER_MINUTE - 1}px ${60 * PIXELS_PER_MINUTE}px)`,
@@ -246,6 +286,7 @@ export function WeekTimeGrid({
         })}
       </div>
     </div>
+    </>
   );
 }
 

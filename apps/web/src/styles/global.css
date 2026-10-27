@@ -77,6 +77,20 @@ body {
   animation: fade-up 0.5s ease both;
 }
 
+/* A phone's side panel arriving from the right edge, as a native app's does. */
+@keyframes slide-in-end {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.animate-slide-in-end {
+  animation: slide-in-end 0.2s ease-out both;
+}
+
 /* The report's "you are here" marker: a ring that swells out of the current point and fades. */
 @keyframes pulse-ring {
   from {
@@ -117,6 +131,31 @@ body {
   bottom: 16px;
   left: 16px;
   right: 16px;
+}
+
+/* The phone's bottom bar (MobileTabBar, below `lg`): its height, and how far what floats at the bottom edge rises
+   to clear it. Zero from `lg`, where there is no bar. */
+:root {
+  --mobile-nav-height: 3.5rem;
+  --mobile-nav-clearance: 0px;
+}
+
+@media (max-width: 63.999rem) {
+  body:has([data-mobile-nav]) {
+    --mobile-nav-clearance: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+  }
+  body:has([data-mobile-nav]) .toast-stack {
+    bottom: calc(16px + var(--mobile-nav-clearance));
+  }
+}
+
+/* iOS zooms into any field set under 16px the moment it takes focus, and never zooms back out. */
+@media (max-width: 39.999rem) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
 }
 
 @media (min-width: 640px) {
