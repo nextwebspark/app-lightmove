@@ -73,14 +73,11 @@ vi.mock("../../outreach/components/copilot/CopilotTab", async () => {
   const { useQueryClient } = await import("@tanstack/react-query");
   const { NOTETAKER_KEY } = await import("../../outreach/api/notetakerApi");
   return {
-    CopilotTab: ({ recordingId, onNudgeCount }: { recordingId: string; onNudgeCount: (count: number) => void }) => {
+    CopilotTab: ({ recordingId }: { recordingId: string }) => {
       const queryClient = useQueryClient();
       return (
         <div>
           <p>Copilot of {recordingId}</p>
-          <button type="button" onClick={() => onNudgeCount(2)}>
-            two suggestions
-          </button>
           <button type="button" onClick={() => void queryClient.invalidateQueries({ queryKey: NOTETAKER_KEY("p1", "c1") })}>
             read the Notetaker again
           </button>
@@ -1121,18 +1118,6 @@ describe("CandidateDrawer", () => {
 
     await openTab("Notes");
     expect(tabLabels()).not.toContain("Copilot");
-  });
-
-  it("counts the copilot's waiting suggestions on its tab while another tab is open", async () => {
-    vi.mocked(notetakerApi.getNotetaker).mockResolvedValue(notetakerWith(liveCall()));
-    renderDrawer({ candidate: yasmin, company: null });
-    await waitFor(() => expect(tabLabels()[0]).toBe("Copilot"));
-    await openTab("Copilot");
-    await userEvent.click(screen.getByRole("button", { name: "two suggestions" }));
-    expect(screen.getByRole("tab", { name: "Copilot" })).toBeInTheDocument();
-
-    await openTab("Notes");
-    expect(screen.getByRole("tab", { name: /^Copilot\s*2$/ })).toBeInTheDocument();
   });
 
   it("keeps the AI assessment off the profile: it is the Assessment tab's", async () => {

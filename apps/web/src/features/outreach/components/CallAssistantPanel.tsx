@@ -337,7 +337,7 @@ function CopilotSwitch({
     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
       <Toggle checked={checked} onChange={onChange} label="Live copilot" disabled={disabled} />
       <span className="text-note text-u-text">Live copilot</span>
-      <span className="text-meta text-u-text3">{note ?? "Nudges only you during the call."}</span>
+      <span className="text-meta text-u-text3">{note ?? "Coverage and gaps, for you only, during the call."}</span>
     </div>
   );
 }

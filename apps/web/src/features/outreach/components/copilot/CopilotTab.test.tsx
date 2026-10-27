@@ -18,7 +18,7 @@ vi.mock("./CopilotPanel", () => ({
   ),
 }));
 
-function renderTab(onNudgeCount = vi.fn()) {
+function renderTab() {
   render(
     <ToastProvider>
       <CopilotTab
@@ -27,11 +27,9 @@ function renderTab(onNudgeCount = vi.fn()) {
         recordingId="r1"
         firstName="Rania"
         onShow={vi.fn()}
-        onNudgeCount={onNudgeCount}
       />
     </ToastProvider>,
   );
-  return onNudgeCount;
 }
 
 describe("CopilotTab", () => {
@@ -57,11 +55,10 @@ describe("CopilotTab", () => {
 
   it("draws no second copy while the copilot is in its own window, and brings it back on Show here", async () => {
     vi.mocked(useCopilotWindowOpen).mockReturnValue(true);
-    const onNudgeCount = renderTab();
+    renderTab();
 
     expect(screen.getByText("Copilot is in its own window")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pop out" })).not.toBeInTheDocument();
-    expect(onNudgeCount).toHaveBeenCalledWith(0);
     await userEvent.click(screen.getByRole("button", { name: "Show here" }));
     expect(closeCopilotWindow).toHaveBeenCalledWith("r1");
   });

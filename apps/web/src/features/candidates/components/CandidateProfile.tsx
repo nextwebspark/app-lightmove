@@ -215,10 +215,9 @@ export function CandidateProfile({
   const [heldCopilotId, setHeldCopilotId] = useState<string | null>(null);
   const copilotId = tab === "copilot" ? (heldCopilotId ?? liveCopilotId) : liveCopilotId;
   const drawerTabs: readonly DrawerTab[] = canWrite && copilotId ? ["copilot", ...offeredTabs] : offeredTabs;
-  // Once opened, the copilot stays mounted on the other tabs, so the tab can count the suggestions waiting.
+  // Once opened, the copilot stays mounted on the other tabs, so its window keeps reading while another tab is open.
   const [copilotOpenedFor, setCopilotOpenedFor] = useState<string | null>(null);
   if (tab === "copilot" && copilotId && copilotOpenedFor !== copilotId) setCopilotOpenedFor(copilotId);
-  const [copilotNudges, setCopilotNudges] = useState(0);
   /** Leaving the Notes tab lets the note go, so coming back to it scrolls nowhere. */
   const chooseTab = (next: DrawerTab) => {
     setTab(next);
@@ -419,7 +418,6 @@ export function CandidateProfile({
           tabs={drawerTabs}
           value={tab}
           onChange={chooseTab}
-          copilotNudges={copilotNudges}
           counts={{
             notes: notes.data?.length,
             documents: documents.documents.data?.length,
@@ -742,7 +740,6 @@ export function CandidateProfile({
               recordingId={copilotId}
               firstName={firstName}
               onShow={() => showCopilot(copilotId)}
-              onNudgeCount={setCopilotNudges}
             />
           </div>
         )}

@@ -444,8 +444,8 @@ function QuestionRow({
             autoFocus
             aria-label="Question"
             value={question.text}
-            maxLength={400}
-            rows={2}
+            maxLength={140}
+            rows={1}
             placeholder="Type your question"
             onChange={(event) => onChange({ ...question, text: event.target.value })}
             onBlur={() => question.text.trim() !== "" && setEditing(false)}

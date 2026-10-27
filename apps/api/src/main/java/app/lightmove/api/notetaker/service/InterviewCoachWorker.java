@@ -8,9 +8,7 @@ import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.notetaker.constant.CoachState;
-import app.lightmove.api.notetaker.constant.NudgeStatus;
 import app.lightmove.api.notetaker.constant.RecordGap;
-import app.lightmove.api.notetaker.model.CoachNudge;
 import app.lightmove.api.notetaker.model.InterviewPlan;
 import app.lightmove.api.notetaker.model.InterviewQuestion;
 import app.lightmove.api.notetaker.model.LiveCoaching;
@@ -25,15 +23,11 @@ import app.lightmove.api.position.service.PositionService;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -55,10 +49,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Slf4j
 public class InterviewCoachWorker {
 
-    static final int LINES_FOR_A_RUN = 4;
+    static final int LINES_FOR_A_RUN = 3;
     static final Duration SPEECH_FOR_A_RUN = Duration.ofSeconds(20);
-    /** A line left unread this long is read whatever came after it, so a quiet call still gets its last nudge. */
-    static final Duration LONGEST_WAIT = Duration.ofSeconds(30);
+    /** A line left unread this long is read whatever came after it, so a quiet call still gets its last reading. */
+    static final Duration LONGEST_WAIT = Duration.ofSeconds(20);
     static final Duration CLAIM_LIFETIME = Duration.ofSeconds(90);
     static final int FAILURES_BEFORE_PAUSE = 3;
 
@@ -255,29 +249,14 @@ public class InterviewCoachWorker {
         }
     }
 
-    /**
-     * What a consultant did while the model was reading wins over the run's reading: a nudge used or dismissed stays
-     * so, and a question ticked as asked stays ticked.
-     */
+    /** A question ticked as asked while the model was reading stays ticked. */
     static LiveCoaching reconciled(LiveCoaching reading, LiveCoaching meanwhile) {
         if (meanwhile == null) {
             return reading;
         }
-        Map<String, CoachNudge> decided = meanwhile.nudges().stream()
-                .filter(nudge -> nudge.status() != NudgeStatus.SHOWN)
-                .collect(Collectors.toMap(CoachNudge::id, Function.identity(), (first, second) -> first));
-        Set<String> decidedTexts = decided.values().stream()
-                .map(nudge -> InterviewCoach.textKeyOf(nudge.text()))
-                .collect(Collectors.toSet());
-        List<CoachNudge> nudges = new ArrayList<>(decided.values());
-        reading.nudges().stream()
-                .filter(nudge -> !decided.containsKey(nudge.id())
-                        && !decidedTexts.contains(InterviewCoach.textKeyOf(nudge.text())))
-                .forEach(nudges::add);
         Set<String> asked = new LinkedHashSet<>(reading.asked());
         asked.addAll(meanwhile.asked());
-        return new LiveCoaching(reading.coverage(), reading.gaps(), List.copyOf(asked), List.copyOf(nudges),
-                reading.coach());
+        return reading.withAsked(List.copyOf(asked));
     }
 
     private static CoachState coachStateOf(MeetingRecording recording) {

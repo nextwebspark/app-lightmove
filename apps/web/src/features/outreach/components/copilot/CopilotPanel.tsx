@@ -24,8 +24,8 @@ import { type CopilotView as CopilotTab, useCopilotView } from "../../lib/copilo
 const CLOSE_AFTER_END_MS = 60_000;
 
 /**
- * The live copilot of one call (`Position.dc.html`'s Interview copilot): competency coverage, the record's gaps, what to
- * ask next, the plan and the transcript, read as the call goes. Drawn in a floating window over the call, a popup
+ * The live copilot of one call (`Position.dc.html`'s Interview copilot): competency coverage, the record's gaps, the
+ * plan and the transcript, read as the call goes. Drawn in a floating window over the call, a popup
  * where the browser has no floating windows, or the executive drawer. Everything it draws stays in this tree — no
  * portal, no toast — because in a floating window the opener's `document.body` is another window.
  */
@@ -37,7 +37,6 @@ export function CopilotPanel({
   onClose,
   onShowInUncava,
   onPopOut,
-  onNudgeCount,
   notice,
 }: {
   projectId: string;
@@ -51,13 +50,11 @@ export function CopilotPanel({
   onShowInUncava?: () => void;
   /** The tab's way out into a window over the call; called straight from the click, which the window needs. */
   onPopOut?: () => void;
-  /** The suggestions waiting to be used, for the drawer's tab to count while another tab is open. */
-  onNudgeCount?: (count: number) => void;
   /** A line the host wants said once, such as a popup that cannot stay on top. */
   notice?: string;
 }) {
   const { copilot, lines, isLive, error, read, setCopilot } = useCopilot(projectId, candidateId, recordingId);
-  const [{ view: tab, isMuted }, updateView] = useCopilotView(recordingId);
+  const [{ view: tab }, updateView] = useCopilotView(recordingId);
   const setTab = (view: CopilotTab) => updateView({ view });
   const menuState = useCopilotMenu();
   const photoUrl = useExecutivePhoto(projectId, candidateId);
@@ -72,10 +69,6 @@ export function CopilotPanel({
   const now = useNow();
 
   const hasEnded = copilot !== null && !isCallOn(copilot);
-  const waitingNudges = isMuted ? 0 : (copilot?.nudges.length ?? 0);
-  useEffect(() => {
-    onNudgeCount?.(waitingNudges);
-  }, [waitingNudges, onNudgeCount]);
   useEffect(() => {
     if (!hasEnded || variant !== "window" || !onClose) return;
     const timer = window.setTimeout(onClose, CLOSE_AFTER_END_MS);
@@ -155,15 +148,6 @@ export function CopilotPanel({
           onKeyDown={menuState.handleKeyDown}
           className="absolute end-0 top-8 z-20 flex w-60 animate-fade-up flex-col rounded-u-card border border-u-border-strong bg-u-surface p-1 shadow-u-e3"
         >
-          <MenuItem
-            icon={ICONS.bell}
-            onSelect={() => {
-              updateView({ isMuted: !isMuted });
-              menuState.close(true);
-            }}
-          >
-            {isMuted ? "Unmute suggestions" : "Mute suggestions"}
-          </MenuItem>
           {onShowInUncava && (
             <MenuItem
               icon={ICONS.arrowLeft}
@@ -277,9 +261,6 @@ export function CopilotPanel({
                 copilot={copilot}
                 lines={lines}
                 faceOf={faceOf}
-                isMuted={isMuted}
-                onAct={act}
-                ids={{ projectId, candidateId, recordingId }}
               />
             )}
             {tab === "plan" && <PlanTab copilot={copilot} onAct={act} ids={{ projectId, candidateId, recordingId }} />}
@@ -294,7 +275,7 @@ export function CopilotPanel({
           variant === "window" && "px-3",
         )}
       >
-        <span className="truncate">{footerLineOf(copilot, isMuted)}</span>
+        <span className="truncate">{footerLineOf(copilot)}</span>
         <Viewers viewers={copilot?.viewers ?? []} />
       </footer>
 
@@ -342,20 +323,13 @@ function LiveTab({
   copilot,
   lines,
   faceOf,
-  isMuted,
-  onAct,
-  ids,
 }: {
   copilot: Copilot;
   lines: CopilotLine[];
   faceOf: (line: CopilotLine) => Face;
-  isMuted: boolean;
-  onAct: (action: () => Promise<unknown>) => Promise<void>;
-  ids: CopilotIds;
 }) {
   const [openCompetency, setOpenCompetency] = useState<string | null>(null);
   const opened = copilot.coverage.find((line) => line.competency === openCompetency) ?? null;
-  const isOn = isCallOn(copilot) && copilot.liveStatus === "LISTENING";
   return (
     <>
       {isWaitingToJoin(copilot) && (
@@ -432,57 +406,10 @@ function LiveTab({
       )}
 
       <div className="flex flex-col gap-2">
-        <span className="type-label text-u-text3">Ask next</span>
-        {isMuted ? (
-          <p className="text-note text-u-text3">Suggestions are muted. Coverage keeps updating.</p>
-        ) : !isOn ? (
-          <p className="text-note text-u-text3">No more suggestions for this call.</p>
-        ) : copilot.nudges.length === 0 ? (
-          <p className="text-note text-u-text3">Nothing to suggest right now.</p>
-        ) : (
-          <ul className="flex flex-col gap-2" aria-live="polite">
-            {copilot.nudges.map((nudge) => (
-              <li
-                key={nudge.id}
-                className="flex animate-fade-up flex-col gap-1 rounded-u-card border border-u-border-strong bg-u-bg p-2.5"
-              >
-                <p className="text-body font-medium">{nudge.text}</p>
-                {nudge.reason && <p className="text-meta text-u-text3">{nudge.reason}</p>}
-                <span className="flex justify-end gap-1.5">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    onClick={() =>
-                      void onAct(() =>
-                        notetakerApi.decideNudge(ids.projectId, ids.candidateId, ids.recordingId, nudge.id, "dismiss"),
-                      )
-                    }
-                  >
-                    Dismiss
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="xs"
-                    onClick={() =>
-                      void onAct(() =>
-                        notetakerApi.decideNudge(ids.projectId, ids.candidateId, ids.recordingId, nudge.id, "used"),
-                      )
-                    }
-                  >
-                    Used
-                  </Button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2">
         <span className="type-label text-u-text3">Last said</span>
         <TranscriptLines
-          lines={lines.slice(-3)}
-          speaking={copilot.speaking}
+          lines={copilot.speaking.length > 0 ? [] : lines.slice(-1)}
+          speaking={copilot.speaking.slice(-1)}
           faceOf={faceOf}
           empty="Nobody has spoken yet."
         />
@@ -834,12 +761,12 @@ function useExecutivePhoto(projectId: string, candidateId: string): string | nul
   return url;
 }
 
-function footerLineOf(copilot: Copilot | null, isMuted: boolean): string {
+function footerLineOf(copilot: Copilot | null): string {
   if (!copilot) return "Connecting…";
   if (copilot.liveStatus === "STOPPED") return "Copilot stopped · recording continues";
   if (!isCallOn(copilot)) return "Call ended · notes on the way";
   if (isWaitingToJoin(copilot)) return "Waiting to be let in…";
-  return isMuted ? "Suggestions muted" : "Listening";
+  return "Listening";
 }
 
 /** The clock the elapsed time reads, ticking once a second. */

@@ -177,6 +177,9 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    with evidence written), and **which** facts the record is missing — notice, package, location, relocation, motivation,
    expected package — never what a held one says and never a package figure. Code keeps only what it can place: a
    competency id the brief has (at most two questions each), a gap that was listed (one each), at most two clarifiers.
+   **Every question is one short line** — about twelve words, held to 120 characters at a word boundary
+   (`LONGEST_DRAFTED_QUESTION`; `listenFor` and `why` to 80) — because a consultant cannot read a sentence mid-call; the
+   prompt splits a long one into two rather than lengthening it, and an edit in the dialog stops at 140.
    The plan is kept per call (V154 `app_lm_interview_plan`, matched on the call's start and title as every teammate's
    copy of it is), edited, ticked and saved through `PUT …/meetings/{meetingId}/plan`; Regenerate redrafts the model's
    questions and keeps the consultant's own. A press is one `AI_ENRICH` use and its own `LlmBudget.INTERVIEW_PLAN` meter;
@@ -210,14 +213,16 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       `app_lm_meeting_live_line`, staff-only). The lines go when the call ends, fails or is cancelled, and when the
       copilot is stopped, so only the final transcript outlives the call.
     - **The coach.** `InterviewCoachWorker` runs `InterviewCoach` (`prompts/interview-coach-*`) once enough new talk is
-      in — four lines, or twenty seconds of speech, or a line left unread for thirty — never sooner than
+      in — three lines, or twenty seconds of speech, or a line left unread for twenty — never sooner than
       `copilot-coach-interval` (15 s) after the last run, up to `copilot-max-coach-runs` (240) a call; a sweep on the
       same interval catches a call that went quiet. One run at a time per call by claim (`coaching_since`). It sends the
       brief, the plan's ticked questions, the missing facts, what it found so far and the transcript (redacted, the
       team's voices marked "(your team)" in code), and folds the answer forward only: a competency goes from not yet to
-      touched to evidenced and never back, a gap heard stays heard, a question asked stays asked, at most three nudges
-      show, and one the consultant used or dismissed is never suggested again — what they did while a run was reading
-      wins over that run. A failed run keeps what the window shows and reads the same lines again; three in a row pause
+      touched to evidenced and never back, a gap heard stays heard, a question asked stays asked — what the consultant
+      ticked while a run was reading wins over that run. **It suggests no next question**: it only reads coverage and
+      gaps, and code keeps a reading only where an executive's own line backs it (`InterviewCoach.verified`: a
+      competency moves only on words quoted from a non-team line, a gap is heard only where an executive was speaking).
+      The `nudges` key of an older row is ignored. A failed run keeps what the window shows and reads the same lines again; three in a row pause
       it until more is said. A stretch the guard stops is skipped. Past the cap the reading freezes. A live call is one
       `AI_ENRICH` use, counted once its first reading is on file: a call no run answered costs nothing. A question ticked
       as asked must be one of the call's plan.
@@ -228,16 +233,15 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       only while a call's copilot is joining or listening (`liveCopilotOf`), and stays while it is open after the copilot
       stops; it is never opened unasked and never remembered. It draws the same panel at the drawer's width, headed
       like the window but by the copilot rather than the executive the drawer already shows (the call, Pop out, ⋯, then
-      Live · Plan · Transcript), counts the suggestions waiting while
-      another tab is open, and while the copilot is in its window says so with Show here rather than drawing a copy. It reads `GET …/notetaker/{recordingId}/copilot?after=` (the lines after the last
+      Live · Plan · Transcript), and while the copilot is in its window says so with Show here rather than drawing a copy. It reads `GET …/notetaker/{recordingId}/copilot?after=` (the lines after the last
       one it holds) whenever `…/copilot/stream` says something changed (Postgres `lm_copilot_stream`), and every 15 s
       regardless; a hidden tab keeps its stream, since the consultant is looking at the call. The window's header is the
-      executive — their stored photo, name, the call and its clock — then ⋯ (Mute suggestions, Show in Uncava — the
+      executive — their stored photo, name, the call and its clock — then ⋯ (Show in Uncava — the
       window closes and the drawer opens on the Copilot tab —, Stop copilot; closed by a click elsewhere, Escape or the
       window losing focus) and ✕, which closes only that window. Each transcript line carries its speaker's face (the
       executive's photo, a teammate's sign-in picture), and the foot who is watching (each stream stamps
-      `app_lm_meeting_copilot_viewer`). The view and Mute are one per call across the tab, the window and the popup
-      (`lib/copilotView.ts`, a `BroadcastChannel` for the popup), so moving between them loses neither. **Stop copilot** (`POST …/copilot/stop`) is the
+      `app_lm_meeting_copilot_viewer`). The view is one per call across the tab, the window and the popup
+      (`lib/copilotView.ts`, a `BroadcastChannel` for the popup), so moving between them loses nothing. **Stop copilot** (`POST …/copilot/stop`) is the
       switcher's, the sender's, a lead's or an admin's (`NOTETAKER_COPILOT_NOT_YOURS`): it stops the feed and the coach
       for everyone, deletes the lines, and leaves the bot recording. Every switch, stop and first opening is audited.
 

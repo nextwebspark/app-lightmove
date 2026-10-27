@@ -8,9 +8,7 @@ import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.CoverageState;
 import app.lightmove.api.notetaker.constant.InterviewQuestionSection;
 import app.lightmove.api.notetaker.constant.InterviewQuestionSource;
-import app.lightmove.api.notetaker.constant.NudgeStatus;
 import app.lightmove.api.notetaker.constant.RecordGap;
-import app.lightmove.api.notetaker.model.CoachNudge;
 import app.lightmove.api.notetaker.model.InterviewQuestion;
 import app.lightmove.api.notetaker.model.LiveCoaching;
 import app.lightmove.api.notetaker.model.RecallLiveUtterance;
@@ -57,6 +55,21 @@ class InterviewCopilotRulesTest {
     }
 
     @Test
+    @DisplayName("a drafted question is held to one line, cut at a word")
+    void draftedQuestionIsOneLine() {
+        String longQuestion = "Walk me through the refinancing you led, who you negotiated with and what it changed "
+                + "for the group's cost of debt over the following three years.";
+
+        List<InterviewQuestion> kept = InterviewPlanner.questionsOf(new PlanAnswer(null,
+                List.of(new PlanAnswer.Fit("c1", longQuestion, "A named deal, their own part, the result, and more")),
+                List.of(), List.of()), competencies(), EnumSet.noneOf(RecordGap.class));
+
+        assertThat(kept.getFirst().text()).hasSizeLessThanOrEqualTo(InterviewPlanner.LONGEST_DRAFTED_QUESTION)
+                .isNotEqualTo(longQuestion).satisfies(text -> assertThat(longQuestion).startsWith(text));
+        assertThat(kept.getFirst().text()).doesNotEndWith(" ").matches(".*\\w$");
+    }
+
+    @Test
     @DisplayName("only an empty field is a gap, and expected package goes with an empty motivation")
     void gapsAreOnlyWhatIsEmpty() {
         UUID tag = UUID.randomUUID();
@@ -68,7 +81,7 @@ class InterviewCopilotRulesTest {
     }
 
     @Test
-    @DisplayName("the coach moves a competency forward only, and never brings back a dismissed nudge")
+    @DisplayName("the coach moves a competency forward only and keeps what it heard")
     void coachReadingOnlyMovesForward() {
         Map<String, BriefCompetency> ids = competencies();
         LiveCoaching start = InterviewCoach.withEveryCompetency(null, ids);
@@ -80,45 +93,54 @@ class InterviewCopilotRulesTest {
                 List.of(new CoachAnswer.Coverage("c1", "evidenced", "We refinanced 1.2 billion.", "05:33"),
                         new CoachAnswer.Coverage("c9", "EVIDENCED", "x", "00:01")),
                 List.of(new CoachAnswer.GapHeard("NOTICE", "09:12"), new CoachAnswer.GapHeard("PACKAGE", "10:00")),
-                List.of("q1", "q9"),
-                List.of(new CoachAnswer.Nudge("Ask for an example.", "No example"),
-                        new CoachAnswer.Nudge("Two", null), new CoachAnswer.Nudge("Three", null),
-                        new CoachAnswer.Nudge("Four", null))),
+                List.of("q1", "q9")),
                 ids, InterviewCoach.questionIdsOf(List.of(notice)), Set.of(RecordGap.NOTICE));
 
         assertThat(first.coverage().getFirst().state()).isEqualTo(CoverageState.EVIDENCED);
         assertThat(first.coverage().getFirst().at()).isEqualTo("05:33");
         assertThat(first.gaps()).extracting(gap -> gap.gap()).containsExactly(RecordGap.NOTICE);
         assertThat(first.asked()).containsExactly("plan-q");
-        assertThat(first.nudges()).hasSize(InterviewCoach.MOST_NUDGES);
         assertThat(first.coach()).isEqualTo(CoachState.RUNNING);
 
-        CoachNudge dismissed = first.nudges().getFirst().as(NudgeStatus.DISMISSED);
-        LiveCoaching steered = first.withNudges(List.of(dismissed));
-        LiveCoaching second = InterviewCoach.merged(steered, new CoachAnswer(null,
-                List.of(new CoachAnswer.Coverage("c1", "TOUCHED", "Later words.", "20:00")), List.of(), List.of(),
-                List.of(new CoachAnswer.Nudge("ask for an EXAMPLE", null), new CoachAnswer.Nudge("New one.", null))),
+        LiveCoaching second = InterviewCoach.merged(first, new CoachAnswer(null,
+                List.of(new CoachAnswer.Coverage("c1", "TOUCHED", "Later words.", "20:00")), List.of(), List.of()),
                 ids, Map.of(), Set.of(RecordGap.NOTICE));
 
         assertThat(second.coverage().getFirst().state()).isEqualTo(CoverageState.EVIDENCED);
         assertThat(second.coverage().getFirst().quote()).isEqualTo("We refinanced 1.2 billion.");
-        assertThat(second.nudges()).extracting(CoachNudge::text, CoachNudge::status).containsExactly(
-                org.assertj.core.groups.Tuple.tuple("Ask for an example.", NudgeStatus.DISMISSED),
-                org.assertj.core.groups.Tuple.tuple("New one.", NudgeStatus.SHOWN));
+        assertThat(second.gaps()).extracting(gap -> gap.gap()).containsExactly(RecordGap.NOTICE);
     }
 
     @Test
-    @DisplayName("what a consultant did during a run outlives the run's reading")
+    @DisplayName("a reading counts only where an executive's own line backs it, never the team's")
+    void readingIsHeldToWhatTheExecutiveSaid() {
+        Instant start = Instant.parse("2026-10-27T10:00:00Z");
+        List<InterviewCoach.HeardLine> lines = List.of(
+                new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "Tell me about the refinancing.", true),
+                new InterviewCoach.HeardLine(start.plusSeconds(20), "Priya",
+                        "We refinanced 1.2 billion in 2024, and I led the bank talks.", false),
+                new InterviewCoach.HeardLine(start.plusSeconds(30), "Yara", "What notice do you have?", true));
+
+        CoachAnswer kept = InterviewCoach.verified(new CoachAnswer(null,
+                List.of(new CoachAnswer.Coverage("c1", "EVIDENCED", "I led the bank talks", "00:20"),
+                        new CoachAnswer.Coverage("c2", "EVIDENCED", "Tell me about the refinancing", "00:10"),
+                        new CoachAnswer.Coverage("c2", "TOUCHED", "Never said this", "00:40"),
+                        new CoachAnswer.Coverage("c2", "TOUCHED", null, null)),
+                List.of(new CoachAnswer.GapHeard("NOTICE", "00:21"), new CoachAnswer.GapHeard("PACKAGE", "00:31")),
+                List.of()), lines, start);
+
+        assertThat(kept.coverage()).extracting(CoachAnswer.Coverage::id).containsExactly("c1");
+        assertThat(kept.gapsHeard()).extracting(CoachAnswer.GapHeard::gap).containsExactly("NOTICE");
+    }
+
+    @Test
+    @DisplayName("a question ticked during a run stays ticked")
     void consultantWinsOverARun() {
-        CoachNudge shown = new CoachNudge("n1", "Ask about the team.", null, NudgeStatus.SHOWN);
-        LiveCoaching reading = new LiveCoaching(List.of(), List.of(), List.of("q-a"), List.of(shown),
-                CoachState.RUNNING);
-        LiveCoaching meanwhile = new LiveCoaching(List.of(), List.of(), List.of("q-b"),
-                List.of(shown.as(NudgeStatus.USED)), CoachState.RUNNING);
+        LiveCoaching reading = new LiveCoaching(List.of(), List.of(), List.of("q-a"), CoachState.RUNNING);
+        LiveCoaching meanwhile = new LiveCoaching(List.of(), List.of(), List.of("q-b"), CoachState.RUNNING);
 
         LiveCoaching kept = InterviewCoachWorker.reconciled(reading, meanwhile);
 
-        assertThat(kept.nudges()).extracting(CoachNudge::status).containsExactly(NudgeStatus.USED);
         assertThat(kept.asked()).containsExactlyInAnyOrder("q-a", "q-b");
     }
 

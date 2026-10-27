@@ -332,7 +332,6 @@ export interface Copilot {
   coverage: CopilotCoverage[];
   gaps: { gap: RecordGap; heard: boolean; at: string | null }[];
   plan: { id: string; section: InterviewQuestionSection; competency: string | null; text: string; asked: boolean }[];
-  nudges: { id: string; text: string; reason: string | null }[];
   /** Finished lines after the cursor sent; `lastSeq` is the next cursor. */
   lines: CopilotLine[];
   /** Each voice's words so far. */
@@ -399,18 +398,6 @@ export function getCopilot(
 
 export function stopCopilot(projectId: string, candidateId: string, recordingId: string): Promise<Copilot> {
   return request<Copilot>(`${copilotPath(projectId, candidateId, recordingId)}/stop`, { method: "POST" });
-}
-
-export function decideNudge(
-  projectId: string,
-  candidateId: string,
-  recordingId: string,
-  nudgeId: string,
-  decision: "used" | "dismiss",
-): Promise<void> {
-  return request<void>(`${copilotPath(projectId, candidateId, recordingId)}/nudges/${nudgeId}/${decision}`, {
-    method: "POST",
-  });
 }
 
 export function markPlanQuestionAsked(
