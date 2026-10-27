@@ -8,15 +8,15 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 ## How a call is recorded
 
-1. **Start now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is on a
-   call's row until then: the row in the executive drawer's Meetings section is the call, its Join link and its ⋯,
+1. **Start now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
+   on a call's row at all: the row in the executive drawer's Meetings section is the call, its Join link and its ⋯,
    whose **Notetaker & questions…** opens the call's panel — one section per job, each with its own button: Prepare
    questions (step 9), then the Notetaker with its Live copilot switch, **Start now**, which sends the bot into the
    call at once — the consultant asks the executive first, and starts it once they agree — and, while the start is more
    than two minutes away, **Join at start**, which schedules it for a minute before the booked start. A press closes the
-   panel, and the call's one line then says what is set ("Notetaker joins at start · Live copilot · 6 questions
-   ready"); clicking the line opens the panel again on what is set and the next step. Book a call carries no
-   Notetaker. Either is offered when:
+   panel, and the ⋯ then opens on what is set ("Notetaker joins at start · Live copilot") above the same item, whose
+   panel shows it again with the next step. The ⋯ wears a dot while the call records (red) or waits on the consultant
+   — changes to review, notes to try again (accent). Book a call carries no Notetaker. Either is offered when:
    - the call is still to come, under way, or ran over its booked end by no more than 20 minutes (`OVERRUN_GRACE`). Past
      the booked end it is offered only while no later call on the consultant's calendar has started on the same link,
      since a personal room used back to back would otherwise put the next interview on this person;
@@ -89,9 +89,9 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    recording still live 30 minutes after its call ended, or 5 minutes after End & file notes was pressed
    (`reconciled_at`, `FOR UPDATE SKIP LOCKED`, so one instance reads each bot), reads it back from Recall and folds it
    on as the webhook would have. A recording still live a day after its call is `TIMED_OUT`.
-7. **Join now, End & file notes, Remove.** Anyone on the position may press each (`WORK_EXECUTE`). The call's line
-   carries the one press a call in progress needs, **End & file notes**; the rest are in its panel. A call the
-   Notetaker has left — End pressed, its notes being written or filed — is listed under Past from then on.
+7. **Join now, End & file notes, Remove.** Anyone on the position may press each (`WORK_EXECUTE`), all in the call's
+   panel; its ⋯ opens on "Recording 31:42" meanwhile. A call the Notetaker has left — End pressed, its notes being
+   written or filed — is listed under Past from then on, and its ⋯ carries what came of it rather than the panel.
    - **Join now** (the panel's **Start now instead**) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
      than two minutes away, under the link guards Start now has. A new bot is sent first and the scheduled one called
      back only once the row holds the new id (`NOTETAKER_JOINED_NOW`), so a refusal — an empty pool included — leaves
@@ -109,8 +109,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 8. **Suggest changes.** Once a recording's notes are filed, its transcript is read for changes with no press
    (`CallSuggestionService.suggestOnceFiled`), claimed (`suggesting_since`) in the very transaction that files the note so
    no press finds it unclaimed, in the sender's name and on their meters (`LlmBudget`, `AI_ENRICH` fair use). The call's
-   line says "finding changes…" meanwhile (`suggesting` on the read). A meter that refuses, a model with nothing usable
-   or a person no longer on the position leaves **Suggest changes** on the line, whose press opens "Changes from the
+   ⋯ says "finding changes…" meanwhile (`suggesting` on the read). A meter that refuses, a model with nothing usable
+   or a person no longer on the position leaves **Suggest changes** in the ⋯, whose press opens "Changes from the
    call" and reads the transcript then, saying why where it cannot. Either way it is one
    Gemini call (`CallChangeSuggester`, `prompts/call-changes-*`, Spring AI's structured output behind the usual guard
    and schema repair). The model gets the redacted transcript and what the record holds now for the notice period,
@@ -131,7 +131,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    every one is decided adds the new ones beside the decided ones; each reading is one `AI_ENRICH` use, recorded only
    when something was found. The claim keeps the worker and any press to one model call.
 
-   Found changes put **Review** on the call's line ("N changes to review"). The review is **one list and one save**, the
+   Found changes put **Review N changes** in the call's ⋯ and a dot on it. The review is **one list and one save**, the
    convention for suggested record updates from a call: every change on
    its row — what the record holds now, what the call suggests, the words it rests on and their time into the call —
    ticked to keep unless the record no longer lets it in, editable in place, a package ticked figure by figure.
@@ -145,8 +145,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    for each task) with one `UPDATED_FROM_CALL` Activity line per write naming the researcher, the fields and the call
    — never the values — and a `NOTETAKER_SUGGESTION_APPLIED` / `_SKIPPED` audit event per suggestion beside the
    owner's own. **There is no Undo**: once reviewed a change is the record's, and a correction is made there. The
-   line then reads "N changes applied" (or "no changes applied", or "no changes found" where the call stated nothing
-   new), and **Changes** reopens the review as a record of the call: each applied change with what it replaced — kept
+   ⋯ then reads "N changes applied" (or "no changes applied", or "no changes found" where the call stated nothing
+   new), and **Changes from the call** reopens the review as a record of the call: each applied change with what it replaced — kept
    beside who applied it and when (`was` in the suggestion's `applied`; a change applied before that was kept has
    none) — the words it rests on and their time, and each skipped one. A model that fails or answers off-schema is
    `AI_UNAVAILABLE` (Try again), a transcript the guard stops is `VALIDATION_FAILED`, and neither stores or charges
@@ -154,7 +154,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 9. **Prepare questions.** Every upcoming call offers **Prepare questions** behind its ⋯ — a section of the
    Notetaker & questions panel, which gives way to the Interview plan, or the ⋯'s own item where no Notetaker is
-   offered — and the call's line says "N questions ready" once they are saved. It opens the Interview plan and, the
+   offered — and the panel says "N ready" with **Open questions** from the first draft, saved or not, since that draft
+   is already the plan the copilot follows. It opens the Interview plan and, the
    first time, drafts it with one Gemini call (`InterviewPlanner`,
    `prompts/interview-plan-*`, the same structured-output path behind the guard and schema repair). The model gets the
    brief's `AssessmentBrief` with each competency as an id, the `CandidateDossier`, the notes and documents Assess with
@@ -204,7 +205,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       it until more is said. A stretch the guard stops is skipped. Past the cap the reading freezes. A live call is one
       `AI_ENRICH` use, counted once its first reading is on file: a call no run answered costs nothing. A question ticked
       as asked must be one of the call's plan.
-    - **The window.** **Copilot ↗** on the call's line, or **Open copilot** in its panel, opens it in a Document Picture-in-Picture window in Chrome and Edge —
+    - **The window.** **Open copilot** in the call's panel, or in its ⋯ while the notes are written, opens it in a Document Picture-in-Picture window in Chrome and Edge —
       always on top, dragged over Zoom, Meet or Teams, rendered from the drawer's page so it needs no sign-in of its own
       — or a popup of `/copilot/:projectId/:candidateId/:recordingId` elsewhere (not on top; it says so), or the drawer's
       **Copilot tab** when the browser opens neither. That tab comes first in the executive drawer, set apart by a rule,
@@ -260,8 +261,8 @@ To try it locally:
 1. Set `RECALL_API_KEY`, `RECALL_BOT_WEBHOOK_SECRET` and (for EU) `RECALL_BASE_URL` before `npm run dev`.
 2. Expose `:8080` (cloudflared or ngrok) and point a Recall webhook endpoint at `/api/v1/notetaker/webhooks/recall`.
 3. Book a Meet call in the drawer, join the call, open its ⋯ → **Notetaker & questions…** → **Start now**, let the bot
-   in and talk; **End & file notes** on the call's line files the notes without waiting for the booked end, and the
-   changes the call suggests follow on the same line.
+   in and talk; **End & file notes** in the same panel files the notes without waiting for the booked end, and the
+   changes the call suggests follow in the call's ⋯, a dot on it once they wait.
 
 ## Left for later
 

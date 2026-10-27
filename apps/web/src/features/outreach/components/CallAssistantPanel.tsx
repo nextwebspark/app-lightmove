@@ -15,7 +15,8 @@ const JOIN_NOW_LEAD_MS = 2 * 60_000;
 /**
  * Notetaker & questions, the call's panel behind its ⋯: one section per job, each with its own button. Opening it
  * again shows what is set — when the Notetaker joins, whether the copilot follows it, how many questions are ready —
- * and the next useful step. A button that does its job closes the panel; the call's line then says what happened.
+ * and the next useful step. A button that does its job closes the panel; its toast says what happened, and the call's ⋯
+ * opens on where it has got to.
  */
 export function CallAssistantPanel({
   projectId,

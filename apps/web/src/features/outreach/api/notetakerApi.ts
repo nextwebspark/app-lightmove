@@ -248,6 +248,10 @@ export type CompetencyPanel = "TECHNICAL" | "BEHAVIOURAL";
 export const INTERVIEW_PLAN_KEY = (projectId: string, candidateId: string, meetingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "interview-plan", meetingId] as const;
 
+/** The draft of one call's plan, whichever dialog started it. */
+export const INTERVIEW_PLAN_DRAFT_KEY = (projectId: string, candidateId: string, meetingId: string) =>
+  [...INTERVIEW_PLAN_KEY(projectId, candidateId, meetingId), "draft"] as const;
+
 export const COPILOT_KEY = (projectId: string, candidateId: string, recordingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "copilot"] as const;
 

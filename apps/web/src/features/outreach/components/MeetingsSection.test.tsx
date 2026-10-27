@@ -184,7 +184,7 @@ function renderSection({
 describe("MeetingsSection", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    // Every upcoming row reads its call's plan; left unanswered, that read settles after the test has ended.
+    // The call's panel reads its plan; left unanswered, that read settles after the test has ended.
     vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue({
       meetingId: "m1",
       title: null,
@@ -446,13 +446,15 @@ describe("MeetingsSection", () => {
     expect(await screen.findByRole("button", { name: "Earlier days" })).toBeEnabled();
   });
 
-  it("keeps a call's row to the call, its link and its ⋯ until something is set for it", async () => {
+  it("keeps a call's row to the call, its link and its ⋯, and a call found on a calendar to its date and title", async () => {
     renderSection({ notetakerOffered: true });
 
     expect(await screen.findByRole("button", { name: "Call options" })).toBeInTheDocument();
     await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
-    await waitFor(() => expect(notetakerApi.getInterviewPlan).toHaveBeenCalled());
+    await vi.mocked(notetakerApi.getNotetaker).mock.results[0].value;
     expect(screen.queryByRole("button", { name: /Start now|Join at start|Prepare questions|Notetaker/ })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Call options/ })).toHaveLength(1);
+    expect(notetakerApi.getInterviewPlan).not.toHaveBeenCalled();
   });
 
   it("starts the Notetaker now from the call's panel, with the copilot chosen first", async () => {
@@ -507,7 +509,7 @@ describe("MeetingsSection", () => {
     }
   });
 
-  it("says on the call's line what is set for it, and changes it from the same panel", async () => {
+  it("says in the call's ⋯ what is set for it, and changes it from its panel", async () => {
     vi.mocked(notetakerApi.switchLiveCopilot).mockResolvedValue(aRecording({ liveCopilot: false }));
     renderSection({
       meetings: LATER,
@@ -515,7 +517,11 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z", liveCopilot: true })],
     });
 
-    await userEvent.click(await screen.findByRole("button", { name: "Notetaker joins at start · Live copilot" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Call options" }));
+    expect(await screen.findByText("Notetaker joins at start", { exact: false })).toHaveTextContent(
+      "Notetaker joins at start · Live copilot",
+    );
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Notetaker & questions…" }));
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     expect(panel.getByText("Joins at start")).toBeInTheDocument();
     const copilot = panel.getByRole("switch", { name: "Live copilot" });
@@ -532,7 +538,7 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "SCHEDULED", liveCopilot: true, mayChangeCopilot: false })],
     });
 
-    await userEvent.click(await screen.findByRole("button", { name: /Notetaker joins at start/ }));
+    await openMenuItem("Notetaker & questions…");
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     expect(panel.getByRole("switch", { name: "Live copilot" })).toBeDisabled();
     expect(panel.getByText("Only whoever sent the Notetaker can change it.")).toBeInTheDocument();
@@ -546,7 +552,7 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z" })],
     });
 
-    await userEvent.click(await screen.findByRole("button", { name: /Notetaker joins at start/ }));
+    await openMenuItem("Notetaker & questions…");
     await userEvent.click(screen.getByRole("button", { name: "Remove" }));
     await userEvent.click(
       within(screen.getByRole("dialog", { name: "Remove the Notetaker?" })).getByRole("button", {
@@ -565,7 +571,7 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z" })],
     });
 
-    await userEvent.click(await screen.findByRole("button", { name: /Notetaker joins at start/ }));
+    await openMenuItem("Notetaker & questions…");
     await userEvent.click(screen.getByRole("button", { name: "Start now instead" }));
 
     expect(notetakerApi.joinNotetakerNow).toHaveBeenCalledWith("p1", "c1", "r1");
@@ -580,7 +586,7 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "SCHEDULED", joinAt: "2099-10-07T05:59:00Z" })],
     });
 
-    await userEvent.click(await screen.findByRole("button", { name: /Notetaker joins at start/ }));
+    await openMenuItem("Notetaker & questions…");
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     expect(panel.getByText("Start now opens on the day of the call.")).toBeInTheDocument();
     expect(panel.queryByRole("button", { name: "Start now instead" })).toBeNull();
@@ -589,20 +595,26 @@ describe("MeetingsSection", () => {
   it("says a Notetaker on its way in is joining, with its copilot as it was sent", async () => {
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "SCHEDULED", joinAt: null })] });
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Notetaker joining · let it in if it waits in the lobby" }),
+    await userEvent.click(await screen.findByRole("button", { name: "Call options" }));
+    expect(await screen.findByText("Notetaker joining", { exact: false })).toHaveTextContent(
+      "Notetaker joining · let it in if it waits in the lobby",
     );
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Notetaker & questions…" }));
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
     expect(panel.queryByRole("switch", { name: "Live copilot" })).toBeNull();
     expect(panel.getByText(/Live copilot is off for this call/)).toBeInTheDocument();
     expect(panel.getByRole("button", { name: "Remove" })).toBeInTheDocument();
   });
 
-  it("ends a recording from its line once asked, and says its notes follow", async () => {
+  it("marks a call being recorded on its ⋯ alone, and ends it from its panel once asked", async () => {
     vi.mocked(notetakerApi.endNotetaker).mockResolvedValue(aRecording({ status: "RECORDING", endRequested: true }));
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "RECORDING" })] });
 
-    await userEvent.click(await screen.findByRole("button", { name: "End & file notes" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Call options · recording" }));
+    expect(screen.queryByRole("button", { name: "End & file notes" })).toBeNull();
+    expect(screen.getByText(/^Recording/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Notetaker & questions…" }));
+    await userEvent.click(screen.getByRole("button", { name: "End & file notes" }));
     const dialog = within(screen.getByRole("dialog", { name: "End the recording and file the notes?" }));
     expect(dialog.getByText(/can't rejoin this call/)).toBeInTheDocument();
     await userEvent.click(dialog.getByRole("button", { name: "End & file notes" }));
@@ -619,7 +631,7 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "RECORDING", liveCopilot: true, liveStatus: "LISTENING" })],
     });
 
-    expect(await screen.findByRole("button", { name: /^Recording/ })).toBeInTheDocument();
+    await openMenuItem("Notetaker & questions…");
     await userEvent.click(screen.getByRole("button", { name: "Open copilot" }));
 
     expect(openCopilotWindow).toHaveBeenCalledWith(
@@ -633,7 +645,7 @@ describe("MeetingsSection", () => {
     vi.mocked(notetakerApi.cancelNotetaker).mockResolvedValue(undefined);
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "RECORDING" })] });
 
-    await userEvent.click(await screen.findByRole("button", { name: /^Recording/ }));
+    await openMenuItem("Notetaker & questions…");
     await userEvent.click(screen.getByRole("button", { name: "Remove and discard" }));
     const dialog = within(screen.getByRole("dialog", { name: "Remove and discard?" }));
     expect(dialog.getByText(/nothing it recorded is kept or filed/)).toBeInTheDocument();
@@ -642,18 +654,62 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.cancelNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
   });
 
+  it("keeps a call recorded past its booked end ended from its panel, through the ⋯ of its past row", async () => {
+    vi.mocked(notetakerApi.endNotetaker).mockResolvedValue(aRecording({ status: "RECORDING", endRequested: true }));
+    renderSection({
+      meetings: { upcoming: [], past: [MEETINGS.upcoming[0]] },
+      notetakerOffered: true,
+      recordableMeetingIds: [],
+      recordings: [aRecording({ status: "RECORDING" })],
+    });
+
+    await openCallMenu("Confidential: first conversation", "Call options · recording");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Notetaker…" }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "Notetaker & questions" })).getByRole("button", {
+        name: "End & file notes",
+      }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "End the recording and file the notes?" })).getByRole("button", {
+        name: "End & file notes",
+      }),
+    );
+
+    expect(notetakerApi.endNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
+  });
+
   it("moves a call the Notetaker has left to Past, its notes on their way", async () => {
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "RECORDING", endRequested: true })] });
 
-    expect(await screen.findByText(/the notes follow in a minute or two/)).toBeInTheDocument();
+    await untilMovedToPast();
+    await openCallMenu("Confidential: first conversation", "Call options");
+    expect(screen.getByText(/the notes follow in a minute or two/)).toBeInTheDocument();
     expect(screen.queryByText("Upcoming")).toBeNull();
     expect(screen.getByText("Past")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "End & file notes" })).toBeNull();
+    expect(screen.queryByRole("menuitem")).toBeNull();
   });
 
   it("writes the notes, then finds the changes, with nothing to press", async () => {
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "PROCESSING" })] });
-    expect(await screen.findByText("Writing notes…")).toBeInTheDocument();
+
+    await untilMovedToPast();
+    await openCallMenu("Confidential: first conversation", "Call options");
+    expect(screen.getByText("Writing notes…")).toBeInTheDocument();
+  });
+
+  it("offers the copilot from the ⋯ while the notes are written", async () => {
+    vi.mocked(openCopilotWindow).mockResolvedValue("floating");
+    renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "PROCESSING", liveCopilot: true })] });
+
+    await untilMovedToPast();
+    await openCallMenu("Confidential: first conversation", "Call options");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Open copilot" }));
+
+    expect(openCopilotWindow).toHaveBeenCalledWith(
+      { projectId: "p1", candidateId: "c1", recordingId: "r1" },
+      expect.any(Function),
+    );
   });
 
   it("says the changes are being found once the notes are filed", async () => {
@@ -662,11 +718,13 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "DONE", hasTranscript: true, suggesting: true })],
     });
 
-    expect(await screen.findByText(/finding changes…/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Review|Suggest changes|Changes/ })).toBeNull();
+    await untilMovedToPast();
+    await openCallMenu("Confidential: first conversation", "Call options");
+    expect(screen.getByText(/finding changes…/)).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Review|Suggest changes|Changes/ })).toBeNull();
   });
 
-  it("offers the review once changes wait, and opens it", async () => {
+  it("marks a call whose changes wait on its ⋯, and opens the review from it", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue({
       recordingId: "r1",
       title: "Confidential: first conversation",
@@ -680,14 +738,15 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ status: "DONE", hasTranscript: true, suggestionsAsked: true, pendingSuggestions: 2, foundSuggestions: 2 })],
     });
 
-    expect(await screen.findByText(/2 changes to review/)).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Review" }));
+    await openCallMenu("Confidential: first conversation", "Call options · 2 changes to review");
+    expect(screen.getByText(/2 changes to review/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Review 2 changes" }));
 
     expect(await screen.findByRole("dialog", { name: "Changes from the call" })).toBeInTheDocument();
     expect(notetakerApi.getCallSuggestions).toHaveBeenCalledWith("p1", "c1", "r1", expect.anything());
   });
 
-  it("keeps what a review changed one click away on a past call", async () => {
+  it("keeps what a review changed in a past call's ⋯", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue({
       recordingId: "r2",
       title: "Coffee",
@@ -729,10 +788,15 @@ describe("MeetingsSection", () => {
       ],
     });
 
-    expect(await screen.findByText(/1 change applied/)).toBeInTheDocument();
+    await untilMovedToPast();
+    await openCallMenu("Confidential: first conversation", "Call options");
     expect(screen.getByText(/no changes found/)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Changes" })).toHaveLength(1);
-    await userEvent.click(screen.getByRole("button", { name: "Changes" }));
+    expect(screen.queryByRole("menuitem", { name: "Changes from the call" })).toBeNull();
+    await userEvent.keyboard("{Escape}");
+
+    await openCallMenu("Coffee", "Call options");
+    expect(screen.getByText(/1 change applied/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Changes from the call" }));
 
     const dialog = within(await screen.findByRole("dialog", { name: "Changes from the call" }));
     expect(await dialog.findByText("Applied by Yara")).toBeInTheDocument();
@@ -751,7 +815,9 @@ describe("MeetingsSection", () => {
     });
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "DONE", hasTranscript: true })] });
 
-    await userEvent.click(await screen.findByRole("button", { name: "Suggest changes" }));
+    await untilMovedToPast();
+    await openCallMenu("Confidential: first conversation", "Call options");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Suggest changes" }));
 
     expect(await screen.findByText("Nothing to change")).toBeInTheDocument();
   });
@@ -780,8 +846,9 @@ describe("MeetingsSection", () => {
       ],
     });
 
-    expect(await screen.findByText("Notes filed")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Transcript" }));
+    await openCallMenu("Coffee", "Call options");
+    expect(screen.getByText("Notes filed")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Transcript" }));
 
     expect(await screen.findByText("Happy to talk.")).toBeInTheDocument();
     expect(screen.getByText("01:05")).toBeInTheDocument();
@@ -793,34 +860,37 @@ describe("MeetingsSection", () => {
       recordings: [aRecording({ id: "r2", meetingId: "m2", startsAt: "2026-09-22T06:00:00Z", status: "DONE" })],
     });
 
-    expect(await screen.findByText("Notes filed")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Suggest changes|Transcript/ })).toBeNull();
+    await openCallMenu("Coffee", "Call options");
+    expect(screen.getByText("Notes filed")).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem")).toBeNull();
   });
 
-  it("says why no notes were filed, and tries again only where the call was heard", async () => {
+  it("says why no notes were filed, and tries again from the ⋯ only where the call was heard", async () => {
     vi.mocked(notetakerApi.retryNotetaker).mockResolvedValue(aRecording({ status: "PROCESSING" }));
     renderSection({
       notetakerOffered: true,
       recordings: [aRecording({ status: "FAILED", failureReason: "SUMMARY_FAILED", retryable: true })],
     });
 
-    expect(await screen.findByText(/No notes/)).toHaveTextContent("No notes · the notes couldn't be written");
-    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await openCallMenu("Confidential: first conversation", "Call options · no notes");
+    expect(screen.getByText(/No notes/)).toHaveTextContent("No notes · the notes couldn't be written");
+    await userEvent.click(screen.getByRole("menuitem", { name: "Try again" }));
     expect(notetakerApi.retryNotetaker).toHaveBeenCalledWith("p1", "c1", "r1");
   });
 
-  it("says why a call was not recorded, with nothing left to press", async () => {
+  it("says why a call was not recorded, with nothing left to try", async () => {
     renderSection({
       notetakerOffered: true,
       recordableMeetingIds: [],
       recordings: [aRecording({ status: "FAILED", failureReason: "timeout_exceeded_waiting_room" })],
     });
 
+    await openCallMenu("Confidential: first conversation", "Call options");
     expect(await screen.findByText(/Not recorded/)).toHaveTextContent("Not recorded · nobody let it in");
-    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Try again" })).toBeNull();
   });
 
-  it("prepares questions from the call's panel, which gives way to them", async () => {
+  it("prepares questions from the call's panel, which then says they are ready without a save", async () => {
     const plan: notetakerApi.InterviewPlan = {
       meetingId: "m1",
       title: "First conversation",
@@ -832,12 +902,11 @@ describe("MeetingsSection", () => {
       missing: ["NOTICE"],
       questions: [],
     };
-    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue(plan);
-    vi.mocked(notetakerApi.draftInterviewPlan).mockResolvedValue({
-      ...plan,
-      drafted: true,
-      questions: [{ ...A_QUESTION, included: true }],
-    });
+    const drafted = { ...plan, drafted: true, questions: [{ ...A_QUESTION, included: true }] };
+    vi.mocked(notetakerApi.getInterviewPlan).mockImplementation(async () =>
+      vi.mocked(notetakerApi.draftInterviewPlan).mock.calls.length > 0 ? drafted : plan,
+    );
+    vi.mocked(notetakerApi.draftInterviewPlan).mockResolvedValue(drafted);
     renderSection({ notetakerOffered: true });
 
     await openMenuItem("Notetaker & questions…");
@@ -846,25 +915,13 @@ describe("MeetingsSection", () => {
     expect(await screen.findByText("What notice would you need to give?")).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Notetaker & questions" })).toBeNull();
     expect(notetakerApi.draftInterviewPlan).toHaveBeenCalledTimes(1);
-  });
+    await userEvent.click(within(screen.getByRole("dialog", { name: "Interview plan" })).getByRole("button", { name: "Close" }));
 
-  it("says on the call's line that its questions are ready once they are saved", async () => {
-    vi.mocked(notetakerApi.getInterviewPlan).mockResolvedValue({
-      meetingId: "m1",
-      title: "First conversation",
-      startsAt: "2026-10-07T06:00:00Z",
-      drafted: true,
-      savedAt: "2026-10-05T06:00:00Z",
-      savedByName: "Yara",
-      competencies: [],
-      missing: ["NOTICE"],
-      questions: [A_QUESTION, { ...A_QUESTION, id: "q2", included: false }],
-    });
-    renderSection();
-
-    await userEvent.click(await screen.findByRole("button", { name: "1 question ready" }));
-
-    expect(await screen.findByRole("dialog", { name: "Interview plan" })).toBeInTheDocument();
+    await openMenuItem("Notetaker & questions…");
+    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    expect(await panel.findByText("1 ready")).toBeInTheDocument();
+    expect(panel.getByRole("button", { name: "Open questions" })).toBeInTheDocument();
+    expect(panel.queryByRole("button", { name: "Prepare questions" })).toBeNull();
   });
 
   it("books a call with nothing about the Notetaker in it", async () => {
@@ -911,8 +968,22 @@ function aWeek(overrides: Partial<meetingApi.MeetingCalendar> = {}): meetingApi.
 
 /** Opens the only call's ⋯ and picks one of its items. */
 async function openMenuItem(name: string) {
-  await userEvent.click(await screen.findByRole("button", { name: "Call options" }));
+  await userEvent.click(await screen.findByRole("button", { name: /^Call options/ }));
   await userEvent.click(await screen.findByRole("menuitem", { name }));
+}
+
+/** Opens the ⋯ on the row of the call titled so, by the name its dot gives it; the row is read again as the call moves. */
+async function openCallMenu(title: string, name: string) {
+  const trigger = await waitFor(() =>
+    within(screen.getByText(title).closest("div") as HTMLElement).getByRole("button", { name }),
+  );
+  await userEvent.click(trigger);
+}
+
+/** Until the Notetaker is read, the only call is upcoming; one it has left then moves to Past. */
+async function untilMovedToPast() {
+  await screen.findByText("Coffee");
+  await waitFor(() => expect(screen.queryByText("Upcoming")).toBeNull());
 }
 
 const NO_VALUE: notetakerApi.SuggestedValue = {
