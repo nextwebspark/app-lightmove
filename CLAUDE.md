@@ -699,9 +699,9 @@ never for do not contact; a recording is read only from the position that sent i
 row is the call, its Join link and its ⋯ (`CallMenu`), whose **Notetaker & questions…** opens the call's panel
 (`CallAssistantPanel`, one section per job). The ⋯ opens on where the call has got to, carries what came of it once the
 notes are filed — the changes, the transcript, Try again — and wears a dot while the call records or waits on the
-consultant; nothing about the Notetaker is drawn under the call. Nothing is recorded until asked (V157): **Start now** sends it in at once from the call's day
-in the caller's time zone, never onto a link an earlier call still holds, and **Join at start** schedules it a minute
-early, which **Start now instead** brings forward (a new bot first, the scheduled one called back after); Book a call
+consultant; nothing about the Notetaker is drawn under the call. Nothing is recorded until asked (V157): **Send Notetaker now** sends it in at once from the call's day
+in the caller's time zone, never onto a link an earlier call still holds, and **Schedule Notetaker** (the pre-ticked **Join at start** switch, beside **Live copilot**, also on by default) schedules it a minute
+early, which **Send now instead** brings forward; sending never opens the meeting, a separate **Open meeting** link does (a new bot first, the scheduled one called back after); Book a call
 carries no Notetaker. It is claimed first (one live
 bot per call by join URL and start, whoever presses), then sent once and never retried — an empty pool of at-once bots
 is `NOTETAKER_BUSY` — as "UNCAVA Notetaker" with Uncava's card as its camera, saying in the chat whose notes it records

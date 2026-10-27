@@ -55,7 +55,7 @@ export interface NotetakerRecording {
   mayDownloadRecording: boolean;
 }
 
-/** Start now sends the bot at once; a send naming neither joins at the call's start. */
+/** Send now sends the bot at once; a send naming neither joins at the call's start. */
 export type NotetakerJoin = "NOW" | "AT_START";
 
 export interface CandidateNotetaker {
@@ -63,7 +63,7 @@ export interface CandidateNotetaker {
   recordings: NotetakerRecording[];
   /** Upcoming rows the caller may send a bot to: on their own calendar or booked by them, with a video link. */
   recordableMeetingIds: string[];
-  /** Of those, the calls whose day has begun in the caller's time zone: Start now is offered on them. */
+  /** Of those, the calls whose day has begun in the caller's time zone: Send now is offered on them. */
   startableMeetingIds: string[];
 }
 

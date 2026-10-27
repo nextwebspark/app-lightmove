@@ -8,19 +8,22 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 ## How a call is recorded
 
-1. **Start now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
+1. **Send now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
    on a call's row at all: the row in the executive drawer's Meetings section is the call, its Join link and its ⋯,
    whose **Notetaker & questions…** opens the call's panel — one section per job, each with its own button: Prepare
-   questions (step 9), then the Notetaker with its Live copilot switch, **Start now**, which sends the bot into the
-   call at once — the consultant asks the executive first, and starts it once they agree — and, while the start is more
-   than two minutes away, **Join at start**, which schedules it for a minute before the booked start. A press closes the
+   questions (step 9), then the Notetaker with two switches on one row, **Live copilot** and — while the start is more
+   than two minutes away — **Join at start**, both on until unticked, then **Schedule Notetaker** (while Join at start
+   is ticked), which schedules it a minute before the booked start, and **Send Notetaker now**, which sends the bot
+   into the call at once — the consultant asks the executive first, and sends it once they agree. Sending never opens
+   the meeting, and nothing here can tell whether a call has begun (it may have been started early on the same link),
+   so **Open <provider>** is a link of its own beside the buttons. A press closes the
    panel, and the ⋯ then opens on what is set ("Notetaker joins at start · Live copilot") above the same item, whose
    panel shows it again with the next step. The ⋯ wears a dot while the call records (red) or waits on the consultant
    — changes to review, notes to try again (accent). Book a call carries no Notetaker. Either is offered when:
    - the call is still to come, under way, or ran over its booked end by no more than 20 minutes (`OVERRUN_GRACE`). Past
      the booked end it is offered only while no later call on the consultant's calendar has started on the same link,
      since a personal room used back to back would otherwise put the next interview on this person;
-   - for Start now only, the call's day has begun in the presser's own time zone (`NOTETAKER_TOO_EARLY` before then;
+   - for Send now only, the call's day has begun in the presser's own time zone (`NOTETAKER_TOO_EARLY` before then;
      `startableMeetingIds` on the read), and nothing else holds the link: no earlier call on the presser's calendar on
      the same link still before its booked end, and no other call's bot of the workspace joining or recording on it
      (`NOTETAKER_LINK_IN_USE`);
@@ -31,11 +34,11 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    - the deployment has a Recall account, and the workspace is within its AI fair use (`AI_ENRICH`).
 
    The request is `POST /api/v1/projects/{p}/outreach/candidates/{c}/meetings/{m}/notetaker`, gated by `WORK_EXECUTE`,
-   with `{"join": "NOW"}` for Start now; a body without `join` joins at the start.
+   with `{"join": "NOW"}` for Send now; a body without `join` joins at the start.
 2. **The claim.** A `SCHEDULED` row of `app_lm_meeting_recording` (V151) is written first. A partial unique index on
    the call (workspace, join URL, start) keeps one live bot per call, whichever teammate presses.
 3. **Sending the bot.** Recall is then asked, outside any transaction and never retried, with:
-   - `join_at` one minute before the call (at once when the call is that close), or none for Start now — Recall then
+   - `join_at` one minute before the call (at once when the call is that close), or none for Send now — Recall then
      draws the bot from its warm pool, and an empty pool (its 507, no bot made) is `NOTETAKER_BUSY`, the row
      `FAILED` (`RECALL_BUSY`) and the call offered again. The `join_at` sent is kept on the row (V157);
    - the bot name "UNCAVA Notetaker", spelled as the wordmark;
@@ -103,8 +106,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 7. **Join now, End & file notes, Remove.** Anyone on the position may press each (`WORK_EXECUTE`), all in the call's
    panel; its ⋯ opens on "Recording 31:42" meanwhile. A call the Notetaker has left — End pressed, its notes being
    written or filed — is listed under Past from then on, and its ⋯ carries what came of it rather than the panel.
-   - **Join now** (the panel's **Start now instead**) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
-     than two minutes away, under the link guards Start now has. A new bot is sent first and the scheduled one called
+   - **Join now** (the panel's **Send now instead**) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
+     than two minutes away, under the link guards Send now has. A new bot is sent first and the scheduled one called
      back only once the row holds the new id (`NOTETAKER_JOINED_NOW`), so a refusal — an empty pool included — leaves
      the scheduled bot as it was; deliveries about the old bot find no row. Its copilot is the one it was scheduled with;
      a bot sent at once, or being replaced, has its copilot fixed (`NOTETAKER_COPILOT_LOCKED`), since Recall patches only
@@ -271,7 +274,7 @@ To try it locally:
 
 1. Set `RECALL_API_KEY`, `RECALL_BOT_WEBHOOK_SECRET` and (for EU) `RECALL_BASE_URL` before `npm run dev`.
 2. Expose `:8080` (cloudflared or ngrok) and point a Recall webhook endpoint at `/api/v1/notetaker/webhooks/recall`.
-3. Book a Meet call in the drawer, join the call, open its ⋯ → **Notetaker & questions…** → **Start now**, let the bot
+3. Book a Meet call in the drawer, join the call, open its ⋯ → **Notetaker & questions…** → **Send Notetaker now**, let the bot
    in and talk; **End & file notes** in the same panel files the notes without waiting for the booked end, and the
    changes the call suggests follow in the call's ⋯, a dot on it once they wait.
 
