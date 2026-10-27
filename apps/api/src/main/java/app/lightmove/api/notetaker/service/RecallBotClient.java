@@ -268,7 +268,7 @@ public class RecallBotClient implements RecallBotApi {
     }
 
     @Override
-    public List<TranscriptLine> transcript(String transcriptId) {
+    public List<TranscriptLine> transcript(String transcriptId, Instant callClockStart) {
         JsonNode transcript = guard.call(VendorCall.of(VENDOR, "transcript"), () -> client.get()
                 .uri("/api/v1/transcript/{id}/", transcriptId)
                 .accept(MediaType.APPLICATION_JSON)
@@ -278,7 +278,13 @@ public class RecallBotClient implements RecallBotApi {
         if (download == null) {
             throw new VendorException(VendorCall.of(VENDOR, "transcript"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
-        return linesOf(guard.call(VendorCall.of(VENDOR, "transcript-download"), () -> turnsAt(downloads, download)));
+        JsonNode turns = guard.call(VendorCall.of(VENDOR, "transcript-download"), () -> turnsAt(downloads, download));
+        List<TranscriptLine> lines = linesOf(turns, callClockStart);
+        if (lines.isEmpty() && hasWords(turns)) {
+            throw new VendorException(VendorCall.of(VENDOR, "transcript-download"),
+                    VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return lines;
     }
 
     /**
@@ -329,7 +335,7 @@ public class RecallBotClient implements RecallBotApi {
      * A turn per participant's run of words, at the time its first word was said. Recall names a participant by the
      * name they joined with; one it could not name keeps a number.
      */
-    static List<TranscriptLine> linesOf(JsonNode turns) {
+    static List<TranscriptLine> linesOf(JsonNode turns, Instant callClockStart) {
         List<TranscriptLine> lines = new ArrayList<>();
         if (turns == null || !turns.isArray()) {
             return lines;
@@ -339,7 +345,7 @@ public class RecallBotClient implements RecallBotApi {
             if (!words.isArray() || words.isEmpty()) {
                 continue;
             }
-            Instant at = instantOrNull(textOrNull(words.get(0).path("start_timestamp").get("absolute")));
+            Instant at = startOf(words.get(0).path("start_timestamp"), callClockStart);
             StringBuilder text = new StringBuilder();
             for (JsonNode word : words) {
                 String said = textOrNull(word.get("text"));
@@ -517,6 +523,28 @@ public class RecallBotClient implements RecallBotApi {
         }
         String text = node.asText();
         return text == null || text.isBlank() ? null : text;
+    }
+
+    /**
+     * A transcript made after the call states seconds into the recording and a null absolute time, so reading only the
+     * absolute dropped every turn and filed a spoken call as "nothing was heard".
+     */
+    static Instant startOf(JsonNode timestamp, Instant callClockStart) {
+        Instant absolute = instantOrNull(textOrNull(timestamp.get("absolute")));
+        JsonNode relative = timestamp.get("relative");
+        if (absolute != null || callClockStart == null || relative == null || !relative.isNumber()) {
+            return absolute;
+        }
+        return callClockStart.plusNanos((long) (relative.asDouble() * 1_000_000_000L));
+    }
+
+    private static boolean hasWords(JsonNode turns) {
+        for (JsonNode turn : turns) {
+            if (turn.path("words").isArray() && !turn.path("words").isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Instant instantOrNull(String text) {
