@@ -50,7 +50,6 @@ export function CallAssistantPanel({
   const actions = useNotetakerActions(projectId, candidateId, firstName);
   const questionsReady = useQuestionsReady(projectId, candidateId, meeting.id, offersQuestions);
   const [wantsCopilot, setWantsCopilot] = useState(true);
-  const [joinAtStart, setJoinAtStart] = useState(true);
   const [confirming, setConfirming] = useState<"end" | "remove" | null>(null);
   const bot = isNotetakerLive(recording) ? recording : null;
   const isRecording = bot?.status === "RECORDING";
@@ -103,27 +102,17 @@ export function CallAssistantPanel({
                     The last attempt didn&apos;t work: {failureWordsOf(recording.failureReason)}. You can send it again.
                   </p>
                 )}
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                  <CopilotSwitch checked={wantsCopilot} disabled={isBusy} onChange={setWantsCopilot} />
-                  {mayJoinAtStart && (
-                    <SwitchRow
-                      checked={joinAtStart}
-                      disabled={isBusy}
-                      onChange={setJoinAtStart}
-                      label={`Join at start · ${timeOfDayOf(meeting.startsAt)}`}
-                    />
-                  )}
-                </div>
+                <CopilotSwitch checked={wantsCopilot} disabled={isBusy} onChange={setWantsCopilot} />
                 <div className="flex flex-wrap items-center gap-2">
-                  {mayJoinAtStart && joinAtStart && (
+                  {mayJoinAtStart && (
                     <Button size="xs" disabled={isBusy} onClick={() => send("AT_START")}>
-                      Schedule Notetaker
+                      Join at start · {timeOfDayOf(meeting.startsAt)}
                     </Button>
                   )}
                   {mayStartNow && (
                     <Button
                       size="xs"
-                      variant={mayJoinAtStart && joinAtStart ? "secondary" : "primary"}
+                      variant={mayJoinAtStart ? "secondary" : "primary"}
                       disabled={isBusy}
                       onClick={() => send("NOW")}
                     >
@@ -283,25 +272,6 @@ function PanelSection({
       </div>
       <div className="ms-[22px] mt-1.5 flex flex-col gap-3">{children}</div>
     </section>
-  );
-}
-
-function SwitchRow({
-  checked,
-  disabled,
-  onChange,
-  label,
-}: {
-  checked: boolean;
-  disabled: boolean;
-  onChange: (next: boolean) => void;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <Toggle checked={checked} onChange={onChange} label={label} disabled={disabled} />
-      <span className="text-note text-u-text">{label}</span>
-    </div>
   );
 }
 

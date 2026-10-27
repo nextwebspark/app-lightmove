@@ -11,11 +11,11 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 1. **Send now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
    on a call's row at all: the row in the executive drawer's Meetings section is the call, its Join link and its ⋯,
    whose **Notetaker & questions…** opens the call's panel — one section per job, each with its own button: Prepare
-   questions (step 9), then the Notetaker with two switches on one row, **Live copilot** and — while the start is more
-   than two minutes away — **Join at start**, both on until unticked, then **Schedule Notetaker** (while Join at start
-   is ticked), which schedules it a minute before the booked start, and **Send Notetaker now**, which sends the bot
-   into the call at once — the consultant asks the executive first, and sends it once they agree. Sending never opens
-   the meeting, and nothing here can tell whether a call has begun (it may have been started early on the same link),
+   questions (step 9), then the Notetaker with its **Live copilot** switch (on until unticked), **Join at start**, which
+   (while the start is more than two minutes away) schedules it a minute before the booked start, and **Send Notetaker
+   now**, which sends the bot into the call at once — the consultant asks the executive first, and sends it once they
+   agree. Sending never opens the meeting, and nothing here can tell whether a call has begun (it may have been started
+   early on the same link),
    so **Open <provider>** is a link of its own beside the buttons. A press closes the
    panel, and the ⋯ then opens on what is set ("Notetaker joins at start · Live copilot") above the same item, whose
    panel shows it again with the next step. The ⋯ wears a dot while the call records (red) or waits on the consultant
