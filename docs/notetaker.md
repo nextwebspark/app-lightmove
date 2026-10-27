@@ -197,7 +197,9 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       detected), one request at a time by claim (`final_transcript_requested_at`), and keeps its id
       (`final_transcript_id`). Only that transcript's `transcript.done` — found by its id, since such a delivery may not
       name the bot — files the note, so the note, Suggest changes and Assess with AI read the same quality, in any
-      language, as a call without the copilot. `NotetakerReconcile` asks again for one never asked, and reads back one
+      language, as a call without the copilot. That transcript states seconds into the recording and a null absolute
+      time, so each line is timed from the call clock (`callClockStart`); a file with words but no readable line is
+      `TRANSCRIPT_UNAVAILABLE` and keeps Recall's media, never "nothing heard". `NotetakerReconcile` asks again for one never asked, and reads back one
       never announced. Recall bills the second transcription, for copilot calls only.
     - **The feed.** Each bot is given its own URL, `…/live?t=<token>`, the token's SHA-256 kept on the recording
       (`live_token_hash`, new on every switch): a delivery is taken with that token, which feeds its own recording and no

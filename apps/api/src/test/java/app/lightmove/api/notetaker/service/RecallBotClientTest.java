@@ -40,6 +40,7 @@ import tools.jackson.databind.json.JsonMapper;
 class RecallBotClientTest {
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final Instant CALL_START = Instant.parse("2026-10-22T09:00:00Z");
 
     @Test
     @DisplayName("a transcript link is fetched only over https from Recall's own hosts or its storage")
@@ -63,12 +64,23 @@ class RecallBotClientTest {
                            {"text":" the plan.","start_timestamp":{"absolute":"2026-10-22T09:00:03Z"}}]},
                  {"participant":{"id":8,"name":null},
                   "words":[{"text":"Thanks","start_timestamp":{"absolute":"2026-10-22T09:00:09Z"}}]},
-                 {"participant":{"id":9,"name":"Silent"},"words":[]}]"""));
+                 {"participant":{"id":9,"name":"Silent"},"words":[]}]"""), CALL_START);
 
         assertThat(lines).containsExactly(
                 new TranscriptLine(Instant.parse("2026-10-22T09:00:02Z"), "Priya Raman", "I led the plan.", true),
                 new TranscriptLine(Instant.parse("2026-10-22T09:00:09Z"), "Speaker 8", "Thanks", false));
-        assertThat(RecallBotClient.linesOf(JSON.readTree("{}"))).isEmpty();
+        assertThat(RecallBotClient.linesOf(JSON.readTree("{}"), CALL_START)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a transcript made after the call, which states seconds into the recording only, is timed from the call's start")
+    void afterCallTranscriptIsTimedFromTheCallStart() {
+        List<TranscriptLine> lines = RecallBotClient.linesOf(JSON.readTree("""
+                [{"participant":{"id":7,"name":"Priya Raman"},
+                  "words":[{"text":"Hello","start_timestamp":{"absolute":null,"relative":2.5}}]}]"""), CALL_START);
+
+        assertThat(lines).containsExactly(
+                new TranscriptLine(Instant.parse("2026-10-22T09:00:02.500Z"), "Priya Raman", "Hello", true));
     }
 
     @Test
@@ -80,7 +92,7 @@ class RecallBotClientTest {
         try {
             URI file = URI.create("http://127.0.0.1:" + storage.getAddress().getPort() + "/transcript.json");
 
-            assertThat(RecallBotClient.linesOf(RecallBotClient.turnsAt(RestClient.create(), file))).containsExactly(
+            assertThat(RecallBotClient.linesOf(RecallBotClient.turnsAt(RestClient.create(), file), CALL_START)).containsExactly(
                     new TranscriptLine(Instant.parse("2026-10-22T09:00:02Z"), "Priya Raman", "Hello", true));
         } finally {
             storage.stop(0);

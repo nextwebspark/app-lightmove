@@ -942,7 +942,7 @@ describe("MeetingsSection", () => {
     });
 
     await openCallMenu("Confidential: first conversation", "Call options");
-    expect(await screen.findByText(/Not recorded/)).toHaveTextContent("Not recorded · nobody let it in");
+    expect(await screen.findByText(/Not recorded/)).toHaveTextContent("Not recorded · nobody let the Notetaker in");
     expect(screen.queryByRole("menuitem", { name: "Try again" })).toBeNull();
   });
 

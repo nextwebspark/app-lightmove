@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -66,8 +67,11 @@ public interface RecallBotApi {
     /** Copies the file behind a link {@link #recordingVideo} gave; refused for any host but Recall's or AWS's. */
     void copyVideo(URI video, OutputStream out) throws IOException;
 
-    /** The call's transcript, a line per turn, each named by the participant Recall heard. */
-    List<TranscriptLine> transcript(String transcriptId);
+    /**
+     * The call's transcript, a line per turn, each named by the participant Recall heard. A transcript made after the
+     * call carries seconds into the recording alone, which {@code callClockStart} turns into a time.
+     */
+    List<TranscriptLine> transcript(String transcriptId, Instant callClockStart);
 
     /** What a webhook delivery says; refused with {@code NOTETAKER_WEBHOOK_REJECTED} when its signature fails. */
     List<RecallBotNotice> notices(byte[] body, String id, String timestamp, String signature);

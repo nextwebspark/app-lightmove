@@ -14,6 +14,7 @@ import app.lightmove.api.notetaker.service.RecallBotClient;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -152,7 +153,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
     }
 
     @Override
-    public List<TranscriptLine> transcript(String transcriptId) {
+    public List<TranscriptLine> transcript(String transcriptId, Instant callClockStart) {
         List<TranscriptLine> lines = transcripts.get(transcriptId);
         if (lines == null) {
             throw new VendorException(VendorCall.of("recall", "transcript"), VendorFailureKind.NOT_FOUND, null);

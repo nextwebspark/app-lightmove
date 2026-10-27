@@ -8,6 +8,7 @@ import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import java.io.OutputStream;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -72,7 +73,7 @@ public class UnconfiguredRecallBotApi implements RecallBotApi {
     }
 
     @Override
-    public List<TranscriptLine> transcript(String transcriptId) {
+    public List<TranscriptLine> transcript(String transcriptId, Instant callClockStart) {
         throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
     }
 
