@@ -6,9 +6,11 @@ import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
+import java.io.OutputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /** No Recall bot account: no Notetaker is offered, and every webhook delivery is refused. */
 public class UnconfiguredRecallBotApi implements RecallBotApi {
@@ -58,6 +60,16 @@ public class UnconfiguredRecallBotApi implements RecallBotApi {
 
     @Override
     public void deleteMedia(String botId) {
+    }
+
+    @Override
+    public Optional<URI> recordingVideo(String botId) {
+        throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
+    }
+
+    @Override
+    public void copyVideo(URI video, OutputStream out) {
+        throw ApiException.of(ErrorCode.NOTETAKER_NOT_OFFERED);
     }
 
     @Override

@@ -122,6 +122,7 @@ public class NotetakerWebhook {
                 if (recording.getStatus() == NotetakerStatus.RECORDING
                         || recording.getStatus() == NotetakerStatus.PROCESSING) {
                     recording.heard(code, subCode, NotetakerStatus.PROCESSING);
+                    recording.mediaHeldUntil((at == null ? clock.instant() : at).plus(RecallBotApi.MEDIA_RETENTION));
                 } else {
                     // It left without ever recording: nobody let it in, the call never started, or the host refused.
                     recording.heard(code, subCode, null);

@@ -158,6 +158,9 @@ export type ApiErrorCode =
   | "NOTETAKER_COPILOT_OFF"
   | "NOTETAKER_COPILOT_NOT_YOURS"
   | "NOTETAKER_COPILOT_SWITCH_NOT_YOURS"
+  | "NOTETAKER_RECORDING_NOT_YOURS"
+  | "NOTETAKER_RECORDING_GONE"
+  | "NOTETAKER_RECORDING_UNAVAILABLE"
   | "INTERVIEW_PLAN_DRAFTING"
   | "WORKSPACE_NAME_MISMATCH"
   | "ARCHIVE_NAME_MISMATCH"
@@ -316,7 +319,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOTETAKER_NOT_CHANGEABLE: "This Notetaker can no longer be changed. Reload to see where it got to.",
   NOTETAKER_SEND_FAILED: "The Notetaker couldn't be sent. Try again in a moment.",
   NOTETAKER_BUSY: "No Notetaker is free this moment. Try again in half a minute.",
-  NOTETAKER_TOO_EARLY: "The Notetaker can be started from the day of the call. Use Join at start to send it ahead.",
+  NOTETAKER_TOO_EARLY: "The Notetaker can be sent from the day of the call. Use Join at start to send it ahead.",
   NOTETAKER_LINK_IN_USE: "An earlier call on this link is still under way. Start the Notetaker once it has ended.",
   NOTETAKER_NOT_RECORDING: "The Notetaker isn't recording this call. Remove it if it's still waiting to be let in.",
   NOTETAKER_END_FAILED: "The Notetaker couldn't be stopped, and it's still recording. Try again in a moment.",
@@ -329,6 +332,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   NOTETAKER_COPILOT_OFF: "This call has no live copilot.",
   NOTETAKER_COPILOT_NOT_YOURS: "Only the person who switched on the copilot, a lead or an admin can stop it.",
   NOTETAKER_COPILOT_SWITCH_NOT_YOURS: "Only the person who sent the Notetaker can change its copilot.",
+  NOTETAKER_RECORDING_NOT_YOURS: "Only the person who sent the Notetaker can download its recording.",
+  NOTETAKER_RECORDING_GONE: "This call's recording is no longer kept.",
+  NOTETAKER_RECORDING_UNAVAILABLE: "The recording could not be fetched. Try again.",
   INTERVIEW_PLAN_DRAFTING: "These questions are already being prepared. They'll be ready in a moment.",
   WORKSPACE_NOT_FOUND: "That workspace isn't available to you any more.",
   NOT_A_MEMBER: "That workspace isn't available to you any more.",

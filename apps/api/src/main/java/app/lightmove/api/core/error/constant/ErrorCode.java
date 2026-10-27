@@ -490,6 +490,14 @@ public enum ErrorCode {
     NOTETAKER_COPILOT_SWITCH_NOT_YOURS(HttpStatus.FORBIDDEN,
             "Only the person who sent the Notetaker can change its copilot"),
 
+    /** The call's recording is its sender's alone: the video holds the executive's face and voice. */
+    NOTETAKER_RECORDING_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who sent the Notetaker can download its recording"),
+
+    /** Recall keeps a recording for a week; past that, or once the bot was discarded, there is nothing to download. */
+    NOTETAKER_RECORDING_GONE(HttpStatus.GONE, "This call's recording is no longer kept"),
+
+    NOTETAKER_RECORDING_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The recording could not be fetched. Try again"),
+
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),
 

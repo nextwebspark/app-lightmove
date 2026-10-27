@@ -33,6 +33,7 @@ vi.mock("../api/notetakerApi", async (importOriginal) => ({
   cancelNotetaker: vi.fn(),
   retryNotetaker: vi.fn(),
   getTranscript: vi.fn(),
+  downloadRecording: vi.fn(),
   getCallSuggestions: vi.fn(),
   suggestChanges: vi.fn(),
   switchLiveCopilot: vi.fn(),
@@ -452,12 +453,12 @@ describe("MeetingsSection", () => {
     expect(await screen.findByRole("button", { name: "Call options" })).toBeInTheDocument();
     await waitFor(() => expect(notetakerApi.getNotetaker).toHaveBeenCalled());
     await vi.mocked(notetakerApi.getNotetaker).mock.results[0].value;
-    expect(screen.queryByRole("button", { name: /Start now|Join at start|Prepare questions|Notetaker/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Send Notetaker now|Join at start|Prepare questions|Notetaker/ })).toBeNull();
     expect(screen.getAllByRole("button", { name: /^Call options/ })).toHaveLength(1);
     expect(notetakerApi.getInterviewPlan).not.toHaveBeenCalled();
   });
 
-  it("starts the Notetaker now from the call's panel, with the copilot chosen first", async () => {
+  it("sends the Notetaker now from the call's panel, the copilot on unless unticked, and opens no meeting", async () => {
     vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(
       aRecording({ status: "SCHEDULED", joinAt: null, liveCopilot: true }),
     );
@@ -465,28 +466,47 @@ describe("MeetingsSection", () => {
 
     await openMenuItem("Notetaker & questions…");
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
     expect(panel.getByText("Off")).toBeInTheDocument();
-    await userEvent.click(panel.getByRole("switch", { name: "Live copilot" }));
+    expect(panel.getByRole("switch", { name: "Live copilot" })).toBeChecked();
     expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
-    await userEvent.click(panel.getByRole("button", { name: "Start now" }));
+    await userEvent.click(panel.getByRole("button", { name: "Send Notetaker now" }));
 
     expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", true, "NOW");
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
     expect(await screen.findByText(/The Notetaker is joining the call with Priya, and the live copilot/)).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Notetaker & questions" })).toBeNull());
   });
 
-  it("schedules the Notetaker for the start of a call on a later day, Start now opening on its day", async () => {
+  it("schedules the Notetaker for the start of a call on a later day, Send now opening on its day", async () => {
     vi.mocked(notetakerApi.scheduleNotetaker).mockResolvedValue(aRecording({ status: "SCHEDULED" }));
     renderSection({ meetings: LATER, notetakerOffered: true, startableMeetingIds: [] });
 
     await openMenuItem("Notetaker & questions…");
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
-    expect(panel.getByText("Start now opens on the day of the call.")).toBeInTheDocument();
-    expect(panel.queryByRole("button", { name: "Start now" })).toBeNull();
-    await userEvent.click(panel.getByRole("button", { name: /Join at start/ }));
+    expect(panel.getByText("Send now opens on the day of the call.")).toBeInTheDocument();
+    expect(panel.queryByRole("button", { name: "Send Notetaker now" })).toBeNull();
+    expect(panel.getByRole("switch", { name: /Join at start/ })).toBeChecked();
+    expect(panel.getByRole("switch", { name: "Live copilot" })).toBeChecked();
+    await userEvent.click(panel.getByRole("button", { name: "Schedule Notetaker" }));
 
-    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", false);
+    expect(notetakerApi.scheduleNotetaker).toHaveBeenCalledWith("p1", "c1", "m1", true);
     expect(await screen.findByText(/The Notetaker will join the call with Priya at its start/)).toBeInTheDocument();
+  });
+
+  it("offers no schedule once Join at start is switched off, and links the meeting in a new tab", async () => {
+    renderSection({ meetings: LATER, notetakerOffered: true, startableMeetingIds: [] });
+
+    await openMenuItem("Notetaker & questions…");
+    const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
+    const link = panel.getByRole("link", { name: /^Open / });
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("href", expect.stringContaining("http"));
+    await userEvent.click(panel.getByRole("switch", { name: /Join at start/ }));
+
+    expect(panel.queryByRole("button", { name: "Schedule Notetaker" })).toBeNull();
+    expect(notetakerApi.scheduleNotetaker).not.toHaveBeenCalled();
   });
 
   it("offers only questions where no Notetaker is set up, on a teammate's call, or for someone marked do not contact", async () => {
@@ -572,13 +592,13 @@ describe("MeetingsSection", () => {
     });
 
     await openMenuItem("Notetaker & questions…");
-    await userEvent.click(screen.getByRole("button", { name: "Start now instead" }));
+    await userEvent.click(screen.getByRole("button", { name: "Send now instead" }));
 
     expect(notetakerApi.joinNotetakerNow).toHaveBeenCalledWith("p1", "c1", "r1");
     expect(await screen.findByText(/The Notetaker is joining the call with Priya now/)).toBeInTheDocument();
   });
 
-  it("offers no Start now instead before the call's day", async () => {
+  it("offers no Send now instead before the call's day", async () => {
     renderSection({
       meetings: LATER,
       notetakerOffered: true,
@@ -588,8 +608,8 @@ describe("MeetingsSection", () => {
 
     await openMenuItem("Notetaker & questions…");
     const panel = within(screen.getByRole("dialog", { name: "Notetaker & questions" }));
-    expect(panel.getByText("Start now opens on the day of the call.")).toBeInTheDocument();
-    expect(panel.queryByRole("button", { name: "Start now instead" })).toBeNull();
+    expect(panel.getByText("Send now opens on the day of the call.")).toBeInTheDocument();
+    expect(panel.queryByRole("button", { name: "Send now instead" })).toBeNull();
   });
 
   it("says a Notetaker on its way in is joining, with its copilot as it was sent", async () => {
@@ -746,6 +766,44 @@ describe("MeetingsSection", () => {
     expect(notetakerApi.getCallSuggestions).toHaveBeenCalledWith("p1", "c1", "r1", expect.anything());
   });
 
+  it("offers the call's recording to its sender while Recall keeps it, and saves what the server streams", async () => {
+    vi.mocked(notetakerApi.downloadRecording).mockResolvedValue(new Blob(["video"], { type: "video/mp4" }));
+    const saved = vi.spyOn(window.HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    URL.createObjectURL = vi.fn(() => "blob:recording");
+    URL.revokeObjectURL = vi.fn();
+    renderSection({
+      notetakerOffered: true,
+      recordings: [
+        aRecording({
+          status: "DONE",
+          hasTranscript: true,
+          mayDownloadRecording: true,
+          recordingAvailableUntil: "2026-10-14T06:30:00Z",
+        }),
+      ],
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Call options/ }));
+    const item = await screen.findByRole("menuitem", { name: /Recording/ });
+    expect(item).toHaveTextContent("Available until");
+    await userEvent.click(item);
+
+    await waitFor(() => expect(notetakerApi.downloadRecording).toHaveBeenCalledWith("p1", "c1", "r1"));
+    await waitFor(() => expect(saved).toHaveBeenCalled());
+    saved.mockRestore();
+  });
+
+  it("offers no recording to anyone but the Notetaker's sender, or once Recall has dropped it", async () => {
+    renderSection({
+      notetakerOffered: true,
+      recordings: [aRecording({ status: "DONE", hasTranscript: true, mayDownloadRecording: false })],
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Call options/ }));
+    await screen.findByRole("menuitem", { name: "Transcript" });
+    expect(screen.queryByRole("menuitem", { name: /Recording/ })).toBeNull();
+  });
+
   it("keeps what a review changed in a past call's ⋯", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue({
       recordingId: "r2",
@@ -886,7 +944,7 @@ describe("MeetingsSection", () => {
     });
 
     await openCallMenu("Confidential: first conversation", "Call options");
-    expect(await screen.findByText(/Not recorded/)).toHaveTextContent("Not recorded · nobody let it in");
+    expect(await screen.findByText(/Not recorded/)).toHaveTextContent("Not recorded · nobody let the Notetaker in");
     expect(screen.queryByRole("menuitem", { name: "Try again" })).toBeNull();
   });
 
@@ -1037,6 +1095,8 @@ function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecor
     joinAt: "2026-10-07T05:59:00Z",
     recordingStartedAt: null,
     endRequested: false,
+    recordingAvailableUntil: null,
+    mayDownloadRecording: false,
     ...overrides,
   };
 }

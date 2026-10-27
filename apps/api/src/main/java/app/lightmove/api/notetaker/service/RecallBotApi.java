@@ -4,15 +4,25 @@ import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Recall.ai's meeting bots, the Notetaker's recorder: one account for the platform, {@code lightmove.recall.*}.
  * Without a key and a bot webhook secret nothing is offered.
  */
 public interface RecallBotApi {
+
+    /**
+     * How long Recall keeps a call's media after the call: sent with every bot, so Recall deletes the recording by
+     * itself. Seven days is the span its storage is free for.
+     */
+    Duration MEDIA_RETENTION = Duration.ofDays(7);
 
     boolean isOffered();
 
@@ -45,8 +55,17 @@ public interface RecallBotApi {
 
     RecallBotState state(String botId);
 
-    /** Deletes what Recall kept of the call, once its transcript is ours. */
+    /** Deletes what Recall kept of the call: a bot the consultant discarded. */
     void deleteMedia(String botId);
+
+    /**
+     * A link to the call's mixed video while Recall still holds it; empty once it expired or was deleted. The link is
+     * pre-signed and short-lived, so it is read afresh for each download and never handed to a browser.
+     */
+    Optional<URI> recordingVideo(String botId);
+
+    /** Copies the file behind a link {@link #recordingVideo} gave; refused for any host but Recall's or AWS's. */
+    void copyVideo(URI video, OutputStream out) throws IOException;
 
     /**
      * The call's transcript, a line per turn, each named by the participant Recall heard. A transcript made after the

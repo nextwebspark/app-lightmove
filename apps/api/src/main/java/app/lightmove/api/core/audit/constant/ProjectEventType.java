@@ -152,6 +152,8 @@ public enum ProjectEventType implements AuditEventType {
     NOTETAKER_ENDED_EARLY,
     /** A Notetaker's transcript summarised by the model and filed as a Meeting note. */
     NOTETAKER_NOTE_FILED,
+    /** A call's recording downloaded by the consultant who sent the Notetaker. */
+    NOTETAKER_RECORDING_DOWNLOADED,
     /** Suggest changes asked the model to read a call's transcript against the person's record. */
     NOTETAKER_SUGGESTIONS_ASKED,
     /** A change the call suggested, applied or skipped by a researcher; the fields are named, never valued. */

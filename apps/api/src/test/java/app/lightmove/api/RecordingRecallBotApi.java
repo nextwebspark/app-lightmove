@@ -11,10 +11,13 @@ import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import app.lightmove.api.notetaker.service.RecallBotApi;
 import app.lightmove.api.notetaker.service.RecallBotClient;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -45,6 +48,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
     private volatile boolean failTranscriptRequests;
     private final Map<String, List<TranscriptLine>> transcripts = new ConcurrentHashMap<>();
     private final Map<String, RecallBotState> states = new ConcurrentHashMap<>();
+    private final Map<String, byte[]> videos = new ConcurrentHashMap<>();
     private final List<String> botIds = new CopyOnWriteArrayList<>();
     private volatile boolean offered = true;
     private volatile boolean failSends;
@@ -126,6 +130,26 @@ public class RecordingRecallBotApi implements RecallBotApi {
     @Override
     public void deleteMedia(String botId) {
         mediaDeleted.add(botId);
+    }
+
+    @Override
+    public Optional<URI> recordingVideo(String botId) {
+        return videos.containsKey(botId) ? Optional.of(URI.create("https://media.recall.ai/video/" + botId))
+                : Optional.empty();
+    }
+
+    @Override
+    public void copyVideo(URI video, OutputStream out) throws IOException {
+        byte[] bytes = videos.get(video.getPath().substring(video.getPath().lastIndexOf('/') + 1));
+        if (bytes == null) {
+            throw new IOException("no such video");
+        }
+        out.write(bytes);
+    }
+
+    /** Recall holds this bot's mixed video until {@link #clear}. */
+    public void holdsVideo(String botId, byte[] bytes) {
+        videos.put(botId, bytes);
     }
 
     @Override
@@ -236,6 +260,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
         left.clear();
         leaveRefusal = null;
         mediaDeleted.clear();
+        videos.clear();
         liveUpdates.clear();
         consentLines.clear();
         failUpdates = false;

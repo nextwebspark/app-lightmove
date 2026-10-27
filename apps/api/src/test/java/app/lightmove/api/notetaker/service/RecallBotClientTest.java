@@ -21,6 +21,7 @@ import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -155,12 +156,33 @@ class RecallBotClientTest {
                 .containsEntry("metadata", Map.of("recordingId", "r1"))
                 .containsEntry("chat", Map.of("on_bot_join", Map.of("send_to", "everyone", "message", "Hello")));
         assertThat(body.get("recording_config").toString()).contains("recallai_streaming");
+        assertThat(RecallBotClient.recordingConfigOf(null).get("retention"))
+                .isEqualTo(Map.of("type", "timed", "hours", 168L));
+        assertThat(((Map<?, ?>) body.get("recording_config")).get("retention"))
+                .isEqualTo(Map.of("type", "timed", "hours", 168L));
         assertThat(body.get("automatic_leave")).isEqualTo(RecallBotClient.AUTOMATIC_LEAVE);
         assertThat(body.get("automatic_video_output")).isEqualTo(RecallBotClient.AUTOMATIC_VIDEO_OUTPUT);
         assertThat(RecallBotClient.AUTOMATIC_LEAVE).containsEntry("waiting_room_timeout", 900)
                 .containsEntry("everyone_left_timeout", Map.of("timeout", 30));
         assertThat(RecallBotClient.bodyOf(new RecallBotRequest("https://zoom.us/j/1", null, "UNCAVA Notetaker",
                 "Hello", Map.of(), null))).doesNotContainKey("join_at");
+    }
+
+    @Test
+    @DisplayName("only a pre-signed file on Recall's or AWS's hosts is copied as a recording")
+    void recordingVideoIsRecallsOwn() throws IOException {
+        assertThat(RecallBotClient.downloadOf("https://bot-data.s3.amazonaws.com/v.mp4?X=1")).isNotNull();
+        assertThat(RecallBotClient.downloadOf("https://evil.example/v.mp4")).isNull();
+        HttpServer recall = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        recall.start();
+        try {
+            RecallBotClient client = clientOf(recall);
+
+            assertThatThrownBy(() -> client.copyVideo(URI.create("https://evil.example/v.mp4"),
+                    OutputStream.nullOutputStream())).isInstanceOf(IOException.class);
+        } finally {
+            recall.stop(0);
+        }
     }
 
     @Test

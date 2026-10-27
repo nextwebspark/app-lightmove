@@ -8,19 +8,22 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 ## How a call is recorded
 
-1. **Start now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
+1. **Send now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
    on a call's row at all: the row in the executive drawer's Meetings section is the call, its Join link and its ⋯,
    whose **Notetaker & questions…** opens the call's panel — one section per job, each with its own button: Prepare
-   questions (step 9), then the Notetaker with its Live copilot switch, **Start now**, which sends the bot into the
-   call at once — the consultant asks the executive first, and starts it once they agree — and, while the start is more
-   than two minutes away, **Join at start**, which schedules it for a minute before the booked start. A press closes the
+   questions (step 9), then the Notetaker with two switches on one row, **Live copilot** and — while the start is more
+   than two minutes away — **Join at start**, both on until unticked, then **Schedule Notetaker** (while Join at start
+   is ticked), which schedules it a minute before the booked start, and **Send Notetaker now**, which sends the bot
+   into the call at once — the consultant asks the executive first, and sends it once they agree. Sending never opens
+   the meeting, and nothing here can tell whether a call has begun (it may have been started early on the same link),
+   so **Open <provider>** is a link of its own beside the buttons. A press closes the
    panel, and the ⋯ then opens on what is set ("Notetaker joins at start · Live copilot") above the same item, whose
    panel shows it again with the next step. The ⋯ wears a dot while the call records (red) or waits on the consultant
    — changes to review, notes to try again (accent). Book a call carries no Notetaker. Either is offered when:
    - the call is still to come, under way, or ran over its booked end by no more than 20 minutes (`OVERRUN_GRACE`). Past
      the booked end it is offered only while no later call on the consultant's calendar has started on the same link,
      since a personal room used back to back would otherwise put the next interview on this person;
-   - for Start now only, the call's day has begun in the presser's own time zone (`NOTETAKER_TOO_EARLY` before then;
+   - for Send now only, the call's day has begun in the presser's own time zone (`NOTETAKER_TOO_EARLY` before then;
      `startableMeetingIds` on the read), and nothing else holds the link: no earlier call on the presser's calendar on
      the same link still before its booked end, and no other call's bot of the workspace joining or recording on it
      (`NOTETAKER_LINK_IN_USE`);
@@ -31,11 +34,11 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    - the deployment has a Recall account, and the workspace is within its AI fair use (`AI_ENRICH`).
 
    The request is `POST /api/v1/projects/{p}/outreach/candidates/{c}/meetings/{m}/notetaker`, gated by `WORK_EXECUTE`,
-   with `{"join": "NOW"}` for Start now; a body without `join` joins at the start.
+   with `{"join": "NOW"}` for Send now; a body without `join` joins at the start.
 2. **The claim.** A `SCHEDULED` row of `app_lm_meeting_recording` (V151) is written first. A partial unique index on
    the call (workspace, join URL, start) keeps one live bot per call, whichever teammate presses.
 3. **Sending the bot.** Recall is then asked, outside any transaction and never retried, with:
-   - `join_at` one minute before the call (at once when the call is that close), or none for Start now — Recall then
+   - `join_at` one minute before the call (at once when the call is that close), or none for Send now — Recall then
      draws the bot from its warm pool, and an empty pool (its 507, no bot made) is `NOTETAKER_BUSY`, the row
      `FAILED` (`RECALL_BUSY`) and the call offered again. The `join_at` sent is kept on the row (V157);
    - the bot name "UNCAVA Notetaker", spelled as the wordmark;
@@ -80,11 +83,22 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       is role, criteria and competencies, never compensation. Every email address and phone number is redacted first.
    4. Files a Markdown `MEETING` note in the scheduler's name, through `PersonNoteService.fileMeetingNote`.
    5. Records one `AI_ENRICH` use against fair use.
-   6. Asks Recall to **delete its copy of the call** (`delete_media`).
+
+   Recall's copy of the call is **not deleted here** (V158): every bot is made with timed retention
+   (`RecallBotApi.MEDIA_RETENTION`, 7 days, Recall's free storage span), so Recall drops the recording itself, and the
+   call's sender may **download the video** meanwhile (below). A call that is discarded (Remove) still has its media
+   deleted at once.
 
    No model or vendor call holds a transaction. A failed summary leaves `FAILED` (`SUMMARY_FAILED`) with Recall's
    copy kept, so **Try again** can read the transcript once more. Try again is a press, so it takes the
    `CANDIDATE_AI_ENRICH` meter and the fair-use check.
+   - **The recording** (V158 `media_expires_at`, stamped when the call ends). Once a call is filed or failed, its ⋯
+     offers **Recording — Available until …** to the consultant who sent the bot alone
+     (`mayDownloadRecording`; `NOTETAKER_RECORDING_NOT_YOURS` for anyone else, `NOTETAKER_RECORDING_GONE` past the
+     retention). `GET …/notetaker/{id}/recording` (`WORK_EXECUTE`) reads a fresh pre-signed link from the bot's latest
+     recording (`video_mixed`), streams the MP4 through the API (the link never reaches a browser; Recall's or AWS's
+     hosts only) and audits each download (`NOTETAKER_RECORDING_DOWNLOADED`, ids alone). The SPA fetches it with the
+     bearer token and saves the blob, so the file is held in the browser's memory while it downloads.
 6. **Safety net.** `NotetakerReconcile` runs every `lightmove.recall.bot-reconcile-interval` (10 min). It claims any
    recording still live 30 minutes after its call ended, or 5 minutes after End & file notes was pressed
    (`reconciled_at`, `FOR UPDATE SKIP LOCKED`, so one instance reads each bot), reads it back from Recall and folds it
@@ -92,8 +106,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 7. **Join now, End & file notes, Remove.** Anyone on the position may press each (`WORK_EXECUTE`), all in the call's
    panel; its ⋯ opens on "Recording 31:42" meanwhile. A call the Notetaker has left — End pressed, its notes being
    written or filed — is listed under Past from then on, and its ⋯ carries what came of it rather than the panel.
-   - **Join now** (the panel's **Start now instead**) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
-     than two minutes away, under the link guards Start now has. A new bot is sent first and the scheduled one called
+   - **Join now** (the panel's **Send now instead**) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
+     than two minutes away, under the link guards Send now has. A new bot is sent first and the scheduled one called
      back only once the row holds the new id (`NOTETAKER_JOINED_NOW`), so a refusal — an empty pool included — leaves
      the scheduled bot as it was; deliveries about the old bot find no row. Its copilot is the one it was scheduled with;
      a bot sent at once, or being replaced, has its copilot fixed (`NOTETAKER_COPILOT_LOCKED`), since Recall patches only
@@ -229,8 +243,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 ## What leaves Uncava
 
-- **To Recall:** the call's join link, and the call's audio and video while the bot is in it. Recall's copy is
-  deleted once the note is filed.
+- **To Recall:** the call's join link, and the call's audio and video while the bot is in it. Recall keeps its copy
+  for seven days after the call and then deletes it.
 - **To Recall, with the live copilot:** the bot streams the transcript back to our own endpoint as it is spoken, and the
   recording is transcribed a second time after the call in the accurate mode, for the note.
 - **To Gemini, for the interview copilot:** for Prepare questions, the brief's assessment seam, the profile, the notes and
@@ -262,7 +276,7 @@ To try it locally:
 
 1. Set `RECALL_API_KEY`, `RECALL_BOT_WEBHOOK_SECRET` and (for EU) `RECALL_BASE_URL` before `npm run dev`.
 2. Expose `:8080` (cloudflared or ngrok) and point a Recall webhook endpoint at `/api/v1/notetaker/webhooks/recall`.
-3. Book a Meet call in the drawer, join the call, open its ⋯ → **Notetaker & questions…** → **Start now**, let the bot
+3. Book a Meet call in the drawer, join the call, open its ⋯ → **Notetaker & questions…** → **Send Notetaker now**, let the bot
    in and talk; **End & file notes** in the same panel files the notes without waiting for the booked end, and the
    changes the call suggests follow in the call's ⋯, a dot on it once they wait.
 
