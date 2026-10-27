@@ -18,6 +18,7 @@ import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -32,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -237,6 +239,35 @@ public class RecallBotClient implements RecallBotApi {
     }
 
     @Override
+    public Optional<URI> recordingVideo(String botId) {
+        JsonNode bot = guard.call(VendorCall.of(VENDOR, "bot-read"), () -> client.get()
+                .uri("/api/v1/bot/{id}/", botId)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class));
+        JsonNode recordings = bot == null ? null : bot.path("recordings");
+        if (recordings == null || !recordings.isArray() || recordings.isEmpty()) {
+            return Optional.empty();
+        }
+        JsonNode video = recordings.get(recordings.size() - 1).path("media_shortcuts").path("video_mixed");
+        return Optional.ofNullable(downloadOf(textOrNull(video.path("data").get("download_url"))));
+    }
+
+    @Override
+    public void copyVideo(URI video, OutputStream out) throws IOException {
+        if (downloadOf(video.toString()) == null) {
+            throw new IOException("Not a Recall recording link");
+        }
+        downloads.get().uri(video).exchange((request, response) -> {
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new IOException("Recall answered " + response.getStatusCode().value() + " for the recording");
+            }
+            response.getBody().transferTo(out);
+            return null;
+        });
+    }
+
+    @Override
     public List<TranscriptLine> transcript(String transcriptId) {
         JsonNode transcript = guard.call(VendorCall.of(VENDOR, "transcript"), () -> client.get()
                 .uri("/api/v1/transcript/{id}/", transcriptId)
@@ -423,6 +454,9 @@ public class RecallBotClient implements RecallBotApi {
         return Math.toIntExact(duration.toSeconds());
     }
 
+    /** Recall deletes the call's media itself once this has passed; it counts from the recording being done. */
+    static final Map<String, Object> RETENTION = Map.of("type", "timed", "hours", MEDIA_RETENTION.toHours());
+
     static Map<String, Object> bodyOf(RecallBotRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("meeting_url", request.meetingUrl());
@@ -465,9 +499,9 @@ public class RecallBotClient implements RecallBotApi {
                 "provider", Map.of("recallai_streaming", provider),
                 "diarization", Map.of("use_separate_streams_when_available", true));
         if (liveTranscriptUrl == null) {
-            return Map.of("transcript", transcript);
+            return Map.of("transcript", transcript, "retention", RETENTION);
         }
-        return Map.of("transcript", transcript, "realtime_endpoints", List.of(Map.of(
+        return Map.of("transcript", transcript, "retention", RETENTION, "realtime_endpoints", List.of(Map.of(
                 "type", "webhook",
                 "url", liveTranscriptUrl.toString(),
                 "events", List.of("transcript.data", "transcript.partial_data"))));

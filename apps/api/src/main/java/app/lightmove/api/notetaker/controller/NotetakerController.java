@@ -10,13 +10,19 @@ import app.lightmove.api.notetaker.dto.NotetakerRecordingResponse;
 import app.lightmove.api.notetaker.dto.NotetakerTranscriptResponse;
 import app.lightmove.api.notetaker.dto.ReviewCallSuggestionsRequest;
 import app.lightmove.api.notetaker.dto.ScheduleNotetakerRequest;
+import app.lightmove.api.notetaker.model.RecordingDownload;
 import app.lightmove.api.notetaker.service.CallSuggestionService;
 import app.lightmove.api.notetaker.service.NotetakerService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 /**
  * The Notetaker from the executive drawer: send a bot to a call now or for its start, bring a scheduled one in now,
@@ -105,6 +112,24 @@ public class NotetakerController {
                                                   @PathVariable UUID projectId, @PathVariable UUID candidateId,
                                                   @PathVariable UUID recordingId) {
         return notetaker.transcript(principal.requireWorkspaceId(), projectId, candidateId, recordingId);
+    }
+
+    /** The call's video, streamed from Recall by the server: only the bot's sender, and only while Recall keeps it. */
+    @GetMapping("/notetaker/{recordingId}/recording")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ResponseEntity<StreamingResponseBody> recording(@AuthenticationPrincipal AuthPrincipal principal,
+                                                           @PathVariable UUID projectId,
+                                                           @PathVariable UUID candidateId,
+                                                           @PathVariable UUID recordingId,
+                                                           HttpServletRequest httpRequest) {
+        RecordingDownload download = notetaker.openRecording(principal.userId(), principal.requireWorkspaceId(),
+                projectId, candidateId, recordingId, httpRequest);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("video/mp4"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(download.filename(), StandardCharsets.UTF_8).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(out -> notetaker.copyRecording(download, out));
     }
 
     @GetMapping("/notetaker/{recordingId}/suggestions")

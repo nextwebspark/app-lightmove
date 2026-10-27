@@ -264,6 +264,8 @@ const liveCall = (overrides: Partial<NotetakerRecording> = {}): NotetakerRecordi
   joinAt: null,
   recordingStartedAt: "2026-10-25T10:01:00Z",
   endRequested: false,
+  recordingAvailableUntil: null,
+  mayDownloadRecording: false,
   ...overrides,
 });
 
