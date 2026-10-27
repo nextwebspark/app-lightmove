@@ -22,8 +22,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
 /**
- * A Recall that remembers every bot it was asked for, called back and wiped, serves the transcripts and bot states a
- * test hands it, and reads webhook bodies as the real client does, so a test posts Recall's own JSON.
+ * A Recall that remembers every bot it was asked for, called back, took out of a call and wiped, serves the
+ * transcripts and bot states a test hands it, and reads webhook bodies as the real client does, so a test posts
+ * Recall's own JSON.
  */
 public class RecordingRecallBotApi implements RecallBotApi {
 
@@ -32,6 +33,8 @@ public class RecordingRecallBotApi implements RecallBotApi {
 
     private final List<RecallBotRequest> sent = new CopyOnWriteArrayList<>();
     private final List<String> removed = new CopyOnWriteArrayList<>();
+    private final List<String> left = new CopyOnWriteArrayList<>();
+    private volatile VendorFailureKind leaveRefusal;
     private final List<String> mediaDeleted = new CopyOnWriteArrayList<>();
     private final Map<String, URI> liveUpdates = new ConcurrentHashMap<>();
     private final Map<String, String> consentLines = new ConcurrentHashMap<>();
@@ -44,6 +47,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
     private final List<String> botIds = new CopyOnWriteArrayList<>();
     private volatile boolean offered = true;
     private volatile boolean failSends;
+    private volatile boolean busySends;
     private volatile Runnable whileSending = () -> { };
 
     @Override
@@ -55,6 +59,9 @@ public class RecordingRecallBotApi implements RecallBotApi {
     public String send(RecallBotRequest request) {
         if (failSends) {
             throw new VendorException(VendorCall.of("recall", "bot-create"), VendorFailureKind.UNAVAILABLE, null);
+        }
+        if (busySends) {
+            throw ApiException.of(ErrorCode.NOTETAKER_BUSY);
         }
         whileSending.run();
         sent.add(request);
@@ -96,6 +103,14 @@ public class RecordingRecallBotApi implements RecallBotApi {
     @Override
     public void remove(String botId) {
         removed.add(botId);
+    }
+
+    @Override
+    public void leave(String botId) {
+        if (leaveRefusal != null) {
+            throw new VendorException(VendorCall.of("recall", "bot-leave"), leaveRefusal, null);
+        }
+        left.add(botId);
     }
 
     @Override
@@ -172,6 +187,21 @@ public class RecordingRecallBotApi implements RecallBotApi {
         this.failSends = fail;
     }
 
+    /** Recall's pool of bots that join at once is empty: every send is refused and no bot is made. */
+    public void busySends(boolean busy) {
+        this.busySends = busy;
+    }
+
+    /** How Recall refuses a leave from now on; null takes every one. */
+    public void refuseLeaves(VendorFailureKind refusal) {
+        this.leaveRefusal = refusal;
+    }
+
+    /** Bots asked to leave their call, oldest first. */
+    public List<String> left() {
+        return List.copyOf(left);
+    }
+
     /** Runs while Recall is being asked, before it answers: where a Remove pressed mid-send lands. */
     public void whileSending(Runnable action) {
         this.whileSending = action;
@@ -202,6 +232,8 @@ public class RecordingRecallBotApi implements RecallBotApi {
         sent.clear();
         botIds.clear();
         removed.clear();
+        left.clear();
+        leaveRefusal = null;
         mediaDeleted.clear();
         liveUpdates.clear();
         consentLines.clear();
@@ -213,6 +245,7 @@ public class RecordingRecallBotApi implements RecallBotApi {
         states.clear();
         offered = true;
         failSends = false;
+        busySends = false;
         whileSending = () -> { };
     }
 

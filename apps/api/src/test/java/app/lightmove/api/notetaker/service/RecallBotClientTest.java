@@ -2,9 +2,19 @@ package app.lightmove.api.notetaker.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.config.RecallSettings;
+import app.lightmove.api.core.config.ResilienceSettings;
+import app.lightmove.api.core.error.constant.ErrorCode;
+import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
+import app.lightmove.api.core.resilience.service.VendorCallGuard;
+import app.lightmove.api.core.resilience.service.VendorClientFactory;
+import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.notetaker.model.RecallBotNotice;
 import app.lightmove.api.notetaker.model.RecallBotRequest;
 import app.lightmove.api.notetaker.model.RecallBotState;
@@ -14,10 +24,13 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
@@ -165,6 +178,73 @@ class RecallBotClientTest {
                 Instant.parse("2026-10-22T09:40:00Z"), "t1", "done", "rec1"));
         assertThat(RecallBotClient.stateOf(JSON.readTree("{\"id\":\"b1\"}")))
                 .isEqualTo(new RecallBotState(null, null, null, null, null, null));
+    }
+
+    @Test
+    @DisplayName("Recall's 507 is an empty pool of bots that join at once, answered busy; any other 5xx is a failure")
+    void anEmptyPoolIsBusy() throws IOException {
+        HttpServer recall = recallAnswering(507);
+        try {
+            RecallBotRequest atOnce = new RecallBotRequest("https://meet.google.com/abc-defg-hij", null,
+                    "UNCAVA Notetaker", "Hi everyone", Map.of(), null);
+            assertThatThrownBy(() -> clientOf(recall).send(atOnce)).isInstanceOfSatisfying(ApiException.class,
+                    refused -> assertThat(refused.getCode()).isEqualTo(ErrorCode.NOTETAKER_BUSY));
+        } finally {
+            recall.stop(0);
+        }
+        HttpServer failing = recallAnswering(503);
+        try {
+            assertThatThrownBy(() -> clientOf(failing).send(new RecallBotRequest("https://meet.google.com/x", null,
+                    "UNCAVA Notetaker", "Hi", Map.of(), null))).isInstanceOfSatisfying(VendorException.class,
+                    failed -> assertThat(failed.getKind()).isEqualTo(VendorFailureKind.UNAVAILABLE));
+        } finally {
+            failing.stop(0);
+        }
+    }
+
+    @Test
+    @DisplayName("a leave takes the bot out of its call, and a remove falls back to it once the bot has joined")
+    void leaveAndRemove() throws IOException {
+        List<String> asked = new CopyOnWriteArrayList<>();
+        HttpServer recall = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        recall.createContext("/", exchange -> {
+            asked.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath());
+            exchange.sendResponseHeaders(exchange.getRequestMethod().equals("DELETE") ? 405 : 200, -1);
+            exchange.close();
+        });
+        recall.start();
+        try {
+            RecallBotClient client = clientOf(recall);
+            client.leave("bot-1");
+            client.remove("bot-2");
+        } finally {
+            recall.stop(0);
+        }
+
+        assertThat(asked).containsExactly("POST /api/v1/bot/bot-1/leave_call/", "DELETE /api/v1/bot/bot-2/",
+                "POST /api/v1/bot/bot-2/leave_call/");
+    }
+
+    private static RecallBotClient clientOf(HttpServer recall) {
+        LightMoveProperties properties = mock(LightMoveProperties.class);
+        when(properties.resilience()).thenReturn(new ResilienceSettings(Duration.ofSeconds(2), 0,
+                Duration.ofMillis(1), 1.0, Duration.ZERO, Duration.ofMillis(1), Duration.ofSeconds(1)));
+        VendorRateLimiter limiter = new VendorRateLimiter();
+        RecallSettings settings = new RecallSettings("recall-key", null, "bot-secret",
+                "http://127.0.0.1:" + recall.getAddress().getPort(), Duration.ofMinutes(10), null,
+                Duration.ofSeconds(15), 240);
+        return new RecallBotClient(settings, new VendorClientFactory(properties), limiter,
+                new VendorCallGuard(limiter, properties), RestClient.builder(), Clock.systemUTC());
+    }
+
+    private static HttpServer recallAnswering(int status) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.sendResponseHeaders(status, -1);
+            exchange.close();
+        });
+        server.start();
+        return server;
     }
 
     private static List<RecallBotNotice> notices(String body) {

@@ -28,24 +28,39 @@ export interface NotetakerRecording {
   hasTranscript: boolean;
   retryable: boolean;
   noteId: string | null;
-  /** Someone pressed Suggest changes on this call. */
+  /** The transcript was read for changes: once the notes were filed, or by Suggest changes. */
   suggestionsAsked: boolean;
   /** Changes it suggested that nobody has applied or skipped yet. */
   pendingSuggestions: number;
   /** Changes a review applied to the record. */
   appliedSuggestions: number;
+  /** Every change it suggested, decided or not. */
+  foundSuggestions: number;
+  /** The model is reading the transcript for changes right now. */
+  suggesting: boolean;
   /** The bot streams the call to the live copilot; chosen before it joins. */
   liveCopilot: boolean;
   liveStatus: LiveCopilotStatus | null;
   /** The caller sent this bot, so may switch its copilot. */
   mayChangeCopilot: boolean;
+  /** When Recall brings the bot in; null for one sent at once. */
+  joinAt: string | null;
+  /** When Recall first reported it recording: the call clock counts from here. */
+  recordingStartedAt: string | null;
+  /** End & file notes was pressed: the bot is leaving and its notes follow. */
+  endRequested: boolean;
 }
+
+/** Start now sends the bot at once; a send naming neither joins at the call's start. */
+export type NotetakerJoin = "NOW" | "AT_START";
 
 export interface CandidateNotetaker {
   offered: boolean;
   recordings: NotetakerRecording[];
   /** Upcoming rows the caller may send a bot to: on their own calendar or booked by them, with a video link. */
   recordableMeetingIds: string[];
+  /** Of those, the calls whose day has begun in the caller's time zone: Start now is offered on them. */
+  startableMeetingIds: string[];
 }
 
 export interface NotetakerTranscriptLine {
@@ -98,6 +113,10 @@ export interface CallSuggestion {
   /** False once the record moved on so it can't be applied, such as the tag being retired. */
   available: boolean;
   edited: boolean;
+  /** What an applied change replaced; null where it added rather than replaced, or that wasn't kept. */
+  was: SuggestedValue | null;
+  appliedAt: string | null;
+  appliedBy: string | null;
 }
 
 export interface CallSuggestions {
@@ -135,10 +154,29 @@ export function scheduleNotetaker(
   candidateId: string,
   meetingId: string,
   liveCopilot = false,
+  join?: NotetakerJoin,
 ): Promise<NotetakerRecording> {
   return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/meetings/${meetingId}/notetaker`, {
     method: "POST",
-    body: { liveCopilot },
+    body: join ? { liveCopilot, join } : { liveCopilot },
+  });
+}
+
+/** Brings a bot scheduled for the call's start in at once. */
+export function joinNotetakerNow(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+): Promise<NotetakerRecording> {
+  return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/join-now`, {
+    method: "POST",
+  });
+}
+
+/** End & file notes: the bot leaves the call now, and its notes are filed as after any call. */
+export function endNotetaker(projectId: string, candidateId: string, recordingId: string): Promise<NotetakerRecording> {
+  return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/end`, {
+    method: "POST",
   });
 }
 
@@ -210,6 +248,10 @@ export type CompetencyPanel = "TECHNICAL" | "BEHAVIOURAL";
 export const INTERVIEW_PLAN_KEY = (projectId: string, candidateId: string, meetingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "interview-plan", meetingId] as const;
 
+/** The draft of one call's plan, whichever dialog started it. */
+export const INTERVIEW_PLAN_DRAFT_KEY = (projectId: string, candidateId: string, meetingId: string) =>
+  [...INTERVIEW_PLAN_KEY(projectId, candidateId, meetingId), "draft"] as const;
+
 export const COPILOT_KEY = (projectId: string, candidateId: string, recordingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "copilot"] as const;
 
@@ -271,6 +313,8 @@ export interface Copilot {
   title: string | null;
   candidateName: string;
   startsAt: string;
+  /** When Recall first reported recording; the call clock counts from here, or from `startsAt` before. */
+  recordingStartedAt: string | null;
   status: NotetakerStatus;
   liveStatus: LiveCopilotStatus | null;
   coach: CoachState;

@@ -35,6 +35,8 @@ public class NotetakerReconcile {
 
     /** Recall's transcript lands minutes after the call; past this a missing delivery is the likelier story. */
     static final Duration QUIET_AFTER_END = Duration.ofMinutes(30);
+    /** A bot asked to leave early has no booked end to wait for: its call is over once it was told to go. */
+    static final Duration QUIET_AFTER_END_REQUESTED = Duration.ofMinutes(5);
     /** A row read back once is not read again sooner than this, by this instance or another. */
     static final Duration READ_AGAIN_AFTER = Duration.ofMinutes(5);
     static final Duration GIVE_UP_AFTER_END = Duration.ofHours(24);
@@ -45,8 +47,9 @@ public class NotetakerReconcile {
             WHERE id IN (
                 SELECT id FROM app_lm_meeting_recording
                 WHERE status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING') AND recall_bot_id IS NOT NULL
-                  AND ends_at < :endedBefore AND (reconciled_at IS NULL OR reconciled_at < :readBefore)
-                ORDER BY ends_at
+                  AND (ends_at < :endedBefore OR end_requested_at < :endRequestedBefore)
+                  AND (reconciled_at IS NULL OR reconciled_at < :readBefore)
+                ORDER BY coalesce(end_requested_at, ends_at)
                 LIMIT :batch
                 FOR UPDATE SKIP LOCKED)
             RETURNING id
@@ -72,6 +75,7 @@ public class NotetakerReconcile {
         List<UUID> claimed = transactions.execute(status -> jdbc.queryForList(CLAIM, new MapSqlParameterSource()
                 .addValue("now", Timestamp.from(now))
                 .addValue("endedBefore", Timestamp.from(now.minus(QUIET_AFTER_END)))
+                .addValue("endRequestedBefore", Timestamp.from(now.minus(QUIET_AFTER_END_REQUESTED)))
                 .addValue("readBefore", Timestamp.from(now.minus(READ_AGAIN_AFTER)))
                 .addValue("batch", BATCH), UUID.class));
         int moved = 0;

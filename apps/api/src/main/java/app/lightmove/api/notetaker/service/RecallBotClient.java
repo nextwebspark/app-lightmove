@@ -49,6 +49,8 @@ public class RecallBotClient implements RecallBotApi {
     static final String VENDOR = "recall";
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(20);
     private static final int REQUESTS_PER_SECOND = 5;
+    /** Recall's answer when no bot is free to join at once: none was made. */
+    private static final int POOL_EMPTY = 507;
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final RecallSettings config;
@@ -85,6 +87,9 @@ public class RecallBotClient implements RecallBotApi {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(bodyOf(request))
                 .retrieve()
+                .onStatus(status -> status.value() == POOL_EMPTY, (sent, answer) -> {
+                    throw ApiException.of(ErrorCode.NOTETAKER_BUSY);
+                })
                 .body(JsonNode.class));
         String id = created == null ? null : textOrNull(created.get("id"));
         if (id == null) {
@@ -198,11 +203,16 @@ public class RecallBotClient implements RecallBotApi {
             if (refused.getKind() != VendorFailureKind.BAD_REQUEST && refused.getKind() != VendorFailureKind.GONE) {
                 throw refused;
             }
-            guard.call(VendorCall.of(VENDOR, "bot-leave"), () -> client.post()
-                    .uri("/api/v1/bot/{id}/leave_call/", botId)
-                    .retrieve()
-                    .toBodilessEntity());
+            leave(botId);
         }
+    }
+
+    @Override
+    public void leave(String botId) {
+        guard.call(VendorCall.of(VENDOR, "bot-leave"), () -> client.post()
+                .uri("/api/v1/bot/{id}/leave_call/", botId)
+                .retrieve()
+                .toBodilessEntity());
     }
 
     @Override

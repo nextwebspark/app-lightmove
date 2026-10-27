@@ -124,7 +124,9 @@ export function CopilotPanel({
       />
       <span className="truncate">{copilot ? (copilot.title ?? "Recorded call") : "Interview copilot"}</span>
       {copilot && copilot.status === "RECORDING" && (
-        <span className="flex-none font-mono tabular-nums">{elapsedSince(copilot.startsAt, now)}</span>
+        <span className="flex-none font-mono tabular-nums">
+          {elapsedSince(copilot.recordingStartedAt ?? copilot.startsAt, now)}
+        </span>
       )}
       {copilot && !isLive && isCallOn(copilot) && <span className="flex-none text-u-signal">Reconnecting…</span>}
     </>

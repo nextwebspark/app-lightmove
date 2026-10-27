@@ -57,15 +57,7 @@ export function uncoveredOf(copilot: Copilot): string[] {
   ];
 }
 
-/** What the Notetaker switch does, wherever it is offered: a call's row and Book a call. */
-export function notetakerDetailOf(firstName: string): string {
-  return `Joins a minute early, records the call and files the notes on ${firstName}'s record.`;
-}
-
-export const LIVE_COPILOT_DETAIL =
-  "Nudges you during the call with what is still to cover. Only you see it. Switching it on sends the Notetaker too.";
-
-/** Time into the call from its booked start, as the transcript sheet writes it. */
+/** Time into the call from when it started, as the transcript sheet writes it. */
 export function elapsedSince(startsAt: string, now: number): string {
   const seconds = Math.max(0, Math.floor((now - new Date(startsAt).getTime()) / 1000));
   const minutes = Math.floor(seconds / 60);

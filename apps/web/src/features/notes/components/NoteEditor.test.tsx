@@ -24,6 +24,8 @@ function Harness(props: Partial<NoteEditorProps> & { onBody?: (body: string) => 
       teammates={props.teammates === undefined ? team : props.teammates}
       ariaLabel="New note"
       onSubmit={props.onSubmit}
+      fillsDialog={props.fillsDialog}
+      onExpandChange={props.onExpandChange}
       header={props.header}
       footer={
         props.footer === undefined ? undefined : (
@@ -153,6 +155,23 @@ describe("the note editor", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByText("Kind of note")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "New note" })).toHaveTextContent("");
+  });
+
+  it("filling a dialog, grows where it is and tells the dialog, once per press", async () => {
+    const onExpandChange = vi.fn();
+    render(
+      <Harness value="Prefers mornings" footer={<p>Who reads this note</p>} fillsDialog onExpandChange={onExpandChange} />,
+    );
+    await screen.findByRole("textbox", { name: "New note" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Expand" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onExpandChange).toHaveBeenCalledTimes(1);
+    expect(onExpandChange).toHaveBeenLastCalledWith(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Collapse" }));
+    expect(onExpandChange).toHaveBeenLastCalledWith(false);
+    expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
   });
 
   it("offers no mention where the note mentions nobody", async () => {

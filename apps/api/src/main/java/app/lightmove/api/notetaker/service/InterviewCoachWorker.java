@@ -172,9 +172,9 @@ public class InterviewCoachWorker {
             return null;
         }
         return new CoachTurn(recording.getId(), recording.getWorkspaceId(), recording.getProjectId(),
-                recording.getPersonId(), recording.getCandidateId(), recording.getStartsAt(), recording.getTitle(),
-                InterviewCopilotService.teamOf(recording), unread.getLast().getSeq(), !recording.isLiveCharged(),
-                recording.getRequestedBy());
+                recording.getPersonId(), recording.getCandidateId(), recording.getStartsAt(),
+                recording.callClockStart(), recording.getTitle(), InterviewCopilotService.teamOf(recording),
+                unread.getLast().getSeq(), !recording.isLiveCharged(), recording.getRequestedBy());
     }
 
     static boolean isEnoughTalk(List<MeetingLiveLine> unread, Instant now) {
@@ -238,7 +238,7 @@ public class InterviewCoachWorker {
                         .toList());
         LiveCoaching before = transactions.execute(status -> recordings.findById(turn.recordingId())
                 .map(MeetingRecording::getLive).orElse(null));
-        return coach.coach(brief, plan, missing, before, heard, turn.startsAt());
+        return coach.coach(brief, plan, missing, before, heard, turn.clockStart());
     }
 
     /** An unmapped executive has no record to read gaps from; the copilot then follows the competencies alone. */
@@ -285,6 +285,6 @@ public class InterviewCoachWorker {
     }
 
     private record CoachTurn(UUID recordingId, UUID workspaceId, UUID projectId, UUID personId, UUID candidateId,
-                             Instant startsAt, String title, List<UUID> team, long throughSeq, boolean firstRun,
-                             UUID requestedBy) {}
+                             Instant startsAt, Instant clockStart, String title, List<UUID> team, long throughSeq,
+                             boolean firstRun, UUID requestedBy) {}
 }

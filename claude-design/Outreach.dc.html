@@ -153,35 +153,28 @@
             </aside>
 
             <section aria-label="Conversation" data-screen-label="Conversation" style="flex:1;min-width:420px;display:flex;flex-direction:column;min-height:0;background:var(--panel)">
-              <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;min-height:76px;padding:14px 24px;border-bottom:1px solid var(--line-soft);box-sizing:border-box">
-                <div style="min-width:0;display:flex;flex-direction:column;gap:7px">
-                  <div style="display:flex;align-items:center;gap:9px">
-                    <span style="font:600 17px/1.2 var(--sans);letter-spacing:-0.3px;color:var(--text);white-space:nowrap">{{ oc.name }}</span>
-                    <span style="{{ oc.stagePill }}"><span style="{{ oc.stageDot }}"></span>{{ oc.stage }}</span>
-                  </div>
-                  <span style="font:400 11px/1 var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ oc.role }}</span>
-                </div>
-                <div style="flex:none;display:flex;align-items:center;gap:5px">
-                  <button onClick="{{ oqLogCall }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"></path></svg>Log call</button>
-                  <button onClick="{{ oqAddNote }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path></svg>Add note</button>
-                  <button onClick="{{ oqHandled }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>Mark handled</button>
-                </div>
-              </div>
               <div style="flex:none;display:flex;flex-direction:column;gap:6px;padding:13px 24px;background:var(--amber-dim);border-bottom:1px solid var(--line-soft)">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
                   <span style="display:flex;align-items:center;gap:7px;font:600 11px/1 var(--sans);color:var(--amber)">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17 4 12l5-5"></path><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>Required next action</span>
                   <span style="font:400 10px/1 var(--u-num);color:var(--amber)">{{ oc.due }}</span>
                 </div>
-                <span style="font:400 13px/1.35 var(--sans);color:var(--text)">{{ oc.next }}</span>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                  <span style="font:400 13px/1.35 var(--sans);color:var(--text)">{{ oc.next }}</span>
+                  <button onClick="{{ oqHandled }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8.5 12 2.5 2.5 4.5-5"></path></svg>Mark handled</button>
+                </div>
               </div>
               <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:14px;padding:20px 24px 8px">
                 <div style="display:flex;align-items:center;justify-content:space-between">
-                  <span style="font:500 11px/1 var(--sans);color:var(--text3)">Communication history</span>
-                  <span style="font:400 9px/1 var(--u-num);color:var(--text3)">{{ oc.range }}</span>
+                  <span style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                    <span style="font:500 11px/1 var(--sans);color:var(--text3)">Communication history</span>
+                    <span style="font:400 12px/1 var(--sans);color:var(--text3)"><b style="color:var(--amber)">2</b> sent · <b style="color:var(--green)">1</b> reply · <b style="color:var(--green)">1</b> meeting · <b>1</b> note</span>
+                  </span>
+                  <span style="display:flex;align-items:baseline;gap:12px">
+                    <span style="font:400 9px/1 var(--u-num);color:var(--text3)">LAST TOUCH 2H AGO</span>
+                    <span style="font:400 9px/1 var(--u-num);color:var(--text3)">{{ oc.range }}</span>
+                  </span>
                 </div>
                 <sc-for list="{{ oc.history }}" as="ev" hint-placeholder-count="4">
                   <div style="display:flex;gap:12px;align-items:flex-start">
@@ -200,47 +193,16 @@
                   </div>
                 </sc-for>
               </div>
-              <div data-screen-label="Reply composer" style="flex:none;display:flex;flex-direction:column;gap:12px;padding:16px 24px;border-top:1px solid var(--line-soft)">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-                  <span style="display:flex;align-items:center;gap:7px;font:500 12px/1 var(--sans);color:var(--text)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--amber)"><path d="M9 17 4 12l5-5"></path><path d="M20 18v-2a4 4 0 0 0-4-4H4"></path></svg>{{ oc.composeTitle }}</span>
-                  <span style="font:400 10px/1 var(--sans);color:var(--text3)">From yara.haddad@alfuttaim.com</span>
-                </div>
-                <div style="display:flex;flex-direction:column;border-radius:8px;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);overflow:hidden">
-                  <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line-soft)">
-                    <span style="flex:none;font:400 11px/1 var(--sans);color:var(--text3)">Subject</span>
-                    <span style="flex:1;min-width:0;font:400 12px/1.2 var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ oc.subject }}</span>
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:8px;padding:12px">
-                    <span style="font:400 14px/1 var(--sans);color:var(--text2)">{{ oc.salutation }}</span>
-                    <textarea value="{{ oc.draft }}" onChange="{{ oqOnDraft }}" aria-label="Message" rows="4" style="width:100%;resize:none;background:transparent;border:none;outline:none;padding:0;font:400 14px/22px var(--sans);color:var(--text)"></textarea>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:14px;height:34px;padding:0 12px;color:var(--text3)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 0 8H6zM6 12h9a4 4 0 0 1 0 8H6z"></path></svg>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 4h-9M14 20H5M15 4 9 20"></path></svg>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>
-                    <span style="width:1px;height:14px;background:var(--line-soft)"></span>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"></path></svg>
-                  </div>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-                  <div style="display:flex;gap:5px">
-                    <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"></rect><path d="M4 16V5a1 1 0 0 1 1-1h11"></path></svg>Saved template</button>
-                    <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"></circle><circle cx="18" cy="6" r="2.5"></circle><path d="M6 8.5V21M18 8.5a9 9 0 0 1-9 9H6"></path></svg>Insert follow-up</button>
-                    <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:transparent;font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"></path></svg>Attach</button>
-                  </div>
-                  <div style="display:flex;gap:7px">
-                    <button onClick="{{ oqSchedule }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Schedule</button>
-                    <button onClick="{{ oqSend }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--amber-btn);font:600 12px/1 var(--sans);color:var(--on-amber);cursor:pointer" style-hover="filter:brightness(1.08)">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4ZM22 2 11 13"></path></svg>Send now</button>
-                  </div>
-                </div>
-                <span style="font:400 11px/17px var(--sans);color:var(--text3)">{{ oc.footNote }}</span>
+              <div data-screen-label="Conversation dock" role="toolbar" aria-label="Conversation actions" style="flex:none;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 24px;border-top:1px solid var(--line-soft)">
+                <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m3 7 9 6 9-6"></path></svg>Reply</button>
+                <button onClick="{{ oqLogCall }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"></path></svg>Log call</button>
+                <button onClick="{{ oqAddNote }}" style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path></svg>Add note</button>
+                <span style="flex:1"></span>
+                <button style="display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:6px;border:none;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);font:500 12px/1 var(--sans);color:var(--text2);cursor:pointer" style-hover="color:var(--text)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>Add to sequence</button>
               </div>
             </section>
 
@@ -619,12 +581,7 @@
                 <input value="{{ bk.title }}" aria-label="Meeting title" style="width:100%;box-sizing:border-box;border-radius:6px;border:1px solid var(--line);background:var(--panel2);padding:8px 10px;font:400 13px var(--sans);color:var(--text);outline:none">
                 <span style="display:block;margin-top:6px;font:400 11px/1.5 var(--mono);color:var(--text3)">What {{ bk.first }} sees. Keep the business unit out of it unless you mean to name it.</span>
               </label>
-              <!-- Record with Notetaker: on by default where the Notetaker is set up and a video link is chosen; the bot is sent once the invite goes. -->
-              <div style="display:flex;align-items:center;gap:10px;margin-top:14px;border-radius:7px;border:1px solid var(--line);padding:8px 10px;background:var(--bg)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--accent)"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-14 0v-1M12 18v4"></path></svg>
-                <span style="min-width:0;flex:1"><span style="display:block;font:500 12px var(--sans)">Record with Notetaker</span><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Joins 1 min early · files notes on {{ bk.first }}</span></span>
-                <span role="switch" aria-checked="true" style="position:relative;flex:none;width:32px;height:18px;border-radius:9px;background:var(--accent-solid, #4a56d6)"><span style="position:absolute;top:2px;left:16px;width:14px;height:14px;border-radius:50%;background:#fff"></span></span>
-              </div>
+              <!-- No Notetaker here: it is set up from the call's own ⋯ (Notetaker & questions), once the executive agrees. -->
             </section>
           </div>
         </div>
@@ -736,24 +693,16 @@
                   <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
                   <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                   <sc-if value="{{ m.viaLink }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
-                  <span data-screen-label="Notetaker" style="display:flex;align-items:center;gap:10px;margin-top:6px;border-radius:7px;border:1px solid var(--line);padding:7px 10px;background:var(--bg)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--text3)"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-14 0v-1M12 18v4"></path></svg>
-                    <span style="min-width:0;flex:1"><span style="display:block;font:500 12px var(--sans)">Notetaker</span>
-                      <sc-if value="{{ m.hasNotetaker }}" hint-placeholder-val="{{ true }}"><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Joins 1 min early · files notes after</span></sc-if>
-                      <sc-if value="{{ m.canRecord }}" hint-placeholder-val="{{ false }}"><span style="display:block;font:400 11px var(--mono);color:var(--text3)">Off · nothing is recorded</span></sc-if></span>
-                    <!-- Record with Notetaker: on sends the bot, off asks "Remove the Notetaker?" first. -->
-                    <sc-if value="{{ m.hasNotetaker }}" hint-placeholder-val="{{ true }}"><span role="switch" aria-checked="true" style="position:relative;flex:none;width:32px;height:18px;border-radius:9px;background:var(--accent-solid, #4a56d6)"><span style="position:absolute;top:2px;left:16px;width:14px;height:14px;border-radius:50%;background:#fff"></span></span></sc-if>
-                    <sc-if value="{{ m.canRecord }}" hint-placeholder-val="{{ false }}"><span role="switch" aria-checked="false" style="position:relative;flex:none;width:32px;height:18px;border-radius:9px;background:var(--line2)"><span style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--text3)"></span></span></sc-if>
-                  </span>
                 </span>
-                <span style="flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                <span style="flex:none;display:flex;align-items:center;gap:6px">
                   <a href="#" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
-                  <!-- A call booked in Uncava: Reschedule and Cancel call as icon buttons, named by tooltip and aria-label; cancel is the app's trash. -->
-                  <span style="display:flex;gap:4px">
-                    <a href="#" title="Reschedule" aria-label="Reschedule" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--text);background:var(--panel)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5M12 7v5l3 2"></path></svg></a>
-                    <a href="#" title="Cancel call" aria-label="Cancel call" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--red, #d93a45)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"></path></svg></a>
-                  </span>
+                  <!-- ⋯, the one place the Notetaker shows on the row (nothing is drawn under the call): it opens on where
+                       the call has got to in words ("Notetaker joins at start · Live copilot"), then Notetaker & questions…
+                       (the call's panel: Prepare questions, then the Notetaker with its Live copilot switch, Start now and
+                       Join at start, each section its own button), then Reschedule and Cancel call on a call booked in
+                       Uncava. A red dot on it while the call records. -->
+                  <a href="#" title="Call options" aria-label="Call options" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--text)">⋯</a>
                 </span>
               </div>
             </sc-for>
@@ -764,10 +713,11 @@
               <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)">
                 <span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span>
                 <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
-                  <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><span data-screen-label="Notetaker" style="display:flex;align-items:center;gap:12px;margin-top:4px">
-                    <span style="display:inline-flex;border-radius:6px;padding:1px 7px;font:600 9.5px var(--mono);background:var(--green-dim);color:var(--green)">Notes filed</span>
-                    <a href="#" style="font:500 11px var(--mono);color:var(--text3)" style-hover="color:var(--text);text-decoration:underline">View transcript</a></span></sc-if>
                 </span>
+                <!-- A recorded call keeps nothing under it either: its ⋯ opens on "Notes filed · 3 changes to review" over
+                     Review 3 changes, Transcript (or Try again where only the write-up failed), with an accent dot while
+                     changes wait. -->
+                <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><a href="#" data-screen-label="Notetaker" title="Call options" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--text)">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--panel)"></span></a></sc-if>
               </div>
             </sc-for>
           </sc-if>
@@ -1060,11 +1010,13 @@ class Component extends DCLogic {
   meetingVals(dr) {
     const id = this.state.drawer;
     const found = MEETINGS[id] || { upcoming: [], past: [] };
-    // The Notetaker (a Recall.ai bot): Record with Notetaker on a call with a video link, then its chip — Notetaker
-    // scheduled / Notetaker joining / Recording (each with Remove notetaker), Writing notes, Notes filed (View transcript),
-    // or "Notetaker failed: <why>" (Try again where only the write-up failed). Never offered for do not contact.
+    // The Notetaker (a Recall.ai bot): off until asked from the call's ⋯ → Notetaker & questions (Start now, or Join at
+    // start). Nothing is drawn under the call: the ⋯ opens on "Notetaker joins at start · Live copilot" / "Notetaker
+    // joining" / "● Recording 31:42" (End & file notes in the panel) / "Writing notes…" / "Notes filed · 3 changes to
+    // review" (Review 3 changes) / "Notes filed · 3 changes applied" (Changes from the call), or why there are none (Try
+    // again where only the write-up failed), with a dot while it records or waits. Never offered for do not contact.
     const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink, notetaker]) => ({ month, day, when, title, who, join, viaLink,
-      notetaker: notetaker || "", hasNotetaker: !!notetaker, canRecord: !notetaker && !dr.dnc }));
+      notetaker: notetaker || "", hasNotetaker: !!notetaker }));
     const past = found.past.map(([date, title, who, notesFiled]) => ({ date, title, who, notesFiled: !!notesFiled }));
     const total = upcoming.length + past.length;
     return { upcoming, past, hasUpcoming: upcoming.length > 0, hasPast: past.length > 0, isEmpty: total === 0,

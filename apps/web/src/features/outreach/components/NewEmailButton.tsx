@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Avatar, LinesSkeleton } from "../../../components/ui";
+import { LinesSkeleton } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as pipelineApi from "../../pipeline/api/pipelineApi";
+import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
 import type { PipelineRow } from "../../pipeline/api/types";
 import type { MailboxState } from "../lib/mailboxState";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
@@ -148,7 +149,7 @@ function PersonPicker({ projectId, onPick }: { projectId: string; onPick: (candi
                   index === highlighted && "bg-u-raised",
                 )}
               >
-                <Avatar id={row.personId} name={row.fullName} size="sm" className="flex-none" />
+                <PersonAvatar person={{ ...row, enrichedAt: row.enrichedAt ?? null }} size="sm" className="flex-none" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-note font-semibold text-u-text">{row.fullName}</span>
                   <span className="block truncate text-meta text-u-text3">
