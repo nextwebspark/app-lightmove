@@ -13,7 +13,7 @@ import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
 import * as positionApi from "../../position/api/positionApi";
 import type { Project } from "../../projects/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
-import type { DrawerSection } from "../lib/drawerTabs";
+import type { DrawerSection, DrawerTab } from "../lib/drawerTabs";
 
 /**
  * The Companies grid's executive panel, opened from somewhere that holds only the executive's id — a
@@ -27,6 +27,7 @@ export function CandidateDrawerById({
   onChanged,
   focusNoteId = null,
   focusSection = null,
+  focusTab = null,
 }: {
   project: Project;
   candidateId: string | null;
@@ -34,6 +35,8 @@ export function CandidateDrawerById({
   focusNoteId?: string | null;
   /** A part of the Contact tab to open the profile on, from a bell row's link. */
   focusSection?: DrawerSection | null;
+  /** The tab to open the profile on, from a link that says which. */
+  focusTab?: DrawerTab | null;
   onClose: () => void;
   /** After a save or a removal, for a read the mandate's rows do not cover — the report's figures. */
   onChanged?: () => void;
@@ -110,6 +113,7 @@ export function CandidateDrawerById({
         onDelete={canWrite ? setPendingRemoval : undefined}
         focusNoteId={focusNoteId}
         focusSection={focusSection}
+        focusTab={focusTab}
       />
       <RemoveCandidateDialog
         candidate={pendingRemoval}

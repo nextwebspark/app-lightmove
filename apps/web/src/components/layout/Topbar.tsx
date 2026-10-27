@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
 import type { PendingInvitation, WorkspaceSummary } from "../../features/auth/api/types";
@@ -8,31 +8,23 @@ import { takeWorkspaceMove } from "../../features/auth/workspaceMoveNotice";
 import { CreditChip } from "../../features/billing/components/CreditChip";
 import { useHelp } from "../../features/help/HelpProvider";
 import { NotificationBell } from "../../features/notifications/components/NotificationBell";
-import { useTheme } from "../../features/theme/useTheme";
 import { WorkspaceMark } from "../../features/workspace/components/WorkspaceMark";
 import { AppIcon, Avatar, useToast } from "../ui";
 import { cn } from "../../lib/cn";
 import { messageFor } from "../../lib/errorCodes";
 import { Icon, ICONS } from "./Icon";
+import { useAccountActions, type AccountAction } from "./useAccountActions";
 import { useDropdownMenu } from "./useDropdownMenu";
 
 /**
  * The 46px header: the workspace menu on the workspace's own name at the left, the account menu on the avatar at
  * the right — the convention people bring from every other tool — and, for staff, the notification bell. A project passes its people as `actions`, and
- * settings and project screens a breadcrumb led by the workspace menu. Below `lg` it also carries the nav drawer's
- * button.
+ * settings and project screens a breadcrumb led by the workspace menu.
  */
-export function Topbar({
-  breadcrumb,
-  actions,
-  navOpen = false,
-  onMenuClick,
-}: {
+export function Topbar({ breadcrumb, actions }: {
   breadcrumb?: ReactNode;
   /** Drawn beside the avatar — a project header's people. */
   actions?: ReactNode;
-  navOpen?: boolean;
-  onMenuClick?: () => void;
 }) {
   const { user } = useAuth();
   const toast = useToast();
@@ -45,26 +37,16 @@ export function Topbar({
 
   return (
     <header className="relative z-[60] flex h-[46px] flex-none items-center gap-2 px-3.5 sm:gap-3">
-      {onMenuClick && (
-        <button
-          type="button"
-          onClick={onMenuClick}
-          aria-label="Open navigation"
-          aria-expanded={navOpen}
-          aria-controls="app-nav"
-          className="-ml-1 flex size-9 flex-none items-center justify-center rounded-[7px] text-u-text2 transition hover:bg-u-raised hover:text-u-text lg:hidden"
-        >
-          <Icon d={ICONS.menu} size={18} />
-        </button>
-      )}
-
       <div className="flex min-w-0 flex-1 items-center">{breadcrumb ?? <WorkspaceMenu />}</div>
 
       <div className="flex flex-none items-center gap-2.5">
         <CreditChip />
         {actions}
         {isStaff && <NotificationBell />}
-        <HelpButton />
+        {/* Help is also in the account menu, which is where a phone finds it. */}
+        <span className="hidden sm:contents">
+          <HelpButton />
+        </span>
         {user && <AccountMenu />}
       </div>
     </header>
@@ -276,16 +258,21 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
 
 /** The avatar's menu: the person, not the workspace — their profile, security, theme, and signing out. */
 function AccountMenu() {
-  const { user, signOut } = useAuth();
-  const { openHelp } = useHelp();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const menu = useDropdownMenu();
-  const { theme, toggle: toggleTheme } = useTheme();
+  const actions = useAccountActions();
   if (!user) return null;
 
-  const go = (path: string) => {
-    menu.close();
-    navigate(path);
+  const select = (action: AccountAction) => {
+    if (action.to) {
+      menu.close();
+      navigate(action.to);
+      return;
+    }
+    // Help opens a dialog: focus goes back to the avatar first, so closing Help returns there rather than to nothing.
+    if (action.key === "help") menu.close(true);
+    action.onSelect?.();
   };
 
   return (
@@ -312,35 +299,25 @@ function AccountMenu() {
             <div className="truncate text-body font-semibold">{user.fullName}</div>
             <div className="truncate text-meta text-u-text3">{user.email}</div>
           </div>
-          <MenuItem onClick={() => go("/settings/profile")}>
-            <Icon d={ICONS.profile} size={15} className="flex-none" />
-            Your profile
-          </MenuItem>
-          <MenuItem onClick={() => go("/settings/security")}>
-            <Icon d={ICONS.lock} size={15} className="flex-none" />
-            Security
-          </MenuItem>
-          <MenuItem role="menuitemcheckbox" checked={theme === "dark"} onClick={toggleTheme}>
-            <Icon d={ICONS.moon} size={15} className="flex-none" />
-            <span className="flex-1">Dark mode</span>
-            <span aria-hidden="true" className="text-meta text-u-text3">{theme === "dark" ? "On" : "Off"}</span>
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              // Focus back on the avatar first, so closing Help returns there rather than to nothing.
-              menu.close(true);
-              openHelp();
-            }}
-          >
-            <Icon d={ICONS.help} size={15} className="flex-none" />
-            <span className="flex-1">Help &amp; shortcuts</span>
-            <kbd aria-hidden="true" className="font-mono text-meta text-u-text3">?</kbd>
-          </MenuItem>
-          <MenuDivider />
-          <MenuItem onClick={() => void signOut()}>
-            <Icon d={ICONS.signOut} size={15} className="flex-none" />
-            Sign out
-          </MenuItem>
+          {actions.map((action) => (
+            <Fragment key={action.key}>
+              {action.key === "signOut" && <MenuDivider />}
+              <MenuItem
+                role={action.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+                checked={action.checked}
+                onClick={() => select(action)}
+              >
+                <Icon d={action.icon} size={15} className="flex-none" />
+                <span className="flex-1">{action.label}</span>
+                {action.checked !== undefined && (
+                  <span aria-hidden="true" className="text-meta text-u-text3">{action.checked ? "On" : "Off"}</span>
+                )}
+                {action.key === "help" && (
+                  <kbd aria-hidden="true" className="font-mono text-meta text-u-text3">?</kbd>
+                )}
+              </MenuItem>
+            </Fragment>
+          ))}
         </div>
       )}
     </div>

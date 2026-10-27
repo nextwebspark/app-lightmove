@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { EmptyState, FullscreenButton } from "../../../../components/ui";
+import { CompanyLogo } from "../../../../components/ui/CompanyLogo";
 import { DataGrid } from "../../../../components/ui/DataGrid";
 import { PaginationBar } from "../../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../../components/ui/SelectionActionBar";
@@ -12,6 +13,7 @@ import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
 import { useDebouncedValue } from "../../../../lib/useComboboxList";
 import { useDataGridTable } from "../../../../lib/useDataGridTable";
+import { isBelowTableWidth } from "../../../../lib/viewport";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../../lib/useFullscreen";
 import { layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
 import { useGridPaging } from "../../../../lib/useGridPaging";
@@ -60,6 +62,7 @@ export function PeopleView({
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
+  const [asCards] = useState(isBelowTableWidth);
   const [dialog, setDialog] = useState<BulkDialog>(null);
   const [layout, setLayout] = useGridLayout("candidatePool", POOL_LAYOUT_COLUMNS);
   const { reset: resetPaging, clampTo, page: pageIndex, size: pageSize } = paging;
@@ -179,6 +182,14 @@ export function PeopleView({
                   errorMessage={page.isError ? messageFor(page.error) : "The candidates could not be loaded."}
                   emptyMessage="Nobody matches. Loosen a filter or clear the search."
                   onRowClick={(row) => onOpen(row.personId)}
+                  renderCard={asCards ? (row) => (
+                    <PersonCard
+                      row={row}
+                      selected={Boolean(rowSelection[row.personId])}
+                      onToggle={table.getRow(row.personId).getToggleSelectedHandler()}
+                      onOpen={() => onOpen(row.personId)}
+                    />
+                  ) : undefined}
                   headerLead={
                     <SelectionCheckbox
                       checked={rows.length > 0 && tickedOnPage === rows.length}
@@ -291,4 +302,48 @@ function holdersByTagOf(rows: PoolRow[], selection: RowSelectionState): Map<stri
     for (const tagId of row.tagIds) counts.set(tagId, (counts.get(tagId) ?? 0) + 1);
   }
   return counts;
+}
+
+/** A person as a phone lists them: who, where, the latest position they are on — a tap opens the drawer. */
+function PersonCard({
+  row,
+  selected,
+  onToggle,
+  onOpen,
+}: {
+  row: PoolRow;
+  selected: boolean;
+  onToggle: (event: unknown) => void;
+  onOpen: () => void;
+}) {
+  const latest = row.positions[0];
+  const where = [row.companyName, row.locationCity ?? row.locationCountry].filter(Boolean).join(" · ");
+  return (
+    <article className="flex items-start gap-3 rounded-u-card border border-u-border bg-u-surface px-3.5 py-3">
+      <span className="pt-1.5">
+        <SelectionCheckbox checked={selected} label={`Select ${row.fullName}`} onChange={onToggle} />
+      </span>
+      <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-start gap-2.5 text-start">
+        <CompanyLogo name={row.companyName ?? row.fullName} logo={row.companyLogoUrl} size={28} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-body font-semibold text-u-text">{row.fullName}</span>
+            {row.doNotContact && (
+              <span className="flex-none rounded-full bg-u-offlimits/15 px-1.5 text-meta font-medium text-u-offlimits">
+                Do not contact
+              </span>
+            )}
+          </span>
+          {row.title && <span className="block truncate text-meta text-u-text2">{row.title}</span>}
+          {where && <span className="block truncate text-meta text-u-text3">{where}</span>}
+          {latest && (
+            <span className="mt-1 block truncate text-meta text-u-text3">
+              {latest.positionTitle ?? "Position"} · {latest.statusLabel ?? latest.status}
+              {row.positions.length > 1 && ` · +${row.positions.length - 1}`}
+            </span>
+          )}
+        </span>
+      </button>
+    </article>
+  );
 }

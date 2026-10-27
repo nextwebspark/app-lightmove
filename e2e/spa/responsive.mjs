@@ -173,7 +173,7 @@ try {
     for (const kind of ["anonymous", "authenticated"]) await contexts[kind].close();
   }
 
-  console.log("\n── nav drawer ──");
+  console.log("\n── nav: rail on a desktop, bottom bar and More on a phone ──");
   for (const viewport of VIEWPORTS) {
     const context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height },
@@ -183,26 +183,26 @@ try {
     await page.goto(`${WEB}/`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
 
-    const menu = page.getByRole("button", { name: "Open navigation" });
-    const nav = page.locator("#app-nav");
-    const onScreen = async () => (await nav.boundingBox())?.x >= 0;
+    const bar = page.getByRole("navigation", { name: "Quick navigation" });
+    const rail = page.locator("#app-nav");
+    const more = page.getByRole("dialog", { name: "More" });
 
     if (viewport.width >= 1024) {
-      check(`drawer/${viewport.name}`, "no hamburger at lg and up", false, await menu.isVisible());
-      check(`drawer/${viewport.name}`, "rail is in flow", true, await onScreen());
+      check(`nav/${viewport.name}`, "no bottom bar at lg and up", false, await bar.isVisible());
+      check(`nav/${viewport.name}`, "rail is in flow", true, await rail.isVisible());
     } else {
-      check(`drawer/${viewport.name}`, "hamburger is offered", true, await menu.isVisible());
-      check(`drawer/${viewport.name}`, "rail starts off-screen", false, await onScreen());
-      await menu.click();
+      check(`nav/${viewport.name}`, "bottom bar is offered", true, await bar.isVisible());
+      check(`nav/${viewport.name}`, "no rail below lg", false, await rail.isVisible());
+      await bar.getByRole("button", { name: "More" }).click();
       await page.waitForTimeout(350);
-      check(`drawer/${viewport.name}`, "hamburger opens the rail", true, await onScreen());
+      check(`nav/${viewport.name}`, "More opens its panel", true, await more.isVisible());
       await page.keyboard.press("Escape");
       await page.waitForTimeout(350);
-      check(`drawer/${viewport.name}`, "Escape closes it", false, await onScreen());
+      check(`nav/${viewport.name}`, "Escape closes it", false, await more.isVisible());
     }
     await context.close();
   }
-  // The rail carries a z-index for its drawer mode; unreset at `lg` it floats above an open scrim.
+  // A rail with a z-index of its own floats above an open drawer's scrim.
   console.log("\n── drawer scrim ──");
   {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });

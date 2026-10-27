@@ -18,6 +18,8 @@ import { cn } from "../../lib/cn";
 import { Spinner, useToast } from "../ui";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
+import { positionTabs } from "./mobile/mobileTabs";
+import { PositionQuickActions } from "./mobile/PositionQuickActions";
 import { type SidebarGroup } from "./Sidebar";
 import * as triageApi from "../../features/triage/api/triageApi";
 import { TRIAGE_STAGES } from "../../features/triage/lib/triageStages";
@@ -60,6 +62,7 @@ export function ProjectLayout() {
   const navigate = useNavigate();
   const toast = useToast();
   const [confirmingArchive, setConfirmingArchive] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
   // `includes`, not `endsWith`: the Companies stages are a path segment deep (/companies/universe),
   // so matching only the tail would drop all three back to the gutter-and-cap layout that leaves a
   // wide grid ending in mid-air.
@@ -161,6 +164,9 @@ export function ProjectLayout() {
 
   return (
     <AppShell
+      mobileTabs={positionTabs(project.id, isStaff)}
+      mobileTitle={project.positionTitle}
+      onQuickAction={isStaff && !isArchived(project) ? () => setQuickActionsOpen(true) : undefined}
       breadcrumb={
         <ProjectBreadcrumb
           clientName={project.clientName}
@@ -171,7 +177,10 @@ export function ProjectLayout() {
       }
       topbarActions={
         <div className="flex min-w-0 items-center gap-1">
-          <ProjectPeopleBar project={project} />
+          {/* A phone gives the position's title the room; the team is under More → Team & access. */}
+          <span className="hidden sm:contents">
+            <ProjectPeopleBar project={project} />
+          </span>
           <PositionActionsMenu project={project} onArchive={() => setConfirmingArchive(true)} />
         </div>
       }
@@ -187,6 +196,13 @@ export function ProjectLayout() {
       )}
     >
       <Outlet context={{ project } satisfies ProjectOutletContext} />
+      {isStaff && (
+        <PositionQuickActions
+          projectId={project.id}
+          open={quickActionsOpen}
+          onClose={() => setQuickActionsOpen(false)}
+        />
+      )}
       {confirmingArchive && (
         <ArchivePositionDialog
           project={project}

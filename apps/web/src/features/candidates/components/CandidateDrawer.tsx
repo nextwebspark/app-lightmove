@@ -3,7 +3,7 @@ import { Drawer } from "../../../components/ui/Drawer";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { CANDIDATE_KEY, getCandidate } from "../api/candidatesApi";
 import type { Candidate } from "../api/types";
-import type { DrawerSection } from "../lib/drawerTabs";
+import type { DrawerSection, DrawerTab } from "../lib/drawerTabs";
 import { AddCandidateForm, type CandidateCompanyContext } from "./AddCandidateForm";
 import { CandidateProfile } from "./CandidateProfile";
 
@@ -35,6 +35,7 @@ export function CandidateDrawer({
   onMarkNoExecutiveFound,
   focusNoteId = null,
   focusSection = null,
+  focusTab = null,
 }: {
   open: boolean;
   projectId: string;
@@ -60,6 +61,8 @@ export function CandidateDrawer({
   focusNoteId?: string | null;
   /** A part of the Contact tab to open the profile on — a bell row's reply, bounce or booked call. */
   focusSection?: DrawerSection | null;
+  /** The tab to open on, from a link that says which; the viewer's remembered tab otherwise. */
+  focusTab?: DrawerTab | null;
 }) {
   const queryClient = useQueryClient();
   const live = useQuery({
@@ -90,6 +93,7 @@ export function CandidateDrawer({
           onRemove={canWrite ? onDelete : undefined}
           focusNoteId={focusNoteId}
           focusSection={focusSection}
+          focusTab={focusTab}
         />
       ) : (
         <AddCandidateForm
