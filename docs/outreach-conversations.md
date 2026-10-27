@@ -517,6 +517,18 @@ person merge is built, message and attachment rows move with the enrollments.
      row, the group context lines and the details "⋯" are not drawn — nothing is behind them.
    - Log call and Add note open the drawer's own composer (`PositionNoteComposer`, pulled out of `NotesSection`) in a
      modal; Mark handled completes the next-action task and moves to the next person.
+   - **Revised (2026-10-26)**: the conversation has no header of its own — the details pane already says who they
+     are, so only a one-line name and stage stays, below `xl` where that pane folds under the history. Mark handled
+     lives in `NextActionStrip` and is drawn only with a task open. The history fills the pane, headed by
+     `ConversationGlance` (`glanceOf`: sent, replies, bounces, scheduled, meetings, calls and notes counted from what
+     the read shows, the last touch, a live sequence's progress). `ConversationDock` is its foot: Reply / Write email, Log call, Add note and Add to sequence, each a dialog over
+     the history — the email the page's own `ReplyComposer` in a modal that, once words are written, only its close
+     button dismisses; the notes `NoteComposerModal`; the sequence `EnrolDialog` for the one person under
+     `canEnrolFrom`. The details pane no longer offers Add to a sequence. The email dialog opens by itself only when
+     the page was opened to write (New email). Every composer dialog (the email, Log call, Add note, and the drawer's Write
+     email) fills its dialog (`Modal fills`, `NoteEditor onExpandInPlace`): the title, To and Subject or the note's
+     kind, and the toolbar sit pinned at the top, the send or save controls at the foot, and only the words scroll;
+     Expand grows that same dialog rather than opening a second over it.
    - Tests: `OutreachPage.test.tsx`, `SequencesPage.test.tsx`, `mailboxState.test.ts`,
      `conversationVocabulary.test.ts`; `e2e/spa/responsive.mjs` sweeps all three routes (its fixtures also gained
      the pipeline, catalog and My tasks reads every project page now makes).

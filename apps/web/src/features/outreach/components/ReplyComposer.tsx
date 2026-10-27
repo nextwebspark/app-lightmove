@@ -37,6 +37,8 @@ export function ReplyComposer({
   isArchived,
   autoFocus = false,
   onSent,
+  onDraftChange,
+  onExpandChange,
 }: {
   projectId: string;
   conversation: Conversation;
@@ -47,6 +49,10 @@ export function ReplyComposer({
   autoFocus?: boolean;
   /** After an email is sent or scheduled. */
   onSent?: () => void;
+  /** Whether anything is written yet: a subject, words or a file. */
+  onDraftChange?: (hasDraft: boolean) => void;
+  /** Expand grows the dialog it fills, told through this. */
+  onExpandChange?: (expanded: boolean) => void;
 }) {
   const { executive, contact, composer, currentRun, openTasks } = conversation;
   const firstName = firstNameOf(executive.fullName) ?? executive.fullName;
@@ -72,6 +78,8 @@ export function ReplyComposer({
       attachmentLimits={composer.attachmentLimits}
       autoFocus={autoFocus}
       onSent={onSent}
+      onDraftChange={onDraftChange}
+      onExpandChange={onExpandChange}
     />
   );
 }
@@ -93,6 +101,8 @@ function OpenComposer({
   attachmentLimits,
   autoFocus,
   onSent,
+  onDraftChange,
+  onExpandChange,
 }: {
   projectId: string;
   candidateId: string;
@@ -110,6 +120,8 @@ function OpenComposer({
   attachmentLimits: AttachmentLimits;
   autoFocus: boolean;
   onSent?: () => void;
+  onDraftChange?: (hasDraft: boolean) => void;
+  onExpandChange?: (expanded: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -164,6 +176,8 @@ function OpenComposer({
   });
 
   const hasBody = body.trim().length > 0;
+  const hasDraft = hasBody || subject.trim().length > 0 || attachments.length > 0;
+  useEffect(() => onDraftChange?.(hasDraft), [hasDraft, onDraftChange]);
   const isTooLong = body.length > BODY_MAX_LENGTH;
   const attachmentProblem = attachmentProblemOf(attachments, attachmentLimits);
   const canSend =
@@ -177,8 +191,8 @@ function OpenComposer({
   });
 
   return (
-    <section aria-label="Reply" className="border-t border-u-border bg-u-surface px-5 py-3.5">
-      <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+    <section aria-label="Reply" className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-1 flex flex-none flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1.5 text-body font-semibold text-u-text">
           <Icon d={ICONS.mail} size={14} className="text-u-accent" />
           {isReply ? `Reply to ${firstName}` : `First email to ${firstName}`}
@@ -190,89 +204,100 @@ function OpenComposer({
         )}
         {fromAddress && <span className="ms-auto font-mono text-meta text-u-text3">From {fromAddress}</span>}
       </div>
-      <div className="rounded-u-chip border border-u-border bg-u-raised">
-        <div className="flex items-center gap-2 border-b border-u-border px-3 py-2 text-note">
-          <span className="w-14 flex-none text-u-text3">To</span>
-          {emails.length === 1 ? (
-            <span className="min-w-0 truncate font-mono text-u-text2">{toAddress}</span>
-          ) : (
-            <Select
-              aria-label="To"
-              value={toAddress}
-              onChange={(event) => setChosenAddress(event.target.value)}
-              className="min-w-0 flex-1 py-1 font-mono text-note"
-            >
-              {emails.map((address) => (
-                <option key={address} value={address}>
-                  {address}
-                </option>
-              ))}
-            </Select>
-          )}
-        </div>
-        <div className="flex items-center gap-2 border-b border-u-border px-3 py-2 text-note">
-          <span className="w-14 flex-none text-u-text3">Subject</span>
-          {isReply ? (
-            <span className="min-w-0 truncate text-u-text2">{replySubject}</span>
-          ) : (
-            <input
-              aria-label="Subject"
-              autoFocus={autoFocus}
-              value={subject}
-              maxLength={200}
-              onChange={(event) => setSubject(event.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3"
-              placeholder="What the email is about"
-            />
-          )}
-        </div>
-        <div className="px-1.5 py-1.5">
-          <NoteEditor
-            value={body}
-            format="markdown"
-            onChange={setBody}
-            teammates={null}
-            ariaLabel="Message"
-            placeholder={`Write to ${firstName}…`}
-            variant="field"
-            expandTitle={isReply ? `Reply to ${firstName}` : `First email to ${firstName}`}
-            autoFocus={autoFocus && isReply}
-          />
-        </div>
-      </div>
-      <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
-      {isTooLong && (
-        <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-          Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
-        </p>
-      )}
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <AttachButton
-          projectId={projectId}
-          candidateId={candidateId}
-          attachments={attachments}
-          limits={attachmentLimits}
-          disabled={send.isPending}
-          onChange={setAttachments}
-        />
-        {runningSequenceId && (
-          <Button variant="ghost" size="xs" loading={insertFollowUp.isPending} onClick={() => insertFollowUp.mutate()}>
-            Insert follow-up
-          </Button>
-        )}
-        <div className="ms-auto flex flex-wrap items-center gap-2">
-          <SchedulePicker
-            timeZone={timeZone}
-            disabled={!canSend}
-            pending={send.isPending && send.variables !== null}
-            onSchedule={(at) => send.mutate(at)}
-          />
-          <Button size="xs" disabled={!canSend} loading={send.isPending && send.variables === null} onClick={() => send.mutate(null)}>
-            Send now
-          </Button>
-        </div>
-      </div>
-      <p className="mt-2 text-meta text-u-text3">{footnote}</p>
+      <NoteEditor
+        value={body}
+        format="markdown"
+        onChange={setBody}
+        teammates={null}
+        ariaLabel="Message"
+        placeholder={`Write to ${firstName}…`}
+        variant="field"
+        expandTitle={isReply ? `Reply to ${firstName}` : `First email to ${firstName}`}
+        autoFocus={autoFocus && isReply}
+        fillsDialog
+        onExpandChange={onExpandChange}
+        header={
+          <>
+            <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
+              <span className="w-14 flex-none text-u-text3">To</span>
+              {emails.length === 1 ? (
+                <span className="min-w-0 truncate font-mono text-u-text2">{toAddress}</span>
+              ) : (
+                <Select
+                  aria-label="To"
+                  value={toAddress}
+                  onChange={(event) => setChosenAddress(event.target.value)}
+                  className="min-w-0 flex-1 py-1 font-mono text-note"
+                >
+                  {emails.map((address) => (
+                    <option key={address} value={address}>
+                      {address}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            </div>
+            <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
+              <span className="w-14 flex-none text-u-text3">Subject</span>
+              {isReply ? (
+                <span className="min-w-0 truncate text-u-text2">{replySubject}</span>
+              ) : (
+                <input
+                  aria-label="Subject"
+                  autoFocus={autoFocus}
+                  value={subject}
+                  maxLength={200}
+                  onChange={(event) => setSubject(event.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3"
+                  placeholder="What the email is about"
+                />
+              )}
+            </div>
+          </>
+        }
+        footer={
+          <>
+            <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
+            {isTooLong && (
+              <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
+                Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
+              </p>
+            )}
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <AttachButton
+                projectId={projectId}
+                candidateId={candidateId}
+                attachments={attachments}
+                limits={attachmentLimits}
+                disabled={send.isPending}
+                onChange={setAttachments}
+              />
+              {runningSequenceId && (
+                <Button variant="ghost" size="xs" loading={insertFollowUp.isPending} onClick={() => insertFollowUp.mutate()}>
+                  Insert follow-up
+                </Button>
+              )}
+              <div className="ms-auto flex flex-wrap items-center gap-2">
+                <SchedulePicker
+                  timeZone={timeZone}
+                  disabled={!canSend}
+                  pending={send.isPending && send.variables !== null}
+                  onSchedule={(at) => send.mutate(at)}
+                />
+                <Button
+                  size="xs"
+                  disabled={!canSend}
+                  loading={send.isPending && send.variables === null}
+                  onClick={() => send.mutate(null)}
+                >
+                  Send now
+                </Button>
+              </div>
+            </div>
+            <p className="mt-2 text-meta text-u-text3">{footnote}</p>
+          </>
+        }
+      />
     </section>
   );
 }
@@ -378,7 +403,7 @@ function LockedComposer({
   connector: MailboxConnect;
 }) {
   return (
-    <section aria-label="Reply" className="border-t border-u-border bg-u-surface px-5 py-4">
+    <section aria-label="Reply">
       <div className="flex flex-wrap items-center gap-3 rounded-u-chip border border-dashed border-u-border-strong bg-u-raised px-4 py-3 text-body text-u-text2">
         <span className="min-w-0 flex-1 basis-60">{lockedSentenceOf(reason, mailbox)}</span>
         {reason.kind === "mailbox" && mailbox.kind === "none" &&
