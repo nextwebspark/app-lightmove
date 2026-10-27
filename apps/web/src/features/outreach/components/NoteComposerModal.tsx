@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { Modal } from "../../../components/ui";
 import type { PersonNoteKind } from "../../candidates/api/types";
 import { PositionNoteComposer } from "../../candidates/components/PersonSections";
 
-/** The conversation header's Log call and Add note: the drawer's own note composer as a dialog, with room to write. */
+/** The conversation dock's Log call and Add note: the drawer's own note composer as a dialog, with room to write. */
 export function NoteComposerModal({
   projectId,
   candidateId,
@@ -19,9 +20,21 @@ export function NoteComposerModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const [isLarge, setIsLarge] = useState(false);
   const title = kind === "call" ? `Log a call with ${fullName}` : `Add a note on ${fullName}`;
+  const close = () => {
+    setIsLarge(false);
+    onClose();
+  };
   return (
-    <Modal open={kind !== null} onClose={onClose} title={title} closeButton className="md:w-[640px]">
+    <Modal
+      open={kind !== null}
+      onClose={close}
+      title={title}
+      closeButton
+      fills
+      className={isLarge ? "md:h-[85dvh] md:w-[880px]" : "md:w-[640px]"}
+    >
       {kind !== null && (
         <PositionNoteComposer
           key={kind}
@@ -30,9 +43,10 @@ export function NoteComposerModal({
           initialKind={kind}
           title={title}
           presentation="dialog"
+          onExpandInPlace={setIsLarge}
           onSaved={() => {
             onSaved();
-            onClose();
+            close();
           }}
         />
       )}

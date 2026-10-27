@@ -130,6 +130,7 @@ export function PositionNoteComposer({
   initialKind = "general",
   title = "New note",
   presentation = "inline",
+  onExpandInPlace,
   onSetNextAction,
   onSaved,
 }: PersonSectionProps & {
@@ -138,6 +139,8 @@ export function PositionNoteComposer({
   title?: string;
   /** In a dialog the composer is the dialog's whole body: no frame of its own, and room to write. */
   presentation?: "inline" | "dialog";
+  /** In a dialog: Expand grows the dialog itself, which this tells to widen. */
+  onExpandInPlace?: (expanded: boolean) => void;
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
   onSaved?: () => void;
@@ -192,7 +195,7 @@ export function PositionNoteComposer({
 
   const isDialog = presentation === "dialog";
   return (
-    <div className={cn(!isDialog && "rounded-[8px] border border-u-border p-2.5")}>
+    <div className={cn(isDialog ? "flex min-h-0 flex-1 flex-col" : "rounded-[8px] border border-u-border p-2.5")}>
       <NoteEditor
         value={draft}
         format="markdown"
@@ -206,6 +209,7 @@ export function PositionNoteComposer({
         expandTitle={title}
         roomy={isDialog}
         autoFocus={isDialog}
+        onExpandInPlace={onExpandInPlace}
         header={<NoteKindPicker value={kind} onChange={setKind} />}
         footer={
           <>

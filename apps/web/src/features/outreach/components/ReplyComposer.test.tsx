@@ -87,7 +87,16 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 function composerFor(held: Conversation) {
-  return <ReplyComposer projectId="p1" conversation={held} mailbox={MAILBOX} connector={CONNECTOR} isArchived={false} />;
+  return (
+    <ReplyComposer
+      projectId="p1"
+      conversation={held}
+      mailbox={MAILBOX}
+      connector={CONNECTOR}
+      isArchived={false}
+      onExpandInPlace={() => {}}
+    />
+  );
 }
 
 describe("ReplyComposer", () => {

@@ -1,7 +1,8 @@
 import type { PersonNoteKind } from "../../candidates/api/types";
 import { timelineLines } from "../../candidates/lib/candidateActivity";
 import type { ConversationEvent, ConversationGroup, ConversationRow } from "../api/conversationApi";
-import { STOP_NOTES } from "./runVocabulary";
+import type { OutreachRun } from "../api/runApi";
+import { isLive, STOP_NOTES } from "./runVocabulary";
 
 /** The tone a mockup line is drawn in: `Outreach.dc.html`'s accent, green, red, signal and neutral. */
 export type ConversationTone = "accent" | "green" | "red" | "signal" | "neutral";
@@ -179,6 +180,71 @@ export function historyRangeOf(events: readonly ConversationEvent[], now: Date =
   const from = label(oldest);
   const to = label(newest);
   return from === to ? from : `${from} — ${to}`;
+}
+
+export interface GlanceFact {
+  count: number;
+  noun: string;
+  tone: ConversationTone;
+}
+
+export interface ConversationGlance {
+  facts: GlanceFact[];
+  /** "2D ago", "just now"; null before anything has happened. */
+  lastTouch: string | null;
+  /** The sequence still going, as "Executive intro · 1 of 3 sent". */
+  sequence: string | null;
+}
+
+/** The line over the history: what has passed between the team and the person so far, counted from what it shows. */
+export function glanceOf(
+  events: readonly ConversationEvent[],
+  run: OutreachRun | null,
+  now: Date = new Date(),
+): ConversationGlance {
+  let sent = 0;
+  let scheduled = 0;
+  let replies = 0;
+  let bounces = 0;
+  let meetings = 0;
+  let calls = 0;
+  let notes = 0;
+  let latest: number | null = null;
+  for (const event of events) {
+    if (event.type === "MESSAGE") {
+      const { direction, kind, status } = event.message;
+      if (direction === "INBOUND") {
+        if (kind === "BOUNCE") bounces++;
+        else replies++;
+      } else if (status === "SENT") sent++;
+      else if (status === "SCHEDULED") scheduled++;
+    }
+    if (event.type === "MEETING") meetings++;
+    if (event.type === "NOTE") {
+      if (event.note.kind === "call") calls++;
+      else notes++;
+    }
+    const at = new Date(event.at).getTime();
+    const isPast = !Number.isNaN(at) && at <= now.getTime();
+    const isWaiting = event.type === "MESSAGE" && event.message.status === "SCHEDULED";
+    if (isPast && !isWaiting && (latest === null || at > latest)) latest = at;
+  }
+  const facts: GlanceFact[] = [
+    { count: sent, noun: "sent", tone: "accent" },
+    { count: replies, noun: replies === 1 ? "reply" : "replies", tone: "green" },
+    { count: bounces, noun: bounces === 1 ? "bounce" : "bounces", tone: "red" },
+    { count: scheduled, noun: "scheduled", tone: "signal" },
+    { count: meetings, noun: meetings === 1 ? "meeting" : "meetings", tone: "green" },
+    { count: calls, noun: calls === 1 ? "call" : "calls", tone: "accent" },
+    { count: notes, noun: notes === 1 ? "note" : "notes", tone: "neutral" },
+  ].filter((fact) => fact.count > 0);
+  const since = latest === null ? null : sinceOf(new Date(latest).toISOString(), now);
+  return {
+    facts,
+    lastTouch: since === null ? null : since === "NOW" ? "just now" : `${since} ago`,
+    sequence:
+      run && isLive(run) ? `${run.sequenceName ?? "Sequence"} · ${run.sentCount} of ${run.stepCount} sent` : null,
+  };
 }
 
 /** "TODAY · 09:18" or "28 SEP · 14:02", a card's own time. */

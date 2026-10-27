@@ -43,9 +43,11 @@ export default function RichNoteEditor({
   autoFocus = false,
   header,
   footer,
+  onExpandInPlace,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const fillsDialog = onExpandInPlace !== undefined;
   const [linkOpen, setLinkOpen] = useState(false);
   const pickerRef = useRef<Picker | null>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -53,13 +55,16 @@ export default function RichNoteEditor({
   const onChangeRef = useRef(onChange);
   const onSubmitRef = useRef(onSubmit);
   const canSubmitRef = useRef(canSubmit);
+  const onExpandInPlaceRef = useRef(onExpandInPlace);
   const lastEmitted = useRef(value);
   useEffect(() => {
     teammatesRef.current = teammates;
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
     canSubmitRef.current = canSubmit;
+    onExpandInPlaceRef.current = onExpandInPlace;
   });
+  useEffect(() => onExpandInPlaceRef.current?.(expanded), [expanded]);
 
   const showPicker = (next: Picker | null) => {
     pickerRef.current = next;
@@ -115,7 +120,7 @@ export default function RichNoteEditor({
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": ariaLabel,
-        class: surfaceClassOf(variant, roomy, expanded),
+        class: surfaceClassOf(variant, roomy, expanded, fillsDialog),
       },
     },
     onUpdate: ({ editor: changed }) => {
@@ -139,11 +144,11 @@ export default function RichNoteEditor({
           role: "textbox",
           "aria-multiline": "true",
           "aria-label": ariaLabel,
-          class: surfaceClassOf(variant, roomy, expanded),
+          class: surfaceClassOf(variant, roomy, expanded, fillsDialog),
         },
       },
     });
-  }, [editor, ariaLabel, variant, roomy, expanded]);
+  }, [editor, ariaLabel, variant, roomy, expanded, fillsDialog]);
 
   const mentioned = useEditorState({
     editor,
@@ -206,17 +211,18 @@ export default function RichNoteEditor({
       : null;
 
   // The larger view, and a composer that is a whole dialog, write in a field of their own under a toolbar band.
-  const isFramed = expanded || roomy;
+  const isFramed = expanded || roomy || fillsDialog;
   const surface = (
     <div
       ref={surfaceRef}
       className={cn(
         "relative",
+        fillsDialog && "flex min-h-0 flex-1 flex-col",
         isFramed &&
           "rounded-lg border border-u-border-strong bg-u-bg transition focus-within:border-u-accent focus-within:ring-2 focus-within:ring-u-accent-ring",
       )}
     >
-      <div className={cn(isFramed && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
+      <div className={cn("flex-none", isFramed && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
         <NoteToolbar
           editor={editor}
           mentionsOffered={teammates !== null}
@@ -228,7 +234,13 @@ export default function RichNoteEditor({
         />
         {linkOpen && editor && <LinkRow editor={editor} onClose={() => setLinkOpen(false)} />}
       </div>
-      <EditorContent editor={editor} className={isFramed ? "cursor-text px-4 py-3" : "mt-1.5"} />
+      <EditorContent
+        editor={editor}
+        className={cn(
+          isFramed ? "cursor-text px-4 py-3" : "mt-1.5",
+          fillsDialog && "min-h-40 flex-1 overflow-y-auto",
+        )}
+      />
       {teammates !== null && picker && (
         <MentionPickerList
           anchor={() => picker.caret?.() ?? surfaceRef.current?.getBoundingClientRect() ?? null}
@@ -242,7 +254,7 @@ export default function RichNoteEditor({
       {mentioned && mentioned.length > 0 && (
         <div
           className={cn(
-            "mt-2 flex flex-wrap items-center gap-1.5 border-t border-u-border pt-2",
+            "mt-2 flex flex-none flex-wrap items-center gap-1.5 border-t border-u-border pt-2",
             isFramed && "mx-4 mb-3",
           )}
         >
@@ -267,6 +279,16 @@ export default function RichNoteEditor({
     </>
   );
 
+  // In a dialog the composer fills it: what sits above and below the words stays put, and only the words scroll.
+  if (fillsDialog) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {header !== undefined && <div className="flex-none">{header}</div>}
+        <div className={cn("flex min-h-0 flex-1 flex-col", header !== undefined && "mt-3")}>{surface}</div>
+        {footer && <div className="mt-3 flex-none">{footer}</div>}
+      </div>
+    );
+  }
   if (!expanded) {
     return (
       <>
@@ -309,7 +331,13 @@ export default function RichNoteEditor({
   );
 }
 
-function surfaceClassOf(variant: NoteEditorProps["variant"], roomy: boolean, expanded: boolean): string {
+function surfaceClassOf(
+  variant: NoteEditorProps["variant"],
+  roomy: boolean,
+  expanded: boolean,
+  fillsDialog: boolean,
+): string {
+  if (fillsDialog) return cn(NOTE_PROSE, "min-h-full outline-none");
   return cn(
     NOTE_PROSE,
     "outline-none",

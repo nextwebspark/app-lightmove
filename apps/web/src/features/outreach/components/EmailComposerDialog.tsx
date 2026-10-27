@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { LinesSkeleton, Modal } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
@@ -31,6 +32,7 @@ export function EmailComposerDialog({
     queryFn: ({ signal }) => conversationApi.getConversation(projectId, candidateId, signal),
   });
   const projects = useQuery({ queryKey: projectsApi.PROJECTS_KEY, queryFn: projectsApi.projects });
+  const [isLarge, setIsLarge] = useState(false);
   const isArchived = Boolean(projects.data?.find((project) => project.id === projectId)?.archivedAt);
 
   return (
@@ -39,7 +41,8 @@ export function EmailComposerDialog({
       onClose={onClose}
       title={`Email ${fullName}`}
       closeButton
-      className="md:w-[640px]"
+      fills
+      className={isLarge ? "md:h-[85dvh] md:w-[880px]" : "md:w-[640px]"}
       footer={
         <Link
           to={`/projects/${projectId}/outreach?candidate=${candidateId}`}
@@ -57,17 +60,16 @@ export function EmailComposerDialog({
       ) : conversation.isPending ? (
         <LinesSkeleton className="py-4" />
       ) : (
-        <div className="-mx-5 md:-mx-[22px]">
-          <ReplyComposer
-            projectId={projectId}
-            conversation={conversation.data}
-            mailbox={mailboxStateOf(mailbox)}
-            connector={connector}
-            isArchived={isArchived}
-            autoFocus
-            onSent={onClose}
-          />
-        </div>
+        <ReplyComposer
+          projectId={projectId}
+          conversation={conversation.data}
+          mailbox={mailboxStateOf(mailbox)}
+          connector={connector}
+          isArchived={isArchived}
+          autoFocus
+          onSent={onClose}
+          onExpandInPlace={setIsLarge}
+        />
       )}
     </Modal>
   );

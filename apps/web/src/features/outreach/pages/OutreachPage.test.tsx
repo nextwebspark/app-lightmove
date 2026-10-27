@@ -296,6 +296,13 @@ function renderPage(path = "/projects/p1/outreach") {
   );
 }
 
+/** The dock's first button — Reply, or Write email — and the dialog it opens. */
+async function openEmail(): Promise<HTMLElement> {
+  const dock = await screen.findByRole("toolbar", { name: "Conversation actions" });
+  await userEvent.click(within(dock).getAllByRole("button")[0]);
+  return screen.findByRole("dialog", { name: "Email Fatima Al Mazrouei" });
+}
+
 describe("OutreachPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -413,6 +420,7 @@ describe("OutreachPage", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c9"));
     expect(conversationApi.getConversation).toHaveBeenCalledWith("p1", "c9", expect.anything());
+    expect(await screen.findByRole("dialog", { name: "Email Fatima Al Mazrouei" })).toBeInTheDocument();
   });
 
   it("with no mailbox, keeps New email quiet and offers the connection instead", async () => {
@@ -509,6 +517,7 @@ describe("OutreachPage", () => {
       inThread: true,
     });
     renderPage(OPEN);
+    await openEmail();
 
     // The composer's own Send now: until the mailbox is read, a locked composer stands in its place.
     await screen.findByRole("button", { name: "Send now" });
@@ -544,6 +553,7 @@ describe("OutreachPage", () => {
       inThread: false,
     });
     renderPage(OPEN);
+    await openEmail();
 
     await screen.findByRole("button", { name: "Send now" });
     const composer = screen.getByRole("region", { name: "Reply" });
@@ -569,6 +579,7 @@ describe("OutreachPage", () => {
       conversation({ contact: { ...conversation().contact, doNotContact: true } }),
     );
     renderPage(OPEN);
+    await openEmail();
 
     await screen.findByText("Fatima is marked do not contact.");
     const composer = screen.getByRole("region", { name: "Reply" });
@@ -600,6 +611,7 @@ describe("OutreachPage", () => {
     const open = vi.fn(() => popup);
     vi.stubGlobal("open", open);
     renderPage();
+    await openEmail();
 
     await screen.findByText("Connect your mailbox to write from here. Emails go from your own address.");
     const composer = screen.getByRole("region", { name: "Reply" });
@@ -657,6 +669,7 @@ describe("OutreachPage", () => {
       connection: { ...connected.connection!, reconnectToReadReplies: true },
     });
     renderPage(OPEN);
+    await openEmail();
 
     expect(await screen.findByText("Reconnect to show replies here.")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Send now" })).toBeInTheDocument();
@@ -732,7 +745,7 @@ describe("OutreachPage", () => {
     expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c1");
   });
 
-  it("logs a call with room to write, and its larger view is the same composer: the kind, who reads it, the save", async () => {
+  it("logs a call from the dock, and Expand grows that dialog rather than opening a second: the kind, who reads it, the save", async () => {
     renderPage(OPEN);
     await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
 
@@ -742,23 +755,85 @@ describe("OutreachPage", () => {
     await within(dialog).findByRole("textbox", { name: "New note" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Expand" }));
 
-    const views = await screen.findAllByRole("dialog", { name: "Log a call with Fatima Al Mazrouei" });
-    const larger = views[views.length - 1];
-    expect(within(larger).getByRole("radiogroup", { name: "Kind of note" })).toBeInTheDocument();
-    expect(within(larger).getByRole("radiogroup", { name: "Who reads this note" })).toBeInTheDocument();
-    expect(within(larger).getByRole("button", { name: "Save note" })).toBeInTheDocument();
-    expect(within(dialog).getByText("Editing in the larger view…")).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toEqual([dialog]);
+    expect(within(dialog).getByRole("radiogroup", { name: "Kind of note" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("radiogroup", { name: "Who reads this note" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save note" })).toBeInTheDocument();
+    expect(within(dialog).queryByText("Editing in the larger view…")).not.toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Collapse" }));
+    expect(within(dialog).getByRole("button", { name: "Expand" })).toBeInTheDocument();
   });
 
-  it("adds an open person to a sequence from their details", async () => {
+  it("grows the email dialog on Expand, sends from it, and closes it", async () => {
+    vi.mocked(conversationApi.sendMessage).mockResolvedValue({
+      id: "m9",
+      status: "SCHEDULED",
+      sendAt: new Date().toISOString(),
+      subject: "Re: A confidential conversation",
+      inThread: true,
+    });
+    renderPage(OPEN);
+    const dialog = await openEmail();
+    await typeInto(await within(dialog).findByRole("textbox", { name: "Message" }), "Thursday at 10?");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Expand" }));
+    expect(screen.getAllByRole("dialog")).toEqual([dialog]);
+    expect(within(dialog).getByText("Re: A confidential conversation")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Schedule" })).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send now" }));
+
+    await waitFor(() =>
+      expect(conversationApi.sendMessage).toHaveBeenCalledWith(
+        "p1",
+        "c1",
+        expect.objectContaining({ body: "Thursday at 10?", replyInThread: true }),
+        [],
+      ),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("holds an email being written against Escape, and lets the close button go", async () => {
+    renderPage(OPEN);
+    const dialog = await openEmail();
+    await typeInto(await within(dialog).findByRole("textbox", { name: "Message" }), "Thursday at 10?");
+
+    await userEvent.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Email Fatima Al Mazrouei" })).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "Email Fatima Al Mazrouei" })).not.toBeInTheDocument();
+  });
+
+  it("opens on the history, counting what has passed, and writes only when asked", async () => {
+    vi.mocked(conversationApi.getConversation).mockResolvedValue(conversation({ openTasks: [] }));
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [], done: [], doneCount: 0 });
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    const glance = await screen.findByRole("list", { name: "At a glance" });
+    expect(glance).toHaveTextContent("1 sent");
+    expect(glance).toHaveTextContent("1 reply");
+    await waitFor(() => expect(tasksApi.getCandidateTasks).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark handled" })).not.toBeInTheDocument();
+
+    const dialog = await openEmail();
+    expect(within(dialog).getByRole("region", { name: "Reply" })).toBeInTheDocument();
+  });
+
+  it("adds an open person to a sequence from the dock, and only from there", async () => {
     vi.mocked(sequenceApi.getSequences).mockReturnValue(new Promise(() => {}));
     vi.mocked(sequenceApi.getEnrollmentCandidates).mockReturnValue(new Promise(() => {}));
     renderPage(OPEN);
 
-    const [details] = await screen.findAllByRole("complementary", { name: "Candidate details" });
-    await userEvent.click(await within(details).findByRole("button", { name: "Add to a sequence" }));
+    const dock = await screen.findByRole("toolbar", { name: "Conversation actions" });
+    await userEvent.click(await within(dock).findByRole("button", { name: "Add to sequence" }));
 
     expect(await screen.findByRole("dialog", { name: "Add to sequence" })).toBeInTheDocument();
+    for (const details of screen.getAllByRole("complementary", { name: "Candidate details" })) {
+      expect(within(details).queryByRole("button", { name: /sequence/i })).not.toBeInTheDocument();
+    }
   });
 
   it("says why when the list is refused, and counts nothing", async () => {

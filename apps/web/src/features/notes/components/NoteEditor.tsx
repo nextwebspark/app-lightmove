@@ -28,6 +28,11 @@ export interface NoteEditorProps {
   header?: ReactNode;
   /** Under the editor wherever it is — who reads it, and the composer's own save — in the larger view its footer. */
   footer?: ReactNode;
+  /**
+   * For a composer that is a dialog already: it fills the dialog — the header and footer pinned, only the words
+   * scrolling — and Expand tells the dialog to grow rather than opening a second, larger dialog over the first.
+   */
+  onExpandInPlace?: (expanded: boolean) => void;
 }
 
 /** The note editor, loaded on first use so a page that never writes a note never downloads it. */
