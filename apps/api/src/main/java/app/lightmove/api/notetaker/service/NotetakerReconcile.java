@@ -26,7 +26,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * The safety net under Recall's webhook: a recording still live well after its call ended is read from Recall and
  * folded on as the delivery would have been. Rows are claimed before Recall is asked, so of several instances only one
- * reads each bot per pass; one left live a day after its call is given up on.
+ * reads each bot per pass; one left live a day after its call is given up on. Each pass also calls back a bot still
+ * waiting for a call that has since moved or gone.
  */
 @Component
 @RequiredArgsConstructor
@@ -56,6 +57,7 @@ public class NotetakerReconcile {
             """;
 
     private final RecallBotApi recall;
+    private final NotetakerService notetakers;
     private final MeetingRecordingRepository recordings;
     private final NotetakerWebhook webhook;
     private final NamedParameterJdbcTemplate jdbc;
@@ -67,7 +69,9 @@ public class NotetakerReconcile {
             initialDelayString = "${lightmove.recall.bot-reconcile-interval}")
     public void scheduledReconcile() {
         if (recall.isOffered()) {
-            reconcileAt(clock.instant());
+            Instant now = clock.instant();
+            notetakers.callBackMovedCalls(now);
+            reconcileAt(now);
         }
     }
 

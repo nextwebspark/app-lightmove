@@ -21,7 +21,9 @@ public record RecallSettings(
         /** The live copilot's shortest gap between two coach runs on one call: what bounds its model calls per minute. */
         @DefaultValue("PT15S") Duration copilotCoachInterval,
         /** The most coach runs one call gets, about an hour at the interval; past it the copilot's reading freezes. */
-        @DefaultValue("240") int copilotMaxCoachRuns
+        @DefaultValue("240") int copilotMaxCoachRuns,
+        /** Where Recall reaches this API for the live copilot's stream; blank is {@code web.base-url}. Locally, a tunnel. */
+        String publicBaseUrl
 ) {
 
     public RecallSettings {

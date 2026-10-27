@@ -38,7 +38,8 @@ public class NotetakerWebhook {
     public void receive(byte[] body, String id, String timestamp, String signature) {
         for (RecallBotNotice notice : recall.notices(body, id, timestamp, signature)) {
             transactions.executeWithoutResult(status -> recordingOf(notice)
-                    .filter(recording -> recording.getStatus().isLive())
+                    .filter(recording -> recording.getStatus().isLive()
+                            || (notice instanceof RecallBotNotice.StatusChanged && recording.awaitsItsReason()))
                     .ifPresent(recording -> apply(recording, notice)));
         }
     }
@@ -126,7 +127,7 @@ public class NotetakerWebhook {
                 } else {
                     // It left without ever recording: nobody let it in, the call never started, or the host refused.
                     recording.heard(code, subCode, null);
-                    recording.failed(reasonOf(subCode, "NEVER_RECORDED"));
+                    recording.failed(reasonOf(subCode, MeetingRecording.NEVER_RECORDED));
                 }
             }
             case "fatal", "recording_permission_denied" -> {

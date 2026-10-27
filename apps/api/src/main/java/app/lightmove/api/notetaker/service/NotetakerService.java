@@ -154,7 +154,7 @@ public class NotetakerService {
         }
         boolean atOnce = join == NotetakerJoin.NOW;
         if (atOnce) {
-            requireStartableNow(workspaceId, userId, joinUrl, meeting.startsAt(), now);
+            requireLinkFree(workspaceId, userId, joinUrl, meeting.startsAt(), now);
         }
         // The note is one AI use, and a live copilot's coaching another.
         fairUse.check(workspaceId, userId, UsageKind.AI_ENRICH, liveCopilot ? 2 : 1);
@@ -213,11 +213,7 @@ public class NotetakerService {
         String botIdNow = transactions.execute(status -> {
             MeetingRecording held = recordings.findById(recordingId).orElseThrow();
             requireCancellable(held);
-            held.cancelled();
-            if (held.isLiveCopilot()) {
-                liveLines.deleteByRecording(held.getId());
-                copilotStream.publish(held.getId());
-            }
+            callOff(held);
             audit.projectEvent(ProjectEventType.NOTETAKER_CANCELLED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
@@ -234,6 +230,62 @@ public class NotetakerService {
     }
 
     /**
+     * A bot waits for its call by the time it was sent for. Once that call has moved, or gone from every calendar, the
+     * bot would walk into the room at the old time — on a reused link, into somebody else's call — so it is called back,
+     * and the consultant switches Join at start on again for the new time.
+     */
+    public int callBackMovedCalls(Instant now) {
+        List<MeetingRecording> waiting = transactions.execute(status ->
+                recordings.findByStatusAndJoinAtAfter(NotetakerStatus.SCHEDULED, now));
+        int calledBack = 0;
+        for (MeetingRecording scheduled : waiting == null ? List.<MeetingRecording>of() : waiting) {
+            if (scheduled.getRecallBotId() == null || isStillOnACalendar(scheduled)) {
+                continue;
+            }
+            try {
+                recall.remove(scheduled.getRecallBotId());
+            } catch (VendorException failed) {
+                if (failed.getKind() != VendorFailureKind.NOT_FOUND && failed.getKind() != VendorFailureKind.GONE) {
+                    log.warn("Recall could not call back bot {} of a moved call: {}", scheduled.getRecallBotId(),
+                            failed.getMessage());
+                    continue;
+                }
+            }
+            Boolean done = transactions.execute(status -> recordings.lockById(scheduled.getId())
+                    .filter(held -> held.isScheduledAhead() && scheduled.getRecallBotId().equals(held.getRecallBotId()))
+                    .map(held -> {
+                        callOff(held);
+                        audit.event(ProjectEventType.NOTETAKER_CANCELLED).actor(held.getRequestedBy())
+                                .workspace(held.getWorkspaceId()).target(AuditService.PROJECT_TARGET, held.getProjectId())
+                                .detail("candidateId", String.valueOf(held.getCandidateId()))
+                                .detail("recordingId", held.getId().toString())
+                                .detail("reason", "CALL_MOVED")
+                                .record();
+                        return true;
+                    })
+                    .orElse(false));
+            if (Boolean.TRUE.equals(done)) {
+                calledBack++;
+            }
+        }
+        return calledBack;
+    }
+
+    private boolean isStillOnACalendar(MeetingRecording scheduled) {
+        return meetings.ofPerson(scheduled.getWorkspaceId(), scheduled.getPersonId()).stream()
+                .anyMatch(call -> call.startsAt().equals(scheduled.getStartsAt())
+                        && scheduled.getJoinUrl().equals(joinableOrNull(call.joinUrl())));
+    }
+
+    private void callOff(MeetingRecording held) {
+        held.cancelled();
+        if (held.isLiveCopilot()) {
+            liveLines.deleteByRecording(held.getId());
+            copilotStream.publish(held.getId());
+        }
+    }
+
+    /**
      * Brings a scheduled bot in at once. The new bot is sent before the scheduled one is called back, so a refusal —
      * an empty pool included — leaves the call with the bot it had; nothing is fair-use charged twice for one call.
      */
@@ -244,15 +296,11 @@ public class NotetakerService {
             throw ApiException.of(ErrorCode.MEETING_DO_NOT_CONTACT);
         }
         Instant now = clock.instant();
-        ZoneId zone = timezones.zoneOf(userId);
         ScheduledBot scheduled = transactions.execute(status -> {
             MeetingRecording held = recordings.lockForDecision(recordingId, workspaceId, projectId,
                     recipient.personId()).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             if (!held.isScheduledAhead() || !held.getJoinAt().isAfter(now.plus(JOIN_NOW_LEAD))) {
                 throw ApiException.of(ErrorCode.NOTETAKER_NOT_CHANGEABLE);
-            }
-            if (!hasCallDayBegun(held.getStartsAt(), now, zone)) {
-                throw ApiException.of(ErrorCode.NOTETAKER_TOO_EARLY);
             }
             if (isLinkInUse(workspaceId, held.getRequestedBy(), held.getJoinUrl(), held.getStartsAt(), now)) {
                 throw ApiException.of(ErrorCode.NOTETAKER_LINK_IN_USE);
@@ -458,15 +506,15 @@ public class NotetakerService {
         return joinAt.isAfter(now.plus(JOIN_AHEAD)) ? joinAt : null;
     }
 
-    /** Start now opens at midnight of the call's own day, in the consultant's time zone. */
+    /**
+     * The call's day has begun at midnight in the consultant's time zone. Send now is never refused before it — a call
+     * can start early — but the drawer asks first, since a link used on another day may hold another meeting.
+     */
     static boolean hasCallDayBegun(Instant startsAt, Instant now, ZoneId zone) {
         return !now.isBefore(startsAt.atZone(zone).toLocalDate().atStartOfDay(zone).toInstant());
     }
 
-    private void requireStartableNow(UUID workspaceId, UUID userId, String joinUrl, Instant startsAt, Instant now) {
-        if (!hasCallDayBegun(startsAt, now, timezones.zoneOf(userId))) {
-            throw ApiException.of(ErrorCode.NOTETAKER_TOO_EARLY);
-        }
+    private void requireLinkFree(UUID workspaceId, UUID userId, String joinUrl, Instant startsAt, Instant now) {
         if (isLinkInUse(workspaceId, userId, joinUrl, startsAt, now)) {
             throw ApiException.of(ErrorCode.NOTETAKER_LINK_IN_USE);
         }
@@ -509,7 +557,9 @@ public class NotetakerService {
      * so a delivery is taken only for the recording it names.
      */
     URI liveTranscriptUrl(String liveToken) {
-        return URI.create(properties.web().baseUrl().replaceAll("/+$", "") + LIVE_TRANSCRIPT_PATH + "?t=" + liveToken);
+        String publicBaseUrl = properties.recall().publicBaseUrl();
+        String base = publicBaseUrl == null || publicBaseUrl.isBlank() ? properties.web().baseUrl() : publicBaseUrl;
+        return URI.create(base.replaceAll("/+$", "") + LIVE_TRANSCRIPT_PATH + "?t=" + liveToken);
     }
 
     private UUID claim(UUID userId, UUID workspaceId, UUID projectId, OutreachRecipient recipient,

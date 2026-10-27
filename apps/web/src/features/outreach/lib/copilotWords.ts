@@ -30,13 +30,14 @@ export function isWaitingToJoin(copilot: Copilot): boolean {
  * and for a call that is over: the ended view says that itself.
  */
 export function copilotNoticeOf(copilot: Copilot): string | null {
+  // Every copilot call ends with its feed stopped: once the call is over, the ended view speaks instead.
+  if (!isCallOn(copilot)) return null;
   if (copilot.liveStatus === "STOPPED") {
     return `Copilot stopped by ${copilot.stoppedByName ?? "a teammate"}. The recording continues and notes are filed after the call.`;
   }
   if (copilot.liveStatus === "FEED_STOPPED") {
     return "Live transcript stopped. Notes will still be filed if the recording continues.";
   }
-  if (!isCallOn(copilot)) return null;
   switch (copilot.coach) {
     case "PAUSED":
       return "Suggestions paused. Retrying when more is said.";
