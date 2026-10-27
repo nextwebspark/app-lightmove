@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useComposerDialog } from "../lib/useComposerDialog";
 import { Modal } from "../../../components/ui";
 import type { PersonNoteKind } from "../../candidates/api/types";
 import { PositionNoteComposer } from "../../candidates/components/PersonSections";
@@ -20,10 +20,10 @@ export function NoteComposerModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [isLarge, setIsLarge] = useState(false);
+  const dialog = useComposerDialog();
   const title = kind === "call" ? `Log a call with ${fullName}` : `Add a note on ${fullName}`;
   const close = () => {
-    setIsLarge(false);
+    dialog.reset();
     onClose();
   };
   return (
@@ -32,8 +32,7 @@ export function NoteComposerModal({
       onClose={close}
       title={title}
       closeButton
-      fills
-      className={isLarge ? "md:h-[85dvh] md:w-[880px]" : "md:w-[640px]"}
+      {...dialog.modalProps}
     >
       {kind !== null && (
         <PositionNoteComposer
@@ -43,7 +42,8 @@ export function NoteComposerModal({
           initialKind={kind}
           title={title}
           presentation="dialog"
-          onExpandInPlace={setIsLarge}
+          onExpandChange={dialog.onExpandChange}
+          onDraftChange={dialog.onDraftChange}
           onSaved={() => {
             onSaved();
             close();

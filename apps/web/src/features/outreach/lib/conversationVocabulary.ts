@@ -188,7 +188,7 @@ export interface GlanceFact {
   tone: ConversationTone;
 }
 
-export interface ConversationGlance {
+export interface HistoryGlance {
   facts: GlanceFact[];
   /** "2D ago", "just now"; null before anything has happened. */
   lastTouch: string | null;
@@ -201,7 +201,7 @@ export function glanceOf(
   events: readonly ConversationEvent[],
   run: OutreachRun | null,
   now: Date = new Date(),
-): ConversationGlance {
+): HistoryGlance {
   let sent = 0;
   let scheduled = 0;
   let replies = 0;
@@ -209,7 +209,7 @@ export function glanceOf(
   let meetings = 0;
   let calls = 0;
   let notes = 0;
-  let latest: number | null = null;
+  let latest: { at: string; time: number } | null = null;
   for (const event of events) {
     if (event.type === "MESSAGE") {
       const { direction, kind, status } = event.message;
@@ -227,9 +227,9 @@ export function glanceOf(
     const at = new Date(event.at).getTime();
     const isPast = !Number.isNaN(at) && at <= now.getTime();
     const isWaiting = event.type === "MESSAGE" && event.message.status === "SCHEDULED";
-    if (isPast && !isWaiting && (latest === null || at > latest)) latest = at;
+    if (isPast && !isWaiting && (latest === null || at > latest.time)) latest = { at: event.at, time: at };
   }
-  const facts: GlanceFact[] = [
+  const counted: GlanceFact[] = [
     { count: sent, noun: "sent", tone: "accent" },
     { count: replies, noun: replies === 1 ? "reply" : "replies", tone: "green" },
     { count: bounces, noun: bounces === 1 ? "bounce" : "bounces", tone: "red" },
@@ -237,10 +237,10 @@ export function glanceOf(
     { count: meetings, noun: meetings === 1 ? "meeting" : "meetings", tone: "green" },
     { count: calls, noun: calls === 1 ? "call" : "calls", tone: "accent" },
     { count: notes, noun: notes === 1 ? "note" : "notes", tone: "neutral" },
-  ].filter((fact) => fact.count > 0);
-  const since = latest === null ? null : sinceOf(new Date(latest).toISOString(), now);
+  ];
+  const since = latest === null ? null : sinceOf(latest.at, now);
   return {
-    facts,
+    facts: counted.filter((fact) => fact.count > 0),
     lastTouch: since === null ? null : since === "NOW" ? "just now" : `${since} ago`,
     sequence:
       run && isLive(run) ? `${run.sequenceName ?? "Sequence"} · ${run.sentCount} of ${run.stepCount} sent` : null,

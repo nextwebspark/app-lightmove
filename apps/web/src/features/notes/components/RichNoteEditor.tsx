@@ -43,11 +43,11 @@ export default function RichNoteEditor({
   autoFocus = false,
   header,
   footer,
-  onExpandInPlace,
+  fillsDialog = false,
+  onExpandChange,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [expanded, setExpanded] = useState(false);
-  const fillsDialog = onExpandInPlace !== undefined;
   const [linkOpen, setLinkOpen] = useState(false);
   const pickerRef = useRef<Picker | null>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
@@ -55,16 +55,18 @@ export default function RichNoteEditor({
   const onChangeRef = useRef(onChange);
   const onSubmitRef = useRef(onSubmit);
   const canSubmitRef = useRef(canSubmit);
-  const onExpandInPlaceRef = useRef(onExpandInPlace);
   const lastEmitted = useRef(value);
   useEffect(() => {
     teammatesRef.current = teammates;
     onChangeRef.current = onChange;
     onSubmitRef.current = onSubmit;
     canSubmitRef.current = canSubmit;
-    onExpandInPlaceRef.current = onExpandInPlace;
   });
-  useEffect(() => onExpandInPlaceRef.current?.(expanded), [expanded]);
+
+  const toggleExpanded = () => {
+    setExpanded(!expanded);
+    onExpandChange?.(!expanded);
+  };
 
   const showPicker = (next: Picker | null) => {
     pickerRef.current = next;
@@ -94,7 +96,8 @@ export default function RichNoteEditor({
         addKeyboardShortcuts: () => ({
           "Mod-Enter": () => {
             if (onSubmitRef.current && canSubmitRef.current) {
-              setExpanded(false);
+              // Filling a dialog, the size is the dialog's: it closes on a save, and stays as it was on a refusal.
+              if (!fillsDialog) setExpanded(false);
               onSubmitRef.current();
             }
             return true;
@@ -134,8 +137,8 @@ export default function RichNoteEditor({
     if (!editor || value === lastEmitted.current) return;
     lastEmitted.current = value;
     editor.commands.setContent(noteDocOf(value, format), { emitUpdate: false });
-    if (value === "") setExpanded(false);
-  }, [editor, value, format]);
+    if (value === "" && !fillsDialog) setExpanded(false);
+  }, [editor, value, format, fillsDialog]);
 
   useEffect(() => {
     editor?.setOptions({
@@ -230,7 +233,7 @@ export default function RichNoteEditor({
           onMention={startMention}
           onLink={() => setLinkOpen((open) => !open)}
           expanded={expanded}
-          onExpand={() => setExpanded((open) => !open)}
+          onExpand={toggleExpanded}
         />
         {linkOpen && editor && <LinkRow editor={editor} onClose={() => setLinkOpen(false)} />}
       </div>
@@ -279,16 +282,8 @@ export default function RichNoteEditor({
     </>
   );
 
-  // In a dialog the composer fills it: what sits above and below the words stays put, and only the words scroll.
-  if (fillsDialog) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        {header !== undefined && <div className="flex-none">{header}</div>}
-        <div className={cn("flex min-h-0 flex-1 flex-col", header !== undefined && "mt-3")}>{surface}</div>
-        {footer && <div className="mt-3 flex-none">{footer}</div>}
-      </div>
-    );
-  }
+  // Filling a dialog, `NoteEditor` lays out what sits above and below the words; only the words scroll.
+  if (fillsDialog) return surface;
   if (!expanded) {
     return (
       <>

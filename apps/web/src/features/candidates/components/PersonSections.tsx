@@ -130,7 +130,8 @@ export function PositionNoteComposer({
   initialKind = "general",
   title = "New note",
   presentation = "inline",
-  onExpandInPlace,
+  onExpandChange,
+  onDraftChange,
   onSetNextAction,
   onSaved,
 }: PersonSectionProps & {
@@ -139,8 +140,10 @@ export function PositionNoteComposer({
   title?: string;
   /** In a dialog the composer is the dialog's whole body: no frame of its own, and room to write. */
   presentation?: "inline" | "dialog";
-  /** In a dialog: Expand grows the dialog itself, which this tells to widen. */
-  onExpandInPlace?: (expanded: boolean) => void;
+  /** In a dialog, which it fills: Expand grows the dialog, told through this. */
+  onExpandChange?: (expanded: boolean) => void;
+  /** Whether anything is written yet. */
+  onDraftChange?: (hasDraft: boolean) => void;
   /** Opens the Next action modal on the note just saved; without it the composer offers Save note alone. */
   onSetNextAction?: (note: TaskNote) => void;
   onSaved?: () => void;
@@ -162,6 +165,8 @@ export function PositionNoteComposer({
   };
 
   const body = draft.trim();
+  const hasDraft = body.length > 0;
+  useEffect(() => onDraftChange?.(hasDraft), [hasDraft, onDraftChange]);
   const tooLong = body.length > NOTE_MAX_STORED;
   const saving = useMutation({
     mutationFn: (_thenNextAction: boolean) =>
@@ -209,7 +214,8 @@ export function PositionNoteComposer({
         expandTitle={title}
         roomy={isDialog}
         autoFocus={isDialog}
-        onExpandInPlace={onExpandInPlace}
+        fillsDialog={isDialog}
+        onExpandChange={onExpandChange}
         header={<NoteKindPicker value={kind} onChange={setKind} />}
         footer={
           <>

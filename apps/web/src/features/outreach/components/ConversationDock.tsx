@@ -5,6 +5,7 @@ import type { PersonNoteKind } from "../../candidates/api/types";
 import type { Conversation } from "../api/conversationApi";
 import type { MailboxState } from "../lib/mailboxState";
 import { canEnrolFrom } from "../lib/runVocabulary";
+import { useComposerDialog } from "../lib/useComposerDialog";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
 import { EnrolDialog } from "./EnrolDialog";
 import { NoteComposerModal } from "./NoteComposerModal";
@@ -34,15 +35,13 @@ export function ConversationDock({
 }) {
   const { executive, composer, currentRun } = conversation;
   const [isEmailing, setIsEmailing] = useState(focusComposer);
-  const [hasEmailDraft, setHasEmailDraft] = useState(false);
-  const [isEmailLarge, setIsEmailLarge] = useState(false);
+  const emailDialog = useComposerDialog();
   const [noteKind, setNoteKind] = useState<PersonNoteKind | null>(null);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const canEnrol = !isArchived && canEnrolFrom(mailbox, currentRun.run);
   const closeEmail = () => {
     setIsEmailing(false);
-    setHasEmailDraft(false);
-    setIsEmailLarge(false);
+    emailDialog.reset();
   };
 
   return (
@@ -68,15 +67,12 @@ export function ConversationDock({
         </span>
       )}
 
-      {/* With words written, only the close button leaves: Escape or a stray click outside would throw them away. */}
       <Modal
         open={isEmailing}
         onClose={closeEmail}
         title={`Email ${executive.fullName}`}
         closeButton
-        dismissible={!hasEmailDraft}
-        fills
-        className={isEmailLarge ? "md:h-[85dvh] md:w-[880px]" : "md:w-[640px]"}
+        {...emailDialog.modalProps}
       >
         <ReplyComposer
           projectId={projectId}
@@ -86,8 +82,8 @@ export function ConversationDock({
           isArchived={isArchived}
           autoFocus
           onSent={closeEmail}
-          onDraftChange={setHasEmailDraft}
-          onExpandInPlace={setIsEmailLarge}
+          onDraftChange={emailDialog.onDraftChange}
+          onExpandChange={emailDialog.onExpandChange}
         />
       </Modal>
       <NoteComposerModal

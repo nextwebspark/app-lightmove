@@ -38,7 +38,7 @@ export function ReplyComposer({
   autoFocus = false,
   onSent,
   onDraftChange,
-  onExpandInPlace,
+  onExpandChange,
 }: {
   projectId: string;
   conversation: Conversation;
@@ -51,8 +51,8 @@ export function ReplyComposer({
   onSent?: () => void;
   /** Whether anything is written yet: a subject, words or a file. */
   onDraftChange?: (hasDraft: boolean) => void;
-  /** Expand grows the dialog it fills, which this tells to widen. */
-  onExpandInPlace: (expanded: boolean) => void;
+  /** Expand grows the dialog it fills, told through this. */
+  onExpandChange?: (expanded: boolean) => void;
 }) {
   const { executive, contact, composer, currentRun, openTasks } = conversation;
   const firstName = firstNameOf(executive.fullName) ?? executive.fullName;
@@ -79,7 +79,7 @@ export function ReplyComposer({
       autoFocus={autoFocus}
       onSent={onSent}
       onDraftChange={onDraftChange}
-      onExpandInPlace={onExpandInPlace}
+      onExpandChange={onExpandChange}
     />
   );
 }
@@ -102,7 +102,7 @@ function OpenComposer({
   autoFocus,
   onSent,
   onDraftChange,
-  onExpandInPlace,
+  onExpandChange,
 }: {
   projectId: string;
   candidateId: string;
@@ -121,7 +121,7 @@ function OpenComposer({
   autoFocus: boolean;
   onSent?: () => void;
   onDraftChange?: (hasDraft: boolean) => void;
-  onExpandInPlace: (expanded: boolean) => void;
+  onExpandChange?: (expanded: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -214,7 +214,8 @@ function OpenComposer({
         variant="field"
         expandTitle={isReply ? `Reply to ${firstName}` : `First email to ${firstName}`}
         autoFocus={autoFocus && isReply}
-        onExpandInPlace={onExpandInPlace}
+        fillsDialog
+        onExpandChange={onExpandChange}
         header={
           <>
             <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">

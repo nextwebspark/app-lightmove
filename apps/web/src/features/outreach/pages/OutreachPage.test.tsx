@@ -764,6 +764,18 @@ describe("OutreachPage", () => {
     expect(within(dialog).getByRole("button", { name: "Expand" })).toBeInTheDocument();
   });
 
+  it("holds a note being written against Escape, as it does an email", async () => {
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Add note" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a note on Fatima Al Mazrouei" });
+    await typeInto(await within(dialog).findByRole("textbox", { name: "New note" }), "Prefers mornings");
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.getByRole("dialog", { name: "Add a note on Fatima Al Mazrouei" })).toBeInTheDocument();
+  });
+
   it("grows the email dialog on Expand, sends from it, and closes it", async () => {
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m9",
