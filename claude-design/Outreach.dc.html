@@ -693,17 +693,15 @@
                   <span style="display:block;font:500 13px var(--sans)">{{ m.title }}</span>
                   <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                   <sc-if value="{{ m.viaLink }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;margin-top:4px;border-radius:5px;padding:1px 7px;font:600 10px var(--mono);background:var(--green-dim);color:var(--green)">Booked through your link</span></sc-if>
-                  <!-- One quiet line, only once something is set for the call, saying what in words; clicking it opens the
-                       call's Notetaker & questions panel. Nothing set, no line. -->
-                  <sc-if value="{{ m.hasNotetaker }}" hint-placeholder-val="{{ true }}"><span data-screen-label="Notetaker" style="display:flex;align-items:center;gap:8px;margin-top:6px;font:400 12px var(--sans);color:var(--text2)">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none;color:var(--accent)"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3ZM19 10v1a7 7 0 0 1-14 0v-1M12 18v4"></path></svg>Notetaker joins at start<span style="color:var(--text3)">· Live copilot</span></span></sc-if>
                 </span>
                 <span style="flex:none;display:flex;align-items:center;gap:6px">
                   <a href="#" style="display:inline-flex;align-items:center;gap:5px;border-radius:6px;padding:4px 9px;font:500 11.5px var(--sans);border:1px solid var(--line);color:var(--text2)" style-hover="color:var(--text)">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ ic.video }}"></path></svg>{{ m.join }}</a>
-                  <!-- ⋯: Notetaker & questions… (the call's panel: Prepare questions, then the Notetaker with its Live copilot
-                       switch, Start now and Join at start, each section its own button), then Reschedule and Cancel call on a
-                       call booked in Uncava. -->
+                  <!-- ⋯, the one place the Notetaker shows on the row (nothing is drawn under the call): it opens on where
+                       the call has got to in words ("Notetaker joins at start · Live copilot"), then Notetaker & questions…
+                       (the call's panel: Prepare questions, then the Notetaker with its Live copilot switch, Start now and
+                       Join at start, each section its own button), then Reschedule and Cancel call on a call booked in
+                       Uncava. A red dot on it while the call records. -->
                   <a href="#" title="Call options" aria-label="Call options" style="display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--text)">⋯</a>
                 </span>
               </div>
@@ -715,10 +713,11 @@
               <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)">
                 <span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span>
                 <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
-                  <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><span data-screen-label="Notetaker" style="display:flex;align-items:center;gap:12px;margin-top:4px">
-                    <span style="display:inline-flex;border-radius:6px;padding:1px 7px;font:600 9.5px var(--mono);background:var(--green-dim);color:var(--green)">Notes filed</span>
-                    <a href="#" style="font:500 11px var(--mono);color:var(--text3)" style-hover="color:var(--text);text-decoration:underline">View transcript</a></span></sc-if>
                 </span>
+                <!-- A recorded call keeps nothing under it either: its ⋯ opens on "Notes filed · 3 changes to review" over
+                     Review 3 changes, Transcript (or Try again where only the write-up failed), with an accent dot while
+                     changes wait. -->
+                <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><a href="#" data-screen-label="Notetaker" title="Call options" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--text)">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--panel)"></span></a></sc-if>
               </div>
             </sc-for>
           </sc-if>
@@ -1012,9 +1011,10 @@ class Component extends DCLogic {
     const id = this.state.drawer;
     const found = MEETINGS[id] || { upcoming: [], past: [] };
     // The Notetaker (a Recall.ai bot): off until asked from the call's ⋯ → Notetaker & questions (Start now, or Join at
-    // start), then one line: "Notetaker joins at start · Live copilot" / "Notetaker joining" / "● Recording 31:42" (End &
-    // file notes) / "Writing notes…" / "Notes filed · 3 changes to review" (Review) / "Notes filed · 3 changes applied"
-    // (Changes), or why there are none (Try again where only the write-up failed). Never offered for do not contact.
+    // start). Nothing is drawn under the call: the ⋯ opens on "Notetaker joins at start · Live copilot" / "Notetaker
+    // joining" / "● Recording 31:42" (End & file notes in the panel) / "Writing notes…" / "Notes filed · 3 changes to
+    // review" (Review 3 changes) / "Notes filed · 3 changes applied" (Changes from the call), or why there are none (Try
+    // again where only the write-up failed), with a dot while it records or waits. Never offered for do not contact.
     const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink, notetaker]) => ({ month, day, when, title, who, join, viaLink,
       notetaker: notetaker || "", hasNotetaker: !!notetaker }));
     const past = found.past.map(([date, title, who, notesFiled]) => ({ date, title, who, notesFiled: !!notesFiled }));

@@ -52,6 +52,9 @@ export function CallChangesDialog({
     // Another tab is reading the same transcript: its answer lands here once stored.
     refetchInterval: (query) => (isRunningElsewhere && !query.state.data?.asked ? 2_000 : false),
   });
+  // A failure is kept from the reading's own callback, never `ask.error`: a reading started as the dialog mounts outlives
+  // StrictMode's rehearsal unmount, which detaches the observer for good, and a failure would read as loading forever.
+  const [askFailure, setAskFailure] = useState<unknown>(null);
   const ask = useMutation({
     mutationFn: () => notetakerApi.suggestChanges(projectId, candidateId, recordingId),
     onSuccess: (answer) => {
@@ -68,7 +71,11 @@ export function CallChangesDialog({
         return;
       }
       // The billing sheet already says why; the review has nothing to add over it.
-      if (isBillingRefusal(error)) onClose();
+      if (isBillingRefusal(error)) {
+        onClose();
+        return;
+      }
+      setAskFailure(error);
     },
   });
 
@@ -92,7 +99,7 @@ export function CallChangesDialog({
   const offered = waiting.filter((suggestion) => suggestion.available);
 
   const phase: Phase =
-    read.isError || (ask.isError && !isRunningElsewhere && !isBillingRefusal(ask.error))
+    read.isError || askFailure !== null
       ? "failed"
       : !asked
         ? "loading"
@@ -163,9 +170,9 @@ export function CallChangesDialog({
             phase={phase}
             applying={toApply.length}
             pending={review.isPending}
-            canRetry={codeOf(ask.error) !== "VALIDATION_FAILED"}
+            canRetry={codeOf(askFailure) !== "VALIDATION_FAILED"}
             onRetry={() => {
-              ask.reset();
+              setAskFailure(null);
               setIsRunningElsewhere(false);
               ask.mutate();
             }}
@@ -178,9 +185,9 @@ export function CallChangesDialog({
       {phase === "loading" && <ReadingTranscript />}
       {phase === "failed" && (
         <p className="py-6 text-body text-u-text2" role="alert">
-          {codeOf(ask.error ?? read.error) === "AI_UNAVAILABLE"
+          {codeOf(askFailure ?? read.error) === "AI_UNAVAILABLE"
             ? "Couldn't read the transcript just now."
-            : messageFor(ask.error ?? read.error)}
+            : messageFor(askFailure ?? read.error)}
         </p>
       )}
       {phase === "empty" && (
