@@ -266,7 +266,7 @@ class RecallBotClientTest {
         VendorRateLimiter limiter = new VendorRateLimiter();
         RecallSettings settings = new RecallSettings("recall-key", null, "bot-secret",
                 "http://127.0.0.1:" + recall.getAddress().getPort(), Duration.ofMinutes(10), null,
-                Duration.ofSeconds(15), 240);
+                Duration.ofSeconds(15), 240, null);
         return new RecallBotClient(settings, new VendorClientFactory(properties), limiter,
                 new VendorCallGuard(limiter, properties), RestClient.builder(), Clock.systemUTC());
     }

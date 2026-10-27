@@ -8,23 +8,25 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 
 ## How a call is recorded
 
-1. **Send now, or Join at start.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
+1. **Join at start, or Send now.** Nothing is recorded until someone asks, and nothing about the Notetaker is drawn
    on a call's row at all: the row in the executive drawer's Meetings section is the call, its Join link and its ⋯,
-   whose **Notetaker & questions…** opens the call's panel — one section per job, each with its own button: Prepare
-   questions (step 9), then the Notetaker with its **Live copilot** switch (on until unticked), **Join at start**, which
-   (while the start is more than two minutes away) schedules it a minute before the booked start, and **Send Notetaker
-   now**, which sends the bot into the call at once — the consultant asks the executive first, and sends it once they
-   agree. Sending never opens the meeting, and nothing here can tell whether a call has begun (it may have been started
-   early on the same link),
-   so **Open <provider>** is a link of its own beside the buttons. A press closes the
+   whose **Notetaker & questions…** opens the call's panel — one section per job: Prepare questions (step 9), then the
+   Notetaker as two switches saved as they are flipped — **Join at start**, which (while the start is more than two
+   minutes away) schedules the bot a minute before the booked start and, switched off, calls it back, and **Live
+   copilot** (on until switched off) — with a small **Send Notetaker now** beneath ("Call started early?") that sends
+   the bot into the call at once, or brings a scheduled one in. The consultant asks the executive first. Sending never
+   opens the meeting, and nothing here can tell whether a call has begun (it may have been started early on the same
+   link),
+   so **Open <provider>** is a link of its own beside the buttons. A switch leaves the panel open; a press closes the
    panel, and the ⋯ then opens on what is set ("Notetaker joins at start · Live copilot") above the same item, whose
    panel shows it again with the next step. The ⋯ wears a dot while the call records (red) or waits on the consultant
    — changes to review, notes to try again (accent). Book a call carries no Notetaker. Either is offered when:
    - the call is still to come, under way, or ran over its booked end by no more than 20 minutes (`OVERRUN_GRACE`). Past
      the booked end it is offered only while no later call on the consultant's calendar has started on the same link,
      since a personal room used back to back would otherwise put the next interview on this person;
-   - for Send now only, the call's day has begun in the presser's own time zone (`NOTETAKER_TOO_EARLY` before then;
-     `startableMeetingIds` on the read), and nothing else holds the link: no earlier call on the presser's calendar on
+   - for Send now only, nothing else holds the link — on any day: a call can start early, so a day before the one it
+     is booked for only asks first (the panel's "Send the Notetaker now?", read off `callDayMeetingIds`, the calls
+     whose day has begun in the presser's time zone), since a link used on another day may hold another meeting: no earlier call on the presser's calendar on
      the same link still before its booked end, and no other call's bot of the workspace joining or recording on it
      (`NOTETAKER_LINK_IN_USE`);
    - the meeting has a video link (an https join URL);
@@ -106,7 +108,7 @@ Recall is the only recorder for now. A bot of our own can come back later behind
 7. **Join now, End & file notes, Remove.** Anyone on the position may press each (`WORK_EXECUTE`), all in the call's
    panel; its ⋯ opens on "Recording 31:42" meanwhile. A call the Notetaker has left — End pressed, its notes being
    written or filed — is listed under Past from then on, and its ⋯ carries what came of it rather than the panel.
-   - **Join now** (the panel's **Send now instead**) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
+   - **Join now** (the panel's **Send Notetaker now** while a bot waits for the start) brings a bot scheduled for the start in at once, on the call's day and while its `join_at` is more
      than two minutes away, under the link guards Send now has. A new bot is sent first and the scheduled one called
      back only once the row holds the new id (`NOTETAKER_JOINED_NOW`), so a refusal — an empty pool included — leaves
      the scheduled bot as it was; deliveries about the old bot find no row. Its copilot is the one it was scheduled with;
@@ -276,13 +278,21 @@ The Notetaker is offered where both `RECALL_API_KEY` and `RECALL_BOT_WEBHOOK_SEC
 
 On its own it does not move calendars to Recall. That still needs the calendar webhook secret (`RECALL_ENABLED`).
 
-To try it locally:
+To try it locally (`ops/notetaker/recall-webhook.sh`):
 
-1. Set `RECALL_API_KEY`, `RECALL_BOT_WEBHOOK_SECRET` and (for EU) `RECALL_BASE_URL` before `npm run dev`.
-2. Expose `:8080` (cloudflared or ngrok) and point a Recall webhook endpoint at `/api/v1/notetaker/webhooks/recall`.
-3. Book a Meet call in the drawer, join the call, open its ⋯ → **Notetaker & questions…** → **Send Notetaker now**, let the bot
-   in and talk; **End & file notes** in the same panel files the notes without waiting for the booked end, and the
-   changes the call suggests follow in the call's ⋯, a dot on it once they wait.
+1. Set `RECALL_API_KEY`, `RECALL_BOT_WEBHOOK_SECRET` and (for EU) `RECALL_BASE_URL` before `npm run dev`
+   (`application-local.yml` holds them).
+2. `ops/notetaker/recall-webhook.sh tunnel` gives a public https URL onto `:8080`. Point the "Uncava local dev" Recall
+   webhook endpoint at `<url>/api/v1/notetaker/webhooks/recall` and switch it on (the workspace's one verification
+   secret signs every endpoint), and start `RECALL_PUBLIC_BASE_URL=<url> npm run dev`: the live copilot's stream goes to
+   `lightmove.recall.public-base-url` (blank: `web.base-url`), and Recall refuses a bot whose stream is `localhost` —
+   every send with Live copilot fails `SEND_FAILED` without it.
+3. Book a Meet call in the drawer, open its ⋯ → **Notetaker & questions…**, switch on **Join at start** or press **Send
+   Notetaker now**, join the call, let the bot in and talk. **End & file notes** files the notes without waiting for
+   the booked end; leaving the call ends it on its own. The changes the call suggests follow in the call's ⋯.
+4. Without a real call, `recall-webhook.sh send <event> <recording-id>` walks a bot through its states as Recall would
+   (Svix-signed: `joining_call`, `in_waiting_room`, `in_call_recording`, `call_ended`, `done`, `fatal`), and
+   `recall-webhook.sh bots` lists the local recordings. A note is filed only from a transcript Recall really holds.
 
 ## Left for later
 

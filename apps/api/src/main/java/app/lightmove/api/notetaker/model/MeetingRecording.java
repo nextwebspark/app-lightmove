@@ -34,6 +34,7 @@ import org.hibernate.type.SqlTypes;
 public class MeetingRecording extends BaseEntity {
 
     private static final int LONGEST_REASON = 64;
+    public static final String NEVER_RECORDED = "NEVER_RECORDED";
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
@@ -347,6 +348,14 @@ public class MeetingRecording extends BaseEntity {
         this.failureReason = reason == null || reason.length() <= LONGEST_REASON ? reason
                 : reason.substring(0, LONGEST_REASON);
         this.status = NotetakerStatus.FAILED;
+    }
+
+    /**
+     * Recall sends a bot's {@code call_ended}, which carries why it left, and its {@code done} in the same instant, and
+     * either may arrive first: a {@code done} that failed the recording without a reason still takes the reason after.
+     */
+    public boolean awaitsItsReason() {
+        return status == NotetakerStatus.FAILED && NEVER_RECORDED.equals(failureReason);
     }
 
     /** Only a live recording is called back: one a webhook already finished stays as it ended. */

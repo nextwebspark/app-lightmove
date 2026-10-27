@@ -80,7 +80,7 @@ export function MeetingsSection({
   const canBook = hasActiveMailbox && record.isSuccess && !record.data.doNotContact && emails.length > 0;
   const canReschedule = hasActiveMailbox && record.isSuccess && !record.data.doNotContact;
   const recordable = new Set(notetaker.data?.recordableMeetingIds ?? []);
-  const startable = new Set(notetaker.data?.startableMeetingIds ?? []);
+  const onCallDay = new Set(notetaker.data?.callDayMeetingIds ?? []);
   const isRecordable = (meeting: Meeting) =>
     notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact && recordable.has(meeting.id);
   const mayRecord = (meeting: Meeting) => isRecordable(meeting) && canRecord(recordingOf(meeting));
@@ -241,7 +241,7 @@ export function MeetingsSection({
           meeting={panelMeeting}
           recording={recordingOf(panelMeeting)}
           mayRecord={mayRecord(panelMeeting)}
-          mayStartNow={isRecordable(panelMeeting) && startable.has(panelMeeting.id)}
+          isCallDay={onCallDay.has(panelMeeting.id)}
           offersQuestions={upcoming.includes(panelMeeting)}
           firstName={firstName}
           onPrepareQuestions={() => {

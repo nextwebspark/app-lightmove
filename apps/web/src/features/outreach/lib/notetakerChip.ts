@@ -33,16 +33,16 @@ export function failureWordsOf(reason: string | null): string {
 }
 
 /**
- * The latest bot sent to this call: by its meeting row, or by its start and title where a calendar's re-read gave the
- * call a new row — the same two the server tells calls apart by. Newest call first, latest attempt first within one.
+ * The latest bot sent to this call as it stands: same start, and the same meeting row or — where a calendar's re-read
+ * gave the call a new row — the same title. A bot sent before the call moved is not this call's: it was sent for the
+ * old time, and the server calls it back. Newest call first, latest attempt first within one.
  */
 export function recordingOfMeeting(recordings: NotetakerRecording[], meeting: Meeting): NotetakerRecording | null {
   return (
     recordings.find(
       (recording) =>
-        recording.meetingId === meeting.id ||
-        (new Date(recording.startsAt).getTime() === new Date(meeting.startsAt).getTime() &&
-          titleKeyOf(recording.title) === titleKeyOf(meeting.title)),
+        new Date(recording.startsAt).getTime() === new Date(meeting.startsAt).getTime() &&
+        (recording.meetingId === meeting.id || titleKeyOf(recording.title) === titleKeyOf(meeting.title)),
     ) ?? null
   );
 }

@@ -63,8 +63,8 @@ export interface CandidateNotetaker {
   recordings: NotetakerRecording[];
   /** Upcoming rows the caller may send a bot to: on their own calendar or booked by them, with a video link. */
   recordableMeetingIds: string[];
-  /** Of those, the calls whose day has begun in the caller's time zone: Send now is offered on them. */
-  startableMeetingIds: string[];
+  /** Of those, the calls whose day has begun in the caller's time zone: Send now asks first on any other. */
+  callDayMeetingIds: string[];
 }
 
 export interface NotetakerTranscriptLine {
