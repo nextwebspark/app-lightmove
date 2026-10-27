@@ -158,6 +158,10 @@ describe("CopilotPanel", () => {
 
       expect(await screen.findByText(/Call ended\./)).toBeInTheDocument();
       expect(screen.queryByText(/Live transcript stopped/)).toBeNull();
+      expect(screen.queryByText("Nobody has spoken yet.")).toBeNull();
+      expect(
+        screen.getByText(ended.status === "DONE" ? "Call ended · notes filed" : "Call ended · notes on the way"),
+      ).toBeInTheDocument();
       expect(screen.queryByText(/recording continues/)).toBeNull();
       unmount();
     }

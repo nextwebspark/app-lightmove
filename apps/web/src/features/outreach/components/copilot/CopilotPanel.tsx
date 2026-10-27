@@ -283,7 +283,14 @@ export function CopilotPanel({
               />
             )}
             {tab === "plan" && <PlanTab copilot={copilot} onAct={act} ids={{ projectId, candidateId, recordingId }} />}
-            {tab === "transcript" && <TranscriptTab lines={lines} speaking={copilot.speaking} faceOf={faceOf} />}
+            {tab === "transcript" && (
+              <TranscriptTab
+                lines={lines}
+                speaking={copilot.speaking}
+                faceOf={faceOf}
+                empty={isCallOn(copilot) ? "The transcript appears here as people speak." : LINES_GONE}
+              />
+            )}
           </>
         )}
       </div>
@@ -484,7 +491,7 @@ function LiveTab({
           lines={lines.slice(-3)}
           speaking={copilot.speaking}
           faceOf={faceOf}
-          empty="Nobody has spoken yet."
+          empty={isCallOn(copilot) ? "Nobody has spoken yet." : LINES_GONE}
         />
       </div>
     </>
@@ -555,10 +562,12 @@ function TranscriptTab({
   lines,
   speaking,
   faceOf,
+  empty,
 }: {
   lines: CopilotLine[];
   speaking: CopilotLine[];
   faceOf: (line: CopilotLine) => Face;
+  empty: string;
 }) {
   const end = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -570,7 +579,7 @@ function TranscriptTab({
         lines={lines}
         speaking={speaking}
         faceOf={faceOf}
-        empty="The transcript appears here as people speak."
+        empty={empty}
       />
       <span ref={end} />
     </>
@@ -648,6 +657,9 @@ function EndedSummary({ copilot }: { copilot: Copilot }) {
     </div>
   );
 }
+
+/** The live lines go when the call ends; the call's transcript is in its ⋯ once its notes are filed. */
+const LINES_GONE = "The live transcript isn't kept after the call.";
 
 /** A removed bot, or one that never got in, recorded nothing: there are no notes to promise. */
 function hasRecorded(copilot: Copilot): boolean {
@@ -848,7 +860,10 @@ function useExecutivePhoto(projectId: string, candidateId: string): string | nul
 
 function footerLineOf(copilot: Copilot | null, isMuted: boolean): string {
   if (!copilot) return "Connecting…";
-  if (!isCallOn(copilot)) return hasRecorded(copilot) ? "Call ended · notes on the way" : "Notetaker left · nothing recorded";
+  if (!isCallOn(copilot)) {
+    if (!hasRecorded(copilot)) return "Notetaker left · nothing recorded";
+    return copilot.status === "DONE" ? "Call ended · notes filed" : "Call ended · notes on the way";
+  }
   if (copilot.liveStatus === "STOPPED") return "Copilot stopped · recording continues";
   if (isWaitingToJoin(copilot)) return "Waiting to be let in…";
   return isMuted ? "Suggestions muted" : "Listening";
