@@ -67,6 +67,10 @@ RUN ./mvnw -B -q clean package -DskipTests
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
+# The tag is republished on Temurin's schedule, not Alpine's: a package Alpine has already fixed
+# (CVE-2026-111497 in brotli-libs) would otherwise ship, and fail the image scan, until it is.
+RUN apk upgrade --no-cache
+
 # Not root. A container that never needs to write anywhere has no reason to be able to.
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=api /src/target/*.jar app.jar
