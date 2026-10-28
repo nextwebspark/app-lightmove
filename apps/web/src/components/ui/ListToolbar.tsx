@@ -33,7 +33,7 @@ export function ListToolbar<TChip extends string>({
 }) {
   return (
     <div className="mb-3.5 flex flex-wrap items-center gap-2.5">
-      <div className="flex w-full items-center gap-2 rounded-lg border border-u-border-strong bg-u-raised px-[11px] py-[7px] sm:w-[300px]">
+      <label className="flex w-full items-center gap-2 rounded-lg border border-u-border-strong bg-u-raised px-[11px] py-[7px] sm:w-[300px]">
         <Icon d={ICONS.search} size={14} className="text-u-text3" />
         <input
           value={query}
@@ -44,7 +44,7 @@ export function ListToolbar<TChip extends string>({
           aria-label={placeholder}
           className="w-full bg-transparent font-mono text-[13px] text-u-text outline-none placeholder:text-u-text3"
         />
-      </div>
+      </label>
 
       <div className="flex flex-wrap gap-1.5">
         {chips.map(({ key, label, count, separated }) => (

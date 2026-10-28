@@ -36,7 +36,6 @@ import app.lightmove.api.position.repository.PositionRepository;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import jakarta.servlet.http.HttpServletRequest;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -252,12 +251,6 @@ public class PositionService {
                 .detail("template", template.getCode())
                 .record();
         return assembler.assemble(brief);
-    }
-
-    /** Of these mandates, already scoped to one workspace by the caller, the ones whose brief somebody has worked on. */
-    @Transactional(readOnly = true)
-    public Set<UUID> projectsWithBriefWorkedOn(Collection<UUID> projectIds) {
-        return projectIds.isEmpty() ? Set.of() : Set.copyOf(positions.findProjectIdsWorkedOn(projectIds));
     }
 
     /** Drafts the brief for a newly created mandate, from the template matched on its role title. */
