@@ -72,7 +72,7 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
 
         for (UUID candidateId : List.of(researching, followedUp, screened, withdrew)) {
             transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
-                    candidateId, UUID.randomUUID(), "Opening", 1));
+                    candidateId, UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
         }
 
         assertThat(statusOf(researching)).isEqualTo("contacted");
@@ -113,7 +113,7 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
         UUID booked = candidate("identified");
 
         transactions.executeWithoutResult(status -> outreach.recordEmailSent(null, UUID.fromString(projectId),
-                emailed, UUID.randomUUID(), "Opening", 1));
+                emailed, UUID.randomUUID(), "Opening", 1, UUID.randomUUID()));
         transactions.executeWithoutResult(status -> outreach.recordMeetingBooked(null,
                 UUID.fromString(projectId), booked, Instant.now(), false));
 

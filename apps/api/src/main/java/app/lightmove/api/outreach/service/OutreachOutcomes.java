@@ -55,7 +55,7 @@ class OutreachOutcomes {
             run.replied(now);
         }
         people.recordReplied(reply.getWorkspaceId(), reply.getProjectId(), reply.getPersonId(),
-                run == null ? null : run.getSequenceId(), run == null ? null : sequenceNameOf(run));
+                run == null ? null : run.getSequenceId(), run == null ? null : sequenceNameOf(run), reply.getId());
         audit.projectEvent(ProjectEventType.OUTREACH_REPLIED, null, reply.getWorkspaceId(), reply.getProjectId(), null)
                 .detail("messageId", reply.getId().toString())
                 .detailIfPresent("sequenceId", run == null ? null : run.getSequenceId().toString())

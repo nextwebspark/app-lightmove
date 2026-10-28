@@ -35,6 +35,7 @@ class TaskTimeline {
         details.put("title", task.getTitle());
         details.put("taskKind", task.getKind().value());
         details.put("assignee", nameOf(named, task.getAssigneeUserId()));
+        details.put("dueAt", task.getDueAt() == null ? null : task.getDueAt().toString());
         if (previousAssignee != null) {
             details.put("previousAssignee", nameOf(named, previousAssignee));
         }

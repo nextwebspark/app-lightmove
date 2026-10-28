@@ -247,11 +247,11 @@ public class OutreachSendService {
         }
         MailboxGatewayKind threadGateway = MailboxGatewayKind.ofGrant(prepared.grantId());
         enrollment.markSent(sent, threadGateway, now, followingDue);
-        messages.save(OutreachMessage.sent(enrollment, prepared.step(), prepared.email(), prepared.text(),
-                prepared.fromAddress(), sent, threadGateway, now));
+        OutreachMessage message = messages.save(OutreachMessage.sent(enrollment, prepared.step(), prepared.email(),
+                prepared.text(), prepared.fromAddress(), sent, threadGateway, now));
         if (enrollment.getCandidateId() != null) {
             people.recordEmailSent(enrollment.getSenderUserId(), enrollment.getProjectId(), enrollment.getCandidateId(),
-                    sequence.getId(), sequence.getName(), prepared.step() + 1);
+                    sequence.getId(), sequence.getName(), prepared.step() + 1, message.getId());
         }
         audit.projectEvent(ProjectEventType.OUTREACH_EMAIL_SENT, enrollment.getSenderUserId(),
                         enrollment.getWorkspaceId(), enrollment.getProjectId(), null)

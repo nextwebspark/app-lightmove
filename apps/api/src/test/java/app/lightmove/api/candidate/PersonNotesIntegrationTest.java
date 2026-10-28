@@ -79,10 +79,8 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
         assertThat(fromPool).hasSize(1);
         assertThat(fromPool.get(0).get("id").asText()).isEqualTo(note.get("id").asText());
 
-        JsonNode onCreditsTimeline = timeline(credit, onCredit, "notes").get("entries");
-        assertThat(kindsOf(onCreditsTimeline)).containsExactly("NOTE_ADDED");
-        assertThat(onCreditsTimeline.get(0).get("projectTitle").asText()).isEqualTo("Chief Financial Officer");
-        assertThat(onCreditsTimeline.get(0).get("noteExcerpt").isNull()).isTrue();
+        // Another position's note is its own work: not even a line naming it reaches this position's history.
+        assertThat(timeline(credit, onCredit, "notes").get("entries")).isEmpty();
         assertThat(timeline(cfo, onCfo.get("id").asText(), "notes").get("entries").get(0).get("noteExcerpt").asText())
                 .startsWith("Open to a group CFO move");
     }
@@ -630,10 +628,14 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
         write(admin, cfo, candidateId, "email", "Sent the brief.");
 
         JsonNode all = timeline(cfo, candidateId, null).get("entries");
-        assertThat(kindsOf(all)).containsExactly("NOTE_ADDED", "STATUS_CHANGED", "MAPPED", "ADDED_TO_POOL");
+        assertThat(kindsOf(all)).containsExactly("NOTE_ADDED", "STATUS_CHANGED", "ADDED_TO_POOL");
         assertThat(all.get(1).get("details").get("to").asText()).isEqualTo("contacted");
-        assertThat(all.get(2).get("actorName").asText()).isEqualTo("Sara Al-Mansour");
-        assertThat(all.get(2).get("projectTitle").asText()).isEqualTo("Head of Credit Risk");
+        String onCredit = db.queryForObject("""
+                select c.id::text from app_lm_project_candidate c where c.project_id = ?::uuid""", String.class, credit);
+        JsonNode fromCredit = timeline(credit, onCredit, null).get("entries");
+        assertThat(kindsOf(fromCredit)).containsExactly("MAPPED");
+        assertThat(fromCredit.get(0).get("actorName").asText()).isEqualTo("Sara Al-Mansour");
+        assertThat(fromCredit.get(0).get("projectTitle").asText()).isEqualTo("Head of Credit Risk");
 
         JsonNode firstPage = body(mvc.perform(get(timelineUrl(cfo, candidateId)).param("limit", "2")
                         .header("Authorization", "Bearer " + admin))
@@ -644,7 +646,7 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andReturn());
-        assertThat(kindsOf(secondPage.get("entries"))).containsExactly("MAPPED", "ADDED_TO_POOL");
+        assertThat(kindsOf(secondPage.get("entries"))).containsExactly("ADDED_TO_POOL");
         assertThat(secondPage.get("nextCursor").isNull()).isTrue();
 
         String saraId = db.queryForObject("select id::text from app_lm_user where email = ?", String.class, saraEmail);

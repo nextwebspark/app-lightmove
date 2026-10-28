@@ -249,7 +249,6 @@ public class CandidatePoolController {
                                            @RequestParam(required = false) String group,
                                            @RequestParam(required = false) Long before,
                                            @RequestParam(required = false) Integer limit) {
-        return timeline.timelineOf(principal.requireWorkspaceId(), personId, NoteViewpoint.workspace(), group,
-                before, limit);
+        return timeline.workspaceTimelineOf(principal.requireWorkspaceId(), personId, group, before, limit);
     }
 }
