@@ -1,4 +1,5 @@
 import type { OutreachRun, RunStatus, StopReason } from "../api/runApi";
+import { canSendFrom, type MailboxState } from "./mailboxState";
 
 /** A run's chip, worded and coloured as `Outreach.dc.html`'s `STATE` table. */
 export const RUN_STATES: Record<RunStatus, { label: string; className: string }> = {
@@ -40,6 +41,11 @@ export const RUN_FILTERS: { key: RunFilter; label: string }[] = [
 
 export function isLive(run: Pick<OutreachRun, "status">): boolean {
   return run.status === "SCHEDULED" || run.status === "ACTIVE";
+}
+
+/** Whether Add to sequence is offered for someone: the mailbox can send and no run of theirs is still going. */
+export function canEnrolFrom(mailbox: MailboxState, run: Pick<OutreachRun, "status"> | null): boolean {
+  return canSendFrom(mailbox) && (!run || !isLive(run));
 }
 
 export function matchesFilter(run: OutreachRun, filter: RunFilter): boolean {

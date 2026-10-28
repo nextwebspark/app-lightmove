@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   choiceOfDrag,
   choiceOfFields,
+  choiceOfResize,
   fieldsOf,
   isWithinWorkingHours,
+  pickHitOf,
   refusalOf,
   stretchesOn,
   viewDaysOf,
@@ -45,6 +47,42 @@ describe("weekGrid", () => {
       minutes: 30,
     });
     expect(choiceOfDrag("2099-10-05", 0, 1440, DUBAI, LIMITS).minutes).toBe(480);
+  });
+
+  it("tells a press on a picked call's edge from one in its middle or off it", () => {
+    const hour = { start: "2099-10-05T06:00:00.000Z", minutes: 60 };
+
+    expect(pickHitOf(hour, "2099-10-05", 603, DUBAI)).toEqual({ kind: "start", edgeAt: 600 });
+    expect(pickHitOf(hour, "2099-10-05", 655, DUBAI)).toEqual({ kind: "end", edgeAt: 660 });
+    expect(pickHitOf(hour, "2099-10-05", 630, DUBAI)).toEqual({ kind: "inside" });
+    expect(pickHitOf(hour, "2099-10-05", 700, DUBAI)).toBeNull();
+    expect(pickHitOf(hour, "2099-10-06", 630, DUBAI)).toBeNull();
+
+    const short = { start: "2099-10-05T06:00:00.000Z", minutes: 10 };
+    expect(pickHitOf(short, "2099-10-05", 604, DUBAI)).toEqual({ kind: "start", edgeAt: 600 });
+    expect(pickHitOf(short, "2099-10-05", 605, DUBAI)).toEqual({ kind: "end", edgeAt: 610 });
+
+    const pastMidnight = { start: "2099-10-05T19:30:00.000Z", minutes: 60 };
+    expect(pickHitOf(pastMidnight, "2099-10-05", 1412, DUBAI)).toEqual({ kind: "start", edgeAt: 1410 });
+    expect(pickHitOf(pastMidnight, "2099-10-05", 1438, DUBAI)).toEqual({ kind: "inside" });
+    expect(pickHitOf(pastMidnight, "2099-10-06", 2, DUBAI)).toEqual({ kind: "inside" });
+    expect(pickHitOf(pastMidnight, "2099-10-06", 28, DUBAI)).toEqual({ kind: "end", edgeAt: 30 });
+  });
+
+  it("drags one edge of a picked call on five-minute marks, never past the other or beyond the longest call", () => {
+    const hour = { start: "2099-10-05T06:00:00.000Z", minutes: 60 };
+
+    expect(choiceOfResize(hour, "end", "2099-10-05", 691, DUBAI, LIMITS)).toEqual({ start: hour.start, minutes: 90 });
+    expect(choiceOfResize(hour, "end", "2099-10-05", 580, DUBAI, LIMITS)).toEqual({ start: hour.start, minutes: 5 });
+    expect(choiceOfResize(hour, "end", "2099-10-05", 1440, DUBAI, LIMITS)).toEqual({ start: hour.start, minutes: 480 });
+    expect(choiceOfResize(hour, "start", "2099-10-05", 571, DUBAI, LIMITS)).toEqual({
+      start: "2099-10-05T05:30:00.000Z",
+      minutes: 90,
+    });
+    expect(choiceOfResize(hour, "start", "2099-10-05", 700, DUBAI, LIMITS)).toEqual({
+      start: "2099-10-05T06:55:00.000Z",
+      minutes: 5,
+    });
   });
 
   it("turns the Pick a time fields into a call and back, a call to midnight included", () => {

@@ -4,16 +4,15 @@ export type CopilotView = "live" | "plan" | "transcript";
 
 export interface CopilotViewState {
   view: CopilotView;
-  isMuted: boolean;
 }
 
-const DEFAULT: CopilotViewState = { view: "live", isMuted: false };
+const DEFAULT: CopilotViewState = { view: "live" };
 const CHANNEL = "uncava-copilot-view";
 
 /**
  * What the consultant chose to look at on one call, shared by every copilot this browser draws — the drawer's tab, the
  * floating window (same page, so the same map) and the popup (another page, so a broadcast) — so moving between them
- * lands on the same view with suggestions as muted as they were. A popup opens knowing nothing, so it asks.
+ * lands on the same view. A popup opens knowing nothing, so it asks.
  */
 const states = new Map<string, CopilotViewState>();
 const listeners = new Set<() => void>();

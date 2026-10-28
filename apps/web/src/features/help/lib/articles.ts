@@ -18,7 +18,6 @@ export interface HelpArticle {
 }
 
 const CATALOG: Omit<HelpArticle, "body">[] = [
-  { slug: "getting-started", title: "Get your first map", summary: "The first hour, step by step.", pages: [/^\/$/, /^\/all$/] },
   { slug: "words", title: "The words Uncava uses", summary: "Position, universe, executive, candidate and the rest.", pages: [] },
   {
     slug: "filter-the-market",

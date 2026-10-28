@@ -1,4 +1,4 @@
-import { request } from "../../../lib/apiClient";
+import { request, requestBlob } from "../../../lib/apiClient";
 
 /**
  * The Notetaker: a Recall.ai bot sent into a call with an executive, whose transcript becomes a Meeting note. The
@@ -28,24 +28,43 @@ export interface NotetakerRecording {
   hasTranscript: boolean;
   retryable: boolean;
   noteId: string | null;
-  /** Someone pressed Suggest changes on this call. */
+  /** The transcript was read for changes: once the notes were filed, or by Suggest changes. */
   suggestionsAsked: boolean;
   /** Changes it suggested that nobody has applied or skipped yet. */
   pendingSuggestions: number;
   /** Changes a review applied to the record. */
   appliedSuggestions: number;
+  /** Every change it suggested, decided or not. */
+  foundSuggestions: number;
+  /** The model is reading the transcript for changes right now. */
+  suggesting: boolean;
   /** The bot streams the call to the live copilot; chosen before it joins. */
   liveCopilot: boolean;
   liveStatus: LiveCopilotStatus | null;
   /** The caller sent this bot, so may switch its copilot. */
   mayChangeCopilot: boolean;
+  /** When Recall brings the bot in; null for one sent at once. */
+  joinAt: string | null;
+  /** When Recall first reported it recording: the call clock counts from here. */
+  recordingStartedAt: string | null;
+  /** End & file notes was pressed: the bot is leaving and its notes follow. */
+  endRequested: boolean;
+  /** When Recall drops the call's recording; null once it is gone, or before the call has ended. */
+  recordingAvailableUntil: string | null;
+  /** The caller sent this bot and Recall still holds the recording: the only person who may download it. */
+  mayDownloadRecording: boolean;
 }
+
+/** Send now sends the bot at once; a send naming neither joins at the call's start. */
+export type NotetakerJoin = "NOW" | "AT_START";
 
 export interface CandidateNotetaker {
   offered: boolean;
   recordings: NotetakerRecording[];
   /** Upcoming rows the caller may send a bot to: on their own calendar or booked by them, with a video link. */
   recordableMeetingIds: string[];
+  /** Of those, the calls whose day has begun in the caller's time zone: Send now asks first on any other. */
+  callDayMeetingIds: string[];
 }
 
 export interface NotetakerTranscriptLine {
@@ -98,6 +117,10 @@ export interface CallSuggestion {
   /** False once the record moved on so it can't be applied, such as the tag being retired. */
   available: boolean;
   edited: boolean;
+  /** What an applied change replaced; null where it added rather than replaced, or that wasn't kept. */
+  was: SuggestedValue | null;
+  appliedAt: string | null;
+  appliedBy: string | null;
 }
 
 export interface CallSuggestions {
@@ -135,10 +158,29 @@ export function scheduleNotetaker(
   candidateId: string,
   meetingId: string,
   liveCopilot = false,
+  join?: NotetakerJoin,
 ): Promise<NotetakerRecording> {
   return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/meetings/${meetingId}/notetaker`, {
     method: "POST",
-    body: { liveCopilot },
+    body: join ? { liveCopilot, join } : { liveCopilot },
+  });
+}
+
+/** Brings a bot scheduled for the call's start in at once. */
+export function joinNotetakerNow(
+  projectId: string,
+  candidateId: string,
+  recordingId: string,
+): Promise<NotetakerRecording> {
+  return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/join-now`, {
+    method: "POST",
+  });
+}
+
+/** End & file notes: the bot leaves the call now, and its notes are filed as after any call. */
+export function endNotetaker(projectId: string, candidateId: string, recordingId: string): Promise<NotetakerRecording> {
+  return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/end`, {
+    method: "POST",
   });
 }
 
@@ -154,6 +196,11 @@ export function retryNotetaker(
   return request<NotetakerRecording>(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/retry`, {
     method: "POST",
   });
+}
+
+/** The call's video, fetched through the server (Recall's link never reaches the browser); the bytes are held in memory. */
+export function downloadRecording(projectId: string, candidateId: string, recordingId: string): Promise<Blob> {
+  return requestBlob(`${candidatePath(projectId, candidateId)}/notetaker/${recordingId}/recording`);
 }
 
 export function getTranscript(
@@ -210,6 +257,10 @@ export type CompetencyPanel = "TECHNICAL" | "BEHAVIOURAL";
 export const INTERVIEW_PLAN_KEY = (projectId: string, candidateId: string, meetingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "interview-plan", meetingId] as const;
 
+/** The draft of one call's plan, whichever dialog started it. */
+export const INTERVIEW_PLAN_DRAFT_KEY = (projectId: string, candidateId: string, meetingId: string) =>
+  [...INTERVIEW_PLAN_KEY(projectId, candidateId, meetingId), "draft"] as const;
+
 export const COPILOT_KEY = (projectId: string, candidateId: string, recordingId: string) =>
   ["outreach", projectId, "candidate", candidateId, "notetaker", recordingId, "copilot"] as const;
 
@@ -264,6 +315,10 @@ export interface CopilotLine {
   text: string;
   /** The consultant's or a colleague's voice. */
   team: boolean;
+  /** A voice named as the executive: the only one that wears their photo. Anyone else on the call is neither. */
+  executive: boolean;
+  /** The reader's own voice. */
+  you: boolean;
 }
 
 export interface Copilot {
@@ -271,6 +326,8 @@ export interface Copilot {
   title: string | null;
   candidateName: string;
   startsAt: string;
+  /** When Recall first reported recording; the call clock counts from here, or from `startsAt` before. */
+  recordingStartedAt: string | null;
   status: NotetakerStatus;
   liveStatus: LiveCopilotStatus | null;
   coach: CoachState;
@@ -279,7 +336,6 @@ export interface Copilot {
   coverage: CopilotCoverage[];
   gaps: { gap: RecordGap; heard: boolean; at: string | null }[];
   plan: { id: string; section: InterviewQuestionSection; competency: string | null; text: string; asked: boolean }[];
-  nudges: { id: string; text: string; reason: string | null }[];
   /** Finished lines after the cursor sent; `lastSeq` is the next cursor. */
   lines: CopilotLine[];
   /** Each voice's words so far. */
@@ -346,18 +402,6 @@ export function getCopilot(
 
 export function stopCopilot(projectId: string, candidateId: string, recordingId: string): Promise<Copilot> {
   return request<Copilot>(`${copilotPath(projectId, candidateId, recordingId)}/stop`, { method: "POST" });
-}
-
-export function decideNudge(
-  projectId: string,
-  candidateId: string,
-  recordingId: string,
-  nudgeId: string,
-  decision: "used" | "dismiss",
-): Promise<void> {
-  return request<void>(`${copilotPath(projectId, candidateId, recordingId)}/nudges/${nudgeId}/${decision}`, {
-    method: "POST",
-  });
 }
 
 export function markPlanQuestionAsked(

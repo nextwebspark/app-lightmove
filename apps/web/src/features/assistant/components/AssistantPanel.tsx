@@ -4,6 +4,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
+import { focusFieldWithin } from "../../../lib/focusFieldWithin";
 import { useEscapeKey } from "../../../lib/useEscapeKey";
 import * as assistantApi from "../api/assistantApi";
 import { useAssistant } from "../AssistantProvider";
@@ -332,7 +333,7 @@ export function AssistantPanel({ contextLabel, projectId }: { contextLabel: stri
       </div>
 
       <div className="flex-none border-t border-u-border-strong px-3 pb-3 pt-2.5">
-        <div className="rounded-[10px] border border-u-border-strong bg-u-raised px-2.5 py-2">
+        <div onMouseDown={focusFieldWithin} className="rounded-[10px] border border-u-border-strong bg-u-raised px-2.5 py-2">
           <textarea
             ref={composer}
             value={draft}

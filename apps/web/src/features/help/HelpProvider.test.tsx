@@ -4,19 +4,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../components/ui";
-import { aUser, aWorkspace } from "../../test/fixtures/user";
+import { aUser } from "../../test/fixtures/user";
 import type { User } from "../auth/api/types";
-import * as gettingStartedApi from "../gettingstarted/api/gettingStartedApi";
 import { HelpProvider, useHelp } from "./HelpProvider";
 import { WHATS_NEW } from "./lib/whatsNew";
 
 let currentUser: User = aUser();
 vi.mock("../auth/AuthProvider", () => ({ useAuth: () => ({ user: currentUser }) }));
-vi.mock("../gettingstarted/api/gettingStartedApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../gettingstarted/api/gettingStartedApi")>()),
-  setDismissed: vi.fn(),
-  gettingStarted: vi.fn(),
-}));
 
 function OpenButton() {
   const { openHelp, hasUnseenNews } = useHelp();
@@ -116,7 +110,7 @@ describe("Help", () => {
 
     await user.type(await screen.findByRole("searchbox", { name: "Search help" }), "spreadsheet");
     // A title match leads.
-    expect(screen.getAllByRole("button", { name: /Import a spreadsheet|Get your first map|In universe/ })[0]).toHaveAccessibleName(
+    expect(screen.getAllByRole("button", { name: /Import a spreadsheet|In universe/ })[0]).toHaveAccessibleName(
       /Import a spreadsheet/,
     );
     await user.click(screen.getByRole("button", { name: /Import a spreadsheet/ }));
@@ -154,32 +148,5 @@ describe("Help", () => {
     localStorage.setItem("lm-whats-new-seen", "2026-10-help");
     renderAt();
     expect(screen.getByTestId("unseen").textContent).toBe("true");
-  });
-
-  it("brings a put-away Getting started card back for staff, and not for a client contact", async () => {
-    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue({ dismissed: true, focusProjectId: null, steps: [] });
-    vi.mocked(gettingStartedApi.setDismissed).mockResolvedValue({ dismissed: false, focusProjectId: null, steps: [] });
-    const { unmount } = renderAt();
-    await userEvent.click(screen.getByRole("button", { name: "open help" }));
-    await userEvent.click(await screen.findByRole("button", { name: /Show getting started/ }));
-    await waitFor(() => expect(gettingStartedApi.setDismissed).toHaveBeenCalledWith(false));
-    unmount();
-
-    currentUser = aUser({ workspace: aWorkspace({ roles: ["CLIENT"] }) });
-    renderAt();
-    await userEvent.click(screen.getByRole("button", { name: "open help" }));
-    expect(await screen.findByText("Keyboard shortcuts")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Show getting started/ })).not.toBeInTheDocument();
-    expect(gettingStartedApi.gettingStarted).toHaveBeenCalledTimes(1);
-  });
-
-  it("offers nothing to bring back while the card is still showing", async () => {
-    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue({ dismissed: false, focusProjectId: null, steps: [] });
-    renderAt();
-    await userEvent.click(screen.getByRole("button", { name: "open help" }));
-
-    await waitFor(() => expect(gettingStartedApi.gettingStarted).toHaveBeenCalled());
-    expect(await screen.findByText("Keyboard shortcuts")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Show getting started/ })).not.toBeInTheDocument();
   });
 });

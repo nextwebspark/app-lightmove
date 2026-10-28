@@ -1,11 +1,13 @@
 import { Extension, type Editor } from "@tiptap/core";
 import type { MentionNodeAttrs } from "@tiptap/extension-mention";
 import { Placeholder } from "@tiptap/extensions";
+import { Selection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import type { SuggestionKeyDownProps, SuggestionProps } from "@tiptap/suggestion";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import { Button, Modal } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { isPressOnEmptySpace } from "../../../lib/focusFieldWithin";
 import { MentionChip } from "../../tasks/components/NoteBody";
 import { mentionKey, type Mention } from "../../tasks/lib/mentions";
 import { isSafeHref, mentionOf, noteDocOf, noteExtensions, serializeNoteDoc, TEAM_MENTION_ID } from "../lib/noteMarkdown";
@@ -43,6 +45,8 @@ export default function RichNoteEditor({
   autoFocus = false,
   header,
   footer,
+  fillsDialog = false,
+  onExpandChange,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [expanded, setExpanded] = useState(false);
@@ -60,6 +64,11 @@ export default function RichNoteEditor({
     onSubmitRef.current = onSubmit;
     canSubmitRef.current = canSubmit;
   });
+
+  const toggleExpanded = () => {
+    setExpanded(!expanded);
+    onExpandChange?.(!expanded);
+  };
 
   const showPicker = (next: Picker | null) => {
     pickerRef.current = next;
@@ -89,7 +98,8 @@ export default function RichNoteEditor({
         addKeyboardShortcuts: () => ({
           "Mod-Enter": () => {
             if (onSubmitRef.current && canSubmitRef.current) {
-              setExpanded(false);
+              // Filling a dialog, the size is the dialog's: it closes on a save, and stays as it was on a refusal.
+              if (!fillsDialog) setExpanded(false);
               onSubmitRef.current();
             }
             return true;
@@ -115,7 +125,7 @@ export default function RichNoteEditor({
         role: "textbox",
         "aria-multiline": "true",
         "aria-label": ariaLabel,
-        class: surfaceClassOf(variant, roomy, expanded),
+        class: surfaceClassOf(variant, roomy, expanded, fillsDialog),
       },
     },
     onUpdate: ({ editor: changed }) => {
@@ -129,8 +139,8 @@ export default function RichNoteEditor({
     if (!editor || value === lastEmitted.current) return;
     lastEmitted.current = value;
     editor.commands.setContent(noteDocOf(value, format), { emitUpdate: false });
-    if (value === "") setExpanded(false);
-  }, [editor, value, format]);
+    if (value === "" && !fillsDialog) setExpanded(false);
+  }, [editor, value, format, fillsDialog]);
 
   useEffect(() => {
     editor?.setOptions({
@@ -139,11 +149,11 @@ export default function RichNoteEditor({
           role: "textbox",
           "aria-multiline": "true",
           "aria-label": ariaLabel,
-          class: surfaceClassOf(variant, roomy, expanded),
+          class: surfaceClassOf(variant, roomy, expanded, fillsDialog),
         },
       },
     });
-  }, [editor, ariaLabel, variant, roomy, expanded]);
+  }, [editor, ariaLabel, variant, roomy, expanded, fillsDialog]);
 
   const mentioned = useEditorState({
     editor,
@@ -205,18 +215,30 @@ export default function RichNoteEditor({
       ? (teammates?.find((teammate) => teammate.userId === mention.userId)?.avatarUrl ?? null)
       : null;
 
+  // The box is taller than the words in it: a press on its empty part, its padding or the toolbar's gap landed outside
+  // the editor and left the caret nowhere — the composer read as locked. The link row's form keeps its own presses.
+  const focusEditorAtEnd = (event: MouseEvent<HTMLDivElement>) => {
+    if (!editor || !isPressOnEmptySpace(event, "form")) return;
+    event.preventDefault();
+    // Focused now rather than through `focus()`, which waits a frame: a key pressed straight after was lost.
+    editor.view.dispatch(editor.state.tr.setSelection(Selection.atEnd(editor.state.doc)));
+    editor.view.focus();
+  };
+
   // The larger view, and a composer that is a whole dialog, write in a field of their own under a toolbar band.
-  const isFramed = expanded || roomy;
+  const isFramed = expanded || roomy || fillsDialog;
   const surface = (
     <div
       ref={surfaceRef}
+      onMouseDown={focusEditorAtEnd}
       className={cn(
         "relative",
+        fillsDialog && "flex min-h-0 flex-1 flex-col",
         isFramed &&
           "rounded-lg border border-u-border-strong bg-u-bg transition focus-within:border-u-accent focus-within:ring-2 focus-within:ring-u-accent-ring",
       )}
     >
-      <div className={cn(isFramed && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
+      <div className={cn("flex-none", isFramed && "rounded-t-lg border-b border-u-border bg-u-surface px-2 py-1.5")}>
         <NoteToolbar
           editor={editor}
           mentionsOffered={teammates !== null}
@@ -224,11 +246,17 @@ export default function RichNoteEditor({
           onMention={startMention}
           onLink={() => setLinkOpen((open) => !open)}
           expanded={expanded}
-          onExpand={() => setExpanded((open) => !open)}
+          onExpand={toggleExpanded}
         />
         {linkOpen && editor && <LinkRow editor={editor} onClose={() => setLinkOpen(false)} />}
       </div>
-      <EditorContent editor={editor} className={isFramed ? "cursor-text px-4 py-3" : "mt-1.5"} />
+      <EditorContent
+        editor={editor}
+        className={cn(
+          isFramed ? "cursor-text px-4 py-3" : "mt-1.5",
+          fillsDialog && "min-h-40 flex-1 overflow-y-auto",
+        )}
+      />
       {teammates !== null && picker && (
         <MentionPickerList
           anchor={() => picker.caret?.() ?? surfaceRef.current?.getBoundingClientRect() ?? null}
@@ -242,7 +270,7 @@ export default function RichNoteEditor({
       {mentioned && mentioned.length > 0 && (
         <div
           className={cn(
-            "mt-2 flex flex-wrap items-center gap-1.5 border-t border-u-border pt-2",
+            "mt-2 flex flex-none flex-wrap items-center gap-1.5 border-t border-u-border pt-2",
             isFramed && "mx-4 mb-3",
           )}
         >
@@ -267,6 +295,8 @@ export default function RichNoteEditor({
     </>
   );
 
+  // Filling a dialog, `NoteEditor` lays out what sits above and below the words; only the words scroll.
+  if (fillsDialog) return surface;
   if (!expanded) {
     return (
       <>
@@ -309,7 +339,13 @@ export default function RichNoteEditor({
   );
 }
 
-function surfaceClassOf(variant: NoteEditorProps["variant"], roomy: boolean, expanded: boolean): string {
+function surfaceClassOf(
+  variant: NoteEditorProps["variant"],
+  roomy: boolean,
+  expanded: boolean,
+  fillsDialog: boolean,
+): string {
+  if (fillsDialog) return cn(NOTE_PROSE, "min-h-full outline-none");
   return cn(
     NOTE_PROSE,
     "outline-none",

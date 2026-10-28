@@ -19,6 +19,8 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.notetaker.constant.CallSuggestionKind;
 import app.lightmove.api.notetaker.constant.NotetakerStatus;
 import app.lightmove.api.notetaker.dto.ApplyCallSuggestionRequest;
@@ -55,6 +57,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -93,6 +96,7 @@ public class CallSuggestionService {
     private final FairUseGuard fairUse;
     private final UsageRecorder usage;
     private final AuditService audit;
+    private final UserRepository users;
     private final TransactionTemplate transactions;
     private final Clock clock;
 
@@ -124,28 +128,71 @@ public class CallSuggestionService {
             throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTIONS_RUNNING);
         }
         try {
-            CallHeldFields held = updates.heldOf(workspaceId, projectId, recipient.candidateId());
-            List<CallSuggestion> found = readTranscript(recording, held);
-            Instant at = clock.instant();
-            transactions.executeWithoutResult(status -> {
-                MeetingRecording fresh = requireSuggestible(
-                        lockRecording(workspaceId, projectId, recipient, recordingId));
-                fresh.suggested(found, at);
-                audit.projectEvent(ProjectEventType.NOTETAKER_SUGGESTIONS_ASKED, userId, workspaceId, projectId,
-                                httpRequest)
-                        .detail("candidateId", recipient.candidateId().toString())
-                        .detail("recordingId", recordingId.toString())
-                        .detail("found", String.valueOf(found.size()))
-                        .record();
-            });
-            if (!found.isEmpty()) {
-                usage.record(new MeteredUse(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1,
-                        "notetaker-suggest:" + recordingId + ":" + at.toEpochMilli()));
-            }
+            suggest(userId, recipient, recording, false, transactions, httpRequest);
         } finally {
             transactions.executeWithoutResult(status -> recordings.releaseSuggesting(recordingId));
         }
         return read(workspaceId, projectId, candidateId, recordingId);
+    }
+
+    /**
+     * Suggest changes with no press, once a call's notes are filed, under the claim the filing took: the transcript is
+     * read in the name of whoever sent the bot and on their meters. A meter that refuses, a model with nothing usable
+     * or a person no longer on the position leaves the call to a press, which says why. Every write is a transaction
+     * of its own: the notes' worker calls this from an after-commit listener, whose finished transaction a joined write
+     * would silently vanish with.
+     */
+    public void suggestOnceFiled(UUID recordingId) {
+        TransactionTemplate own = new TransactionTemplate(Objects.requireNonNull(transactions.getTransactionManager()));
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        try {
+            MeetingRecording recording = own.execute(status -> recordings.findById(recordingId).orElse(null));
+            if (recording == null || !recording.isSuggestible() || recording.getSuggestions() != null) {
+                return;
+            }
+            OutreachRecipient recipient = people.currentRecipient(recording.getWorkspaceId(),
+                            recording.getProjectId(), recording.getCandidateId())
+                    .filter(found -> found.personId().equals(recording.getPersonId()))
+                    .orElse(null);
+            if (recipient == null) {
+                return;
+            }
+            UUID userId = recording.getRequestedBy();
+            llmBudget.require(LlmBudget.CANDIDATE_AI_ENRICH, userId);
+            fairUse.check(recording.getWorkspaceId(), userId, UsageKind.AI_ENRICH, 1);
+            suggest(userId, recipient, recording, true, own, null);
+        } catch (ApiException refused) {
+            log.info("Suggest changes on recording {} is left to a press: {}", recordingId, refused.getCode());
+        } catch (RuntimeException failed) {
+            log.warn("Suggest changes on recording {} is left to a press", recordingId, failed);
+        } finally {
+            own.executeWithoutResult(status -> recordings.releaseSuggesting(recordingId));
+        }
+    }
+
+    private void suggest(UUID userId, OutreachRecipient recipient, MeetingRecording recording, boolean automatic,
+                         TransactionTemplate writes, HttpServletRequest httpRequest) {
+        UUID workspaceId = recording.getWorkspaceId();
+        UUID projectId = recording.getProjectId();
+        CallHeldFields held = updates.heldOf(workspaceId, projectId, recipient.candidateId());
+        List<CallSuggestion> found = readTranscript(recording, held);
+        Instant at = clock.instant();
+        writes.executeWithoutResult(status -> {
+            MeetingRecording fresh = requireSuggestible(
+                    lockRecording(workspaceId, projectId, recipient, recording.getId()));
+            fresh.suggested(found, at);
+            audit.projectEvent(ProjectEventType.NOTETAKER_SUGGESTIONS_ASKED, userId, workspaceId, projectId,
+                            httpRequest)
+                    .detail("candidateId", recipient.candidateId().toString())
+                    .detail("recordingId", recording.getId().toString())
+                    .detail("found", String.valueOf(found.size()))
+                    .detail("automatic", String.valueOf(automatic))
+                    .record();
+        });
+        if (!found.isEmpty()) {
+            usage.record(new MeteredUse(workspaceId, userId, projectId, UsageKind.AI_ENRICH, 1,
+                    "notetaker-suggest:" + recording.getId() + ":" + at.toEpochMilli()));
+        }
     }
 
     /**
@@ -180,7 +227,8 @@ public class CallSuggestionService {
                             recording, suggestion, httpRequest).record();
                 } else {
                     recording.replaceSuggestion(suggestion.appliedAs(change.value(),
-                            new AppliedChange(userId, now, change.edited(), change.fields())));
+                            new AppliedChange(userId, now, change.edited(), change.fields(),
+                                    wasOf(suggestion.kind(), held))));
                     audited(ProjectEventType.NOTETAKER_SUGGESTION_APPLIED, userId, workspaceId, projectId,
                             recipient, recording, suggestion, httpRequest)
                             .detail("fields", keysOf(change.fields()))
@@ -334,13 +382,29 @@ public class CallSuggestionService {
 
     private CallSuggestionsResponse responseOf(MeetingRecording recording, CallHeldFields held) {
         List<CallSuggestion> found = recording.getSuggestions() == null ? List.of() : recording.getSuggestions();
+        Map<UUID, String> appliers = users.findAllById(found.stream().map(CallSuggestion::applied)
+                        .filter(Objects::nonNull).map(AppliedChange::by).distinct().toList()).stream()
+                .filter(user -> user.getFullName() != null)
+                .collect(Collectors.toMap(User::getId, User::getFullName));
         return new CallSuggestionsResponse(recording.getId(), recording.getTitle(), recording.getStartsAt(),
                 recording.getSuggestions() != null,
                 recording.isSuggestible() && !recording.hasPendingSuggestions(),
-                found.stream().map(suggestion -> new CallSuggestionResponse(suggestion.id(), suggestion.kind(),
-                        suggestion.status(), suggestion.value(), currentOf(suggestion.kind(), held), suggestion.said(),
-                        suggestion.at(), isAvailable(suggestion, held),
-                        suggestion.applied() != null && suggestion.applied().edited())).toList());
+                found.stream().map(suggestion -> {
+                    AppliedChange applied = suggestion.applied();
+                    return new CallSuggestionResponse(suggestion.id(), suggestion.kind(), suggestion.status(),
+                            suggestion.value(), currentOf(suggestion.kind(), held), suggestion.said(), suggestion.at(),
+                            isAvailable(suggestion, held), applied != null && applied.edited(),
+                            applied == null ? null : applied.was(), applied == null ? null : applied.at(),
+                            applied == null ? null : appliers.get(applied.by()));
+                }).toList());
+    }
+
+    /** What a change replaced, kept for the record of the call; null where it adds rather than replaces. */
+    private static SuggestedValue wasOf(CallSuggestionKind kind, CallHeldFields held) {
+        return switch (kind) {
+            case NOTICE_PERIOD, CURRENT_PACKAGE, LOCATION, OPEN_TO_RELOCATE -> currentOf(kind, held);
+            case MOTIVATION, EXPECTED_PACKAGE, TASK -> null;
+        };
     }
 
     private static SuggestedValue currentOf(CallSuggestionKind kind, CallHeldFields held) {

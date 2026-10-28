@@ -20,12 +20,9 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.CoverageState;
 import app.lightmove.api.notetaker.constant.LiveCopilotStatus;
-import app.lightmove.api.notetaker.constant.NotetakerStatus;
-import app.lightmove.api.notetaker.constant.NudgeStatus;
 import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.dto.CopilotCoverageResponse;
 import app.lightmove.api.notetaker.dto.CopilotGapResponse;
-import app.lightmove.api.notetaker.dto.CopilotNudgeResponse;
 import app.lightmove.api.notetaker.dto.CopilotQuestionResponse;
 import app.lightmove.api.notetaker.dto.CopilotResponse;
 import app.lightmove.api.notetaker.dto.CopilotViewerResponse;
@@ -64,7 +61,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * The live copilot of a Notetaker recording, as the drawer and the copilot window drive it: switched on or off before
  * the bot joins (Recall streams a transcript only to a bot made for it), read by any window on the position, steered by
- * hand (a nudge used or dismissed, a prepared question ticked), and stopped for everyone by whoever switched it on, a
+ * hand (a prepared question ticked), and stopped for everyone by whoever switched it on, a
  * lead or an admin. Everything here is staff-only and read only from the position that sent the bot.
  */
 @Service
@@ -103,7 +100,7 @@ public class InterviewCopilotService {
             throw ApiException.of(ErrorCode.NOTETAKER_COPILOT_SWITCH_NOT_YOURS);
         }
         if (recording.isLiveCopilot() == enabled) {
-            return NotetakerService.responseOf(recording, userId);
+            return NotetakerService.responseOf(recording, userId, clock.instant());
         }
         requireSwitchable(recording);
         if (enabled) {
@@ -123,13 +120,16 @@ public class InterviewCopilotService {
         return transactions.execute(status -> {
             MeetingRecording held = recordings.lockForDecision(recordingId, workspaceId, projectId,
                     recipient.personId()).orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
+            if (!held.isScheduledAhead() || !held.getRecallBotId().equals(recording.getRecallBotId())) {
+                throw ApiException.of(ErrorCode.NOTETAKER_COPILOT_LOCKED);
+            }
             held.liveCopilot(enabled, userId, liveToken == null ? null : Tokens.hash(liveToken));
             audit.projectEvent(enabled ? ProjectEventType.NOTETAKER_COPILOT_ENABLED
                             : ProjectEventType.NOTETAKER_COPILOT_DISABLED, userId, workspaceId, projectId, httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
                     .record();
-            return NotetakerService.responseOf(held, userId);
+            return NotetakerService.responseOf(held, userId, clock.instant());
         });
     }
 
@@ -141,6 +141,9 @@ public class InterviewCopilotService {
         List<BriefCompetency> competencies = positions.competenciesOf(workspaceId, projectId).competencies();
         LiveCoaching reading = recording.getLive() == null ? LiveCoaching.empty() : recording.getLive();
         Set<String> team = teamVoices.namesOf(workspaceId, teamOf(recording));
+        String reader = nameOf(userId);
+        Set<String> executiveVoices = TeamVoices.executiveVoicesOf(recipient.fullName(), lines.voicesOf(recordingId),
+                team);
         List<InterviewQuestion> plan = plans.planOfCall(workspaceId, projectId, recipient.personId(),
                         recording.getStartsAt(), recording.getTitle())
                 .map(InterviewPlan::includedQuestions)
@@ -149,19 +152,18 @@ public class InterviewCopilotService {
                 recordingId, Math.max(0, afterSeq));
         long lastSeq = finished.isEmpty() ? Math.max(0, afterSeq) : finished.getLast().getSeq();
         return new CopilotResponse(recording.getId(), recording.getTitle(), recipient.fullName(),
-                recording.getStartsAt(), recording.getStatus(), recording.getLiveStatus(), reading.coach(),
+                recording.getStartsAt(), recording.getRecordingStartedAt(), recording.getStatus(),
+                recording.getLiveStatus(), reading.coach(),
                 nameOf(recording.getLiveStoppedBy()), mayStop(userId, workspaceId, projectId, recording),
                 coverageOf(competencies, reading), gapsOf(missingNow(workspaceId, projectId, recipient), reading),
                 plan.stream()
                         .map(question -> new CopilotQuestionResponse(question.id(), question.section(),
                                 question.competency(), question.text(), reading.asked().contains(question.id())))
                         .toList(),
-                reading.nudges().stream()
-                        .filter(nudge -> nudge.status() == NudgeStatus.SHOWN)
-                        .map(nudge -> new CopilotNudgeResponse(nudge.id(), nudge.text(), nudge.reason()))
+                finished.stream().map(line -> lineOf(line, team, executiveVoices, reader)).toList(),
+                lines.findByRecordingIdAndPartialTrue(recordingId).stream()
+                        .map(line -> lineOf(line, team, executiveVoices, reader))
                         .toList(),
-                finished.stream().map(line -> lineOf(line, team)).toList(),
-                lines.findByRecordingIdAndPartialTrue(recordingId).stream().map(line -> lineOf(line, team)).toList(),
                 lastSeq, viewersOf(userId, recordingId));
     }
 
@@ -213,14 +215,6 @@ public class InterviewCopilotService {
             publisher.publish(recordingId);
         });
         return read(userId, workspaceId, projectId, candidateId, recordingId, 0);
-    }
-
-    public void decideNudge(UUID workspaceId, UUID projectId, UUID candidateId, UUID recordingId, String nudgeId,
-                            NudgeStatus decision) {
-        steer(workspaceId, projectId, candidateId, recordingId, reading -> reading.withNudges(reading.nudges().stream()
-                .map(nudge -> nudge.id().equals(nudgeId) && nudge.status() == NudgeStatus.SHOWN
-                        ? nudge.as(decision) : nudge)
-                .toList()));
     }
 
     public void markAsked(UUID workspaceId, UUID projectId, UUID candidateId, UUID recordingId, String questionId,
@@ -320,17 +314,22 @@ public class InterviewCopilotService {
         return team;
     }
 
-    private static LiveLineResponse lineOf(MeetingLiveLine line, Set<String> team) {
-        return new LiveLineResponse(line.getSeq(), line.getSaidAt(), line.getSpeaker(), line.getText(),
-                TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed()));
+    private static LiveLineResponse lineOf(MeetingLiveLine line, Set<String> team, Set<String> executiveVoices,
+                                           String readerName) {
+        boolean isTeam = TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed());
+        boolean isReader = isTeam && readerName != null
+                && TeamVoices.nameKey(readerName).equals(TeamVoices.nameKey(line.getSpeaker()));
+        return new LiveLineResponse(line.getSeq(), line.getSaidAt(), line.getSpeaker(), line.getText(), isTeam,
+                !isTeam && executiveVoices.contains(line.getSpeaker()), isReader);
     }
 
     private String nameOf(UUID userId) {
         return userId == null ? null : users.findById(userId).map(User::getFullName).orElse(null);
     }
 
+    /** A bot sent at once, or one Join now is replacing, is past changing: Recall patches only a bot still waiting. */
     private static void requireSwitchable(MeetingRecording recording) {
-        if (recording.getStatus() != NotetakerStatus.SCHEDULED || recording.getRecallBotId() == null) {
+        if (!recording.isScheduledAhead()) {
             throw ApiException.of(ErrorCode.NOTETAKER_COPILOT_LOCKED);
         }
     }

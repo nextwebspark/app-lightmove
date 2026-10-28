@@ -5,12 +5,13 @@ import {
   useQueryClient,
   type InfiniteData,
 } from "@tanstack/react-query";
-import { useId, useState, type UIEvent } from "react";
+import { useEffect, useId, useRef, useState, type UIEvent } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton, useToast } from "../../../components/ui";
 import { Avatar } from "../../../components/ui/Avatar";
 import { useRadioGroupKeys } from "../../../components/ui/useRadioGroupKeys";
+import { isBelowTableWidth } from "../../../lib/viewport";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as tasksApi from "../api/tasksApi";
@@ -76,15 +77,19 @@ function rememberCollapsed(collapsed: boolean) {
  * twenty at a time as the reader nears the end. Ticking one strikes it where it is and offers the next.
  * Staff-only — the page draws it for nobody else.
  */
-export function MyTasksCard() {
+export function MyTasksCard({ page = false }: {
+  /** Its own screen (`/tasks`): every row shown, nothing folded away. */
+  page?: boolean;
+} = {}) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const tasksChanged = useTasksChanged();
   const bodyId = useId();
   const [chosen, setChosen] = useState<MyTasksView | null>(null);
   const view = chosen ?? "today";
-  const [expanded, setExpanded] = useState(false);
-  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [expanded, setExpanded] = useState(page);
+  const [collapsed, setCollapsed] = useState(() => !page && readCollapsed());
+  const [asCards] = useState(isBelowTableWidth);
   const [nextFor, setNextFor] = useState<NextActionTarget | null>(null);
   const tab = TABS.find((candidate) => candidate.view === view) ?? TABS[0];
 
@@ -130,7 +135,7 @@ export function MyTasksCard() {
   };
   const pick = (next: MyTasksView) => {
     setChosen(next);
-    setExpanded(false);
+    setExpanded(page);
     if (collapsed) fold(false);
   };
   const keys = useRadioGroupKeys(
@@ -156,6 +161,23 @@ export function MyTasksCard() {
     if (nearEnd && mine.hasNextPage && !mine.isFetching) void mine.fetchNextPage();
   };
 
+  // On its own screen the page scrolls, not the card, so the end of the list is watched instead of the box's scroll.
+  // Load more below stays the way on where IntersectionObserver is missing.
+  const listEnd = useRef<HTMLDivElement>(null);
+  const { hasNextPage, isFetching, fetchNextPage } = mine;
+  useEffect(() => {
+    const end = listEnd.current;
+    if (!page || !end || !hasNextPage || isFetching || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void fetchNextPage();
+      },
+      { rootMargin: `${LOAD_AHEAD_PX}px` },
+    );
+    observer.observe(end);
+    return () => observer.disconnect();
+  }, [page, hasNextPage, isFetching, fetchNextPage]);
+
   return (
     <section aria-label="My tasks" className="mb-5 overflow-hidden rounded-u-card border border-u-border-strong bg-u-surface">
       <div
@@ -164,7 +186,7 @@ export function MyTasksCard() {
           !collapsed && "border-b border-u-border",
         )}
       >
-        <h2 className="text-body font-semibold text-u-text">My tasks</h2>
+        {!page && <h2 className="text-body font-semibold text-u-text">My tasks</h2>}
         <div
           ref={keys.ref}
           role="tablist"
@@ -195,20 +217,22 @@ export function MyTasksCard() {
             );
           })}
         </div>
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          aria-controls={bodyId}
-          aria-label={collapsed ? "Expand My tasks" : "Collapse My tasks"}
-          onClick={() => fold(!collapsed)}
-          className="ms-auto grid size-7 place-items-center rounded-u-control text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-        >
-          <Icon
-            d={ICONS.chevronDown}
-            size={15}
-            className={cn("transition-transform duration-200 motion-reduce:transition-none", collapsed && "-rotate-90")}
-          />
-        </button>
+        {!page && (
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-controls={bodyId}
+            aria-label={collapsed ? "Expand My tasks" : "Collapse My tasks"}
+            onClick={() => fold(!collapsed)}
+            className="ms-auto grid size-7 place-items-center rounded-u-control text-u-text3 transition hover:bg-u-raised hover:text-u-text"
+          >
+            <Icon
+              d={ICONS.chevronDown}
+              size={15}
+              className={cn("transition-transform duration-200 motion-reduce:transition-none", collapsed && "-rotate-90")}
+            />
+          </button>
+        )}
       </div>
 
       <div id={bodyId} hidden={collapsed}>
@@ -226,7 +250,7 @@ export function MyTasksCard() {
         ) : (
           <div
             onScroll={expanded ? loadAhead : undefined}
-            className={cn("overflow-x-auto", expanded && "max-h-[460px] overflow-y-auto")}
+            className={cn("overflow-x-auto", expanded && !page && "max-h-[460px] overflow-y-auto")}
           >
             <div role="list" aria-label={`${tab.label} tasks`}>
               {shown.map((task, index) => (
@@ -234,6 +258,7 @@ export function MyTasksCard() {
                   key={task.id}
                   task={task}
                   withAssignee={withAssignee}
+                  asCard={asCards}
                   divider={index < shown.length - 1 || loadingMore}
                   busy={toggle.isPending && toggle.variables?.task.id === task.id}
                   onToggle={() => toggle.mutate({ task, on: tab })}
@@ -251,6 +276,7 @@ export function MyTasksCard() {
                 />
               ))}
             </div>
+            {page && <div ref={listEnd} aria-hidden="true" />}
             {loadingMore && (
               <div className="flex items-center justify-center gap-2 px-4 py-2.5 text-note text-u-text3">
                 {mine.isFetchingNextPage ? (
@@ -272,7 +298,7 @@ export function MyTasksCard() {
           </div>
         )}
 
-        {!mine.isPlaceholderData && listed > VISIBLE && (
+        {!page && !mine.isPlaceholderData && listed > VISIBLE && (
           <button
             type="button"
             onClick={() => setExpanded((current) => !current)}
@@ -292,6 +318,7 @@ export function MyTasksCard() {
 function TaskRow({
   task,
   withAssignee,
+  asCard,
   divider,
   busy,
   onToggle,
@@ -299,6 +326,8 @@ function TaskRow({
 }: {
   task: TaskResponse;
   withAssignee: boolean;
+  /** A phone's row: tick, title, who and where on two lines, and when — no columns to scroll sideways. */
+  asCard: boolean;
   divider: boolean;
   busy: boolean;
   onToggle: () => void;
@@ -314,6 +343,65 @@ function TaskRow({
     ? `${pipeline}?candidate=${task.candidateId}`
     : `/candidates?person=${encodeURIComponent(task.personId)}`;
 
+  const checkbox = (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={done}
+      aria-label={`${done ? "Reopen" : "Complete"} ${task.title}`}
+      disabled={busy}
+      onClick={onToggle}
+      className={cn(
+        "grid size-[18px] flex-none place-items-center rounded-sm border-[1.5px] transition hover:border-u-text2 disabled:opacity-60",
+        done ? "border-u-direct bg-u-direct text-white" : "border-u-border-strong",
+      )}
+    >
+      {done && <Icon d={ICONS.check} size={11} />}
+    </button>
+  );
+
+  if (asCard) {
+    return (
+      <div
+        role="listitem"
+        aria-label={task.title}
+        className={cn("flex items-start gap-3 px-4 py-3", divider && "border-b border-u-border")}
+      >
+        <span className="grid min-h-6 place-items-center">{checkbox}</span>
+        <div className={cn("min-w-0 flex-1", done && "opacity-60")}>
+          <Link
+            to={executiveHref}
+            className={cn("block text-body font-medium text-u-text", done && "line-through")}
+          >
+            {task.title}
+            {task.source === "rule" && <AutoPill />}
+          </Link>
+          <div className="mt-0.5 truncate text-meta text-u-text3">
+            {personName} · {task.projectTitle ?? "Position"}
+            {withAssignee && ` · ${firstNameOf(assigneeName)}`}
+          </div>
+          <div className="mt-1.5">
+            {done ? (
+              <span className="text-note font-medium text-u-direct">
+                Done
+                {onSetNext && (
+                  <>
+                    {" · "}
+                    <button type="button" onClick={onSetNext} className="font-medium text-u-accent">
+                      Set the next one?
+                    </button>
+                  </>
+                )}
+              </span>
+            ) : (
+              <DuePill dueAt={task.dueAt} />
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       role="listitem"
@@ -324,20 +412,7 @@ function TaskRow({
         divider && "border-b border-u-border",
       )}
     >
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={done}
-        aria-label={`${done ? "Reopen" : "Complete"} ${task.title}`}
-        disabled={busy}
-        onClick={onToggle}
-        className={cn(
-          "grid size-[18px] place-items-center rounded-sm border-[1.5px] transition hover:border-u-text2 disabled:opacity-60",
-          done ? "border-u-direct bg-u-direct text-white" : "border-u-border-strong",
-        )}
-      >
-        {done && <Icon d={ICONS.check} size={11} />}
-      </button>
+      {checkbox}
       <span
         title={kind.label}
         className={cn("grid size-[26px] place-items-center rounded-u-control bg-u-raised text-u-text2", done && "opacity-45")}

@@ -1,11 +1,15 @@
 import type { ColumnVisibilityState, OnChangeFn } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
+import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
+import { isBelowTableWidth } from "../../../lib/viewport";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
 import type { Candidate, CandidateStatus } from "../../candidates/api/types";
+import { StatusPicker } from "../../candidates/components/StatusPicker";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import type { TriageCompany, TriageCompanyStatus, TriageSortField } from "../api/types";
 import {
@@ -148,6 +152,7 @@ export function TriageCompanyTable({
   const allOnPageSelected =
     pageCompanyIds.length > 0 && pageCompanyIds.every((id) => selection?.selectedIds.has(id));
   const someOnPageSelected = pageCompanyIds.some((id) => selection?.selectedIds.has(id));
+  const [asCards] = useState(isBelowTableWidth);
 
   return (
     <DataGrid
@@ -180,6 +185,22 @@ export function TriageCompanyTable({
           );
         })
       }
+      renderCard={asCards ? (row) => (
+        <TriageLineCard
+          row={row}
+          canWrite={canWrite}
+          busy={!!row.company && busyIds.has(row.company.id)}
+          selection={
+            selection && row.company && firstLineByCompany.get(row.company.id) === triageRowId(row)
+              ? { checked: selection.selectedIds.has(row.company.id), onToggle: () => selection.onToggle(row.company!.id) }
+              : undefined
+          }
+          onOpenCompany={onOpenCompany}
+          onAddExecutive={onAddExecutive}
+          onEditCandidate={onEditCandidate}
+          onChangeCandidateStatus={onChangeCandidateStatus}
+        />
+      ) : undefined}
       layout={layout}
       onLayoutChange={onLayoutChange}
       loading={loading}
@@ -195,5 +216,101 @@ export function TriageCompanyTable({
         })
       }
     />
+  );
+}
+
+/**
+ * One grid line as a phone reads it: the company on top, the person at it underneath with their status in
+ * reach of the thumb — or, where nobody is mapped yet, the Add executive a researcher is there to press.
+ */
+function TriageLineCard({
+  row,
+  canWrite,
+  busy,
+  selection,
+  onOpenCompany,
+  onAddExecutive,
+  onEditCandidate,
+  onChangeCandidateStatus,
+}: {
+  row: TriageCompanyRow;
+  canWrite: boolean;
+  busy: boolean;
+  selection?: { checked: boolean; onToggle: () => void };
+  onOpenCompany: (company: TriageCompany) => void;
+  onAddExecutive: (company: TriageCompany) => void;
+  onEditCandidate: (candidate: Candidate) => void;
+  onChangeCandidateStatus: (candidate: Candidate, status: CandidateStatus) => void;
+}) {
+  const { company, candidate } = row;
+  const place = company ? [company.industry, company.companyCity ?? company.companyCountry].filter(Boolean).join(" · ") : null;
+
+  return (
+    <article className="rounded-u-card border border-u-border bg-u-surface">
+      <div className="flex items-center gap-3 px-3.5 pt-3">
+        {selection && (
+          <SelectionCheckbox
+            checked={selection.checked}
+            label={`Select ${company?.companyName ?? ""}`}
+            onChange={selection.onToggle}
+          />
+        )}
+        {company ? (
+          <button
+            type="button"
+            onClick={() => onOpenCompany(company)}
+            className="flex min-w-0 flex-1 items-center gap-2.5 text-start"
+          >
+            <CompanyLogo name={company.companyName} logo={company.logoUrl} size={28} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-body font-semibold text-u-text">{company.companyName}</span>
+              {place && <span className="block truncate text-meta text-u-text3">{place}</span>}
+            </span>
+            <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
+          </button>
+        ) : (
+          <span className="text-meta text-u-text3">{candidate.companyName ?? "Employer not in the universe"}</span>
+        )}
+      </div>
+
+      <div className="mt-2.5 border-t border-u-border px-3.5 py-2.5">
+        {candidate ? (
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => onEditCandidate(candidate)}
+              className="min-w-0 flex-1 text-start"
+            >
+              <span className="block truncate text-body font-medium text-u-text">{candidate.fullName}</span>
+              <span className="block truncate text-meta text-u-text3">{candidate.title ?? "—"}</span>
+            </button>
+            {canWrite ? (
+              <StatusPicker
+                value={candidate.status}
+                currentLabel={candidate.statusLabel}
+                aria-label={`Status of ${candidate.fullName}`}
+                onChange={(status) => onChangeCandidateStatus(candidate, status)}
+              />
+            ) : (
+              <span className="flex-none text-meta text-u-text2">{candidate.statusLabel ?? candidate.status}</span>
+            )}
+          </div>
+        ) : canWrite && company ? (
+          <button
+            type="button"
+            disabled={busy}
+            aria-label={`Add executive at ${company.companyName}`}
+            onClick={() => onAddExecutive(company)}
+            className="flex min-h-10 w-full items-center gap-2 text-start text-note font-medium text-u-accent disabled:opacity-60"
+          >
+            <Icon d={ICONS.userPlus} size={16} />
+            Add executive
+            {company.noExecutiveFound && <span className="ms-auto text-meta font-normal text-u-text3">Nobody suitable found</span>}
+          </button>
+        ) : (
+          <span className="text-meta text-u-text3">Nobody mapped yet</span>
+        )}
+      </div>
+    </article>
   );
 }

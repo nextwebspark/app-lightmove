@@ -147,8 +147,13 @@ public enum ProjectEventType implements AuditEventType {
     /** A Recall.ai Notetaker sent into a call or called back from it; a call's audio then reaches a third party. */
     NOTETAKER_SCHEDULED,
     NOTETAKER_CANCELLED,
+    /** A scheduled Notetaker brought in at once, or one asked to leave a call early so its notes are filed now. */
+    NOTETAKER_JOINED_NOW,
+    NOTETAKER_ENDED_EARLY,
     /** A Notetaker's transcript summarised by the model and filed as a Meeting note. */
     NOTETAKER_NOTE_FILED,
+    /** A call's recording downloaded by the consultant who sent the Notetaker. */
+    NOTETAKER_RECORDING_DOWNLOADED,
     /** Suggest changes asked the model to read a call's transcript against the person's record. */
     NOTETAKER_SUGGESTIONS_ASKED,
     /** A change the call suggested, applied or skipped by a researcher; the fields are named, never valued. */

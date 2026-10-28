@@ -74,29 +74,6 @@
       "items": {
         "type": "string"
       }
-    },
-    "nudges": {
-      "type": [
-        "array",
-        "null"
-      ],
-      "items": {
-        "type": "object",
-        "properties": {
-          "question": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "reason": {
-            "type": [
-              "string",
-              "null"
-            ]
-          }
-        }
-      }
     }
   }
 }

@@ -33,6 +33,7 @@ export function Modal({
   dismissible = true,
   initialFocusRef,
   onSubmit,
+  fills = false,
   className,
 }: {
   open: boolean;
@@ -56,6 +57,8 @@ export function Modal({
    * inside it, which a form wrapped round the children alone could not reach.
    */
   onSubmit?: () => void;
+  /** The body does not scroll: its one child fills it and scrolls what it chooses, such as a composer's words alone. */
+  fills?: boolean;
   className?: string;
 }) {
   // Through the shared stack rather than its own listener: a modal opened over a drawer or the
@@ -125,7 +128,10 @@ export function Modal({
           // The thumb is drawn rather than overlaid: an overlay scrollbar (macOS, headless Chromium) stays
           // hidden until the user scrolls, which is exactly when they needed telling there was more.
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto px-5 pt-3 [scrollbar-color:var(--color-u-border-strong)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin] md:px-[22px]",
+            "min-h-0 flex-1 px-5 pt-3 md:px-[22px]",
+            fills
+              ? "flex flex-col"
+              : "overflow-y-auto [scrollbar-color:var(--color-u-border-strong)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]",
             !footer && "pb-5 md:pb-[22px]",
           )}
         >

@@ -42,7 +42,7 @@ export function SelectionActionBar({
       <div
         role="region"
         aria-label={`${count} ${count === 1 ? noun : plural} selected`}
-        className="animate-fade-up fixed bottom-16 left-1/2 z-[89] flex max-w-[calc(100vw-24px)] -translate-x-1/2 flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-2 shadow-u-e3"
+        className="animate-fade-up fixed bottom-[calc(4rem+var(--mobile-nav-clearance))] left-1/2 z-[89] flex max-w-[calc(100vw-24px)] -translate-x-1/2 flex-wrap items-center gap-x-1.5 gap-y-2 rounded-[10px] border border-u-border-strong bg-u-surface px-2.5 py-2 shadow-u-e3"
       >
         <span aria-hidden className="whitespace-nowrap px-1.5 font-sans text-[13px] font-semibold text-u-text">
           <span className="text-u-accent">{count}</span> selected

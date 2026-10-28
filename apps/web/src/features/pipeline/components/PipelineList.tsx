@@ -1,4 +1,5 @@
 import { useState, type DragEvent, type KeyboardEvent } from "react";
+import { isBelowTableWidth } from "../../../lib/viewport";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
@@ -38,6 +39,7 @@ export function PipelineList({
   onOpenNextAction: (row: PipelineRow) => void;
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [asCards] = useState(isBelowTableWidth);
   const ids = rows.map((row) => row.candidateId);
   const allSelected = ids.length > 0 && ids.every((id) => selectedIds.has(id));
   const someSelected = ids.some((id) => selectedIds.has(id));
@@ -59,6 +61,24 @@ export function PipelineList({
     const moved = rankMoveOf(rows, row.candidateId, neighbour.candidateId);
     if (moved) onMove(moved, row.candidateId);
   };
+
+  if (asCards) {
+    return (
+      <ul aria-label="Pipeline" className="min-h-0 flex-1 overflow-auto">
+        {rows.map((row) => (
+          <PipelineCard
+            key={row.candidateId}
+            projectId={projectId}
+            row={row}
+            selected={selectedIds.has(row.candidateId)}
+            onToggleSelected={() => onToggleSelected(row.candidateId)}
+            onOpen={() => onOpen(row.candidateId)}
+            onOpenNextAction={onOpenNextAction}
+          />
+        ))}
+      </ul>
+    );
+  }
 
   return (
     <div className="min-h-0 flex-1 overflow-auto">
@@ -166,6 +186,55 @@ export function PipelineList({
         ))}
       </div>
     </div>
+  );
+}
+
+/** One executive as a phone reads them: who, where they stand and what is next — a tap opens the drawer. */
+function PipelineCard({
+  projectId,
+  row,
+  selected,
+  onToggleSelected,
+  onOpen,
+  onOpenNextAction,
+}: {
+  projectId: string;
+  row: PipelineRow;
+  selected: boolean;
+  onToggleSelected: () => void;
+  onOpen: () => void;
+  onOpenNextAction: (row: PipelineRow) => void;
+}) {
+  return (
+    <li className="flex items-start gap-3 border-b border-u-border px-4 py-3">
+      <span className="pt-2.5">
+        <SelectionCheckbox checked={selected} label={`Select ${row.fullName}`} onChange={onToggleSelected} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <button type="button" onClick={onOpen} className="flex w-full min-w-0 items-center gap-3 text-start">
+          <CandidateAvatar
+            projectId={projectId}
+            candidate={{ id: row.candidateId, fullName: row.fullName, enrichedAt: row.enrichedAt ?? null }}
+          />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-body font-semibold text-u-text">{row.fullName}</span>
+            <span className="mt-0.5 block truncate text-meta text-u-text3">
+              {[row.title, row.companyName].filter(Boolean).join(" · ") || "—"}
+            </span>
+          </span>
+          <Icon d={ICONS.chevronRight} size={16} className="flex-none text-u-text3" />
+        </button>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <StageBadge row={row} />
+          {row.statusLabel !== row.pipelineStage.label && (
+            <span className="truncate text-meta text-u-text3">{row.statusLabel}</span>
+          )}
+        </div>
+        <div className="mt-2 min-w-0">
+          <ListNextAction row={row} onOpen={onOpenNextAction} />
+        </div>
+      </div>
+    </li>
   );
 }
 

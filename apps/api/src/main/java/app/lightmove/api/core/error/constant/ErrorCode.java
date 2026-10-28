@@ -438,6 +438,20 @@ public enum ErrorCode {
     /** Recall.ai refused or could not be reached; never retried, since a second bot in a call is worse. */
     NOTETAKER_SEND_FAILED(HttpStatus.BAD_GATEWAY, "The Notetaker could not be sent. Try again"),
 
+    /** Recall's pool of bots that join at once was empty (its 507): no bot was made, so asking again is safe. */
+    NOTETAKER_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "No Notetaker is free this moment. Try again in half a minute"),
+
+    /** Start now is offered from the start of the call's day, in the consultant's own time zone. */
+
+    /** An earlier call on the same link is still under way: a bot sent now would record it on this person. */
+    NOTETAKER_LINK_IN_USE(HttpStatus.CONFLICT, "An earlier call on this link is still under way"),
+
+    /** End & file notes ends a recording; a bot still waiting to be let in is removed instead. */
+    NOTETAKER_NOT_RECORDING(HttpStatus.CONFLICT, "The Notetaker is not recording this call"),
+
+    /** Recall would not take the bot out of the call; it is still recording. */
+    NOTETAKER_END_FAILED(HttpStatus.BAD_GATEWAY, "The Notetaker could not be stopped. Try again"),
+
     /** A Recall bot webhook whose signature did not verify, or any delivery while no bot secret is configured. */
     NOTETAKER_WEBHOOK_REJECTED(HttpStatus.UNAUTHORIZED, "Unauthorized"),
 
@@ -474,6 +488,14 @@ public enum ErrorCode {
 
     NOTETAKER_COPILOT_SWITCH_NOT_YOURS(HttpStatus.FORBIDDEN,
             "Only the person who sent the Notetaker can change its copilot"),
+
+    /** The call's recording is its sender's alone: the video holds the executive's face and voice. */
+    NOTETAKER_RECORDING_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who sent the Notetaker can download its recording"),
+
+    /** Recall keeps a recording for a week; past that, or once the bot was discarded, there is nothing to download. */
+    NOTETAKER_RECORDING_GONE(HttpStatus.GONE, "This call's recording is no longer kept"),
+
+    NOTETAKER_RECORDING_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "The recording could not be fetched. Try again"),
 
     /** A sequence uses {{bookingLink}} where the mail service's plan offers no booking pages. */
     OUTREACH_BOOKING_LINK_UNAVAILABLE(HttpStatus.CONFLICT, "Booking links are not set up on this deployment"),

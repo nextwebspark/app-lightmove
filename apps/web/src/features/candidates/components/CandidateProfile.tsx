@@ -133,6 +133,7 @@ export function CandidateProfile({
   onRemove,
   focusNoteId = null,
   focusSection = null,
+  focusTab = null,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -150,6 +151,7 @@ export function CandidateProfile({
   focusNoteId?: string | null;
   /** A part of the Contact tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
   focusSection?: DrawerSection | null;
+  focusTab?: DrawerTab | null;
 }) {
   const sections = useProfileSections();
   /**
@@ -169,7 +171,9 @@ export function CandidateProfile({
       ? "notes"
       : canWrite && focusSection
         ? "contact"
-        : rememberedDrawerTab("position", offeredTabs),
+        : focusTab && offeredTabs.includes(focusTab)
+          ? focusTab
+          : rememberedDrawerTab("position", offeredTabs),
   );
   const [noteFocus, setNoteFocus] = useState<NoteFocus | null>(() =>
     canWrite && focusNoteId ? { noteId: focusNoteId, at: Date.now() } : null,
@@ -211,10 +215,9 @@ export function CandidateProfile({
   const [heldCopilotId, setHeldCopilotId] = useState<string | null>(null);
   const copilotId = tab === "copilot" ? (heldCopilotId ?? liveCopilotId) : liveCopilotId;
   const drawerTabs: readonly DrawerTab[] = canWrite && copilotId ? ["copilot", ...offeredTabs] : offeredTabs;
-  // Once opened, the copilot stays mounted on the other tabs, so the tab can count the suggestions waiting.
+  // Once opened, the copilot stays mounted on the other tabs, so its window keeps reading while another tab is open.
   const [copilotOpenedFor, setCopilotOpenedFor] = useState<string | null>(null);
   if (tab === "copilot" && copilotId && copilotOpenedFor !== copilotId) setCopilotOpenedFor(copilotId);
-  const [copilotNudges, setCopilotNudges] = useState(0);
   /** Leaving the Notes tab lets the note go, so coming back to it scrolls nowhere. */
   const chooseTab = (next: DrawerTab) => {
     setTab(next);
@@ -227,6 +230,11 @@ export function CandidateProfile({
   const showCopilot = (recordingId: string) => {
     chooseTab("copilot");
     setHeldCopilotId(recordingId);
+  };
+  /** The phone footer's Call: the Contact tab, scrolled to Meetings and its Book a call. */
+  const startCall = () => {
+    chooseTab("contact");
+    setSectionFocus({ section: "meetings", at: Date.now() });
   };
   /** The footer's Add note: the Notes tab, its composer ready to type in. */
   const startNote = () => {
@@ -410,7 +418,6 @@ export function CandidateProfile({
           tabs={drawerTabs}
           value={tab}
           onChange={chooseTab}
-          copilotNudges={copilotNudges}
           counts={{
             notes: notes.data?.length,
             documents: documents.documents.data?.length,
@@ -733,7 +740,6 @@ export function CandidateProfile({
               recordingId={copilotId}
               firstName={firstName}
               onShow={() => showCopilot(copilotId)}
-              onNudgeCount={setCopilotNudges}
             />
           </div>
         )}
@@ -823,19 +829,27 @@ export function CandidateProfile({
             </Button>
           </>
         ) : canWrite ? (
-          <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" onClick={startNote}>
-            <Icon d={ICONS.plus} size={14} />
-            Add note
-          </Button>
+          <>
+            <Button type="button" variant="secondary" className="ms-auto whitespace-nowrap" aria-label="Add note" onClick={startNote}>
+              <Icon d={ICONS.plus} size={14} />
+              <span className="sm:hidden">Note</span>
+              <span className="hidden sm:inline">Add note</span>
+            </Button>
+            <Button type="button" variant="secondary" className="whitespace-nowrap sm:hidden" onClick={startCall}>
+              <Icon d={ICONS.calendar} size={14} />
+              Call
+            </Button>
+          </>
         ) : (
           <Button type="button" variant="secondary" className="ms-auto" onClick={onClose}>
             Close
           </Button>
         )}
         {canWrite && tab !== "assessment" && (
-          <Button type="button" className="whitespace-nowrap" onClick={() => openNextAction(null)}>
+          <Button type="button" className="whitespace-nowrap" aria-label="Set next action" onClick={() => openNextAction(null)}>
             <Icon d={ICONS.plus} size={14} />
-            Set next action
+            <span className="sm:hidden">Next action</span>
+            <span className="hidden sm:inline">Set next action</span>
           </Button>
         )}
       </footer>

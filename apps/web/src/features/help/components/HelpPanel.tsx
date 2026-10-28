@@ -1,17 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Drawer, Input, useToast } from "../../../components/ui";
+import { Drawer, Input } from "../../../components/ui";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
-import { messageFor } from "../../../lib/errorCodes";
 import { formatDate } from "../../../lib/format";
 import { SUPPORT_EMAIL } from "../../../lib/links";
 import { APP_VERSION } from "../../../lib/version";
 import { useAuth } from "../../auth/AuthProvider";
-import { isPureClient } from "../../auth/roles";
 import { GuideMarkdown } from "../../docs/components/GuideMarkdown";
-import * as gettingStartedApi from "../../gettingstarted/api/gettingStartedApi";
 import { articlesForPage, HELP_ARTICLES, searchArticles, type HelpArticle } from "../lib/articles";
 import type { HelpSection } from "../lib/helpSection";
 import { markWhatsNewSeen, WHATS_NEW } from "../lib/whatsNew";
@@ -168,7 +164,6 @@ export default function HelpPanel({
                 ))}
               </dl>
             </Section>
-            <GettingStartedAgain />
           </>
         )}
       </div>
@@ -313,41 +308,5 @@ function SupportLink({ className, children }: { className?: string; children: Re
     <a href={href} className={className}>
       {children}
     </a>
-  );
-}
-
-/** Brings back the Getting started card someone put away — the way back its dismissal toast points to. */
-function GettingStartedAgain() {
-  const { user } = useAuth();
-  const toast = useToast();
-  const queryClient = useQueryClient();
-  const isStaff = !!user?.workspace && !isPureClient(user.workspace.roles);
-  const { data } = useQuery({
-    queryKey: gettingStartedApi.GETTING_STARTED_KEY,
-    queryFn: gettingStartedApi.gettingStarted,
-    enabled: isStaff,
-  });
-  const restore = useMutation({
-    mutationFn: () => gettingStartedApi.setDismissed(false),
-    onSuccess: (fresh) => {
-      queryClient.setQueryData(gettingStartedApi.GETTING_STARTED_KEY, fresh);
-      toast.success("Getting started is back on My positions.");
-    },
-    onError: (error) => toast.error(messageFor(error)),
-  });
-  if (!isStaff || !data?.dismissed) return null;
-
-  return (
-    <Section title="Getting started">
-      <button
-        type="button"
-        onClick={() => restore.mutate()}
-        disabled={restore.isPending}
-        className="inline-flex items-center gap-1.5 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
-      >
-        <Icon d={ICONS.checkCircle} size={14} />
-        Show getting started on My positions
-      </button>
-    </Section>
   );
 }

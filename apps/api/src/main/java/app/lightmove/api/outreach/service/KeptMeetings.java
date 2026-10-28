@@ -39,6 +39,12 @@ public class KeptMeetings {
                         workspaceId, userId, meeting.joinUrl(), meeting.startsAt(), now);
     }
 
+    /** Whether an earlier call on this link is still under way on the consultant's calendar: a room in use. */
+    @Transactional(readOnly = true)
+    public boolean linkBusyBefore(UUID workspaceId, UUID userId, String joinUrl, Instant startsAt, Instant now) {
+        return joinUrl != null && meetings.existsEarlierCallUnderWay(workspaceId, userId, joinUrl, startsAt, now);
+    }
+
     private static KeptMeeting keptOf(PersonMeeting row) {
         return new KeptMeeting(row.getId(), row.getPersonId(), row.getTitle(), row.getStartsAt(), row.getEndsAt(),
                 row.getJoinUrl(), row.getUserId(), row.getBookedByUserId());

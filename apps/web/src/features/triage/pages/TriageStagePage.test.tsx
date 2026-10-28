@@ -346,8 +346,8 @@ const BRIEF_PACKAGE = {
 } as Compensation;
 
 /** The page reads the project from ProjectLayout's outlet — a bare shell stands in for the layout. */
-const stageTree = (slug: string, proj: Project) => (
-  <MemoryRouter initialEntries={[`/projects/${proj.id}/companies/${slug}`]}>
+const stageTree = (slug: string, proj: Project, search = "") => (
+  <MemoryRouter initialEntries={[`/projects/${proj.id}/companies/${slug}${search}`]}>
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <AuthProvider>
         <ToastProvider>
@@ -415,6 +415,18 @@ describe("TriageStagePage", () => {
     streamListeners.length = 0;
     localStorage.clear();
     sessionStorage.clear();
+  });
+
+  it("opens the add form a phone's quick action asked for, once", async () => {
+    render(stageTree("universe", project, "?add=company"));
+
+    expect(await screen.findByRole("dialog", { name: /Add a company/i })).toBeInTheDocument();
+  });
+
+  it("opens a blank executive for a phone's Add executive", async () => {
+    render(stageTree("universe", project, "?add=executive"));
+
+    expect(await screen.findByRole("dialog", { name: /Add executive/i })).toBeInTheDocument();
   });
 
   describe("Find executives", () => {
