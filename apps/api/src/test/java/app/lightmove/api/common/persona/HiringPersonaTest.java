@@ -2,6 +2,7 @@ package app.lightmove.api.common.persona;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.common.persona.model.PersonaSeed;
 import java.util.List;
@@ -9,7 +10,7 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-/** The persona's sectors and country follow the picked firm; what the admin wrote stays. */
+/** The persona follows the picked firm and keeps what the admin wrote; a business unit reads against its firm. */
 class HiringPersonaTest {
 
     private final PersonaSeed oilCompany = company("apollo-oil", "oil & energy", "Saudi Arabia");
@@ -67,6 +68,63 @@ class HiringPersonaTest {
 
         assertThat(refiled.sectors()).hasSize(HiringPersona.MAX_LIST_ITEMS)
                 .startsWith("Banking", "Financial Services");
+    }
+
+    @Test
+    @DisplayName("a persona with nothing written in it is empty, and one with only notes is not")
+    void knowsWhenNothingIsRecorded() {
+        assertThat(HiringPersona.empty().hasNothingRecorded()).isTrue();
+        assertThat(new HiringPersona(" ", List.of(" "), null, List.of(), "").hasNothingRecorded()).isTrue();
+        HiringPersona notesOnly = new HiringPersona(null, List.of(), List.of(), List.of(), "Prefers GCC nationals");
+        assertThat(notesOnly.hasNothingRecorded()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a business unit takes each list it left empty from its firm, and never the firm's summary or notes")
+    void unitFallsBackListByList() {
+        HiringPersona firm = new HiringPersona("Gulf retail group", List.of("Retail"), List.of("Landmark Group"),
+                List.of("UAE", "KSA"), "Promotes from within");
+        HiringPersona unit = new HiringPersona(null, List.of("Hospitals"), List.of(), List.of(), null);
+
+        HiringPersona read = unit.fallingBackTo(firm);
+
+        assertThat(read.sectors()).containsExactly("Hospitals");
+        assertThat(read.competitors()).containsExactly("Landmark Group");
+        assertThat(read.geographies()).containsExactly("UAE", "KSA");
+        assertThat(read.summary()).isNull();
+        assertThat(read.notes()).isNull();
+        assertThat(unit.fallingBackTo(null)).isSameAs(unit);
+    }
+
+    @Test
+    @DisplayName("a business unit takes the firm's industry and place where it has none, never site or headcount")
+    void unitProfileFallsBackToTheFirm() {
+        HiringCompanyProfile firm = new HiringCompanyProfile("Kalem Group", "retail", "Dubai",
+                "United Arab Emirates", "https://kalem.example", 12_000,
+                new HiringPersona(null, List.of("Retail"), List.of(), List.of(), null));
+
+        HiringCompanyProfile bare = new HiringCompanyProfile("Kalem Healthcare", null, null, null, null, null,
+                HiringPersona.empty()).within(firm);
+        HiringCompanyProfile placed = new HiringCompanyProfile("Kalem KSA", null, null, "Saudi Arabia", null, null,
+                null).within(firm);
+
+        assertThat(bare).isEqualTo(new HiringCompanyProfile("Kalem Healthcare", "retail", "Dubai",
+                "United Arab Emirates", null, null, firm.persona()));
+        assertThat(placed.city()).isNull();
+        assertThat(placed.country()).isEqualTo("Saudi Arabia");
+    }
+
+    @Test
+    @DisplayName("a business unit naming its own sectors does not take the firm's industry")
+    void unitWithOwnSectorsKeepsItsOwnMarket() {
+        HiringCompanyProfile firm = new HiringCompanyProfile("Kalem Group", "retail", "Dubai",
+                "United Arab Emirates", null, null, HiringPersona.empty());
+
+        HiringCompanyProfile unit = new HiringCompanyProfile("Kalem Healthcare", null, null, null, null, null,
+                new HiringPersona(null, List.of("Hospitals"), List.of(), List.of(), null)).within(firm);
+
+        assertThat(unit.industry()).isNull();
+        assertThat(unit.persona().sectors()).containsExactly("Hospitals");
     }
 
     private static PersonaSeed company(String id, String industry, String country) {

@@ -1,8 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { ArchivedPill, Avatar, Button, Input, StagePill, useToast } from "../../../components/ui";
+import { DrawerSection } from "../../../components/ui/DetailList";
 import { isValidEmail } from "../../../lib/email";
 import { messageFor } from "../../../lib/errorCodes";
+import type { HiringPersona } from "../../workspace/api/types";
+import { PersonaFields } from "../../workspace/components/PersonaFields";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail, ClientMandate, ClientRepresentative } from "../api/types";
@@ -57,6 +60,49 @@ function MandateRow({ mandate, onOpen }: { mandate: ClientMandate; onOpen: (mand
       {mandate.archivedAt ? <ArchivedPill /> : <StagePill stage={mandate.stage} />}
       <span className="text-u-text3">›</span>
     </button>
+  );
+}
+
+/** The persona the assistant reads for this record's positions: an agency client's, or an in-house business unit's. */
+export function ClientPersonaSection({
+  client,
+  hint,
+  summaryPlaceholder,
+}: {
+  client: ClientDetail;
+  hint: string;
+  summaryPlaceholder: string;
+}) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
+  const [draft, setDraft] = useState<HiringPersona>(client.persona);
+
+  const save = useMutation({
+    mutationFn: () => clientsApi.updateClientPersona(client.id, draft),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(clientsApi.clientKey(client.id), updated);
+      setDraft(updated.persona);
+      toast(`${vocabulary.unit} persona saved`);
+    },
+    onError: (error) => toast.error(messageFor(error)),
+  });
+
+  return (
+    <DrawerSection title={`${vocabulary.unit} persona`}>
+      <p className="-mt-1 mb-3 font-mono text-meta text-u-text3">{hint}</p>
+      <PersonaFields
+        value={draft}
+        onChange={setDraft}
+        idPrefix={`client-${client.id}-persona`}
+        summaryPlaceholder={summaryPlaceholder}
+      />
+      <div className="flex justify-end">
+        <Button loading={save.isPending} onClick={() => save.mutate()}>
+          Save persona
+        </Button>
+      </div>
+    </DrawerSection>
   );
 }
 

@@ -14,7 +14,8 @@ import java.util.stream.Stream;
 
 /**
  * What a hiring company is, for the assistant to tailor research to: the in-house firm's own
- * ({@code app_lm_workspace.persona}) or an agency client's ({@code app_lm_client.persona}).
+ * ({@code app_lm_workspace.persona}), or an agency client's or an in-house business unit's
+ * ({@code app_lm_client.persona}).
  */
 public record HiringPersona(
         String summary,
@@ -37,6 +38,26 @@ public record HiringPersona(
 
     public static HiringPersona empty() {
         return new HiringPersona(null, List.of(), List.of(), List.of(), null);
+    }
+
+    // Never isEmpty(): Jackson reads that as an "empty" field, writes it into the jsonb, then refuses to read it back.
+    public boolean hasNothingRecorded() {
+        return summary == null && notes == null && sectors.isEmpty() && competitors.isEmpty() && geographies.isEmpty();
+    }
+
+    /**
+     * A business unit's persona with each list it left empty taken from its parent firm's. The summary and notes
+     * stay its own: the parent's describe the parent, which the assistant is told about apart.
+     */
+    public HiringPersona fallingBackTo(HiringPersona parent) {
+        if (parent == null) {
+            return this;
+        }
+        return new HiringPersona(summary,
+                sectors.isEmpty() ? parent.sectors() : sectors,
+                competitors.isEmpty() ? parent.competitors() : competitors,
+                geographies.isEmpty() ? parent.geographies() : geographies,
+                notes);
     }
 
     /** The starting point for a company picked from the universe: its industry, its sector and its country. */
