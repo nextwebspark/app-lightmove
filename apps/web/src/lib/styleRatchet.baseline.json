@@ -268,7 +268,7 @@
     "arbitraryRadius": 10
   },
   "features/outreach/components/MeetingsSection.tsx": {
-    "arbitraryText": 14,
+    "arbitraryText": 11,
     "arbitraryRadius": 4
   },
   "features/outreach/components/OutreachSection.tsx": {

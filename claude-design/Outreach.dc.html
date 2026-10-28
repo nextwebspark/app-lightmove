@@ -709,17 +709,24 @@
           </sc-if>
           <sc-if value="{{ mt.hasPast }}" hint-placeholder-val="{{ true }}">
             <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
+            <!-- A past call is the upcoming row, quieter: the same tile (month in --text3), title in --text2, when and
+                 whose calendar, no Join link. The latest three show; "Show N earlier calls" opens the rest, and a call
+                 whose ⋯ wears a dot is never folded away. -->
             <sc-for list="{{ mt.past }}" as="m" hint-placeholder-count="2">
-              <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)">
-                <span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span>
-                <span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
+              <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0">
+                <span style="width:42px;flex:none;border-radius:7px;border:1px solid var(--line);text-align:center;padding:3px 0"><span style="display:block;font:600 9.5px var(--mono);text-transform:uppercase;color:var(--text3)">{{ m.month }}</span><span style="display:block;font:600 16px/1.2 var(--mono);color:var(--text2)">{{ m.day }}</span></span>
+                <span style="min-width:0;flex:1">
+                  <span style="display:block;font:500 13px var(--sans);color:var(--text2)">{{ m.title }}</span>
+                  <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
                 </span>
-                <!-- A recorded call keeps nothing under it either: its ⋯ opens on "Notes filed · 3 changes to review" over
-                     Review 3 changes, Transcript (or Try again where only the write-up failed), with an accent dot while
-                     changes wait. -->
-                <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><a href="#" data-screen-label="Notetaker" title="Call options" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);color:var(--text3)" style-hover="color:var(--text)">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--panel)"></span></a></sc-if>
+                <!-- A recorded call keeps nothing under it either: its ⋯ — frameless on a past call until hovered or
+                     open, so a list where only some calls have one stays even — opens on "Notes filed · 3 changes to
+                     review" over Review 3 changes, Transcript (or Try again where only the write-up failed), with an
+                     accent dot while changes wait. -->
+                <sc-if value="{{ m.notesFiled }}" hint-placeholder-val="{{ false }}"><a href="#" data-screen-label="Notetaker" title="Call options" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="border-color:var(--line);color:var(--text)">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--panel)"></span></a></sc-if>
               </div>
             </sc-for>
+            <sc-if value="{{ mt.hasEarlier }}" hint-placeholder-val="{{ false }}"><a href="#" style="display:inline-block;margin-top:2px;font:400 11px var(--mono);color:var(--text3)" style-hover="color:var(--text)">{{ mt.earlier }}</a></sc-if>
           </sc-if>
           <p style="margin:8px 0 0;font:400 11px/1.5 var(--mono);color:var(--text3)">From your team's connected calendars. Only meetings with {{ dr.first }}'s addresses are kept, never the rest of anyone's calendar.</p>
         </section>
@@ -766,13 +773,14 @@ const BOOKING_URL = "uncava.com/book/yara-haddad";
 const MEETINGS = {
   e01: {
     upcoming: [["OCT", "7", "Tue 7 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Google Meet", false, "Notetaker scheduled"]],
-    past: [["22 Sep", "Coffee at DIFC", "Sara Al-Mansour", true], ["14 Apr", "Head of Credit Risk: intro call", "Yara Haddad"]]
+    past: [["SEP", "22", "Mon 22 Sep · 09:00–09:45", "Coffee at DIFC", "Sara Al-Mansour", true], ["SEP", "15", "Mon 15 Sep · 11:00–11:30", "Follow-up: package", "Yara Haddad"],
+      ["AUG", "28", "Thu 28 Aug · 16:00–16:30", "Reference check prep", "Yara Haddad"], ["APR", "14", "Mon 14 Apr · 10:00–10:30", "Head of Credit Risk: intro call", "Yara Haddad"]]
   },
   e09: {
     upcoming: [["OCT", "2", "Thu 2 Oct · 14:00–14:30", "30-minute call with Yara Haddad", "Sara Al-Mansour", "Microsoft Teams", true]],
-    past: [["5 Sep", "Treasury remit, first call", "Sara Al-Mansour"]]
+    past: [["SEP", "5", "Fri 5 Sep · 13:00–13:30", "Treasury remit, first call", "Sara Al-Mansour"]]
   },
-  e05: { upcoming: [], past: [["16 Sep", "CFO role: compensation discussion", "Omar Khalil"]] },
+  e05: { upcoming: [], past: [["SEP", "16", "Tue 16 Sep · 15:00–15:45", "CFO role: compensation discussion", "Omar Khalil"]] },
   e06: { upcoming: [], past: [] }
 };
 
@@ -1017,9 +1025,12 @@ class Component extends DCLogic {
     // again where only the write-up failed), with a dot while it records or waits. Never offered for do not contact.
     const upcoming = found.upcoming.map(([month, day, when, title, who, join, viaLink, notetaker]) => ({ month, day, when, title, who, join, viaLink,
       notetaker: notetaker || "", hasNotetaker: !!notetaker }));
-    const past = found.past.map(([date, title, who, notesFiled]) => ({ date, title, who, notesFiled: !!notesFiled }));
-    const total = upcoming.length + past.length;
+    const allPast = found.past.map(([month, day, when, title, who, notesFiled]) => ({ month, day, when, title, who, notesFiled: !!notesFiled }));
+    const past = allPast.slice(0, 3);
+    const earlierCount = allPast.length - past.length;
+    const total = upcoming.length + allPast.length;
     return { upcoming, past, hasUpcoming: upcoming.length > 0, hasPast: past.length > 0, isEmpty: total === 0,
+      hasEarlier: earlierCount > 0, earlier: `Show ${earlierCount} earlier ${earlierCount === 1 ? "call" : "calls"}`,
       count: total === 0 ? "" : String(total), canBook: dr.show && !dr.dnc };
   }
 
