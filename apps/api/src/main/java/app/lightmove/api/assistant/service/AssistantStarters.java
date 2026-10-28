@@ -21,9 +21,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * The questions an empty chat offers, drawn from the hiring company — the firm in-house, the mandate's
- * client at an agency: its sectors, their neighbours, and companies of its size. The persona's sectors win
- * over the company's universe industry, often only a neighbour.
+ * The questions an empty chat offers, drawn from the hiring company — in-house the business unit, falling back
+ * to the firm; the mandate's client at an agency: its sectors, their neighbours, and companies of its size. The
+ * persona's sectors win over the company's universe industry, often only a neighbour.
  */
 @Service
 @RequiredArgsConstructor

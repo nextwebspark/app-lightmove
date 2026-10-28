@@ -135,7 +135,39 @@ class AssistantStartersTest {
         assertThat(offered).noneMatch(starter -> starter.prompt().contains("Staffing"));
     }
 
+    @Test
+    @DisplayName("in-house, a business unit with its own sectors is searched as itself, not as the firm")
+    void businessUnitStartersFollowTheUnit() {
+        firmIs(new HiringCompanyProfile("Kalem Group", "retail", "Dubai", "United Arab Emirates", null, 12_000,
+                new HiringPersona(null, List.of("Retail"), List.of(), List.of(), null)));
+        businessUnitIs(new HiringCompanyProfile("Kalem Healthcare", null, null, null, null, null,
+                new HiringPersona("Hospitals across the UAE", List.of("Hospitals"), List.of(), List.of(), null)));
+
+        List<AssistantStarter> offered = starters.forProject(WORKSPACE, PROJECT).starters();
+
+        assertThat(offered.getFirst().prompt()).isEqualTo("Top 10 Hospitals companies in United Arab Emirates");
+        assertThat(offered).noneMatch(starter -> starter.prompt().contains("Retail"))
+                .noneMatch(starter -> starter.kind() == StarterKind.SIZE);
+    }
+
+    @Test
+    @DisplayName("in-house, a business unit that recorded no sectors takes the firm's")
+    void businessUnitFallsBackToTheFirmsSectors() {
+        firmIs(new HiringCompanyProfile("Kalem Group", null, null, null, null, null,
+                new HiringPersona(null, List.of("Real Estate"), List.of(), List.of("GCC"), null)));
+        businessUnitIs(new HiringCompanyProfile("Kalem Malls", null, null, null, null, null,
+                new HiringPersona("Shopping centres", List.of(), List.of(), List.of(), null)));
+
+        assertThat(starters.forProject(WORKSPACE, PROJECT).starters()).extracting(AssistantStarter::prompt)
+                .containsExactly("Top 10 Real Estate companies in GCC");
+    }
+
     private void firmIs(HiringCompanyProfile firm) {
         when(firms.firmOf(WORKSPACE)).thenReturn(new Firm(WorkspaceMode.COMPANY, firm));
+        businessUnitIs(new HiringCompanyProfile("Engineering", null, null, null, null, null, HiringPersona.empty()));
+    }
+
+    private void businessUnitIs(HiringCompanyProfile unit) {
+        when(clients.hiringProfileOfProject(WORKSPACE, PROJECT)).thenReturn(unit);
     }
 }

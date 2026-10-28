@@ -20,6 +20,8 @@ export interface WorkspaceVocabulary {
   sectorStarterTag: string;
   /** Where to record that profile when the starters had to assume a sector. */
   hiringProfileHint: string;
+  /** Settings' line under the workspace's own persona: what the assistant does with it. */
+  firmPersonaHint: string;
   /** Who shares a position with a client contact; null at an agency, which is named instead. */
   positionSharer: string | null;
 }
@@ -38,7 +40,9 @@ const COMPANY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
     "A business unit groups the hiring managers and open positions for one part of the org — Engineering, Sales, and so on.",
   hiringCompanyPossessive: "your firm's",
   sectorStarterTag: "Your sector",
-  hiringProfileHint: "add your company in Settings → General",
+  hiringProfileHint: "add sectors to this business unit's persona under Business units, or your company in Settings → General",
+  firmPersonaHint:
+    "What your firm does — Uncava's assistant reads it as the parent company, and for whatever a business unit's persona leaves empty.",
   positionSharer: "your talent team",
 });
 
@@ -56,6 +60,7 @@ const AGENCY_VOCABULARY: WorkspaceVocabulary = Object.freeze({
   hiringCompanyPossessive: "your client's",
   sectorStarterTag: "Client's sector",
   hiringProfileHint: "add sectors to this client's persona under Clients",
+  firmPersonaHint: "What your firm does — Uncava's assistant uses it to tailor research to you.",
   positionSharer: null,
 });
 

@@ -100,7 +100,7 @@ public class ClientsController {
         return clients.restore(principal.userId(), principal.requireWorkspaceId(), clientId, httpRequest);
     }
 
-    /** An agency client's persona, the hiring context the assistant reads for this client's mandates. */
+    /** A client's or business unit's persona, the hiring context the assistant reads for its mandates. */
     @PutMapping("/{clientId}/persona")
     @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
     public ClientDetailResponse updatePersona(@AuthenticationPrincipal AuthPrincipal principal,

@@ -1352,8 +1352,13 @@ V85 gives `app_lm_client` the same `persona` jsonb, for an **agency**: seeded fr
 industry and country, edited in the agency client drawer through `PUT /clients/{id}/persona`
 (`CLIENT_RECORD_MANAGE`, audited as a `persona` section) and never on `ProjectResponse`, which a client
 seat reads. At an agency the assistant's prompt and starters read the **mandate's client** as the hiring
-company (`HiringSideResolver` → `HiringContext`, the agency named in one line); in-house they read the
-firm, as before. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and
+company (`HiringSideResolver` → `HiringContext`, the agency named in one line). In-house the same column is
+a **business unit's persona** (#1048), edited in the unit's drawer through the same PUT: once the mandate's unit
+has recorded anything, the prompt and starters read the unit as the hiring company, each list it left empty
+(sectors, competitors, geographies), its place, and its industry while it names no sectors taken from the firm's
+(`HiringPersona.fallingBackTo`, `HiringCompanyProfile.within`), with the firm after it as the parent group —
+name, place, size, summary and notes, never its sectors or competitors; a unit with nothing recorded reads as
+the firm alone, as before. No migration: V85's column was already on every client row. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and
 `CompanyFactsSections` from the universe (`GET /companies/{apolloAccountId}`, the id on the client
 detail), or editable basics for a client typed in by hand — never the business-unit record.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by
