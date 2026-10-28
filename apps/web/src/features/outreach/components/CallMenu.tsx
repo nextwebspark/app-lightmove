@@ -2,10 +2,10 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
-import { formatInstantDateTime } from "../../../lib/format";
+import { countOf, formatInstantDateTime } from "../../../lib/format";
 import type { NotetakerRecording } from "../api/notetakerApi";
 import { elapsedSince } from "../lib/copilotWords";
-import { callMarkOf, countOf, failureWordsOf } from "../lib/notetakerChip";
+import { callMarkOf, failureWordsOf } from "../lib/notetakerChip";
 import { useNotetakerActions } from "../lib/useNotetakerActions";
 
 /**

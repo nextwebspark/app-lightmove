@@ -5,6 +5,7 @@ import { useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { countOf } from "../../../lib/format";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
@@ -23,6 +24,8 @@ import { CallMenu } from "./CallMenu";
 import { InterviewPlanDialog } from "./copilot/InterviewPlanDialog";
 import { TranscriptSheet } from "./TranscriptSheet";
 import { ZoomConnectControl } from "./ZoomConnectControl";
+
+const PAST_SHOWN = 3;
 
 /**
  * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
@@ -79,9 +82,11 @@ export function MeetingsSection({
   const upcoming = booked.filter((meeting) => !hasCallEnded(recordingOf(meeting)));
   const past = [...booked.filter((meeting) => hasCallEnded(recordingOf(meeting))), ...(meetings.data?.past ?? [])];
   const count = upcoming.length + past.length;
-  const latestPast = past.filter((meeting, index) => index < PAST_SHOWN || callMarkOf(recordingOf(meeting)) !== null);
-  const earlierCount = past.length - latestPast.length;
-  const shownPast = showsAllPast ? past : latestPast;
+  const collapsedPast = past.filter(
+    (meeting, index) => index < PAST_SHOWN || callMarkOf(recordingOf(meeting)) !== null,
+  );
+  const foldedPastCount = past.length - collapsedPast.length;
+  const shownPast = showsAllPast ? past : collapsedPast;
   const hasActiveMailbox = mailbox.data?.offered === true && mailbox.data.connection?.status === "ACTIVE";
   const canBook = hasActiveMailbox && record.isSuccess && !record.data.doNotContact && emails.length > 0;
   const canReschedule = hasActiveMailbox && record.isSuccess && !record.data.doNotContact;
@@ -94,10 +99,17 @@ export function MeetingsSection({
   const panelMeeting = [...upcoming, ...past].find((meeting) => meeting.id === panelOf) ?? null;
   const menuOf = (
     meeting: Meeting,
-    options?: { label: string; icon: string; onSelect: () => void },
-    onReschedule?: () => void,
-    onCancel?: () => void,
-    quiet?: boolean,
+    {
+      options,
+      onReschedule,
+      onCancel,
+      quiet,
+    }: {
+      options?: { label: string; icon: string; onSelect: () => void };
+      onReschedule?: () => void;
+      onCancel?: () => void;
+      quiet?: boolean;
+    } = {},
   ) => (
     <CallMenu
       projectId={projectId}
@@ -176,14 +188,13 @@ export function MeetingsSection({
                 key={meeting.id}
                 meeting={meeting}
                 tense="upcoming"
-                menu={menuOf(
-                  meeting,
-                  opensPanel
+                menu={menuOf(meeting, {
+                  options: opensPanel
                     ? { label: "Notetaker & questions…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
                     : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
-                  meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
-                  meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
-                )}
+                  onReschedule: meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
+                  onCancel: meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
+                })}
               />
             );
           })}
@@ -202,26 +213,23 @@ export function MeetingsSection({
               tense="past"
               menu={
                 notetaker.isSuccess &&
-                menuOf(
-                  meeting,
-                  offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
-                    ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
-                    : undefined,
-                  undefined,
-                  undefined,
-                  true,
-                )
+                menuOf(meeting, {
+                  options:
+                    offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
+                      ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
+                      : undefined,
+                  quiet: true,
+                })
               }
             />
           ))}
-          {earlierCount > 0 && (
+          {foldedPastCount > 0 && (
             <button
               type="button"
-              aria-expanded={showsAllPast}
               onClick={() => setShowsAllPast((shows) => !shows)}
               className="mt-0.5 rounded-u-control font-mono text-meta text-u-text3 hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent"
             >
-              {showsAllPast ? "Show fewer" : `Show ${earlierCount} earlier ${earlierCount === 1 ? "call" : "calls"}`}
+              {showsAllPast ? "Show fewer" : `Show ${countOf(foldedPastCount, "earlier call")}`}
             </button>
           )}
         </>
@@ -325,8 +333,6 @@ export function MeetingsSection({
     </section>
   );
 }
-
-const PAST_SHOWN = 3;
 
 /** A call as a calendar row: its date tile, title, when and whose calendar, then its link and ⋯. Past is quieter. */
 function MeetingRow({ meeting, tense, menu }: { meeting: Meeting; tense: "upcoming" | "past"; menu: ReactNode }) {

@@ -1,3 +1,4 @@
+import { countOf } from "../../../lib/format";
 import type { Meeting } from "../api/meetingApi";
 import type { NotetakerRecording } from "../api/notetakerApi";
 
@@ -104,8 +105,4 @@ export function callMarkOf(recording: NotetakerRecording | null): { tone: "recor
   }
   if (recording?.status === "FAILED" && recording.retryable) return { tone: "waiting", words: "no notes" };
   return null;
-}
-
-export function countOf(count: number, noun: string): string {
-  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
 }

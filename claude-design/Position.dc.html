@@ -1839,6 +1839,7 @@
                         </sc-if>
                       </div>
                     </sc-for>
+                    <sc-if value="{{ cd.mtHasEarlier }}"><button style="margin-top:2px;padding:0;font:400 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">{{ cd.mtEarlier }}</button></sc-if>
                   </sc-if>
                   <sc-if value="{{ cd.zoomReconnect }}" hint-placeholder-val="{{ false }}">
                     <div style="margin-top:10px;display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber) 40%,transparent);background:var(--amber-dim);padding:7px 10px;font:400 12px var(--sans);color:var(--text2)"><span style="flex:1">Zoom needs reconnecting.</span><button onClick="{{ reconnectZoom }}" style="border-radius:6px;padding:3px 10px;font:600 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer">Reconnect Zoom</button></div>
@@ -3119,7 +3120,8 @@ const OUTREACH = {
   e07: ["CFO — first approach", "Yousef Iman", "active", 1, null]
 };
 const MEETINGS = {
-  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["Apr", "22", "Tue 22 Apr · 09:00–09:45", "Coffee at DIFC", "Yara Haddad", true]] },
+  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["Apr", "22", "Tue 22 Apr · 09:00–09:45", "Coffee at DIFC", "Yara Haddad", true], ["Apr", "10", "Thu 10 Apr · 11:00–11:30", "Follow-up: package", "Yara Haddad"],
+    ["Mar", "27", "Thu 27 Mar · 16:00–16:30", "Reference check prep", "Yara Haddad"], ["Feb", "12", "Wed 12 Feb · 10:00–10:30", "Head of Finance: intro call", "Yara Haddad"]] },
   e06: { upcoming: [], past: [] }
 };
 // [date, summary, technical score, behavioural score, technical +/-, behavioural +/-]
@@ -3728,7 +3730,8 @@ class Component extends DCLogic {
       orSeq: run ? run[0] : "", orSender: run ? run[1] : "", orSteps, orLive: runState === "active",
       orBooked: runState === "booked", orReplied: runState === "replied", orRepliedAt: run ? run[4] : "",
       replyChoices: this.statusOf(e) === "contacted" ? [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })) : [],
-      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.map(([month, day, when, title, who, recorded]) => ({ month, day, when, title, who, recorded: Boolean(recorded) })),
+      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.slice(0, 3).map(([month, day, when, title, who, recorded]) => ({ month, day, when, title, who, recorded: Boolean(recorded) })),
+      mtHasEarlier: meet.past.length > 3, mtEarlier: `Show ${meet.past.length - 3} earlier ${meet.past.length - 3 === 1 ? "call" : "calls"}`,
       mtHasUpcoming: meet.upcoming.length > 0, mtHasPast: meet.past.length > 0, mtEmpty: meet.upcoming.length + meet.past.length === 0,
       zoomConnected: !s.zoomBroken, zoomReconnect: !!s.zoomBroken,
       showDnc: cw && !!crm.dnc,
