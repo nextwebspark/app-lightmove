@@ -132,7 +132,7 @@ export function StrategyToolbar({
         <span className="hidden sm:inline">AI Research</span>
       </button>
 
-      <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
+      <label className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
         <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
         <input
           value={query}
@@ -141,7 +141,7 @@ export function StrategyToolbar({
           aria-label="Search companies"
           className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
         />
-      </div>
+      </label>
 
       <div className="flex items-center gap-3 sm:ml-auto">
         <ColumnPicker
