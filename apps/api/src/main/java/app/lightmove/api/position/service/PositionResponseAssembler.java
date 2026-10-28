@@ -116,7 +116,8 @@ class PositionResponseAssembler {
                 position.getIncentiveType(),
                 position.getIncentiveAmount(),
                 position.getIncentiveVesting(),
-                benefitsOf(position));
+                benefitsOf(position),
+                sliceOf(position.getFieldSources(), PositionFieldKeys.COMPENSATION));
     }
 
     private AssessmentDto assessmentOf(Position position) {

@@ -209,7 +209,7 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("criteria are capped at 5 combined and each text at 300 characters")
+    @DisplayName("every stated criterion is kept up to 30, each text capped at 300 characters (#1049)")
     void enforcesCriteriaCeilings() throws Exception {
         Fixture f = fixture("Assessment Criteria Ceiling Firm", "Acme Holdings Group", "acme.example");
         StringBuilder body = new StringBuilder("{\"criteria\":[");
@@ -226,12 +226,12 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
         ProposedAssessment proposed = proposerWith(model)
                 .propose(UUID.randomUUID(), DOCUMENT_TEXT, f.clientId(), f.workspaceId(), null);
 
-        assertThat(proposed.fields()).hasSizeLessThanOrEqualTo(5);
+        assertThat(proposed.fields()).hasSize(15);
         proposed.fields().forEach(field -> assertThat(field.value().length()).isLessThanOrEqualTo(300));
     }
 
     @Test
-    @DisplayName("each competency panel is capped at 5 rows independently")
+    @DisplayName("each competency panel is capped at 10 rows independently")
     void enforcesCompetencyCountCeilingPerPanel() throws Exception {
         Fixture f = fixture("Assessment Competency Ceiling Firm", "Acme Holdings Group", "acme.example");
         StringBuilder technical = new StringBuilder();
@@ -249,18 +249,18 @@ class PositionAssessmentProposerTest extends FlowTestSupport {
 
         List<ExtractedField> technicalFields = proposed.fields().stream()
                 .filter(field -> field.fieldKey().equals("technicalCompetency")).toList();
-        assertThat(technicalFields).hasSizeLessThanOrEqualTo(5);
+        assertThat(technicalFields).hasSizeLessThanOrEqualTo(10);
     }
 
     @Test
-    @DisplayName("the prompt states the five-criteria and five-per-panel caps and that they are the "
-            + "document's most important, not its first")
+    @DisplayName("the prompt asks for every stated criterion up to 30 and up to ten competencies a panel")
     void promptStatesTheCeilings() throws Exception {
         String text = StreamUtils.copyToString(
                 new ClassPathResource("prompts/position-extract-assessment-system.st").getInputStream(),
                 StandardCharsets.UTF_8);
-        assertThat(text).contains("at most 5 criteria").contains("at most 5 technical")
-                .contains("never simply the first");
+        assertThat(text).contains("every criterion the document states").contains("at most 30")
+                .contains("at most 10 technical").contains("never simply the first")
+                .doesNotContain("at most 5");
     }
 
     @Test

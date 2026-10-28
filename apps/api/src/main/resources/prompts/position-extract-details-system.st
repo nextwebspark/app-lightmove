@@ -44,12 +44,14 @@ Fields:
   - seniorityConfidence: high when the document states the reporting line or the leadership-team seat
     outright, medium when you are reading it from the title and the scope described, low when it is
     mostly a guess; null when seniority is null.
-  - responsibilities: at most 5 of the individual duties or accountabilities listed for the role, each
-    as its own short line (10 words or fewer, verb-first — "Owns the group's treasury function", not
-    "The role is responsible for the group's treasury function"), each with its own snippet. Choose the
-    five the document itself weights most heavily — by emphasis, order, "must"/"key"/"critical"
-    wording, and how much space it gives them — never simply the first five lines of a longer list. Do
-    not pad the list to reach five, and do not invent one the document does not state.
+  - responsibilities: every duty or accountability the document lists for the role, in the document's
+    order and at most 20, each as its own short line (12 words or fewer, verb-first — "Owns the group's
+    treasury function", not "The role is responsible for the group's treasury function"), each with its
+    own snippet. The document is the source of truth: leave none of its stated duties out, and do not
+    invent one it does not state. Where the document groups its duties under numbered or titled
+    headings ("1. HR Strategy and Leadership:" followed by bullets), write one line per heading that
+    sums up that heading's bullets, and quote the heading's own words as its snippet — ten headings
+    are ten responsibilities, however many bullets sit under them.
   - narrative: two or three sentences describing the ideal candidate for this role, drawn from what
     the document says about the person it is looking for — not a summary of the company or the role.
 

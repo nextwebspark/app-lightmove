@@ -69,10 +69,9 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         assertThat(city.get("value").asText()).contains("Dubai");
         assertThat(fieldNamed(fields, "location")).isNull();
 
-        // The cap is exactly 5 — the fixture's heuristic reading finds more than that, and
-        // truncateToCeilings cuts it down rather than the heuristic itself limiting the count.
+        // Every responsibility the fixture states is kept (#1049) — 13, under the brief's ceiling of 20.
         long responsibilityCount = countFields(fields, "responsibility");
-        assertThat(responsibilityCount).isEqualTo(5);
+        assertThat(responsibilityCount).isEqualTo(13);
         fields.forEach(field -> {
             if (field.get("fieldKey").asText().equals("responsibility")) {
                 assertThat(field.get("snippet").asText()).isNotBlank();
@@ -212,7 +211,7 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("step two, step three and step five extract routes exist, are gated the same way, "
+    @DisplayName("step two, three, four and five extract routes exist, are gated the same way, "
             + "and write nothing")
     void extractsContextAndCompensationWithoutWriting() throws Exception {
         String admin = adminOf("Context Compensation Extraction Firm");
@@ -233,28 +232,16 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.extractionSource").exists());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.extractionSource").exists());
 
         assertThat(updatedAtOf(projectId)).isEqualTo(beforeUpdatedAt);
     }
 
     @Test
-    @DisplayName("the compensation route is gone, document attached or not")
-    void compensationRouteIsGone() throws Exception {
-        String admin = adminOf("Compensation Retired Firm");
-        String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
-
-        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isNotFound());
-
-        attach(admin, projectId, gmItFixture()).andExpect(status().isOk());
-        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
-                        .header("Authorization", "Bearer " + admin))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("nothing to read on step two, step three or step five without a document")
+    @DisplayName("nothing to read on step two, three, four or five without a document")
     void refusesContextAndCompensationWithoutADocument() throws Exception {
         String admin = adminOf("No Document Context Compensation Firm");
         String projectId = createProject(admin, createClient(admin, "Aldar", "UAE"), "CFO");
@@ -268,10 +255,13 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/reporting")
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    @DisplayName("PROJECT_EDIT is required for step two, step three and step five too")
+    @DisplayName("PROJECT_EDIT is required for step two, three, four and five too")
     void researcherCannotExtractContextOrCompensation() throws Exception {
         String admin = adminOf("Researcher Context Compensation Firm");
         String sara = "sara@" + domain;
@@ -294,10 +284,13 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
         mvc.perform(post(positionUrl(projectId) + "/document/extract/reporting")
                         .header("Authorization", "Bearer " + login(sara)))
                 .andExpect(status().isForbidden());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
+                        .header("Authorization", "Bearer " + login(sara)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("another workspace's project is not found for step two, step three or step five either")
+    @DisplayName("another workspace's project is not found for step two, three, four or five either")
     void refusesContextAndCompensationOutsideTheCallersWorkspace() throws Exception {
         String owner = adminOf("Extraction Tenant Context Compensation Firm");
         String projectId = createProject(owner, createClient(owner, "Aldar", "UAE"), "CFO");
@@ -312,6 +305,9 @@ class PositionExtractionIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isNotFound());
         mvc.perform(post(positionUrl(projectId) + "/document/extract/reporting")
+                        .header("Authorization", "Bearer " + outsider))
+                .andExpect(status().isNotFound());
+        mvc.perform(post(positionUrl(projectId) + "/document/extract/compensation")
                         .header("Authorization", "Bearer " + outsider))
                 .andExpect(status().isNotFound());
     }

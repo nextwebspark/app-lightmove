@@ -182,7 +182,8 @@ public class PositionService {
                 orEmpty(request.benefits()).stream()
                         .map(benefit -> PositionBenefit.of(benefit.name(), benefit.amount(),
                                 benefit.frequency(), FieldSource.orManual(benefit.source())))
-                        .toList()));
+                        .toList(),
+                fieldSourcesOf(request.fieldSources(), PositionFieldKeys.COMPENSATION)));
         return saved(brief, userId, workspaceId, projectId, "compensation", httpRequest);
     }
 

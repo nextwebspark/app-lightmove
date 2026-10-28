@@ -33,18 +33,19 @@ Fields:
         language at all.
       - PREFERRED is for language that softens the criterion into a tie-breaker rather than a
         gate — "preferred", "an advantage", "nice to have", "a plus", "ideally".
-    Propose at most 5 criteria in total — the most decisive ones, chosen by the document's own
-    emphasis, order, and "must"/"key"/"critical" wording, never simply the first five encountered. Do
-    not pad the list to reach five, and do not invent a criterion the document does not state.
-  - technical: at most 5 technical competencies the document implies or names, each with a short name
+    Propose every criterion the document states, in the document's order and at most 30 — often the
+    whole of a list under a heading like "The Requirements", "The Candidate", "Profile" or
+    "Qualifications". The document is the source of truth: leave none of its stated criteria out, and
+    do not invent one it does not state.
+  - technical: at most 10 technical competencies the document implies or names, each with a short name
     (4 words or fewer), an optional one-sentence description (10 words or fewer, plain imperative —
     "Owns IFRS reporting and audit readiness"), an optional weight — that competency's share of its
     panel, a whole number from 1 to 100 — and a snippet where one supports it.
-  - behavioural: at most 5 behavioural or leadership competencies the document implies or names, in the
+  - behavioural: at most 10 behavioural or leadership competencies the document implies or names, in the
     same shape as technical.
 
-For both panels, choose the five the document itself weights most heavily — never simply the first
-five encountered. Do not pad either list to reach five.
+For both panels, propose every competency the document names, then those it clearly implies, most
+heavily weighted first — never simply the first ones encountered. Do not pad either list.
 
 A weight is a share of the panel, never a score out of 100: the weights of one panel's competencies
 total exactly 100, and the two panels are weighted separately. Give the larger shares to the

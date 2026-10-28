@@ -39,7 +39,7 @@ public class PositionContextProposer {
 
     private static final int BUSINESS_DRIVER_MAX_LENGTH = 1000;
     private static final int PRIORITY_NAME_MAX_LENGTH = 120;
-    private static final int PRIORITY_MAX_COUNT = 5;
+    private static final int PRIORITY_MAX_COUNT = 20;
     private static final String LABEL = "Mandate context extraction";
     private static final Pattern NEW_ROLE_WORDING = reasonWording(
             "new ([a-z]+ )?(role|position|post|seat)", "newly[- ](created|established|formed)",

@@ -46,7 +46,7 @@ final class ReportFixtures {
 
     static ReportSources sources(List<TriageCompanyResponse> universe, List<ExecutiveRow> executives) {
         return new ReportSources(null, universe, universe.size(), executives, executives.size(),
-                new CompensationDto("USD", null, null, BaseSalaryMode.ANNUAL, null, null, null, null, null, List.of()));
+                new CompensationDto("USD", null, null, BaseSalaryMode.ANNUAL, null, null, null, null, null, List.of(), Map.of()));
     }
 
     static LightMoveProperties capped(ReportSettings caps) {

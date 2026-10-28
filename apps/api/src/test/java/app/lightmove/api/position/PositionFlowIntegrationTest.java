@@ -69,6 +69,9 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.compensation.salaryMin").isEmpty())
                 .andExpect(jsonPath("$.compensation.currency").value("AED"))
                 .andExpect(jsonPath("$.compensation.baseSalaryMode").value("ANNUAL"))
+                .andExpect(jsonPath("$.compensation.fieldSources.currency").value("TEMPLATE"))
+                .andExpect(jsonPath("$.compensation.fieldSources.bonusValue").value("TEMPLATE"))
+                .andExpect(jsonPath("$.compensation.fieldSources.salaryMin").doesNotExist())
                 // The brief opens on the priority palette, none of it lit.
                 .andExpect(jsonPath("$.context.strategicPriorities.length()").value(5))
                 .andExpect(jsonPath("$.context.strategicPriorities[0].name").value("Capital discipline"))
@@ -145,6 +148,44 @@ class PositionFlowIntegrationTest extends FlowTestSupport {
                                 {"roleTitle":"CFO","department":"Group Finance","locationCity":null,
                                  "employmentType":null,"seniority":null,"responsibilities":[],
                                  "narrative":null,"fieldSources":{"salaryMin":"MANUAL"}}"""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("compensation carries provenance: a read figure is DOCUMENT, and a typed one is never reclaimed (#1049)")
+    void compensationProvenanceRoundTrips() throws Exception {
+        String admin = adminOf("Compensation Provenance Firm");
+        String projectId = createProject(admin, createClient(admin, "Etisalat", "UAE"), "CFO");
+
+        putStep(admin, projectId, "compensation", """
+                {"currency":"AED","salaryMin":90000,"salaryMax":120000,"baseSalaryMode":"ANNUAL",
+                 "bonusValue":25,"bonusBasis":"PERCENT_OF_TOTAL_FIXED",
+                 "benefits":[{"name":"Housing allowance","amount":100000,"frequency":"YEARLY","source":"DOCUMENT"}],
+                 "fieldSources":{"currency":"DOCUMENT","salaryMin":"DOCUMENT","salaryMax":"MANUAL"}}""")
+                .andExpect(jsonPath("$.compensation.fieldSources.salaryMin").value("DOCUMENT"))
+                .andExpect(jsonPath("$.compensation.fieldSources.salaryMax").value("MANUAL"))
+                .andExpect(jsonPath("$.compensation.fieldSources.bonusValue").doesNotExist())
+                .andExpect(jsonPath("$.compensation.benefits[0].source").value("DOCUMENT"));
+
+        // A stale tab sending DOCUMENT over a figure somebody has since typed never takes it back.
+        putStep(admin, projectId, "compensation", """
+                {"currency":"AED","salaryMin":90000,"salaryMax":130000,"baseSalaryMode":"ANNUAL",
+                 "fieldSources":{"salaryMax":"DOCUMENT"}}""")
+                .andExpect(jsonPath("$.compensation.fieldSources.salaryMax").value("MANUAL"))
+                .andExpect(jsonPath("$.compensation.fieldSources.currency").doesNotExist());
+
+        // Nothing said about provenance is a person having typed the whole step.
+        putStep(admin, projectId, "compensation", """
+                {"currency":"USD","salaryMin":1,"baseSalaryMode":"MONTHLY"}""")
+                .andExpect(jsonPath("$.compensation.fieldSources.currency").value("MANUAL"))
+                .andExpect(jsonPath("$.compensation.fieldSources.incentiveVesting").value("MANUAL"));
+
+        mvc.perform(put(positionUrl(projectId) + "/compensation")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currency":"AED","baseSalaryMode":"ANNUAL","fieldSources":{"department":"MANUAL"}}"""))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
     }

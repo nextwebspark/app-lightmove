@@ -3,8 +3,10 @@ package app.lightmove.api.position.model;
 import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.common.constant.BonusBasis;
 import app.lightmove.api.common.constant.IncentiveType;
+import app.lightmove.api.position.constant.FieldSource;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Step four of the brief: what the seat pays. Every figure carries the unit it is quoted in — the
@@ -21,6 +23,7 @@ public record CompensationPackage(
         IncentiveType incentiveType,
         Long incentiveAmount,
         String incentiveVesting,
-        List<PositionBenefit> benefits
+        List<PositionBenefit> benefits,
+        Map<String, FieldSource> fieldSources
 ) {
 }
