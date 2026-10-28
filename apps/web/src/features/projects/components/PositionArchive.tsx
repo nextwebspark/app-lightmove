@@ -10,7 +10,6 @@ import { formatInstantDate } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import { CLIENTS_KEY } from "../../clients/api/clientsApi";
 import { POOL_KEY } from "../../candidates/api/poolApi";
-import { GETTING_STARTED_KEY } from "../../gettingstarted/api/gettingStartedApi";
 import { NOTIFICATIONS_KEY_PREFIX } from "../../notifications/api/notificationsApi";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as projectsApi from "../api/projectsApi";
@@ -175,7 +174,6 @@ function refreshAfterArchiving(queryClient: QueryClient, projectId: string) {
     CLIENTS_KEY,
     TASKS_KEY_PREFIX,
     NOTIFICATIONS_KEY_PREFIX,
-    GETTING_STARTED_KEY,
     POOL_KEY,
     ["outreach", projectId],
   ]) {
