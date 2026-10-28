@@ -61,6 +61,14 @@ describe("activity presentation", () => {
     }
   });
 
+  it("draws a call log with a handset, a logged email with an envelope and a meeting with a camera", async () => {
+    const { ICONS } = await import("../../../components/layout/Icon");
+    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "CALL" } }))).toBe(ICONS.phoneCall);
+    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "EMAIL" } }))).toBe(ICONS.mail);
+    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "MEETING" } }))).toBe(ICONS.video);
+    expect(iconOf(line(1, "NOTE_ADDED", { details: { kind: "GENERAL" } }))).toBe(ICONS.fileText);
+  });
+
   it("draws a kind a newer server writes as a quiet record line rather than failing", () => {
     const unknown = line(1, "SOMETHING_NEW" as PersonActivityKind);
     expect(familyOf(unknown)).toBe("profile");
@@ -166,7 +174,7 @@ describe("activity presentation", () => {
         .toBe("uploaded version 3 of the CV");
       expect(verbOf(line(1, "CONTACT_FOUND", { details: { channel: "PHONE", found: "0" } }))).toBe("looked for a phone number");
       expect(verbOf(line(1, "CONTACT_FOUND", { details: { channel: "EMAIL", found: "1" } }))).toBe("found an email");
-      expect(verbOf(line(1, "EMAIL_SENT", { details: { sequenceId: "s", step: "2" } }))).toBe("emailed them · step 2");
+      expect(verbOf(line(1, "EMAIL_SENT", { details: { sequenceId: "s", step: "2" } }))).toBe("emailed them");
       expect(verbOf(line(1, "EMAIL_SENT", { details: { manual: "true" } }))).toBe("sent an email");
       expect(verbOf(line(1, "OWNER_CHANGED", { details: { ownerUserId: "x", owner: "Yara Haddad" } })))
         .toBe("made Yara Haddad the owner");

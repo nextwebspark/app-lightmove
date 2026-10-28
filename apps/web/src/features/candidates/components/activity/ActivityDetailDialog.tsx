@@ -88,7 +88,7 @@ export function ActivityDetailDialog({
             </Button>
           )}
           {way?.kind === "link" && (
-            <Link to={way.to} onClick={onClose} className={buttonClassName("primary", "px-3.5 py-[7px] text-body")}>
+            <Link to={way.to} onClick={onClose} className={buttonClassName("primary", "whitespace-nowrap px-3.5 py-[7px] text-body")}>
               {way.label}
               <Icon d={ICONS.arrowRight} size={14} />
             </Link>
@@ -173,7 +173,7 @@ function DetailBody({
           <Facts
             rows={[
               ["How", details.automation ? "Moved automatically by the pipeline's rule" : "Moved by hand"],
-              ["Set off by", details.automation ? (automationCauseOf(entry) ?? null) : null],
+              ["Set off by", details.automation ? causeOf(entry) : null],
             ]}
           />
         </>
@@ -281,6 +281,13 @@ function NoteDetail({ entry, projectId, candidateId }: { entry: PersonTimelineEn
     </div>
   );
 }
+
+const NOTE_TITLES: Record<string, string> = {
+  GENERAL: "Note",
+  CALL: "Call note",
+  MEETING: "Meeting note",
+  EMAIL: "Email note",
+};
 
 const NOTE_KIND_LABELS: Record<string, string> = {
   general: "Note",
@@ -507,7 +514,7 @@ function ChangesDetail({ entry }: { entry: PersonTimelineEntry }) {
         <Callout>
           {String(entry.details.backgroundConfirmed) === "true"
             ? "The AI's background values were confirmed as the researcher's own."
-            : "Nothing this history records changed, or the edit was saved before Uncava kept what changed."}
+            : "No profile field this history tracks changed in this save (a position's own columns are not listed), or it was saved before Uncava kept what changed."}
         </Callout>
       )}
     </div>
@@ -643,7 +650,7 @@ function titleOf(entry: PersonTimelineEntry): string {
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
     case "NOTE_REMOVED":
-      return entry.details.kind === "CALL" ? "Call note" : entry.details.kind === "MEETING" ? "Meeting note" : "Note";
+      return NOTE_TITLES[entry.details.kind ?? "GENERAL"] ?? "Note";
     case "EMAIL_SENT":
       return "Email sent";
     case "EMAIL_REPLIED":
@@ -668,6 +675,12 @@ function titleOf(entry: PersonTimelineEntry): string {
   }
   const verb = verbOf(entry);
   return verb.charAt(0).toUpperCase() + verb.slice(1);
+}
+
+/** "Dana Aboud's email", "The reply": what set a rule off, as a value rather than the card's "after …" phrase. */
+function causeOf(entry: PersonTimelineEntry): string | null {
+  const cause = automationCauseOf(entry)?.replace(/^after /, "");
+  return cause ? cause.charAt(0).toUpperCase() + cause.slice(1) : null;
 }
 
 function Facts({ rows }: { rows: [string, ReactNode | null][] }) {

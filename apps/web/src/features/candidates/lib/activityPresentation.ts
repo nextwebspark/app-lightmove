@@ -35,7 +35,7 @@ export const ACTIVITY_FAMILIES: readonly ActivityFamilyOption[] = [
   { family: "meetings", label: "Meetings", tone: "meet", icon: ICONS.calendar },
   { family: "pipeline", label: "Pipeline", tone: "status", icon: ICONS.pipeline },
   { family: "tasks", label: "Tasks", tone: "task", icon: ICONS.checkCircle },
-  { family: "contact", label: "Contact", tone: "neutral", icon: ICONS.phone },
+  { family: "contact", label: "Contact", tone: "neutral", icon: ICONS.phoneCall },
   { family: "documents", label: "Documents", tone: "neutral", icon: ICONS.file },
   { family: "profile", label: "Profile & AI", tone: "ai", icon: ICONS.sparkle },
 ];
@@ -153,10 +153,12 @@ export function iconOf(entry: PersonTimelineEntry): string {
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
       return entry.details.kind === "CALL"
-        ? ICONS.phone
+        ? ICONS.phoneCall
         : entry.details.kind === "MEETING"
           ? ICONS.video
-          : ICONS.fileText;
+          : entry.details.kind === "EMAIL"
+            ? ICONS.mail
+            : ICONS.fileText;
     case "NOTE_REMOVED":
       return ICONS.trash;
     case "EMAIL_SENT":
@@ -352,7 +354,7 @@ export function verbOf(entry: PersonTimelineEntry): string {
     case "OUTREACH_ENROLLED":
       return "added them to a sequence";
     case "EMAIL_SENT":
-      return details.sequenceId ? `emailed them${details.step ? ` · step ${details.step}` : ""}` : "sent an email";
+      return details.sequenceId ? "emailed them" : "sent an email";
     case "EMAIL_REPLIED":
       return details.sequence ? "replied to the sequence" : "replied";
     case "OUTREACH_STOPPED":
@@ -497,11 +499,6 @@ export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
       return details.scope === "BACKGROUND" ? null : { type: "assessment", label: "Scored against this brief" };
   }
   return null;
-}
-
-/** Whether a line has anything a dialog can show beyond its own card. */
-export function opensDetail(entry: PersonTimelineEntry): boolean {
-  return entry.kind in FAMILY_OF;
 }
 
 const DOORS: Record<string, string> = {

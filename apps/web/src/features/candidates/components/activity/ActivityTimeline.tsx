@@ -48,6 +48,12 @@ export function ActivityTimeline({
   const [openFolds, setOpenFolds] = useState<Set<string>>(() => new Set());
   const [opened, setOpened] = useState<PersonTimelineEntry | null>(null);
   const now = useMinuteClock();
+  // The drawer reads the same notes for its Notes tab, so this is the cache, not a second request.
+  const notes = useQuery({
+    queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, executive.id),
+    queryFn: ({ signal }) => personCrmApi.getPersonNotes(projectId, executive.id, signal),
+  });
+  const notesById = useMemo(() => new Map((notes.data ?? []).map((note) => [note.id, note])), [notes.data]);
 
   const entries = useMemo(() => history.data?.entries ?? [], [history.data]);
   const byFamily = (entry: PersonTimelineEntry) => families.size === 0 || families.has(familyOf(entry));
@@ -99,7 +105,7 @@ export function ActivityTimeline({
       else next.add(key);
       return next;
     });
-  const itemProps = { executive, projectId, now, onOpen: setOpened };
+  const itemProps = { executive, projectId, now, onOpen: setOpened, notes: notesById };
 
   return (
     <div data-activity-root className="flex flex-col">
@@ -247,7 +253,7 @@ function PeopleSummary({
     <>
       <span className="flex flex-none">
         {faces.map((person, index) => (
-          <span key={person.key} className={index > 0 ? "-ms-1.5 rounded-full ring-2 ring-u-surface" : "rounded-full ring-2 ring-u-surface"}>
+          <span key={person.key} className={index > 0 ? "-ms-0.5 rounded-full ring-2 ring-u-surface" : "rounded-full ring-2 ring-u-surface"}>
             <ActorFace actor={person.actor} executive={executive} projectId={projectId} size="xs" />
           </span>
         ))}

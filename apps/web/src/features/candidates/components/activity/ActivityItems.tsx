@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
-import type { FieldChange, PersonTimelineEntry } from "../../api/types";
+import { NoteText } from "../../../notes/components/NoteText";
+import type { FieldChange, PersonNote, PersonTimelineEntry } from "../../api/types";
 import {
   actorOf,
   asideOf,
@@ -26,13 +27,16 @@ interface ItemProps {
   projectId: string;
   now: Date;
   onOpen: (entry: PersonTimelineEntry) => void;
+  /** The position's readable notes by id, so a note's card can show its opening as written. */
+  notes?: ReadonlyMap<string, PersonNote>;
 }
 
 /** A content event: a card on the spine, its kind's tile beside it, who and when on top and a preview beneath. */
-export function ActivityCard({ entry, executive, projectId, now, onOpen }: ItemProps) {
+export function ActivityCard({ entry, executive, projectId, now, onOpen, notes }: ItemProps) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
   const preview = previewOf(entry);
+  const note = preview?.type === "note" && entry.details.noteId ? notes?.get(entry.details.noteId) : undefined;
   return (
     <li className="relative">
       <KindTile tone={toneOf(entry)} icon={iconOf(entry)} size="tile" className="absolute -start-[42px] top-2.5 ring-3 ring-u-surface" />
@@ -47,7 +51,11 @@ export function ActivityCard({ entry, executive, projectId, now, onOpen }: ItemP
         )}
       >
         <WhoAndWhen entry={entry} executive={executive} projectId={projectId} now={now} />
-        {preview && <PreviewOf preview={preview} />}
+        {note && preview?.type === "note" ? (
+          <NoteQuickView note={note} aboutThePerson={preview.aboutThePerson} />
+        ) : (
+          preview && <PreviewOf preview={preview} />
+        )}
         <span className="pointer-events-none absolute bottom-2.5 end-2.5 text-u-text3 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
           <Icon d={ICONS.chevronRight} size={14} />
         </span>
@@ -156,7 +164,7 @@ function WhoAndWhen({ entry, executive, projectId, now }: Omit<ItemProps, "onOpe
   const time = cardTimeOf(entry.occurredAt, now);
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <ActorFace actor={actor} executive={executive} projectId={projectId} size="xs" title={name} />
+      <ActorFace actor={actor} executive={executive} projectId={projectId} size="sm" title={name} />
       <span className="min-w-0 flex-1 text-body text-u-text2">
         <span className="font-semibold text-u-text">{name}</span> {verbOf(entry)}
       </span>
@@ -167,6 +175,37 @@ function WhoAndWhen({ entry, executive, projectId, now }: Omit<ItemProps, "onOpe
       >
         {time.text}
       </time>
+    </span>
+  );
+}
+
+/**
+ * A note's opening as it was written — its headings, bullets and checklists, not flattened words — held to a few
+ * lines and faded where it runs on; the card opens the whole of it.
+ */
+function NoteQuickView({ note, aboutThePerson }: { note: PersonNote; aboutThePerson: boolean }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const [isCut, setIsCut] = useState(false);
+  useLayoutEffect(() => {
+    const element = box.current;
+    if (element) setIsCut(element.scrollHeight > element.clientHeight + 1);
+  }, [note.body]);
+  return (
+    <span className="flex flex-col gap-1.5">
+      {/* Inert: a note's links and checklist boxes are not controls inside a card that is itself one button. */}
+      <span
+        ref={box}
+        inert
+        className={cn(
+          "pointer-events-none block max-h-[5.4rem] overflow-hidden text-u-text",
+          "[&_h2]:mt-0 [&_h2]:text-body [&_h3]:mt-0 [&_ul]:my-0.5 [&_ol]:my-0.5 [&_.note-prose]:text-u-text",
+          isCut && "[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
+        )}
+      >
+        <NoteText body={note.body} format={note.format} className="text-body" />
+      </span>
+      {isCut && <span className="text-note font-medium text-u-accent">Read the whole note</span>}
+      {aboutThePerson && <Chip>About the person · every position</Chip>}
     </span>
   );
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -272,6 +272,339 @@ describe("ActivityTimeline", () => {
     });
   });
 
+  describe("notes, call logs, meeting notes and logged emails", () => {
+    const callNote = {
+      id: "n1",
+      kind: "call" as const,
+      body: "Open to a group CFO move.\n\n- Notice is three months\n- Wants Abu Dhabi",
+      format: "markdown" as const,
+      pinned: false,
+      projectId: "p1",
+      projectTitle: "Group CFO",
+      authorUserId: "dana",
+      authorName: "Dana Aboud",
+      authorAvatarUrl: null,
+      createdAt: "2026-10-27T09:10:00Z",
+      editedAt: "2026-10-27T10:00:00Z",
+      editedByName: "Omar Khalil",
+      editable: true,
+    };
+
+    it("previews a note as it was written, its bullets kept, never as flattened words", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([callNote]);
+      history(line(1, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open to a group CFO move. - Notice is three months" }));
+      renderTimeline();
+      const card = await screen.findByRole("button", { name: /^Dana Aboud logged a call/ });
+      expect(await within(card).findByText("Notice is three months")).toBeInTheDocument();
+      expect(within(card).getByText("Wants Abu Dhabi")).toBeInTheDocument();
+      expect(within(card).queryByText(/- Notice is three months/)).not.toBeInTheDocument();
+    });
+
+    it("falls back to the server's opening words when the notes cannot be read, or no longer hold it", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockRejectedValue(failure(500));
+      history(
+        line(2, "NOTE_ADDED", { details: { noteId: "n1", kind: "MEETING" }, noteExcerpt: "Intro call summary" }),
+        line(1, "NOTE_ADDED", { occurredAt: "2026-10-26T09:00:00Z", details: { noteId: "gone", kind: "EMAIL" }, noteExcerpt: null }),
+      );
+      renderTimeline();
+      const meeting = await screen.findByRole("button", { name: /^Dana Aboud logged a meeting/ });
+      expect(within(meeting).getByText("Intro call summary")).toBeInTheDocument();
+      const email = screen.getByRole("button", { name: /^Dana Aboud logged an email/ });
+      expect(within(email).getByText("This note was deleted.")).toBeInTheDocument();
+    });
+
+    it("opens each kind under its own title, with who last edited it", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+        callNote,
+        { ...callNote, id: "n2", kind: "meeting", body: "Intro call summary", format: "plain", editedAt: null, editedByName: null },
+        { ...callNote, id: "n3", kind: "email", body: "Sent the overview.", format: "plain", editedAt: null, editedByName: null },
+        { ...callNote, id: "n4", kind: "general", body: "Prefers a listed company.", format: "plain", projectId: null, editedAt: null, editedByName: null },
+      ]);
+      history(
+        line(4, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open" }),
+        line(3, "NOTE_ADDED", { details: { noteId: "n2", kind: "MEETING" }, noteExcerpt: "Intro" }),
+        line(2, "NOTE_ADDED", { details: { noteId: "n3", kind: "EMAIL" }, noteExcerpt: "Sent" }),
+        line(1, "NOTE_ADDED", { details: { noteId: "n4", kind: "GENERAL" }, noteExcerpt: "Prefers", projectId: null, projectTitle: null }),
+      );
+      renderTimeline();
+      const expectations: [RegExp, string, string][] = [
+        [/logged a call/, "Call note", "Last edited by Omar Khalil"],
+        [/logged a meeting/, "Meeting note", "Meeting note"],
+        [/logged an email/, "Email note", "Email note"],
+        [/wrote a note/, "Note", "About the person · every position"],
+      ];
+      for (const [card, title, text] of expectations) {
+        await userEvent.click(await screen.findByRole("button", { name: card }));
+        const dialog = await screen.findByRole("dialog", { name: title });
+        expect(await within(dialog).findAllByText(new RegExp(text))).not.toHaveLength(0);
+        await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+      }
+    });
+
+    it("goes to the note itself on Open in Notes, and to the Notes tab for a note it can no longer show", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([callNote]);
+      history(
+        line(2, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open" }),
+        line(1, "NOTE_EDITED", { occurredAt: "2026-10-26T09:00:00Z", details: { noteId: "gone" }, noteExcerpt: null }),
+      );
+      renderTimeline();
+      await userEvent.click(await screen.findByRole("button", { name: /logged a call/ }));
+      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Open in Notes/ }));
+      expect(destinations.onShowNote).toHaveBeenCalledWith("n1");
+
+      await userEvent.click(screen.getByRole("button", { name: /edited a note/ }));
+      await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /Open Notes/ }));
+      expect(destinations.onOpenTab).toHaveBeenCalledWith("notes");
+    });
+  });
+
+  describe("faces", () => {
+    it("shows the researcher's photo where their account has one, and their initials where it has none", async () => {
+      history(
+        line(2, "NOTE_ADDED", { actorAvatarUrl: "https://example.com/dana.png", noteExcerpt: "With photo" }),
+        line(1, "NOTE_ADDED", { occurredAt: "2026-10-26T09:00:00Z", actorUserId: "omar", actorName: "Omar Khalil", noteExcerpt: "Without" }),
+      );
+      renderTimeline();
+      const withPhoto = await screen.findByRole("button", { name: /^Dana Aboud wrote a note/ });
+      expect(within(withPhoto).getByRole("img", { name: "Dana Aboud" })).toHaveAttribute("src", "https://example.com/dana.png");
+      const withoutPhoto = screen.getByRole("button", { name: /^Omar Khalil wrote a note/ });
+      expect(within(withoutPhoto).queryByRole("img", { name: "Omar Khalil" })).not.toBeInTheDocument();
+      expect(within(withoutPhoto).getByText("OK")).toBeInTheDocument();
+    });
+
+    it("falls back to initials when the photo will not load", async () => {
+      history(line(1, "NOTE_ADDED", { actorAvatarUrl: "https://example.com/expired.png", noteExcerpt: "Expired photo" }));
+      renderTimeline();
+      const card = await screen.findByRole("button", { name: /^Dana Aboud wrote a note/ });
+      fireEvent.error(within(card).getByRole("img", { name: "Dana Aboud" }));
+      expect(within(card).queryByRole("img", { name: "Dana Aboud" })).not.toBeInTheDocument();
+      expect(within(card).getByText("DA")).toBeInTheDocument();
+    });
+
+    it("puts the face in the dialog too, larger, with who they are", async () => {
+      history(line(1, "TAGGED", { actorAvatarUrl: "https://example.com/dana.png", details: { tag: "Referral" } }));
+      renderTimeline();
+      await userEvent.click(await screen.findByRole("button", { name: /tagged them/ }));
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByRole("img", { name: "Dana Aboud" })).toBeInTheDocument();
+      expect(within(dialog).getByText("Your team")).toBeInTheDocument();
+    });
+
+    it("names Uncava as the automation and an unnamed actor as someone, never leaving a line anonymous", async () => {
+      history(
+        line(2, "OUTREACH_STOPPED", { actorUserId: null, actorName: null, details: { sequence: "CFO approach", reason: "BOUNCED" } }),
+        line(1, "TAGGED", { occurredAt: "2026-10-26T09:00:00Z", actorName: null, details: { tag: "Referral" } }),
+      );
+      renderTimeline();
+      const stopped = await screen.findByRole("button", { name: /^Automation stopped the sequence/ });
+      expect(within(stopped).getByTitle("Automation")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Someone tagged them/ })).toBeInTheDocument();
+
+      await userEvent.click(stopped);
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByText("The address bounced")).toBeInTheDocument();
+      expect(within(dialog).getByText("Uncava, automatically")).toBeInTheDocument();
+      expect(within(dialog).getByRole("link", { name: /Open conversation/ })).toBeInTheDocument();
+    });
+  });
+
+  describe("every kind opens under its own title, with its facts and a way to its tab", () => {
+    type Case = {
+      entry: PersonTimelineEntry;
+      card: RegExp;
+      title: string;
+      shows: (string | RegExp)[];
+      way?: { button: RegExp; called: keyof ActivityDestinations; withArgs?: unknown[] } | { link: RegExp };
+    };
+    const cases: Case[] = [
+      {
+        entry: line(1, "CONTACTS_EDITED", { details: { emails: "2", phones: "1" } }),
+        card: /edited the contacts/, title: "Edited the contacts",
+        shows: ["2 emails · 1 phones", /keeps counts only/],
+        way: { button: /Open Contact/, called: "onOpenTab", withArgs: ["contact"] },
+      },
+      {
+        entry: line(1, "OWNER_CHANGED", { details: { ownerUserId: "y", owner: "Yara Haddad" } }),
+        card: /made Yara Haddad the owner/, title: "Made Yara Haddad the owner", shows: ["Yara Haddad"],
+      },
+      {
+        entry: line(1, "ADDED_TO_POOL", { details: { door: "CSV" } }),
+        card: /added them to this position/, title: "Added to this position", shows: ["Imported from a spreadsheet"],
+      },
+      {
+        entry: line(1, "MAPPED", { details: { door: "EXTENSION" } }),
+        card: /added them to this position/, title: "Added to this position",
+        shows: ["Captured with the plugin", /added rather than duplicated/],
+      },
+      {
+        entry: line(1, "TRIAGE_STATUS_CHANGED", { details: { from: "in_universe", to: "shortlisted", withCompany: "true" } }),
+        card: /moved them to/, title: "Moved them to Shortlisted", shows: ["Yes, the company moved too"],
+      },
+      {
+        entry: line(1, "UPDATED_FROM_CALL", {
+          details: { call: "Intro call", callAt: "2026-10-22T12:00:00Z", fields: "noticePeriod" },
+          changes: [{ field: "noticePeriod", from: null, to: "1 month" }],
+        }),
+        card: /applied changes from a call/, title: "Changes from a call", shows: ["Intro call", "1 month", "—"],
+        way: { button: /Open in Meetings/, called: "onOpenMeetings" },
+      },
+      {
+        entry: line(1, "UPDATED_FROM_CALL", { details: { fields: "noticePeriod,task" } }),
+        card: /applied changes from a call/, title: "Changes from a call", shows: ["Notice period, A task"],
+        way: { button: /Open in Meetings/, called: "onOpenMeetings" },
+      },
+      {
+        entry: line(1, "AI_ASSESSED", { details: { scope: "BACKGROUND" } }),
+        card: /had the AI suggest the background/, title: "Had the AI suggest the background",
+        shows: [/marked AI until a researcher changes it/],
+        way: { button: /Open Career/, called: "onOpenTab", withArgs: ["career"] },
+      },
+      {
+        entry: line(1, "AI_ASSESSED", { details: { scope: "ASSESSMENT" } }),
+        card: /had the AI assess them/, title: "Had the AI assess them", shows: [/drafted a scorecard/],
+        way: { button: /Open Assessment/, called: "onOpenTab", withArgs: ["assessment"] },
+      },
+      {
+        entry: line(1, "ASSESSMENT_REVIEWED"),
+        card: /reviewed the assessment/, title: "Reviewed the assessment", shows: [],
+        way: { button: /Open Assessment/, called: "onOpenTab", withArgs: ["assessment"] },
+      },
+      {
+        entry: line(1, "DO_NOT_CONTACT_SET"),
+        card: /marked them do not contact/, title: "Marked them do not contact", shows: [],
+        way: { button: /Open Contact/, called: "onOpenTab", withArgs: ["contact"] },
+      },
+      {
+        entry: line(1, "DOCUMENT_REMOVED", { details: { category: "CV", documentId: "d1" } }),
+        card: /deleted a CV/, title: "Deleted a CV", shows: [/keeps no copy of the file/],
+        way: { button: /Open Documents/, called: "onOpenTab", withArgs: ["documents"] },
+      },
+      {
+        entry: line(1, "OUTREACH_ENROLLED", { details: { sequence: "CFO approach" } }),
+        card: /added them to a sequence/, title: "Added them to a sequence", shows: ["CFO approach"],
+        way: { link: /Open conversation/ },
+      },
+      {
+        entry: line(1, "OUTREACH_STOPPED", { details: { sequence: "CFO approach" } }),
+        card: /stopped the sequence/, title: "Stopped the sequence", shows: ["Stopped by hand"],
+      },
+      {
+        entry: line(1, "EMAIL_REPLIED", { actorUserId: null, actorName: null, details: {} }),
+        card: /^Fatima Al Mazrouei replied/, title: "Reply", shows: [/The email itself is in the conversation/, "The executive"],
+        way: { link: /Open conversation/ },
+      },
+      {
+        entry: line(1, "TASK_REASSIGNED", { details: { taskId: "t1", title: "Call back", assignee: "Omar Khalil", previousAssignee: "Dana Aboud" } }),
+        card: /handed a task over/, title: "Handed a task over", shows: ["Call back", "Omar Khalil"],
+        way: { button: /Open task/, called: "onOpenTask", withArgs: ["t1"] },
+      },
+      {
+        entry: line(1, "STATUS_CHANGED", { details: { to: "engaged", automation: "CALL_BOOKED" } }),
+        card: /^Automation moved the status/, title: "Status changed to Engaged",
+        shows: ["Moved automatically by the pipeline's rule", "Dana Aboud's booked call"],
+      },
+    ];
+
+    for (const { entry, card, title, shows, way } of cases) {
+      it(`${entry.kind} ${JSON.stringify(entry.details)}`, async () => {
+        vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [], done: [], doneCount: 0 });
+        history(entry);
+        renderTimeline();
+        await userEvent.click(await screen.findByRole("button", { name: card }));
+        const dialog = await screen.findByRole("dialog", { name: title });
+        for (const text of shows) {
+          expect((await within(dialog).findAllByText(text)).length, String(text)).toBeGreaterThan(0);
+        }
+        if (!way) {
+          expect(within(dialog).queryByRole("button", { name: /^Open/ })).not.toBeInTheDocument();
+          return;
+        }
+        if ("link" in way) {
+          expect(within(dialog).getByRole("link", { name: way.link })).toHaveAttribute("href", "/projects/p1/outreach?candidate=c1");
+          return;
+        }
+        await userEvent.click(within(dialog).getByRole("button", { name: way.button }));
+        expect(destinations[way.called]).toHaveBeenCalledWith(...(way.withArgs ?? []));
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+    }
+
+    it("says a read failed for a call and for a task, keeping what the line knows", async () => {
+      vi.mocked(meetingApi.getMeetings).mockRejectedValue(failure(500));
+      vi.mocked(tasksApi.getCandidateTasks).mockRejectedValue(failure(500));
+      history(
+        line(2, "MEETING_RESCHEDULED", { details: { startsAt: "2026-10-30T11:00:00Z", previousStartsAt: "2026-10-29T11:00:00Z" } }),
+        line(1, "TASK_CREATED", { occurredAt: "2026-10-26T09:00:00Z", details: { taskId: "t1", title: "Prepare questions" } }),
+      );
+      renderTimeline();
+      await userEvent.click(await screen.findByRole("button", { name: /moved a call/ }));
+      let dialog = await screen.findByRole("dialog", { name: "Call moved" });
+      expect(await within(dialog).findByRole("alert")).toBeInTheDocument();
+      expect(within(dialog).getByText("Moved from")).toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+
+      await userEvent.click(screen.getByRole("button", { name: /created a task/ }));
+      dialog = await screen.findByRole("dialog", { name: "Created a task" });
+      expect(await within(dialog).findByRole("alert")).toBeInTheDocument();
+      expect(within(dialog).getByText("Prepare questions")).toBeInTheDocument();
+    });
+
+    it("finds no call for a line that kept no time, and no preview for a document with no file", async () => {
+      vi.mocked(meetingApi.getMeetings).mockResolvedValue({ upcoming: [meeting({})], past: [] });
+      const empty = { ...documentWith("doc-1"), versions: [] };
+      history(
+        line(2, "MEETING_BOOKED", { details: {} }),
+        line(1, "DOCUMENT_ADDED", { occurredAt: "2026-10-26T09:00:00Z", details: { documentId: "doc-1", category: "CV" } }),
+      );
+      renderTimeline([empty]);
+      await userEvent.click(await screen.findByRole("button", { name: /booked a call/ }));
+      let dialog = await screen.findByRole("dialog", { name: "Call booked" });
+      expect(await within(dialog).findByText(/no longer on the calendar/)).toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+
+      await userEvent.click(screen.getByRole("button", { name: /uploaded a CV/ }));
+      dialog = await screen.findByRole("dialog");
+      expect(within(dialog).queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+      expect(within(dialog).getByText(/was deleted since/)).toBeInTheDocument();
+    });
+  });
+
+  describe("menus and folds undo what they did", () => {
+    it("unticks an option, clears from the menu, and closes a fold again", async () => {
+      history(
+        line(4, "NOTE_ADDED", { occurredAt: "2026-10-28T10:00:00Z", noteExcerpt: "A" }),
+        line(3, "TAGGED", { occurredAt: "2026-10-27T09:14:00Z", details: { tag: "x" } }),
+        line(2, "TAGGED", { occurredAt: "2026-10-27T09:12:00Z", details: { tag: "y" } }),
+        line(1, "TAGGED", { occurredAt: "2026-10-27T09:10:00Z", details: { tag: "z" } }),
+      );
+      renderTimeline();
+      await userEvent.click(await screen.findByRole("button", { name: "Filter by kind" }));
+      const menu = screen.getByRole("menu", { name: "Show" });
+      const notes = within(menu).getByRole("menuitemcheckbox", { name: /Notes/ });
+      await userEvent.click(notes);
+      expect(screen.getByText("1 of 4")).toBeInTheDocument();
+      await userEvent.click(notes);
+      expect(screen.getByText("4 events")).toBeInTheDocument();
+      await userEvent.click(notes);
+      await userEvent.click(within(menu).getByRole("button", { name: "Show all" }));
+      expect(screen.getByText("4 events")).toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
+
+      const fold = screen.getByRole("button", { name: /made 3 changes/ });
+      await userEvent.click(fold);
+      expect(fold).toHaveAttribute("aria-expanded", "true");
+      await userEvent.click(fold);
+      expect(fold).toHaveAttribute("aria-expanded", "false");
+    });
+  });
+
+  it("draws a kind a newer server writes as a quiet row that still opens", async () => {
+    history(line(1, "SOMETHING_NEW" as PersonActivityKind));
+    renderTimeline();
+    await userEvent.click(await screen.findByRole("button", { name: /^Dana Aboud updated the record/ }));
+    expect(await screen.findByRole("dialog", { name: "Updated the record" })).toBeInTheDocument();
+  });
+
   describe("the detail dialog", () => {
     const open = async (name: RegExp) => {
       await userEvent.click(await screen.findByRole("button", { name }));
@@ -309,23 +642,27 @@ describe("ActivityTimeline", () => {
       history(line(1, "PROFILE_EDITED", { changes: undefined }));
       renderTimeline();
       const dialog = await open(/edited the profile/);
-      expect(within(dialog).getByText(/saved before Uncava kept what changed/)).toBeInTheDocument();
+      expect(within(dialog).getByText(/No profile field this history tracks changed/)).toBeInTheDocument();
     });
 
-    it("shows a deleted note as deleted, without reading the notes", async () => {
+    it("shows a deleted note as deleted, and never quotes it", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);
       history(line(1, "NOTE_REMOVED", { details: { noteId: "n1" } }));
       renderTimeline();
       const dialog = await open(/deleted a note/);
-      expect(within(dialog).getByText(/This note was deleted/)).toBeInTheDocument();
-      expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
+      expect(within(dialog).getByText(/This note was deleted\. The history names it and never keeps a copy/)).toBeInTheDocument();
+      // The Notes tab no longer holds it, so the dialog offers no way there.
+      expect(within(dialog).queryByRole("button", { name: /Open/ })).not.toBeInTheDocument();
     });
 
     it("says a note is gone when the notes no longer hold it, and a failed read can be tried again", async () => {
-      vi.mocked(personCrmApi.getPersonNotes).mockRejectedValueOnce(failure(503)).mockResolvedValueOnce([]);
+      vi.mocked(personCrmApi.getPersonNotes).mockRejectedValue(failure(503));
       history(line(1, "NOTE_ADDED", { details: { noteId: "n1" }, noteExcerpt: "Board seat" }));
       renderTimeline();
       const dialog = await open(/wrote a note/);
       const alert = await within(dialog).findByRole("alert");
+      expect(alert).toHaveTextContent("Couldn't load the details.");
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);
       await userEvent.click(within(alert).getByRole("button", { name: "Try again" }));
       expect(await within(dialog).findByText(/deleted since, or is no longer readable/)).toBeInTheDocument();
     });
@@ -356,7 +693,7 @@ describe("ActivityTimeline", () => {
       await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
 
       vi.mocked(conversationApi.getConversation).mockClear();
-      dialog = await open(/emailed them · step 1/);
+      dialog = await open(/emailed them/);
       expect(within(dialog).getByText("CFO approach")).toBeInTheDocument();
       expect(within(dialog).getByText(/The email itself is in the conversation/)).toBeInTheDocument();
       expect(conversationApi.getConversation).not.toHaveBeenCalled();
