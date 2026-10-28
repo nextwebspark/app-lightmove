@@ -96,8 +96,15 @@ null only with nothing on file — and the five sections; the weights and the to
 `ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
 `ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Positions** (every
 mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
-position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
-the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
+position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`).
+**A position's timeline is that position's alone** (`PersonTimelineService.positionTimelineOf`): its own lines and the
+person-level kinds (`PERSON_LEVEL_KINDS`: profile, contacts, tags, owner, do not contact, documents) wherever they were
+made, the latter named to no position; another position's notes, emails, meetings, status and tasks are filtered in
+the query and never leave the server. A profile save or a call's changes keeps each field old → new (`ProfileChanges`,
+the response's `changes`; never a contact, never the employer). The Activity tab (`components/activity`,
+`Position.dc.html`) reads it whole (`getPositionHistory`), filters by kind and by person in two menus, folds quick
+changes, and opens each line read-only (`ActivityDetailDialog`) through the reads its tab already uses.
+The workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
 person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
 **Documents are the person's too (V105, `docs/candidate-documents.md`)**: a CV, cover letter or
 reference is a card whose files are versions — a file sent under a name already on the person is its
