@@ -21,11 +21,6 @@ export function timeOfDayOf(isoInstant: string): string {
   return clockOf(new Date(isoInstant));
 }
 
-/** "22 Sep": a past meeting's mono date. */
-export function shortDateOf(isoInstant: string): string {
-  return new Date(isoInstant).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-}
-
 /** "Thu 2 Oct" for a `YYYY-MM-DD` day, which is already the consultant's own date. */
 export function slotDayLabelOf(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number);

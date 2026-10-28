@@ -1816,8 +1816,15 @@
                   <sc-if value="{{ cd.mtHasPast }}">
                     <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
                     <sc-for list="{{ cd.mtPast }}" as="m">
-                      <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
-                      </span>
+                      <!-- A past call is the upcoming row, quieter: the same tile (month in --text3), title in --text2, when
+                           and whose calendar, no Join link; the latest three show, the rest behind "Show N earlier calls",
+                           and a call whose ⋯ wears a dot is never folded away. Its ⋯ is frameless until hovered or open. -->
+                      <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0">
+                        <span style="width:42px;flex:none;border-radius:7px;border:1px solid var(--line);text-align:center;padding:3px 0"><span style="display:block;font:600 9.5px var(--mono);text-transform:uppercase;color:var(--text3)">{{ m.month }}</span><span style="display:block;font:600 16px/1.2 var(--mono);color:var(--text2)">{{ m.day }}</span></span>
+                        <span style="min-width:0;flex:1">
+                          <span style="display:block;font:500 13px var(--sans);color:var(--text2)">{{ m.title }}</span>
+                          <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
+                        </span>
                         <!-- A recorded call has a ⋯ and nothing under it; each step arrives with no press, said where the ⋯
                              opens: "Writing notes…" (also the moment End & file notes or the call's own end moves it here, to
                              Past), then "Notes filed · finding changes…", then "Notes filed · 3 changes to review" over Review 3
@@ -1828,7 +1835,7 @@
                              next item; a call with no notes says why ("Not recorded · nobody let it in"), with Try again (and
                              the dot) where only the write-up failed. -->
                         <sc-if value="{{ m.recorded }}">
-                          <button onClick="{{ openCallChanges }}" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent-solid, #4a56d6);box-shadow:0 0 0 2px var(--panel)"></span></button>
+                          <button onClick="{{ openCallChanges }}" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="border-color:var(--line);color:var(--text)">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent-solid, #4a56d6);box-shadow:0 0 0 2px var(--panel)"></span></button>
                         </sc-if>
                       </div>
                     </sc-for>
@@ -3112,7 +3119,7 @@ const OUTREACH = {
   e07: ["CFO — first approach", "Yousef Iman", "active", 1, null]
 };
 const MEETINGS = {
-  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["22 Apr", "Coffee at DIFC", "Yara Haddad", true]] },
+  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["Apr", "22", "Tue 22 Apr · 09:00–09:45", "Coffee at DIFC", "Yara Haddad", true]] },
   e06: { upcoming: [], past: [] }
 };
 // [date, summary, technical score, behavioural score, technical +/-, behavioural +/-]
@@ -3721,7 +3728,7 @@ class Component extends DCLogic {
       orSeq: run ? run[0] : "", orSender: run ? run[1] : "", orSteps, orLive: runState === "active",
       orBooked: runState === "booked", orReplied: runState === "replied", orRepliedAt: run ? run[4] : "",
       replyChoices: this.statusOf(e) === "contacted" ? [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })) : [],
-      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.map(([date, title, who, recorded]) => ({ date, title, who, recorded: Boolean(recorded) })),
+      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.map(([month, day, when, title, who, recorded]) => ({ month, day, when, title, who, recorded: Boolean(recorded) })),
       mtHasUpcoming: meet.upcoming.length > 0, mtHasPast: meet.past.length > 0, mtEmpty: meet.upcoming.length + meet.past.length === 0,
       zoomConnected: !s.zoomBroken, zoomReconnect: !!s.zoomBroken,
       showDnc: cw && !!crm.dnc,

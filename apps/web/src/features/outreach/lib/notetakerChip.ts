@@ -95,3 +95,17 @@ export function isNotetakerLive(recording: NotetakerRecording | null): boolean {
 export function canRecord(recording: NotetakerRecording | null): boolean {
   return recording === null || recording.status === "CANCELLED" || recording.status === "FAILED";
 }
+
+/** What puts a dot on a call's ⋯: the call being recorded, or something waiting on the consultant. */
+export function callMarkOf(recording: NotetakerRecording | null): { tone: "recording" | "waiting"; words: string } | null {
+  if (recording?.status === "RECORDING" && !recording.endRequested) return { tone: "recording", words: "recording" };
+  if (recording?.status === "DONE" && recording.pendingSuggestions > 0) {
+    return { tone: "waiting", words: `${countOf(recording.pendingSuggestions, "change")} to review` };
+  }
+  if (recording?.status === "FAILED" && recording.retryable) return { tone: "waiting", words: "no notes" };
+  return null;
+}
+
+export function countOf(count: number, noun: string): string {
+  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+}
