@@ -203,6 +203,53 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an About that states an email or a phone is kept among the changes with both taken out")
+    void aboutChangesAreRedacted() throws Exception {
+        firm("Redacted About Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        save(cfo, candidateId, """
+                {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-activity",
+                 "summary":"Reach me at fatima.private@example.com or +971 50 123 4567 for treasury roles."}""");
+
+        String raw = timelineText(cfo, candidateId, "profile");
+        assertThat(raw).doesNotContain("fatima.private@example.com").doesNotContain("123 4567");
+        String about = changesOf(json.readTree(raw).get("entries").get(0)).get("summary").get(1);
+        assertThat(about).contains("[email removed]").contains("[phone removed]").contains("treasury roles");
+    }
+
+    @Test
+    @DisplayName("the position read takes up to 500 lines in one page, while the workspace read still pages by 50")
+    void thePositionReadTakesTheWholeHistoryInOnePage() throws Exception {
+        firm("Long History Firm");
+        String cfo = mandate("Chief Financial Officer");
+        JsonNode filed = add(cfo, FATIMA);
+        String personId = filed.get("personId").asText();
+        for (int index = 0; index < 60; index++) {
+            line(personId, cfo, "TAGGED", """
+                    {"tagId":"%s","tag":"Tag %d"}""".formatted(UUID.randomUUID(), index));
+        }
+
+        JsonNode position = body(mvc.perform(get(timelineUrl(cfo, filed.get("id").asText())).param("limit", "500")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(position.get("entries")).hasSize(61);
+        assertThat(position.get("nextCursor").isNull()).isTrue();
+
+        JsonNode capped = body(mvc.perform(get(timelineUrl(cfo, filed.get("id").asText())).param("limit", "9999")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(capped.get("entries")).hasSize(61);
+
+        JsonNode workspace = body(mvc.perform(get("/api/v1/candidates/" + personId + "/timeline").param("limit", "500")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(workspace.get("entries")).hasSize(50);
+        assertThat(workspace.get("nextCursor").isNull()).isFalse();
+    }
+
+    @Test
     @DisplayName("a history line whose stored changes are malformed reads with none, never a failure")
     void malformedStoredChangesReadAsNone() throws Exception {
         firm("Malformed Firm");

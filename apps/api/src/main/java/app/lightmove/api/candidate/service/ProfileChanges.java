@@ -1,7 +1,9 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.core.llm.service.ContactRedaction;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -14,7 +16,8 @@ import java.util.Objects;
 /**
  * What a profile save did to each field, as the timeline shows it: the value as it read before and after, in the
  * words a researcher reads on the Career tab. Contacts are deliberately absent — an address quoted here would outlive
- * its removal from the ledger — and so is the employer, which is the position's mapping rather than the person's.
+ * its removal from the ledger — and so is the employer, which is the position's mapping rather than the person's. The
+ * About text is kept only redacted, for the same reason: summaries routinely carry an email or a phone number.
  */
 final class ProfileChanges {
 
@@ -24,7 +27,7 @@ final class ProfileChanges {
     private static final int FREE_TEXT_LENGTH = 140;
 
     private final Map<String, String> before;
-    private final List<?> careerBefore;
+    private final List<CandidateCareerEntry> careerBefore;
 
     private ProfileChanges(Person person) {
         this.before = valuesOf(person);
@@ -46,7 +49,7 @@ final class ProfileChanges {
                 changed.add(change(field, was, value));
             }
         });
-        List<?> careerNow = person.getProfile().career();
+        List<CandidateCareerEntry> careerNow = person.getProfile().career();
         if (!careerBefore.equals(careerNow)) {
             String was = rolesOf(careerBefore);
             String is = rolesOf(careerNow);
@@ -67,7 +70,7 @@ final class ProfileChanges {
         values.put("yearsExperience", person.getYearsExperience() == null ? null
                 : String.valueOf(person.getYearsExperience()));
         values.put("linkedinUrl", person.getLinkedinUrl());
-        values.put("summary", clipped(person.getSummary()));
+        values.put("summary", aboutOf(person.getSummary()));
         values.put("currency", pay.currency());
         values.put("baseSalary", money(pay.currency(), pay.baseSalary()));
         values.put("bonus", money(pay.currency(), pay.bonus()));
@@ -96,7 +99,7 @@ final class ProfileChanges {
         return currency == null ? figure : currency + " " + figure;
     }
 
-    private static String rolesOf(Collection<?> career) {
+    private static String rolesOf(Collection<CandidateCareerEntry> career) {
         return career.size() == 1 ? "1 role" : career.size() + " roles";
     }
 
@@ -107,11 +110,12 @@ final class ProfileChanges {
         return country == null ? city : city + ", " + country;
     }
 
-    private static String clipped(String text) {
+    /** Redacted before it is clipped, so a number the cut would split is still taken out whole. */
+    private static String aboutOf(String text) {
         if (text == null) {
             return null;
         }
-        String flat = text.strip().replaceAll("\\s+", " ");
+        String flat = ContactRedaction.redact(text).strip().replaceAll("\\s+", " ");
         return flat.length() <= FREE_TEXT_LENGTH ? flat : flat.substring(0, FREE_TEXT_LENGTH - 1).strip() + "…";
     }
 
