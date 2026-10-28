@@ -4,9 +4,10 @@ import { Placeholder } from "@tiptap/extensions";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import type { SuggestionKeyDownProps, SuggestionProps } from "@tiptap/suggestion";
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type MouseEvent } from "react";
 import { Button, Modal } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { isPressOnEmptySpace } from "../../../lib/focusFieldWithin";
 import { MentionChip } from "../../tasks/components/NoteBody";
 import { mentionKey, type Mention } from "../../tasks/lib/mentions";
 import { isSafeHref, mentionOf, noteDocOf, noteExtensions, serializeNoteDoc, TEAM_MENTION_ID } from "../lib/noteMarkdown";
@@ -214,23 +215,22 @@ export default function RichNoteEditor({
       ? (teammates?.find((teammate) => teammate.userId === mention.userId)?.avatarUrl ?? null)
       : null;
 
+  // The box is taller than the words in it: a press on its empty part, its padding or the toolbar's gap landed outside
+  // the editor and left the caret nowhere — the composer read as locked. The link row's form keeps its own presses.
+  const focusEditorAtEnd = (event: MouseEvent<HTMLDivElement>) => {
+    if (!editor || !isPressOnEmptySpace(event, "form")) return;
+    event.preventDefault();
+    // Focused now rather than through `focus()`, which waits a frame: a key pressed straight after was lost.
+    editor.view.dispatch(editor.state.tr.setSelection(Selection.atEnd(editor.state.doc)));
+    editor.view.focus();
+  };
+
   // The larger view, and a composer that is a whole dialog, write in a field of their own under a toolbar band.
   const isFramed = expanded || roomy || fillsDialog;
   const surface = (
     <div
       ref={surfaceRef}
-      onMouseDown={(event) => {
-        // The box is taller than the words in it: a press on its empty part, its padding or the toolbar's gap landed
-        // outside the editor and left the caret nowhere — the composer read as locked.
-        const surfaceBox = event.currentTarget;
-        const target = event.target as HTMLElement;
-        const control = target.closest(".ProseMirror, button, a[href], input, select, form");
-        if (!editor || !surfaceBox.contains(target) || (control && surfaceBox.contains(control))) return;
-        event.preventDefault();
-        // Focused now rather than through `focus()`, which waits a frame: a key pressed straight after was lost.
-        editor.view.dispatch(editor.state.tr.setSelection(Selection.atEnd(editor.state.doc)));
-        editor.view.focus();
-      }}
+      onMouseDown={focusEditorAtEnd}
       className={cn(
         "relative",
         fillsDialog && "flex min-h-0 flex-1 flex-col",

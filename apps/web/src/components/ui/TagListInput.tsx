@@ -88,7 +88,10 @@ export function TagListInput({
 
   return (
     <div className="relative">
-      <div onMouseDown={focusFieldWithin} className="flex min-h-[42px] w-full flex-wrap items-center gap-1.5 rounded-lg border border-u-border-strong bg-u-surface px-2 py-1.5 transition focus-within:border-u-accent">
+      <div
+        onMouseDown={focusFieldWithin}
+        className="flex min-h-[42px] w-full flex-wrap items-center gap-1.5 rounded-lg border border-u-border-strong bg-u-surface px-2 py-1.5 transition focus-within:border-u-accent"
+      >
         {values.map((value) => (
           <span
             key={value.toLowerCase()}

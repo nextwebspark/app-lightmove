@@ -237,11 +237,14 @@ function OpenComposer({
                 </Select>
               )}
             </div>
-            <label className="flex items-center gap-2 border-b border-u-border py-2 text-note">
-              <span className="w-14 flex-none text-u-text3">Subject</span>
-              {isReply ? (
+            {isReply ? (
+              <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
+                <span className="w-14 flex-none text-u-text3">Subject</span>
                 <span className="min-w-0 truncate text-u-text2">{replySubject}</span>
-              ) : (
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 border-b border-u-border py-2 text-note">
+                <span className="w-14 flex-none text-u-text3">Subject</span>
                 <input
                   aria-label="Subject"
                   autoFocus={autoFocus}
@@ -251,8 +254,8 @@ function OpenComposer({
                   className="min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3"
                   placeholder="What the email is about"
                 />
-              )}
-            </label>
+              </label>
+            )}
           </>
         }
         footer={
