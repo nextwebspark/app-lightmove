@@ -30,7 +30,6 @@ vi.mock("../api/personCrmApi", async (importOriginal) => ({
   ...(await importOriginal<typeof personCrmApi>()),
   getPersonPositions: vi.fn(),
   getPersonNotes: vi.fn(),
-  getPersonTimeline: vi.fn(),
   getPositionHistory: vi.fn(),
   writePersonNote: vi.fn(),
 }));
@@ -331,7 +330,6 @@ describe("CandidateDrawer", () => {
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);
     vi.mocked(poolApi.getPerson).mockResolvedValue(yasminRecord);
     vi.mocked(poolApi.tagCatalog).mockResolvedValue([shortlistTag]);
-    vi.mocked(personCrmApi.getPersonTimeline).mockResolvedValue({ entries: [], nextCursor: null });
     vi.mocked(personCrmApi.getPositionHistory).mockResolvedValue({ entries: [], truncated: false });
     vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({
       offered: true,

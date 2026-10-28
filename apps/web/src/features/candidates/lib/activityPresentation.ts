@@ -1,7 +1,6 @@
 import { ICONS } from "../../../components/layout/Icon";
 import type { Candidate, FieldChange, PersonActivityKind, PersonTimelineEntry } from "../api/types";
-import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
-import { statusLabelOf } from "./pipelineStatus";
+import { DOCUMENT_NOUNS, DOORS, NOTE_VERBS, statusLabel, triageStageLabel } from "./candidateActivity";
 
 /**
  * The executive drawer's Activity tab, worked out in data: which kind of event a line is, how it is drawn, who did it
@@ -263,22 +262,6 @@ export function automationCauseOf(entry: PersonTimelineEntry): string | null {
   return entry.actorName ? `after ${entry.actorName}'s ${cause}` : `after the ${cause}`;
 }
 
-const NOTE_VERBS: Record<string, string> = {
-  GENERAL: "wrote a note",
-  CALL: "logged a call",
-  MEETING: "logged a meeting",
-  EMAIL: "logged an email",
-};
-
-const DOCUMENT_NOUNS: Record<string, string> = {
-  CV: "CV",
-  COVER_LETTER: "cover letter",
-  REFERENCE: "reference",
-  CERTIFICATE: "certificate",
-  ASSESSMENT: "assessment",
-  OTHER: "document",
-};
-
 function documentNoun(category: string | undefined): string {
   return DOCUMENT_NOUNS[category ?? "OTHER"] ?? "document";
 }
@@ -296,7 +279,7 @@ export function verbOf(entry: PersonTimelineEntry): string {
   switch (entry.kind) {
     case "ADDED_TO_POOL":
     case "MAPPED":
-      return "added them to this position";
+      return entry.projectId === null ? "added them to your candidates" : "added them to this position";
     case "UNMAPPED":
       return "removed them from this position";
     case "STATUS_CHANGED":
@@ -501,14 +484,6 @@ export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
   return null;
 }
 
-const DOORS: Record<string, string> = {
-  MANUAL: "Added by hand",
-  CSV: "Imported from a spreadsheet",
-  EXTENSION: "Captured with the plugin",
-  AI_SOURCED: "Found by Find executives",
-  PEOPLE_SEARCH: "Filed from a people search",
-};
-
 export function doorOf(door: string | undefined): string | null {
   return door ? (DOORS[door] ?? null) : null;
 }
@@ -543,16 +518,6 @@ export function fieldLabel(field: string): string {
   if (known) return known;
   const words = field.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-/** The label the line was written with; an older line carries only one of the seven built-in keys. */
-export function statusLabel(value: string | undefined, snapshot: string | undefined): string {
-  if (snapshot) return snapshot;
-  return value ? statusLabelOf(value) : "—";
-}
-
-function triageStageLabel(status: string | undefined): string {
-  return TRIAGE_STAGES.find((stage) => stage.status === status)?.label ?? status ?? "another stage";
 }
 
 /** Runs of quick minor changes by one person, folded; three or more within ten minutes make a fold. */
@@ -626,13 +591,19 @@ export function familiesOf(entries: readonly PersonTimelineEntry[]): ActivityFam
   return ACTIVITY_FAMILIES.filter((option) => present.has(option.family));
 }
 
-/** "Thu 30 Oct, 15:00" in the viewer's zone; null for a value that is not a time. */
-export function shortDateTime(isoInstant: string | null | undefined): string | null {
+/** "Thu 30 Oct" in the viewer's zone; null for a value that is not a time. */
+export function shortDate(isoInstant: string | null | undefined): string | null {
   if (!isoInstant) return null;
   const at = new Date(isoInstant);
   if (Number.isNaN(at.getTime())) return null;
-  const day = at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
-  return `${day}, ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  return at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+}
+
+/** "Thu 30 Oct, 15:00" in the viewer's zone; null for a value that is not a time. */
+export function shortDateTime(isoInstant: string | null | undefined): string | null {
+  const day = shortDate(isoInstant);
+  if (!day || !isoInstant) return null;
+  return `${day}, ${new Date(isoInstant).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 /** "Tue 27 Oct 2026, 14:20 GMT+4" — the full stamp a tooltip and a dialog give, zone and all. */

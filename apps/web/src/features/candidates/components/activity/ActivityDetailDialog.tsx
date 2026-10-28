@@ -11,7 +11,7 @@ import { getConversation, CONVERSATION_KEY, type ConversationMessage } from "../
 import { getMeetings, MEETINGS_KEY, type Meeting } from "../../../outreach/api/meetingApi";
 import { CANDIDATE_TASKS_KEY, getCandidateTasks } from "../../../tasks/api/tasksApi";
 import * as personCrmApi from "../../api/personCrmApi";
-import type { PersonDocument, PersonDocumentVersion, PersonTimelineEntry } from "../../api/types";
+import type { PersonDocument, PersonDocumentVersion, PersonNoteKind, PersonTimelineEntry } from "../../api/types";
 import type { DrawerTab } from "../../lib/drawerTabs";
 import {
   actorOf,
@@ -21,14 +21,14 @@ import {
   fullDateTime,
   iconOf,
   shortDateTime,
-  statusLabel,
   toneOf,
   verbOf,
   actorNameOf,
   actorRoleOf,
   type ActivityExecutive,
 } from "../../lib/activityPresentation";
-import { STOP_REASONS } from "../../lib/candidateActivity";
+import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
+import { noteKindLabel } from "../../lib/noteKinds";
 import { StatusPill } from "./ActivityItems";
 import { ActorFace, KindTile } from "./ActivityVisuals";
 
@@ -219,7 +219,7 @@ function DetailBody({
         <Facts
           rows={[
             ["Sequence", details.sequence ?? null],
-            ["Why it stopped", entry.kind === "OUTREACH_STOPPED" ? (details.reason ? (STOP_REASONS[details.reason] ?? null) : "Stopped by hand") : null],
+            ["Why it stopped", entry.kind === "OUTREACH_STOPPED" ? stopReasonOf(entry) : null],
           ]}
         />
       );
@@ -247,7 +247,7 @@ function DetailBody({
         </Callout>
       );
     case "TRIAGE_STATUS_CHANGED":
-      return <Facts rows={[["With their company", String(details.withCompany) === "true" ? "Yes, the company moved too" : "No, them alone"]]} />;
+      return <Facts rows={[["With their company", withCompanyOf(entry)]]} />;
   }
   return null;
 }
@@ -266,7 +266,7 @@ function NoteDetail({ entry, projectId, candidateId }: { entry: PersonTimelineEn
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-1.5">
-        <Pill>{NOTE_KIND_LABELS[note.kind] ?? "Note"}</Pill>
+        <Pill>{noteTitleOf(note.kind)}</Pill>
         {note.pinned && <Pill>Pinned</Pill>}
         <Pill>{note.projectId === null ? "About the person · every position" : "This position"}</Pill>
       </div>
@@ -282,19 +282,20 @@ function NoteDetail({ entry, projectId, candidateId }: { entry: PersonTimelineEn
   );
 }
 
-const NOTE_TITLES: Record<string, string> = {
-  GENERAL: "Note",
-  CALL: "Call note",
-  MEETING: "Meeting note",
-  EMAIL: "Email note",
-};
+/** "Call note", "Meeting note"; a general one is just "Note". */
+function noteTitleOf(kind: PersonNoteKind): string {
+  return kind === "general" ? noteKindLabel(kind) : `${noteKindLabel(kind)} note`;
+}
 
-const NOTE_KIND_LABELS: Record<string, string> = {
-  general: "Note",
-  call: "Call note",
-  meeting: "Meeting note",
-  email: "Email note",
-};
+/** Why a sequence ended, as its `reason` names it; a consultant's own Stop carries none. */
+function stopReasonOf(entry: PersonTimelineEntry): string | null {
+  const { reason } = entry.details;
+  return reason ? (STOP_REASONS[reason] ?? null) : "Stopped by hand";
+}
+
+function withCompanyOf(entry: PersonTimelineEntry): string {
+  return String(entry.details.withCompany) === "true" ? "Yes, the company moved too" : "No, them alone";
+}
 
 function EmailDetail({
   entry,
@@ -558,10 +559,14 @@ function DocumentDetail({
   );
 }
 
+/**
+ * The file a line names: its own version, or the latest where the line names none. A version deleted since is
+ * nothing, never another file shown under its number.
+ */
 function versionOf(document: PersonDocument, number: string | undefined): PersonDocumentVersion | null {
-  if (document.versions.length === 0) return null;
+  if (number === undefined) return document.versions[0] ?? null;
   const wanted = Number(number);
-  return document.versions.find((version) => version.versionNo === wanted) ?? document.versions[0];
+  return document.versions.find((version) => version.versionNo === wanted) ?? null;
 }
 
 function TaskDetail({ entry, projectId, candidateId }: { entry: PersonTimelineEntry; projectId: string; candidateId: string }) {
@@ -644,13 +649,19 @@ function wayOf(entry: PersonTimelineEntry, projectId: string, candidateId: strin
   return null;
 }
 
+/** The line's kind as the server writes it (`CALL`), read as a note's own kind (`call`); an unknown one is a general note. */
+function noteKindOf(detail: string | undefined): PersonNoteKind {
+  const kind = (detail ?? "general").toLowerCase();
+  return kind === "call" || kind === "meeting" || kind === "email" ? kind : "general";
+}
+
 function titleOf(entry: PersonTimelineEntry): string {
   switch (entry.kind) {
     case "NOTE_ADDED":
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
     case "NOTE_REMOVED":
-      return NOTE_TITLES[entry.details.kind ?? "GENERAL"] ?? "Note";
+      return noteTitleOf(noteKindOf(entry.details.kind));
     case "EMAIL_SENT":
       return "Email sent";
     case "EMAIL_REPLIED":
@@ -671,7 +682,7 @@ function titleOf(entry: PersonTimelineEntry): string {
       return "Changes from a call";
     case "ADDED_TO_POOL":
     case "MAPPED":
-      return "Added to this position";
+      return entry.projectId === null ? "Added to your candidates" : "Added to this position";
   }
   const verb = verbOf(entry);
   return verb.charAt(0).toUpperCase() + verb.slice(1);

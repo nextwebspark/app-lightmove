@@ -12,6 +12,7 @@ import {
   foldRuns,
   isMinor,
   peopleOf,
+  shortDate,
   type ActivityPerson,
   actorNameOf,
   actorRoleOf,
@@ -159,7 +160,7 @@ export function ActivityTimeline({
               <h3 className="sticky top-[45px] z-10 flex items-baseline gap-2 bg-u-surface/95 pb-2 pt-3 text-note font-semibold text-u-text backdrop-blur-sm">
                 {day}
                 {(day === "Today" || day === "Yesterday") && (
-                  <span className="font-mono text-meta font-normal text-u-text3">{dateOf(lines[0].occurredAt)}</span>
+                  <span className="font-mono text-meta font-normal text-u-text3">{shortDate(lines[0].occurredAt)}</span>
                 )}
                 <span className="font-mono text-meta font-normal text-u-text3">
                   · {lines.length} {lines.length === 1 ? "event" : "events"}
@@ -261,13 +262,6 @@ function PeopleSummary({
       <span className="truncate">{label}</span>
     </>
   );
-}
-
-function dateOf(isoInstant: string): string {
-  const at = new Date(isoInstant);
-  return Number.isNaN(at.getTime())
-    ? ""
-    : at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
 }
 
 /** "12 min ago" moves on while the drawer stays open. */

@@ -15,6 +15,7 @@ import {
   isMinor,
   peopleOf,
   previewOf,
+  shortDate,
   shortDateTime,
   toneOf,
   verbOf,
@@ -305,6 +306,18 @@ describe("activity presentation", () => {
     expect(fieldLabel("baseSalary")).toBe("Base salary");
     expect(fieldLabel("openToRelocate")).toBe("Open to relocate");
     expect(fieldLabel("boardSeats")).toBe("Board seats");
+  });
+
+  it("names an addition with no position as one to the candidates", () => {
+    expect(verbOf(line(1, "ADDED_TO_POOL", { projectId: null }))).toBe("added them to your candidates");
+    expect(verbOf(line(1, "ADDED_TO_POOL"))).toBe("added them to this position");
+  });
+
+  it("formats a day the same way for a header and a card", () => {
+    expect(shortDate("2026-10-30T11:00:00Z")).toMatch(/^\w{3} 30 Oct$/);
+    expect(shortDate(null)).toBeNull();
+    expect(shortDate("nope")).toBeNull();
+    expect(shortDateTime("2026-10-30T11:00:00Z")?.startsWith(shortDate("2026-10-30T11:00:00Z") ?? "x")).toBe(true);
   });
 
   it("refuses to format what is not a time", () => {

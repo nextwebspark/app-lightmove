@@ -16,7 +16,7 @@ export interface TimelineLine {
 }
 
 /** The door a line's `door` detail names, as the server writes it (an enum name). */
-const DOORS: Record<string, string> = {
+export const DOORS: Record<string, string> = {
   MANUAL: "Added by hand",
   CSV: "Imported from a spreadsheet",
   EXTENSION: "Captured with the plugin",
@@ -69,7 +69,7 @@ function callFieldsOf(keys: string | undefined): string {
   return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
 }
 
-const NOTE_VERBS: Record<string, string> = {
+export const NOTE_VERBS: Record<string, string> = {
   GENERAL: "wrote a note",
   CALL: "logged a call",
   MEETING: "logged a meeting",
@@ -304,7 +304,7 @@ function actorNameOf(entry: PersonTimelineEntry): string {
   return entry.actorName ?? "Someone";
 }
 
-const DOCUMENT_NOUNS: Record<string, string> = {
+export const DOCUMENT_NOUNS: Record<string, string> = {
   CV: "CV",
   COVER_LETTER: "cover letter",
   REFERENCE: "reference",
@@ -350,7 +350,7 @@ function aboutOf(entry: PersonTimelineEntry, here: boolean): string {
 }
 
 /** The label the line was written with; an older line carries only one of the seven built-in keys. */
-function statusLabel(value: string | undefined, snapshot: string | undefined): string {
+export function statusLabel(value: string | undefined, snapshot: string | undefined): string {
   if (snapshot) return snapshot;
   return value ? statusLabelOf(value) : "—";
 }
@@ -360,6 +360,6 @@ function vendorOf(value: string | undefined): string | null {
 }
 
 /** A Companies stage as the sub-nav names it; an unknown token as written. */
-function triageStageLabel(status: string | undefined): string {
+export function triageStageLabel(status: string | undefined): string {
   return TRIAGE_STAGES.find((stage) => stage.status === status)?.label ?? status ?? "another stage";
 }

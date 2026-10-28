@@ -86,52 +86,27 @@ export function pinPersonNote(
   });
 }
 
-/** The most of a position's history the Activity tab reads at once: far more than any one executive has gathered. */
-export const POSITION_HISTORY_PAGES = 10;
-const POSITION_HISTORY_PAGE_SIZE = 50;
+/** The most of a position's history the Activity tab reads at once (the server's own ceiling for this route). */
+export const POSITION_HISTORY_LIMIT = 500;
 
 export interface PositionHistory {
   entries: PersonTimelineEntry[];
-  /** True when there is more than {@link POSITION_HISTORY_PAGES} pages' worth; the oldest are left unread. */
+  /** True when the history holds more than {@link POSITION_HISTORY_LIMIT} lines; the oldest are left unread. */
   truncated: boolean;
 }
 
 /**
- * Everything one position's drawer may read of the person's history, newest first, gathered page by page so the
- * Activity tab can count and filter it whole. The server holds the boundary: another position's work is never sent.
+ * Everything one position's drawer may read of the person's history, newest first, in one read so the Activity tab
+ * can count and filter it whole. The server holds the boundary: another position's work is never sent.
  */
 export async function getPositionHistory(
   projectId: string,
   candidateId: string,
   signal?: AbortSignal,
 ): Promise<PositionHistory> {
-  const entries: PersonTimelineEntry[] = [];
-  let before: number | null = null;
-  for (let page = 0; page < POSITION_HISTORY_PAGES; page++) {
-    const params = new URLSearchParams({ limit: String(POSITION_HISTORY_PAGE_SIZE) });
-    if (before != null) params.set("before", String(before));
-    const read: PersonTimelinePage = await request<PersonTimelinePage>(
-      `${personUrl(projectId, candidateId)}/timeline?${params}`,
-      { signal },
-    );
-    entries.push(...read.entries);
-    if (read.nextCursor == null) return { entries, truncated: false };
-    before = read.nextCursor;
-  }
-  return { entries, truncated: true };
-}
-
-/** The person's history, newest first; `before` is the previous page's `nextCursor`. */
-export function getPersonTimeline(
-  projectId: string,
-  candidateId: string,
-  before?: number | null,
-  signal?: AbortSignal,
-): Promise<PersonTimelinePage> {
-  const params = new URLSearchParams();
-  if (before != null) params.set("before", String(before));
-  const query = params.size > 0 ? `?${params}` : "";
-  return request<PersonTimelinePage>(`${personUrl(projectId, candidateId)}/timeline${query}`, {
-    signal,
-  });
+  const read = await request<PersonTimelinePage>(
+    `${personUrl(projectId, candidateId)}/timeline?limit=${POSITION_HISTORY_LIMIT}`,
+    { signal },
+  );
+  return { entries: read.entries, truncated: read.nextCursor != null };
 }

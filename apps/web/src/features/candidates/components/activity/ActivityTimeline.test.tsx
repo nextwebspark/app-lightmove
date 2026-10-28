@@ -753,6 +753,43 @@ describe("ActivityTimeline", () => {
       expect(within(dialog).getByText(/was deleted since/)).toBeInTheDocument();
     });
 
+    it("previews the very version a line names, and says when that version was deleted rather than show another", async () => {
+      const cv = {
+        ...documentWith("doc-1"),
+        versions: [
+          { ...documentWith("doc-1").versions[0], id: "v3", versionNo: 3, fileName: "Fatima_CV_v3.pdf" },
+          { ...documentWith("doc-1").versions[0], id: "v1", versionNo: 1, fileName: "Fatima_CV_v1.pdf" },
+        ],
+      };
+      history(
+        line(3, "DOCUMENT_VERSION_ADDED", { details: { documentId: "doc-1", category: "CV", version: "2" } }),
+        line(2, "DOCUMENT_ADDED", { occurredAt: "2026-10-26T09:00:00Z", details: { documentId: "doc-1", category: "CV", version: "1" } }),
+        line(1, "DOCUMENT_ADDED", { occurredAt: "2026-10-25T09:00:00Z", details: { documentId: "doc-1", category: "REFERENCE" } }),
+      );
+      renderTimeline([cv]);
+
+      let dialog = await open(/uploaded version 2 of the CV/);
+      expect(within(dialog).queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+      expect(within(dialog).getByText(/this version of it, was deleted since/)).toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+
+      dialog = await open(/uploaded a CV/);
+      expect(within(dialog).getByText("Fatima_CV_v1.pdf")).toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("button", { name: "Preview" }));
+      expect(destinations.onPreviewDocument).toHaveBeenLastCalledWith(cv, cv.versions[1]);
+
+      dialog = await open(/uploaded a reference/);
+      await userEvent.click(within(dialog).getByRole("button", { name: "Preview" }));
+      expect(destinations.onPreviewDocument).toHaveBeenLastCalledWith(cv, cv.versions[0]);
+    });
+
+    it("names an addition made from the Candidates page as one to your candidates, not to this position", async () => {
+      history(line(1, "ADDED_TO_POOL", { projectId: null, projectTitle: null, details: { door: "MANUAL" } }));
+      renderTimeline();
+      await userEvent.click(await screen.findByRole("button", { name: /^Dana Aboud added them to your candidates/ }));
+      expect(await screen.findByRole("dialog", { name: "Added to your candidates" })).toBeInTheDocument();
+    });
+
     it("shows a task with its state now, and opens it", async () => {
       vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({
         open: [],
