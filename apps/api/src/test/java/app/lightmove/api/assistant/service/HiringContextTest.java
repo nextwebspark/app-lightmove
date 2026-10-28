@@ -62,11 +62,39 @@ class HiringContextTest {
     @Test
     @DisplayName("in-house, the firm is the hiring company and its business units are the clients")
     void inHouseFramesTheFirm() {
-        String block = HiringContext.render(new HiringSide(new Firm(WorkspaceMode.COMPANY, kalem), kalem));
+        String block = HiringContext.render(new HiringSide(new Firm(WorkspaceMode.COMPANY, kalem), kalem, null));
 
         assertThat(block).startsWith("The consultant works for this firm, hiring for its own businesses")
                 .contains("departments or business units")
                 .contains("- Name: Kalem Group");
+    }
+
+    @Test
+    @DisplayName("in-house, a business unit with a persona is the hiring company and the firm follows as its parent")
+    void inHouseFramesTheBusinessUnit() {
+        HiringCompanyProfile firm = new HiringCompanyProfile("Kalem Group", "retail", "Dubai",
+                "United Arab Emirates", "https://kalem.example", 12_000, new HiringPersona("Gulf retail group",
+                List.of("Retail"), List.of("Landmark Group"), List.of("UAE"), "Promotes from within"));
+        HiringCompanyProfile unit = new HiringCompanyProfile("Kalem Healthcare", null, null, null, null, null,
+                new HiringPersona("Hospitals across the UAE", List.of("Hospitals"), List.of("Mediclinic"),
+                        List.of(), null)).within(firm);
+
+        String block = HiringContext.render(new HiringSide(new Firm(WorkspaceMode.COMPANY, firm), unit, firm));
+
+        assertThat(block).startsWith("The consultant works for this firm, hiring for one of its business units")
+                .contains("- Name: Kalem Healthcare\n- Industry: retail\n- Headquarters: Dubai, United Arab Emirates")
+                .contains("- Sectors: Hospitals")
+                .contains("- Competitors: Mediclinic")
+                .contains("- Geographies: UAE");
+        String parent = block.substring(block.indexOf("The parent firm the unit belongs to:"));
+        assertThat(parent.lines().skip(1)).containsExactly(
+                "- Name: Kalem Group",
+                "- Headquarters: Dubai, United Arab Emirates",
+                "- Headcount: 12,000",
+                "- Website: https://kalem.example",
+                "- What it does: Gulf retail group",
+                "- Notes: Promotes from within");
+        assertThat(block).doesNotContain("Landmark Group").doesNotContain("Sectors: Retail");
     }
 
     @Test
@@ -77,7 +105,7 @@ class HiringContextTest {
         HiringCompanyProfile client = new HiringCompanyProfile("Ministry of Health", "hospital & health care",
                 "Riyadh", "Saudi Arabia", null, null, HiringPersona.empty());
 
-        String block = HiringContext.render(new HiringSide(new Firm(WorkspaceMode.AGENCY, agency), client));
+        String block = HiringContext.render(new HiringSide(new Firm(WorkspaceMode.AGENCY, agency), client, null));
 
         assertThat(block).startsWith("The consultant works for Gulf Search Partners, a search agency "
                         + "(Board search for family groups).")

@@ -4,7 +4,7 @@ import app.lightmove.api.common.persona.model.HiringPersona;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
-/** An agency client's persona. Lists arrive whole and replace what was there. */
+/** A client's or business unit's persona. Lists arrive whole and replace what was there. */
 public record UpdateClientPersonaRequest(
         @Size(max = 2000, message = "Keep the summary under 2,000 characters")
         String summary,
