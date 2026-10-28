@@ -5,8 +5,8 @@ public record HiringCompanyProfile(String name, String industry, String city, St
                                    Integer employees, HiringPersona persona) {
 
     /**
-     * A business unit read against its parent firm: what it left blank of its industry, place and persona lists is
-     * the firm's. Its website and headcount are never the firm's — those describe the group, told apart.
+     * A business unit read against its parent firm: what it left blank of its place and persona lists is the firm's,
+     * and so is its industry while it names no sectors of its own. Its website and headcount are never the firm's.
      */
     public HiringCompanyProfile within(HiringCompanyProfile parent) {
         if (parent == null) {
@@ -15,8 +15,10 @@ public record HiringCompanyProfile(String name, String industry, String city, St
         HiringPersona own = persona == null ? HiringPersona.empty() : persona;
         // City and country are one place: half of each would put the firm's city in the unit's country.
         boolean placed = city != null || country != null;
+        // A unit naming its own sectors chose another market: the firm's industry would contradict them.
+        boolean ownMarket = industry != null || !own.sectors().isEmpty();
         return new HiringCompanyProfile(name,
-                industry != null ? industry : parent.industry(),
+                ownMarket ? industry : parent.industry(),
                 placed ? city : parent.city(),
                 placed ? country : parent.country(),
                 website, employees, own.fallingBackTo(parent.persona()));

@@ -1355,7 +1355,7 @@ seat reads. At an agency the assistant's prompt and starters read the **mandate'
 company (`HiringSideResolver` → `HiringContext`, the agency named in one line). In-house the same column is
 a **business unit's persona** (#1048), edited in the unit's drawer through the same PUT: once the mandate's unit
 has recorded anything, the prompt and starters read the unit as the hiring company, each list it left empty
-(sectors, competitors, geographies) and its industry and place taken from the firm's
+(sectors, competitors, geographies), its place, and its industry while it names no sectors taken from the firm's
 (`HiringPersona.fallingBackTo`, `HiringCompanyProfile.within`), with the firm after it as the parent group —
 name, place, size, summary and notes, never its sectors or competitors; a unit with nothing recorded reads as
 the firm alone, as before. No migration: V85's column was already on every client row. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and

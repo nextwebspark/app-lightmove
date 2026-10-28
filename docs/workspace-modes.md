@@ -304,8 +304,8 @@ An in-house firm's business units can sit in different industries from the firm,
 in-house mandate as the firm's market. The unit drawer now carries a **Business unit persona** (the same
 `app_lm_client.persona` column and `PUT /clients/{id}/persona` an agency client uses: no migration, no new gate).
 
-- **Fallback is per field.** `HiringCompanyProfile.within(firm)` keeps the unit's name, takes the firm's industry
-  and place where the unit has none, and `HiringPersona.fallingBackTo` takes each of sectors, competitors and
+- **Fallback is per field.** `HiringCompanyProfile.within(firm)` keeps the unit's name, takes the firm's place
+  where the unit has none and the firm's industry only while the unit names neither an industry nor sectors, and `HiringPersona.fallingBackTo` takes each of sectors, competitors and
   geographies from the firm only where the unit's list is empty. The unit's summary and notes stay its own; its
   website and headcount are never the firm's (they describe the group).
 - **A unit with nothing recorded is today's behaviour**: `HiringSideResolver` returns the firm alone.

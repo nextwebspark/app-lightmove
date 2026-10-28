@@ -196,7 +196,7 @@ describe("ClientDrawer — the business unit persona", () => {
     renderDrawer();
 
     const section = (await screen.findByRole("heading", { name: "Business unit persona" })).closest("section")!;
-    expect(within(section).getByText(/taken from the firm persona in Settings/)).toBeInTheDocument();
+    expect(within(section).getByText(/Sectors, competitors or geographies left empty are taken from the firm persona in Settings/)).toBeInTheDocument();
     await user.type(within(section).getByPlaceholderText(/healthcare division/), "The group's car dealerships");
     await user.click(within(section).getByRole("button", { name: "Save persona" }));
 

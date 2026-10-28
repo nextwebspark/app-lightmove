@@ -114,6 +114,19 @@ class HiringPersonaTest {
         assertThat(placed.country()).isEqualTo("Saudi Arabia");
     }
 
+    @Test
+    @DisplayName("a business unit naming its own sectors does not take the firm's industry")
+    void unitWithOwnSectorsKeepsItsOwnMarket() {
+        HiringCompanyProfile firm = new HiringCompanyProfile("Kalem Group", "retail", "Dubai",
+                "United Arab Emirates", null, null, HiringPersona.empty());
+
+        HiringCompanyProfile unit = new HiringCompanyProfile("Kalem Healthcare", null, null, null, null, null,
+                new HiringPersona(null, List.of("Hospitals"), List.of(), List.of(), null)).within(firm);
+
+        assertThat(unit.industry()).isNull();
+        assertThat(unit.persona().sectors()).containsExactly("Hospitals");
+    }
+
     private static PersonaSeed company(String id, String industry, String country) {
         return new PersonaSeed(id, industry, country);
     }

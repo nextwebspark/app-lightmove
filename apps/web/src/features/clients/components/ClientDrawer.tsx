@@ -210,7 +210,7 @@ function ClientRecordView({
         <div className="mt-2 border-t border-u-border">
           <ClientPersonaSection
             client={client}
-            hint="What this business unit does — Uncava's assistant tailors research for its positions to it. Anything left empty is taken from the firm persona in Settings → General."
+            hint="What this business unit does — Uncava's assistant tailors research for its positions to it. Sectors, competitors or geographies left empty are taken from the firm persona in Settings → General."
             summaryPlaceholder="e.g. The group's healthcare division, running 12 hospitals across the UAE and Oman"
           />
         </div>

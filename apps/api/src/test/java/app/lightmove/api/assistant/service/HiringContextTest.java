@@ -82,7 +82,8 @@ class HiringContextTest {
         String block = HiringContext.render(new HiringSide(new Firm(WorkspaceMode.COMPANY, firm), unit, firm));
 
         assertThat(block).startsWith("The consultant works for this firm, hiring for one of its business units")
-                .contains("- Name: Kalem Healthcare\n- Industry: retail\n- Headquarters: Dubai, United Arab Emirates")
+                .contains("- Name: Kalem Healthcare\n- Headquarters: Dubai, United Arab Emirates")
+                .doesNotContain("Industry: retail")
                 .contains("- Sectors: Hospitals")
                 .contains("- Competitors: Mediclinic")
                 .contains("- Geographies: UAE");
