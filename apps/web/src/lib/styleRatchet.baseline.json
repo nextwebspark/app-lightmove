@@ -134,7 +134,7 @@
   },
   "features/candidates/components/PersonSections.tsx": {
     "arbitraryRadius": 2,
-    "arbitraryText": 6
+    "arbitraryText": 3
   },
   "features/candidates/components/pool/ActivityView.tsx": {
     "arbitraryText": 4,

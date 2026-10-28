@@ -1,9 +1,8 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, LinesSkeleton, Spinner, useToast } from "../../../components/ui";
+import { Button, LinesSkeleton, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
-import { formatActivityTime } from "../../projects/lib/activity";
 import type { TaskNote } from "../../tasks/api/types";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../tasks/lib/mentions";
@@ -11,7 +10,6 @@ import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import type { PersonNote, PersonNoteKind } from "../api/types";
-import { timelineLines } from "../lib/candidateActivity";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
 import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteScope } from "./NoteParts";
 
@@ -319,56 +317,4 @@ export function useTimelineCut<T>(lines: readonly T[], shown = TIMELINE_PREVIEW)
       </button>
     ) : null,
   };
-}
-
-export function TimelineFeed({ projectId, candidateId }: PersonSectionProps) {
-  const timeline = useInfiniteQuery({
-    queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId),
-    queryFn: ({ pageParam, signal }) =>
-      personCrmApi.getPersonTimeline(projectId, candidateId, pageParam, signal),
-    initialPageParam: null as number | null,
-    getNextPageParam: (last) => last.nextCursor,
-  });
-  const lines = timelineLines(
-    timeline.data?.pages.flatMap((page) => page.entries) ?? [],
-    projectId,
-  );
-  const { hasNextPage, isFetchingNextPage, fetchNextPage } = timeline;
-  const cut = useTimelineCut(lines);
-
-  if (timeline.isError) return <p className="text-[13px] text-u-text3">{messageFor(timeline.error)}</p>;
-  if (timeline.isPending) return <LinesSkeleton />;
-  if (lines.length === 0) return <p className="text-[13px] text-u-text3">Nothing recorded yet.</p>;
-  return (
-    <div>
-      <ol aria-label="Timeline" className="flex flex-col gap-3 border-s border-dotted border-u-border-strong ps-3.5">
-        {cut.visible.map((line) => (
-          <li key={line.key}>
-            <p className="text-[13px]/[1.5] text-u-text2">
-              <span className="font-semibold text-u-text">{line.actorName}</span> {line.text}
-            </p>
-            <p className="mt-0.5 font-mono text-[11px] text-u-text3">
-              <time dateTime={line.occurredAt}>{formatActivityTime(line.occurredAt)}</time>
-              {line.detail && ` · ${line.detail}`}
-            </p>
-          </li>
-        ))}
-      </ol>
-      {cut.isClipped ? (
-        cut.seeMore
-      ) : (
-        hasNextPage && (
-          <button
-            type="button"
-            onClick={() => void fetchNextPage()}
-            disabled={isFetchingNextPage}
-            className="inline-flex items-center gap-1.5 mt-3 text-note font-medium text-u-accent hover:underline disabled:opacity-60"
-          >
-            {isFetchingNextPage && <Spinner />}
-            Load more
-          </button>
-        )
-      )}
-    </div>
-  );
 }

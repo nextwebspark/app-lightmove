@@ -31,7 +31,7 @@ const VENDORS: Record<string, string> = {
 };
 
 /** Why a sequence ended short, as its `reason` detail names it; a consultant's own Stop needs no reason. */
-const STOP_REASONS: Record<string, string> = {
+export const STOP_REASONS: Record<string, string> = {
   DO_NOT_CONTACT: "Marked do not contact",
   LEFT_THE_RUNNING: "No longer in the running",
   UNMAPPED: "Removed from the position",

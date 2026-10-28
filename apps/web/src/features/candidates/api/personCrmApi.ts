@@ -3,6 +3,7 @@ import { CANDIDATES_KEY_PREFIX } from "./candidatesApi";
 import type {
   PersonNote,
   PersonPosition,
+  PersonTimelineEntry,
   PersonTimelinePage,
   WritePersonNotePayload,
 } from "./types";
@@ -83,6 +84,41 @@ export function pinPersonNote(
     method: "PATCH",
     body: { pinned },
   });
+}
+
+/** The most of a position's history the Activity tab reads at once: far more than any one executive has gathered. */
+export const POSITION_HISTORY_PAGES = 10;
+const POSITION_HISTORY_PAGE_SIZE = 50;
+
+export interface PositionHistory {
+  entries: PersonTimelineEntry[];
+  /** True when there is more than {@link POSITION_HISTORY_PAGES} pages' worth; the oldest are left unread. */
+  truncated: boolean;
+}
+
+/**
+ * Everything one position's drawer may read of the person's history, newest first, gathered page by page so the
+ * Activity tab can count and filter it whole. The server holds the boundary: another position's work is never sent.
+ */
+export async function getPositionHistory(
+  projectId: string,
+  candidateId: string,
+  signal?: AbortSignal,
+): Promise<PositionHistory> {
+  const entries: PersonTimelineEntry[] = [];
+  let before: number | null = null;
+  for (let page = 0; page < POSITION_HISTORY_PAGES; page++) {
+    const params = new URLSearchParams({ limit: String(POSITION_HISTORY_PAGE_SIZE) });
+    if (before != null) params.set("before", String(before));
+    const read: PersonTimelinePage = await request<PersonTimelinePage>(
+      `${personUrl(projectId, candidateId)}/timeline?${params}`,
+      { signal },
+    );
+    entries.push(...read.entries);
+    if (read.nextCursor == null) return { entries, truncated: false };
+    before = read.nextCursor;
+  }
+  return { entries, truncated: true };
 }
 
 /** The person's history, newest first; `before` is the previous page's `nextCursor`. */
