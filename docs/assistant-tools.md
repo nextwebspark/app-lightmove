@@ -78,6 +78,9 @@ Panel ──POST /api/v1/projects/{projectId}/assistant/ask {question, threadId?
         │  so a follow-up can propose them again without a second Bright Data search
         ├─ system prompt carries the hiring company: HiringSideResolver → HiringContext. In-house,
         │  the workspace's company (V68) and the persona its admins wrote in Settings → General (V69);
+        │  once the mandate's business unit has a persona of its own (#1048), that unit instead, each
+        │  list it left empty read from the firm's (HiringCompanyProfile.within), with the firm after it
+        │  as the parent group (name, place, size, summary, notes — never its sectors or competitors);
         │  at an agency (V84), the mandate's client and the persona recorded in its drawer (V85), with
         │  the agency named in one line. Framed as data, never instructions
         ├─ AssistantAgent → one ChatClient.call() with assistant-core.st, the Skill tool and the

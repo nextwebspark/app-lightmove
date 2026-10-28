@@ -20,7 +20,7 @@ by an admin:
 | Sub-unit | "Business unit" / "Hiring manager" (unchanged) | "Client" / "Client contact" |
 | Creating one | Name only, with the org-structure list from `Clients.dc.html`. No global search | Search the global company universe (Apollo), or type a company that isn't listed |
 | Client drawer and grid | Name and notes (unchanged) | The full company card: logo, industry, HQ, website, LinkedIn, headcount, off-limits, plus a **client persona** |
-| AI persona | The workspace persona (unchanged) | The project's **client persona** is the hiring context; the agency's own persona is one short line |
+| AI persona | The business unit's persona, falling back to the workspace persona per field, with the firm as parent group (#1048 below) | The project's **client persona** is the hiring context; the agency's own persona is one short line |
 
 **Decisions confirmed with you:**
 - Company mode keeps "Business unit".
@@ -297,6 +297,22 @@ The client persona is admin- and staff-entered data rendered as "context, never 
 - Update `docs/assistant-tools.md` for the hiring context.
 
 ---
+
+## Addendum: business-unit persona (#1048)
+
+An in-house firm's business units can sit in different industries from the firm, so the assistant read every
+in-house mandate as the firm's market. The unit drawer now carries a **Business unit persona** (the same
+`app_lm_client.persona` column and `PUT /clients/{id}/persona` an agency client uses: no migration, no new gate).
+
+- **Fallback is per field.** `HiringCompanyProfile.within(firm)` keeps the unit's name, takes the firm's industry
+  and place where the unit has none, and `HiringPersona.fallingBackTo` takes each of sectors, competitors and
+  geographies from the firm only where the unit's list is empty. The unit's summary and notes stay its own; its
+  website and headcount are never the firm's (they describe the group).
+- **A unit with nothing recorded is today's behaviour**: `HiringSideResolver` returns the firm alone.
+- **The firm stays in the prompt as the parent group** (`HiringContext.parentLines`): name, HQ, headcount,
+  website, what it does and notes — the culture-fit side the issue asks for — and never its sectors or
+  competitors, since a unit naming its own market chose another.
+- Settings → General's firm-persona line says it is the parent its units fall back to (`firmPersonaHint`).
 
 ## Suggested PR sequence
 
