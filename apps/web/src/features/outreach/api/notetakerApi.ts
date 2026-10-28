@@ -315,6 +315,10 @@ export interface CopilotLine {
   text: string;
   /** The consultant's or a colleague's voice. */
   team: boolean;
+  /** A voice named as the executive: the only one that wears their photo. Anyone else on the call is neither. */
+  executive: boolean;
+  /** The reader's own voice. */
+  you: boolean;
 }
 
 export interface Copilot {

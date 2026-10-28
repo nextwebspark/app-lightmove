@@ -49,8 +49,8 @@ function aCopilot(overrides: Partial<Copilot> = {}): Copilot {
     ],
     plan: [{ id: "q1", section: "FIT", competency: "M&A", text: "Walk me through an integration.", asked: false }],
     lines: [
-      { seq: 1, at: "2026-10-23T10:01:00Z", speaker: "Omar Siddiqui", text: "Thanks for making time.", team: true },
-      { seq: 2, at: "2026-10-23T10:01:10Z", speaker: "Rania Haddad", text: "Happy to.", team: false },
+      { seq: 1, at: "2026-10-23T10:01:00Z", speaker: "Omar Siddiqui", text: "Thanks for making time.", team: true, executive: false, you: true },
+      { seq: 2, at: "2026-10-23T10:01:10Z", speaker: "Rania Haddad", text: "Happy to.", team: false, executive: true, you: false },
     ],
     speaking: [],
     lastSeq: 2,
@@ -99,7 +99,7 @@ describe("CopilotPanel", () => {
       .mockResolvedValueOnce(aCopilot())
       .mockResolvedValueOnce(
         aCopilot({
-          lines: [{ seq: 3, at: "2026-10-23T10:02:00Z", speaker: "Rania Haddad", text: "Three months.", team: false }],
+          lines: [{ seq: 3, at: "2026-10-23T10:02:00Z", speaker: "Rania Haddad", text: "Three months.", team: false, executive: true, you: false }],
           lastSeq: 3,
         }),
       );
@@ -211,7 +211,7 @@ describe("CopilotPanel", () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(
       aCopilot({
         speaking: [
-          { seq: 3, at: "2026-10-23T10:01:20Z", speaker: "Rania Haddad", text: "We moved the notice", team: false },
+          { seq: 3, at: "2026-10-23T10:01:20Z", speaker: "Rania Haddad", text: "We moved the notice", team: false, executive: true, you: false },
         ],
       }),
     );
@@ -253,6 +253,31 @@ describe("CopilotPanel", () => {
       "src",
       "https://pictures.example/omar.jpg",
     );
+  });
+
+  it("gives anyone else on the call their own initials, never the executive's photo, and (you) only to the reader", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(
+      aCopilot({
+        lines: [
+          { seq: 1, at: "2026-10-23T10:01:00Z", speaker: "Omar Siddiqui", text: "Welcome both.", team: true, executive: false, you: true },
+          { seq: 2, at: "2026-10-23T10:01:05Z", speaker: "Lina Karam", text: "Hello.", team: true, executive: false, you: false },
+          { seq: 3, at: "2026-10-23T10:01:10Z", speaker: "Rania Haddad", text: "Happy to.", team: false, executive: true, you: false },
+          { seq: 4, at: "2026-10-23T10:01:20Z", speaker: "Alexander Petrov", text: "Thanks for having me.", team: false, executive: false, you: false },
+        ],
+        lastSeq: 4,
+      }),
+    );
+    vi.mocked(apiClient.requestBlob).mockResolvedValue(new Blob(["photo"], { type: "image/jpeg" }));
+    URL.createObjectURL = vi.fn(() => "blob:rania");
+    URL.revokeObjectURL = vi.fn();
+    renderPanel();
+    await userEvent.click(await screen.findByRole("tab", { name: "Transcript" }));
+
+    await waitFor(() => expect(screen.getAllByRole("img", { name: "Rania Haddad" })[0]).toHaveAttribute("src", "blob:rania"));
+    expect(screen.queryByRole("img", { name: "Alexander Petrov" })).not.toBeInTheDocument();
+    expect(screen.getByTitle("Alexander Petrov")).toHaveTextContent("AP");
+    expect(screen.getByText(/Omar Siddiqui\s*\(you\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/Lina Karam\s*\(you\)/)).not.toBeInTheDocument();
   });
 
   it("closes its menu on a click elsewhere and on Escape, without picking anything", async () => {

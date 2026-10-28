@@ -264,7 +264,11 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
                 .containsExactly("Thanks for making the time.", "We refinanced last year.",
                         "What notice would you need to give?", "Three months, contractually.");
         assertThat(read.get("lines").get(0).get("team").asBoolean()).isTrue();
+        assertThat(read.get("lines").get(0).get("you").asBoolean()).isTrue();
+        assertThat(read.get("lines").get(0).get("executive").asBoolean()).isFalse();
         assertThat(read.get("lines").get(1).get("team").asBoolean()).isFalse();
+        assertThat(read.get("lines").get(1).get("executive").asBoolean()).isTrue();
+        assertThat(read.get("lines").get(1).get("you").asBoolean()).isFalse();
         long cursor = read.get("lastSeq").asLong();
         assertThat(copilot(recordingId, cursor).get("lines")).isEmpty();
 

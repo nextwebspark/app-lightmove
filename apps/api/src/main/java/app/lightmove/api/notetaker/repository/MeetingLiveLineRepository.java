@@ -1,6 +1,7 @@
 package app.lightmove.api.notetaker.repository;
 
 import app.lightmove.api.notetaker.model.MeetingLiveLine;
+import app.lightmove.api.notetaker.model.SpeakerVoice;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +50,10 @@ public interface MeetingLiveLineRepository extends JpaRepository<MeetingLiveLine
     List<MeetingLiveLine> findByRecordingIdAndPartialFalseOrderBySeqAsc(UUID recordingId);
 
     List<MeetingLiveLine> findByRecordingIdAndPartialTrue(UUID recordingId);
+
+    @Query("select distinct new app.lightmove.api.notetaker.model.SpeakerVoice(l.speaker, l.named) "
+            + "from MeetingLiveLine l where l.recordingId = :recordingId")
+    List<SpeakerVoice> voicesOf(UUID recordingId);
 
     @Query("select coalesce(max(l.seq), 0) from MeetingLiveLine l where l.recordingId = :recordingId "
             + "and l.partial = false")

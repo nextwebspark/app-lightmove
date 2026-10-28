@@ -4,6 +4,7 @@ import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.MeteredUse;
 import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.service.CandidateCallUpdates;
+import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.config.RecallSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
@@ -15,6 +16,7 @@ import app.lightmove.api.notetaker.model.LiveCoaching;
 import app.lightmove.api.notetaker.model.LiveLinesHeard;
 import app.lightmove.api.notetaker.model.MeetingLiveLine;
 import app.lightmove.api.notetaker.model.MeetingRecording;
+import app.lightmove.api.notetaker.model.SpeakerVoice;
 import app.lightmove.api.notetaker.repository.MeetingLiveLineRepository;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.notetaker.service.InterviewCoach.HeardLine;
@@ -69,6 +71,7 @@ public class InterviewCoachWorker {
     private final InterviewPlanService plans;
     private final PositionService positions;
     private final CandidateCallUpdates updates;
+    private final CandidateOutreachService outreachPeople;
     private final TeamVoices teamVoices;
     private final CopilotStreamPublisher publisher;
     private final UsageRecorder usage;
@@ -79,15 +82,16 @@ public class InterviewCoachWorker {
 
     InterviewCoachWorker(MeetingRecordingRepository recordings, MeetingLiveLineRepository lines, InterviewCoach coach,
                          InterviewPlanService plans, PositionService positions, CandidateCallUpdates updates,
-                         TeamVoices teamVoices, CopilotStreamPublisher publisher, UsageRecorder usage,
-                         LightMoveProperties properties, JdbcTemplate jdbc,
-                         PlatformTransactionManager transactionManager, Clock clock) {
+                         CandidateOutreachService outreachPeople, TeamVoices teamVoices,
+                         CopilotStreamPublisher publisher, UsageRecorder usage, LightMoveProperties properties,
+                         JdbcTemplate jdbc, PlatformTransactionManager transactionManager, Clock clock) {
         this.recordings = recordings;
         this.lines = lines;
         this.coach = coach;
         this.plans = plans;
         this.positions = positions;
         this.updates = updates;
+        this.outreachPeople = outreachPeople;
         this.teamVoices = teamVoices;
         this.publisher = publisher;
         this.usage = usage;
@@ -224,15 +228,29 @@ public class InterviewCoachWorker {
                 .orElse(List.of());
         Set<RecordGap> missing = missingOf(turn);
         Set<String> team = teamVoices.namesOf(turn.workspaceId(), turn.team());
-        List<HeardLine> heard = transactions.execute(status ->
+        String executiveName = turn.personId() == null ? null
+                : outreachPeople.fullNamesOf(turn.workspaceId(), List.of(turn.personId())).get(turn.personId());
+        List<MeetingLiveLine> said = transactions.execute(status ->
                 lines.findByRecordingIdAndPartialFalseOrderBySeqAsc(turn.recordingId()).stream()
                         .filter(line -> line.getSeq() <= turn.throughSeq())
-                        .map(line -> new HeardLine(line.getSaidAt(), line.getSpeaker(), line.getText(),
-                                TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed())))
                         .toList());
+        List<HeardLine> heard = heardLinesOf(said, team, executiveName);
         LiveCoaching before = transactions.execute(status -> recordings.findById(turn.recordingId())
                 .map(MeetingRecording::getLive).orElse(null));
         return coach.coach(brief, plan, missing, before, heard, turn.clockStart());
+    }
+
+    private static List<HeardLine> heardLinesOf(List<MeetingLiveLine> said, Set<String> team, String executiveName) {
+        Set<String> executiveVoices = TeamVoices.executiveVoicesOf(executiveName, said.stream()
+                .map(line -> new SpeakerVoice(line.getSpeaker(), line.isNamed()))
+                .toList(), team);
+        return said.stream()
+                .map(line -> {
+                    boolean isTeam = TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed());
+                    return new HeardLine(line.getSaidAt(), line.getSpeaker(), line.getText(), isTeam,
+                            !isTeam && executiveVoices.contains(line.getSpeaker()));
+                })
+                .toList();
     }
 
     /** An unmapped executive has no record to read gaps from; the copilot then follows the competencies alone. */

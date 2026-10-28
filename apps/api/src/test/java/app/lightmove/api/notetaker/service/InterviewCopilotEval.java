@@ -139,11 +139,11 @@ class InterviewCopilotEval {
     }
 
     private static InterviewCoach.HeardLine team(int second, String text) {
-        return new InterviewCoach.HeardLine(CALL_START.plusSeconds(second), "Yara Haddad", text, true);
+        return new InterviewCoach.HeardLine(CALL_START.plusSeconds(second), "Yara Haddad", text, true, false);
     }
 
     private static InterviewCoach.HeardLine executive(int second, String text) {
-        return new InterviewCoach.HeardLine(CALL_START.plusSeconds(second), "Rania Khoury", text, false);
+        return new InterviewCoach.HeardLine(CALL_START.plusSeconds(second), "Rania Khoury", text, false, true);
     }
 
     /** What a careful reader of {@link #call()} finds, check by check. */

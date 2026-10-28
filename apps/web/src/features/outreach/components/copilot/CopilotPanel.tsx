@@ -59,8 +59,12 @@ export function CopilotPanel({
   const menuState = useCopilotMenu();
   const photoUrl = useExecutivePhoto(projectId, candidateId);
   const faceOf = (line: CopilotLine): Face => {
-    if (!line.team) return { id: candidateId, src: photoUrl };
-    const viewer = copilot?.viewers.find((held) => held.name === line.speaker);
+    if (line.executive) return { id: candidateId, src: photoUrl };
+    // Someone else on the call — a colleague from outside the workspace — once wore the executive's photo here.
+    if (!line.team) return { id: line.speaker, src: null };
+    const viewer = copilot?.viewers.find((held) =>
+      line.you ? held.you : held.name !== null && nameKeyOf(held.name) === nameKeyOf(line.speaker),
+    );
     return { id: viewer?.userId ?? line.speaker, src: viewer?.avatarUrl ?? null };
   };
   const [isConfirmingStop, setConfirmingStop] = useState(false);
@@ -513,7 +517,10 @@ function TranscriptTab({
   );
 }
 
-/** Who a line's face is: the executive's photo, or a teammate's own picture where their name is one watching. */
+/**
+ * Who a line's face is: the executive's photo on a voice named as them, a teammate's own picture where their name is
+ * one watching, and anyone else their initials.
+ */
 interface Face {
   id: string;
   src: string | null;
@@ -562,7 +569,7 @@ function SpeakerName({ line }: { line: CopilotLine }) {
   return (
     <span className={cn("font-semibold", line.team && "text-u-accent")}>
       {line.speaker}
-      {line.team && " (you)"}
+      {line.you && " (you)"}
     </span>
   );
 }
@@ -684,6 +691,10 @@ function Viewers({ viewers }: { viewers: Copilot["viewers"] }) {
       </span>
     </span>
   );
+}
+
+function nameKeyOf(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function firstNameOf(name: string | null): string | null {
