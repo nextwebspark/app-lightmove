@@ -10,7 +10,6 @@ import { CopilotPanel } from "./CopilotPanel";
 vi.mock("../../api/notetakerApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../api/notetakerApi")>()),
   getCopilot: vi.fn(),
-  decideNudge: vi.fn(),
   stopCopilot: vi.fn(),
   markPlanQuestionAsked: vi.fn(),
 }));
@@ -49,7 +48,6 @@ function aCopilot(overrides: Partial<Copilot> = {}): Copilot {
       { gap: "PACKAGE", heard: false, at: null },
     ],
     plan: [{ id: "q1", section: "FIT", competency: "M&A", text: "Walk me through an integration.", asked: false }],
-    nudges: [{ id: "n1", text: "Ask for an integration example.", reason: "M&A: no example yet" }],
     lines: [
       { seq: 1, at: "2026-10-23T10:01:00Z", speaker: "Omar Siddiqui", text: "Thanks for making time.", team: true },
       { seq: 2, at: "2026-10-23T10:01:10Z", speaker: "Rania Haddad", text: "Happy to.", team: false },
@@ -77,7 +75,7 @@ describe("CopilotPanel", () => {
     vi.mocked(apiClient.requestBlob).mockRejectedValue(new Error("no photo"));
   });
 
-  it("heads the window with the executive and the call, then coverage, gaps, what to ask and who is watching", async () => {
+  it("heads the window with the executive and the call, then coverage, gaps, the last line said and who is watching", async () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
     renderPanel();
 
@@ -87,8 +85,9 @@ describe("CopilotPanel", () => {
     expect(screen.getByText("Lina is watching")).toBeInTheDocument();
     expect(screen.getByTitle("Treasury: Evidenced")).toBeInTheDocument();
     expect(screen.getByTitle("M&A: Touched, no example")).toBeInTheDocument();
-    expect(screen.getByText("Ask for an integration example.")).toBeInTheDocument();
+    expect(screen.queryByText("Ask next")).not.toBeInTheDocument();
     expect(screen.getByText(/Happy to\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Thanks for making time\./)).not.toBeInTheDocument();
     expect(notetakerApi.getCopilot).toHaveBeenCalledWith("p1", "c1", "r1", 0);
 
     await userEvent.click(screen.getByTitle("Treasury: Evidenced"));
@@ -104,12 +103,12 @@ describe("CopilotPanel", () => {
           lastSeq: 3,
         }),
       );
-    vi.mocked(notetakerApi.decideNudge).mockResolvedValue(undefined);
+    vi.mocked(notetakerApi.markPlanQuestionAsked).mockResolvedValue(undefined);
     renderPanel();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "Plan" }));
+    await userEvent.click(screen.getByRole("checkbox"));
 
-    expect(notetakerApi.decideNudge).toHaveBeenCalledWith("p1", "c1", "r1", "n1", "dismiss");
     await waitFor(() => expect(notetakerApi.getCopilot).toHaveBeenLastCalledWith("p1", "c1", "r1", 2));
     await userEvent.click(screen.getByRole("tab", { name: "Transcript" }));
     expect(await screen.findByText(/Three months\./)).toBeInTheDocument();
@@ -119,7 +118,7 @@ describe("CopilotPanel", () => {
   it("stops the copilot for everyone only after asking, from the menu", async () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
     vi.mocked(notetakerApi.stopCopilot).mockResolvedValue(
-      aCopilot({ liveStatus: "STOPPED", stoppedByName: "Omar Siddiqui", nudges: [] }),
+      aCopilot({ liveStatus: "STOPPED", stoppedByName: "Omar Siddiqui" }),
     );
     renderPanel();
 
@@ -132,18 +131,18 @@ describe("CopilotPanel", () => {
     expect(await screen.findByText(/Copilot stopped by Omar Siddiqui/)).toBeInTheDocument();
   });
 
-  it("says why suggestions are not current, and what stayed open when the call ended", async () => {
+  it("says why coverage is not current, and what stayed open when the call ended", async () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot({ coach: "PAUSED" }));
     const { unmount } = render(
       <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" />,
     );
-    expect(await screen.findByText("Suggestions paused. Retrying when more is said.")).toBeInTheDocument();
+    expect(await screen.findByText("Coverage paused. Retrying when more is said.")).toBeInTheDocument();
     unmount();
 
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot({ status: "PROCESSING" }));
     renderPanel();
     expect(await screen.findByText(/Not covered: M&A · Board · Package/)).toBeInTheDocument();
-    expect(screen.getByText("No more suggestions for this call.")).toBeInTheDocument();
+    expect(screen.getByText("Call ended · notes on the way")).toBeInTheDocument();
   });
 
   it("says only that the call ended once it has, its feed stopped or the copilot stopped along the way", async () => {
@@ -208,17 +207,18 @@ describe("CopilotPanel", () => {
     expect(onPopOut).toHaveBeenCalled();
   });
 
-  it("counts the suggestions waiting, and none while they are muted", async () => {
-    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
-    const onNudgeCount = vi.fn();
-    render(
-      <CopilotPanel projectId="p1" candidateId="c1" recordingId="r1" variant="tab" onNudgeCount={onNudgeCount} />,
+  it("shows only the latest speaker's line on the Live view, and the voice speaking right now ahead of it", async () => {
+    vi.mocked(notetakerApi.getCopilot).mockResolvedValue(
+      aCopilot({
+        speaking: [
+          { seq: 3, at: "2026-10-23T10:01:20Z", speaker: "Rania Haddad", text: "We moved the notice", team: false },
+        ],
+      }),
     );
+    renderPanel();
 
-    await waitFor(() => expect(onNudgeCount).toHaveBeenLastCalledWith(1));
-    await userEvent.click(screen.getByRole("button", { name: "Copilot options" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "Mute suggestions" }));
-    expect(onNudgeCount).toHaveBeenLastCalledWith(0);
+    expect(await screen.findByText(/We moved the notice/)).toBeInTheDocument();
+    expect(screen.queryByText(/Happy to\./)).not.toBeInTheDocument();
   });
 
   it("offers the floating window's way back into Uncava from its menu", async () => {
@@ -260,8 +260,8 @@ describe("CopilotPanel", () => {
     renderPanel();
 
     await userEvent.click(await screen.findByRole("button", { name: "Copilot options" }));
-    expect(screen.getByRole("menuitem", { name: "Mute suggestions" })).toHaveFocus();
-    fireEvent.pointerDown(screen.getByText("Ask for an integration example."));
+    expect(screen.getAllByRole("menuitem")[0]).toHaveFocus();
+    fireEvent.pointerDown(screen.getByText(/Happy to\./));
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Copilot options" }));
@@ -270,7 +270,7 @@ describe("CopilotPanel", () => {
     expect(screen.getByRole("button", { name: "Copilot options" })).toHaveFocus();
   });
 
-  it("keeps the drawer's tab and the window on one view, muted alike", async () => {
+  it("keeps the drawer's tab and the window on one view", async () => {
     vi.mocked(notetakerApi.getCopilot).mockResolvedValue(aCopilot());
     render(
       <>
@@ -284,9 +284,5 @@ describe("CopilotPanel", () => {
     for (const tab of screen.getAllByRole("tab", { name: "Transcript" })) {
       expect(tab).toHaveAttribute("aria-selected", "true");
     }
-
-    await userEvent.click(screen.getAllByRole("button", { name: "Copilot options" })[0]);
-    await userEvent.click(screen.getByRole("menuitem", { name: "Mute suggestions" }));
-    expect(screen.getAllByText("Suggestions muted")).toHaveLength(2);
   });
 });

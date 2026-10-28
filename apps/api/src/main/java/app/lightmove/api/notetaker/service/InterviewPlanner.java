@@ -36,6 +36,9 @@ class InterviewPlanner {
     private static final String BLOCKED = "{\"guard\":\"" + BlockedAnswer.MARKER + "\"}";
     static final int LONGEST_QUESTION = 400;
     static final int LONGEST_LINE = 200;
+    /** What the model is held to: one line the consultant takes in at a glance mid-call; an edit may run to the above. */
+    static final int LONGEST_DRAFTED_QUESTION = 120;
+    static final int LONGEST_DRAFTED_LINE = 80;
     private static final int MOST_PER_COMPETENCY = 2;
     private static final int MOST_CLARIFIERS = 2;
 
@@ -109,19 +112,19 @@ class InterviewPlanner {
         for (PlanAnswer.Fit fit : answer.fit() == null ? List.<PlanAnswer.Fit>of() : answer.fit()) {
             BriefCompetency competency = fit.id() == null ? null
                     : competencyById.get(fit.id().strip().toLowerCase(Locale.ROOT));
-            String text = clip(fit.question(), LONGEST_QUESTION);
+            String text = clipAtWord(fit.question(), LONGEST_DRAFTED_QUESTION);
             if (competency == null || text == null
                     || perCompetency.merge(competency.name(), 1, Integer::sum) > MOST_PER_COMPETENCY) {
                 continue;
             }
             kept.add(new InterviewQuestion(newId(), InterviewQuestionSection.FIT, competency.panel(),
-                    competency.name(), null, text, clip(fit.listenFor(), LONGEST_LINE), null, true,
+                    competency.name(), null, text, clipAtWord(fit.listenFor(), LONGEST_DRAFTED_LINE), null, true,
                     InterviewQuestionSource.AI));
         }
         Set<RecordGap> asked = EnumSet.noneOf(RecordGap.class);
         for (PlanAnswer.Gap gap : answer.gaps() == null ? List.<PlanAnswer.Gap>of() : answer.gaps()) {
             RecordGap named = gapOf(gap.gap());
-            String text = clip(gap.question(), LONGEST_QUESTION);
+            String text = clipAtWord(gap.question(), LONGEST_DRAFTED_QUESTION);
             if (named == null || text == null || !gaps.contains(named) || !asked.add(named)) {
                 continue;
             }
@@ -131,13 +134,13 @@ class InterviewPlanner {
         int clarifiers = 0;
         for (PlanAnswer.Clarify clarify : answer.clarify() == null ? List.<PlanAnswer.Clarify>of()
                 : answer.clarify()) {
-            String text = clip(clarify.question(), LONGEST_QUESTION);
+            String text = clipAtWord(clarify.question(), LONGEST_DRAFTED_QUESTION);
             if (text == null || clarifiers >= MOST_CLARIFIERS) {
                 continue;
             }
             clarifiers++;
             kept.add(new InterviewQuestion(newId(), InterviewQuestionSection.CLARIFY, null, null, null, text, null,
-                    clip(clarify.why(), LONGEST_LINE), true, InterviewQuestionSource.AI));
+                    clipAtWord(clarify.why(), LONGEST_DRAFTED_LINE), true, InterviewQuestionSource.AI));
         }
         return List.copyOf(kept);
     }
@@ -175,6 +178,16 @@ class InterviewPlanner {
         }
         String flat = value.strip().replaceAll("\\s+", " ");
         return flat.length() <= longest ? flat : flat.substring(0, longest).strip();
+    }
+
+    /** A line held to {@code longest} at a word boundary, so a runaway answer never ends mid-word. */
+    static String clipAtWord(String value, int longest) {
+        String flat = clip(value, Integer.MAX_VALUE);
+        if (flat == null || flat.length() <= longest) {
+            return flat;
+        }
+        int space = flat.lastIndexOf(' ', longest);
+        return flat.substring(0, space > longest / 2 ? space : longest).strip();
     }
 
     record PlanAnswer(String guard, List<Fit> fit, List<Gap> gaps, List<Clarify> clarify) {

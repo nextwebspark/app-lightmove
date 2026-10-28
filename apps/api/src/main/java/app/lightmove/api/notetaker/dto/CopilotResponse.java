@@ -17,6 +17,6 @@ public record CopilotResponse(UUID recordingId, String title, String candidateNa
                               CoachState coach,
                               String stoppedByName, boolean mayStop,
                               List<CopilotCoverageResponse> coverage, List<CopilotGapResponse> gaps,
-                              List<CopilotQuestionResponse> plan, List<CopilotNudgeResponse> nudges,
+                              List<CopilotQuestionResponse> plan,
                               List<LiveLineResponse> lines, List<LiveLineResponse> speaking, long lastSeq,
                               List<CopilotViewerResponse> viewers) {}

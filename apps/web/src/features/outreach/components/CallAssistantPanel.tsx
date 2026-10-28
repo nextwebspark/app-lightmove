@@ -124,7 +124,7 @@ export function CallAssistantPanel({
                   note={
                     scheduled && !scheduled.mayChangeCopilot
                       ? "Only whoever sent the Notetaker can change it."
-                      : "Nudges only you during the call."
+                      : "Coverage and gaps, for you only, during the call."
                   }
                 />
                 <div className="flex flex-wrap items-center gap-2">

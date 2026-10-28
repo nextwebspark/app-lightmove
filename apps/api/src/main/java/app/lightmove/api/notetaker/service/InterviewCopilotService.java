@@ -20,11 +20,9 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.CoverageState;
 import app.lightmove.api.notetaker.constant.LiveCopilotStatus;
-import app.lightmove.api.notetaker.constant.NudgeStatus;
 import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.dto.CopilotCoverageResponse;
 import app.lightmove.api.notetaker.dto.CopilotGapResponse;
-import app.lightmove.api.notetaker.dto.CopilotNudgeResponse;
 import app.lightmove.api.notetaker.dto.CopilotQuestionResponse;
 import app.lightmove.api.notetaker.dto.CopilotResponse;
 import app.lightmove.api.notetaker.dto.CopilotViewerResponse;
@@ -63,7 +61,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 /**
  * The live copilot of a Notetaker recording, as the drawer and the copilot window drive it: switched on or off before
  * the bot joins (Recall streams a transcript only to a bot made for it), read by any window on the position, steered by
- * hand (a nudge used or dismissed, a prepared question ticked), and stopped for everyone by whoever switched it on, a
+ * hand (a prepared question ticked), and stopped for everyone by whoever switched it on, a
  * lead or an admin. Everything here is staff-only and read only from the position that sent the bot.
  */
 @Service
@@ -159,10 +157,6 @@ public class InterviewCopilotService {
                         .map(question -> new CopilotQuestionResponse(question.id(), question.section(),
                                 question.competency(), question.text(), reading.asked().contains(question.id())))
                         .toList(),
-                reading.nudges().stream()
-                        .filter(nudge -> nudge.status() == NudgeStatus.SHOWN)
-                        .map(nudge -> new CopilotNudgeResponse(nudge.id(), nudge.text(), nudge.reason()))
-                        .toList(),
                 finished.stream().map(line -> lineOf(line, team)).toList(),
                 lines.findByRecordingIdAndPartialTrue(recordingId).stream().map(line -> lineOf(line, team)).toList(),
                 lastSeq, viewersOf(userId, recordingId));
@@ -216,14 +210,6 @@ public class InterviewCopilotService {
             publisher.publish(recordingId);
         });
         return read(userId, workspaceId, projectId, candidateId, recordingId, 0);
-    }
-
-    public void decideNudge(UUID workspaceId, UUID projectId, UUID candidateId, UUID recordingId, String nudgeId,
-                            NudgeStatus decision) {
-        steer(workspaceId, projectId, candidateId, recordingId, reading -> reading.withNudges(reading.nudges().stream()
-                .map(nudge -> nudge.id().equals(nudgeId) && nudge.status() == NudgeStatus.SHOWN
-                        ? nudge.as(decision) : nudge)
-                .toList()));
     }
 
     public void markAsked(UUID workspaceId, UUID projectId, UUID candidateId, UUID recordingId, String questionId,

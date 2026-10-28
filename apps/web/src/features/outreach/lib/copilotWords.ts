@@ -26,7 +26,7 @@ export function isWaitingToJoin(copilot: Copilot): boolean {
 }
 
 /**
- * The one line under the header that says why suggestions are not current, if they are not. Null while all is well,
+ * The one line under the header that says why coverage is not current, if they are not. Null while all is well,
  * and for a call that is over: the ended view says that itself.
  */
 export function copilotNoticeOf(copilot: Copilot): string | null {
@@ -40,11 +40,11 @@ export function copilotNoticeOf(copilot: Copilot): string | null {
   }
   switch (copilot.coach) {
     case "PAUSED":
-      return "Suggestions paused. Retrying when more is said.";
+      return "Coverage paused. Retrying when more is said.";
     case "GUARDED":
       return "Something said reads like an instruction to the AI, so it was skipped.";
     case "CAPPED":
-      return "Suggestions stopped for this call: it reached its limit.";
+      return "Coverage stopped for this call: it reached its limit.";
     default:
       return null;
   }
