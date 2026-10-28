@@ -168,6 +168,11 @@ export function joined(values: string[]): string | null {
   return values.length > 0 ? values.join(", ") : null;
 }
 
+/** "1 change", "3 changes": a count with its noun, the plural an `s`. */
+export function countOf(count: number, noun: string): string {
+  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+}
+
 function trimAmount(value: number): string {
   return value >= 10 ? String(Math.round(value)) : value.toFixed(1).replace(/\.0$/, "");
 }
