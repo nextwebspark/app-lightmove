@@ -63,10 +63,6 @@ export const WHATS_NEW: readonly WhatsNewRelease[] = [
         title: "Help, right where you are",
         body: "Press ? anywhere for articles about the page you're on, keyboard shortcuts and a way to reach us.",
       },
-      {
-        title: "Get your first map in 30 minutes",
-        body: "A checklist on My positions takes a new workspace from its first position to its first outreach.",
-      },
     ],
   },
 ];
