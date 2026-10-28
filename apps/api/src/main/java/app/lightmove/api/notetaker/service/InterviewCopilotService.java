@@ -141,6 +141,7 @@ public class InterviewCopilotService {
         List<BriefCompetency> competencies = positions.competenciesOf(workspaceId, projectId).competencies();
         LiveCoaching reading = recording.getLive() == null ? LiveCoaching.empty() : recording.getLive();
         Set<String> team = teamVoices.namesOf(workspaceId, teamOf(recording));
+        String reader = nameOf(userId);
         List<InterviewQuestion> plan = plans.planOfCall(workspaceId, projectId, recipient.personId(),
                         recording.getStartsAt(), recording.getTitle())
                 .map(InterviewPlan::includedQuestions)
@@ -157,8 +158,10 @@ public class InterviewCopilotService {
                         .map(question -> new CopilotQuestionResponse(question.id(), question.section(),
                                 question.competency(), question.text(), reading.asked().contains(question.id())))
                         .toList(),
-                finished.stream().map(line -> lineOf(line, team)).toList(),
-                lines.findByRecordingIdAndPartialTrue(recordingId).stream().map(line -> lineOf(line, team)).toList(),
+                finished.stream().map(line -> lineOf(line, team, recipient.fullName(), reader)).toList(),
+                lines.findByRecordingIdAndPartialTrue(recordingId).stream()
+                        .map(line -> lineOf(line, team, recipient.fullName(), reader))
+                        .toList(),
                 lastSeq, viewersOf(userId, recordingId));
     }
 
@@ -309,9 +312,13 @@ public class InterviewCopilotService {
         return team;
     }
 
-    private static LiveLineResponse lineOf(MeetingLiveLine line, Set<String> team) {
-        return new LiveLineResponse(line.getSeq(), line.getSaidAt(), line.getSpeaker(), line.getText(),
-                TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed()));
+    private static LiveLineResponse lineOf(MeetingLiveLine line, Set<String> team, String executiveName,
+                                           String readerName) {
+        boolean isTeam = TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed());
+        boolean isReader = isTeam && readerName != null
+                && TeamVoices.nameKey(readerName).equals(TeamVoices.nameKey(line.getSpeaker()));
+        return new LiveLineResponse(line.getSeq(), line.getSaidAt(), line.getSpeaker(), line.getText(), isTeam,
+                !isTeam && TeamVoices.isNamedAs(executiveName, line.getSpeaker(), line.isNamed()), isReader);
     }
 
     private String nameOf(UUID userId) {

@@ -32,7 +32,8 @@ import org.springframework.stereotype.Component;
  * One model call reading a live call so far, and the code that folds its answer into what the copilot already showed:
  * a competency only ever moves forward, a gap heard stays heard and a prepared question asked stays asked, and a
  * reading counts only where the executive's own words back it. The model sees the brief, the plan and which facts are
- * missing — never a held value or a package figure — and the transcript with contacts out and the team's voices marked.
+ * missing — never a held value or a package figure — and the transcript with contacts out and every voice but the
+ * executive's marked.
  */
 @Component
 class InterviewCoach {
@@ -45,6 +46,7 @@ class InterviewCoach {
     private static final long GAP_TIME_SLACK_SECONDS = 5;
     private static final long LAST_LINE_SECONDS = 60;
     private static final String TEAM_MARK = " (your team)";
+    private static final String OTHER_MARK = " (not the executive)";
     private static final Pattern CALL_TIME = Pattern.compile("\\b\\d{1,2}:\\d{2}(:\\d{2})?\\b");
 
     private final StructuredPrompt prompt;
@@ -53,8 +55,17 @@ class InterviewCoach {
         this.prompt = prompts.create(PROMPT_ID, BLOCKED);
     }
 
-    /** A turn of the live call as the coach reads it: whether the voice is the team's is decided before it is sent. */
-    record HeardLine(Instant at, String speaker, String text, boolean team) {}
+    /**
+     * A turn of the live call as the coach reads it: whether the voice is the team's, or the executive's, is decided
+     * before it is sent. A third voice — neither — is never evidence.
+     */
+    record HeardLine(Instant at, String speaker, String text, boolean team, boolean executive) {
+
+        /** A call of two sides: every voice not the team's is the executive's. */
+        HeardLine(Instant at, String speaker, String text, boolean team) {
+            this(at, speaker, text, team, !team);
+        }
+    }
 
     /** The guard stopped the call's words: the coach skips this stretch and goes on after it. */
     static final class CoachGuarded extends RuntimeException {
@@ -108,9 +119,16 @@ class InterviewCoach {
     static String transcriptText(List<HeardLine> lines, Instant callStart) {
         String text = lines.stream()
                 .map(line -> "[%s] %s%s: %s".formatted(CallTranscriptText.elapsed(callStart, line.at()),
-                        line.speaker(), line.team() ? TEAM_MARK : "", line.text()))
+                        line.speaker(), markOf(line), line.text()))
                 .collect(Collectors.joining("\n"));
         return CallTranscriptText.keepStartAndEnd(ContactRedaction.redact(text), LONGEST_TRANSCRIPT);
+    }
+
+    private static String markOf(HeardLine line) {
+        if (line.team()) {
+            return TEAM_MARK;
+        }
+        return line.executive() ? "" : OTHER_MARK;
     }
 
     /** q1, q2, … for the questions the consultant kept ticked, in the plan's order. */
@@ -242,7 +260,7 @@ class InterviewCoach {
         }
         List<long[]> spans = new ArrayList<>();
         for (int index = 0; index < lines.size(); index++) {
-            if (lines.get(index).team()) {
+            if (!lines.get(index).executive()) {
                 continue;
             }
             long start = secondsOf(CallTranscriptText.elapsed(callStart, lines.get(index).at()));
@@ -268,14 +286,14 @@ class InterviewCoach {
         StringBuilder turn = new StringBuilder();
         String speaker = null;
         for (HeardLine line : lines) {
-            if (line.team() || !Objects.equals(line.speaker(), speaker)) {
+            if (!line.executive() || !Objects.equals(line.speaker(), speaker)) {
                 if (!turn.isEmpty()) {
                     turns.add(textKeyOf(turn.toString()));
                     turn.setLength(0);
                 }
-                speaker = line.team() ? null : line.speaker();
+                speaker = line.executive() ? line.speaker() : null;
             }
-            if (!line.team()) {
+            if (line.executive()) {
                 turn.append(' ').append(ContactRedaction.redact(line.text()));
             }
         }

@@ -152,6 +152,51 @@ class InterviewCopilotRulesTest {
     }
 
     @Test
+    @DisplayName("a voice is the executive's only when its name is theirs, never on one shared word")
+    void voiceIsNamedAsTheExecutive() {
+        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Hakan Demir", true)).isTrue();
+        assertThat(TeamVoices.isNamedAs("Hakan Demir", "  hakan ", true)).isTrue();
+        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Dr. Hakan Demir", true)).isTrue();
+        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Alexander Petrov", true)).isFalse();
+        assertThat(TeamVoices.isNamedAs("Mohammed Ali", "Mohammed Hassan", true)).isFalse();
+        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Hakan Demir", false)).isFalse();
+        assertThat(TeamVoices.isNamedAs(null, "Hakan Demir", true)).isFalse();
+    }
+
+    @Test
+    @DisplayName("an outsider on the call is not the executive; where nobody is named as them, every other voice is")
+    void executiveVoicesLeaveOutsidersOut() {
+        List<TeamVoices.SpeakerVoice> others = List.of(new TeamVoices.SpeakerVoice("Hakan Demir", true),
+                new TeamVoices.SpeakerVoice("Alexander Petrov", true));
+        assertThat(TeamVoices.executiveVoicesOf("Hakan Demir", others)).containsExactly("Hakan Demir");
+
+        List<TeamVoices.SpeakerVoice> unnamed = List.of(new TeamVoices.SpeakerVoice("Galaxy S24", true),
+                new TeamVoices.SpeakerVoice("Speaker 7", false));
+        assertThat(TeamVoices.executiveVoicesOf("Hakan Demir", unnamed))
+                .containsExactlyInAnyOrder("Galaxy S24", "Speaker 7");
+    }
+
+    @Test
+    @DisplayName("an outsider's words are never the executive's evidence, and the coach reads them marked")
+    void outsiderIsNeverEvidence() {
+        Instant start = Instant.parse("2026-10-27T10:00:00Z");
+        List<InterviewCoach.HeardLine> lines = List.of(
+                new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "What notice do you have?", true, false),
+                new InterviewCoach.HeardLine(start.plusSeconds(20), "Alexander",
+                        "I led the refinancing and my notice is three months.", false, false),
+                new InterviewCoach.HeardLine(start.plusSeconds(40), "Hakan", "Happy to be here.", false, true));
+
+        assertThat(InterviewCoach.verifiedCoverage(List.of(
+                new CoachAnswer.Coverage("c1", "EVIDENCED", "I led the refinancing", "00:20")), lines)).isEmpty();
+        assertThat(InterviewCoach.verifiedGaps(List.of(new CoachAnswer.GapHeard("NOTICE", "00:22")), lines, start))
+                .isEmpty();
+        assertThat(InterviewCoach.transcriptText(lines, start))
+                .contains("Yara (your team): What notice")
+                .contains("Alexander (not the executive): I led")
+                .contains("Hakan: Happy");
+    }
+
+    @Test
     @DisplayName("a question ticked during a run stays ticked")
     void consultantWinsOverARun() {
         LiveCoaching reading = new LiveCoaching(List.of(), List.of(), List.of("q-a"), CoachState.RUNNING);
