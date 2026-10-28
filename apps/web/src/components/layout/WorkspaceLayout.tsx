@@ -12,6 +12,7 @@ import * as workspaceApi from "../../features/workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
+import { workspaceTabs } from "./mobile/mobileTabs";
 import { type SidebarGroup } from "./Sidebar";
 
 /** Screens that draw their own toolbar and rail edge to edge and scroll inside, as Strategy does. */
@@ -104,6 +105,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
        was otherwise leaving ~280px unused. Text blocks cap themselves. */
     <AppShell
       navGroups={groups}
+      mobileTabs={workspaceTabs(clientOnly, listSearch)}
+      mobileTitle={user?.workspace?.name ?? "Workspace"}
       contentClassName={
         fullBleed ? "flex h-full flex-col" : "mx-auto max-w-[1440px] px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7"
       }

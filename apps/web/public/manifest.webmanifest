@@ -1,0 +1,16 @@
+{
+  "name": "UNCAVA",
+  "short_name": "UNCAVA",
+  "description": "Executive search and talent mapping.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#08090B",
+  "theme_color": "#08090B",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/brand/uncava-app-icon-dark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -13,6 +13,7 @@ import { EnrolDialog } from "../../outreach/components/EnrolDialog";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
+import { hasRoomForRails } from "../../../lib/viewport";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as pipelineApi from "../api/pipelineApi";
 import type { PipelineRow } from "../api/types";
@@ -21,7 +22,7 @@ import { PipelineList } from "../components/PipelineList";
 import { StagePills } from "../components/StagePills";
 import { NextActionModal, type NextActionTarget } from "../../tasks/components/NextActionModal";
 import { useBoardMove, useClientVisibility, useRankMove } from "../lib/usePipelineWrites";
-import { drawerSectionOf } from "../../candidates/lib/drawerTabs";
+import { drawerSectionOf, POSITION_STAFF_TABS } from "../../candidates/lib/drawerTabs";
 
 type PipelineView = "list" | "board";
 
@@ -66,6 +67,8 @@ function StaffPipeline() {
   const openCandidateId = searchParams.get("candidate");
   const focusNoteId = searchParams.get("note");
   const focusSection = drawerSectionOf(searchParams.get("section"));
+  const requestedTab = searchParams.get("tab");
+  const focusTab = POSITION_STAFF_TABS.find((tab) => tab === requestedTab) ?? null;
   const setOpenCandidateId = (candidateId: string | null) =>
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
@@ -73,6 +76,7 @@ function StaffPipeline() {
       else next.delete("candidate");
       next.delete("note");
       next.delete("section");
+      next.delete("tab");
       return next;
     });
 
@@ -89,12 +93,18 @@ function StaffPipeline() {
     });
 
   const requestedView = searchParams.get("view");
+  // A board of columns is a desk's reading; a phone opens on the list unless a link asks for the board.
+  const [boardFits] = useState(hasRoomForRails);
   const view: PipelineView =
-    requestedView === "list" || requestedView === "board" ? requestedView : requestedStage ? "list" : "board";
+    requestedView === "list" || requestedView === "board"
+      ? requestedView
+      : requestedStage || !boardFits
+        ? "list"
+        : "board";
   const setView = (next: PipelineView) =>
     setSearchParams((current) => {
       const params = new URLSearchParams(current);
-      if (next === "board" && !params.has("stage")) params.delete("view");
+      if (next === "board" && !params.has("stage") && boardFits) params.delete("view");
       else params.set("view", next);
       return params;
     });
@@ -223,6 +233,7 @@ function StaffPipeline() {
         candidateId={openCandidateId}
         focusNoteId={focusNoteId}
         focusSection={focusSection}
+        focusTab={focusTab}
         onClose={() => setOpenCandidateId(null)}
         onChanged={() => void queryClient.invalidateQueries({ queryKey: pipelineApi.PIPELINE_KEY_PREFIX(project.id) })}
       />

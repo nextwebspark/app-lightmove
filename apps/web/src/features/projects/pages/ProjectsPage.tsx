@@ -18,7 +18,6 @@ import { liveClients } from "../../clients/lib/filtering";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
-import { GettingStartedCard } from "../../gettingstarted/components/GettingStartedCard";
 import { MyTasksCard } from "../../tasks/components/MyTasksCard";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
@@ -203,18 +202,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     return (
       <>
         {header}
-        <GettingStartedCard
-          onOpenPosition={() => setModalOpen(true)}
-          intro={
-            <>
-              <h2 className="text-title font-semibold">Start your first search</h2>
-              <p className="mt-1 max-w-[620px] text-body text-u-text2">{startCopy}</p>
-            </>
-          }
-          fallback={
-            <EmptyState icon={<Icon d={ICONS.briefcase} size={24} />} title="Start your first search" body={startCopy} />
-          }
-        />
+        <EmptyState icon={<Icon d={ICONS.briefcase} size={24} />} title="Start your first search" body={startCopy} />
         {modalOpen && (
           <NewProjectModal open onClose={() => setModalOpen(false)} clients={liveClients(clients)} />
         )}
@@ -231,8 +219,6 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       />
 
       {view === "my" && !clientOnly && <MyTasksCard />}
-
-      {view === "my" && !clientOnly && <GettingStartedCard onOpenPosition={() => setModalOpen(true)} />}
 
       {!firstUse && (
         <ListToolbar

@@ -34,6 +34,7 @@ import org.hibernate.type.SqlTypes;
 public class MeetingRecording extends BaseEntity {
 
     private static final int LONGEST_REASON = 64;
+    public static final String NEVER_RECORDED = "NEVER_RECORDED";
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
@@ -68,6 +69,19 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "recall_bot_id")
     private String recallBotId;
 
+    /** Null for a bot sent at once, and while Join now is replacing a scheduled bot with one. */
+    @Column(name = "join_at")
+    private Instant joinAt;
+
+    @Column(name = "recording_started_at")
+    private Instant recordingStartedAt;
+
+    @Column(name = "end_requested_at")
+    private Instant endRequestedAt;
+
+    @Column(name = "end_requested_by")
+    private UUID endRequestedBy;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private NotetakerStatus status;
@@ -94,6 +108,9 @@ public class MeetingRecording extends BaseEntity {
     @Column(name = "media_deleted", nullable = false)
     private boolean mediaDeleted;
 
+    @Column(name = "media_expires_at")
+    private Instant mediaExpiresAt;
+
     /** Null until someone presses Suggest changes; empty when the call stated nothing new for the record. */
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "suggestions", columnDefinition = "jsonb")
@@ -101,6 +118,10 @@ public class MeetingRecording extends BaseEntity {
 
     @Column(name = "suggested_at")
     private Instant suggestedAt;
+
+    /** Suggest changes' claim: written only by the repository's claim and release, read to say the model is at it. */
+    @Column(name = "suggesting_since", insertable = false, updatable = false)
+    private Instant suggestingSince;
 
     /** Chosen before the bot joins: Recall streams a transcript only to a bot made for it. */
     @Column(name = "live_copilot", nullable = false)
@@ -235,8 +256,23 @@ public class MeetingRecording extends BaseEntity {
         this.liveCharged = true;
     }
 
-    public void sent(String botId) {
+    public void sent(String botId, Instant joinAt) {
         this.recallBotId = botId;
+        this.joinAt = joinAt;
+    }
+
+    /** Join now's claim: the scheduled bot stays on the row until the one replacing it is Recall's. */
+    public void joiningNow() {
+        this.joinAt = null;
+    }
+
+    public void stayScheduledFor(Instant joinAt) {
+        this.joinAt = joinAt;
+    }
+
+    /** Recall patches a bot only while it waits to join, which a bot sent at once never does. */
+    public boolean isScheduledAhead() {
+        return status == NotetakerStatus.SCHEDULED && recallBotId != null && joinAt != null;
     }
 
     /** Recall's own word for where the bot is; it moves our status forward only, since deliveries can cross. */
@@ -246,6 +282,37 @@ public class MeetingRecording extends BaseEntity {
         if (next != null && status.isLive() && next.ordinal() > status.ordinal()) {
             this.status = next;
         }
+    }
+
+    /** The call clock starts with the first recording Recall reports, however early or late that was. */
+    public void recordingSince(Instant at) {
+        if (recordingStartedAt == null && at != null && status == NotetakerStatus.RECORDING) {
+            this.recordingStartedAt = at;
+        }
+    }
+
+    public void endRequested(UUID by, Instant at) {
+        this.endRequestedBy = by;
+        this.endRequestedAt = at;
+    }
+
+    public void endRequestCleared() {
+        this.endRequestedBy = null;
+        this.endRequestedAt = null;
+    }
+
+    public boolean isEnding() {
+        return endRequestedAt != null;
+    }
+
+    /** Where the call's clock starts: the recording's own start, or the booked one until Recall reports it. */
+    public Instant callClockStart() {
+        return recordingStartedAt != null ? recordingStartedAt : startsAt;
+    }
+
+    /** A replacement bot streams to a URL of its own, so the old bot's token feeds nothing any more. */
+    public void rekeyLive(String liveTokenHash) {
+        this.liveTokenHash = liveTokenHash;
     }
 
     public void transcriptReady(String id) {
@@ -265,14 +332,30 @@ public class MeetingRecording extends BaseEntity {
         this.status = NotetakerStatus.DONE;
     }
 
-    public void mediaDeleted() {
-        this.mediaDeleted = true;
+    public void mediaHeldUntil(Instant expiresAt) {
+        if (mediaExpiresAt == null) {
+            this.mediaExpiresAt = expiresAt;
+        }
+    }
+
+    /** Whether Recall still holds a finished call's recording, by the retention it was sent with. */
+    public boolean isRecordingKept(Instant now) {
+        return (status == NotetakerStatus.DONE || status == NotetakerStatus.FAILED) && !mediaDeleted
+                && recallBotId != null && mediaExpiresAt != null && now.isBefore(mediaExpiresAt);
     }
 
     public void failed(String reason) {
         this.failureReason = reason == null || reason.length() <= LONGEST_REASON ? reason
                 : reason.substring(0, LONGEST_REASON);
         this.status = NotetakerStatus.FAILED;
+    }
+
+    /**
+     * Recall sends a bot's {@code call_ended}, which carries why it left, and its {@code done} in the same instant, and
+     * either may arrive first: a {@code done} that failed the recording without a reason still takes the reason after.
+     */
+    public boolean awaitsItsReason() {
+        return status == NotetakerStatus.FAILED && NEVER_RECORDED.equals(failureReason);
     }
 
     /** Only a live recording is called back: one a webhook already finished stays as it ended. */
@@ -296,6 +379,11 @@ public class MeetingRecording extends BaseEntity {
     /** Suggest changes is offered on a call whose notes are filed and whose transcript is still kept. */
     public boolean isSuggestible() {
         return status == NotetakerStatus.DONE && transcript != null;
+    }
+
+    /** The model is reading the transcript for changes: a claim taken after {@code staleBefore} is still alive. */
+    public boolean isSuggesting(Instant staleBefore) {
+        return suggestingSince != null && suggestingSince.isAfter(staleBefore);
     }
 
     public boolean hasPendingSuggestions() {

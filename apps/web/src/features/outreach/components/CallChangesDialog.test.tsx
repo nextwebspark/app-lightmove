@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -36,6 +37,9 @@ const NOTICE: CallSuggestion = {
   at: "07:42",
   available: true,
   edited: false,
+  was: null,
+  appliedAt: null,
+  appliedBy: null,
 };
 
 const PACKAGE: CallSuggestion = {
@@ -55,6 +59,9 @@ const PACKAGE: CallSuggestion = {
   at: "09:15",
   available: true,
   edited: false,
+  was: null,
+  appliedAt: null,
+  appliedBy: null,
 };
 
 function answerOf(suggestions: CallSuggestion[], asked = true): CallSuggestions {
@@ -89,6 +96,28 @@ function renderDialog() {
     </QueryClientProvider>,
   );
   return onClose;
+}
+
+/** Opened again under StrictMode, over the answer an earlier opening read. */
+function renderReopened(cached: CallSuggestions) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: 30_000 } } });
+  client.setQueryData(notetakerApi.CALL_SUGGESTIONS_KEY("p1", "c1", "r1"), cached);
+  render(
+    <StrictMode>
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <CallChangesDialog
+            projectId="p1"
+            candidateId="c1"
+            personId="person-1"
+            recordingId="r1"
+            firstName="Priya"
+            onClose={vi.fn()}
+          />
+        </ToastProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
 }
 
 describe("CallChangesDialog", () => {
@@ -185,14 +214,24 @@ describe("CallChangesDialog", () => {
     expect(notetakerApi.reviewCallSuggestions).not.toHaveBeenCalled();
   });
 
-  it("reads a reviewed call back as a record, with no way to undo it", async () => {
+  it("reads a reviewed call back as a record of what changed, with no way to undo it", async () => {
     vi.mocked(notetakerApi.getCallSuggestions).mockResolvedValue(
-      answerOf([decided(NOTICE, "APPLIED"), decided(PACKAGE, "SKIPPED")]),
+      answerOf([
+        {
+          ...decided(NOTICE, "APPLIED"),
+          was: { ...EMPTY, text: "1 month" },
+          appliedAt: "2026-10-21T11:00:00Z",
+          appliedBy: "Yara Haddad",
+        },
+        decided(PACKAGE, "SKIPPED"),
+      ]),
     );
     renderDialog();
 
     expect(await screen.findByText(/^1 applied/)).toBeInTheDocument();
-    expect(screen.getByText("Applied")).toBeInTheDocument();
+    expect(screen.getByText("Applied by Yara")).toBeInTheDocument();
+    expect(screen.getByText("1 month").tagName).toBe("DEL");
+    expect(screen.getByText("My notice is ninety days.")).toBeInTheDocument();
     expect(screen.getByText("Skipped")).toBeInTheDocument();
     expect(screen.getByText("To change any of it, edit Priya's record.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
@@ -238,6 +277,16 @@ describe("CallChangesDialog", () => {
 
     expect(await screen.findByText("3 months")).toBeInTheDocument();
     await waitFor(() => expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(2));
+  });
+
+  it("says a reading failed when opened again over an unread transcript, rather than reading on", async () => {
+    vi.mocked(notetakerApi.suggestChanges).mockRejectedValue(
+      new ApiRequestError({ code: "AI_UNAVAILABLE", detail: "x", status: 502, correlationId: "c" }),
+    );
+    renderReopened(answerOf([], false));
+
+    expect(await screen.findByText("Couldn't read the transcript just now.")).toBeInTheDocument();
+    expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(1);
   });
 
   it("explains a change the record no longer lets in, and leaves it unticked", async () => {

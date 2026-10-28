@@ -26,24 +26,25 @@ export function isWaitingToJoin(copilot: Copilot): boolean {
 }
 
 /**
- * The one line under the header that says why suggestions are not current, if they are not. Null while all is well,
+ * The one line under the header that says why coverage is not current, if they are not. Null while all is well,
  * and for a call that is over: the ended view says that itself.
  */
 export function copilotNoticeOf(copilot: Copilot): string | null {
+  // Every copilot call ends with its feed stopped: once the call is over, the ended view speaks instead.
+  if (!isCallOn(copilot)) return null;
   if (copilot.liveStatus === "STOPPED") {
     return `Copilot stopped by ${copilot.stoppedByName ?? "a teammate"}. The recording continues and notes are filed after the call.`;
   }
   if (copilot.liveStatus === "FEED_STOPPED") {
     return "Live transcript stopped. Notes will still be filed if the recording continues.";
   }
-  if (!isCallOn(copilot)) return null;
   switch (copilot.coach) {
     case "PAUSED":
-      return "Suggestions paused. Retrying when more is said.";
+      return "Coverage paused. Retrying when more is said.";
     case "GUARDED":
       return "Something said reads like an instruction to the AI, so it was skipped.";
     case "CAPPED":
-      return "Suggestions stopped for this call: it reached its limit.";
+      return "Coverage stopped for this call: it reached its limit.";
     default:
       return null;
   }
@@ -57,15 +58,7 @@ export function uncoveredOf(copilot: Copilot): string[] {
   ];
 }
 
-/** What the Notetaker switch does, wherever it is offered: a call's row and Book a call. */
-export function notetakerDetailOf(firstName: string): string {
-  return `Joins a minute early, records the call and files the notes on ${firstName}'s record.`;
-}
-
-export const LIVE_COPILOT_DETAIL =
-  "Nudges you during the call with what is still to cover. Only you see it. Switching it on sends the Notetaker too.";
-
-/** Time into the call from its booked start, as the transcript sheet writes it. */
+/** Time into the call from when it started, as the transcript sheet writes it. */
 export function elapsedSince(startsAt: string, now: number): string {
   const seconds = Math.max(0, Math.floor((now - new Date(startsAt).getTime()) / 1000));
   const minutes = Math.floor(seconds / 60);

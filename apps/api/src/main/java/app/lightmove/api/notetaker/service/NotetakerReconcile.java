@@ -26,7 +26,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * The safety net under Recall's webhook: a recording still live well after its call ended is read from Recall and
  * folded on as the delivery would have been. Rows are claimed before Recall is asked, so of several instances only one
- * reads each bot per pass; one left live a day after its call is given up on.
+ * reads each bot per pass; one left live a day after its call is given up on. Each pass also calls back a bot still
+ * waiting for a call that has since moved or gone.
  */
 @Component
 @RequiredArgsConstructor
@@ -35,6 +36,8 @@ public class NotetakerReconcile {
 
     /** Recall's transcript lands minutes after the call; past this a missing delivery is the likelier story. */
     static final Duration QUIET_AFTER_END = Duration.ofMinutes(30);
+    /** A bot asked to leave early has no booked end to wait for: its call is over once it was told to go. */
+    static final Duration QUIET_AFTER_END_REQUESTED = Duration.ofMinutes(5);
     /** A row read back once is not read again sooner than this, by this instance or another. */
     static final Duration READ_AGAIN_AFTER = Duration.ofMinutes(5);
     static final Duration GIVE_UP_AFTER_END = Duration.ofHours(24);
@@ -45,14 +48,16 @@ public class NotetakerReconcile {
             WHERE id IN (
                 SELECT id FROM app_lm_meeting_recording
                 WHERE status IN ('SCHEDULED', 'JOINING', 'RECORDING', 'PROCESSING') AND recall_bot_id IS NOT NULL
-                  AND ends_at < :endedBefore AND (reconciled_at IS NULL OR reconciled_at < :readBefore)
-                ORDER BY ends_at
+                  AND (ends_at < :endedBefore OR end_requested_at < :endRequestedBefore)
+                  AND (reconciled_at IS NULL OR reconciled_at < :readBefore)
+                ORDER BY coalesce(end_requested_at, ends_at)
                 LIMIT :batch
                 FOR UPDATE SKIP LOCKED)
             RETURNING id
             """;
 
     private final RecallBotApi recall;
+    private final NotetakerService notetakers;
     private final MeetingRecordingRepository recordings;
     private final NotetakerWebhook webhook;
     private final NamedParameterJdbcTemplate jdbc;
@@ -64,7 +69,9 @@ public class NotetakerReconcile {
             initialDelayString = "${lightmove.recall.bot-reconcile-interval}")
     public void scheduledReconcile() {
         if (recall.isOffered()) {
-            reconcileAt(clock.instant());
+            Instant now = clock.instant();
+            notetakers.callBackMovedCalls(now);
+            reconcileAt(now);
         }
     }
 
@@ -72,6 +79,7 @@ public class NotetakerReconcile {
         List<UUID> claimed = transactions.execute(status -> jdbc.queryForList(CLAIM, new MapSqlParameterSource()
                 .addValue("now", Timestamp.from(now))
                 .addValue("endedBefore", Timestamp.from(now.minus(QUIET_AFTER_END)))
+                .addValue("endRequestedBefore", Timestamp.from(now.minus(QUIET_AFTER_END_REQUESTED)))
                 .addValue("readBefore", Timestamp.from(now.minus(READ_AGAIN_AFTER)))
                 .addValue("batch", BATCH), UUID.class));
         int moved = 0;

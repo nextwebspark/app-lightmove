@@ -18,6 +18,7 @@ import app.lightmove.api.notetaker.model.RecallBotState;
 import app.lightmove.api.notetaker.model.TranscriptLine;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -32,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -49,6 +51,8 @@ public class RecallBotClient implements RecallBotApi {
     static final String VENDOR = "recall";
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(20);
     private static final int REQUESTS_PER_SECOND = 5;
+    /** Recall's answer when no bot is free to join at once: none was made. */
+    private static final int POOL_EMPTY = 507;
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final RecallSettings config;
@@ -85,6 +89,9 @@ public class RecallBotClient implements RecallBotApi {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(bodyOf(request))
                 .retrieve()
+                .onStatus(status -> status.value() == POOL_EMPTY, (sent, answer) -> {
+                    throw ApiException.of(ErrorCode.NOTETAKER_BUSY);
+                })
                 .body(JsonNode.class));
         String id = created == null ? null : textOrNull(created.get("id"));
         if (id == null) {
@@ -198,11 +205,16 @@ public class RecallBotClient implements RecallBotApi {
             if (refused.getKind() != VendorFailureKind.BAD_REQUEST && refused.getKind() != VendorFailureKind.GONE) {
                 throw refused;
             }
-            guard.call(VendorCall.of(VENDOR, "bot-leave"), () -> client.post()
-                    .uri("/api/v1/bot/{id}/leave_call/", botId)
-                    .retrieve()
-                    .toBodilessEntity());
+            leave(botId);
         }
+    }
+
+    @Override
+    public void leave(String botId) {
+        guard.call(VendorCall.of(VENDOR, "bot-leave"), () -> client.post()
+                .uri("/api/v1/bot/{id}/leave_call/", botId)
+                .retrieve()
+                .toBodilessEntity());
     }
 
     @Override
@@ -227,7 +239,36 @@ public class RecallBotClient implements RecallBotApi {
     }
 
     @Override
-    public List<TranscriptLine> transcript(String transcriptId) {
+    public Optional<URI> recordingVideo(String botId) {
+        JsonNode bot = guard.call(VendorCall.of(VENDOR, "bot-read"), () -> client.get()
+                .uri("/api/v1/bot/{id}/", botId)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(JsonNode.class));
+        JsonNode recordings = bot == null ? null : bot.path("recordings");
+        if (recordings == null || !recordings.isArray() || recordings.isEmpty()) {
+            return Optional.empty();
+        }
+        JsonNode video = recordings.get(recordings.size() - 1).path("media_shortcuts").path("video_mixed");
+        return Optional.ofNullable(downloadOf(textOrNull(video.path("data").get("download_url"))));
+    }
+
+    @Override
+    public void copyVideo(URI video, OutputStream out) throws IOException {
+        if (downloadOf(video.toString()) == null) {
+            throw new IOException("Not a Recall recording link");
+        }
+        downloads.get().uri(video).exchange((request, response) -> {
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new IOException("Recall answered " + response.getStatusCode().value() + " for the recording");
+            }
+            response.getBody().transferTo(out);
+            return null;
+        });
+    }
+
+    @Override
+    public List<TranscriptLine> transcript(String transcriptId, Instant callClockStart) {
         JsonNode transcript = guard.call(VendorCall.of(VENDOR, "transcript"), () -> client.get()
                 .uri("/api/v1/transcript/{id}/", transcriptId)
                 .accept(MediaType.APPLICATION_JSON)
@@ -237,7 +278,13 @@ public class RecallBotClient implements RecallBotApi {
         if (download == null) {
             throw new VendorException(VendorCall.of(VENDOR, "transcript"), VendorFailureKind.MALFORMED_RESPONSE, null);
         }
-        return linesOf(guard.call(VendorCall.of(VENDOR, "transcript-download"), () -> turnsAt(downloads, download)));
+        JsonNode turns = guard.call(VendorCall.of(VENDOR, "transcript-download"), () -> turnsAt(downloads, download));
+        List<TranscriptLine> lines = linesOf(turns, callClockStart);
+        if (lines.isEmpty() && hasWords(turns)) {
+            throw new VendorException(VendorCall.of(VENDOR, "transcript-download"),
+                    VendorFailureKind.MALFORMED_RESPONSE, null);
+        }
+        return lines;
     }
 
     /**
@@ -288,7 +335,7 @@ public class RecallBotClient implements RecallBotApi {
      * A turn per participant's run of words, at the time its first word was said. Recall names a participant by the
      * name they joined with; one it could not name keeps a number.
      */
-    static List<TranscriptLine> linesOf(JsonNode turns) {
+    static List<TranscriptLine> linesOf(JsonNode turns, Instant callClockStart) {
         List<TranscriptLine> lines = new ArrayList<>();
         if (turns == null || !turns.isArray()) {
             return lines;
@@ -298,7 +345,7 @@ public class RecallBotClient implements RecallBotApi {
             if (!words.isArray() || words.isEmpty()) {
                 continue;
             }
-            Instant at = instantOrNull(textOrNull(words.get(0).path("start_timestamp").get("absolute")));
+            Instant at = startOf(words.get(0).path("start_timestamp"), callClockStart);
             StringBuilder text = new StringBuilder();
             for (JsonNode word : words) {
                 String said = textOrNull(word.get("text"));
@@ -413,6 +460,9 @@ public class RecallBotClient implements RecallBotApi {
         return Math.toIntExact(duration.toSeconds());
     }
 
+    /** Recall deletes the call's media itself once this has passed; it counts from the recording being done. */
+    static final Map<String, Object> RETENTION = Map.of("type", "timed", "hours", MEDIA_RETENTION.toHours());
+
     static Map<String, Object> bodyOf(RecallBotRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("meeting_url", request.meetingUrl());
@@ -455,9 +505,9 @@ public class RecallBotClient implements RecallBotApi {
                 "provider", Map.of("recallai_streaming", provider),
                 "diarization", Map.of("use_separate_streams_when_available", true));
         if (liveTranscriptUrl == null) {
-            return Map.of("transcript", transcript);
+            return Map.of("transcript", transcript, "retention", RETENTION);
         }
-        return Map.of("transcript", transcript, "realtime_endpoints", List.of(Map.of(
+        return Map.of("transcript", transcript, "retention", RETENTION, "realtime_endpoints", List.of(Map.of(
                 "type", "webhook",
                 "url", liveTranscriptUrl.toString(),
                 "events", List.of("transcript.data", "transcript.partial_data"))));
@@ -473,6 +523,28 @@ public class RecallBotClient implements RecallBotApi {
         }
         String text = node.asText();
         return text == null || text.isBlank() ? null : text;
+    }
+
+    /**
+     * A transcript made after the call states seconds into the recording and a null absolute time, so reading only the
+     * absolute dropped every turn and filed a spoken call as "nothing was heard".
+     */
+    static Instant startOf(JsonNode timestamp, Instant callClockStart) {
+        Instant absolute = instantOrNull(textOrNull(timestamp.get("absolute")));
+        JsonNode relative = timestamp.get("relative");
+        if (absolute != null || callClockStart == null || relative == null || !relative.isNumber()) {
+            return absolute;
+        }
+        return callClockStart.plusNanos((long) (relative.asDouble() * 1_000_000_000L));
+    }
+
+    private static boolean hasWords(JsonNode turns) {
+        for (JsonNode turn : turns) {
+            if (turn.path("words").isArray() && !turn.path("words").isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Instant instantOrNull(String text) {

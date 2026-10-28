@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ConversationMessage, ConversationRow } from "../api/conversationApi";
-import { composerFootnoteOf, dueChipOf, eventFaceOf, queueTimeOf, sinceOf } from "./conversationVocabulary";
+import type { OutreachRun } from "../api/runApi";
+import { composerFootnoteOf, dueChipOf, eventFaceOf, glanceOf, queueTimeOf, sinceOf } from "./conversationVocabulary";
 
 const NOW = new Date("2026-10-21T12:00:00Z");
 
@@ -164,5 +165,37 @@ describe("composerFootnoteOf", () => {
     expect(
       composerFootnoteOf({ isReply: false, resolvesReplyTask: false, statusLabel: "Identified", movesTo: "Contacted", stopsRunningSequence: true }),
     ).toBe("Moves to Contacted. Nothing is sent until you press Send now or Schedule.");
+  });
+});
+
+describe("glanceOf", () => {
+  const sent = { type: "MESSAGE" as const, at: "2026-10-19T05:00:00Z", message: message({}) };
+  const reply = {
+    type: "MESSAGE" as const,
+    at: "2026-10-20T05:00:00Z",
+    message: message({ direction: "INBOUND", kind: "REPLY", status: "RECEIVED" }),
+  };
+  const later = {
+    type: "MESSAGE" as const,
+    at: "2026-10-25T05:00:00Z",
+    message: message({ kind: "MANUAL", status: "SCHEDULED" }),
+  };
+  const run = (status: OutreachRun["status"]) =>
+    ({ status, sequenceName: "CFO — first approach", sentCount: 1, stepCount: 3 }) as OutreachRun;
+
+  it("counts only what happened, and dates the last touch by the latest of it", () => {
+    const glance = glanceOf([later, reply, sent], null, NOW);
+    expect(glance.facts.map((fact) => `${fact.count} ${fact.noun}`)).toEqual(["1 sent", "1 reply", "1 scheduled"]);
+    expect(glance.lastTouch).toBe("1D ago");
+    expect(glance.sequence).toBeNull();
+  });
+
+  it("names the sequence only while it is still going", () => {
+    expect(glanceOf([], run("ACTIVE"), NOW).sequence).toBe("CFO — first approach · 1 of 3 sent");
+    expect(glanceOf([], run("REPLIED"), NOW).sequence).toBeNull();
+  });
+
+  it("has nothing to say before anything has happened", () => {
+    expect(glanceOf([], null, NOW)).toEqual({ facts: [], lastTouch: null, sequence: null });
   });
 });

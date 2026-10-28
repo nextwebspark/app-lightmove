@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CallChoice } from "../lib/weekGrid";
 import { WeekTimeGrid } from "./WeekTimeGrid";
 
@@ -107,5 +107,46 @@ describe("WeekTimeGrid", () => {
 
       expect(onChoose).toHaveBeenCalledWith({ start: "2099-10-06T09:15:00.000Z", minutes: 30 });
     });
+  });
+});
+
+describe("WeekTimeGrid — on a phone", () => {
+  const desktop = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = (query: string) => ({ ...desktop(query), matches: false });
+  });
+  afterEach(() => {
+    window.matchMedia = desktop;
+  });
+
+  const isShown = (date: string) => !screen.getByTestId(`day-${date}`).closest("[hidden]");
+
+  it("shows one day, the first when neither a pick nor today is in the week", () => {
+    renderGrid();
+
+    expect(screen.getByRole("group", { name: "Day" })).toBeInTheDocument();
+    expect(isShown("2099-10-05")).toBe(true);
+    expect(isShown("2099-10-06")).toBe(false);
+  });
+
+  it("opens on the chosen call's day, and a tap on the strip moves to another", () => {
+    renderGrid(vi.fn(), { start: "2099-10-06T06:15:00.000Z", minutes: 30 });
+    expect(isShown("2099-10-06")).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: /MON 5/ }));
+
+    expect(isShown("2099-10-05")).toBe(true);
+    expect(isShown("2099-10-06")).toBe(false);
+    expect(screen.getByRole("button", { name: /MON 5/ })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("still picks a time with a tap", () => {
+    const onChoose = renderGrid();
+    const column = dayColumn("2099-10-05");
+
+    fireEvent.pointerDown(column, { button: 0, clientY: 1210 * 0.8, pointerId: 1 });
+    fireEvent.pointerUp(column, { clientY: 1210 * 0.8, pointerId: 1 });
+
+    expect(onChoose).toHaveBeenCalledWith(expect.objectContaining({ minutes: 30 }));
   });
 });

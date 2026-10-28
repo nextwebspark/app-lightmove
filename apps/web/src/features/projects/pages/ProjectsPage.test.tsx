@@ -7,7 +7,6 @@ import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import * as clientsApi from "../../clients/api/clientsApi";
-import * as gettingStartedApi from "../../gettingstarted/api/gettingStartedApi";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
 import type { Project } from "../api/types";
@@ -22,10 +21,6 @@ vi.mock("../api/projectsApi", async (importOriginal) => ({
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
   clients: vi.fn(),
-}));
-vi.mock("../../gettingstarted/api/gettingStartedApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../gettingstarted/api/gettingStartedApi")>()),
-  gettingStarted: vi.fn(),
 }));
 vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
@@ -173,7 +168,7 @@ describe("ProjectsPage — pure client", () => {
   });
 });
 
-describe("ProjectsPage — staff and the Getting started card", () => {
+describe("ProjectsPage — staff, an empty workspace and My tasks", () => {
   const admin = {
     id: "u1",
     email: "ada@firm.example",
@@ -199,11 +194,6 @@ describe("ProjectsPage — staff and the Getting started card", () => {
       roles: ["ADMIN" as const],
     },
   };
-  const checklist = (dismissed: boolean) => ({
-    dismissed,
-    focusProjectId: null,
-    steps: dismissed ? [] : [{ step: "OPEN_POSITION" as const, done: false, skipped: false, completedAt: null }],
-  });
   const aMandate: Project = {
     id: "p1",
     clientId: "c1",
@@ -250,42 +240,27 @@ describe("ProjectsPage — staff and the Getting started card", () => {
     vi.mocked(workspaceApi.members).mockResolvedValue([]);
   });
 
-  it("leads an empty workspace with the header, the intro and the card", async () => {
+  it("leads an empty workspace with the header and the empty state, keeping New position", async () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([]);
-    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(checklist(false));
 
     renderPage("my");
 
-    expect(await screen.findByText("Get your first map in 30 minutes")).toBeInTheDocument();
+    expect(await screen.findByText("Start your first search")).toBeInTheDocument();
     expect(screen.getByText("My positions")).toBeInTheDocument();
-    expect(screen.getByText("Start your first search")).toBeInTheDocument();
+    expect(screen.getByText(/A position is one role you're filling/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /new position/i })).toHaveLength(1);
   });
 
-  it("falls back to the empty state once the card is put away, keeping New position", async () => {
-    vi.mocked(projectsApi.projects).mockResolvedValue([]);
-    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(checklist(true));
-
-    renderPage("my");
-
-    expect(await screen.findByText(/A position is one role you're filling/)).toBeInTheDocument();
-    expect(screen.queryByText("Get your first map in 30 minutes")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /new position/i })).toBeInTheDocument();
-  });
-
-  it("shows the card and My tasks on My positions but not on All positions", async () => {
+  it("shows My tasks on My positions but not on All positions", async () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([aMandate]);
-    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue(checklist(false));
 
     const { unmount } = renderPage("my");
-    expect(await screen.findByText("Get your first map in 30 minutes")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "My tasks" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "My tasks" })).toBeInTheDocument();
     expect(await screen.findByText("Nothing due today.")).toBeInTheDocument();
     unmount();
 
     renderPage("all");
     expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
-    expect(screen.queryByText("Get your first map in 30 minutes")).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "My tasks" })).not.toBeInTheDocument();
   });
 });
@@ -367,7 +342,6 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     vi.resetAllMocks();
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(clientsApi.clients).mockResolvedValue([]);
-    vi.mocked(gettingStartedApi.gettingStarted).mockResolvedValue({ dismissed: true, focusProjectId: null, steps: [] });
   });
 
   it("greets a colleague on no position with the ones that exist, not 'No positions match'", async () => {

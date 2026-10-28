@@ -7,9 +7,7 @@ import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.notetaker.constant.CoachState;
 import app.lightmove.api.notetaker.constant.CoverageState;
-import app.lightmove.api.notetaker.constant.NudgeStatus;
 import app.lightmove.api.notetaker.constant.RecordGap;
-import app.lightmove.api.notetaker.model.CoachNudge;
 import app.lightmove.api.notetaker.model.CompetencyCoverage;
 import app.lightmove.api.notetaker.model.GapHeard;
 import app.lightmove.api.notetaker.model.InterviewQuestion;
@@ -25,16 +23,17 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /**
  * One model call reading a live call so far, and the code that folds its answer into what the copilot already showed:
- * a competency only ever moves forward, a gap heard stays heard, a prepared question asked stays asked, and a nudge the
- * consultant used or dismissed is never suggested again. The model sees the brief, the plan and which facts are missing
- * — never a held value or a package figure — and the transcript with contacts taken out and the team's voices marked.
+ * a competency only ever moves forward, a gap heard stays heard and a prepared question asked stays asked, and a
+ * reading counts only where the executive's own words back it. The model sees the brief, the plan and which facts are
+ * missing — never a held value or a package figure — and the transcript with contacts out and every voice but the
+ * executive's marked.
  */
 @Component
 class InterviewCoach {
@@ -43,12 +42,12 @@ class InterviewCoach {
     private static final String BLOCKED = "{\"guard\":\"" + BlockedAnswer.MARKER + "\"}";
     /** The start and the latest of a long call; what fell out of the middle is already in the reading so far. */
     static final int LONGEST_TRANSCRIPT = 40_000;
-    static final int MOST_NUDGES = 3;
     private static final int LONGEST_QUOTE = 300;
-    private static final int LONGEST_NUDGE = 200;
-    private static final int LONGEST_REASON = 80;
+    private static final long GAP_TIME_SLACK_SECONDS = 5;
+    private static final long LAST_LINE_SECONDS = 60;
     private static final String TEAM_MARK = " (your team)";
-    private static final Pattern CALL_TIME = Pattern.compile("\\d{1,2}:\\d{2}(:\\d{2})?");
+    private static final String OTHER_MARK = " (not the executive)";
+    private static final Pattern CALL_TIME = Pattern.compile("\\b\\d{1,2}:\\d{2}(:\\d{2})?\\b");
 
     private final StructuredPrompt prompt;
 
@@ -56,8 +55,11 @@ class InterviewCoach {
         this.prompt = prompts.create(PROMPT_ID, BLOCKED);
     }
 
-    /** A turn of the live call as the coach reads it: whether the voice is the team's is decided before it is sent. */
-    record HeardLine(Instant at, String speaker, String text, boolean team) {}
+    /**
+     * A turn of the live call as the coach reads it: whether the voice is the team's, or the executive's, is decided
+     * before it is sent. A third voice — neither — is never evidence.
+     */
+    record HeardLine(Instant at, String speaker, String text, boolean team, boolean executive) {}
 
     /** The guard stopped the call's words: the coach skips this stretch and goes on after it. */
     static final class CoachGuarded extends RuntimeException {
@@ -85,9 +87,6 @@ class InterviewCoach {
                 FOUND EARLIER IN THE CALL
                 {found}
 
-                NUDGES ALREADY SHOWN OR SET ASIDE
-                {nudges}
-
                 THE TRANSCRIPT SO FAR (time into the call, speaker, words)
                 {transcript}
                 """)
@@ -99,9 +98,6 @@ class InterviewCoach {
                         .map(gap -> "- %s: %s".formatted(gap.name(), InterviewPlanner.GAP_WORDS.get(gap)))
                         .collect(Collectors.joining("\n")))
                 .param("found", foundText(start, competencyById, questionById))
-                .param("nudges", start.nudges().isEmpty() ? "none" : start.nudges().stream()
-                        .map(nudge -> "- " + nudge.text())
-                        .collect(Collectors.joining("\n")))
                 .param("transcript", transcriptText(lines, callStart)));
         if (answer == null) {
             throw new IllegalStateException("The coach answered nothing");
@@ -109,15 +105,24 @@ class InterviewCoach {
         if (BlockedAnswer.matches(answer.guard())) {
             throw new CoachGuarded();
         }
-        return merged(start, answer, competencyById, questionById, missing);
+        CoachAnswer backed = answer.withCoverage(verifiedCoverage(answer.coverage(), lines))
+                .withGapsHeard(verifiedGaps(answer.gapsHeard(), lines, callStart));
+        return merged(start, backed, competencyById, questionById, missing);
     }
 
     static String transcriptText(List<HeardLine> lines, Instant callStart) {
         String text = lines.stream()
                 .map(line -> "[%s] %s%s: %s".formatted(CallTranscriptText.elapsed(callStart, line.at()),
-                        line.speaker(), line.team() ? TEAM_MARK : "", line.text()))
+                        line.speaker(), markOf(line), line.text()))
                 .collect(Collectors.joining("\n"));
         return CallTranscriptText.keepStartAndEnd(ContactRedaction.redact(text), LONGEST_TRANSCRIPT);
+    }
+
+    private static String markOf(HeardLine line) {
+        if (line.team()) {
+            return TEAM_MARK;
+        }
+        return line.executive() ? "" : OTHER_MARK;
     }
 
     /** q1, q2, … for the questions the consultant kept ticked, in the plan's order. */
@@ -145,7 +150,7 @@ class InterviewCoach {
                     : new CompetencyCoverage(competency.panel(), competency.name(), CoverageState.NOT_YET, null,
                     null));
         }
-        return new LiveCoaching(List.copyOf(byKey.values()), held.gaps(), held.asked(), held.nudges(), held.coach());
+        return new LiveCoaching(List.copyOf(byKey.values()), held.gaps(), held.asked(), held.coach());
     }
 
     static LiveCoaching merged(LiveCoaching before, CoachAnswer answer, Map<String, BriefCompetency> competencyById,
@@ -189,31 +194,8 @@ class InterviewCoach {
                 asked.add(question.id());
             }
         }
-        List<CoachNudge> nudges = new ArrayList<>(before.nudges().stream()
-                .filter(nudge -> nudge.status() != NudgeStatus.SHOWN)
-                .toList());
-        Set<String> seen = before.nudges().stream()
-                .filter(nudge -> nudge.status() != NudgeStatus.SHOWN)
-                .map(nudge -> textKeyOf(nudge.text()))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        int shown = 0;
-        for (CoachAnswer.Nudge suggested : answer.nudges() == null ? List.<CoachAnswer.Nudge>of()
-                : answer.nudges()) {
-            String text = InterviewPlanner.clip(suggested.question(), LONGEST_NUDGE);
-            if (text == null || shown >= MOST_NUDGES || !seen.add(textKeyOf(text))) {
-                continue;
-            }
-            CoachNudge previous = before.nudges().stream()
-                    .filter(nudge -> nudge.status() == NudgeStatus.SHOWN && textKeyOf(nudge.text())
-                            .equals(textKeyOf(text)))
-                    .findFirst()
-                    .orElse(null);
-            nudges.add(previous != null ? previous : new CoachNudge(UUID.randomUUID().toString(), text,
-                    InterviewPlanner.clip(suggested.reason(), LONGEST_REASON), NudgeStatus.SHOWN));
-            shown++;
-        }
         return new LiveCoaching(List.copyOf(coverage.values()), List.copyOf(gaps.values()), List.copyOf(asked),
-                List.copyOf(nudges), CoachState.RUNNING);
+                CoachState.RUNNING);
     }
 
     private static String foundText(LiveCoaching start, Map<String, BriefCompetency> competencyById,
@@ -247,21 +229,107 @@ class InterviewCoach {
         return Objects.toString(panel, "") + "|" + InterviewPlanner.keyOf(competency);
     }
 
+    /**
+     * A competency moves only on words quoted from the executive's own turn — consecutive lines of theirs, since the
+     * stream cuts one answer into several — never from a line of the team's, whatever the model says.
+     */
+    static List<CoachAnswer.Coverage> verifiedCoverage(List<CoachAnswer.Coverage> coverage, List<HeardLine> lines) {
+        if (coverage == null) {
+            return List.of();
+        }
+        List<String> turns = executiveTurnsOf(lines);
+        return coverage.stream()
+                .filter(moved -> {
+                    String quote = textKeyOf(moved.quote());
+                    return !quote.isEmpty() && turns.stream().anyMatch(turn -> turn.contains(quote));
+                })
+                .toList();
+    }
+
+    /** A gap is heard only at a time inside one of the executive's lines, from its start to the next line's. */
+    static List<CoachAnswer.GapHeard> verifiedGaps(List<CoachAnswer.GapHeard> gaps, List<HeardLine> lines,
+                                                  Instant callStart) {
+        if (gaps == null) {
+            return List.of();
+        }
+        List<long[]> spans = new ArrayList<>();
+        for (int index = 0; index < lines.size(); index++) {
+            if (!lines.get(index).executive()) {
+                continue;
+            }
+            long start = secondsOf(CallTranscriptText.elapsed(callStart, lines.get(index).at()));
+            long end = index + 1 < lines.size()
+                    ? secondsOf(CallTranscriptText.elapsed(callStart, lines.get(index + 1).at()))
+                    : start + LAST_LINE_SECONDS;
+            spans.add(new long[] {start - GAP_TIME_SLACK_SECONDS, Math.max(start, end) + GAP_TIME_SLACK_SECONDS});
+        }
+        return gaps.stream()
+                .filter(heard -> {
+                    String at = timeOf(heard.at());
+                    if (at == null) {
+                        return false;
+                    }
+                    long second = secondsOf(at);
+                    return spans.stream().anyMatch(span -> second >= span[0] && second <= span[1]);
+                })
+                .toList();
+    }
+
+    private static List<String> executiveTurnsOf(List<HeardLine> lines) {
+        List<String> turns = new ArrayList<>();
+        StringBuilder turn = new StringBuilder();
+        String speaker = null;
+        for (HeardLine line : lines) {
+            if (!line.executive() || !Objects.equals(line.speaker(), speaker)) {
+                if (!turn.isEmpty()) {
+                    turns.add(textKeyOf(turn.toString()));
+                    turn.setLength(0);
+                }
+                speaker = line.executive() ? line.speaker() : null;
+            }
+            if (line.executive()) {
+                turn.append(' ').append(ContactRedaction.redact(line.text()));
+            }
+        }
+        if (!turn.isEmpty()) {
+            turns.add(textKeyOf(turn.toString()));
+        }
+        return turns;
+    }
+
+    private static long secondsOf(String callTime) {
+        long seconds = 0;
+        for (String part : callTime.split(":")) {
+            seconds = seconds * 60 + Long.parseLong(part);
+        }
+        return seconds;
+    }
+
     static String textKeyOf(String text) {
         return text == null ? "" : text.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").strip();
     }
 
+    /** The model copies a line's time as the transcript writes it, brackets included ("[01:40]"). */
     private static String timeOf(String at) {
-        return at != null && CALL_TIME.matcher(at.strip()).matches() ? at.strip() : null;
+        if (at == null) {
+            return null;
+        }
+        Matcher time = CALL_TIME.matcher(at);
+        return time.find() ? time.group() : null;
     }
 
-    record CoachAnswer(String guard, List<Coverage> coverage, List<GapHeard> gapsHeard, List<String> asked,
-                       List<Nudge> nudges) {
+    record CoachAnswer(String guard, List<Coverage> coverage, List<GapHeard> gapsHeard, List<String> asked) {
+
+        CoachAnswer withCoverage(List<Coverage> next) {
+            return new CoachAnswer(guard, next, gapsHeard, asked);
+        }
+
+        CoachAnswer withGapsHeard(List<GapHeard> next) {
+            return new CoachAnswer(guard, coverage, next, asked);
+        }
 
         record Coverage(String id, String state, String quote, String at) {}
 
         record GapHeard(String gap, String at) {}
-
-        record Nudge(String question, String reason) {}
     }
 }

@@ -23,8 +23,9 @@ type Phase = "loading" | "failed" | "empty" | "review" | "reviewed";
  * Suggest changes on a recorded call (`Position.dc.html`'s "Changes from the call"): the transcript read against the
  * person's record, every change it found on one list — what the record holds now, what the call suggests, the words it
  * rests on — each ticked to keep, editable in place, and saved together by one Apply. Nothing is written before it and
- * nothing is undone after it: from then on the record is where a change is made. Opening it is the press that reads
- * the transcript, once; reopening reads back what was found.
+ * nothing is undone after it: from then on the record is where a change is made, and the dialog reads back what each
+ * change replaced and who applied it. The changes are found once the notes are filed; opening it on a call never read
+ * for them reads the transcript, once.
  */
 export function CallChangesDialog({
   projectId,
@@ -51,6 +52,9 @@ export function CallChangesDialog({
     // Another tab is reading the same transcript: its answer lands here once stored.
     refetchInterval: (query) => (isRunningElsewhere && !query.state.data?.asked ? 2_000 : false),
   });
+  // A failure is kept from the reading's own callback, never `ask.error`: a reading started as the dialog mounts outlives
+  // StrictMode's rehearsal unmount, which detaches the observer for good, and a failure would read as loading forever.
+  const [askFailure, setAskFailure] = useState<unknown>(null);
   const ask = useMutation({
     mutationFn: () => notetakerApi.suggestChanges(projectId, candidateId, recordingId),
     onSuccess: (answer) => {
@@ -67,7 +71,11 @@ export function CallChangesDialog({
         return;
       }
       // The billing sheet already says why; the review has nothing to add over it.
-      if (isBillingRefusal(error)) onClose();
+      if (isBillingRefusal(error)) {
+        onClose();
+        return;
+      }
+      setAskFailure(error);
     },
   });
 
@@ -91,7 +99,7 @@ export function CallChangesDialog({
   const offered = waiting.filter((suggestion) => suggestion.available);
 
   const phase: Phase =
-    read.isError || (ask.isError && !isRunningElsewhere && !isBillingRefusal(ask.error))
+    read.isError || askFailure !== null
       ? "failed"
       : !asked
         ? "loading"
@@ -162,9 +170,9 @@ export function CallChangesDialog({
             phase={phase}
             applying={toApply.length}
             pending={review.isPending}
-            canRetry={codeOf(ask.error) !== "VALIDATION_FAILED"}
+            canRetry={codeOf(askFailure) !== "VALIDATION_FAILED"}
             onRetry={() => {
-              ask.reset();
+              setAskFailure(null);
               setIsRunningElsewhere(false);
               ask.mutate();
             }}
@@ -177,9 +185,9 @@ export function CallChangesDialog({
       {phase === "loading" && <ReadingTranscript />}
       {phase === "failed" && (
         <p className="py-6 text-body text-u-text2" role="alert">
-          {codeOf(ask.error ?? read.error) === "AI_UNAVAILABLE"
+          {codeOf(askFailure ?? read.error) === "AI_UNAVAILABLE"
             ? "Couldn't read the transcript just now."
-            : messageFor(ask.error ?? read.error)}
+            : messageFor(askFailure ?? read.error)}
         </p>
       )}
       {phase === "empty" && (

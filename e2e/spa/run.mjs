@@ -314,10 +314,7 @@ try {
   await page.goto(`${WEB}/`);
   await page.waitForTimeout(2000);
   // Sign out lives inside the Topbar workspace menu, so the menu has to be opened first. The
-  // `:not` is load-bearing: since the shared app shell gained its off-canvas drawer the Topbar also
-  // carries a nav toggle, which is earlier in the DOM and `lg:hidden` — `.first()` picked that one
-  // and spent 30s waiting for a button this 1440px viewport never shows.
-  await page.locator('header button[aria-expanded]:not([aria-controls="app-nav"])').first().click();
+  await page.locator("header button[aria-expanded]").first().click();
   await page.waitForTimeout(600);
   await shot(page, "s7-workspace-menu");
 

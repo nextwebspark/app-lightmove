@@ -235,9 +235,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
                 {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
         chat.answerWhenSystemContains(COACH_MARKER, """
                 {"coverage":[{"id":"c1","state":"TOUCHED","quote":"We refinanced last year.","at":"00:10"}],
-                 "gapsHeard":[],"asked":["q3"],
-                 "nudges":[{"question":"Walk me through that refinancing.","reason":"No example yet"},
-                           {"question":"What notice would you need?","reason":"Notice not asked"}]}""");
+                 "gapsHeard":[],"asked":["q3"]}""");
 
         liveDelivered(bot, partial("p1", "Yara Haddad", "Thanks for", 1.0), null, "nope")
                 .andExpect(status().isUnauthorized());
@@ -266,7 +264,11 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
                 .containsExactly("Thanks for making the time.", "We refinanced last year.",
                         "What notice would you need to give?", "Three months, contractually.");
         assertThat(read.get("lines").get(0).get("team").asBoolean()).isTrue();
+        assertThat(read.get("lines").get(0).get("you").asBoolean()).isTrue();
+        assertThat(read.get("lines").get(0).get("executive").asBoolean()).isFalse();
         assertThat(read.get("lines").get(1).get("team").asBoolean()).isFalse();
+        assertThat(read.get("lines").get(1).get("executive").asBoolean()).isTrue();
+        assertThat(read.get("lines").get(1).get("you").asBoolean()).isFalse();
         long cursor = read.get("lastSeq").asLong();
         assertThat(copilot(recordingId, cursor).get("lines")).isEmpty();
 
@@ -277,7 +279,7 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(chip.get("quote").asText()).isEqualTo("We refinanced last year.");
         assertThat(coached.get("plan").valueStream().filter(question -> question.get("asked").asBoolean())
                 .map(question -> question.get("id").asText()).toList()).containsExactly(noticeQuestion);
-        assertThat(coached.get("nudges")).hasSize(2);
+        assertThat(coached.has("nudges")).isFalse();
         String coachSaw = chat.prompts().stream().map(prompt -> prompt.getUserMessage().getText())
                 .filter(text -> text.contains("THE TRANSCRIPT SO FAR")).reduce((first, second) -> second)
                 .orElseThrow();
@@ -286,14 +288,16 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(jdbc.queryForObject("select count(*) from app_lm_usage_event where idempotency_key = ?",
                 Integer.class, "interview-copilot:" + recordingId)).isEqualTo(1);
 
-        String dismissed = coached.get("nudges").get(0).get("id").asText();
-        as(consultant, post(copilotPath(recordingId) + "/nudges/" + dismissed + "/dismiss"))
-                .andExpect(status().isNoContent());
+        String noticeSaidAt = jdbc.queryForObject("""
+                select to_char(make_interval(secs => greatest(0, floor(extract(epoch from l.said_at
+                       - coalesce(r.recording_started_at, r.starts_at))))), 'MI:SS')
+                from app_lm_meeting_live_line l join app_lm_meeting_recording r on r.id = l.recording_id
+                where l.recording_id = ?::uuid and l.text like 'Three months%' and not l.partial""",
+                String.class, recordingId);
         chat.answerWhenSystemContains(COACH_MARKER, """
                 {"coverage":[{"id":"c1","state":"NOT_YET","quote":null,"at":null}],
-                 "gapsHeard":[{"gap":"NOTICE","at":"00:25"}],"asked":[],
-                 "nudges":[{"question":"Walk me through that refinancing!","reason":"Again"},
-                           {"question":"Who reports to you today?","reason":"Team not reached"}]}""");
+                 "gapsHeard":[{"gap":"NOTICE","at":"%s"},{"gap":"MOTIVATION","at":null}],"asked":[]}"""
+                .formatted(noticeSaidAt));
         liveDeliver(bot, finished("p2", "Priya Raman", "Happy to share more.", 40.0));
         rewindCoach(recordingId);
         assertThat(coachWorker.coachIfDue(java.util.UUID.fromString(recordingId), Instant.now().plusSeconds(60)))
@@ -303,10 +307,10 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         JsonNode stillTouched = again.get("coverage").valueStream()
                 .filter(line -> line.get("competency").asText().equals(competency)).findFirst().orElseThrow();
         assertThat(stillTouched.get("state").asText()).isEqualTo("TOUCHED");
-        assertThat(again.get("nudges").valueStream().map(nudge -> nudge.get("text").asText()).toList())
-                .containsExactly("Who reports to you today?");
         assertThat(again.get("gaps").valueStream().filter(gap -> gap.get("gap").asText().equals("NOTICE"))
                 .findFirst().orElseThrow().get("heard").asBoolean()).isTrue();
+        assertThat(again.get("gaps").valueStream().filter(gap -> gap.get("gap").asText().equals("MOTIVATION"))
+                .noneMatch(gap -> gap.get("heard").asBoolean())).isTrue();
         assertThat(again.get("plan").valueStream().filter(question -> question.get("asked").asBoolean()).count())
                 .isEqualTo(1);
 
@@ -436,6 +440,37 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(copilot(recordingId, 0).get("lines")).isEmpty();
         assertThat(jdbc.queryForObject("select status from app_lm_meeting_recording where id = ?::uuid",
                 String.class, recordingId)).isEqualTo("RECORDING");
+    }
+
+    @Test
+    @DisplayName("a bot sent at once keeps the copilot it was sent with, and Recall is never asked to change it")
+    void aBotSentAtOnceKeepsItsCopilot() throws Exception {
+        String recordingId = liveRecording();
+        jdbc.update("update app_lm_meeting_recording set join_at = null where id = ?::uuid", recordingId);
+
+        switchLive(recordingId, false).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("NOTETAKER_COPILOT_LOCKED"));
+        assertThat(recall.liveUpdates()).isEmpty();
+        assertThat(liveCopilotOf(recordingId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a live copilot call ended early still has its note filed from the accurate transcript")
+    void aCopilotCallEndedEarlyAsksForTheAccurateTranscript() throws Exception {
+        String recordingId = liveRecording();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+
+        as(consultant, post(outreach("/candidates/" + priya + "/notetaker/" + recordingId + "/end")))
+                .andExpect(status().isOk());
+        assertThat(recall.left()).containsExactly(bot);
+        recall.botIs(bot, new app.lightmove.api.notetaker.model.RecallBotState("done", "bot_received_leave_call",
+                Instant.now(), "t-stream", "done", "rec-7"));
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+
+        awaitFinalTranscript(recordingId, "final-rec-7");
     }
 
     @Test

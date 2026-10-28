@@ -44,7 +44,7 @@ export function TemplateToolbar({
 }) {
   return (
     <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
-      <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
+      <label className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
         <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
         <input
           value={query}
@@ -53,7 +53,7 @@ export function TemplateToolbar({
           aria-label="Search templates"
           className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
         />
-      </div>
+      </label>
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         <Popover

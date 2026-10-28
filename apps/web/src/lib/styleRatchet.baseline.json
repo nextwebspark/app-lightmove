@@ -6,12 +6,12 @@
     "arbitraryText": 1
   },
   "components/layout/Sidebar.tsx": {
-    "arbitraryRadius": 2,
+    "arbitraryRadius": 1,
     "arbitraryText": 4
   },
   "components/layout/Topbar.tsx": {
-    "arbitraryRadius": 4,
-    "arbitraryText": 7
+    "arbitraryText": 7,
+    "arbitraryRadius": 3
   },
   "components/layout/UncavaRailNav.tsx": {
     "arbitraryRadius": 1

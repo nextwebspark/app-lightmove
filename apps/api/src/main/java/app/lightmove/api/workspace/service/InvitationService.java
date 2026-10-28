@@ -224,12 +224,6 @@ public class InvitationService {
         return new ClientRepresentativeOnboarding(true, member.getUserId(), null);
     }
 
-    /** Whether a colleague has been asked in and not yet answered — client-representative invitations aside. */
-    @Transactional(readOnly = true)
-    public boolean hasPendingStaffInvitation(UUID workspaceId) {
-        return invitations.existsByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING);
-    }
-
     @Transactional(readOnly = true)
     public long countPendingStaff(UUID workspaceId) {
         return invitations.countByWorkspaceIdAndClientIdIsNullAndStatus(workspaceId, InvitationStatus.PENDING);

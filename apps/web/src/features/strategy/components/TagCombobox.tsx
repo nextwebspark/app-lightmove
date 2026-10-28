@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import { useComboboxList } from "../../../lib/useComboboxList";
+import { focusFieldWithin } from "../../../lib/focusFieldWithin";
 import { SelectionPill } from "../../../components/ui/SelectionPill";
 
 interface ComboboxOption {
@@ -62,7 +63,7 @@ export function TagCombobox({
 
   return (
     <div className="relative">
-      <div className="rounded-md border border-u-border-strong bg-u-raised">
+      <div onMouseDown={focusFieldWithin} className="rounded-md border border-u-border-strong bg-u-raised">
         {tags.length > 0 && (
           <div className="flex flex-wrap gap-[5px] px-2 pt-2">
             {tags.map((tag) => (

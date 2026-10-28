@@ -12,15 +12,12 @@ export function DrawerTabBar({
   value,
   onChange,
   counts = {},
-  copilotNudges = 0,
 }: {
   idPrefix: string;
   tabs: readonly DrawerTab[];
   value: DrawerTab;
   onChange: (tab: DrawerTab) => void;
   counts?: Partial<Record<"notes" | "documents" | "positions", number>>;
-  /** Suggestions the copilot holds while another tab is open. */
-  copilotNudges?: number;
 }) {
   return (
     <TabList
@@ -35,8 +32,6 @@ export function DrawerTabBar({
               value: tab,
               label: DRAWER_TAB_LABELS[tab],
               icon: <span aria-hidden="true" className="me-0.5 size-1.5 animate-pulse rounded-full bg-u-offlimits" />,
-              count: value === "copilot" ? undefined : copilotNudges,
-              countTone: "accent" as const,
               dividerAfter: true,
             }
           : {

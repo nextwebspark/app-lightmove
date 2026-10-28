@@ -3,7 +3,6 @@ package app.lightmove.api.notetaker.controller;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
-import app.lightmove.api.notetaker.constant.NudgeStatus;
 import app.lightmove.api.notetaker.dto.CopilotResponse;
 import app.lightmove.api.notetaker.dto.InterviewPlanResponse;
 import app.lightmove.api.notetaker.dto.LiveCopilotRequest;
@@ -108,16 +107,6 @@ public class InterviewCopilotController {
                                 HttpServletRequest httpRequest) {
         return copilot.stop(principal.userId(), principal.requireWorkspaceId(), projectId, candidateId, recordingId,
                 httpRequest);
-    }
-
-    @PostMapping("/notetaker/{recordingId}/copilot/nudges/{nudgeId}/{decision:used|dismiss}")
-    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void decideNudge(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
-                            @PathVariable UUID candidateId, @PathVariable UUID recordingId,
-                            @PathVariable String nudgeId, @PathVariable String decision) {
-        copilot.decideNudge(principal.requireWorkspaceId(), projectId, candidateId, recordingId, nudgeId,
-                "used".equals(decision) ? NudgeStatus.USED : NudgeStatus.DISMISSED);
     }
 
     @PutMapping("/notetaker/{recordingId}/copilot/plan/{questionId}")

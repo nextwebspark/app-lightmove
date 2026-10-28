@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, useToast } from "../../../../components/ui";
 import { closeCopilotWindow, openCopilotWindow, useCopilotWindowOpen } from "../../lib/copilotWindow";
@@ -14,7 +13,6 @@ export function CopilotTab({
   recordingId,
   firstName,
   onShow,
-  onNudgeCount,
 }: {
   projectId: string;
   candidateId: string;
@@ -22,15 +20,9 @@ export function CopilotTab({
   firstName: string;
   /** Brings the drawer to this tab, for the floating window's Show in Uncava. */
   onShow: () => void;
-  onNudgeCount: (count: number) => void;
 }) {
   const toast = useToast();
   const isPoppedOut = useCopilotWindowOpen(recordingId);
-
-  useEffect(() => {
-    if (isPoppedOut) onNudgeCount(0);
-  }, [isPoppedOut, onNudgeCount]);
-  useEffect(() => () => onNudgeCount(0), [onNudgeCount]);
 
   const handlePopOut = () => {
     void openCopilotWindow({ projectId, candidateId, recordingId }, onShow).then((opened) => {
@@ -66,7 +58,6 @@ export function CopilotTab({
       recordingId={recordingId}
       variant="tab"
       onPopOut={handlePopOut}
-      onNudgeCount={onNudgeCount}
     />
   );
 }

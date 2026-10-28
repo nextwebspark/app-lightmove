@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, useToast } from "../../../../components/ui";
@@ -32,8 +32,8 @@ const SECTIONS: { section: InterviewQuestionSection; title: string; short: strin
 /**
  * Prepare questions for a call (`Position.dc.html`'s Interview plan): fit questions per competency of the brief, a polite
  * question for each fact the record is missing, and a clarifier or two. Opening it drafts the plan once; after that it
- * reads back what was saved. Every question can be ticked, reworded, removed or added; Save keeps them and closes, and
- * the live copilot ticks the asked ones off during the call.
+ * reads back what was drafted or saved. Every question can be ticked, reworded, removed or added; Save keeps them and
+ * closes, and the live copilot ticks the asked ones off during the call.
  */
 export function InterviewPlanDialog({
   projectId,
@@ -67,7 +67,14 @@ export function InterviewPlanDialog({
     setQuestions(plan.questions.map(draftOf));
     setDirty(false);
   };
+  // The draft's state is read from the cache and its own callbacks, never `draft.isPending`: a draft started as the
+  // dialog mounts outlived StrictMode's rehearsal unmount, which detaches the observer for good, and the progress spun
+  // on over a stored plan.
+  const draftKey = notetakerApi.INTERVIEW_PLAN_DRAFT_KEY(projectId, candidateId, meetingId);
+  const isDraftPending = useIsMutating({ mutationKey: draftKey }) > 0;
+  const [draftFailure, setDraftFailure] = useState<unknown>(null);
   const draft = useMutation({
+    mutationKey: draftKey,
     mutationFn: () => notetakerApi.draftInterviewPlan(projectId, candidateId, meetingId),
     onSuccess: adopt,
     onError: (error) => {
@@ -75,7 +82,11 @@ export function InterviewPlanDialog({
         setDraftingElsewhere(true);
         return;
       }
-      if (isBillingRefusal(error)) onClose();
+      if (isBillingRefusal(error)) {
+        onClose();
+        return;
+      }
+      setDraftFailure(error);
     },
   });
   const save = useMutation({
@@ -93,7 +104,7 @@ export function InterviewPlanDialog({
   useEffect(() => {
     if (plan?.drafted && questions === null) setQuestions(plan.questions.map(draftOf));
   }, [plan, questions]);
-  const shouldDraft = read.isSuccess && plan?.drafted === false && !isDraftingElsewhere;
+  const shouldDraft = read.isSuccess && plan?.drafted === false && !isDraftingElsewhere && !isDraftPending;
   const draftedOnce = useRef(false);
   useEffect(() => {
     if (shouldDraft && !draftedOnce.current) {
@@ -102,9 +113,9 @@ export function InterviewPlanDialog({
     }
   }, [shouldDraft, draft]);
 
-  const failed = read.isError || (draft.isError && !isDraftingElsewhere && !isBillingRefusal(draft.error));
-  const isReading = !failed && (questions === null || draft.isPending);
-  const isDrafting = isReading && (draft.isPending || isDraftingElsewhere || shouldDraft);
+  const failed = read.isError || draftFailure !== null;
+  const isReading = !failed && (questions === null || isDraftPending);
+  const isDrafting = isReading && (isDraftPending || isDraftingElsewhere || shouldDraft);
   const update = (change: (held: DraftQuestion[]) => DraftQuestion[]) => {
     setQuestions((held) => (held ? change(held) : held));
     setDirty(true);
@@ -141,11 +152,11 @@ export function InterviewPlanDialog({
               <Button variant="secondary" size="sm" onClick={onClose}>
                 Close
               </Button>
-              {codeOf(draft.error) !== "VALIDATION_FAILED" && (
+              {codeOf(draftFailure) !== "VALIDATION_FAILED" && (
                 <Button
                   size="sm"
                   onClick={() => {
-                    draft.reset();
+                    setDraftFailure(null);
                     setDraftingElsewhere(false);
                     draft.mutate();
                   }}
@@ -202,9 +213,9 @@ export function InterviewPlanDialog({
       >
         {failed && (
           <p className="py-6 text-body text-u-text2" role="alert">
-            {codeOf(draft.error ?? read.error) === "AI_UNAVAILABLE"
+            {codeOf(draftFailure ?? read.error) === "AI_UNAVAILABLE"
               ? "Couldn't prepare the questions just now."
-              : messageFor(draft.error ?? read.error)}
+              : messageFor(draftFailure ?? read.error)}
           </p>
         )}
         {isReading && (isDrafting ? <DraftingProgress firstName={firstName} /> : <LinesSkeleton />)}
@@ -433,8 +444,8 @@ function QuestionRow({
             autoFocus
             aria-label="Question"
             value={question.text}
-            maxLength={400}
-            rows={2}
+            maxLength={140}
+            rows={1}
             placeholder="Type your question"
             onChange={(event) => onChange({ ...question, text: event.target.value })}
             onBlur={() => question.text.trim() !== "" && setEditing(false)}

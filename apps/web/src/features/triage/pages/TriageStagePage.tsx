@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useOutletContext, useParams } from "react-router-dom";
+import { Navigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
@@ -176,6 +176,27 @@ function TriageStage() {
   const [managingColumns, setManagingColumns] = useState(false);
   /** Set when "Edit field" is opened from a header menu, so the dialog lands already renaming it. */
   const [editColumnId, setEditColumnId] = useState<string | null>(null);
+
+  // The phone's quick actions land here as `?add=company|executive`: the toolbar's own Add, pressed for them.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const addRequest = searchParams.get("add");
+  useEffect(() => {
+    if (addRequest !== "company" && addRequest !== "executive") return;
+    // Who may write is read off the signed-in user, so the request waits for them rather than being dropped.
+    if (!user) return;
+    if (canWrite) {
+      if (addRequest === "company") setOpenCompany({ company: null });
+      else setProfile({ candidate: null, company: null });
+    }
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("add");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [addRequest, user, canWrite, setSearchParams]);
   const [sort, setSort] = useGridSort("companies", project.id, TRIAGE_SORT_FIELDS, DEFAULT_SORT);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);

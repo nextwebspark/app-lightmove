@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { NotetakerRecording } from "../api/notetakerApi";
 import * as notetakerApi from "../api/notetakerApi";
-import { hasLiveRecording } from "./notetakerChip";
+import { hasLiveRecording, hasRecordingAboutToMove } from "./notetakerChip";
 
 /** One executive's Notetaker on a position, read once for the Meetings section and the drawer's copilot tab alike. */
 export function useNotetaker(projectId: string, candidateId: string, enabled = true) {
@@ -10,7 +10,11 @@ export function useNotetaker(projectId: string, candidateId: string, enabled = t
     queryFn: ({ signal }) => notetakerApi.getNotetaker(projectId, candidateId, signal),
     enabled,
     // A bot on its way, in a call or being written up moves on Recall's word, which no stream carries here.
-    refetchInterval: (query) => (query.state.data && hasLiveRecording(query.state.data.recordings) ? 30_000 : false),
+    refetchInterval: (query) => {
+      const recordings = query.state.data?.recordings ?? [];
+      if (hasRecordingAboutToMove(recordings)) return 10_000;
+      return hasLiveRecording(recordings) ? 30_000 : false;
+    },
   });
 }
 

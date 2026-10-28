@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -24,6 +24,8 @@ function Harness(props: Partial<NoteEditorProps> & { onBody?: (body: string) => 
       teammates={props.teammates === undefined ? team : props.teammates}
       ariaLabel="New note"
       onSubmit={props.onSubmit}
+      fillsDialog={props.fillsDialog}
+      onExpandChange={props.onExpandChange}
       header={props.header}
       footer={
         props.footer === undefined ? undefined : (
@@ -153,6 +155,34 @@ describe("the note editor", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByText("Kind of note")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "New note" })).toHaveTextContent("");
+  });
+
+  it("filling a dialog, grows where it is and tells the dialog, once per press", async () => {
+    const onExpandChange = vi.fn();
+    render(
+      <Harness value="Prefers mornings" footer={<p>Who reads this note</p>} fillsDialog onExpandChange={onExpandChange} />,
+    );
+    await screen.findByRole("textbox", { name: "New note" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Expand" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onExpandChange).toHaveBeenCalledTimes(1);
+    expect(onExpandChange).toHaveBeenLastCalledWith(true);
+
+    await userEvent.click(screen.getByRole("button", { name: "Collapse" }));
+    expect(onExpandChange).toHaveBeenLastCalledWith(false);
+    expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+  });
+
+  it("takes the caret back on a press in the box's empty space, after focus went elsewhere", async () => {
+    render(<Harness footer={<button type="button">Elsewhere</button>} fillsDialog />);
+    const box = await screen.findByRole("textbox", { name: "New note" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Elsewhere" }));
+    expect(box).not.toHaveFocus();
+
+    fireEvent.mouseDown(box.parentElement!);
+    await waitFor(() => expect(box).toHaveFocus());
   });
 
   it("offers no mention where the note mentions nobody", async () => {

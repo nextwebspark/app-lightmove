@@ -3,32 +3,33 @@ import { type ReactNode, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { CANDIDATES_KEY_PREFIX } from "../../candidates/api/candidatesApi";
 import * as poolApi from "../../candidates/api/poolApi";
 import type { CandidateEmail, CandidateStatus } from "../../candidates/api/types";
 import * as meetingApi from "../api/meetingApi";
 import type { Meeting } from "../api/meetingApi";
-import * as notetakerApi from "../api/notetakerApi";
+import type { NotetakerRecording } from "../api/notetakerApi";
 import { dateTileOf, meetingWhenOf, shortDateOf } from "../lib/meetingTimes";
 import { openCopilotWindow } from "../lib/copilotWindow";
-import { recordingOfMeeting } from "../lib/notetakerChip";
+import { canRecord, hasCallEnded, isNotetakerLive, recordingOfMeeting } from "../lib/notetakerChip";
 import { useMailbox } from "../lib/useMailbox";
 import { useNotetaker } from "../lib/useNotetaker";
 import { BookCallDialog } from "./BookCallDialog";
+import { CallAssistantPanel } from "./CallAssistantPanel";
 import { CallChangesDialog } from "./CallChangesDialog";
+import { CallMenu } from "./CallMenu";
 import { InterviewPlanDialog } from "./copilot/InterviewPlanDialog";
-import { NotetakerControl } from "./NotetakerControl";
 import { TranscriptSheet } from "./TranscriptSheet";
 import { ZoomConnectControl } from "./ZoomConnectControl";
 
 /**
  * The executive drawer's Meetings section (`Outreach.dc.html?drawer=`): calls with them on the team's
  * connected calendars, and Book a call from the consultant's own. Always open, unlike the folds below
- * it. Staff-only; Book a call is never offered for someone marked do not contact. A call booked in Uncava on
- * the consultant's own calendar can be moved or cancelled from its row (`editable`, the server's say), and a call
- * with a video link can be recorded by the Notetaker, whose notes are filed on the person.
+ * it. Staff-only; Book a call is never offered for someone marked do not contact. A call's row is the call and
+ * its Join link; everything else is behind its ⋯ — Notetaker & questions, what came of the call once its notes are
+ * filed, and Reschedule and Cancel for a call booked in Uncava on the consultant's own calendar (`editable`, the
+ * server's say). A call the Notetaker has left is past.
  */
 export function MeetingsSection({
   projectId,
@@ -66,32 +67,44 @@ export function MeetingsSection({
   const [transcriptOf, setTranscriptOf] = useState<string | null>(null);
   const [suggestionsOf, setSuggestionsOf] = useState<string | null>(null);
   const [planOf, setPlanOf] = useState<string | null>(null);
+  const [panelOf, setPanelOf] = useState<string | null>(null);
 
   const firstName = fullName.trim().split(/\s+/)[0];
-  const upcoming = meetings.data?.upcoming ?? [];
-  const past = meetings.data?.past ?? [];
+  const recordings = notetaker.data?.recordings ?? [];
+  const recordingOf = (meeting: Meeting): NotetakerRecording | null => recordingOfMeeting(recordings, meeting);
+  const booked = meetings.data?.upcoming ?? [];
+  const upcoming = booked.filter((meeting) => !hasCallEnded(recordingOf(meeting)));
+  const past = [...booked.filter((meeting) => hasCallEnded(recordingOf(meeting))), ...(meetings.data?.past ?? [])];
   const count = upcoming.length + past.length;
   const hasActiveMailbox = mailbox.data?.offered === true && mailbox.data.connection?.status === "ACTIVE";
   const canBook = hasActiveMailbox && record.isSuccess && !record.data.doNotContact && emails.length > 0;
   const canReschedule = hasActiveMailbox && record.isSuccess && !record.data.doNotContact;
-  const recordings = notetaker.data?.recordings ?? [];
   const recordable = new Set(notetaker.data?.recordableMeetingIds ?? []);
-  const mayRecord = (meeting: Meeting) =>
+  const onCallDay = new Set(notetaker.data?.callDayMeetingIds ?? []);
+  const isRecordable = (meeting: Meeting) =>
     notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact && recordable.has(meeting.id);
-  const notetakerFor = (meeting: Meeting) =>
-    notetaker.isSuccess ? (
-      <NotetakerControl
-        projectId={projectId}
-        candidateId={candidateId}
-        meeting={meeting}
-        recording={recordingOfMeeting(recordings, meeting)}
-        mayRecord={mayRecord(meeting)}
-        firstName={firstName}
-        onShowTranscript={setTranscriptOf}
-        onSuggestChanges={setSuggestionsOf}
-        onOpenCopilot={handleOpenCopilot}
-      />
-    ) : null;
+  const mayRecord = (meeting: Meeting) => isRecordable(meeting) && canRecord(recordingOf(meeting));
+  const offersNotetaker = (meeting: Meeting) => mayRecord(meeting) || isNotetakerLive(recordingOf(meeting));
+  const panelMeeting = [...upcoming, ...past].find((meeting) => meeting.id === panelOf) ?? null;
+  const menuOf = (
+    meeting: Meeting,
+    options?: { label: string; icon: string; onSelect: () => void },
+    onReschedule?: () => void,
+    onCancel?: () => void,
+  ) => (
+    <CallMenu
+      projectId={projectId}
+      candidateId={candidateId}
+      firstName={firstName}
+      recording={recordingOf(meeting)}
+      options={options}
+      onShowTranscript={setTranscriptOf}
+      onShowChanges={setSuggestionsOf}
+      onOpenCopilot={handleOpenCopilot}
+      onReschedule={onReschedule}
+      onCancel={onCancel}
+    />
+  );
 
   // Straight from the click: the floating window needs the gesture. Where the browser opens no window, the drawer's
   // Copilot tab shows it.
@@ -148,23 +161,23 @@ export function MeetingsSection({
           <div className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[.12em] text-u-text3">
             Upcoming
           </div>
-          {upcoming.map((meeting) => (
-            <UpcomingMeeting
-              key={meeting.id}
-              meeting={meeting}
-              onReschedule={meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined}
-              onCancel={meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined}
-              prepare={
-                <PrepareQuestionsLink
-                  projectId={projectId}
-                  candidateId={candidateId}
-                  meetingId={meeting.id}
-                  onOpen={() => setPlanOf(meeting.id)}
-                />
-              }
-              notetaker={notetakerFor(meeting)}
-            />
-          ))}
+          {upcoming.map((meeting) => {
+            const opensPanel = offersNotetaker(meeting);
+            return (
+              <UpcomingMeeting
+                key={meeting.id}
+                meeting={meeting}
+                menu={menuOf(
+                  meeting,
+                  opensPanel
+                    ? { label: "Notetaker & questions…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
+                    : { label: "Prepare questions…", icon: ICONS.checklist, onSelect: () => setPlanOf(meeting.id) },
+                  meeting.editable && canReschedule ? () => setRescheduling(meeting) : undefined,
+                  meeting.editable && hasActiveMailbox ? () => setCancelling(meeting) : undefined,
+                )}
+              />
+            );
+          })}
         </>
       )}
 
@@ -174,17 +187,21 @@ export function MeetingsSection({
             Past
           </div>
           {past.map((meeting) => (
-            <div key={meeting.id} className="flex items-baseline gap-2.5 py-[5px] text-[12.5px] text-u-text2">
+            <div key={meeting.id} className="flex items-center gap-2.5 py-[5px] text-[12.5px] text-u-text2">
               <span className="w-[52px] flex-none font-mono text-[11.5px] text-u-text3">
                 {shortDateOf(meeting.startsAt)}
               </span>
               <span className="min-w-0 flex-1">
                 {meeting.title ?? "Untitled"}
-                {meeting.ownerName && (
-                  <span className="font-mono text-[11.5px] text-u-text3"> · {meeting.ownerName}</span>
-                )}
-                {notetakerFor(meeting)}
+                {meeting.ownerName && <span className="font-mono text-[11.5px] text-u-text3"> · {meeting.ownerName}</span>}
               </span>
+              {notetaker.isSuccess &&
+                menuOf(
+                  meeting,
+                  offersNotetaker(meeting) && !hasCallEnded(recordingOf(meeting))
+                    ? { label: "Notetaker…", icon: ICONS.mic, onSelect: () => setPanelOf(meeting.id) }
+                    : undefined,
+                )}
             </div>
           ))}
         </>
@@ -204,7 +221,6 @@ export function MeetingsSection({
           fullName={fullName}
           candidateStatus={candidateStatus}
           emails={emails}
-          notetakerOffered={notetaker.data?.offered === true && record.isSuccess && !record.data.doNotContact}
           onClose={() => setIsBooking(false)}
         />
       )}
@@ -215,6 +231,25 @@ export function MeetingsSection({
           candidateId={candidateId}
           recordingId={transcriptOf}
           onClose={() => setTranscriptOf(null)}
+        />
+      )}
+
+      {panelMeeting && (
+        <CallAssistantPanel
+          projectId={projectId}
+          candidateId={candidateId}
+          meeting={panelMeeting}
+          recording={recordingOf(panelMeeting)}
+          mayRecord={mayRecord(panelMeeting)}
+          isCallDay={onCallDay.has(panelMeeting.id)}
+          offersQuestions={upcoming.includes(panelMeeting)}
+          firstName={firstName}
+          onPrepareQuestions={() => {
+            setPanelOf(null);
+            setPlanOf(panelMeeting.id);
+          }}
+          onOpenCopilot={handleOpenCopilot}
+          onClose={() => setPanelOf(null)}
         />
       )}
 
@@ -271,61 +306,7 @@ export function MeetingsSection({
   );
 }
 
-/** Opens the questions prepared for this call, drafting them the first time; once saved, says they are ready. */
-function PrepareQuestionsLink({
-  projectId,
-  candidateId,
-  meetingId,
-  onOpen,
-}: {
-  projectId: string;
-  candidateId: string;
-  meetingId: string;
-  onOpen: () => void;
-}) {
-  const plan = useQuery({
-    queryKey: notetakerApi.INTERVIEW_PLAN_KEY(projectId, candidateId, meetingId),
-    queryFn: ({ signal }) => notetakerApi.getInterviewPlan(projectId, candidateId, meetingId, signal),
-  });
-  const asking = plan.data?.questions.filter((question) => question.included).length ?? 0;
-  if (plan.data?.savedAt) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        className="mt-0.5 inline-flex items-center gap-1 text-note font-medium text-u-text2 hover:text-u-text hover:underline hover:underline-offset-2"
-      >
-        <Icon d={ICONS.check} size={12} className="text-u-direct" />
-        {asking === 1 ? "1 question ready" : `${asking} questions ready`}
-        <span className="text-u-accent">· Open</span>
-      </button>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="mt-0.5 inline-flex items-center gap-1 text-note font-medium text-u-accent hover:underline hover:underline-offset-2"
-    >
-      <Icon d={ICONS.checklist} size={12} />
-      Prepare questions
-    </button>
-  );
-}
-
-function UpcomingMeeting({
-  meeting,
-  onReschedule,
-  onCancel,
-  prepare,
-  notetaker,
-}: {
-  meeting: Meeting;
-  onReschedule?: () => void;
-  onCancel?: () => void;
-  prepare: ReactNode;
-  notetaker: ReactNode;
-}) {
+function UpcomingMeeting({ meeting, menu }: { meeting: Meeting; menu: ReactNode }) {
   const tile = dateTileOf(meeting.startsAt);
   const when = meetingWhenOf(meeting.startsAt, meeting.endsAt);
   return (
@@ -344,59 +325,27 @@ function UpcomingMeeting({
             {when}
             {meeting.ownerName ? ` · ${meeting.ownerName}` : ""}
           </span>
-          {prepare}
           {meeting.viaLink && (
             <span className="mt-1 inline-flex rounded-[5px] bg-u-direct-tint px-[7px] py-px font-mono text-[10px] font-semibold text-u-direct">
               Booked through your link
             </span>
           )}
         </span>
-        {(meeting.joinUrl || onReschedule || onCancel) && (
-          <span className="flex flex-none flex-col items-end gap-1.5">
-            {meeting.joinUrl && (
-              <a
-                href={meeting.joinUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-[5px] rounded-[6px] border border-u-border px-[9px] py-1 text-[11.5px] font-medium text-u-text2 hover:text-u-text"
-              >
-                <Icon d={ICONS.video} size={12} />
-                {meeting.videoProvider ?? "Join"}
-              </a>
-            )}
-            {(onReschedule || onCancel) && (
-              <span className="flex gap-1">
-                {onReschedule && (
-                  <button
-                    type="button"
-                    onClick={onReschedule}
-                    aria-label="Reschedule"
-                    title="Reschedule"
-                    className={cn(ICON_ACTION, "hover:bg-u-raised hover:text-u-text")}
-                  >
-                    <Icon d={ICONS.reschedule} size={13} />
-                  </button>
-                )}
-                {onCancel && (
-                  <button
-                    type="button"
-                    onClick={onCancel}
-                    aria-label="Cancel call"
-                    title="Cancel call"
-                    className={cn(ICON_ACTION, "hover:bg-u-offlimits-tint hover:text-u-offlimits")}
-                  >
-                    <Icon d={ICONS.trash} size={13} />
-                  </button>
-                )}
-              </span>
-            )}
-          </span>
-        )}
+        <span className="flex flex-none items-center gap-1.5">
+          {meeting.joinUrl && (
+            <a
+              href={meeting.joinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-[5px] rounded-[6px] border border-u-border px-[9px] py-1 text-[11.5px] font-medium text-u-text2 hover:text-u-text"
+            >
+              <Icon d={ICONS.video} size={12} />
+              {meeting.videoProvider ?? "Join"}
+            </a>
+          )}
+          {menu}
+        </span>
       </div>
-      {notetaker && <div className="ms-[54px]">{notetaker}</div>}
     </div>
   );
 }
-
-const ICON_ACTION =
-  "grid size-[26px] place-items-center rounded-u-control border border-u-border text-u-text3 transition-colors focus-visible:outline-2 focus-visible:outline-u-accent";

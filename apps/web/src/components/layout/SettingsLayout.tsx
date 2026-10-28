@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthProvider";
+import { isPureClient } from "../../features/auth/roles";
 import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
+import { workspaceTabs } from "./mobile/mobileTabs";
 import { type SidebarGroup, type SidebarItem } from "./Sidebar";
 import {
   rememberSettingsSection,
@@ -42,6 +44,8 @@ export function SettingsLayout() {
       breadcrumb={<SettingsBreadcrumb section={section?.label ?? "Settings"} />}
       navGroups={groups}
       navBackLink={{ to: "/", label: "Back to workspace", icon: ICONS.back }}
+      mobileTabs={workspaceTabs(isPureClient(user?.workspace?.roles ?? []))}
+      mobileTitle="Settings"
       contentClassName={
         GRID_PAGES.has(pathname)
           ? "flex h-full w-full flex-col"

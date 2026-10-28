@@ -27,6 +27,8 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
 
     Optional<MeetingRecording> findByRecallBotId(String recallBotId);
 
+    List<MeetingRecording> findByStatusAndJoinAtAfter(NotetakerStatus status, Instant after);
+
     Optional<MeetingRecording> findByFinalTranscriptId(String finalTranscriptId);
 
     /** The row a Suggest changes decision writes, locked first so two tabs' decisions queue rather than collide. */
@@ -37,6 +39,14 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
 
     boolean existsByWorkspaceIdAndJoinUrlAndStartsAtAndStatusIn(UUID workspaceId, String joinUrl, Instant startsAt,
                                                                 Collection<NotetakerStatus> statuses);
+
+    /** Another call's bot on the same link: a room used back to back, whoever's calendar the earlier call was on. */
+    boolean existsByWorkspaceIdAndJoinUrlAndStartsAtNotAndStatusIn(UUID workspaceId, String joinUrl, Instant startsAt,
+                                                                   Collection<NotetakerStatus> statuses);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from MeetingRecording r where r.id = :id")
+    Optional<MeetingRecording> lockById(UUID id);
 
     /**
      * The worker's claim on a recording it is about to summarise: one worker per transcript, however many times it
@@ -65,6 +75,17 @@ public interface MeetingRecordingRepository extends JpaRepository<MeetingRecordi
               AND (suggesting_since IS NULL OR suggesting_since < :staleBefore)
             """)
     int claimSuggesting(UUID id, Instant now, Instant staleBefore);
+
+    /**
+     * Suggest changes claimed for the notes' own worker in the transaction that files them, so no press finds the call
+     * unclaimed in between. Only a call never read for changes: a filed one already asked is left to a press.
+     */
+    @Modifying
+    @Query(nativeQuery = true, value = """
+            UPDATE app_lm_meeting_recording SET suggesting_since = :now
+            WHERE id = :id AND suggestions IS NULL AND transcript IS NOT NULL
+            """)
+    int claimSuggestingOnFiling(UUID id, Instant now);
 
     @Modifying
     @Query(nativeQuery = true, value = "UPDATE app_lm_meeting_recording SET suggesting_since = NULL WHERE id = :id")
