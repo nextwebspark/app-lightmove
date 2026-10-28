@@ -12,6 +12,7 @@ import app.lightmove.api.notetaker.constant.RecordGap;
 import app.lightmove.api.notetaker.model.InterviewQuestion;
 import app.lightmove.api.notetaker.model.LiveCoaching;
 import app.lightmove.api.notetaker.model.RecallLiveUtterance;
+import app.lightmove.api.notetaker.model.SpeakerVoice;
 import app.lightmove.api.notetaker.service.InterviewCoach.CoachAnswer;
 import app.lightmove.api.notetaker.service.InterviewPlanner.PlanAnswer;
 import app.lightmove.api.position.model.BriefCompetency;
@@ -116,11 +117,14 @@ class InterviewCopilotRulesTest {
     void coverageIsHeldToWhatTheExecutiveSaid() {
         Instant start = Instant.parse("2026-10-27T10:00:00Z");
         List<InterviewCoach.HeardLine> lines = List.of(
-                new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "Tell me about the refinancing.", true),
-                new InterviewCoach.HeardLine(start.plusSeconds(20), "Priya", "We refinanced 1.2 billion in 2024,", false),
-                new InterviewCoach.HeardLine(start.plusSeconds(24), "Priya", "and I led the bank talks myself.", false),
+                new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "Tell me about the refinancing.", true,
+                        false),
+                new InterviewCoach.HeardLine(start.plusSeconds(20), "Priya", "We refinanced 1.2 billion in 2024,", false,
+                        true),
+                new InterviewCoach.HeardLine(start.plusSeconds(24), "Priya", "and I led the bank talks myself.", false,
+                        true),
                 new InterviewCoach.HeardLine(start.plusSeconds(30), "Yara", "Impressive, you clearly built the team.",
-                        true));
+                        true, false));
 
         List<CoachAnswer.Coverage> kept = InterviewCoach.verifiedCoverage(List.of(
                 new CoachAnswer.Coverage("c1", "EVIDENCED", "in 2024, and I led the bank talks", "00:20"),
@@ -137,10 +141,10 @@ class InterviewCopilotRulesTest {
     void gapsAreHeldToWhenTheExecutiveSpoke() {
         Instant start = Instant.parse("2026-10-27T10:00:00Z");
         List<InterviewCoach.HeardLine> lines = List.of(
-                new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "What notice do you have?", true),
+                new InterviewCoach.HeardLine(start.plusSeconds(10), "Yara", "What notice do you have?", true, false),
                 new InterviewCoach.HeardLine(start.plusSeconds(20), "Priya",
-                        "A long answer about my team, the board, and three months notice at the end.", false),
-                new InterviewCoach.HeardLine(start.plusSeconds(80), "Yara", "And the package?", true));
+                        "A long answer about my team, the board, and three months notice at the end.", false, true),
+                new InterviewCoach.HeardLine(start.plusSeconds(80), "Yara", "And the package?", true, false));
 
         List<CoachAnswer.GapHeard> kept = InterviewCoach.verifiedGaps(List.of(
                 new CoachAnswer.GapHeard("NOTICE", "[01:05]"),
@@ -152,28 +156,43 @@ class InterviewCopilotRulesTest {
     }
 
     @Test
-    @DisplayName("a voice is the executive's only when its name is theirs, never on one shared word")
-    void voiceIsNamedAsTheExecutive() {
-        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Hakan Demir", true)).isTrue();
-        assertThat(TeamVoices.isNamedAs("Hakan Demir", "  hakan ", true)).isTrue();
-        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Dr. Hakan Demir", true)).isTrue();
-        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Alexander Petrov", true)).isFalse();
-        assertThat(TeamVoices.isNamedAs("Mohammed Ali", "Mohammed Hassan", true)).isFalse();
-        assertThat(TeamVoices.isNamedAs("Hakan Demir", "Hakan Demir", false)).isFalse();
-        assertThat(TeamVoices.isNamedAs(null, "Hakan Demir", true)).isFalse();
+    @DisplayName("a voice is the executive's on their name, never on one word another voice shares")
+    void executiveVoicesAreNamedOnes() {
+        Set<String> team = Set.of("yara haddad");
+        assertThat(executiveVoices("Hakan Demir", team, voice("Yara Haddad"), voice("Hakan Demir"),
+                voice("Alexander Petrov"))).containsExactly("Hakan Demir");
+        assertThat(executiveVoices("Hakan Demir", team, voice("Dr. Hakan Demir"), voice("Alexander Petrov")))
+                .containsExactly("Dr. Hakan Demir");
+        assertThat(executiveVoices("Hakan Murat Demir", team, voice("hakan  demir"), voice("Alexander Petrov")))
+                .containsExactly("hakan  demir");
+        assertThat(executiveVoices("Hakan Demir", team, voice("Hakan"), voice("Alexander Petrov")))
+                .containsExactly("Hakan");
+        // Two Mohammeds are two people: the one-word voice is nobody's, and the other is not the executive either.
+        assertThat(executiveVoices("Mohammed Ali", team, voice("Mohammed"), voice("Mohammed Hassan"))).isEmpty();
+        assertThat(executiveVoices("Mohammed Ali", team, voice("Mohammed Hassan"), voice("Alexander Petrov")))
+                .isEmpty();
     }
 
     @Test
-    @DisplayName("an outsider on the call is not the executive; where nobody is named as them, every other voice is")
-    void executiveVoicesLeaveOutsidersOut() {
-        List<TeamVoices.SpeakerVoice> others = List.of(new TeamVoices.SpeakerVoice("Hakan Demir", true),
-                new TeamVoices.SpeakerVoice("Alexander Petrov", true));
-        assertThat(TeamVoices.executiveVoicesOf("Hakan Demir", others)).containsExactly("Hakan Demir");
+    @DisplayName("an executive under a device's name, or unnamed, is the one voice not the team's — and only then")
+    void executiveUnderAnotherNameIsTheOnlyOtherVoice() {
+        Set<String> team = Set.of("yara haddad");
+        assertThat(executiveVoices("Hakan Demir", team, voice("Yara Haddad"), voice("Galaxy S24")))
+                .containsExactly("Galaxy S24");
+        assertThat(executiveVoices("Hakan Demir", team, voice("Yara Haddad"),
+                new SpeakerVoice("Speaker 7", false))).containsExactly("Speaker 7");
+        assertThat(executiveVoices("Hakan Demir", team, voice("Yara Haddad"), voice("Galaxy S24"),
+                voice("Alexander Petrov"))).isEmpty();
+        assertThat(executiveVoices("Hakan Demir", team, new SpeakerVoice("Hakan Demir", false),
+                voice("Alexander Petrov"))).isEmpty();
+    }
 
-        List<TeamVoices.SpeakerVoice> unnamed = List.of(new TeamVoices.SpeakerVoice("Galaxy S24", true),
-                new TeamVoices.SpeakerVoice("Speaker 7", false));
-        assertThat(TeamVoices.executiveVoicesOf("Hakan Demir", unnamed))
-                .containsExactlyInAnyOrder("Galaxy S24", "Speaker 7");
+    private static Set<String> executiveVoices(String executiveName, Set<String> team, SpeakerVoice... voices) {
+        return TeamVoices.executiveVoicesOf(executiveName, List.of(voices), team);
+    }
+
+    private static SpeakerVoice voice(String speaker) {
+        return new SpeakerVoice(speaker, true);
     }
 
     @Test

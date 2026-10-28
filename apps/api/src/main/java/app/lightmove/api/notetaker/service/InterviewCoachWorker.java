@@ -16,6 +16,7 @@ import app.lightmove.api.notetaker.model.LiveCoaching;
 import app.lightmove.api.notetaker.model.LiveLinesHeard;
 import app.lightmove.api.notetaker.model.MeetingLiveLine;
 import app.lightmove.api.notetaker.model.MeetingRecording;
+import app.lightmove.api.notetaker.model.SpeakerVoice;
 import app.lightmove.api.notetaker.repository.MeetingLiveLineRepository;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.notetaker.service.InterviewCoach.HeardLine;
@@ -70,7 +71,7 @@ public class InterviewCoachWorker {
     private final InterviewPlanService plans;
     private final PositionService positions;
     private final CandidateCallUpdates updates;
-    private final CandidateOutreachService people;
+    private final CandidateOutreachService outreachPeople;
     private final TeamVoices teamVoices;
     private final CopilotStreamPublisher publisher;
     private final UsageRecorder usage;
@@ -81,16 +82,16 @@ public class InterviewCoachWorker {
 
     InterviewCoachWorker(MeetingRecordingRepository recordings, MeetingLiveLineRepository lines, InterviewCoach coach,
                          InterviewPlanService plans, PositionService positions, CandidateCallUpdates updates,
-                         CandidateOutreachService people, TeamVoices teamVoices, CopilotStreamPublisher publisher, UsageRecorder usage,
-                         LightMoveProperties properties, JdbcTemplate jdbc,
-                         PlatformTransactionManager transactionManager, Clock clock) {
+                         CandidateOutreachService outreachPeople, TeamVoices teamVoices,
+                         CopilotStreamPublisher publisher, UsageRecorder usage, LightMoveProperties properties,
+                         JdbcTemplate jdbc, PlatformTransactionManager transactionManager, Clock clock) {
         this.recordings = recordings;
         this.lines = lines;
         this.coach = coach;
         this.plans = plans;
         this.positions = positions;
         this.updates = updates;
-        this.people = people;
+        this.outreachPeople = outreachPeople;
         this.teamVoices = teamVoices;
         this.publisher = publisher;
         this.usage = usage;
@@ -228,7 +229,7 @@ public class InterviewCoachWorker {
         Set<RecordGap> missing = missingOf(turn);
         Set<String> team = teamVoices.namesOf(turn.workspaceId(), turn.team());
         String executiveName = turn.personId() == null ? null
-                : people.fullNamesOf(turn.workspaceId(), List.of(turn.personId())).get(turn.personId());
+                : outreachPeople.fullNamesOf(turn.workspaceId(), List.of(turn.personId())).get(turn.personId());
         List<MeetingLiveLine> said = transactions.execute(status ->
                 lines.findByRecordingIdAndPartialFalseOrderBySeqAsc(turn.recordingId()).stream()
                         .filter(line -> line.getSeq() <= turn.throughSeq())
@@ -241,9 +242,8 @@ public class InterviewCoachWorker {
 
     private static List<HeardLine> heardLinesOf(List<MeetingLiveLine> said, Set<String> team, String executiveName) {
         Set<String> executiveVoices = TeamVoices.executiveVoicesOf(executiveName, said.stream()
-                .filter(line -> !TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed()))
-                .map(line -> new TeamVoices.SpeakerVoice(line.getSpeaker(), line.isNamed()))
-                .toList());
+                .map(line -> new SpeakerVoice(line.getSpeaker(), line.isNamed()))
+                .toList(), team);
         return said.stream()
                 .map(line -> {
                     boolean isTeam = TeamVoices.isTeam(team, line.getSpeaker(), line.isNamed());

@@ -59,13 +59,7 @@ class InterviewCoach {
      * A turn of the live call as the coach reads it: whether the voice is the team's, or the executive's, is decided
      * before it is sent. A third voice — neither — is never evidence.
      */
-    record HeardLine(Instant at, String speaker, String text, boolean team, boolean executive) {
-
-        /** A call of two sides: every voice not the team's is the executive's. */
-        HeardLine(Instant at, String speaker, String text, boolean team) {
-            this(at, speaker, text, team, !team);
-        }
-    }
+    record HeardLine(Instant at, String speaker, String text, boolean team, boolean executive) {}
 
     /** The guard stopped the call's words: the coach skips this stretch and goes on after it. */
     static final class CoachGuarded extends RuntimeException {
