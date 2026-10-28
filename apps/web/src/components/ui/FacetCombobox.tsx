@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 import { useComboboxList } from "../../lib/useComboboxList";
+import { focusFieldWithin } from "../../lib/focusFieldWithin";
 
 /** One offerable value: what a control stores, what it reads as, and the spellings that find it. */
 export interface ComboboxOption {
@@ -118,6 +119,7 @@ export function FacetCombobox({
   return (
     <div className="relative">
       <div
+        onMouseDown={focusFieldWithin}
         className={cn(
           BOX_CLASS[variant].base,
           invalid ? BOX_CLASS[variant].invalid : list.open ? BOX_CLASS[variant].open : BOX_CLASS[variant].idle,

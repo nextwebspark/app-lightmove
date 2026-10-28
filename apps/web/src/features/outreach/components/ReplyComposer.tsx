@@ -237,7 +237,7 @@ function OpenComposer({
                 </Select>
               )}
             </div>
-            <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
+            <label className="flex items-center gap-2 border-b border-u-border py-2 text-note">
               <span className="w-14 flex-none text-u-text3">Subject</span>
               {isReply ? (
                 <span className="min-w-0 truncate text-u-text2">{replySubject}</span>
@@ -252,7 +252,7 @@ function OpenComposer({
                   placeholder="What the email is about"
                 />
               )}
-            </div>
+            </label>
           </>
         }
         footer={

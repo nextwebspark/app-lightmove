@@ -26,6 +26,18 @@ function Harness({ initial, options }: { initial: string[]; options?: typeof COU
 }
 
 describe("TagListInput", () => {
+  it("takes the caret on a press on a chip or the box's padding, and a chip's remove still removes", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={["Energy", "Retail"]} />);
+    const input = screen.getByLabelText("Add a sector");
+
+    await user.click(screen.getByText("Energy"));
+    expect(input).toHaveFocus();
+
+    await user.click(screen.getByRole("button", { name: "Remove Retail" }));
+    expect(screen.getByRole("status")).toHaveTextContent(/^Energy$/);
+  });
+
   it("adds on Enter or comma, and keeps a repeat once whatever its case", async () => {
     const user = userEvent.setup();
     render(<Harness initial={["Energy"]} />);

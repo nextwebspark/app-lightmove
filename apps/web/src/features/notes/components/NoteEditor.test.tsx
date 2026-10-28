@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -172,6 +172,17 @@ describe("the note editor", () => {
     await userEvent.click(screen.getByRole("button", { name: "Collapse" }));
     expect(onExpandChange).toHaveBeenLastCalledWith(false);
     expect(screen.getByRole("button", { name: "Expand" })).toBeInTheDocument();
+  });
+
+  it("takes the caret back on a press in the box's empty space, after focus went elsewhere", async () => {
+    render(<Harness footer={<button type="button">Elsewhere</button>} fillsDialog />);
+    const box = await screen.findByRole("textbox", { name: "New note" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Elsewhere" }));
+    expect(box).not.toHaveFocus();
+
+    fireEvent.mouseDown(box.parentElement!);
+    await waitFor(() => expect(box).toHaveFocus());
   });
 
   it("offers no mention where the note mentions nobody", async () => {

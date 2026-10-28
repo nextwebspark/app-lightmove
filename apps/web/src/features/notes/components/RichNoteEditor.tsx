@@ -1,6 +1,7 @@
 import { Extension, type Editor } from "@tiptap/core";
 import type { MentionNodeAttrs } from "@tiptap/extension-mention";
 import { Placeholder } from "@tiptap/extensions";
+import { Selection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import type { SuggestionKeyDownProps, SuggestionProps } from "@tiptap/suggestion";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -218,6 +219,18 @@ export default function RichNoteEditor({
   const surface = (
     <div
       ref={surfaceRef}
+      onMouseDown={(event) => {
+        // The box is taller than the words in it: a press on its empty part, its padding or the toolbar's gap landed
+        // outside the editor and left the caret nowhere — the composer read as locked.
+        const surfaceBox = event.currentTarget;
+        const target = event.target as HTMLElement;
+        const control = target.closest(".ProseMirror, button, a[href], input, select, form");
+        if (!editor || !surfaceBox.contains(target) || (control && surfaceBox.contains(control))) return;
+        event.preventDefault();
+        // Focused now rather than through `focus()`, which waits a frame: a key pressed straight after was lost.
+        editor.view.dispatch(editor.state.tr.setSelection(Selection.atEnd(editor.state.doc)));
+        editor.view.focus();
+      }}
       className={cn(
         "relative",
         fillsDialog && "flex min-h-0 flex-1 flex-col",

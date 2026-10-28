@@ -62,7 +62,7 @@ export function PeopleToolbar({
           )
         }
       />
-      <div className="flex w-full items-center gap-2 rounded-[6px] border border-u-border-strong bg-u-surface px-2.5 py-1.5 sm:w-[260px]">
+      <label className="flex w-full items-center gap-2 rounded-[6px] border border-u-border-strong bg-u-surface px-2.5 py-1.5 sm:w-[260px]">
         <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
         <input
           value={query}
@@ -71,7 +71,7 @@ export function PeopleToolbar({
           aria-label="Search candidates"
           className="w-full bg-transparent text-note text-u-text outline-none placeholder:text-u-text3"
         />
-      </div>
+      </label>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick views">
         {QUICK_VIEWS.map((option) => (
           <Chip
