@@ -24,12 +24,19 @@ import { ClientMark } from "./ClientMark";
 import { ClientArchivedNotice, ClientDrawerActions } from "./ClientArchive";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { CLIENT_NOTES_MAX, CLIENT_NOTES_TOO_LONG } from "../lib/clientNotes";
-import { ClientPositions, DrawerField, DrawerFieldGroup, Representatives, SectionLabel } from "./ClientRecordParts";
+import {
+  ClientPersonaSection,
+  ClientPositions,
+  DrawerField,
+  DrawerFieldGroup,
+  Representatives,
+  SectionLabel,
+} from "./ClientRecordParts";
 import { usePositionsOriginState } from "../../projects/lib/positionsOrigin";
 
 /**
  * The client record drawer (`Clients.dc.html`): an agency's client as a company panel, an in-house
- * business unit as its record — either way its people with an inline invite, and its positions, one of
+ * business unit as its record — either way its persona, its people with an inline invite, and its positions, one of
  * which can be opened into a read-only sub-view without leaving.
  */
 export function ClientDrawer({
@@ -199,6 +206,14 @@ function ClientRecordView({
             </Button>
           </div>
         )}
+
+        <div className="mt-2 border-t border-u-border">
+          <ClientPersonaSection
+            client={client}
+            hint="What this business unit does — Uncava's assistant tailors research for its positions to it. Anything left empty is taken from the firm persona in Settings → General."
+            summaryPlaceholder="e.g. The group's healthcare division, running 12 hospitals across the UAE and Oman"
+          />
+        </div>
 
         <Representatives client={client} />
 

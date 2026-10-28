@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,7 +17,15 @@ vi.mock("../api/clientsApi", async (importOriginal) => ({
   updateClient: vi.fn(),
   archiveClient: vi.fn(),
   restoreClient: vi.fn(),
+  updateClientPersona: vi.fn(),
 }));
+
+vi.mock("../../strategy/api/companiesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../strategy/api/companiesApi")>()),
+  getFacets: vi.fn(),
+}));
+
+vi.mock("../../../lib/countries", () => import("../../../test/countries"));
 
 let currentUser: User = aUser();
 
@@ -172,5 +180,35 @@ describe("ClientDrawer — archiving the record", () => {
     await user.click(screen.getByRole("button", { name: "Restore business unit" }));
 
     expect(clientsApi.restoreClient).toHaveBeenCalledWith("c1");
+  });
+});
+
+describe("ClientDrawer — the business unit persona", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    currentUser = aUser();
+  });
+
+  it("saves what the firm records about the unit, and says the firm persona fills what is left empty", async () => {
+    vi.mocked(clientsApi.client).mockResolvedValue(detail);
+    vi.mocked(clientsApi.updateClientPersona).mockImplementation(async (_id, persona) => ({ ...detail, persona }));
+    const user = userEvent.setup();
+    renderDrawer();
+
+    const section = (await screen.findByRole("heading", { name: "Business unit persona" })).closest("section")!;
+    expect(within(section).getByText(/taken from the firm persona in Settings/)).toBeInTheDocument();
+    await user.type(within(section).getByPlaceholderText(/healthcare division/), "The group's car dealerships");
+    await user.click(within(section).getByRole("button", { name: "Save persona" }));
+
+    await waitFor(() =>
+      expect(clientsApi.updateClientPersona).toHaveBeenCalledWith("c1", {
+        summary: "The group's car dealerships",
+        sectors: [],
+        competitors: [],
+        geographies: [],
+        notes: null,
+      }),
+    );
+    expect(await screen.findByText("Business unit persona saved")).toBeInTheDocument();
   });
 });
