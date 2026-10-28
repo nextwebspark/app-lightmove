@@ -99,7 +99,7 @@ export function TriageToolbar({
           doing the same job a few inches away would just be a second, confusing way to ask. Map view
           has no grid headers to attach a filter to, so it keeps this one. */}
       {view === "map" && (
-        <div className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
+        <label className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
           <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
           <input
             value={query}
@@ -108,7 +108,7 @@ export function TriageToolbar({
             aria-label="Filter companies and executives"
             className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
           />
-        </div>
+        </label>
       )}
 
       {onViewChange && (
