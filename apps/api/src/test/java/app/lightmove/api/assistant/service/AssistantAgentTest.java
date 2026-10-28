@@ -83,7 +83,7 @@ class AssistantAgentTest {
         HiringCompanyProfile firm = new HiringCompanyProfile("Kalem Group", null, null, null, null, null,
                 HiringPersona.empty());
         when(hiringSides.resolve(context.workspaceId(), context.projectId()))
-                .thenReturn(new HiringSide(new Firm(WorkspaceMode.COMPANY, firm), firm));
+                .thenReturn(new HiringSide(new Firm(WorkspaceMode.COMPANY, firm), firm, null));
         when(mandateTools.briefOf(context.workspaceId(), context.projectId())).thenReturn(new MandateBrief(
                 "Head of Retail", null, null, null, null, List.of(), null, null, null, List.of()));
     }

@@ -18,7 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** An agency client's persona: seeded from the picked company, edited in the drawer, and audited. */
+/** A client's or business unit's persona: seeded from the picked company, edited in the drawer, and audited. */
 @IntegrationTest
 class ClientPersonaIntegrationTest extends FlowTestSupport {
 
@@ -91,6 +91,36 @@ class ClientPersonaIntegrationTest extends FlowTestSupport {
                 SELECT count(*) FROM app_lm_audit_event
                 WHERE event_type = 'CLIENT_UPDATED' AND target_id = ? AND metadata ->> 'section' = 'persona'
                 """, Integer.class, clientId)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("in-house, a business unit named by hand takes a persona of its own, and the write is on the record")
+    void businessUnitSavesPersona() throws Exception {
+        String alok = "alok@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Kalem Group");
+        String admin = login(alok);
+        String unitId = body(mvc.perform(post("/api/v1/clients")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"customName":"Kalem Healthcare"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).at("/id").asText();
+
+        mvc.perform(put("/api/v1/clients/" + unitId + "/persona")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"summary":"Hospitals across the UAE","sectors":["Hospitals"]}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(get("/api/v1/clients/" + unitId).header("Authorization", "Bearer " + admin))
+                .andExpect(jsonPath("$.persona.summary").value("Hospitals across the UAE"))
+                .andExpect(jsonPath("$.persona.sectors[0]").value("Hospitals"));
+        assertThat(db.queryForObject("""
+                SELECT count(*) FROM app_lm_audit_event
+                WHERE event_type = 'CLIENT_UPDATED' AND target_id = ? AND metadata ->> 'section' = 'persona'
+                """, Integer.class, unitId)).isEqualTo(1);
     }
 
     @Test

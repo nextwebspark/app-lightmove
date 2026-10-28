@@ -8,14 +8,18 @@ import { messageFor } from "../../../lib/errorCodes";
 import { toBrowsableUrl } from "../../../lib/url";
 import * as companiesApi from "../../strategy/api/companiesApi";
 import { CompanyFactsSections } from "../../triage/components/CompanyFactsSections";
-import type { HiringPersona } from "../../workspace/api/types";
-import { PersonaFields } from "../../workspace/components/PersonaFields";
 import * as clientsApi from "../api/clientsApi";
 import type { ClientDetail, UpdateClientPayload } from "../api/types";
 import { ClientArchivedNotice, ClientDrawerActions } from "./ClientArchive";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { CLIENT_NOTES_MAX, CLIENT_NOTES_TOO_LONG } from "../lib/clientNotes";
-import { ClientPositions, DrawerField, DrawerFieldGroup, Representatives } from "./ClientRecordParts";
+import {
+  ClientPersonaSection,
+  ClientPositions,
+  DrawerField,
+  DrawerFieldGroup,
+  Representatives,
+} from "./ClientRecordParts";
 
 /**
  * An agency's client, drawn as the company panel Strategy and Companies open: the company's own facts
@@ -61,7 +65,11 @@ export function AgencyClientView({
         <ClientArchivedNotice client={client} className="mt-4" />
         {company && <CompanyFactsSections company={company} />}
         <ClientDetailsSection client={client} editsCompanyFacts={accountId === null} />
-        <ClientPersonaSection client={client} />
+        <ClientPersonaSection
+          client={client}
+          hint="What this client does — Uncava's assistant tailors research for its positions to it."
+          summaryPlaceholder="e.g. Saudi Arabia's largest private hospital operator, expanding into outpatient care"
+        />
         <section className="border-b border-u-border py-4">
           <Representatives client={client} />
         </section>
@@ -166,41 +174,6 @@ function ClientDetailsSection({ client, editsCompanyFacts }: { client: ClientDet
           </p>
         )}
       </DrawerFieldGroup>
-    </DrawerSection>
-  );
-}
-
-function ClientPersonaSection({ client }: { client: ClientDetail }) {
-  const queryClient = useQueryClient();
-  const toast = useToast();
-  const [draft, setDraft] = useState<HiringPersona>(client.persona);
-
-  const save = useMutation({
-    mutationFn: () => clientsApi.updateClientPersona(client.id, draft),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(clientsApi.clientKey(client.id), updated);
-      setDraft(updated.persona);
-      toast("Client persona saved");
-    },
-    onError: (error) => toast.error(messageFor(error)),
-  });
-
-  return (
-    <DrawerSection title="Client persona">
-      <p className="-mt-1 mb-3 font-mono text-[11.5px] text-u-text3">
-        What this client does — Uncava&apos;s assistant tailors research for its positions to it.
-      </p>
-      <PersonaFields
-        value={draft}
-        onChange={setDraft}
-        idPrefix={`client-${client.id}-persona`}
-        summaryPlaceholder="e.g. Saudi Arabia's largest private hospital operator, expanding into outpatient care"
-      />
-      <div className="flex justify-end">
-        <Button loading={save.isPending} onClick={() => save.mutate()}>
-          Save persona
-        </Button>
-      </div>
     </DrawerSection>
   );
 }
