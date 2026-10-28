@@ -416,6 +416,7 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         Person person = candidate.getPerson();
+        ProfileChanges changes = ProfileChanges.before(person);
 
         CandidateDetails details = requests.detailsOf(projectId, request, candidate.getTriageCompanyId());
         refuseDuplicate(projectId, request.triageCompanyId(), details.fullName(), candidateId);
@@ -446,8 +447,10 @@ public class CandidateService {
         requests.refuseOverfullChannels(person);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
+        List<Map<String, String>> changed = changes.after(person);
         activity.record(candidate, userId, PersonActivityKind.PROFILE_EDITED, PersonActivityDetails
-                .of("door", door.name()).and("backgroundConfirmed", confirmBackground));
+                .of("door", door.name()).and("backgroundConfirmed", confirmBackground)
+                .and(ProfileChanges.DETAIL_KEY, changed.isEmpty() ? null : changed));
         // A note sent with an edit (a re-imported sheet's Note column) is filed as a note, once.
         personNotes.fileFromDoor(candidate, userId, details.note());
 

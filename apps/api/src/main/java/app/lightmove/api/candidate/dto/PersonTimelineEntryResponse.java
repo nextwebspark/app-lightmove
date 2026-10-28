@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.dto;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -22,5 +23,14 @@ public record PersonTimelineEntryResponse(
         String projectTitle,
         Map<String, String> details,
         /** The note's opening words while it exists; null once it has been removed. */
-        String noteExcerpt
-) {}
+        String noteExcerpt,
+        /** What a profile save or a call's changes did to each field, old and new; empty for every other line. */
+        List<FieldChangeResponse> changes
+) {
+
+    /** The same line with no position named: a change to the person, read from a position it was not made on. */
+    public PersonTimelineEntryResponse withoutPosition() {
+        return new PersonTimelineEntryResponse(id, kind, occurredAt, actorUserId, actorName, actorAvatarUrl, personId,
+                personName, null, null, details, noteExcerpt, changes);
+    }
+}

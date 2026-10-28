@@ -131,7 +131,7 @@ public class PersonCrmController {
                                            @RequestParam(required = false) Long before,
                                            @RequestParam(required = false) Integer limit) {
         UUID workspaceId = principal.requireWorkspaceId();
-        return timeline.timelineOf(workspaceId, records.personOf(workspaceId, projectId, candidateId),
-                NoteViewpoint.position(projectId), group, before, limit);
+        return timeline.positionTimelineOf(workspaceId, records.personOf(workspaceId, projectId, candidateId),
+                projectId, group, before, limit);
     }
 }

@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.TimelineGroup;
+import app.lightmove.api.candidate.dto.FieldChangeResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineEntryResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.model.CandidateTag;
@@ -20,6 +21,7 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +53,19 @@ public class PersonTimelineService {
             "ownerUserId", "owner", "documentId", "version", "category", "versions", "fromLabel", "toLabel",
             "text", "dueAt", "cleared", "visible", "taskId", "title", "taskKind", "assignee", "previousAssignee",
             "rule", "sequenceId", "sequence", "step", "reason", "startsAt", "viaLink", "manual", "withCompany",
-            "fields", "call", "callAt", "recordingId", "reverted");
+            "fields", "call", "callAt", "recordingId", "reverted", "scope", "previousStartsAt", "messageId",
+            "automation");
+    /**
+     * Changes to the person rather than to a position's work, read on every position they are on: a position's
+     * drawer reads what it shows (the profile, the contacts, the documents), so who changed it is that position's
+     * business too. Anything else made on another position (its notes, emails, meetings, status, tasks) is not.
+     */
+    static final Set<PersonActivityKind> PERSON_LEVEL_KINDS = EnumSet.of(PersonActivityKind.PROFILE_EDITED,
+            PersonActivityKind.CONTACTS_EDITED, PersonActivityKind.CONTACT_FOUND, PersonActivityKind.RESEARCHED,
+            PersonActivityKind.TAGGED, PersonActivityKind.UNTAGGED, PersonActivityKind.OWNER_CHANGED,
+            PersonActivityKind.DO_NOT_CONTACT_SET, PersonActivityKind.DO_NOT_CONTACT_CLEARED,
+            PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,
+            PersonActivityKind.DOCUMENT_REMOVED, PersonActivityKind.DOCUMENT_VERSION_REMOVED);
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
@@ -74,6 +88,28 @@ public class PersonTimelineService {
         List<PersonActivity> page = activity.findPersonTimeline(workspaceId, personId, cursorOf(before),
                 TimelineGroup.kindsOf(group), Limit.of(size + 1));
         return pageOf(workspaceId, page, size, Map.of(person.getId(), person), viewpoint);
+    }
+
+    /**
+     * One person's history as one position reads it: its own lines and the person-level ones, newest first. The
+     * boundary is the query's, so another position's work never leaves the database; a person-level line made on
+     * another position is answered without naming it.
+     */
+    @Transactional(readOnly = true)
+    public PersonTimelineResponse positionTimelineOf(UUID workspaceId, UUID personId, UUID projectId, String group,
+                                                     Long before, Integer limit) {
+        Person person = people.requireInWorkspace(personId, workspaceId);
+        int size = sizeOf(limit);
+        List<PersonActivity> page = activity.findPositionScopedTimeline(workspaceId, personId, projectId,
+                cursorOf(before), TimelineGroup.kindsOf(group), PERSON_LEVEL_KINDS, Limit.of(size + 1));
+        boolean hasMore = page.size() > size;
+        List<PersonActivity> shown = hasMore ? page.subList(0, size) : page;
+        List<PersonTimelineEntryResponse> entries = entriesOf(workspaceId, shown, Map.of(person.getId(), person),
+                NoteViewpoint.position(projectId)).stream()
+                .map(entry -> entry.projectId() == null || entry.projectId().equals(projectId) ? entry
+                        : entry.withoutPosition())
+                .toList();
+        return new PersonTimelineResponse(entries, hasMore ? shown.getLast().getId() : null);
     }
 
     /** The workspace's feed; each filter left null matches everything. */
@@ -152,7 +188,7 @@ public class PersonTimelineService {
                     actor == null ? null : actor.getAvatarUrl(),
                     line.getPersonId(), person == null ? null : person.getFullName(),
                     line.getProjectId(), line.getProjectTitle(), detailsOf(line, named, liveTags, liveDocuments),
-                    note == null ? null : excerptOf(note));
+                    note == null ? null : excerptOf(note), changesOf(line));
         }).toList();
     }
 
@@ -182,6 +218,24 @@ public class PersonTimelineService {
             shown.put("document", liveDocuments.get(documentId).getTitle());
         }
         return shown;
+    }
+
+    /** A line written before changes were recorded, or one whose stored shape is not a list of changes, has none. */
+    private static List<FieldChangeResponse> changesOf(PersonActivity line) {
+        if (!(line.getDetails().get(ProfileChanges.DETAIL_KEY) instanceof List<?> stored)) {
+            return List.of();
+        }
+        return stored.stream()
+                .filter(Map.class::isInstance)
+                .map(Map.class::cast)
+                .filter(change -> change.get("field") instanceof String)
+                .map(change -> new FieldChangeResponse((String) change.get("field"), textOf(change.get("from")),
+                        textOf(change.get("to"))))
+                .toList();
+    }
+
+    private static String textOf(Object value) {
+        return value == null ? null : String.valueOf(value);
     }
 
     private static UUID noteIdOf(PersonActivity line) {
