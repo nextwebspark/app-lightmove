@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { Benefit, BenefitFrequency } from "../api/types";
@@ -24,15 +24,19 @@ const GRID = "grid grid-cols-[minmax(0,1fr)_120px_160px_28px] items-center gap-3
 export function BenefitsTable({
   benefits,
   onChange,
+  markerFor,
 }: {
   benefits: Benefit[];
   /** `immediate` for adding and removing a line, which are decisions rather than typing. */
   onChange: (benefits: Benefit[], immediate?: boolean) => void;
+  /** The provenance glyph a line read from the document wears beside its name. */
+  markerFor?: (benefit: Benefit) => ReactNode;
 }) {
   const [draft, setDraft] = useState<Benefit>(BLANK);
 
+  // An edited line is the person's: a later reading must keep it rather than replace it.
   const patch = (index: number, changes: Partial<Benefit>) =>
-    onChange(benefits.map((benefit, i) => (i === index ? { ...benefit, ...changes } : benefit)));
+    onChange(benefits.map((benefit, i) => (i === index ? { ...benefit, ...changes, source: "MANUAL" } : benefit)));
 
   const isFull = benefits.length >= BRIEF_LIMITS.benefits;
   const add = () => {
@@ -54,15 +58,18 @@ export function BenefitsTable({
 
         {benefits.map((benefit, index) => (
           <div key={index} className={cn(GRID, "border-b border-u-border py-2.5")}>
-            <input
-              value={benefit.name}
-              aria-label={`Benefit ${index + 1} name`}
-              aria-invalid={!benefit.name.trim()}
-              maxLength={BRIEF_LIMITS.benefitName}
-              placeholder="Name it, or remove the line"
-              onChange={(event) => patch(index, { name: event.target.value })}
-              className="min-w-0 bg-transparent text-body text-u-text outline-none placeholder:text-u-offlimits"
-            />
+            <div className="flex min-w-0 items-center gap-1.5">
+              <input
+                value={benefit.name}
+                aria-label={`Benefit ${index + 1} name`}
+                aria-invalid={!benefit.name.trim()}
+                maxLength={BRIEF_LIMITS.benefitName}
+                placeholder="Name it, or remove the line"
+                onChange={(event) => patch(index, { name: event.target.value })}
+                className="min-w-0 flex-1 bg-transparent text-body text-u-text outline-none placeholder:text-u-offlimits"
+              />
+              {markerFor?.(benefit)}
+            </div>
             <FigureInput
               grouped
               value={benefit.amount}

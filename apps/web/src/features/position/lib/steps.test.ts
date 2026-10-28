@@ -52,6 +52,7 @@ const blank: Position = {
     incentiveType: null,
     incentiveAmount: null,
     incentiveVesting: null,
+    fieldSources: {},
     benefits: [],
   },
   assessment: { criteria: [], technical: [], behavioural: [], technicalShare: 50 },

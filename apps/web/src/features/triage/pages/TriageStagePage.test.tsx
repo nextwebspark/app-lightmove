@@ -342,6 +342,7 @@ const BRIEF_PACKAGE = {
   incentiveType: null,
   incentiveAmount: null,
   incentiveVesting: null,
+  fieldSources: {},
   benefits: [],
 } as Compensation;
 

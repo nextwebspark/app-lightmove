@@ -177,6 +177,8 @@ export interface Compensation {
   incentiveAmount: number | null;
   incentiveVesting: string | null;
   benefits: Benefit[];
+  /** Provenance of the scalars above. Each benefit carries its own `source`. */
+  fieldSources: Record<string, FieldSource>;
 }
 
 /**
@@ -215,10 +217,9 @@ export interface Position {
 }
 
 /**
- * What produced a proposal, and how far it is worth trusting. `"none"` is step two, step three and
- * step five's own — they have no heuristic fallback the way step one does, so a failed, blocked or
- * unresolving model call has nothing else to try and lands here instead of a degraded reading. Step
- * four (compensation) is no longer read at all.
+ * What produced a proposal, and how far it is worth trusting. Only `"model"` is a reading of the
+ * document: `"none"` is a failed, blocked or unresolving model call on a step with no heuristic
+ * fallback, and `"documentHeadings"` is step one's heuristic standing in for a model it could not reach.
  */
 export type ExtractionSource = "model" | "documentHeadings" | "none";
 
@@ -230,7 +231,7 @@ export type ProposalConfidence = "high" | "medium" | "low";
 export type ProposalOrigin = "document" | "template";
 
 /**
- * One proposed field from "Read from document", for any of steps one, two, three or five. `id` is a
+ * One proposed field from "Read from document", for any step but the review. `id` is a
  * per-response sequence number — the stable identity a row is keyed and matched on, since a repeatable
  * field key (a responsibility, a priority, a direct report, a criterion, a competency) can appear more
  * than once and array index shifts when a row is removed.

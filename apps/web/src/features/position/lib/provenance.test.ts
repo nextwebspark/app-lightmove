@@ -43,6 +43,7 @@ const templateBrief: Position = {
     incentiveType: null,
     incentiveAmount: null,
     incentiveVesting: null,
+    fieldSources: {},
     benefits: [{ name: "Housing", amount: null, frequency: "MONTHLY", source: "TEMPLATE" }],
   },
   assessment: {

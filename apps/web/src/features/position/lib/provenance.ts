@@ -16,6 +16,19 @@ export const CONTEXT_FIELD_KEYS: ReadonlySet<string> = new Set(["mandateReason",
 /** The reporting structure's own `fieldSources` keys — mirrors `PositionFieldKeys.REPORTING`. */
 export const REPORTING_FIELD_KEYS: ReadonlySet<string> = new Set(["teamSize", "noticeValue", "noticeUnit"]);
 
+/** The package's own `fieldSources` keys — mirrors `PositionFieldKeys.COMPENSATION`. */
+export const COMPENSATION_FIELD_KEYS: ReadonlySet<string> = new Set([
+  "currency",
+  "salaryMin",
+  "salaryMax",
+  "baseSalaryMode",
+  "bonusValue",
+  "bonusBasis",
+  "incentiveType",
+  "incentiveAmount",
+  "incentiveVesting",
+]);
+
 /**
  * Marks the given keys `MANUAL` in a step's `fieldSources` map — what a page calls whenever a person
  * edits a scalar field, so an autosave never sends a stale `TEMPLATE`/`DOCUMENT` claim for a value
@@ -55,11 +68,15 @@ export function markManualFrom(
  * competencies and the benefits wholesale, typed rows included. An absent `fieldSources` key is
  * unclaimed rather than edited; a row with no `source` counts as typed, as `documentFill` reads it.
  *
- * <p>Blind to what carries no provenance at all: the role title (never renamed by the automatic path)
- * and compensation's scalars.
+ * <p>Blind to the role title, which carries no provenance and is never renamed by the automatic path.
  */
 export function isUntouched(brief: Position): boolean {
-  const maps = [brief.details.fieldSources, brief.context.fieldSources, brief.reporting.fieldSources];
+  const maps = [
+    brief.details.fieldSources,
+    brief.context.fieldSources,
+    brief.reporting.fieldSources,
+    brief.compensation.fieldSources,
+  ];
   if (maps.some((sources) => Object.values(sources).includes("MANUAL"))) return false;
 
   const rows: { source?: FieldSource }[] = [
