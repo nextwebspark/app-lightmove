@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import apiTimeZones from "../../../../api/src/main/resources/data/time-zones.json";
 import { isOfferedTimeZone, OFFERED_TIME_ZONES, timeZoneOptionLabel, timeZonesByOffset } from "./timeZones";
 
 describe("the fixed time zone list", () => {
-  it("is the API's list exactly, so nothing offered here is refused there", () => {
+  it("is the API's list exactly, so nothing offered here is refused there", async () => {
+    // Read at test time, never imported: the container image builds apps/web alone, and `tsc -b` there would find no
+    // file at an import's path. Loaded as styleRatchet does — the app's tsconfig carries no Node types — and relative
+    // to apps/web, where vitest runs.
+    const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as {
+      readFileSync: (path: string, encoding: "utf8") => string;
+    };
+    const apiTimeZones = JSON.parse(fs.readFileSync("../api/src/main/resources/data/time-zones.json", "utf8"));
     expect(OFFERED_TIME_ZONES).toEqual(apiTimeZones);
   });
 
