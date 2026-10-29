@@ -375,6 +375,9 @@ export interface PersonTimelineEntry {
   details: Record<string, string>;
   /** The note's opening words while it exists; null once removed. */
   noteExcerpt: string | null;
+  /** When the note was last edited and by whom; null while it stands as written, or once removed. */
+  noteEditedAt: string | null;
+  noteEditedByName: string | null;
   /** A profile save's or a call's changes, each field old and new; absent or empty on every other line. */
   changes?: FieldChange[];
 }

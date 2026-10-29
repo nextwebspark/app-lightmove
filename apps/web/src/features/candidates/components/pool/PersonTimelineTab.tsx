@@ -52,6 +52,7 @@ export function PersonTimelineTab({ personId }: { personId: string }) {
                         })}
                       </time>
                       {line.detail && ` · ${line.detail}`}
+                      {line.isEdited && " · Edited"}
                     </p>
                   </li>
                 ))}

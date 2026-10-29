@@ -66,7 +66,7 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
     /** Each named person's latest line, at most one each. */
     @Query(value = """
             SELECT DISTINCT ON (person_id) * FROM app_lm_person_activity
-            WHERE workspace_id = :workspaceId AND person_id IN (:personIds)
+            WHERE workspace_id = :workspaceId AND person_id IN (:personIds) AND kind <> 'NOTE_EDITED'
             ORDER BY person_id, id DESC
             """, nativeQuery = true)
     List<PersonActivity> findLatestOfPeople(UUID workspaceId, Collection<UUID> personIds);

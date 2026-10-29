@@ -18,6 +18,8 @@ function entry(overrides: Partial<PersonTimelineEntry>): PersonTimelineEntry {
     projectTitle: "Chief Financial Officer",
     details: {},
     noteExcerpt: null,
+    noteEditedAt: null,
+    noteEditedByName: null,
     ...overrides,
   };
 }

@@ -218,6 +218,10 @@ CONTACTS_EDITED, CONTACT_FOUND, RESEARCHED, AI_ASSESSED, BACKGROUND_CONFIRMED, I
 NOTE_EDITED, NOTE_REMOVED, TAGGED, UNTAGGED, OWNER_CHANGED, DO_NOT_CONTACT_SET, DO_NOT_CONTACT_CLEARED,
 MERGED`.
 
+`NOTE_EDITED` is retired: an edit writes no line and no read shows an old one. A note's one line reads the note as
+it stands and says it was edited (`noteEditedAt`, `noteEditedByName`), and the audit trail's `PERSON_NOTE_EDITED`
+keeps every edit.
+
 ### Java types (`api/candidate/`)
 
 - `model/Candidate` — the **person** entity (table `app_lm_candidate`). Keeps the aggregate methods that

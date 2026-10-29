@@ -34,6 +34,7 @@ public enum PersonActivityKind {
 
     /** The line carries the note's id, never its text: deleting a note must take the words with it. */
     NOTE_ADDED,
+    /** No longer written or read: a note's one line shows it as it stands, and the audit trail keeps each edit. */
     NOTE_EDITED,
     NOTE_REMOVED,
     NOTE_RESTORED,

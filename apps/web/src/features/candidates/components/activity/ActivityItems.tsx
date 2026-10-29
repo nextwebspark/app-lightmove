@@ -16,6 +16,7 @@ import {
   verbOf,
   type ActivityPreview,
   actorNameOf,
+  type NoteEdit,
   type ActivityExecutive,
   type TaskState,
 } from "../../lib/activityPresentation";
@@ -49,13 +50,14 @@ export function ActivityCard({ entry, executive, projectId, now, onOpen, notes, 
   const note = preview?.type === "note" && entry.details.noteId ? notes?.get(entry.details.noteId) : undefined;
   const taskState = entry.details.taskId ? taskStates?.get(entry.details.taskId) : undefined;
   const aside = preview ? null : asideOf(entry);
+  const noteEdit = note ? editOf(note) : preview?.type === "note" ? preview.edited : null;
   return (
     <li className="relative">
       <KindTile icon={iconOf(entry)} size="tile" className="absolute -start-[42px] top-2.5 bg-u-surface" />
       <button
         type="button"
         onClick={() => onOpen(entry)}
-        aria-label={`${name} ${verbOf(entry)}${aside ? `, ${aside}` : ""}, ${fullDateTime(entry.occurredAt)}. Open details`}
+        aria-label={`${name} ${verbOf(entry)}${aside ? `, ${aside}` : ""}${noteEdit ? ", edited" : ""}, ${fullDateTime(entry.occurredAt)}. Open details`}
         className={cn(CARD, isOrigin(entry) ? "border-dashed border-u-border-strong" : "border-u-border")}
       >
         <WhoAndWhen entry={entry} executive={executive} projectId={projectId} now={now} />
@@ -63,7 +65,7 @@ export function ActivityCard({ entry, executive, projectId, now, onOpen, notes, 
           <span className="block min-w-0 ps-8">
             {aside && <span className="text-note text-u-text2">{aside}</span>}
             {note && preview?.type === "note" ? (
-              <NoteQuickView note={note} aboutThePerson={preview.aboutThePerson} />
+              <NoteQuickView note={note} aboutThePerson={preview.aboutThePerson} edited={noteEdit} />
             ) : (
               preview && <PreviewOf preview={preview} taskState={taskState} />
             )}
@@ -183,7 +185,15 @@ function WhoAndWhen({ entry, executive, projectId, now }: Omit<ItemProps, "onOpe
  * A note's opening as it was written — its headings, bullets and checklists, not flattened words — held to a few
  * lines and faded where it runs on; the card opens the whole of it.
  */
-function NoteQuickView({ note, aboutThePerson }: { note: PersonNote; aboutThePerson: boolean }) {
+function NoteQuickView({
+  note,
+  aboutThePerson,
+  edited,
+}: {
+  note: PersonNote;
+  aboutThePerson: boolean;
+  edited: NoteEdit | null;
+}) {
   const box = useRef<HTMLSpanElement>(null);
   const [isCut, setIsCut] = useState(false);
   useLayoutEffect(() => {
@@ -205,7 +215,7 @@ function NoteQuickView({ note, aboutThePerson }: { note: PersonNote; aboutThePer
         <NoteText body={note.body} format={note.format} className="text-body" />
       </span>
       {isCut && <span className="text-note font-medium text-u-accent">Read the whole note</span>}
-      {aboutThePerson && <Chip>About the person · every position</Chip>}
+      <NoteChips aboutThePerson={aboutThePerson} edited={edited} />
     </span>
   );
 }
@@ -216,7 +226,7 @@ export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPr
       return preview.excerpt ? (
         <span className="flex flex-col gap-1.5">
           <span className="line-clamp-2 text-body text-u-text">{preview.excerpt}</span>
-          {preview.aboutThePerson && <Chip>About the person · every position</Chip>}
+          <NoteChips aboutThePerson={preview.aboutThePerson} edited={preview.edited} />
         </span>
       ) : (
         <span className="text-note text-u-text3">This note was deleted.</span>
@@ -370,9 +380,23 @@ export function StatusPill({ label, isCurrent = false }: { label: string; isCurr
   );
 }
 
-function Chip({ children, tone }: { children: ReactNode; tone?: "ai" }) {
+/** A note's line is its only one, so it says when the words it shows are not the ones first written. */
+function NoteChips({ aboutThePerson, edited }: { aboutThePerson: boolean; edited: NoteEdit | null }) {
+  if (!aboutThePerson && !edited) return null;
+  return (
+    <span className="flex flex-wrap gap-1.5">
+      {edited && (
+        <Chip title={`Edited by ${edited.byName ?? "someone"} · ${fullDateTime(edited.at)}`}>Edited</Chip>
+      )}
+      {aboutThePerson && <Chip>About the person · every position</Chip>}
+    </span>
+  );
+}
+
+function Chip({ children, tone, title }: { children: ReactNode; tone?: "ai"; title?: string }) {
   return (
     <span
+      title={title}
       className={cn(
         "inline-flex w-fit items-center rounded-full px-2 py-px text-meta font-medium",
         tone === "ai" ? "bg-u-inferred-tint text-u-inferred" : "bg-u-raised text-u-text2",
@@ -381,6 +405,10 @@ function Chip({ children, tone }: { children: ReactNode; tone?: "ai" }) {
       {children}
     </span>
   );
+}
+
+function editOf(note: PersonNote): NoteEdit | null {
+  return note.editedAt ? { at: note.editedAt, byName: note.editedByName } : null;
 }
 
 function clockOf(isoInstant: string): string {
