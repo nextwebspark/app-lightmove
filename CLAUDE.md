@@ -22,8 +22,8 @@ screens, a project's Team & access tab, the client registry with representative 
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the two Companies pages (In universe / Declined) where a
 mandate triages what it took from it. There is no Shortlisted stage: V160 deleted
-the companies and unmapped the executives that held it and narrowed both CHECKs to the two stages, so a request naming
-it is an unknown value (`VALIDATION_FAILED`); the pipeline *status* "Shortlisted" is unrelated. A company reaches those pages four ways — out of the market
+the companies and unmapped the executives that held it, so a request naming it is an unknown value
+(`VALIDATION_FAILED`); the pipeline *status* "Shortlisted" is unrelated. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
@@ -1301,7 +1301,10 @@ bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied versi
 V150 gives `app_lm_project_candidate` `triage_status` (`IN_UNIVERSE | SHORTLISTED | DECLINED`, backfilled from each
 row's company): the Companies stage the executive is listed at, their own.
 V160 removes the Shortlisted stage: it deletes every company at `SHORTLISTED` and unmaps every executive at it (an
-`UNMAPPED` line each, the person kept), then narrows both stage CHECKs to `IN_UNIVERSE | DECLINED`.
+`UNMAPPED` line each, the person kept, and one `SHORTLISTED_STAGE_RETIRED` audit row per position with the counts).
+It leaves both stage CHECKs as they were — the previous revision still serves during the rollout and may write the
+value — and `@SQLRestriction` on `TriageCompany` and `Candidate` keeps any such straggler out of every read; the
+follow-up migration deletes the stragglers, narrows both CHECKs to `IN_UNIVERSE | DECLINED` and drops the restriction.
 V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
 foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
 sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.

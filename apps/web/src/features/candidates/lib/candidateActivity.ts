@@ -362,7 +362,8 @@ function vendorOf(value: string | undefined): string | null {
   return value ? (VENDORS[value] ?? null) : null;
 }
 
-/** A Companies stage as the sub-nav names it; an unknown token as written. */
+/** A Companies stage as the sub-nav names it; the removed Shortlisted as history still records it; else as written. */
 export function triageStageLabel(status: string | undefined): string {
+  if (status === "shortlisted") return "Shortlisted";
   return TRIAGE_STAGES.find((stage) => stage.status === status)?.label ?? status ?? "another stage";
 }

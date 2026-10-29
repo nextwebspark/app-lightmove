@@ -128,7 +128,7 @@ function renderView(overrides: Partial<Parameters<typeof TalentMapView>[0]> = {}
       <TalentMapView
         projectId="p1"
         page={page}
-        query=""
+        searching={false}
         accessToken="pk.test"
         canWrite
         loading={false}
@@ -201,7 +201,7 @@ describe("TalentMapView", () => {
   });
 
   it("draws what the page holds under a search, leaving the narrowing to the server", () => {
-    renderView({ query: "emaar", page: { ...page, companies: [page.companies[1]], totalCompanies: 1, candidates: [], totalCandidates: 0 } });
+    renderView({ searching: true, page: { ...page, companies: [page.companies[1]], totalCompanies: 1, candidates: [], totalCandidates: 0 } });
 
     const tree = screen.getByRole("tree", { name: "Mapping" });
     expect(within(tree).getByText("Emaar")).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe("TalentMapView", () => {
   });
 
   it("keeps every row the server sent, whatever the search box holds", () => {
-    renderView({ query: "emaar" });
+    renderView({ searching: true });
 
     const tree = screen.getByRole("tree", { name: "Mapping" });
     expect(within(tree).getByText("ACWA Power")).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe("TalentMapView", () => {
 
   it("says nothing matches when a search's page comes back empty", () => {
     renderView({
-      query: "zzz",
+      searching: true,
       page: { ...page, companies: [], totalCompanies: 0, candidates: [], totalCandidates: 0, locations: {} },
     });
 

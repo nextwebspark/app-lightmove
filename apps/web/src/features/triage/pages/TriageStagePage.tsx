@@ -1030,7 +1030,7 @@ function TriageStage() {
         <TalentMapView
           projectId={project.id}
           page={talentMap.data}
-          query={debouncedSearch}
+          searching={debouncedSearch.trim() !== ""}
           accessToken={mapConfig.data?.publicToken ?? ""}
           canWrite={canWrite}
           loading={talentMap.isFetching}

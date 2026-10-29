@@ -59,15 +59,18 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 const companies = (verb: string) => (count: number) => `${verb} ${plural(count, "company", "companies")}`;
 const executives = (verb: string) => (count: number) => `${verb} ${plural(count, "executive", "executives")}`;
 
-/** Triage stages arrive both as wire tokens (`inUniverse`) and as enum names (`IN_UNIVERSE`). */
-function triageStage(status: string | undefined): "universe" | "declined" | null {
+/**
+ * Triage stages arrive both as wire tokens (`inUniverse`) and as enum names (`IN_UNIVERSE`). Shortlisted is
+ * gone (V160), but the audit trail is append-only and still says it, so its old lines read as what they were.
+ */
+function triageStage(status: string | undefined): "universe" | "shortlisted" | "declined" | null {
   const folded = status?.toLowerCase().replace(/_/g, "");
   if (folded === "inuniverse") return "universe";
-  if (folded === "declined") return folded;
+  if (folded === "shortlisted" || folded === "declined") return folded;
   return null;
 }
 
-const TRIAGE_VERB = { universe: "added", declined: "declined" } as const;
+const TRIAGE_VERB = { universe: "added", shortlisted: "shortlisted", declined: "declined" } as const;
 
 const EXPORT_STAGE: Record<string, string> = {
   inUniverse: "universe",

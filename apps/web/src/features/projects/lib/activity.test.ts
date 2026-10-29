@@ -42,6 +42,15 @@ describe("activityLines", () => {
     ).toEqual(["declined 4 companies", "moved a company back to the universe"]);
   });
 
+  it("reads a line filed before Shortlisted was removed as what it was", () => {
+    expect(
+      texts([
+        entry(2, "TRIAGE_BULK_ADDED", { added: "12", status: "SHORTLISTED" }),
+        entry(1, "TRIAGE_COMPANY_MOVED", { status: "shortlisted" }),
+      ]),
+    ).toEqual(["shortlisted 13 companies"]);
+  });
+
   it("merges a status run only when the status matches", () => {
     expect(
       texts([
