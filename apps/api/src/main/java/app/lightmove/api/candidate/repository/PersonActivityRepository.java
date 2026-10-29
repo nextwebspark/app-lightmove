@@ -63,11 +63,12 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
                                            boolean anyActor, UUID actor, boolean anyProject, UUID projectId,
                                            Instant from, Instant to, Limit limit);
 
-    /** Each named person's latest line, at most one each. */
+    /** Each named person's latest line of a kind not left out, at most one each. */
     @Query(value = """
             SELECT DISTINCT ON (person_id) * FROM app_lm_person_activity
-            WHERE workspace_id = :workspaceId AND person_id IN (:personIds)
+            WHERE workspace_id = :workspaceId AND person_id IN (:personIds) AND kind NOT IN (:leftOutKinds)
             ORDER BY person_id, id DESC
             """, nativeQuery = true)
-    List<PersonActivity> findLatestOfPeople(UUID workspaceId, Collection<UUID> personIds);
+    List<PersonActivity> findLatestOfPeople(UUID workspaceId, Collection<UUID> personIds,
+                                            Collection<String> leftOutKinds);
 }

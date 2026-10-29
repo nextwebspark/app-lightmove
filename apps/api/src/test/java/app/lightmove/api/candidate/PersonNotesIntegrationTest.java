@@ -604,6 +604,63 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an edited note keeps one line, read as it stands and marked edited; the audit trail keeps the edit")
+    void anEditLeavesOneLineMarkedEdited() throws Exception {
+        firm("Edited Note Firm");
+        String cfo = mandate("Chief Financial Officer");
+        JsonNode filed = add(cfo, FATIMA);
+        String candidateId = filed.get("id").asText();
+        String personId = filed.get("personId").asText();
+        String noteId = write(admin, cfo, candidateId, "general", "Not interested - locaton").get("id").asText();
+        assertThat(timeline(cfo, candidateId, "notes").get("entries").get(0).get("noteEditedAt").isNull()).isTrue();
+
+        mvc.perform(put(notesUrl(cfo, candidateId) + "/" + noteId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","body":"Not interested - location"}"""))
+                .andExpect(status().isOk());
+        // A line as the previous release wrote it for an edit: still on the table, never read back.
+        db.update("""
+                insert into app_lm_person_activity (workspace_id, person_id, project_id, project_title, kind,
+                                                    occurred_at, details)
+                select p.workspace_id, ?::uuid, p.id, p.position_title, 'NOTE_EDITED', now(), ?::jsonb
+                from app_lm_project p where p.id = ?::uuid
+                """, personId, "{\"noteId\":\"" + noteId + "\",\"kind\":\"CALL\"}", cfo);
+
+        List<JsonNode> reads = List.of(
+                timeline(cfo, candidateId, null).get("entries"),
+                timeline(cfo, candidateId, "notes").get("entries"),
+                workspaceRead("/api/v1/candidates/" + personId + "/timeline", null),
+                workspaceRead("/api/v1/candidates/" + personId + "/timeline", "notes"),
+                workspaceRead("/api/v1/candidates/activity", "notes"));
+        for (JsonNode entries : reads) {
+            List<JsonNode> noteLines = new ArrayList<>();
+            entries.forEach(entry -> {
+                if (entry.get("kind").asText().startsWith("NOTE_")) {
+                    noteLines.add(entry);
+                }
+            });
+            assertThat(noteLines).hasSize(1);
+            JsonNode line = noteLines.getFirst();
+            assertThat(line.get("kind").asText()).isEqualTo("NOTE_ADDED");
+            assertThat(line.get("noteExcerpt").asText()).isEqualTo("Not interested - location");
+            assertThat(line.get("details").get("kind").asText()).isEqualTo("CALL");
+            assertThat(line.get("noteEditedAt").isNull()).isFalse();
+            assertThat(line.get("noteEditedByName").asText()).isEqualTo("Alok Kumar");
+        }
+
+        JsonNode row = body(mvc.perform(get("/api/v1/candidates").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn()).get("people").get(0);
+        assertThat(row.get("lastActivity").get("kind").asText()).isEqualTo("NOTE_ADDED");
+        assertThat(db.queryForObject("""
+                select count(*) from app_lm_audit_event
+                where event_type = 'PERSON_NOTE_EDITED' and metadata ->> 'noteId' = ?""", Integer.class, noteId))
+                .isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("the timeline reads newest first by page and group, and the workspace feed by who and where")
     void theTimelineAndTheFeedRead() throws Exception {
         firm("Timeline Firm");
@@ -870,6 +927,14 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
             request = request.param("group", group);
         }
         return body(mvc.perform(request).andExpect(status().isOk()).andReturn());
+    }
+
+    private JsonNode workspaceRead(String url, String group) throws Exception {
+        var request = get(url).header("Authorization", "Bearer " + admin);
+        if (group != null) {
+            request = request.param("group", group);
+        }
+        return body(mvc.perform(request).andExpect(status().isOk()).andReturn()).get("entries");
     }
 
     private static List<String> kindsOf(JsonNode entries) {

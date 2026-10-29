@@ -12,6 +12,8 @@ export interface TimelineLine {
   actorName: string;
   text: string;
   detail: string | null;
+  /** The note this line names was edited since; its excerpt is the edited text. */
+  isEdited: boolean;
   occurredAt: string;
 }
 
@@ -89,6 +91,7 @@ export function timelineLines(
       actorName: actorNameOf(entry),
       text,
       detail,
+      isEdited: detail !== null && entry.noteEditedAt != null,
       occurredAt: entry.occurredAt,
     };
   });

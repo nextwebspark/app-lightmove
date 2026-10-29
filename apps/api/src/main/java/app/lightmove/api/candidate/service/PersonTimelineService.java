@@ -76,6 +76,8 @@ public class PersonTimelineService {
      */
     static final Set<PersonActivityKind> PERSON_WIDE_KINDS = personWideKinds();
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
+    private static final List<String> RETIRED_KIND_NAMES = PersonActivityKind.RETIRED.stream().map(Enum::name)
+            .toList();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
     private static final UUID NOBODY = new UUID(0, 0);
@@ -159,8 +161,8 @@ public class PersonTimelineService {
             return Map.of();
         }
         Map<UUID, Person> byId = persons.stream().collect(Collectors.toMap(Person::getId, Function.identity()));
-        return entriesOf(workspaceId, activity.findLatestOfPeople(workspaceId, byId.keySet()), byId,
-                NoteViewpoint.workspace()).stream()
+        List<PersonActivity> latest = activity.findLatestOfPeople(workspaceId, byId.keySet(), RETIRED_KIND_NAMES);
+        return entriesOf(workspaceId, latest, byId, NoteViewpoint.workspace()).stream()
                 .collect(Collectors.toMap(PersonTimelineEntryResponse::personId, Function.identity()));
     }
 
@@ -175,13 +177,14 @@ public class PersonTimelineService {
 
     private List<PersonTimelineEntryResponse> entriesOf(UUID workspaceId, List<PersonActivity> shown,
                                                         Map<UUID, Person> persons, NoteViewpoint viewpoint) {
-        Map<UUID, User> named = users.findAllById(shown.stream()
-                        .flatMap(line -> Stream.of(line.getActorUserId(), idIn(line, "ownerUserId")))
-                        .filter(Objects::nonNull).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, PersonNote> liveNotes = notes.findReadableIn(workspaceId, shown.stream()
                         .map(PersonTimelineService::noteIdOf).filter(Objects::nonNull).distinct().toList(), viewpoint)
                 .stream().collect(Collectors.toMap(PersonNote::getId, Function.identity()));
+        Map<UUID, User> named = users.findAllById(Stream.concat(
+                        shown.stream().flatMap(line -> Stream.of(line.getActorUserId(), idIn(line, "ownerUserId"))),
+                        liveNotes.values().stream().map(PersonNote::getEditedBy))
+                        .filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, CandidateTag> liveTags = tags.findByWorkspaceIdAndIdIn(workspaceId, shown.stream()
                         .map(line -> idIn(line, "tagId")).filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(CandidateTag::getId, Function.identity()));
@@ -194,22 +197,26 @@ public class PersonTimelineService {
             Person person = persons.get(line.getPersonId());
             UUID noteId = noteIdOf(line);
             PersonNote note = noteId == null ? null : liveNotes.get(noteId);
+            User noteEditor = note == null || note.getEditedBy() == null ? null : named.get(note.getEditedBy());
             return new PersonTimelineEntryResponse(line.getId(), line.getKind().name(), line.getOccurredAt(),
                     line.getActorUserId(), actor == null ? null : actor.getFullName(),
                     actor == null ? null : actor.getAvatarUrl(),
                     line.getPersonId(), person == null ? null : person.getFullName(),
-                    line.getProjectId(), line.getProjectTitle(), detailsOf(line, named, liveTags, liveDocuments),
-                    note == null ? null : excerptOf(note), changesOf(line));
+                    line.getProjectId(), line.getProjectTitle(),
+                    detailsOf(line, named, liveTags, liveDocuments, note),
+                    note == null ? null : excerptOf(note), note == null ? null : note.getEditedAt(),
+                    noteEditor == null ? null : noteEditor.getFullName(), changesOf(line));
         }).toList();
     }
 
     /**
-     * A tag reads as it is spelled today, an owner by their name today and a document by its title while
-     * it exists; the line keeps only the ids, so a removed document leaves no name behind.
+     * A tag reads as it is spelled today, an owner by their name today, a document by its title while
+     * it exists and a note by its kind today; the line keeps only the ids, so a removed document leaves no
+     * name behind.
      */
     private static Map<String, String> detailsOf(PersonActivity line, Map<UUID, User> named,
                                                  Map<UUID, CandidateTag> liveTags,
-                                                 Map<UUID, PersonDocument> liveDocuments) {
+                                                 Map<UUID, PersonDocument> liveDocuments, PersonNote liveNote) {
         Map<String, String> shown = new LinkedHashMap<>();
         line.getDetails().forEach((key, value) -> {
             if (DETAIL_KEYS.contains(key) && value != null) {
@@ -227,6 +234,9 @@ public class PersonTimelineService {
         UUID documentId = documentIdOf(line);
         if (documentId != null && liveDocuments.containsKey(documentId)) {
             shown.put("document", liveDocuments.get(documentId).getTitle());
+        }
+        if (liveNote != null) {
+            shown.put("kind", liveNote.getKind().name());
         }
         return shown;
     }

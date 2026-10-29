@@ -364,9 +364,15 @@ function contactCountsOf(details: Record<string, string>): string | null {
   return `${plural(emails, "email")}, ${plural(phones, "phone")} on file`;
 }
 
+/** A note's last edit, which leaves no line of its own: the note's one line says it. */
+export interface NoteEdit {
+  at: string;
+  byName: string | null;
+}
+
 /** What a card shows under its first line; the dialog then shows the rest. */
 export type ActivityPreview =
-  | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean }
+  | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean; edited: NoteEdit | null }
   | { type: "status"; from: string | null; to: string; cause: string | null }
   | { type: "changes"; changes: FieldChange[]; hidden: number }
   | { type: "fields"; labels: string[] }
@@ -416,6 +422,7 @@ export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
         excerpt: entry.noteExcerpt,
         noteKind: details.kind ?? "GENERAL",
         aboutThePerson: entry.projectId === null,
+        edited: entry.noteEditedAt ? { at: entry.noteEditedAt, byName: entry.noteEditedByName } : null,
       };
     case "STATUS_CHANGED":
       return {

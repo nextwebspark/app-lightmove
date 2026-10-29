@@ -103,13 +103,11 @@ public class PersonNoteService {
     @Transactional
     public PersonNoteResponse revise(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
                                      UUID noteId, WritePersonNoteRequest request, HttpServletRequest httpRequest) {
-        Person person = people.requireInWorkspace(personId, workspaceId);
+        people.requireInWorkspace(personId, workspaceId);
         PersonNoteKind kind = kindOf(request);
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         note.revise(kind, request.body().strip(), formatOf(request), userId);
         mentions.keep(note, userId);
-        activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_EDITED,
-                PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("noteId", noteId.toString())

@@ -291,6 +291,8 @@ const activityLine = (
   projectTitle: "Chief Financial Officer",
   details: {},
   noteExcerpt: null,
+  noteEditedAt: null,
+  noteEditedByName: null,
   changes: [],
   ...overrides,
 });

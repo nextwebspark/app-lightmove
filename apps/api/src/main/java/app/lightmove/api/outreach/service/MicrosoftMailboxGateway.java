@@ -192,8 +192,12 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(recipientsOnly(email)));
             }
+            // An empty POST over HTTP/2 carries no Content-Length, and Graph has answered it 411 Length Required since
+            // late October 2026 — every email failed at the send. An empty JSON object gives the request a length.
             apiExchange("send", accessToken, client -> client.post()
-                    .uri("/v1.0/me/messages/{id}/send", messageId));
+                    .uri("/v1.0/me/messages/{id}/send", messageId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of()));
         } catch (VendorException failed) {
             discardUnsentDraft(accessToken, messageId, failed);
             throw failed;
