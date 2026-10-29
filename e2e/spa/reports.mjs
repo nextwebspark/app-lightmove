@@ -5,7 +5,7 @@
 // chapter's headline tile states the figure GET /report computed, that the staff-only Researcher
 // performance card is drawn for the lead and not for a client seat, that the two cross-mandate
 // benchmarks say they are not built, that the projects list's side panel phrases the seeding as
-// lib/activity.ts does, and that the Table | Map toggle follows the Mapbox configuration.
+// lib/activity.ts does, and that the In-universe view control offers Map only where Mapbox is configured.
 //
 // Run from e2e/ (`node spa/reports.mjs`). Seeds its own mandate through the ordinary APIs — typed-in
 // companies, no Apollo universe, no AI — and reads every expected value back from the API.
@@ -112,7 +112,8 @@ const OTHER_CCY = CCY === "USD" ? "EUR" : "USD";
 const capture = async (companyName, status, industry, companyCountry, companyCity) =>
   (await api(`/projects/${PROJECT}/triage/capture`, { method: "POST", token, body: { companyName, status, industry, companyCountry, companyCity, source: "manual" } })).body.id;
 const AURORA = await capture("Aurora Holdings", "inUniverse", "Financial Services", "United Arab Emirates", "Dubai");
-const BASALT = await capture("Basalt Mining", "shortlisted", "Mining & Metals", "Saudi Arabia", "Riyadh");
+// Shortlisted is retired as a destination; Basalt is moved there by SQL below, as an older release left a row.
+const BASALT = await capture("Basalt Mining", "inUniverse", "Mining & Metals", "Saudi Arabia", "Riyadh");
 await capture("Cedar Retail", "inUniverse", "Retail", "Kuwait", "Kuwait City");
 const DELTA = await capture("Delta Contracting", "declined", "Construction", "Bahrain", "Manama");
 const COMPANIES_SEEDED = 4;
@@ -131,6 +132,9 @@ for (const executive of EXECUTIVES) {
   const added = await api(`/projects/${PROJECT}/candidates`, { method: "POST", token, body: { ...executive, source: "manual" } });
   if (added.status !== 201) throw new Error(`seeding ${executive.fullName} answered ${added.status}: ${JSON.stringify(added.body)}`);
 }
+
+sql(`UPDATE app_lm_project_candidate SET triage_status = 'SHORTLISTED' WHERE triage_company_id = '${BASALT}';
+     UPDATE app_lm_project_triage_company SET status = 'SHORTLISTED' WHERE id = '${BASALT}'`);
 
 // Audit rows land asynchronously; the activity case reads them, so wait for the last one.
 for (let i = 0; i < 50 && num(`SELECT count(*) FROM app_lm_audit_event WHERE target_id = '${PROJECT}' AND event_type = 'CANDIDATE_ADDED'`) < EXECUTIVES.length; i++) {
@@ -320,13 +324,15 @@ try {
   });
 
   // ---------------------------------------------------------------- the map toggle
-  await step("R1.10", "the In-universe page offers Table | Map only where Mapbox is configured", async () => {
+  await step("R1.10", "the In-universe page offers the Map view only where Mapbox is configured", async () => {
     const config = (await api("/talent-map/config", { token })).body;
     await page.goto(`${WEB}/projects/${PROJECT}/companies/universe`);
     await page.getByText("Aurora Holdings").first().waitFor({ timeout: 25000 });
-    const toggles = await page.getByRole("radiogroup", { name: "View" }).count();
-    check("R1.10", `with Mapbox ${config?.enabled ? "configured" : "unconfigured"}, the Table | Map toggle is ${config?.enabled ? "present" : "absent"}`,
-      config?.enabled ? 1 : 0, toggles);
+    const views = page.getByRole("radiogroup", { name: "View" });
+    check("R1.10", `with Mapbox ${config?.enabled ? "configured" : "unconfigured"}, the Map view is ${config?.enabled ? "offered" : "not offered"}`,
+      config?.enabled ? 1 : 0, await views.getByRole("radio", { name: "Map", exact: true }).count());
+    check("R1.10b", "…while staff always read it as a Table or a Pipeline", "1/1",
+      `${await views.getByRole("radio", { name: "Table", exact: true }).count()}/${await views.getByRole("radio", { name: "Pipeline", exact: true }).count()}`);
     await shot("universe");
   });
 } finally {

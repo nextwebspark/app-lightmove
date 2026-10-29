@@ -302,7 +302,8 @@ const REPORT = {
   },
 };
 
-const TRIAGE_COUNTS = { inUniverse: 128, shortlisted: 24, declined: 61 };
+// The API still counts Shortlisted for rows an older release left there; nothing files there any more.
+const TRIAGE_COUNTS = { inUniverse: 128, shortlisted: 0, declined: 61 };
 
 // Every third one is hand-typed, and a hand-typed company has no universe id to carry — which is
 // also what decides whether its panel offers an Edit button.
@@ -794,7 +795,7 @@ export function payloadFor(pathname, search = "") {
   if (/\/projects\/[^/]+\/outreach\/conversations$/.test(pathname)) return CONVERSATION_LIST;
   if (/\/projects\/[^/]+\/outreach\/people$/.test(pathname)) return OUTREACH_PEOPLE;
   if (pathname.endsWith("/outreach/mailbox")) return MAILBOX;
-  // The nav's Pipeline count and My positions' tasks card read these on every project and list page.
+  // In universe's Pipeline view and My positions' tasks card read these.
   if (/\/projects\/[^/]+\/pipeline$/.test(pathname)) return { rows: [], stageCounts: [], total: 0 };
   if (pathname.endsWith("/workspace/pipeline")) return { stages: [] };
   if (pathname.endsWith("/me/tasks")) {

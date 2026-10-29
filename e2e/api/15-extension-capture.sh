@@ -127,8 +127,10 @@ CAPTURED_ID=$(json '.id')
 get "/projects/$PROJECT/triage/$CAPTURED_ID/notes" -H "$AUTH"
 check 15.24 "the consultant's note is filed as the company's first note" "Met at Gulfood." "$(json '.[0].body')"
 
+# Shortlisted is retired: the extension offers Add to universe alone, and an older build asking for it is refused.
 post_json "$CAPTURE" "$(capture_body shortlisted "Shortlisted $CAPTURED_NAME")" -H "$EXT_AUTH"
-check 15.25 "the other destination button lands it shortlisted" "shortlisted" "$(json '.status')"
+check_code 15.25 "a capture at the retired Shortlisted stage is refused" 400 VALIDATION_FAILED
+check 15.25b "…on its stage, and nothing is filed" "status 0" "$(json '.fieldErrors | keys | join(",")') $(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE company_name = 'Shortlisted $CAPTURED_NAME'")"
 
 get "/projects/$PROJECT/triage?status=inUniverse" -H "$AUTH"
 check 15.26 "and the mandate sees it on its own Companies screen" "1" "$(json '.totalCount')"

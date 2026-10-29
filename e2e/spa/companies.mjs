@@ -1,10 +1,10 @@
-// Companies → In universe / Shortlisted / Declined, in a real browser.
+// Companies → In universe / Declined, in a real browser.
 //
 // 17-companies-executives.sh proves the HTTP contract. This proves what only the screen can: that the
-// three stage pages draw exactly their stage's rows, that a row is a person at a company (two people,
+// two stage pages draw exactly their stage's rows, that a row is a person at a company (two people,
 // two lines; nobody, one line with its "Add executive" slot), that the drawers' forms reach the
 // database, that the Contact section's pencil saves a verified address the grid then lists, that a
-// custom column added from the toolbar becomes a header, that the header filters narrow the grid the
+// custom column added from the Advanced menu becomes a header, that the header filters narrow the grid the
 // way the API narrows it, and that a pure client seat reads the grid with nothing to write with.
 //
 // No AI and no paid vendor: the AI buttons and ContactOut's Find buttons are never pressed.
@@ -102,7 +102,7 @@ const PROJECT = (await api("/projects", { method: "POST", token, body: { clientI
 const TRIAGE = `/projects/${PROJECT}/triage`;
 const PEOPLE = `/projects/${PROJECT}/candidates`;
 
-// Four hand-typed companies at three stages: one with two executives, one with nobody.
+// Four hand-typed companies at the two stages: one with two executives, one with nobody.
 const TAG = STAMP.slice(-6);
 const ATLAS = `Atlas Holding ${TAG}`;
 const BEACON = `Beacon Ports ${TAG}`;
@@ -114,7 +114,7 @@ const capture = async (companyName, status) =>
     companyCity: "Doha", numEmployees: 1200, website: "https://example.com" } })).body.id;
 const ATLAS_ID = await capture(ATLAS, "inUniverse");
 const BEACON_ID = await capture(BEACON, "inUniverse");
-const CEDAR_ID = await capture(CEDAR, "shortlisted");
+const CEDAR_ID = await capture(CEDAR, "declined");
 const DHOW_ID = await capture(DHOW, "declined");
 const person = (fullName, triageCompanyId, extra = {}) => api(PEOPLE, { method: "POST", token, body: {
   fullName, title: "Chief Financial Officer", seniority: "C-Suite", locationCity: "Doha", locationCountry: "Qatar",
@@ -123,7 +123,7 @@ const LAYLA = `Layla Haddad ${TAG}`;
 const OMAR = `Omar Nasser ${TAG}`;
 await person(LAYLA, ATLAS_ID, { emails: [{ value: `layla.${TAG}@atlas.example`, kind: "work" }], phones: [{ value: "+971 50 123 4567" }] });
 await person(OMAR, ATLAS_ID, { emails: [{ value: `omar.${TAG}@atlas.example` }] });
-await person(`Sami Shortlisted ${TAG}`, CEDAR_ID);
+await person(`Sami Declined ${TAG}`, CEDAR_ID);
 
 // The pure client seat: a representative named on this mandate, signed up through the invitation.
 const repInvite = await api(`/projects/${PROJECT}/representatives/invitations`, { method: "POST", token,
@@ -185,6 +185,16 @@ const sidebarCount = async (label) => {
   return match ? Number(match[1]) : null;
 };
 const toolbarButton = (name) => page.getByRole("button", { name, exact: true });
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const advancedButton = () => page.getByRole("button", { name: /^Advanced/ });
+/** Opens the toolbar's Advanced ▾ (clicking it while open would close it) and answers one of its items. */
+async function advancedItem(label) {
+  if ((await advancedButton().getAttribute("aria-expanded")) !== "true") {
+    await advancedButton().click();
+    await page.getByRole("menu", { name: "Advanced" }).waitFor({ timeout: 10000 });
+  }
+  return page.getByRole("menuitem", { name: new RegExp(`^${escapeRegExp(label)}`) });
+}
 const dialog = (name) => page.getByRole("dialog", { name });
 
 async function signIn(email) {
@@ -195,10 +205,10 @@ async function signIn(email) {
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
-/** Turns a hidden-by-default grid column on through the toolbar's column picker. */
+/** Turns a hidden-by-default grid column on through Advanced ▾'s column picker. */
 async function showColumn(label) {
   if ((await headers()).some((header) => header.split("\n")[0].trim().toLowerCase() === label.toLowerCase())) return;
-  await page.getByRole("button", { name: /^Columns\s*\d+ hidden/ }).click();
+  await (await advancedItem("Show / hide columns")).click();
   await page.getByRole("checkbox", { name: label, exact: true }).click();
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
@@ -217,7 +227,7 @@ async function headerFilter(columnName, ariaLabel, value) {
 
 try {
   // ---------------------------------------------------------------- C1.1 access
-  section("C1  the three stage pages draw exactly their stage");
+  section("C1  the two stage pages draw exactly their stage");
   await step("C1.1", "the lead signs in through /login and lands on the universe page", async () => {
     await page.goto(stageUrl("universe"));
     await page.waitForURL(/\/login/, { timeout: 15000 });
@@ -249,20 +259,26 @@ try {
     check("C1.4", "a company with nobody keeps one line and its Add executive slot", "1/1", `${lines}/${slot}`);
   });
 
-  await step("C1.5", "Shortlisted and Declined each list exactly their own company", async () => {
-    await openStage("shortlisted");
-    const shortlisted = await until(async () => sortedJoin(await companyNames()), CEDAR);
+  await step("C1.5", "Declined lists exactly its own companies", async () => {
     await openStage("declined");
-    const declined = await until(async () => sortedJoin(await companyNames()), DHOW);
-    check("C1.5", "Shortlisted and Declined each list exactly their own company", `${CEDAR} / ${DHOW}`, `${shortlisted} / ${declined}`);
+    const want = sortedJoin([CEDAR, DHOW]);
+    check("C1.5", "Declined lists exactly its own companies", want, await until(async () => sortedJoin(await companyNames()), want));
+  });
+  // Shortlisted is retired as a page: an old link lands on In universe and the sidebar names no such stage.
+  await step("C1.5b", "the retired Shortlisted page's address lands on In universe", async () => {
+    await page.goto(stageUrl("shortlisted"));
+    await page.waitForURL(/\/companies\/universe/, { timeout: 15000 });
+    await page.waitForSelector('[role="table"]', { timeout: 25000 });
+    check("C1.5b", "the retired Shortlisted page's address lands on In universe", true, page.url().includes("/companies/universe"));
   });
 
-  await step("C1.6", "the sidebar's three counts are the API's", async () => {
+  await step("C1.6", "the sidebar's two counts are the API's, and it offers no Shortlisted", async () => {
     const counts = (await triagePage("inUniverse")).counts;
-    const want = `${counts.inUniverse}/${counts.shortlisted}/${counts.declined}`;
-    const seen = await until(async () => `${await sidebarCount("In universe")}/${await sidebarCount("Shortlisted")}/${await sidebarCount("Declined")}`, want);
-    check("C1.6", "the sidebar's three counts are the API's", want, seen);
-    check("C1.6b", "…which are the seeded 2/1/1", "2/1/1", want);
+    const want = `${counts.inUniverse}/${counts.declined}`;
+    const seen = await until(async () => `${await sidebarCount("In universe")}/${await sidebarCount("Declined")}`, want);
+    check("C1.6", "the sidebar's two counts are the API's", want, seen);
+    check("C1.6b", "…which are the seeded 2/2", "2/2", want);
+    check("C1.6c", "…and the sidebar offers no Shortlisted page", 0, await page.locator("nav a").filter({ hasText: /^Shortlisted/ }).count());
   });
 
   // ---------------------------------------------------------------- C2 add by hand
@@ -341,6 +357,8 @@ try {
   await step("C5.1", "the pencil makes the lines editable; an added, verified email saves", async () => {
     // The drawer stays open on the profile it just made.
     const drawer = page.getByRole("dialog").last();
+    // The drawer opens on Career; Contact is a tab of its own.
+    await drawer.getByRole("tab", { name: "Contact", exact: true }).click();
     await drawer.getByRole("button", { name: "Edit contact" }).click();
     await drawer.getByRole("button", { name: "Add email" }).click();
     await drawer.getByRole("textbox", { name: "Email 1", exact: true }).fill(NADIA_EMAIL);
@@ -365,37 +383,40 @@ try {
 
   // ---------------------------------------------------------------- C6 moves
   section("C6  moving a company between stages");
-  await step("C6.1", "the row's Shortlist action moves it off In universe and onto Shortlisted", async () => {
+  // Beacon has Nadia on its line, whose buttons are hers alone; the company's own move is its drawer's.
+  await step("C6.1", "the drawer's Decline moves a company off In universe and onto Declined, its executive with it", async () => {
     await openStage("universe");
-    await page.getByRole("button", { name: `Shortlist: ${BEACON}` }).first().click();
+    await page.getByRole("button", { name: `Open ${BEACON}` }).first().click();
+    await dialog(BEACON).getByRole("button", { name: "Decline", exact: true }).click();
     const gone = await until(async () => (await companyNames()).includes(BEACON), false);
-    await openStage("shortlisted");
-    const arrived = await until(async () => (await companyNames()).includes(BEACON), true);
-    check("C6.1", "the row's Shortlist action moves it off In universe and onto Shortlisted", "false/true", `${gone}/${arrived}`);
-    check("C6.1b", "…and the database agrees", "SHORTLISTED",
-      sql(`SELECT status FROM app_lm_project_triage_company WHERE id = '${BEACON_ID}'`));
-  });
-  await step("C6.2", "the drawer's Decline moves a shortlisted company onto Declined", async () => {
-    await page.getByRole("button", { name: `Open ${CEDAR}` }).first().click();
-    await dialog(CEDAR).getByRole("button", { name: "Decline", exact: true }).click();
-    const gone = await until(async () => (await companyNames()).includes(CEDAR), false);
     await openStage("declined");
-    const arrived = await until(async () => (await companyNames()).includes(CEDAR), true);
-    check("C6.2", "the drawer's Decline moves a shortlisted company onto Declined", "false/true", `${gone}/${arrived}`);
+    const arrived = await until(async () => (await companyNames()).includes(BEACON), true);
+    check("C6.1", "the drawer's Decline moves a company off In universe and onto Declined", "false/true", `${gone}/${arrived}`);
+    check("C6.1b", "…and the database agrees, for the company and the executive at it", "DECLINED|DECLINED",
+      sql(`SELECT t.status || '|' || c.triage_status FROM app_lm_project_triage_company t
+           JOIN app_lm_project_candidate c ON c.triage_company_id = t.id WHERE t.id = '${BEACON_ID}'`));
+  });
+  await step("C6.2", "the line's Back to universe moves a declined company with nobody back onto In universe", async () => {
+    check("C6.2a", "…and no line offers the retired Shortlist", 0, await page.getByRole("button", { name: /^Shortlist: / }).count());
+    await page.getByRole("button", { name: `Back to universe: ${DHOW}` }).first().click();
+    const gone = await until(async () => (await companyNames()).includes(DHOW), false);
+    await openStage("universe");
+    const arrived = await until(async () => (await companyNames()).includes(DHOW), true);
+    check("C6.2", "the line's Back to universe moves a declined company with nobody back onto In universe", "false/true", `${gone}/${arrived}`);
   });
   await step("C6.3", "the sidebar counts follow the moves", async () => {
     const counts = (await triagePage("inUniverse")).counts;
-    const want = `${counts.inUniverse}/${counts.shortlisted}/${counts.declined}`;
-    check("C6.3", "the sidebar counts follow the moves (2/1/2 after adding Falcon, moving Beacon and Cedar)", "2/1/2",
-      await until(async () => `${await sidebarCount("In universe")}/${await sidebarCount("Shortlisted")}/${await sidebarCount("Declined")}`, want));
+    const want = `${counts.inUniverse}/${counts.declined}`;
+    check("C6.3", "the sidebar counts follow the moves (3/2 after adding Falcon, declining Beacon, restoring Dhow)", "3/2",
+      await until(async () => `${await sidebarCount("In universe")}/${await sidebarCount("Declined")}`, want));
   });
 
   // ---------------------------------------------------------------- C7 custom columns
   section("C7  a column of the mandate's own");
   const COLUMN = "Board Seat";
-  await step("C7.1", "Columns → Add defines a company column and the grid grows its header", async () => {
+  await step("C7.1", "Advanced → Manage custom columns → Add defines a company column and the grid grows its header", async () => {
     await openStage("universe");
-    await page.getByRole("button", { name: "Columns", exact: true }).last().click();
+    await (await advancedItem("Manage custom columns…")).click();
     const modal = dialog("Columns on this mandate");
     await modal.getByLabel("New column name").fill(COLUMN);
     await modal.getByLabel("What the new column is about").selectOption("company");
@@ -404,7 +425,7 @@ try {
     await shot("manage-columns");
     await modal.getByRole("button", { name: "Done" }).click();
     const seen = await until(async () => (await headers()).some((header) => header.split("\n")[0].trim().toLowerCase() === COLUMN.toLowerCase()), true);
-    check("C7.1", "Columns → Add defines a company column and the grid grows its header", true, seen);
+    check("C7.1", "Advanced → Manage custom columns → Add defines a company column and the grid grows its header", true, seen);
     check("C7.1b", "…stored as a company column of this project", "company|boardSeat",
       sql(`SELECT lower(target) || '|' || field_key FROM app_lm_project_custom_column WHERE project_id = '${PROJECT}' AND label = '${COLUMN}'`));
   });
@@ -460,15 +481,20 @@ try {
   });
   await step("C9.2", "no add, import, columns or row-action controls are offered to a client seat", async () => {
     const offered = [];
-    for (const name of ["Add company", "Add executive", "Import", "Columns"]) {
+    for (const name of ["Add company", "Add executive", "Find executives"]) {
       if (await page.getByRole("button", { name, exact: true }).count()) offered.push(name);
     }
     if (await page.getByRole("button", { name: /^Add an executive at/ }).count()) offered.push("Add-executive slot");
     if (await page.getByRole("button", { name: /^(Shortlist|Decline|Back to universe): / }).count()) offered.push("move actions");
     if (await page.getByRole("button", { name: /^Remove .* from this mandate$/ }).count()) offered.push("remove");
     if (await page.getByRole("combobox", { name: /^Status for / }).count()) offered.push("status select");
+    await advancedItem("Export CSV");
+    for (const item of [/^Import spreadsheet/, /^Manage custom columns/, /^Add to sequence/]) {
+      if (await page.getByRole("menuitem", { name: item }).count()) offered.push(String(item));
+    }
     check("C9.2", "no add, import, columns or row-action controls are offered to a client seat", "", offered.join(", "));
-    check("C9.2b", "…while Export is", 1, await page.getByRole("button", { name: "Export", exact: true }).count());
+    check("C9.2b", "…while Advanced still offers Export CSV", 1, await page.getByRole("menuitem", { name: /^Export CSV/ }).count());
+    await page.keyboard.press("Escape");
   });
   await step("C9.3", "the company drawer opens read-only for a client seat", async () => {
     await page.getByRole("button", { name: `Open ${ATLAS}` }).first().click();
@@ -476,7 +502,7 @@ try {
     await drawer.waitFor();
     const editable = [];
     if (await drawer.getByRole("button", { name: `Edit ${ATLAS}` }).count()) editable.push("edit pencil");
-    if (await drawer.getByRole("button", { name: /^(Shortlist|Decline|Remove)$/ }).count()) editable.push("footer moves");
+    if (await drawer.getByRole("button", { name: /^(Shortlist|Decline|Back to universe|Remove)$/ }).count()) editable.push("footer moves");
     // Company notes are staff-only: a client seat gets no Notes tab, so no tab bar at all.
     if (await drawer.getByRole("tablist", { name: "Company sections" }).count()) editable.push("notes tab");
     check("C9.3", "the company drawer opens read-only for a client seat", "", editable.join(","));

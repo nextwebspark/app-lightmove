@@ -552,7 +552,7 @@ try {
 
   // ---------------------------------------------------------------- S9 triage hand-off
   section("S9  what the mandate takes from the market");
-  // A row carries a tick box, not a +: a selection raises a floating bar whose three buttons file every
+  // A row carries a tick box, not a +: a selection raises a floating bar whose two buttons file every
   // ticked company at one stage in one request (POST /triage/bulk).
   const tick = (name) => page.getByRole("checkbox", { name: `Select ${name}`, exact: true }).click();
   const filedAt = (status) => num(`SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '${PROJECT}' AND status = '${status}'`);
@@ -573,10 +573,8 @@ try {
     const next = await columnValues("COMPANY");
     check("S9.1e", "a filed company no longer appears in the market", false, next.includes(names[0]) || next.includes(names[1]));
     await tick(next[0]);
-    await page.getByRole("button", { name: /^Shortlisted/ }).last().click();
-    await page.waitForTimeout(2000);
-    check("S9.1f", "the bar files a shortlist in one step", 1, filedAt("SHORTLISTED"));
-    await tick(next[1]);
+    // Shortlisted is retired as a destination, so the bar offers the two stages alone.
+    check("S9.1f", "the bar offers no Shortlisted", 0, await page.getByRole("button", { name: /^Shortlisted/ }).count());
     await page.getByRole("button", { name: /^Declined/ }).last().click();
     await page.waitForTimeout(2000);
     check("S9.1g", "and declines without taking the company into the universe first", 1, filedAt("DECLINED"));
