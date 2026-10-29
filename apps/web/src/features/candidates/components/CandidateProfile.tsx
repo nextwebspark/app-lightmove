@@ -766,8 +766,13 @@ export function CandidateProfile({
             </div>
             <div {...panelProps("activity")} className="pb-4">
               <ActivityTimeline
-                projectId={projectId}
-                executive={candidate}
+                scope={{ kind: "position", projectId, candidateId: candidate.id }}
+                executive={{
+                  fullName: candidate.fullName,
+                  face: (size, className) => (
+                    <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
+                  ),
+                }}
                 documents={documents.documents.data}
                 destinations={{
                   onShowNote: showNote,

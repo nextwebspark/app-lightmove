@@ -25,6 +25,7 @@ import {
   actorNameOf,
   actorRoleOf,
   type ActivityExecutive,
+  type ActivityScope,
   type TaskState,
 } from "../../lib/activityPresentation";
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
@@ -48,8 +49,7 @@ export interface ActivityDestinations {
 export function ActivityDetailDialog({
   entry,
   onClose,
-  projectId,
-  candidateId,
+  scope,
   executive,
   documents,
   destinations,
@@ -57,8 +57,7 @@ export function ActivityDetailDialog({
 }: {
   entry: PersonTimelineEntry;
   onClose: () => void;
-  projectId: string;
-  candidateId: string;
+  scope: ActivityScope;
   executive: ActivityExecutive;
   documents: readonly PersonDocument[] | undefined;
   destinations: ActivityDestinations;
@@ -71,7 +70,8 @@ export function ActivityDetailDialog({
     onClose();
     action();
   };
-  const way = wayOf(entry, projectId, candidateId, destinations);
+  const position = scope.kind === "position" ? scope : null;
+  const way = wayOf(entry, position, destinations);
   return (
     <Modal
       open
@@ -102,7 +102,7 @@ export function ActivityDetailDialog({
       <div className="flex flex-col gap-4 pb-4">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-u-border bg-u-bg px-3 py-2.5">
           <KindTile icon={iconOf(entry)} size="head" />
-          <ActorFace actor={actor} executive={executive} projectId={projectId} size="lg" />
+          <ActorFace actor={actor} executive={executive} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-body font-semibold text-u-text">{name}</p>
             <p className="truncate text-note text-u-text3">{actorRoleOf(actor)}</p>
@@ -122,8 +122,7 @@ export function ActivityDetailDialog({
         </p>
         <DetailBody
           entry={entry}
-          projectId={projectId}
-          candidateId={candidateId}
+          position={position}
           executive={executive}
           documents={documents}
           taskState={taskState}
@@ -139,16 +138,15 @@ export function ActivityDetailDialog({
 
 function DetailBody({
   entry,
-  projectId,
-  candidateId,
+  position,
   executive,
   documents,
   taskState,
   onPreviewDocument,
 }: {
   entry: PersonTimelineEntry;
-  projectId: string;
-  candidateId: string;
+  /** Null on the person-wide timeline, which is never sent a position's notes, emails, calls or tasks to read. */
+  position: PositionOfLine | null;
   executive: ActivityExecutive;
   documents: readonly PersonDocument[] | undefined;
   taskState: TaskState | undefined;
@@ -160,14 +158,18 @@ function DetailBody({
     case "NOTE_EDITED":
     case "NOTE_RESTORED":
     case "NOTE_REMOVED":
-      return <NoteDetail entry={entry} projectId={projectId} candidateId={candidateId} />;
+      return position && <NoteDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} />;
     case "EMAIL_SENT":
     case "EMAIL_REPLIED":
-      return <EmailDetail entry={entry} projectId={projectId} candidateId={candidateId} executive={executive} />;
+      return (
+        position && (
+          <EmailDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} executive={executive} />
+        )
+      );
     case "MEETING_BOOKED":
     case "MEETING_RESCHEDULED":
     case "MEETING_CANCELLED":
-      return <MeetingDetail entry={entry} projectId={projectId} candidateId={candidateId} />;
+      return position && <MeetingDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} />;
     case "STATUS_CHANGED":
       return (
         <>
@@ -198,7 +200,11 @@ function DetailBody({
     case "TASK_REASSIGNED":
     case "TASK_CANCELLED":
     case "NEXT_ACTION_SET":
-      return <TaskDetail entry={entry} projectId={projectId} candidateId={candidateId} state={taskState} />;
+      return (
+        position && (
+          <TaskDetail entry={entry} projectId={position.projectId} candidateId={position.candidateId} state={taskState} />
+        )
+      );
     case "CONTACT_FOUND":
       return (
         <>
@@ -616,9 +622,24 @@ const TASK_STATES: Record<string, string> = {
 
 type Way = { kind: "action"; label: string; run: () => void } | { kind: "link"; label: string; to: string };
 
-/** Where the dialog's main button goes: the tab that holds the thing, or the conversation. */
-function wayOf(entry: PersonTimelineEntry, projectId: string, candidateId: string, to: ActivityDestinations): Way | null {
-  const conversation = `/projects/${projectId}/outreach?candidate=${candidateId}`;
+type PositionOfLine = Extract<ActivityScope, { kind: "position" }>;
+
+/**
+ * Where the dialog's main button goes: the tab that holds the thing, or the conversation. On the person-wide timeline
+ * a position's milestone opens the Positions tab, where each position's status is.
+ */
+function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: ActivityDestinations): Way | null {
+  if (!position) {
+    switch (entry.kind) {
+      case "ADDED_TO_POOL":
+      case "MAPPED":
+      case "UNMAPPED":
+      case "STATUS_CHANGED":
+      case "TRIAGE_STATUS_CHANGED":
+        return { kind: "action", label: "Open Positions", run: () => to.onOpenTab("positions") };
+    }
+  }
+  const conversation = position ? `/projects/${position.projectId}/outreach?candidate=${position.candidateId}` : null;
   switch (entry.kind) {
     case "NOTE_ADDED":
     case "NOTE_EDITED":
@@ -630,7 +651,7 @@ function wayOf(entry: PersonTimelineEntry, projectId: string, candidateId: strin
     case "EMAIL_REPLIED":
     case "OUTREACH_ENROLLED":
     case "OUTREACH_STOPPED":
-      return { kind: "link", label: "Open conversation", to: conversation };
+      return conversation ? { kind: "link", label: "Open conversation", to: conversation } : null;
     case "MEETING_BOOKED":
     case "MEETING_RESCHEDULED":
     case "MEETING_CANCELLED":
@@ -698,7 +719,7 @@ function titleOf(entry: PersonTimelineEntry): string {
       return "Changes from a call";
     case "ADDED_TO_POOL":
     case "MAPPED":
-      return entry.projectId === null ? "Added to your candidates" : "Added to this position";
+      return entry.projectId === null ? "Added to your candidates" : `Added to ${entry.projectTitle ?? "this position"}`;
   }
   const verb = verbOf(entry);
   return verb.charAt(0).toUpperCase() + verb.slice(1);

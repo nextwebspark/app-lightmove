@@ -86,12 +86,12 @@ export function pinPersonNote(
   });
 }
 
-/** The most of a position's history the Activity tab reads at once (the server's own ceiling for this route). */
-export const POSITION_HISTORY_LIMIT = 500;
+/** The most of a history either drawer's Activity tab reads at once (the server's own ceiling for both routes). */
+export const HISTORY_LIMIT = 500;
 
-export interface PositionHistory {
+export interface ActivityHistory {
   entries: PersonTimelineEntry[];
-  /** True when the history holds more than {@link POSITION_HISTORY_LIMIT} lines; the oldest are left unread. */
+  /** True when the history holds more than {@link HISTORY_LIMIT} lines; the oldest are left unread. */
   truncated: boolean;
 }
 
@@ -103,9 +103,9 @@ export async function getPositionHistory(
   projectId: string,
   candidateId: string,
   signal?: AbortSignal,
-): Promise<PositionHistory> {
+): Promise<ActivityHistory> {
   const read = await request<PersonTimelinePage>(
-    `${personUrl(projectId, candidateId)}/timeline?limit=${POSITION_HISTORY_LIMIT}`,
+    `${personUrl(projectId, candidateId)}/timeline?limit=${HISTORY_LIMIT}`,
     { signal },
   );
   return { entries: read.entries, truncated: read.nextCursor != null };

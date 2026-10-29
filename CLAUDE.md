@@ -104,6 +104,10 @@ the query and never leave the server. A profile save or a call's changes keeps e
 the response's `changes`; never a contact, never the employer). The Activity tab (`components/activity`,
 `Position.dc.html`) reads it whole (`getPositionHistory`), filters by kind and by person in two menus, folds quick
 changes, and opens each line read-only (`ActivityDetailDialog`) through the reads its tab already uses.
+The Candidates page's drawer draws the same timeline (`ActivityTimeline`'s `person` scope) over the person-wide read,
+which carries only `PERSON_WIDE_KINDS` — the person-level kinds and each position's milestones (added, removed, stage,
+status) — each card naming its position and a Position menu beside the other two; a position's notes, emails, calls
+and tasks stay in that position's drawer, and the Notes tab.
 The workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
 person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
 **Documents are the person's too (V105, `docs/candidate-documents.md`)**: a CV, cover letter or

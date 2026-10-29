@@ -1,5 +1,6 @@
+import type { ReactNode } from "react";
 import { ICONS } from "../../../components/layout/Icon";
-import type { Candidate, FieldChange, PersonActivityKind, PersonTimelineEntry } from "../api/types";
+import type { FieldChange, PersonActivityKind, PersonTimelineEntry } from "../api/types";
 import { DOCUMENT_NOUNS, DOORS, NOTE_VERBS, statusLabel, triageStageLabel } from "./candidateActivity";
 
 /**
@@ -239,17 +240,17 @@ function withArticle(noun: string): string {
 }
 
 /**
- * What the actor did, as the card's first line says it after their name. The drawer is this position's, so a line
- * never adds "on this position"; a person-level change made elsewhere reads the same as one made here.
+ * What the actor did, as the card's first line says it after their name. A line never adds "on this position"; a
+ * position's own milestone names it, which reads the same on the position and on the Candidates page.
  */
 export function verbOf(entry: PersonTimelineEntry): string {
   const { details } = entry;
   switch (entry.kind) {
     case "ADDED_TO_POOL":
     case "MAPPED":
-      return entry.projectId === null ? "added them to your candidates" : "added them to this position";
+      return entry.projectId === null ? "added them to your candidates" : `added them to ${entry.projectTitle ?? "this position"}`;
     case "UNMAPPED":
-      return "removed them from this position";
+      return `removed them from ${entry.projectTitle ?? "this position"}`;
     case "STATUS_CHANGED":
       return "moved the status";
     case "TRIAGE_STATUS_CHANGED":
@@ -586,6 +587,30 @@ export function peopleOf(entries: readonly PersonTimelineEntry[]): ActivityPerso
     .sort((left, right) => rank(left.actor) - rank(right.actor));
 }
 
+/** The person-wide timeline's third filter: each position a line was made on, and the person themselves. */
+export interface ActivityPosition {
+  key: string;
+  label: string;
+}
+
+const ABOUT_THE_PERSON = "person";
+
+export function positionKeyOf(entry: PersonTimelineEntry): string {
+  return entry.projectId ?? ABOUT_THE_PERSON;
+}
+
+/** Positions in the order the history last touched them, newest first, then the person's own changes. */
+export function positionsOf(entries: readonly PersonTimelineEntry[]): ActivityPosition[] {
+  const seen = new Map<string, string>();
+  for (const entry of entries) {
+    if (entry.projectId && !seen.has(entry.projectId)) seen.set(entry.projectId, entry.projectTitle ?? "A position");
+  }
+  const positions = [...seen.entries()].map(([key, label]) => ({ key, label }));
+  return entries.some((entry) => entry.projectId === null)
+    ? [...positions, { key: ABOUT_THE_PERSON, label: "About the person" }]
+    : positions;
+}
+
 export function familiesOf(entries: readonly PersonTimelineEntry[]): ActivityFamilyOption[] {
   const present = new Set(entries.map(familyOf));
   return ACTIVITY_FAMILIES.filter((option) => present.has(option.family));
@@ -634,7 +659,16 @@ export function cardTimeOf(isoInstant: string, now: Date = new Date()): string {
 }
 
 /** The executive the drawer is about, as the history names them when they acted themselves. */
-export type ActivityExecutive = Pick<Candidate, "id" | "fullName" | "enrichedAt">;
+export interface ActivityExecutive {
+  fullName: string;
+  /** Their photo or initials, from whichever read the drawer holds: a position's candidate or the workspace's person. */
+  face: (size: "sm" | "md" | "lg", className?: string) => ReactNode;
+}
+
+/** Whose history a timeline reads: one position's executive, or the person across every position. */
+export type ActivityScope =
+  | { kind: "position"; projectId: string; candidateId: string }
+  | { kind: "person"; personId: string };
 
 /** The actor's name as the line opens with it. */
 export function actorNameOf(actor: ActivityActor, executive: ActivityExecutive): string {

@@ -25,13 +25,14 @@ import { ActorFace, KindTile } from "./ActivityVisuals";
 interface ItemProps {
   entry: PersonTimelineEntry;
   executive: ActivityExecutive;
-  projectId: string;
   now: Date;
   onOpen: (entry: PersonTimelineEntry) => void;
   /** The position's readable notes by id, so a note's card can show its opening as written. */
   notes?: ReadonlyMap<string, PersonNote>;
   /** Where each task stands now, so the card that created one shows it ticked once it is done. */
   taskStates?: ReadonlyMap<string, TaskState>;
+  /** On the person-wide timeline, a card made on a position names it. */
+  showsPosition?: boolean;
 }
 
 const CARD = cn(
@@ -43,13 +44,14 @@ const CARD = cn(
  * Every event is one card on the spine, its kind's tile beside it and who and when on top: a note or a call runs
  * taller with its preview, a tag or a ticked task is the header and one line.
  */
-export function ActivityCard({ entry, executive, projectId, now, onOpen, notes, taskStates }: ItemProps) {
+export function ActivityCard({ entry, executive, now, onOpen, notes, taskStates, showsPosition = false }: ItemProps) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
   const preview = previewOf(entry);
   const note = preview?.type === "note" && entry.details.noteId ? notes?.get(entry.details.noteId) : undefined;
   const taskState = entry.details.taskId ? taskStates?.get(entry.details.taskId) : undefined;
   const aside = preview ? null : asideOf(entry);
+  const position = showsPosition && entry.projectId ? (entry.projectTitle ?? "A position") : null;
   const noteEdit = latestEditOf(note, preview);
   return (
     <li className="relative">
@@ -60,7 +62,7 @@ export function ActivityCard({ entry, executive, projectId, now, onOpen, notes, 
         aria-label={`${name} ${verbOf(entry)}${aside ? `, ${aside}` : ""}${noteEdit ? ", edited" : ""}, ${fullDateTime(entry.occurredAt)}. Open details`}
         className={cn(CARD, isOrigin(entry) ? "border-dashed border-u-border-strong" : "border-u-border")}
       >
-        <WhoAndWhen entry={entry} executive={executive} projectId={projectId} now={now} />
+        <WhoAndWhen entry={entry} executive={executive} now={now} />
         {(aside || preview) && (
           <span className="block min-w-0 ps-8">
             {aside && <span className="text-note text-u-text2">{aside}</span>}
@@ -69,6 +71,14 @@ export function ActivityCard({ entry, executive, projectId, now, onOpen, notes, 
             ) : (
               preview && <PreviewOf preview={preview} taskState={taskState} />
             )}
+          </span>
+        )}
+        {position && (
+          <span className="flex min-w-0 ps-8">
+            <Chip>
+              <Icon d={ICONS.briefcase} size={11} className="me-1 flex-none" />
+              <span className="truncate">{position}</span>
+            </Chip>
           </span>
         )}
         <span className="pointer-events-none absolute bottom-2.5 end-2.5 text-u-text3 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
@@ -128,7 +138,7 @@ export function ActivityFold({
           className="flex w-full min-w-0 flex-col gap-2 rounded-xl px-3 py-2.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring"
         >
           <span className="flex min-w-0 items-center gap-2">
-            <ActorFace actor={actor} executive={rest.executive} projectId={rest.projectId} size="sm" title={name} />
+            <ActorFace actor={actor} executive={rest.executive} size="sm" title={name} />
             <span className="min-w-0 flex-1 text-body text-u-text2">
               <span className="font-semibold text-u-text">{name}</span> made {entries.length} changes
             </span>
@@ -161,12 +171,12 @@ function summaryOf(entries: readonly PersonTimelineEntry[]): string {
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
-function WhoAndWhen({ entry, executive, projectId, now }: Omit<ItemProps, "onOpen">) {
+function WhoAndWhen({ entry, executive, now }: Pick<ItemProps, "entry" | "executive" | "now">) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <ActorFace actor={actor} executive={executive} projectId={projectId} size="sm" title={name} />
+      <ActorFace actor={actor} executive={executive} size="sm" title={name} />
       <span className="min-w-0 flex-1 text-body text-u-text2">
         <span className="font-semibold text-u-text">{name}</span> {verbOf(entry)}
       </span>
@@ -398,7 +408,7 @@ function Chip({ children, tone, title }: { children: ReactNode; tone?: "ai"; tit
     <span
       title={title}
       className={cn(
-        "inline-flex w-fit items-center rounded-full px-2 py-px text-meta font-medium",
+        "inline-flex w-fit max-w-full items-center rounded-full px-2 py-px text-meta font-medium",
         tone === "ai" ? "bg-u-inferred-tint text-u-inferred" : "bg-u-raised text-u-text2",
       )}
     >
