@@ -440,7 +440,7 @@ public class MeetingService {
                     .ifPresent(MailboxConnection::markAccessWithdrawn));
             return ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
         }
-        log.warn("Calendar call for mailbox {} failed at the mail service: {}", mailbox.getId(), failed.getKind());
+        log.warn("Calendar call for mailbox {} failed at the mail service: {}", mailbox.getId(), failed.getMessage());
         return ApiException.of(otherwise);
     }
 
