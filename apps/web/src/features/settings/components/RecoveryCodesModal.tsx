@@ -1,6 +1,7 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Modal, useToast } from "../../../components/ui";
 import { copyText } from "../../../lib/clipboard";
+import { saveBlob } from "../../../lib/saveBlob";
 
 /**
  * The one time a set of recovery codes is shown: only their hashes are kept. Only its own button closes it, so a stray
@@ -14,14 +15,11 @@ export function RecoveryCodesModal({ codes, onDone }: { codes: string[]; onDone:
     toast((await copyText(asText)) ? "Recovery codes copied" : "Couldn't copy — select them and copy them yourself");
   };
 
-  const handleDownload = () => {
-    const file = new Blob([`Uncava recovery codes\nEach code works once.\n\n${asText}\n`], { type: "text/plain" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(file);
-    link.download = "uncava-recovery-codes.txt";
-    link.click();
-    URL.revokeObjectURL(link.href);
-  };
+  const handleDownload = () =>
+    saveBlob(
+      new Blob([`Uncava recovery codes\nEach code works once.\n\n${asText}\n`], { type: "text/plain" }),
+      "uncava-recovery-codes.txt",
+    );
 
   return (
     <Modal

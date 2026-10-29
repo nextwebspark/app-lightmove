@@ -221,7 +221,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EMAIL_NOT_WORK_ADDRESS: "Use your work email — the domain identifies your organization.",
   CURRENT_PASSWORD_INVALID: "That is not your current password.",
   PASSWORD_NOT_SET: "This account signs in with a provider — set a password from the reset link.",
-  MFA_CODE_INVALID: "That code didn't work. Check your authenticator app and try again, or sign in again.",
+  MFA_CODE_INVALID:
+    "That code didn't work. Check your authenticator app and try again, or sign in again. Too many wrong codes pause sign-in for a while.",
   MFA_ALREADY_ENABLED: "Two-factor authentication is already on.",
   MFA_NOT_ENABLED: "Two-factor authentication is already off.",
   MFA_SETUP_NOT_STARTED: "That setup has ended. Start again to get a new QR code.",
