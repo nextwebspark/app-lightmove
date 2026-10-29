@@ -143,6 +143,9 @@ class MfaFlowIntegrationTest extends FlowTestSupport {
                 Boolean.class, sara)).isTrue();
         assertThat(email.sent()).singleElement()
                 .satisfies(message -> assertThat(message.subject()).contains("locked"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app_lm_mfa_challenge c JOIN app_lm_user u "
+                + "ON u.id = c.user_id WHERE u.email = ?", Long.class, sara))
+                .as("the lock ends the challenge outright").isZero();
         assertThat(codeOf(verifyRaw(challenge, freshCode(sara, enrolment.secret())))).isEqualTo("MFA_CODE_INVALID");
         assertThat(codeOf(loginRaw(sara, PASSWORD))).isEqualTo("INVALID_CREDENTIALS");
     }
@@ -223,6 +226,44 @@ class MfaFlowIntegrationTest extends FlowTestSupport {
         assertThat(body(wrongCode).at("/fieldErrors/code").asText()).isNotBlank();
 
         assertThat(status(token).get("enabled").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("with no live session of its own, a change is refused before the password or the code is checked")
+    void aChangeWithoutASessionIsRefusedFirst() throws Exception {
+        String sara = "sara@" + domain;
+        verifiedUser("Sara G", sara);
+        MvcResult session = loginRaw(sara, PASSWORD);
+        String token = body(session).get("accessToken").asText();
+        String secret = body(postAs(token, session.getResponse().getCookie("lm_refresh"),
+                "/api/v1/auth/mfa/setup", null)).get("secret").asText();
+
+        MvcResult refused = postAs(token, null, "/api/v1/auth/mfa/enable",
+                Map.of("currentPassword", "notmine123", "code", TestTotp.codeAt(secret, Instant.now())));
+
+        assertThat(codeOf(refused)).as("refused before the wrong password is read").isEqualTo("REFRESH_TOKEN_INVALID");
+        assertThat(status(token).get("enabled").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("setting up again replaces a pending secret: only the latest one turns it on")
+    void aSecondSetupReplacesThePendingSecret() throws Exception {
+        String sara = "sara@" + domain;
+        verifiedUser("Sara G", sara);
+        MvcResult session = loginRaw(sara, PASSWORD);
+        String token = body(session).get("accessToken").asText();
+        Cookie refresh = session.getResponse().getCookie("lm_refresh");
+        String first = body(postAs(token, refresh, "/api/v1/auth/mfa/setup", null)).get("secret").asText();
+        String second = body(postAs(token, refresh, "/api/v1/auth/mfa/setup", null)).get("secret").asText();
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app_lm_user_mfa_factor f JOIN app_lm_user u "
+                + "ON u.id = f.user_id WHERE u.email = ?", Long.class, sara)).isOne();
+        assertThat(codeOf(postAs(token, refresh, "/api/v1/auth/mfa/enable",
+                Map.of("currentPassword", PASSWORD, "code", TestTotp.codeAt(first, Instant.now())))))
+                .isEqualTo("MFA_CODE_INVALID");
+        assertThat(postAs(token, refresh, "/api/v1/auth/mfa/enable",
+                Map.of("currentPassword", PASSWORD, "code", TestTotp.codeAt(second, Instant.now())))
+                .getResponse().getStatus()).isEqualTo(200);
     }
 
     @Test

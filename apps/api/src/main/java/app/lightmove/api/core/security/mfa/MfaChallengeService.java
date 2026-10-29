@@ -72,6 +72,12 @@ public class MfaChallengeService {
         return new MfaChallengeIssued(plaintext, config.challengeTtl());
     }
 
+    /** Turning the factor off ends any challenge a right password earned meanwhile. */
+    @Transactional
+    public void clearFor(UUID userId) {
+        challenges.deleteByUserId(userId);
+    }
+
     /**
      * Every refusal is {@link ErrorCode#MFA_CODE_INVALID}, whatever its reason. <b>{@code noRollbackFor}:</b>
      * otherwise the failed-attempt count rolls back with the refusal and the lock never arms, as on login.
@@ -107,6 +113,9 @@ public class MfaChallengeService {
         if (passed.isEmpty()) {
             lockout.recordFailure(user, now, audit.event(AuthEventType.MFA_CHALLENGE_FAILED).failed()
                     .actor(user.getId()).from(request).reason("bad_code"), request);
+            if (user.isLocked(now)) {
+                challenges.delete(challenge);
+            }
             throw ApiException.of(ErrorCode.MFA_CODE_INVALID);
         }
 

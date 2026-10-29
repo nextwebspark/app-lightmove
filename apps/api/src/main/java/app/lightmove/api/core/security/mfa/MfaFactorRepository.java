@@ -21,7 +21,9 @@ public interface MfaFactorRepository extends JpaRepository<MfaFactor, UUID> {
     @Query("SELECT COUNT(f) > 0 FROM MfaFactor f WHERE f.userId = :userId AND f.enabledAt IS NOT NULL")
     boolean existsEnabledForUser(@Param("userId") UUID userId);
 
+    /** A pending row where there is none, so two first setups wait on one row rather than one failing on the key. */
     @Modifying
-    @Query("DELETE FROM MfaFactor f WHERE f.userId = :userId")
-    int deleteByUserId(@Param("userId") UUID userId);
+    @Query(value = "INSERT INTO app_lm_user_mfa_factor (user_id, secret_encrypted) VALUES (:userId, :secretEncrypted) "
+            + "ON CONFLICT (user_id) DO NOTHING", nativeQuery = true)
+    void insertPendingIfMissing(@Param("userId") UUID userId, @Param("secretEncrypted") String secretEncrypted);
 }

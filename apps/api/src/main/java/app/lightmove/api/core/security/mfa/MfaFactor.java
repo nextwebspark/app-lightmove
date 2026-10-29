@@ -34,13 +34,6 @@ public class MfaFactor extends BaseEntity {
     @Column(name = "last_used_step")
     private Long lastUsedStep;
 
-    public static MfaFactor pending(UUID userId, String secretEncrypted) {
-        MfaFactor factor = new MfaFactor();
-        factor.userId = userId;
-        factor.restart(secretEncrypted);
-        return factor;
-    }
-
     public static EncryptionContext secretContext(UUID userId) {
         return EncryptionContext.ofUser(userId, "mfa-totp-secret");
     }

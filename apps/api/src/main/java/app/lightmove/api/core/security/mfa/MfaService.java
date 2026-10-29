@@ -13,8 +13,8 @@ import app.lightmove.api.core.security.dto.MfaSetupResponse;
 import app.lightmove.api.core.security.dto.MfaStatusResponse;
 import app.lightmove.api.core.security.dto.RecoveryCodesResponse;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.security.service.PasswordPolicy;
+import app.lightmove.api.core.security.service.AuthenticationService;
+import app.lightmove.api.core.security.service.CurrentPasswordCheck;
 import app.lightmove.api.core.security.token.ActiveSessionService;
 import app.lightmove.api.core.security.token.RevokeReason;
 import app.lightmove.api.core.security.token.Tokens;
@@ -37,11 +37,11 @@ public class MfaService {
 
     private static final String ISSUER = "Uncava";
 
-    private final UserRepository users;
-    private final PasswordPolicy passwords;
+    private final AuthenticationService authentication;
+    private final CurrentPasswordCheck currentPasswordCheck;
     private final MfaFactorRepository factors;
     private final MfaRecoveryCodeRepository recoveryCodes;
-    private final MfaChallengeRepository challenges;
+    private final MfaChallengeService challenges;
     private final MfaCodeVerifier codes;
     private final SecretCipher cipher;
     private final ActiveSessionService sessions;
@@ -51,13 +51,13 @@ public class MfaService {
     private final MfaSettings config;
     private final String webBaseUrl;
 
-    public MfaService(UserRepository users, PasswordPolicy passwords, MfaFactorRepository factors,
-                      MfaRecoveryCodeRepository recoveryCodes, MfaChallengeRepository challenges,
-                      MfaCodeVerifier codes, SecretCipher cipher, ActiveSessionService sessions,
-                      AuditService audit, EmailSender emailSender, EmailTemplates templates,
-                      LightMoveProperties properties) {
-        this.users = users;
-        this.passwords = passwords;
+    public MfaService(AuthenticationService authentication, CurrentPasswordCheck currentPasswordCheck,
+                      MfaFactorRepository factors, MfaRecoveryCodeRepository recoveryCodes,
+                      MfaChallengeService challenges, MfaCodeVerifier codes, SecretCipher cipher,
+                      ActiveSessionService sessions, AuditService audit, EmailSender emailSender,
+                      EmailTemplates templates, LightMoveProperties properties) {
+        this.authentication = authentication;
+        this.currentPasswordCheck = currentPasswordCheck;
         this.factors = factors;
         this.recoveryCodes = recoveryCodes;
         this.challenges = challenges;
@@ -93,21 +93,21 @@ public class MfaService {
     @Transactional
     public MfaSetupResponse startSetup(UUID userId) {
         requireOffered();
-        User user = requireUser(userId);
+        User user = authentication.requireUser(userId);
         if (!user.hasPassword()) {
             throw ApiException.of(ErrorCode.PASSWORD_NOT_SET);
         }
 
-        Optional<MfaFactor> existing = factors.findForUpdateByUserId(userId);
-        if (existing.filter(MfaFactor::isEnabled).isPresent()) {
-            throw ApiException.of(ErrorCode.MFA_ALREADY_ENABLED);
-        }
-
         String secret = Totp.newSecret();
         String sealed = cipher.encrypt(secret, MfaFactor.secretContext(userId));
-        existing.ifPresentOrElse(
-                factor -> factor.restart(sealed),
-                () -> factors.save(MfaFactor.pending(userId, sealed)));
+        // Inserted before the lock: FOR UPDATE locks nothing while there is no row, so two first setups would
+        // otherwise both insert and one fail on the user's unique key.
+        factors.insertPendingIfMissing(userId, sealed);
+        MfaFactor factor = factors.findForUpdateByUserId(userId).orElseThrow();
+        if (factor.isEnabled()) {
+            throw ApiException.of(ErrorCode.MFA_ALREADY_ENABLED);
+        }
+        factor.restart(sealed);
 
         return new MfaSetupResponse(secret, Totp.otpauthUri(ISSUER, user.getEmail(), secret));
     }
@@ -116,8 +116,9 @@ public class MfaService {
     public RecoveryCodesResponse enable(UUID userId, String currentPassword, String code,
                                         String presentedRefreshToken, HttpServletRequest request) {
         requireOffered();
-        User user = requireUser(userId);
-        requireCurrentPassword(user, currentPassword, AuthEventType.MFA_ENABLED, request);
+        User user = authentication.requireUser(userId);
+        UUID keptFamilyId = sessions.requireCurrentFamily(userId, presentedRefreshToken);
+        currentPasswordCheck.require(user, currentPassword, AuthEventType.MFA_ENABLED, request);
 
         MfaFactor factor = factors.findForUpdateByUserId(userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MFA_SETUP_NOT_STARTED));
@@ -130,7 +131,7 @@ public class MfaService {
 
         factor.enable(now);
         List<String> issued = replaceRecoveryCodes(userId, now);
-        sessions.endOtherSessions(userId, presentedRefreshToken, RevokeReason.MFA_CHANGED);
+        sessions.endOtherSessions(userId, keptFamilyId, RevokeReason.MFA_CHANGED);
 
         log.info("Two-factor authentication turned on for user {}", userId);
         audit.event(AuthEventType.MFA_ENABLED).actor(userId).from(request).record();
@@ -144,15 +145,16 @@ public class MfaService {
     @Transactional
     public void disable(UUID userId, String currentPassword, String code, String presentedRefreshToken,
                         HttpServletRequest request) {
-        User user = requireUser(userId);
-        requireCurrentPassword(user, currentPassword, AuthEventType.MFA_DISABLED, request);
+        User user = authentication.requireUser(userId);
+        UUID keptFamilyId = sessions.requireCurrentFamily(userId, presentedRefreshToken);
+        currentPasswordCheck.require(user, currentPassword, AuthEventType.MFA_DISABLED, request);
         MfaFactor factor = requireEnabledFactor(userId);
         requireCode(factor, code, Instant.now(), AuthEventType.MFA_DISABLED, request);
 
-        challenges.deleteByUserId(userId);
+        challenges.clearFor(userId);
         recoveryCodes.deleteByUserId(userId);
         factors.delete(factor);
-        sessions.endOtherSessions(userId, presentedRefreshToken, RevokeReason.MFA_CHANGED);
+        sessions.endOtherSessions(userId, keptFamilyId, RevokeReason.MFA_CHANGED);
 
         log.info("Two-factor authentication turned off for user {}", userId);
         audit.event(AuthEventType.MFA_DISABLED).actor(userId).from(request).record();
@@ -164,8 +166,8 @@ public class MfaService {
     @Transactional
     public RecoveryCodesResponse regenerateRecoveryCodes(UUID userId, String currentPassword, String code,
                                                          HttpServletRequest request) {
-        User user = requireUser(userId);
-        requireCurrentPassword(user, currentPassword, AuthEventType.MFA_RECOVERY_CODES_REGENERATED, request);
+        User user = authentication.requireUser(userId);
+        currentPasswordCheck.require(user, currentPassword, AuthEventType.MFA_RECOVERY_CODES_REGENERATED, request);
         MfaFactor factor = requireEnabledFactor(userId);
 
         Instant now = Instant.now();
@@ -192,32 +194,10 @@ public class MfaService {
         }
     }
 
-    private User requireUser(UUID userId) {
-        return users.findById(userId)
-                .orElseThrow(() -> new ApiException(ErrorCode.REFRESH_TOKEN_INVALID, "No user " + userId));
-    }
-
     private MfaFactor requireEnabledFactor(UUID userId) {
         return factors.findForUpdateByUserId(userId)
                 .filter(MfaFactor::isEnabled)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MFA_NOT_ENABLED));
-    }
-
-    /** As {@code PasswordChangeService} asks it: plainly, since the caller is already the signed-in owner. */
-    private void requireCurrentPassword(User user, String currentPassword, AuthEventType event,
-                                        HttpServletRequest request) {
-        if (!user.getStatus().canAuthenticate()) {
-            throw ApiException.of(ErrorCode.ACCOUNT_SUSPENDED);
-        }
-        if (!user.hasPassword()) {
-            throw ApiException.of(ErrorCode.PASSWORD_NOT_SET);
-        }
-        if (!passwords.matches(currentPassword, user.getPasswordHash())) {
-            audit.event(event).failed().actor(user.getId()).from(request)
-                    .reason("current_password_mismatch").record();
-            throw ApiException.withField(ErrorCode.CURRENT_PASSWORD_INVALID,
-                    "currentPassword", ErrorCode.CURRENT_PASSWORD_INVALID.defaultMessage());
-        }
     }
 
     private void requireCode(MfaFactor factor, String code, Instant now, AuthEventType event,
