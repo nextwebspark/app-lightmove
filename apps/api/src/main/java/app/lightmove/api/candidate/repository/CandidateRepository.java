@@ -7,6 +7,8 @@ import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.model.CandidateStatusCount;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
@@ -288,6 +290,13 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             nativeQuery = true)
     List<SearchMatchedCandidate> findSearchMatches(UUID projectId, String pattern, boolean includeStaffContent,
                                                    boolean clientVisibleOnly, String triageStatus);
+
+    /** The one place an audience becomes what the search may read: notes and tags for staff alone. */
+    default List<SearchMatchedCandidate> findSearchMatches(UUID projectId, TriageCompanyStatus stage, SearchText search,
+                                                           ProjectAudience audience) {
+        return findSearchMatches(projectId, search.likePattern(), audience == ProjectAudience.STAFF,
+                audience.clientVisibleOnly(), stage == null ? null : stage.name());
+    }
 
     /**
      * Ids of the mandate's triaged companies with a mapped executive at one of these status keys — the

@@ -45,8 +45,7 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     @Override
     public Set<UUID> triageCompanyIdsWithExecutivesMatching(UUID projectId, TriageCompanyStatus stage,
                                                             SearchText search, ProjectAudience audience) {
-        return candidates.findSearchMatches(projectId, search.likePattern(), audience == ProjectAudience.STAFF,
-                        audience.clientVisibleOnly(), stage.name()).stream()
+        return candidates.findSearchMatches(projectId, stage, search, audience).stream()
                 .map(SearchMatchedCandidate::getTriageCompanyId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());

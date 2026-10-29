@@ -309,7 +309,8 @@ function TriageStage() {
 
   // A keystroke should narrow the list, not fire a request per character.
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    // Trimmed once here, so a trailing space neither refetches the same page under a new key nor reads as a search.
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -330,6 +331,7 @@ function TriageStage() {
       setPage(0);
       // A tick made on one reading of the stage must not ride silently into another.
       companySelection.clear();
+      setPipelineSelection(new Set());
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [debouncedSearch, debouncedQuery, debouncedExecutiveQuery, executiveStatuses.join(","), sort],
@@ -602,8 +604,8 @@ function TriageStage() {
    */
   const geocodingPending = talentMap.data?.geocodingPending ?? 0;
   const talentMapLocations = useQuery({
-    queryKey: talentMapApi.TALENT_MAP_LOCATIONS_KEY(project.id, stage.status),
-    queryFn: ({ signal }) => talentMapApi.getTalentMapLocations(project.id, stage.status, signal),
+    queryKey: talentMapApi.TALENT_MAP_LOCATIONS_KEY(project.id, stage.status, debouncedSearch),
+    queryFn: ({ signal }) => talentMapApi.getTalentMapLocations(project.id, stage.status, debouncedSearch, signal),
     enabled: view === "map" && geocodingPending > 0,
     refetchInterval: GEOCODING_POLL_MS,
   });

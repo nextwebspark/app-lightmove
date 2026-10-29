@@ -36,8 +36,7 @@ public class CandidateSearchService {
     @Transactional(readOnly = true)
     public CandidateSearchMatches matchesOf(UUID workspaceId, UUID projectId, TriageCompanyStatus stage,
                                             SearchText search, ProjectAudience audience) {
-        List<SearchMatchedCandidate> matched = candidates.findSearchMatches(projectId, search.likePattern(),
-                audience == ProjectAudience.STAFF, audience.clientVisibleOnly(), stage == null ? null : stage.name());
+        List<SearchMatchedCandidate> matched = candidates.findSearchMatches(projectId, stage, search, audience);
         return new CandidateSearchMatches(stage,
                 matched.stream().map(SearchMatchedCandidate::getId).collect(Collectors.toSet()),
                 matched.stream().map(SearchMatchedCandidate::getTriageCompanyId).collect(Collectors.toSet()),

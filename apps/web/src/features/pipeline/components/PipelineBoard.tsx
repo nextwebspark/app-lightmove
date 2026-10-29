@@ -42,7 +42,7 @@ export function PipelineBoard({
   onMove,
   onToggleVisible,
   onOpenNextAction,
-  inactiveOpen = true,
+  inactiveOpen,
   onInactiveOpenChange,
 }: {
   projectId: string;
@@ -56,8 +56,8 @@ export function PipelineBoard({
   onToggleVisible: (row: PipelineRow) => void;
   onOpenNextAction: (row: PipelineRow) => void;
   /** Whether the Inactive column is unfolded; the toolbar's Advanced menu switches it too. */
-  inactiveOpen?: boolean;
-  onInactiveOpenChange?: (open: boolean) => void;
+  inactiveOpen: boolean;
+  onInactiveOpenChange: (open: boolean) => void;
 }) {
   const [dragging, setDragging] = useState<PipelineRow | null>(null);
   const [over, setOver] = useState<DropSlot | null>(null);
@@ -241,7 +241,7 @@ export function PipelineBoard({
             <button
               type="button"
               aria-expanded={inactiveOpen}
-              onClick={() => onInactiveOpenChange?.(!inactiveOpen)}
+              onClick={() => onInactiveOpenChange(!inactiveOpen)}
               className="flex items-center gap-1.5 text-start"
             >
               <Icon

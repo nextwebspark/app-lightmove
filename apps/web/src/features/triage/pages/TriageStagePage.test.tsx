@@ -1841,7 +1841,7 @@ describe("TriageStagePage", () => {
       // The poll's answer lands in the map's own page: the pin appears and the notice goes.
       await waitFor(() => expect(screen.getByRole("button", { name: "pin: ACWA Power" })).toBeInTheDocument());
       expect(screen.queryByText(/Locating/)).not.toBeInTheDocument();
-      expect(talentMapApi.getTalentMapLocations).toHaveBeenCalledWith("p1", "inUniverse", expect.anything());
+      expect(talentMapApi.getTalentMapLocations).toHaveBeenCalledWith("p1", "inUniverse", "", expect.anything());
       // The whole stage was read once; the rest was points.
       expect(vi.mocked(talentMapApi.getTalentMap)).toHaveBeenCalledTimes(1);
     });

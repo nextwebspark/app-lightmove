@@ -28,8 +28,9 @@ export function getTalentMap(
   return request<TalentMapPage>(`/projects/${projectId}/talent-map?${params}`, { signal });
 }
 
-export const TALENT_MAP_LOCATIONS_KEY = (projectId: string, status: TriageCompanyStatus) =>
-  [...TALENT_MAP_KEY_PREFIX(projectId), status, "locations"] as const;
+// A key of its own length, so a search for "locations" never lands on the poll's entry.
+export const TALENT_MAP_LOCATIONS_KEY = (projectId: string, status: TriageCompanyStatus, search = "") =>
+  [...TALENT_MAP_KEY_PREFIX(projectId), status, "locations", search.trim()] as const;
 
 /**
  * The same stage with the companies and the people left off — what the screen polls while the server
@@ -39,12 +40,12 @@ export const TALENT_MAP_LOCATIONS_KEY = (projectId: string, status: TriageCompan
 export function getTalentMapLocations(
   projectId: string,
   status: TriageCompanyStatus,
+  search: string,
   signal?: AbortSignal,
 ): Promise<TalentMapLocations> {
-  return request<TalentMapLocations>(
-    `/projects/${projectId}/talent-map/locations?status=${status}`,
-    { signal },
-  );
+  const params = new URLSearchParams({ status });
+  if (search.trim()) params.set("search", search.trim());
+  return request<TalentMapLocations>(`/projects/${projectId}/talent-map/locations?${params}`, { signal });
 }
 
 export const TALENT_MAP_CONFIG_KEY = ["talentMap", "config"] as const;
