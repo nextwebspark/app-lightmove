@@ -6,6 +6,7 @@ import app.lightmove.api.core.resilience.model.VendorClientSpec;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
+import app.lightmove.api.core.resilience.service.VendorErrorCodes;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.ProviderCredentials;
@@ -149,25 +150,30 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
                 textOrNull(answer.get("refresh_token")), scopes);
     }
 
-    /** RFC 6749 §5.2's {@code error}, read off the body; whatever else the body says is never kept. */
+    /**
+     * RFC 6749 §5.2's {@code error}, read off the body, with Entra's {@code AADSTS} rule number where it gives one
+     * ({@link VendorErrorCodes}); whatever else the body says is never kept.
+     */
     static RuntimeException refusalOrFailure(VendorCall call, ClientHttpResponse response) throws IOException {
+        byte[] bytes = response.getBody().readAllBytes();
         String error = null;
         try {
-            JsonNode body = JSON.readTree(response.getBody());
+            JsonNode body = JSON.readTree(bytes);
             error = body == null ? null : textOrNull(body.get("error"));
         } catch (JacksonException unreadable) {
             // Not a token endpoint's answer; classified by its status below.
         }
+        String code = VendorErrorCodes.codeOrNull(bytes);
         if (error != null && REFUSALS.contains(error)) {
-            return new ProviderGrantRefused(error);
+            return new ProviderGrantRefused(code == null ? error : code);
         }
         // A token endpoint's 401 is always about the client: it authenticates nobody else.
         if ((error != null && APP_REFUSALS.contains(error)) || response.getStatusCode().value() == 401) {
-            return new ProviderAppUnavailable(error == null ? "401" : error);
+            return new ProviderAppUnavailable(code != null ? code : error == null ? "401" : error);
         }
         HttpStatus status = HttpStatus.resolve(response.getStatusCode().value());
         return new VendorException(call, status == null ? VendorFailureKind.BAD_REQUEST
-                : VendorFailureKind.of(status), null);
+                : VendorFailureKind.of(status), code, null);
     }
 
     /** A template, so the admin-typed tenant is encoded as one path segment and can never steer the request. */

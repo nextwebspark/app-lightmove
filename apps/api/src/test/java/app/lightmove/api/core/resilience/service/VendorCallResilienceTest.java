@@ -201,6 +201,49 @@ class VendorCallResilienceTest {
     }
 
     @Test
+    @DisplayName("a call answered with no body still keeps the vendor's code for its refusal")
+    void aBodilessCallKeepsTheVendorsErrorCode() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"code\":\"ErrorMessageSubmissionBlocked\",\"message\":\"Cannot send\"}}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isEqualTo("ErrorMessageSubmissionBlocked");
+    }
+
+    @Test
+    @DisplayName("a token endpoint's refusal keeps its OAuth code and Entra's rule number, never the description")
+    void aTokenRefusalKeepsItsOAuthAndEntraCodes() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":\"invalid_client\",\"error_description\":\"AADSTS7000215: Invalid client secret "
+                        + "provided for jane@retailco.example\",\"error_codes\":[7000215]}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (invalid_client AADSTS7000215)")
+                .hasMessageNotContaining("jane@retailco.example");
+    }
+
+    @Test
+    @DisplayName("a refusal with no code says what came back instead, and never its words")
+    void aRefusalWithNoCodeIsDescribedByItsShape() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("<html><body>Bad Request for jane@retailco.example</body></html>")
+                .contentType(MediaType.TEXT_HTML)
+                .header("request-id", "0f6c1d2e-1111-2222-3333-444455556666"));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (no code; not JSON, 63 bytes; text/html; "
+                        + "request-id 0f6c1d2e-1111-2222-3333-444455556666)")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isNull();
+    }
+
+    @Test
     @DisplayName("a code field holding words rather than a code is left out")
     void aCodeFieldHoldingWordsIsLeftOut() {
         vendor.expect(once(), requestTo(LOOKUP_URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
@@ -249,6 +292,13 @@ class VendorCallResilienceTest {
                     .uri("/lookup")
                     .retrieve()
                     .body(Map.class));
+        }
+
+        void send() {
+            guard.call(VendorCall.of("stub", "send"), () -> client.post()
+                    .uri("/send")
+                    .retrieve()
+                    .toBodilessEntity());
         }
     }
 
