@@ -70,6 +70,8 @@ public class PersonTimelineService {
             PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,
             PersonActivityKind.DOCUMENT_REMOVED, PersonActivityKind.DOCUMENT_VERSION_REMOVED);
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
+    private static final List<String> RETIRED_KIND_NAMES = PersonActivityKind.RETIRED.stream().map(Enum::name)
+            .toList();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
     private static final UUID NOBODY = new UUID(0, 0);
@@ -148,8 +150,8 @@ public class PersonTimelineService {
             return Map.of();
         }
         Map<UUID, Person> byId = persons.stream().collect(Collectors.toMap(Person::getId, Function.identity()));
-        return entriesOf(workspaceId, activity.findLatestOfPeople(workspaceId, byId.keySet()), byId,
-                NoteViewpoint.workspace()).stream()
+        List<PersonActivity> latest = activity.findLatestOfPeople(workspaceId, byId.keySet(), RETIRED_KIND_NAMES);
+        return entriesOf(workspaceId, latest, byId, NoteViewpoint.workspace()).stream()
                 .collect(Collectors.toMap(PersonTimelineEntryResponse::personId, Function.identity()));
     }
 

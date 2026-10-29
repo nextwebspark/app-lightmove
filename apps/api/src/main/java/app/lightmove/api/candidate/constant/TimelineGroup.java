@@ -34,15 +34,12 @@ public enum TimelineGroup implements ApiValueEnum {
     DOCUMENTS("documents", EnumSet.of(PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,
             PersonActivityKind.DOCUMENT_REMOVED, PersonActivityKind.DOCUMENT_VERSION_REMOVED));
 
-    /** Kinds still on old rows that no read shows. */
-    private static final EnumSet<PersonActivityKind> RETIRED = EnumSet.of(PersonActivityKind.NOTE_EDITED);
-
     private final String value;
     private final Set<PersonActivityKind> kinds;
 
     /** The kinds a filter shows; every live kind when no group is asked for, a 400 for a group nobody offers. */
     public static Set<PersonActivityKind> kindsOf(String group) {
         TimelineGroup chosen = ApiValueEnum.parse(TimelineGroup.class, group, null, "timeline group");
-        return chosen == null ? EnumSet.complementOf(RETIRED) : chosen.kinds();
+        return chosen == null ? EnumSet.complementOf(EnumSet.copyOf(PersonActivityKind.RETIRED)) : chosen.kinds();
     }
 }

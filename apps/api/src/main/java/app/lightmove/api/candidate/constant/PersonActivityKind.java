@@ -1,5 +1,7 @@
 package app.lightmove.api.candidate.constant;
 
+import java.util.Set;
+
 /**
  * What happened to a person, as one line of their timeline. Stored by name and held to the same list
  * by V91's CHECK constraint, so a kind added here needs a migration beside it.
@@ -96,5 +98,8 @@ public enum PersonActivityKind {
      * A researcher applied a change a recorded call suggested; {@code reverted} marks an undo, written only while the
      * review offered one. The line names the fields and the call, never the values.
      */
-    UPDATED_FROM_CALL
+    UPDATED_FROM_CALL;
+
+    /** Kinds still on old rows that no read shows. */
+    public static final Set<PersonActivityKind> RETIRED = Set.of(NOTE_EDITED);
 }
