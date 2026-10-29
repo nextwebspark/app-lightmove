@@ -208,10 +208,6 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>
                         {{ it.destPrimaryLabel }}
                       </button>
-                      <button onClick="{{ onDestination }}" data-frame="{{ it.id }}" data-v="shortlisted" disabled="{{ it.destDisabled }}" style="{{ it.destSecondaryStyle }}" style-hover="border-color:var(--text3);color:var(--text)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
-                        {{ it.destSecondaryLabel }}
-                      </button>
                     </div>
                   </sc-if>
                 </div>
@@ -435,7 +431,7 @@ class Component extends DCLogic {
       company: mk(companyPage),
       refusal: mk({ tab: 'person', sourceUrl: 'https://www.linkedin.com/in/hessa-al-qubaisi/', personName: 'Hessa Al Qubaisi', personLocked: true, refusesPerson: 'CANDIDATE_ALREADY_MAPPED', refusal: 'CANDIDATE_ALREADY_MAPPED' }),
       linkedinOnly: mk({ tab: 'company', readError: 'LINKEDIN_ONLY' }),
-      saved: mk(Object.assign({}, companyPage, { saved: { subject: 'company', name: 'ACWA Power', landedIn: 'the shortlist' } })),
+      saved: mk(Object.assign({}, companyPage, { saved: { subject: 'company', name: 'ACWA Power', landedIn: 'the universe' } })),
       settings: mk(Object.assign({}, companyPage, { view: 'settings' })),
     };
   }

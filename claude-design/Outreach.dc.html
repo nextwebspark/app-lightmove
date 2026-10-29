@@ -271,7 +271,7 @@
                   </div>
                 </div>
                 <div style="padding-top:20px">
-                  <a href="Position.dc.html?page=pipeline&amp;drawer=candidate" style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:6px;box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
+                  <a href="Position.dc.html?page=universe&amp;view=pipeline&amp;drawer=candidate" style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:6px;box-shadow:inset 0 0 0 1px var(--line-soft);font:400 12px/1 var(--sans);color:var(--text2);text-decoration:none" style-hover="background:var(--panel2);color:var(--text)">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"></path></svg>Open persistent candidate record</a>
                 </div>
               </div>
@@ -1006,7 +1006,7 @@ class Component extends DCLogic {
       return { title, meta, dot, color: cancelled ? "var(--text3)" : "var(--text)" };
     });
     return {
-      show: true, id: r.id, name: pp.name, title: `${pp.title} · ${pp.company}`, role: pp.title, company: pp.company, breadcrumb: "OUTREACH / CANDIDATE RECORD", recordHref: "Position.dc.html?page=pipeline&drawer=candidate&cdTab=career", initials: initials(pp.name), avStyle: avatar(r.id, 40),
+      show: true, id: r.id, name: pp.name, title: `${pp.title} · ${pp.company}`, role: pp.title, company: pp.company, breadcrumb: "OUTREACH / CANDIDATE RECORD", recordHref: "Position.dc.html?page=universe&view=pipeline&drawer=candidate&cdTab=career", initials: initials(pp.name), avStyle: avatar(r.id, 40),
       status: s.statusOf[r.id] || pp.status, dnc: !!pp.dnc, first: firstOf(pp.name),
       state: STATE[st].label, pillStyle: pill(st), replied: st === "replied", repliedAt: r.note,
       booked: st === "booked", bookedAt: r.note,
@@ -1132,7 +1132,7 @@ class Component extends DCLogic {
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
     const navGroups = [
       { label: "Position", items: [navItem("Brief", I.position, "Brief.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
-      { label: "Companies", items: [navItem("In universe", I.globe, "Position.dc.html?page=universe", false, 24), navItem("Shortlisted", I.star, "Position.dc.html?page=shortlisted", false, 9), navItem("Declined", I.close, "Position.dc.html?page=declined", false, 6)] },
+      { label: "Companies", items: [navItem("In universe", I.globe, "Position.dc.html?page=universe", false, 24), navItem("Declined", I.close, "Position.dc.html?page=declined", false, 6)] },
       { label: "People", items: [navItem("Outreach", I.outreach, "Outreach.dc.html", true, 9)] },
       { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", false), navItem("Team & access", I.team, "Position.dc.html?page=team", false)] }
     ];
@@ -1210,7 +1210,7 @@ class Component extends DCLogic {
       isEmpty: s.empty, hasData: !s.empty,
       howSteps: [
         { n: "1", t: "Write the sequence", d: "A first email and up to two follow-ups, with tokens and an AI opener for each person." },
-        { n: "2", t: "Add people", d: "Tick companies on In universe or Shortlisted, or add one person from their drawer." },
+        { n: "2", t: "Add people", d: "Tick companies on In universe, or add one person from their drawer." },
         { n: "3", t: "Review, then start", d: "Read each person's first email before it goes. Replies stop the sequence." }
       ],
       kpis, seqCards, filterChips, rows,
@@ -1227,7 +1227,7 @@ class Component extends DCLogic {
       statusOptions: STATUSES.map(([value, label]) => ({ value, label })),
       replyChoices: [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })),
       drawerTabs: [["career", "Career"], ["notes", "Notes"], ["assessment", "Assessment"], ["contact", "Contact"], ["documents", "Documents"], ["timeline", "Activity"], ["positions", "Positions"]].map(([key, label]) => { const on = key === "contact";
-        return { key, label, on, href: `Position.dc.html?page=pipeline&drawer=candidate&cdTab=${key}`, style: `display:inline-flex;flex:none;align-items:center;gap:7px;white-space:nowrap;margin-bottom:-1px;padding:9px 10px;font:500 13px var(--sans);text-decoration:none;background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer` }; }),
+        return { key, label, on, href: `Position.dc.html?page=universe&view=pipeline&drawer=candidate&cdTab=${key}`, style: `display:inline-flex;flex:none;align-items:center;gap:7px;white-space:nowrap;margin-bottom:-1px;padding:9px 10px;font:500 13px var(--sans);text-decoration:none;background:none;border:none;border-bottom:2px solid ${on ? "var(--amber)" : "transparent"};color:${on ? "var(--text)" : "var(--text3)"};cursor:pointer` }; }),
       toast: s.toast,
       toggleTheme: () => { const d = !s.dark; document.documentElement.setAttribute("data-theme", d ? "dark" : "light"); try { localStorage.setItem("lm-theme", d ? "dark" : "light"); } catch (e) { /* storage unavailable */ } set({ dark: d }); },
       stop: (e) => e.stopPropagation(),

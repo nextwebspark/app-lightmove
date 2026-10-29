@@ -318,9 +318,6 @@
                       <button onClick="{{ acceptProposal }}" data-turn="{{ t.idx }}" data-status="inUniverse" title="File the selected companies as In universe" style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 11.5px var(--sans);color:var(--text2);cursor:{{ t.btnCursor }};opacity:{{ t.btnOpacity }}" style-hover="border-color:var(--ai);color:var(--text)">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z"></path></svg>Universe
                       </button>
-                      <button onClick="{{ acceptProposal }}" data-turn="{{ t.idx }}" data-status="shortlisted" title="File the selected companies as Shortlisted" style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 11.5px var(--sans);color:var(--text2);cursor:{{ t.btnCursor }};opacity:{{ t.btnOpacity }}" style-hover="border-color:var(--ai);color:var(--text)">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3 2.6 5.6 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.4l6-.8L12 3Z"></path></svg>Shortlist
-                      </button>
                       <button onClick="{{ acceptProposal }}" data-turn="{{ t.idx }}" data-status="declined" title="File the selected companies as Declined" style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 10px;font:500 11.5px var(--sans);color:var(--red);cursor:{{ t.btnCursor }};opacity:{{ t.btnOpacity }}" style-hover="border-color:var(--red)">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"></path></svg>Decline
                       </button>
@@ -762,7 +759,6 @@ class Component extends DCLogic {
           group('Role', [item('Brief', I.position, 'Position.dc.html'), item('Strategy', I.strategy, 'Strategy.dc.html', { active: true })]),
           group('Companies', [
             item('In universe', I.globe, 'Position.dc.html?page=universe', { count: 24 }),
-            item('Shortlisted', I.star, 'Position.dc.html?page=shortlisted', { count: 9 }),
             item('Declined', I.close, 'Position.dc.html?page=declined', { count: 6 }),
           ]),
           group('People', [item('Outreach', I.outreach, 'Position.dc.html?page=outreach')]),

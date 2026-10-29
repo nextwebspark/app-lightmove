@@ -115,62 +115,76 @@
     <main style="flex:1;min-width:0;overflow-y:auto;border-radius:10px;border:1px solid var(--line);background:var(--panel)">
       <sc-if value="{{ isStage }}" hint-placeholder-val="{{ true }}">
         <div data-screen-label="{{ stageScreenLabel }}" style="display:flex;flex-direction:column;height:100%;min-height:0;width:100%">
-          <div style="min-height:44px;flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:14px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:6px 20px">
-            <sc-if value="{{ isMap }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;align-items:center;gap:8px;width:240px;flex:none;border-radius:6px;border:1px solid var(--line);padding:8px 12px">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
-                <input placeholder="Filter companies and executives..." aria-label="Filter companies and executives" style="width:100%;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
-              </div>
-            </sc-if>
-            <sc-if value="{{ mapOffered }}" hint-placeholder-val="{{ true }}">
-              <div role="radiogroup" aria-label="View" style="display:inline-flex;flex:none;align-items:center;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:2px">
-                <button onClick="{{ setViewTable }}" style="{{ segTableStyle }}">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.table }}"></path></svg>Table</button>
-                <button onClick="{{ setViewMap }}" style="{{ segMapStyle }}">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ ic.globe }}"></path></svg>Map</button>
-              </div>
-            </sc-if>
-            <div style="display:flex;align-items:center;gap:12px;margin-left:auto">
-              <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
-                <div style="position:relative">
-                  <button onClick="{{ toggleColMenu }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;padding:8px;font:400 13px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel);color:var(--text)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.columns }}"></path></svg>Columns
-                    <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ true }}"><span style="border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ hiddenCount }} hidden</span></sc-if>
-                  </button>
-                  <sc-if value="{{ colMenuOpen }}" hint-placeholder-val="{{ false }}">
-                    <div style="position:absolute;right:0;top:40px;z-index:40;width:220px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
-                      <div style="display:flex;flex-direction:column;max-height:60vh;overflow-y:auto">
-                        <sc-for list="{{ pickerCols }}" as="pc" hint-placeholder-count="12">
-                          <button onClick="{{ toggleCol }}" data-id="{{ pc.id }}" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:5px;background:none;border:none;cursor:pointer;font:400 12.5px var(--sans);color:var(--text2);text-align:left" style-hover="background:var(--panel2);color:var(--text)">
-                            <span style="{{ pc.boxStyle }}"><sc-if value="{{ pc.on }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4"><path d="{{ ic.check }}"></path></svg></sc-if></span>{{ pc.label }}</button>
-                        </sc-for>
-                        <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
-                        <button onClick="{{ resetCols }}" style="border-radius:5px;padding:7px 4px;text-align:left;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Reset to default</button>
-                      </div>
-                    </div>
-                  </sc-if>
-                </div>
+          <div style="min-height:52px;flex:none;display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:8px;border-bottom:1px solid var(--line-soft);background:var(--panel2);padding:8px 20px">
+            <div style="display:flex;align-items:center;gap:8px;flex:1 1 260px;min-width:220px;max-width:380px;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:7px 10px 7px 12px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
+              <input value="{{ searchQuery }}" onChange="{{ setSearchQuery }}" placeholder="{{ searchPlaceholder }}" aria-label="{{ searchPlaceholder }}" style="width:100%;min-width:0;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
+              <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ false }}">
+                <button onClick="{{ clearSearch }}" aria-label="Clear search" style="display:grid;place-items:center;flex:none;width:20px;height:20px;border-radius:4px;border:none;background:none;padding:0;color:var(--text3);cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="{{ ic.close }}"></path></svg></button>
               </sc-if>
-              <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.exportOut }}"></path></svg>Export</button>
+            </div>
+            <sc-if value="{{ viewsOffered }}" hint-placeholder-val="{{ true }}">
+              <div role="radiogroup" aria-label="View" style="display:inline-flex;flex:none;align-items:center;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:2px">
+                <sc-for list="{{ viewOpts }}" as="v" hint-placeholder-count="3">
+                  <button role="radio" aria-checked="{{ v.on }}" data-id="{{ v.key }}" onClick="{{ setView }}" style="{{ v.style }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="{{ v.icon }}"></path></svg>{{ v.label }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+            <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+              <sc-if value="{{ canFind }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ findExecutives }}" title="{{ findTitle }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sparkle }}"></path></svg>Find executives</button>
+              </sc-if>
               <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
-                <sc-if value="{{ isTable }}" hint-placeholder-val="{{ true }}">
-                  <button onClick="{{ openColumnsDialog }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.settings }}"></path></svg>Columns</button>
-                </sc-if>
-                <sc-if value="{{ canImport }}" hint-placeholder-val="{{ true }}">
-                  <button onClick="{{ openImport }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.importInto }}"></path></svg>Import</button>
-                </sc-if>
-                <sc-if value="{{ canOutreach }}" hint-placeholder-val="{{ true }}">
-                  <a href="Outreach.dc.html?dialog=enrol" title="Add the ticked companies' executives to an outreach sequence" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</a>
-                </sc-if>
                 <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
                 <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.plus }}"></path></svg>Add company</button>
               </sc-if>
+              <div style="position:relative">
+                <button onClick="{{ toggleAdv }}" aria-haspopup="menu" aria-expanded="{{ advOpen }}" style="{{ advBtnStyle }}" style-hover="border-color:var(--text3);color:var(--text)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sliders }}"></path></svg>Advanced
+                  <sc-if value="{{ advDot }}" hint-placeholder-val="{{ false }}"><span title="{{ advDotTitle }}" style="width:6px;height:6px;flex:none;border-radius:50%;background:var(--sky)"></span></sc-if>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" style="{{ advChevStyle }}"><path d="{{ ic.chevronDown }}"></path></svg></button>
+                <sc-if value="{{ advOpen }}" hint-placeholder-val="{{ false }}">
+                  <div onClick="{{ closeAdv }}" style="position:fixed;inset:0;z-index:39"></div>
+                  <div role="menu" aria-label="Advanced" style="position:absolute;right:0;top:calc(100% + 6px);z-index:40;width:288px;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:6px;box-shadow:var(--shadow)">
+                    <sc-if value="{{ advMenu }}" hint-placeholder-val="{{ true }}">
+                      <sc-for list="{{ advItems }}" as="a" hint-placeholder-count="6">
+                        <sc-if value="{{ a.isHeading }}"><div style="padding:8px 8px 4px;font:600 10.5px var(--sans);text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">{{ a.label }}</div></sc-if>
+                        <sc-if value="{{ a.isDivider }}"><div style="height:1px;background:var(--line-soft);margin:6px 4px"></div></sc-if>
+                        <sc-if value="{{ a.isItem }}">
+                          <button role="{{ a.role }}" aria-checked="{{ a.checked }}" aria-disabled="{{ a.disabled }}" data-id="{{ a.key }}" onClick="{{ advAction }}" style="{{ a.style }}" style-hover="{{ a.hover }}">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ a.icon }}"></path></svg>
+                            <span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                              <span>{{ a.label }}</span>
+                              <sc-if value="{{ a.hasSub }}"><span style="font:400 11px var(--sans);color:var(--text3)">{{ a.sub }}</span></sc-if>
+                            </span>
+                            <sc-if value="{{ a.hasMeta }}"><span style="flex:none;border-radius:4px;background:var(--sky-dim);padding:2px 5px;font:700 10px var(--sans);color:var(--sky)">{{ a.meta }}</span></sc-if>
+                            <sc-if value="{{ a.isToggle }}"><span style="{{ a.switchStyle }}"><span style="{{ a.knobStyle }}"></span></span></sc-if>
+                            <sc-if value="{{ a.hasChevron }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;margin-top:1px;color:var(--text3)"><path d="{{ ic.chevronRight }}"></path></svg></sc-if>
+                          </button>
+                        </sc-if>
+                      </sc-for>
+                    </sc-if>
+                    <sc-if value="{{ advColumns }}" hint-placeholder-val="{{ false }}">
+                      <button onClick="{{ advBack }}" style="display:flex;width:100%;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;border:none;background:none;cursor:pointer;font:600 12.5px var(--sans);color:var(--text)" style-hover="background:var(--panel2)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.back }}"></path></svg>Show / hide columns</button>
+                      <div style="height:1px;background:var(--line-soft);margin:4px 4px 6px"></div>
+                      <div style="display:flex;flex-direction:column;max-height:56vh;overflow-y:auto">
+                        <sc-for list="{{ pickerCols }}" as="pc" hint-placeholder-count="12">
+                          <button onClick="{{ toggleCol }}" data-id="{{ pc.id }}" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:5px;background:none;border:none;cursor:pointer;font:400 12.5px var(--sans);color:var(--text2);text-align:left" style-hover="background:var(--panel2);color:var(--text)">
+                            <span style="{{ pc.boxStyle }}"><sc-if value="{{ pc.on }}" hint-placeholder-val="{{ true }}"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.4"><path d="{{ ic.check }}"></path></svg></sc-if></span>{{ pc.label }}</button>
+                        </sc-for>
+                        <div style="height:1px;background:var(--line-soft);margin:6px 4px"></div>
+                        <button onClick="{{ resetCols }}" style="border-radius:5px;padding:7px 8px;text-align:left;font:500 12px var(--sans);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="background:var(--panel2);color:var(--text)">Reset to default</button>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
             </div>
           </div>
 
@@ -397,6 +411,100 @@
                 </div>
               </div>
             </div>
+          </sc-if>
+          <sc-if value="{{ isPipelineView }}" hint-placeholder-val="{{ false }}">
+          <div data-screen-label="Companies · In universe · Pipeline" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;padding:14px 20px 16px;box-sizing:border-box">
+            <div style="flex:1;min-height:0;display:flex;align-items:stretch;gap:8px;overflow-x:auto;scrollbar-width:none">
+              <sc-for list="{{ boardCols }}" as="col" hint-placeholder-count="5">
+                <div data-id="{{ col.key }}" onDragOver="{{ boardDragOver }}" onDrop="{{ boardDrop }}" style="{{ col.colStyle }}">
+                  <div style="flex:none;position:relative;display:flex;flex-direction:column;gap:4px;padding:0 6px 10px">
+                    <div style="display:flex;align-items:center;gap:6px;min-height:18px">
+                      <span style="{{ col.dotStyle }}"></span>
+                      <span style="font:600 12.5px var(--sans);letter-spacing:-.005em;color:var(--text);white-space:nowrap">{{ col.label }}</span>
+                      <span style="flex:none;display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--line-soft);font:500 10.5px var(--mono);color:var(--text3)">{{ col.count }}</span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style="flex:none;margin-left:auto;color:var(--text3)"><path d="{{ col.icon }}"></path></svg>
+                    </div>
+                    <span style="font:400 10.5px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ col.caption }}</span>
+                    <span style="{{ col.lineStyle }}"></span>
+                  </div>
+                  <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;scrollbar-width:none">
+                    <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+                      <div draggable="true" data-id="{{ c.id }}" onDragStart="{{ boardDragStart }}" onDragEnd="{{ boardDragEnd }}" onClick="{{ openCandidate }}" style="{{ c.cardStyle }}" style-hover="border-color:var(--text3)">
+                        <div style="display:flex;align-items:center;justify-content:space-between;height:20px">
+                          <span title="Drag to move stage" style="display:grid;place-items:center;width:24px;height:20px;border-radius:5px;background:var(--line-soft);color:var(--text3);cursor:grab">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"></path></svg>
+                          </span>
+                          <button data-id="{{ c.id }}" onClick="{{ openCandidate }}" aria-label="Open {{ c.name }}" title="Open executive" style="display:grid;place-items:center;width:24px;height:20px;border-radius:5px;border:none;background:none;padding:0;color:var(--text2);cursor:pointer" style-hover="background:var(--line-soft);color:var(--text)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="{{ ic.moreH }}"></path></svg>
+                          </button>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                          <image-slot id="pipeline-photo-{{ c.id }}" shape="circle" placeholder="Photo" src="{{ c.avatarSrc }}" style="width:32px;height:32px;flex:none"></image-slot>
+                          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
+                            <span style="font:600 13.5px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
+                            <span style="font:400 11px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.title }}</span>
+                          </div>
+                        </div>
+                        <span style="font:400 12px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.company }}</span>
+                        <button data-id="{{ c.id }}" onClick="{{ openNextAction }}" title="{{ c.nextTitle }}" style="display:flex;flex-direction:column;gap:5px;min-width:0;margin:-4px;padding:4px;border-radius:6px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit" style-hover="background:var(--line-soft)">
+                          <span style="{{ c.nextTextStyle }}">{{ c.nextText }}</span>
+                          <sc-if value="{{ c.hasNext }}">
+                            <span style="display:flex;align-items:center;gap:6px;min-width:0;width:100%">
+                              <span style="{{ c.dueStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style="flex:none"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2"></path></svg>{{ c.nextDue }}</span>
+                              <span style="flex:1"></span>
+                              <sc-if value="{{ c.hasMore }}"><span style="font:500 10px var(--sans);color:var(--text3)">+{{ c.more }}</span></sc-if>
+                              <span title="{{ c.whoName }}" style="{{ c.whoStyle }}">{{ c.whoInitials }}</span>
+                            </span>
+                          </sc-if>
+                        </button>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--line-soft)">
+                          <span style="font:400 10px var(--sans);color:var(--text3);white-space:nowrap">{{ c.inStage }}</span>
+                          <button data-id="{{ c.id }}" onClick="{{ togglePipelineVisible }}" role="switch" aria-checked="{{ c.visibleOn }}" title="Toggle client visibility" style="display:inline-flex;align-items:center;gap:5px;border:none;background:none;padding:0;cursor:pointer;font:400 10px var(--sans);color:var(--text2);white-space:nowrap">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="{{ c.visIconStyle }}"><path d="{{ c.visIcon }}"></path></svg>{{ c.visLabel }}</button>
+                        </div>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ col.empty }}">
+                      <div style="display:grid;place-items:center;min-height:90px;border-radius:8px;border:1px dashed var(--line);font:400 11px var(--sans);color:var(--text3);text-align:center;padding:12px">Drop an executive here</div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="{{ boardInactiveStyle }}">
+                <button onClick="{{ toggleBoardInactive }}" aria-expanded="{{ boardInactiveOpen }}" style="display:flex;align-items:center;gap:6px;border:none;background:none;padding:0;cursor:pointer;font-family:inherit;text-align:left">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="{{ boardInactiveChevStyle }}"><path d="m6 9 6 6 6-6"></path></svg>
+                  <span style="font:600 13px var(--sans);color:var(--text2)">Inactive</span>
+                  <span style="font:400 11px var(--sans);color:var(--text3)">{{ boardInactiveCount }}</span>
+                </button>
+                <sc-if value="{{ boardInactiveOpen }}" hint-placeholder-val="{{ true }}">
+                  <span style="font:400 11px/1.5 var(--sans);color:var(--text3)">Outside the active search flow</span>
+                  <sc-for list="{{ boardInactiveGroups }}" as="g" hint-placeholder-count="2">
+                    <div data-id="{{ g.key }}" onDragOver="{{ boardDragOver }}" onDrop="{{ boardDrop }}" style="{{ g.groupStyle }}">
+                      <div style="display:flex;align-items:center;justify-content:space-between">
+                        <span style="font:500 12px var(--sans);color:var(--text2)">{{ g.label }}</span>
+                        <span style="font:400 11px var(--sans);color:var(--text3)">{{ g.count }}</span>
+                      </div>
+                      <sc-for list="{{ g.items }}" as="x" hint-placeholder-count="1">
+                        <div draggable="true" data-id="{{ x.id }}" onDragStart="{{ boardDragStart }}" onDragEnd="{{ boardDragEnd }}" onClick="{{ openCandidate }}" style="display:flex;flex-direction:column;gap:5px;padding-bottom:12px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="opacity:.8">
+                          <span style="font:500 12px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span>
+                          <span style="font:400 10.5px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.meta }}</span>
+                          <span style="font:400 10.5px var(--sans);color:var(--text3)">{{ x.outcome }}</span>
+                        </div>
+                      </sc-for>
+                      <sc-if value="{{ g.empty }}"><span style="font:400 10.5px var(--sans);color:var(--text3)">None</span></sc-if>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ boardInactiveAllInternal }}">
+                    <span style="display:flex;align-items:center;gap:6px;font:400 10px var(--sans);color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="{{ ic.eyeOff }}"></path></svg>All internal only</span>
+                  </sc-if>
+                </sc-if>
+              </div>
+            </div>
+            <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;font:400 11px var(--sans);color:var(--text3)">
+              <span>{{ boardFooter }}</span>
+              <span style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="flex:none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10ZM9 12l2 2 4-4"></path></svg>Stage moves don't send emails or change visibility</span>
+            </div>
+          </div>
           </sc-if>
         </div>
       </sc-if>
@@ -885,184 +993,6 @@
               <div style="padding:11px 16px;font:400 11px var(--mono);color:var(--text3)">Invited contacts join automatically once they accept — no action needed on your side.</div>
             </div>
           </div>
-        </div>
-      </sc-if>
-
-      <sc-if value="{{ isPipeline }}" hint-placeholder-val="{{ false }}">
-        <div data-screen-label="Pipeline" style="display:flex;flex-direction:column;height:100%;min-height:0;width:100%">
-          <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--line-soft)">
-            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:220px;max-width:420px;border-radius:7px;border:1px solid var(--line);background:var(--panel);padding:6px 12px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none;color:var(--text3)"><path d="{{ ic.search }}"></path></svg>
-              <input value="{{ pipelineQuery }}" onChange="{{ setPipelineQuery }}" placeholder="Search candidates, keywords, notes..." aria-label="Search candidates" style="width:100%;background:transparent;border:none;outline:none;font:400 13px var(--sans);color:var(--text)">
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
-              <div role="group" aria-label="Pipeline view" style="display:flex;align-items:center;gap:3px;padding:3px;border-radius:7px;border:1px solid var(--line);background:var(--panel2)">
-                <button data-id="list" onClick="{{ setPipelineView }}" aria-pressed="{{ pipeIsList }}" style="{{ pipeListBtnStyle }}">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="flex:none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg>List</button>
-                <button data-id="board" onClick="{{ setPipelineView }}" aria-pressed="{{ pipeIsBoard }}" style="{{ pipeBoardBtnStyle }}">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="flex:none"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM9 3v18M15 3v18"></path></svg>Board</button>
-              </div>
-              <a href="Outreach.dc.html?dialog=enrol" title="Add the ticked executives to an outreach sequence" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:6px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.outreach }}"></path></svg>Add to sequence</a>
-            </div>
-          </div>
-          <sc-if value="{{ pipeIsList }}" hint-placeholder-val="{{ true }}">
-          <div class="pipe-flow-scroll" style="flex:none;display:flex;flex-wrap:nowrap;align-items:stretch;gap:8px;overflow-x:auto;padding:14px 20px 0;border-bottom:1px solid var(--line-soft);background:transparent;scrollbar-width:none">
-            <sc-for list="{{ pipelinePills }}" as="p" hint-placeholder-count="9">
-              <sc-if value="{{ p.isStage }}">
-              <button data-id="{{ p.key }}" onClick="{{ setPipelineStage }}" aria-pressed="{{ p.active }}" style="{{ p.cellStyle }}" style-hover="background:var(--line-soft)">
-                <span style="display:flex;align-items:center;gap:6px;width:100%;min-width:0">
-                  <sc-if value="{{ p.hasDot }}"><span style="{{ p.dotStyle }}"></span></sc-if>
-                  <span style="{{ p.labelStyle }}">{{ p.label }}</span>
-                  <span style="{{ p.countStyle }}">{{ p.count }}</span>
-                </span>
-                <sc-if value="{{ p.hasCaption }}"><span style="font:400 10.5px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:0;min-width:100%">{{ p.caption }}</span></sc-if>
-                <sc-if value="{{ p.hasUnderline }}"><span style="{{ p.underlineStyle }}"></span></sc-if>
-              </button>
-              </sc-if>
-            </sc-for>
-          </div>
-          </sc-if>
-          <sc-if value="{{ pipeIsBoard }}" hint-placeholder-val="{{ false }}">
-          <div data-screen-label="Pipeline board" style="flex:1;min-height:0;display:flex;flex-direction:column;gap:14px;padding:14px 20px 16px;box-sizing:border-box">
-            <div style="flex:1;min-height:0;display:flex;align-items:stretch;gap:8px;overflow-x:auto;scrollbar-width:none">
-              <sc-for list="{{ boardCols }}" as="col" hint-placeholder-count="5">
-                <div data-id="{{ col.key }}" onDragOver="{{ boardDragOver }}" onDrop="{{ boardDrop }}" style="{{ col.colStyle }}">
-                  <div style="flex:none;position:relative;display:flex;flex-direction:column;gap:4px;padding:0 6px 10px">
-                    <div style="display:flex;align-items:center;gap:6px;min-height:18px">
-                      <span style="{{ col.dotStyle }}"></span>
-                      <span style="font:600 12.5px var(--sans);letter-spacing:-.005em;color:var(--text);white-space:nowrap">{{ col.label }}</span>
-                      <span style="flex:none;display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:4px;background:var(--line-soft);font:500 10.5px var(--mono);color:var(--text3)">{{ col.count }}</span>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style="flex:none;margin-left:auto;color:var(--text3)"><path d="{{ col.icon }}"></path></svg>
-                    </div>
-                    <span style="font:400 10.5px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ col.caption }}</span>
-                    <span style="{{ col.lineStyle }}"></span>
-                  </div>
-                  <div style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;scrollbar-width:none">
-                    <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
-                      <div draggable="true" data-id="{{ c.id }}" onDragStart="{{ boardDragStart }}" onDragEnd="{{ boardDragEnd }}" onClick="{{ openCandidate }}" style="{{ c.cardStyle }}" style-hover="border-color:var(--text3)">
-                        <div style="display:flex;align-items:center;justify-content:space-between;height:20px">
-                          <span title="Drag to move stage" style="display:grid;place-items:center;width:24px;height:20px;border-radius:5px;background:var(--line-soft);color:var(--text3);cursor:grab">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"></path></svg>
-                          </span>
-                          <button data-id="{{ c.id }}" onClick="{{ openCandidate }}" aria-label="Open {{ c.name }}" title="Open executive" style="display:grid;place-items:center;width:24px;height:20px;border-radius:5px;border:none;background:none;padding:0;color:var(--text2);cursor:pointer" style-hover="background:var(--line-soft);color:var(--text)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="{{ ic.moreH }}"></path></svg>
-                          </button>
-                        </div>
-                        <div style="display:flex;align-items:center;gap:9px;min-width:0">
-                          <image-slot id="pipeline-photo-{{ c.id }}" shape="circle" placeholder="Photo" src="{{ c.avatarSrc }}" style="width:32px;height:32px;flex:none"></image-slot>
-                          <div style="min-width:0;display:flex;flex-direction:column;gap:3px">
-                            <span style="font:600 13.5px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</span>
-                            <span style="font:400 11px var(--sans);color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.title }}</span>
-                          </div>
-                        </div>
-                        <span style="font:400 12px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.company }}</span>
-                        <button data-id="{{ c.id }}" onClick="{{ openNextAction }}" title="{{ c.nextTitle }}" style="display:flex;flex-direction:column;gap:5px;min-width:0;margin:-4px;padding:4px;border-radius:6px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit" style-hover="background:var(--line-soft)">
-                          <span style="{{ c.nextTextStyle }}">{{ c.nextText }}</span>
-                          <sc-if value="{{ c.hasNext }}">
-                            <span style="display:flex;align-items:center;gap:6px;min-width:0;width:100%">
-                              <span style="{{ c.dueStyle }}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style="flex:none"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 6v6l4 2"></path></svg>{{ c.nextDue }}</span>
-                              <span style="flex:1"></span>
-                              <sc-if value="{{ c.hasMore }}"><span style="font:500 10px var(--sans);color:var(--text3)">+{{ c.more }}</span></sc-if>
-                              <span title="{{ c.whoName }}" style="{{ c.whoStyle }}">{{ c.whoInitials }}</span>
-                            </span>
-                          </sc-if>
-                        </button>
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid var(--line-soft)">
-                          <span style="font:400 10px var(--sans);color:var(--text3);white-space:nowrap">{{ c.inStage }}</span>
-                          <button data-id="{{ c.id }}" onClick="{{ togglePipelineVisible }}" role="switch" aria-checked="{{ c.visibleOn }}" title="Toggle client visibility" style="display:inline-flex;align-items:center;gap:5px;border:none;background:none;padding:0;cursor:pointer;font:400 10px var(--sans);color:var(--text2);white-space:nowrap">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="{{ c.visIconStyle }}"><path d="{{ c.visIcon }}"></path></svg>{{ c.visLabel }}</button>
-                        </div>
-                      </div>
-                    </sc-for>
-                    <sc-if value="{{ col.empty }}">
-                      <div style="display:grid;place-items:center;min-height:90px;border-radius:8px;border:1px dashed var(--line);font:400 11px var(--sans);color:var(--text3);text-align:center;padding:12px">Drop an executive here</div>
-                    </sc-if>
-                  </div>
-                </div>
-              </sc-for>
-              <div style="{{ boardInactiveStyle }}">
-                <button onClick="{{ toggleBoardInactive }}" aria-expanded="{{ boardInactiveOpen }}" style="display:flex;align-items:center;gap:6px;border:none;background:none;padding:0;cursor:pointer;font-family:inherit;text-align:left">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="{{ boardInactiveChevStyle }}"><path d="m6 9 6 6 6-6"></path></svg>
-                  <span style="font:600 13px var(--sans);color:var(--text2)">Inactive</span>
-                  <span style="font:400 11px var(--sans);color:var(--text3)">{{ boardInactiveCount }}</span>
-                </button>
-                <sc-if value="{{ boardInactiveOpen }}" hint-placeholder-val="{{ true }}">
-                  <span style="font:400 11px/1.5 var(--sans);color:var(--text3)">Outside the active search flow</span>
-                  <sc-for list="{{ boardInactiveGroups }}" as="g" hint-placeholder-count="2">
-                    <div data-id="{{ g.key }}" onDragOver="{{ boardDragOver }}" onDrop="{{ boardDrop }}" style="{{ g.groupStyle }}">
-                      <div style="display:flex;align-items:center;justify-content:space-between">
-                        <span style="font:500 12px var(--sans);color:var(--text2)">{{ g.label }}</span>
-                        <span style="font:400 11px var(--sans);color:var(--text3)">{{ g.count }}</span>
-                      </div>
-                      <sc-for list="{{ g.items }}" as="x" hint-placeholder-count="1">
-                        <div draggable="true" data-id="{{ x.id }}" onDragStart="{{ boardDragStart }}" onDragEnd="{{ boardDragEnd }}" onClick="{{ openCandidate }}" style="display:flex;flex-direction:column;gap:5px;padding-bottom:12px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="opacity:.8">
-                          <span style="font:500 12px var(--sans);color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.name }}</span>
-                          <span style="font:400 10.5px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ x.meta }}</span>
-                          <span style="font:400 10.5px var(--sans);color:var(--text3)">{{ x.outcome }}</span>
-                        </div>
-                      </sc-for>
-                      <sc-if value="{{ g.empty }}"><span style="font:400 10.5px var(--sans);color:var(--text3)">None</span></sc-if>
-                    </div>
-                  </sc-for>
-                  <sc-if value="{{ boardInactiveAllInternal }}">
-                    <span style="display:flex;align-items:center;gap:6px;font:400 10px var(--sans);color:var(--text3)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="{{ ic.eyeOff }}"></path></svg>All internal only</span>
-                  </sc-if>
-                </sc-if>
-              </div>
-            </div>
-            <div style="flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;font:400 11px var(--sans);color:var(--text3)">
-              <span>{{ boardFooter }}</span>
-              <span style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="flex:none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10ZM9 12l2 2 4-4"></path></svg>Stage moves don't send emails or change visibility</span>
-            </div>
-          </div>
-          </sc-if>
-          <sc-if value="{{ pipeIsList }}" hint-placeholder-val="{{ true }}">
-          <div style="flex:1;min-height:0;overflow:auto">
-            <div style="display:grid;grid-template-columns:28px 20px minmax(220px,2fr) 140px 170px minmax(180px,1.2fr) 90px;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--line-soft);position:sticky;top:0;background:var(--panel);z-index:2">
-              <button onClick="{{ togglePipelineAll }}" aria-label="Select all" style="width:18px;height:18px;border-radius:5px;border:1px solid var(--line);background:none;display:grid;place-items:center;cursor:pointer;padding:0">
-                <sc-if value="{{ pipelineAllChecked }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" strokeWidth="3"><path d="M5 12h14"></path></svg></sc-if>
-              </button>
-              <div></div>
-              <div style="font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Executive</div>
-              <div style="font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Stage</div>
-              <div style="font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Dates</div>
-              <div style="font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Next action</div>
-              <div style="font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;color:var(--text3)">Visible</div>
-            </div>
-            <sc-for list="{{ pipelineRows }}" as="r" hint-placeholder-count="8">
-              <div draggable="true" data-id="{{ r.id }}" onDragStart="{{ pipeDragStart }}" onDragOver="{{ pipeDragOver }}" onDrop="{{ pipeDrop }}" onDragEnd="{{ pipeDragEnd }}" onClick="{{ openCandidate }}" style="opacity:{{ r.dragOpacity }};display:grid;grid-template-columns:28px 20px minmax(220px,2fr) 140px 170px minmax(180px,1.2fr) 90px;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid var(--line-soft);cursor:pointer" style-hover="background:var(--panel2)">
-                <button data-id="{{ r.id }}" onClick="{{ togglePipelineRow }}" aria-label="Select {{ r.name }}" style="{{ r.boxStyle }}">
-                  <sc-if value="{{ r.checked }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--on-amber)" strokeWidth="3"><path d="m5 13 4 4L19 7"></path></svg></sc-if>
-                </button>
-                <div title="Drag to reorder" aria-label="Drag to reorder" style="cursor:grab;display:grid;place-items:center;color:var(--text3)">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01"></path></svg>
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;min-width:0">
-                  <image-slot id="pipeline-photo-{{ r.id }}" shape="circle" placeholder="Photo" src="{{ r.avatarSrc }}" style="width:32px;height:32px;flex:none"></image-slot>
-                  <div style="min-width:0">
-                    <div style="font:600 13.5px var(--sans);color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</div>
-                    <div style="margin-top:2px;font:400 12px var(--sans);color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.title }} · {{ r.company }}</div>
-                  </div>
-                </div>
-                <div style="display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0">
-                  <span style="{{ r.stageBadgeStyle }}"><span style="width:6px;height:6px;border-radius:50%;background:{{ r.stageDot }};flex:none"></span>{{ r.stageLabel }}</span>
-                  <span title="Status" style="max-width:100%;padding-left:2px;font:400 11px var(--sans);color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ r.statusLabel }}</span>
-                </div>
-                <div style="font:400 11.5px var(--mono);color:var(--text3);line-height:1.6">{{ r.added }}<br>{{ r.stageDate }}</div>
-                <button data-id="{{ r.id }}" onClick="{{ openNextAction }}" title="{{ r.nextTitle }}" style="display:flex;align-items:center;gap:8px;min-width:0;margin:-4px;padding:4px;border-radius:6px;border:none;background:none;text-align:left;cursor:pointer;font-family:inherit" style-hover="background:var(--line-soft)">
-                  <sc-if value="{{ r.hasNext }}"><span title="{{ r.whoName }}" style="{{ r.whoStyle }}">{{ r.whoInitials }}</span></sc-if>
-                  <span style="min-width:0;font-size:12.5px;line-height:1.6">
-                    <span style="display:block;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.nextText }}</span>
-                    <sc-if value="{{ r.hasNext }}"><span style="display:block;font:600 11px var(--mono);color:{{ r.dueColor }}">{{ r.nextDue }}{{ r.moreLabel }}</span></sc-if>
-                  </span>
-                </button>
-                <button data-id="{{ r.id }}" onClick="{{ togglePipelineVisible }}" role="switch" aria-checked="{{ r.visibleOn }}" aria-label="Visible to client" title="{{ r.visTitle }}" style="display:inline-flex;align-items:center;gap:5px;justify-self:start;border:none;background:none;padding:4px 0;cursor:pointer;font:400 11.5px var(--sans);color:var(--text2);white-space:nowrap">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style="{{ r.visIconStyle }}"><path d="{{ r.visIcon }}"></path></svg>{{ r.visLabel }}</button>
-              </div>
-            </sc-for>
-          </div>
-          </sc-if>
         </div>
       </sc-if>
 
@@ -2813,7 +2743,7 @@
 <template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#16171a"></rect><g transform="translate(50 40) scale(.42)" fill="none" stroke="#f8fafc"><path d="M-32 10 L 0 -8 L 32 10 L 0 28 Z M-32 10 V 32 L 0 50 L 32 32 V 10 M0 28 V 50" stroke-width="3" stroke-linejoin="round"></path><path d="M0 -48 L 32 -30 L 0 -12 L -32 -30 Z" fill="#f8fafc" stroke="none"></path></g><text x="50" y="86" fill="#e2b65c" font-family="Geist,Inter,sans-serif" font-size="13" font-weight="700" letter-spacing="2" text-anchor="middle">PR</text></svg></template>
 </x-dc>
 
-<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;shortlisted&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team&quot;,&quot;outreach&quot;,&quot;pipeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;,&quot;duplicate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;page&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;universe&quot;,&quot;options&quot;:[&quot;universe&quot;,&quot;declined&quot;,&quot;reports&quot;,&quot;team&quot;,&quot;outreach&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;table&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;map&quot;,&quot;pipeline&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;company&quot;,&quot;candidate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;dialog&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;import&quot;,&quot;columns&quot;,&quot;remove&quot;,&quot;duplicate&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;importStep&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;map&quot;,&quot;options&quot;:[&quot;choose&quot;,&quot;map&quot;,&quot;done&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;empty&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;clientRep&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;chapter&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;progress&quot;,&quot;options&quot;:[&quot;progress&quot;,&quot;market&quot;,&quot;remuneration&quot;,&quot;diversity&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;reportDrawer&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;},&quot;teamModal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;none&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;member&quot;,&quot;contact&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;State&quot;},&quot;canManage&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;State&quot;}}">
 const I = {
   video: "m22 8-6 4 6 4V8ZM2 6h14v12H2z",
   calendar: "M3 5h18v16H3zM3 10h18M8 3v4M16 3v4",
@@ -2873,6 +2803,7 @@ const I = {
   trendingUp: "m3 17 6-6 4 4 8-8M15 7h6v6",
   currency: "M12 2v20M17 6.5C17 4.6 14.8 3.5 12 3.5S7 4.6 7 6.5s2.2 3 5 3.5 5 1.6 5 3.5-2.2 3-5 3-5-1.1-5-3",
   pipeline: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
+  sliders: "M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6",
   listOrdered: "M10 6h11M10 12h11M10 18h11M4 6h1v4M4 10h2M4.5 14a1.5 1.5 0 0 1 2.5-1.1Q4.5 15.5 4 18h3",
   target: "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10ZM12 11a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z",
   activity: "M22 12h-4l-3 9L9 3l-3 9H2"
@@ -2880,16 +2811,14 @@ const I = {
 
 const STAGES = {
   u: { slug: "universe", status: "inUniverse", label: "In universe", icon: I.globe, empty: "No companies in the universe yet. Filter the market on Strategy and add the ones worth a closer look, or add a company here." },
-  s: { slug: "shortlisted", status: "shortlisted", label: "Shortlisted", icon: I.star, empty: "Nothing shortlisted yet. Promote a company from In universe once it is worth mapping people at." },
   d: { slug: "declined", status: "declined", label: "Declined", icon: I.close, empty: "Nothing declined. Companies you rule out land here, and stay ruled out the next time someone adds in bulk." }
 };
-const SLUG_TO_STAGE = { universe: "u", shortlisted: "s", declined: "d" };
-const MOVE_LABELS = { u: "the universe", s: "the shortlist", d: "declined" };
+const SLUG_TO_STAGE = { universe: "u", declined: "d" };
+const MOVE_LABELS = { u: "the universe", d: "declined" };
 const DECLINE_TIP = "Decline — kept as a record that this company was assessed and ruled out";
 const MOVES = {
-  u: [{ to: "s", label: "Shortlist", icon: I.star }, { to: "d", label: "Decline", icon: I.close, tip: DECLINE_TIP }],
-  s: [{ to: "u", label: "Back to universe", icon: I.globe }, { to: "d", label: "Decline", icon: I.close, tip: DECLINE_TIP }],
-  d: [{ to: "u", label: "Back to universe", icon: I.globe }, { to: "s", label: "Shortlist", icon: I.star }]
+  u: [{ to: "d", label: "Decline", icon: I.close, tip: DECLINE_TIP }],
+  d: [{ to: "u", label: "Back to universe", icon: I.globe }]
 };
 const SOURCES = {
   strategy: { label: "Strategy", fg: "var(--sky)", bg: "var(--sky-dim)" },
@@ -3284,7 +3213,8 @@ class Component extends DCLogic {
     const department = pick("unit", "Group Finance");
     const roleTitle = pick("pos", "Chief Financial Officer");
     this.state = {
-      page: pick("page", "reports"), view: pick("view", "table"), drawer: pick("drawer", "none"), dialog: pick("dialog", "none"),
+      page: { pipeline: "universe", shortlisted: "universe" }[pick("page", "reports")] || pick("page", "reports"),
+      view: pick("page", "") === "pipeline" ? "pipeline" : pick("view", "table"), drawer: pick("drawer", "none"), dialog: pick("dialog", "none"),
       importStep: pick("importStep", "map"), empty: flag("empty", false), clientRep: flag("clientRep", false),
       chapter, teamModal: pick("teamModal", "none"), canManage: flag("canManage", true),
       dark: true, collapsed, wsMenu: false, colMenu: false,
@@ -3305,7 +3235,7 @@ class Component extends DCLogic {
       rd: reportDrawer ? (chapter === "comp" ? { kind: "disclosure", id: "e12" } : chapter === "market" ? { kind: "hub", id: "United Arab Emirates" } : null) : null,
       contactTab: "existing", stageOf: {}, removed: {}, noExecOf: {}, department, roleTitle,
       statusOf: {}, statusPickOpen: false, statusPickQuery: "", pipelineStage: "all", pipelineQuery: "", pipelineChecked: {}, pipelineVisible: {}, pipelineOrder: null, pipelineDrag: null,
-      pipelineView: "list", pipelineStageDate: {}, boardDrag: null, boardOver: null, boardInactiveOpen: true
+      pipelineView: "board", pipelineStageDate: {}, searchQuery: pick("q", ""), advOpen: flag("advanced", false), advPanel: pick("advPanel", "menu"), toolbarSelection: 0, boardDrag: null, boardOver: null, boardInactiveOpen: true
     };
   }
 
@@ -3494,6 +3424,83 @@ class Component extends DCLogic {
     }
   }
 
+  searchNeedle() { return (this.state.searchQuery || "").trim().toLowerCase(); }
+
+  companyMatches(c, q) { return !q || [c.name, c.city, c.industry, c.country].some((v) => (v || "").toLowerCase().includes(q)); }
+
+  execMatches(e, q) { return !q || [e.name, e.title, e.city, e.coName].some((v) => (v || "").toLowerCase().includes(q)); }
+
+  viewsOffered() {
+    if (SLUG_TO_STAGE[this.state.page] !== "u") return ["table"];
+    return ["table", "map"].concat(this.canWrite() ? ["pipeline"] : []);
+  }
+
+  currentView() { return this.viewsOffered().includes(this.state.view) ? this.state.view : "table"; }
+
+  advancedItems() {
+    const s = this.state;
+    const cw = this.canWrite();
+    const stageKey = SLUG_TO_STAGE[s.page];
+    const view = this.currentView();
+    const hidden = COLS.filter((c) => !c.fixed && !this.visible(c.id)).length;
+    const out = [];
+    const head = (label) => out.push({ kind: "heading", key: `h:${label}`, label });
+    const divider = () => out.push({ kind: "divider", key: `d:${out.length}` });
+    const item = (key, label, icon, o = {}) => out.push({ kind: "item", key, label, icon, ...o });
+    if (view === "table") {
+      head("Layout");
+      item("columns", "Show / hide columns", I.columns, { meta: hidden ? `${hidden} hidden` : "", chevron: true });
+      if (cw) item("manageColumns", "Manage custom columns…", I.settings, { sub: "This position's own fields" });
+    } else if (view === "map") {
+      head("Map");
+      item("mapExecs", "Executives on the map", I.candidates, { toggle: s.mapExecs });
+      item("mapPanel", "Mapping panel", I.table, { toggle: s.mapPanel });
+    } else {
+      head("Board");
+      item("inactive", "Inactive column", I.eyeOff, { toggle: s.boardInactiveOpen, sub: "Declined and ruled-out executives" });
+      if (!s.clientRep) item("stages", "Edit pipeline stages…", I.settings, { sub: "Workspace settings · admins" });
+    }
+    if (cw && stageKey === "u" && view !== "map") {
+      divider(); head("Outreach");
+      item("sequence", "Add to sequence…", I.outreach, { disabled: true, sub: view === "pipeline" ? "Tick executives on the board first" : "Tick companies first" });
+    }
+    divider(); head("Data");
+    if (cw && stageKey === "u") item("import", "Import spreadsheet…", I.importInto, { sub: "CSV or Excel · companies and people" });
+    item("export", "Export CSV", I.exportOut, { sub: this.searchNeedle() ? "This stage, as searched" : "Every row of this stage" });
+    return out;
+  }
+
+  toolbarVals(stageKey) {
+    const s = this.state;
+    const cw = this.canWrite();
+    const view = this.currentView();
+    const offered = this.viewsOffered();
+    const VIEW_DEF = { table: ["Table", I.table], map: ["Map", I.globe], pipeline: ["Pipeline", I.pipeline] };
+    const hidden = COLS.filter((c) => !c.fixed && !this.visible(c.id)).length;
+    const items = this.advancedItems().map((a) => {
+      const isItem = a.kind === "item";
+      const isToggle = isItem && a.toggle !== undefined;
+      return { key: a.key, label: a.label, icon: a.icon || "", isHeading: a.kind === "heading", isDivider: a.kind === "divider", isItem,
+        role: isToggle ? "menuitemcheckbox" : "menuitem", checked: isToggle ? String(!!a.toggle) : undefined, disabled: !!a.disabled,
+        hasSub: !!a.sub, sub: a.sub || "", hasMeta: !!a.meta, meta: a.meta || "", isToggle, hasChevron: !!a.chevron,
+        style: `display:flex;width:100%;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:6px;border:none;background:none;text-align:left;font:500 13px var(--sans);color:${a.disabled ? "var(--text3)" : "var(--text2)"};cursor:${a.disabled ? "default" : "pointer"};opacity:${a.disabled ? 0.6 : 1}`,
+        hover: a.disabled ? "" : "background:var(--panel2);color:var(--text)",
+        switchStyle: `position:relative;flex:none;margin-top:1px;width:28px;height:16px;border-radius:999px;background:${a.toggle ? "var(--amber-btn)" : "var(--line)"}`,
+        knobStyle: `position:absolute;top:2px;left:${a.toggle ? 14 : 2}px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .15s` };
+    });
+    return {
+      searchQuery: s.searchQuery, hasSearch: !!s.searchQuery,
+      searchPlaceholder: !cw ? "Search companies and executives…" : view === "pipeline" ? "Search executives, companies, notes, tags…" : "Search companies, executives, notes, tags…",
+      viewsOffered: offered.length > 1,
+      viewOpts: offered.map((key) => ({ key, label: VIEW_DEF[key][0], icon: VIEW_DEF[key][1], on: String(key === view), style: segD(key === view) })),
+      canFind: cw && stageKey === "u", findTitle: "Find executives at the ticked companies, or at the first 5 with nobody mapped",
+      advOpen: s.advOpen, advMenu: s.advPanel !== "columns", advColumns: s.advPanel === "columns", advItems: items,
+      advBtnStyle: `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid ${s.advOpen ? "var(--text3)" : "var(--line)"};background:var(--panel);padding:8px 10px 8px 12px;font:500 13px var(--sans);color:${s.advOpen ? "var(--text)" : "var(--text2)"};cursor:pointer`,
+      advChevStyle: `flex:none;color:var(--text3);transition:transform .15s;transform:rotate(${s.advOpen ? 180 : 0}deg)`,
+      advDot: view === "table" && hidden > 0, advDotTitle: `${hidden} column${hidden === 1 ? "" : "s"} hidden`
+    };
+  }
+
   stageVals(stageKey) {
     const st = STAGES[stageKey];
     const cols = COLS.filter((c) => this.visible(c.id));
@@ -3506,7 +3513,11 @@ class Component extends DCLogic {
       else people.forEach((cand) => rows.push({ company: co, cand }));
     });
     if (stageKey === "u" && !this.state.empty) E.filter((e) => !e.co).forEach((cand) => rows.push({ company: null, cand }));
-    const gridRows = rows.map((r, i) => ({ key: i, cells: cols.map((c, j) => this.cellFor(c, r, j === 0, j === cols.length - 1)) }));
+    const q = this.searchNeedle();
+    const shown = !q ? rows : rows.filter((r) => (r.company && this.companyMatches(r.company, q))
+      || (r.cand && this.execMatches(r.cand, q))
+      || (!r.cand && r.company && E.some((e) => e.co === r.company.id && this.execMatches(e, q))));
+    const gridRows = shown.map((r, i) => ({ key: i, cells: cols.map((c, j) => this.cellFor(c, r, j === 0, j === cols.length - 1)) }));
     const gridCols = cols.map((c) => (c.share > 0 ? `minmax(${c.min}px,${c.share}fr)` : `${c.min}px`)).join(" ");
     const gridMin = `${cols.reduce((s, c) => s + c.min, 0) + 12 * (cols.length - 1) + 32}px`;
     const { field, dir } = this.state.sort;
@@ -3523,7 +3534,7 @@ class Component extends DCLogic {
       stageScreenLabel: `Companies · ${st.label}`,
       gridLabel: `${st.label} companies`,
       gridRows, gridCols, gridMin, gridHeads,
-      gridEmpty: gridRows.length === 0, emptyMessage: st.empty,
+      gridEmpty: gridRows.length === 0, emptyMessage: q && rows.length ? `Nothing in ${st.label} matches “${this.state.searchQuery.trim()}”.` : st.empty,
       countLabel: companies.length === 0 ? "0 results" : `1 - ${companies.length} of ${companies.length}`,
       hiddenCount, hasHidden: hiddenCount > 0,
       pickerCols: hideable.map((c) => { const on = this.visible(c.id); return { id: c.id, label: c.label, on, boxStyle: `display:grid;width:14px;height:14px;flex:none;place-items:center;border-radius:4px;border:1px solid ${on ? "var(--sky)" : "var(--line)"};background:${on ? "var(--sky)" : "transparent"};color:#fff` }; }),
@@ -3535,7 +3546,8 @@ class Component extends DCLogic {
 
   mapVals() {
     const s = this.state;
-    const companies = this.liveCompanies("u");
+    const q = this.searchNeedle();
+    const companies = this.liveCompanies("u").filter((c) => this.companyMatches(c, q) || E.some((e) => e.co === c.id && this.execMatches(e, q)));
     const byCountry = {};
     companies.forEach((c) => { (byCountry[c.country] = byCountry[c.country] || []).push(c); });
     const countries = Object.keys(byCountry).sort((a, b) => byCountry[b].length - byCountry[a].length || a.localeCompare(b));
@@ -3726,7 +3738,7 @@ class Component extends DCLogic {
     const editLines = (arr, noun) => arr.map((x, i) => ({ value: x[0], kind: x[1] || "", verStyle: verStyle(!!x[2]), aria: `${noun[0].toUpperCase()}${noun.slice(1)} ${i + 1}`, removeAria: `Remove ${noun} ${i + 1}` }));
     const st = STATUS[this.statusOf(e)];
     return {
-      id: e.id, breadcrumb: `${this.state.page === "pipeline" ? "PIPELINE" : "IN UNIVERSE"} / CANDIDATE RECORD`,
+      id: e.id, breadcrumb: `${this.currentView() === "pipeline" ? "IN UNIVERSE · PIPELINE" : SLUG_TO_STAGE[this.state.page] === "d" ? "DECLINED" : "IN UNIVERSE"} / CANDIDATE RECORD`,
       naOpen: naOpen.map((t) => ({ id: t.id, title: t.title, icon: TASK_KIND[t.kind].icon, auto: !!t.auto, hasDetail: !!t.detail, detail: t.detail || "", due: t.due,
         hasNote: !!t.note, noteId: t.note ? t.note.id : "", noteLine: t.note ? linkedNoteLine("From", t.note) : "",
         dueStyle: `font:600 11px var(--mono);white-space:nowrap;color:${t.tone === "overdue" ? "var(--red)" : t.tone === "today" ? "var(--amber)" : "var(--text3)"}`,
@@ -4396,6 +4408,28 @@ class Component extends DCLogic {
       toggleCollapse: () => { const c = !this.state.collapsed; try { localStorage.setItem("lm-side-collapsed", c ? "1" : "0"); } catch (e) { /* storage unavailable */ } set({ collapsed: c }); },
       setViewTable: () => set({ view: "table" }),
       setViewMap: () => set({ view: "map" }),
+      setView: (e) => set({ view: id(e), advOpen: false, advPanel: "menu" }),
+      setSearchQuery: (e) => set({ searchQuery: e.target.value }),
+      clearSearch: () => set({ searchQuery: "" }),
+      toggleAdv: () => set({ advOpen: !this.state.advOpen, advPanel: "menu" }),
+      closeAdv: () => set({ advOpen: false, advPanel: "menu" }),
+      advBack: () => set({ advPanel: "menu" }),
+      findExecutives: () => this.showToast("Find executives — opens the run dialog for the ticked companies, or the first 5 with nobody mapped"),
+      advAction: (e) => {
+        const key = id(e);
+        const item = this.advancedItems().find((x) => x.key === key);
+        if (!item || item.disabled) return;
+        if (key === "columns") return set({ advPanel: "columns" });
+        if (key === "mapExecs") return set({ mapExecs: !this.state.mapExecs });
+        if (key === "mapPanel") return set({ mapPanel: !this.state.mapPanel });
+        if (key === "inactive") return set({ boardInactiveOpen: !this.state.boardInactiveOpen });
+        set({ advOpen: false, advPanel: "menu" });
+        if (key === "manageColumns") return set({ dialog: "columns" });
+        if (key === "import") return set({ dialog: "import", importStep: "choose" });
+        if (key === "export") return this.showToast("Exporting this stage as CSV — the rows the search and filters show");
+        if (key === "sequence") return this.showToast("Opens Add to sequence for the ticked executives");
+        if (key === "stages") return this.showToast("Opens Settings → Pipeline stages");
+      },
       toggleColMenu: () => set({ colMenu: !this.state.colMenu }),
       toggleCol: (e) => { const k = id(e); set({ vis: Object.assign({}, this.state.vis, { [k]: !this.visible(k) }) }); },
       resetCols: () => set({ vis: Object.assign({}, DEFAULT_VIS) }),
@@ -4618,17 +4652,18 @@ class Component extends DCLogic {
     const isStage = !!stageKey;
     const isReports = s.page === "reports";
     const collapsed = s.collapsed;
-    const counts = { u: this.liveCompanies("u").length, s: this.liveCompanies("s").length, d: this.liveCompanies("d").length };
+    const counts = { u: this.liveCompanies("u").length, d: this.liveCompanies("d").length };
     if (s.empty && stageKey) counts[stageKey] = 0;
     const navItem = (label, icon, href, active, count) => ({ label, icon, href, hasCount: count !== undefined, count,
       rowStyle: `display:flex;width:100%;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;justify-content:${collapsed ? "center" : "flex-start"};background:${active ? "var(--panel2)" : "transparent"};color:${active ? "var(--text)" : "var(--text2)"}`,
       iconStyle: `flex:none;color:${active ? "var(--amber)" : "currentColor"}` });
-    const pipelineTotal = E.filter((e) => PIPE_STATUS_OF[e.id]).length;
     const navGroups = [
       { label: "Position", items: [navItem("Brief", I.position, "Position.dc.html", false), navItem("Strategy", I.strategy, "Strategy.dc.html", false)] },
-      { label: "Market mapping", items: [navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u)] },
+      { label: "Market mapping", items: [
+        navItem(STAGES.u.label, STAGES.u.icon, `Position.dc.html?page=${STAGES.u.slug}`, stageKey === "u", counts.u),
+        navItem(STAGES.d.label, STAGES.d.icon, `Position.dc.html?page=${STAGES.d.slug}`, stageKey === "d", counts.d)
+      ] },
       { label: "CRM", items: [
-        navItem("Pipeline", I.pipeline, "Position.dc.html?page=pipeline", s.page === "pipeline", pipelineTotal),
         navItem("Outreach", I.outreach, "Outreach.dc.html", false),
         navItem("Sequences", I.listOrdered, "Position.dc.html?page=sequences", s.page === "sequences"),
         navItem("Benchmark", I.target, "Position.dc.html?page=benchmark", s.page === "benchmark"),
@@ -4636,8 +4671,8 @@ class Component extends DCLogic {
       ] },
       { label: "Project", items: [navItem("Reports", I.reports, "Position.dc.html?page=reports", isReports), navItem("Team & access", I.team, "Position.dc.html?page=team", s.page === "team")] }
     ];
-    const view = stageKey === "u" ? s.view : "table";
-    const stage = isStage ? this.stageVals(stageKey) : {};
+    const view = this.currentView();
+    const stage = isStage ? Object.assign(this.stageVals(stageKey), this.toolbarVals(stageKey)) : {};
     const map = isStage && view === "map" ? this.mapVals() : { mapPopup: { show: false }, mapLines: [], mapPins: [], mapCityLabels: [] };
     let report = {};
     if (isReports) report = s.chapter === "market" ? this.marketVals() : s.chapter === "comp" ? this.compVals() : s.chapter === "dei" ? this.deiVals() : this.progressVals();
@@ -4649,7 +4684,7 @@ class Component extends DCLogic {
     const removeCo = CO[s.removeId];
     const PLACEHOLDERS = { sequences: { t: "Sequences", i: I.listOrdered }, benchmark: { t: "Benchmark", i: I.target }, activity: { t: "Activity", i: I.activity } };
     const placeholder = PLACEHOLDERS[s.page] || { t: "", i: "" };
-    const isPipeline = s.page === "pipeline";
+    const isPipeline = isStage && view === "pipeline";
     const pipeline = isPipeline ? this.pipelineVals() : { pipelineRows: [], pipelinePills: [] };
     return Object.assign({
       ic: I, isAdmin: !s.clientRep, viewerInitials: s.clientRep ? "LM" : "YH", wsMenuOpen: s.wsMenu, callChangesOpen: Boolean(s.callChanges),
@@ -4659,7 +4694,7 @@ class Component extends DCLogic {
       themeLabel: s.dark ? "Light mode" : "Dark mode", themeIcon: s.dark ? I.sun : I.moon,
       collapseTitle: collapsed ? "Expand sidebar" : "Collapse sidebar", collapseIcon: collapsed ? I.expand : I.collapse,
       navGroups,
-      isStage, isReports, isTeam: s.page === "team", isPipeline,
+      isStage, isReports, isTeam: s.page === "team", isPipelineView: isPipeline,
       isPlaceholder: ["sequences", "benchmark", "activity"].includes(s.page),
       placeholderTitle: placeholder.t, placeholderIcon: placeholder.i,
       isTable: view === "table", isMap: view === "map", canWrite: cw, readOnly: !cw, colMenuOpen: s.colMenu,
@@ -4722,8 +4757,8 @@ class Component extends DCLogic {
   boardVals(rows) {
     const s = this.state;
     const TODAY = "2026-10-04";
-    const q = (s.pipelineQuery || "").toLowerCase();
-    const list = rows.filter((r) => !q || r.name.toLowerCase().includes(q) || r.company.toLowerCase().includes(q));
+    const q = this.searchNeedle();
+    const list = rows.filter((r) => !q || [r.name, r.title, r.company].some((v) => (v || "").toLowerCase().includes(q)));
     const tone = { overdue: "var(--red)", today: "var(--amber)" };
     const card = (r) => {
       const d = Math.max(0, daysBetween(r.stIso, TODAY));
@@ -4770,7 +4805,7 @@ class Component extends DCLogic {
 
   pipelineVals() {
     const s = this.state;
-    const baseIds = E.filter((e) => PIPE_STATUS_OF[e.id]).map((e) => e.id);
+    const baseIds = E.filter((e) => PIPE_STATUS_OF[e.id] && (!e.co || this.stageOf(CO[e.co]) === "u")).map((e) => e.id);
     const order = (s.pipelineOrder || baseIds).filter((id) => baseIds.includes(id));
     baseIds.forEach((id) => { if (!order.includes(id)) order.push(id); });
     const ordered = order.map((id) => E.find((e) => e.id === id));
