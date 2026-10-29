@@ -3,7 +3,6 @@ import { Avatar } from "../../../../components/ui/Avatar";
 import { AppIcon } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
 import type { ActivityActor, ActivityExecutive } from "../../lib/activityPresentation";
-import { CandidateAvatar } from "../CandidateAvatar";
 
 
 /** A kind's glyph, grey and plain as the app's menus draw theirs: on the spine, in a fold, in a menu, at a dialog's head. */
@@ -20,13 +19,11 @@ export function KindTile({ icon, size, className }: { icon: string; size: "dot" 
 export function ActorFace({
   actor,
   executive,
-  projectId,
   size = "sm",
   title,
 }: {
   actor: ActivityActor;
   executive: ActivityExecutive;
-  projectId: string;
   size?: "xs" | "sm" | "md" | "lg";
   title?: string;
 }) {
@@ -36,12 +33,7 @@ export function ActorFace({
   if (actor.kind === "executive") {
     return (
       <span title={title} className="inline-flex flex-none">
-        <CandidateAvatar
-          projectId={projectId}
-          candidate={executive}
-          size={size === "xs" ? "sm" : size}
-          className={size === "xs" ? "size-[18px]" : undefined}
-        />
+        {executive.face(size === "xs" ? "sm" : size, size === "xs" ? "size-[18px]" : undefined)}
       </span>
     );
   }

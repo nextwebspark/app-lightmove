@@ -24,7 +24,6 @@ interface PersonSectionProps {
   candidateId: string;
 }
 
-const TIMELINE_PREVIEW = 5;
 
 export function usePositions(projectId: string, candidateId: string, enabled = true) {
   return useQuery({
@@ -298,23 +297,4 @@ export function TabSectionHeading({ title, action }: { title: string; action?: R
       {action && <span className="ms-auto">{action}</span>}
     </div>
   );
-}
-
-/** A long history cut to its first lines, and the button that shows the rest of what is loaded. */
-export function useTimelineCut<T>(lines: readonly T[], shown = TIMELINE_PREVIEW) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const isClipped = !isExpanded && lines.length > shown;
-  return {
-    visible: isClipped ? lines.slice(0, shown) : lines,
-    isClipped,
-    seeMore: isClipped ? (
-      <button
-        type="button"
-        onClick={() => setIsExpanded(true)}
-        className="mt-3 text-note font-medium text-u-accent hover:underline"
-      >
-        See more
-      </button>
-    ) : null,
-  };
 }

@@ -784,7 +784,7 @@ describe("CandidateDrawer", () => {
     const status = await screen.findByRole("button", { name: /^Alok Kumar moved the status/ });
     expect(within(status).getByText("Engaged")).toBeInTheDocument();
     expect(within(status).getByText("Contacted")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Alok Kumar added them to this position/ })).toHaveTextContent(
+    expect(screen.getByRole("button", { name: /^Alok Kumar added them to Chief Financial Officer/ })).toHaveTextContent(
       "Captured with the plugin",
     );
     expect(screen.getByText("Start of this position's history")).toBeInTheDocument();

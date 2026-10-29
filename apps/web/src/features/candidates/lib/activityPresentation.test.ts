@@ -301,7 +301,9 @@ describe("activity presentation", () => {
 
   it("names an addition with no position as one to the candidates", () => {
     expect(verbOf(line(1, "ADDED_TO_POOL", { projectId: null }))).toBe("added them to your candidates");
-    expect(verbOf(line(1, "ADDED_TO_POOL"))).toBe("added them to this position");
+    expect(verbOf(line(1, "ADDED_TO_POOL"))).toBe("added them to Group CFO");
+    expect(verbOf(line(1, "UNMAPPED"))).toBe("removed them from Group CFO");
+    expect(verbOf(line(1, "ADDED_TO_POOL", { projectTitle: null }))).toBe("added them to this position");
   });
 
   it("formats a day the same way for a header and a card", () => {

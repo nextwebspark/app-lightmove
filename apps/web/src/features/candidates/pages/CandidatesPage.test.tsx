@@ -33,7 +33,7 @@ vi.mock("../api/poolApi", async (importOriginal) => ({
   writePoolNote: vi.fn(),
   removePoolNote: vi.fn(),
   restorePoolNote: vi.fn(),
-  getPoolTimeline: vi.fn(),
+  getPersonHistory: vi.fn(),
   getActivityFeed: vi.fn(),
   tagCatalog: vi.fn(),
   createTag: vi.fn(),
@@ -220,7 +220,7 @@ describe("CandidatesPage", () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([cfo]);
     vi.mocked(poolApi.getPerson).mockResolvedValue(record);
     vi.mocked(poolApi.getPoolNotes).mockResolvedValue([]);
-    vi.mocked(poolApi.getPoolTimeline).mockResolvedValue({ entries: [], nextCursor: null });
+    vi.mocked(poolApi.getPersonHistory).mockResolvedValue({ entries: [], truncated: false });
     vi.mocked(poolApi.getActivityFeed).mockResolvedValue({ entries: [], nextCursor: null });
   });
 
