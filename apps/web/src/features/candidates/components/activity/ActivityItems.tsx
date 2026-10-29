@@ -13,11 +13,11 @@ import {
   isOrigin,
   previewOf,
   shortDateTime,
-  toneOf,
   verbOf,
   type ActivityPreview,
   actorNameOf,
   type ActivityExecutive,
+  type TaskState,
 } from "../../lib/activityPresentation";
 import { ActorFace, KindTile } from "./ActivityVisuals";
 
@@ -29,32 +29,45 @@ interface ItemProps {
   onOpen: (entry: PersonTimelineEntry) => void;
   /** The position's readable notes by id, so a note's card can show its opening as written. */
   notes?: ReadonlyMap<string, PersonNote>;
+  /** Where each task stands now, so the card that created one shows it ticked once it is done. */
+  taskStates?: ReadonlyMap<string, TaskState>;
 }
 
-/** A content event: a card on the spine, its kind's tile beside it, who and when on top and a preview beneath. */
-export function ActivityCard({ entry, executive, projectId, now, onOpen, notes }: ItemProps) {
+const CARD = cn(
+  "group relative flex w-full flex-col gap-2 rounded-xl border bg-u-bg px-3 py-2.5 text-start transition",
+  "hover:border-u-border-strong hover:shadow-u-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring",
+);
+
+/**
+ * Every event is one card on the spine, its kind's tile beside it and who and when on top: a note or a call runs
+ * taller with its preview, a tag or a ticked task is the header and one line.
+ */
+export function ActivityCard({ entry, executive, projectId, now, onOpen, notes, taskStates }: ItemProps) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
   const preview = previewOf(entry);
   const note = preview?.type === "note" && entry.details.noteId ? notes?.get(entry.details.noteId) : undefined;
+  const taskState = entry.details.taskId ? taskStates?.get(entry.details.taskId) : undefined;
+  const aside = preview ? null : asideOf(entry);
   return (
     <li className="relative">
-      <KindTile tone={toneOf(entry)} icon={iconOf(entry)} size="tile" className="absolute -start-[42px] top-2.5 ring-3 ring-u-surface" />
+      <KindTile icon={iconOf(entry)} size="tile" className="absolute -start-[42px] top-2.5 bg-u-surface" />
       <button
         type="button"
         onClick={() => onOpen(entry)}
-        aria-label={`${name} ${verbOf(entry)}, ${fullDateTime(entry.occurredAt)}. Open details`}
-        className={cn(
-          "group relative flex w-full flex-col gap-2 rounded-xl border bg-u-bg px-3 pb-3 pt-2.5 text-start transition",
-          "hover:-translate-y-px hover:border-u-border-strong hover:shadow-u-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring",
-          isOrigin(entry) ? "border-dashed border-u-border-strong" : "border-u-border",
-        )}
+        aria-label={`${name} ${verbOf(entry)}${aside ? `, ${aside}` : ""}, ${fullDateTime(entry.occurredAt)}. Open details`}
+        className={cn(CARD, isOrigin(entry) ? "border-dashed border-u-border-strong" : "border-u-border")}
       >
         <WhoAndWhen entry={entry} executive={executive} projectId={projectId} now={now} />
-        {note && preview?.type === "note" ? (
-          <NoteQuickView note={note} aboutThePerson={preview.aboutThePerson} />
-        ) : (
-          preview && <PreviewOf preview={preview} />
+        {(aside || preview) && (
+          <span className="block min-w-0 ps-8">
+            {aside && <span className="text-note text-u-text2">{aside}</span>}
+            {note && preview?.type === "note" ? (
+              <NoteQuickView note={note} aboutThePerson={preview.aboutThePerson} />
+            ) : (
+              preview && <PreviewOf preview={preview} taskState={taskState} />
+            )}
+          </span>
         )}
         <span className="pointer-events-none absolute bottom-2.5 end-2.5 text-u-text3 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
           <Icon d={ICONS.chevronRight} size={14} />
@@ -64,42 +77,27 @@ export function ActivityCard({ entry, executive, projectId, now, onOpen, notes }
   );
 }
 
-/** A minor change: one slim line on the spine, still a face, a name and a time. */
-export function ActivityRow({ entry, executive, projectId, now, onOpen, nested = false }: ItemProps & { nested?: boolean }) {
-  const actor = actorOf(entry);
-  const name = actorNameOf(actor, executive);
+/** One change inside a fold's card: its kind, what it was and when, opening read-only like any card. */
+function FoldLine({ entry, executive, onOpen }: Pick<ItemProps, "entry" | "executive" | "onOpen">) {
+  const name = actorNameOf(actorOf(entry), executive);
   const aside = asideOf(entry);
-  const time = cardTimeOf(entry.occurredAt, now);
-  const row = (
-    <button
-      type="button"
-      onClick={() => onOpen(entry)}
-      aria-label={`${name} ${verbOf(entry)}${aside ? `, ${aside}` : ""}, ${fullDateTime(entry.occurredAt)}. Open details`}
-      className={cn(
-        "flex w-full min-w-0 items-center gap-2 rounded-lg py-1.5 text-start transition hover:bg-u-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring",
-        nested ? "px-2" : "-ms-2 px-2",
-      )}
-    >
-      {nested && <KindTile tone={toneOf(entry)} icon={iconOf(entry)} size="dot" className="size-[18px]" />}
-      <ActorFace actor={actor} executive={executive} projectId={projectId} size="xs" />
-      <span className="min-w-0 flex-1 truncate text-body text-u-text2">
-        <span className="font-semibold text-u-text">{name}</span> {verbOf(entry)}
-        {aside && <span className="text-u-text3"> · {aside}</span>}
-      </span>
-      <time
-        dateTime={entry.occurredAt}
-        title={fullDateTime(entry.occurredAt)}
-        className={cn("flex-none font-mono text-meta", time.isRecent ? "text-u-accent" : "text-u-text3")}
-      >
-        {time.text}
-      </time>
-    </button>
-  );
-  if (nested) return <li>{row}</li>;
   return (
-    <li className="relative">
-      <KindTile tone={toneOf(entry)} icon={iconOf(entry)} size="dot" className="absolute -start-[38px] top-1 ring-3 ring-u-surface" />
-      {row}
+    <li>
+      <button
+        type="button"
+        onClick={() => onOpen(entry)}
+        aria-label={`${name} ${verbOf(entry)}${aside ? `, ${aside}` : ""}, ${fullDateTime(entry.occurredAt)}. Open details`}
+        className="flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 text-start transition hover:bg-u-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring"
+      >
+        <KindTile icon={iconOf(entry)} size="dot" />
+        <span className="min-w-0 flex-1 truncate text-note text-u-text2">
+          {verbOf(entry).charAt(0).toUpperCase() + verbOf(entry).slice(1)}
+          {aside && <span className="text-u-text3"> · {aside}</span>}
+        </span>
+        <time dateTime={entry.occurredAt} title={fullDateTime(entry.occurredAt)} className="flex-none font-mono text-meta text-u-text3">
+          {clockOf(entry.occurredAt)}
+        </time>
+      </button>
     </li>
   );
 }
@@ -118,50 +116,52 @@ export function ActivityFold({
   const span = `${clockOf(last.occurredAt)}–${clockOf(first.occurredAt)}`;
   return (
     <li className="relative">
-      <KindTile tone="neutral" icon={ICONS.position} size="dot" className="absolute -start-[38px] top-1 ring-3 ring-u-surface" />
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        onClick={onToggle}
-        className="-ms-2 flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-start transition hover:bg-u-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring"
-      >
-        <ActorFace actor={actor} executive={rest.executive} projectId={rest.projectId} size="xs" />
-        <span className="min-w-0 flex-1 truncate text-body text-u-text2">
-          <span className="font-semibold text-u-text">{name}</span> made {entries.length} changes
-        </span>
-        <span className="flex flex-none" aria-hidden="true">
-          {entries.slice(0, 4).map((entry, index) => (
-            <KindTile
-              key={entry.id}
-              tone={toneOf(entry)}
-              icon={iconOf(entry)}
-              size="dot"
-              className={cn("size-[18px] ring-2 ring-u-surface", index > 0 && "-ms-1")}
-            />
-          ))}
-        </span>
-        <time dateTime={first.occurredAt} title={fullDateTime(first.occurredAt)} className="flex-none font-mono text-meta text-u-text3">
-          {span}
-        </time>
-        <span className={cn("flex-none text-u-text3 transition-transform", isOpen && "rotate-180")}>
-          <Icon d={ICONS.chevronDown} size={14} />
-        </span>
-      </button>
-      {isOpen && (
-        <ul className="my-0.5 flex flex-col border-s border-dashed border-u-border-strong ps-3" aria-label={`${name}'s ${entries.length} changes`}>
-          {entries.map((entry) => (
-            <ActivityRow key={entry.id} entry={entry} nested {...rest} />
-          ))}
-        </ul>
-      )}
+      <KindTile icon={ICONS.position} size="tile" className="absolute -start-[42px] top-2.5 bg-u-surface" />
+      <div className="rounded-xl border border-u-border bg-u-bg transition hover:border-u-border-strong">
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-label={`${name} made ${entries.length} changes, ${span}`}
+          onClick={onToggle}
+          className="flex w-full min-w-0 flex-col gap-2 rounded-xl px-3 py-2.5 text-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-u-accent-ring"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <ActorFace actor={actor} executive={rest.executive} projectId={rest.projectId} size="sm" title={name} />
+            <span className="min-w-0 flex-1 text-body text-u-text2">
+              <span className="font-semibold text-u-text">{name}</span> made {entries.length} changes
+            </span>
+            <time dateTime={first.occurredAt} title={fullDateTime(first.occurredAt)} className="flex-none font-mono text-meta text-u-text3">
+              {span}
+            </time>
+          </span>
+          <span className="flex items-center gap-1.5 ps-8 text-note text-u-text3">
+            {isOpen ? "Hide changes" : summaryOf(entries)}
+            <Icon d={ICONS.chevronDown} size={14} className={cn("flex-none transition-transform", isOpen && "rotate-180")} />
+          </span>
+        </button>
+        {isOpen && (
+          <ul className="mx-2 mb-2 flex flex-col border-t border-u-border pt-1.5" aria-label={`${name}'s ${entries.length} changes`}>
+            {entries.map((entry) => (
+              <FoldLine key={entry.id} entry={entry} executive={rest.executive} onOpen={rest.onOpen} />
+            ))}
+          </ul>
+        )}
+      </div>
     </li>
   );
+}
+
+/** "Tagged them, completed a task and 2 more": what a fold holds, in the order it happened. */
+function summaryOf(entries: readonly PersonTimelineEntry[]): string {
+  const verbs = [...new Set([...entries].reverse().map((entry) => verbOf(entry)))];
+  const named = verbs.slice(0, 2).join(", ");
+  const sentence = verbs.length > 2 ? `${named} and ${verbs.length - 2} more` : named;
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
 function WhoAndWhen({ entry, executive, projectId, now }: Omit<ItemProps, "onOpen">) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
-  const time = cardTimeOf(entry.occurredAt, now);
   return (
     <span className="flex min-w-0 items-center gap-2">
       <ActorFace actor={actor} executive={executive} projectId={projectId} size="sm" title={name} />
@@ -171,9 +171,9 @@ function WhoAndWhen({ entry, executive, projectId, now }: Omit<ItemProps, "onOpe
       <time
         dateTime={entry.occurredAt}
         title={fullDateTime(entry.occurredAt)}
-        className={cn("flex-none font-mono text-meta", time.isRecent ? "text-u-accent" : "text-u-text3")}
+        className="flex-none font-mono text-meta text-u-text3"
       >
-        {time.text}
+        {cardTimeOf(entry.occurredAt, now)}
       </time>
     </span>
   );
@@ -210,7 +210,7 @@ function NoteQuickView({ note, aboutThePerson }: { note: PersonNote; aboutThePer
   );
 }
 
-export function PreviewOf({ preview }: { preview: ActivityPreview }) {
+export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPreview; taskState?: TaskState }) {
   switch (preview.type) {
     case "note":
       return preview.excerpt ? (
@@ -267,21 +267,7 @@ export function PreviewOf({ preview }: { preview: ActivityPreview }) {
         </span>
       );
     case "task":
-      return (
-        <span className="flex items-center gap-2 text-body">
-          <span className="size-[15px] flex-none rounded-sm border-[1.5px] border-u-chart-5" aria-hidden="true" />
-          <span className="min-w-0">
-            <span className="block truncate text-u-text">{preview.title}</span>
-            {(preview.dueAt || preview.assignee) && (
-              <span className="block text-note text-u-text3">
-                {[shortDateTime(preview.dueAt) && `Due ${shortDateTime(preview.dueAt)}`, preview.assignee && `Assigned to ${preview.assignee}`]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
-            )}
-          </span>
-        </span>
-      );
+      return <TaskPreview preview={preview} state={taskState} />;
     case "origin":
       return (
         <span className="flex flex-col gap-1 text-note text-u-text3">
@@ -292,6 +278,38 @@ export function PreviewOf({ preview }: { preview: ActivityPreview }) {
     case "assessment":
       return <Chip tone="ai">{preview.label}</Chip>;
   }
+}
+
+const TASK_STATE_WORDS: Record<TaskState, string | null> = { open: null, done: "Done", cancelled: "Cancelled" };
+
+function TaskPreview({ preview, state }: { preview: Extract<ActivityPreview, { type: "task" }>; state: TaskState }) {
+  const meta = [
+    TASK_STATE_WORDS[state],
+    shortDateTime(preview.dueAt) && `Due ${shortDateTime(preview.dueAt)}`,
+    preview.assignee && `Assigned to ${preview.assignee}`,
+  ].filter(Boolean);
+  return (
+    <span className="flex items-center gap-2 text-body">
+      <span
+        role="img"
+        aria-label={TASK_STATE_WORDS[state] ?? "Open"}
+        className={cn(
+          "grid size-[15px] flex-none place-items-center rounded-sm border-[1.5px]",
+          state === "done" && "border-u-direct bg-u-direct text-u-surface",
+          state === "cancelled" && "border-u-border-strong",
+          state === "open" && "border-u-chart-5",
+        )}
+      >
+        {state === "done" && <Icon d={ICONS.check} size={10} />}
+      </span>
+      <span className="min-w-0">
+        <span className={cn("block truncate", state === "open" ? "text-u-text" : "text-u-text3 line-through")}>
+          {preview.title}
+        </span>
+        {meta.length > 0 && <span className="block text-note text-u-text3">{meta.join(" · ")}</span>}
+      </span>
+    </span>
+  );
 }
 
 function MeetingPreview({ preview }: { preview: Extract<ActivityPreview, { type: "meeting" }> }) {

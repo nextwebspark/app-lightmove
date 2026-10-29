@@ -17,7 +17,7 @@ import {
   previewOf,
   shortDate,
   shortDateTime,
-  toneOf,
+  taskStatesOf,
   verbOf,
 } from "./activityPresentation";
 
@@ -76,7 +76,6 @@ describe("activity presentation", () => {
     expect(verbOf(unknown)).toBe("updated the record");
     expect(isMinor(unknown)).toBe(true);
     expect(previewOf(unknown)).toBeNull();
-    expect(toneOf(unknown)).toBe("ai");
   });
 
   it("files the families the way the filter names them", () => {
@@ -89,7 +88,7 @@ describe("activity presentation", () => {
     expect(familyOf(line(1, "TAGGED"))).toBe("profile");
   });
 
-  it("makes content events cards and quick changes slim rows; a background AI run is a row, an assessment a card", () => {
+  it("counts quick changes as minor, so a run of them folds; a background AI run is minor, an assessment is not", () => {
     expect(isMinor(line(1, "NOTE_ADDED"))).toBe(false);
     expect(isMinor(line(1, "EMAIL_SENT"))).toBe(false);
     expect(isMinor(line(1, "PROFILE_EDITED"))).toBe(false);
@@ -97,14 +96,6 @@ describe("activity presentation", () => {
     expect(isMinor(line(1, "CONTACT_FOUND"))).toBe(true);
     expect(isMinor(line(1, "AI_ASSESSED", { details: { scope: "BACKGROUND" } }))).toBe(true);
     expect(isMinor(line(1, "AI_ASSESSED", { details: { scope: "ASSESSMENT" } }))).toBe(false);
-  });
-
-  it("marks what took something away in the danger tone", () => {
-    for (const kind of ["DO_NOT_CONTACT_SET", "UNMAPPED", "MEETING_CANCELLED", "NOTE_REMOVED", "TASK_CANCELLED"] as const) {
-      expect(toneOf(line(1, kind)), kind).toBe("danger");
-    }
-    expect(toneOf(line(1, "DO_NOT_CONTACT_CLEARED"))).toBe("neutral");
-    expect(toneOf(line(1, "MEETING_BOOKED"))).toBe("meet");
   });
 
   describe("who did it", () => {
@@ -294,12 +285,12 @@ describe("activity presentation", () => {
 
   it("times a card in minutes within the hour and by the clock after it", () => {
     const now = new Date("2026-10-28T11:20:00Z");
-    expect(cardTimeOf("2026-10-28T11:19:40Z", now)).toEqual({ text: "just now", isRecent: true });
-    expect(cardTimeOf("2026-10-28T11:06:00Z", now)).toEqual({ text: "14 min ago", isRecent: true });
-    expect(cardTimeOf("2026-10-28T09:00:00Z", now).isRecent).toBe(false);
-    expect(cardTimeOf("not a time", now)).toEqual({ text: "—", isRecent: false });
+    expect(cardTimeOf("2026-10-28T11:19:40Z", now)).toBe("just now");
+    expect(cardTimeOf("2026-10-28T11:06:00Z", now)).toBe("14 min ago");
+    expect(cardTimeOf("2026-10-28T09:00:00Z", now)).toMatch(/^\d\d:\d\d$/);
+    expect(cardTimeOf("not a time", now)).toBe("—");
     // A clock a little ahead of the viewer's reads as a time, never as "-3 min ago".
-    expect(cardTimeOf("2026-10-28T11:23:00Z", now).isRecent).toBe(false);
+    expect(cardTimeOf("2026-10-28T11:23:00Z", now)).toMatch(/^\d\d:\d\d$/);
   });
 
   it("names fields as the Career tab does, and words an unknown key", () => {
@@ -325,5 +316,36 @@ describe("activity presentation", () => {
     expect(shortDateTime("")).toBeNull();
     expect(shortDateTime("nope")).toBeNull();
     expect(shortDateTime("2026-10-30T11:00:00Z")).toMatch(/Oct/);
+  });
+});
+
+describe("taskStatesOf", () => {
+  const task = (id: number, kind: PersonActivityKind, taskId: string) => line(id, kind, { details: { taskId, title: "Call back" } });
+
+  it("reads each task's state off its newest line, so a task done after it was created reads done", () => {
+    const states = taskStatesOf([
+      task(5, "TASK_COMPLETED", "t1"),
+      task(4, "TASK_CANCELLED", "t2"),
+      task(3, "TASK_REASSIGNED", "t3"),
+      task(2, "TASK_CREATED", "t2"),
+      task(1, "TASK_CREATED", "t1"),
+    ]);
+    expect(states.get("t1")).toBe("done");
+    expect(states.get("t2")).toBe("cancelled");
+    expect(states.get("t3")).toBe("open");
+  });
+
+  it("reads a task reopened after it was done as open, and done again once it is", () => {
+    expect(taskStatesOf([task(3, "TASK_REOPENED", "t1"), task(2, "TASK_COMPLETED", "t1"), task(1, "TASK_CREATED", "t1")]).get("t1")).toBe(
+      "open",
+    );
+    expect(
+      taskStatesOf([task(4, "TASK_COMPLETED", "t1"), task(3, "TASK_REOPENED", "t1"), task(2, "TASK_COMPLETED", "t1")]).get("t1"),
+    ).toBe("done");
+  });
+
+  it("knows nothing of a line without a task, or of a kind that is not a task's", () => {
+    const states = taskStatesOf([line(2, "TASK_COMPLETED"), line(1, "NOTE_ADDED", { details: { taskId: "t9" } })]);
+    expect(states.size).toBe(0);
   });
 });

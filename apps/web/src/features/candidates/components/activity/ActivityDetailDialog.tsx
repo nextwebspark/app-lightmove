@@ -21,11 +21,11 @@ import {
   fullDateTime,
   iconOf,
   shortDateTime,
-  toneOf,
   verbOf,
   actorNameOf,
   actorRoleOf,
   type ActivityExecutive,
+  type TaskState,
 } from "../../lib/activityPresentation";
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
 import { noteKindLabel } from "../../lib/noteKinds";
@@ -53,6 +53,7 @@ export function ActivityDetailDialog({
   executive,
   documents,
   destinations,
+  taskState,
 }: {
   entry: PersonTimelineEntry;
   onClose: () => void;
@@ -61,6 +62,8 @@ export function ActivityDetailDialog({
   executive: ActivityExecutive;
   documents: readonly PersonDocument[] | undefined;
   destinations: ActivityDestinations;
+  /** Where the line's task stands now by the history, for a done task older than the task list returns. */
+  taskState?: TaskState;
 }) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
@@ -98,7 +101,7 @@ export function ActivityDetailDialog({
     >
       <div className="flex flex-col gap-4 pb-4">
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-u-border bg-u-bg px-3 py-2.5">
-          <KindTile tone={toneOf(entry)} icon={iconOf(entry)} size="head" />
+          <KindTile icon={iconOf(entry)} size="head" />
           <ActorFace actor={actor} executive={executive} projectId={projectId} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-body font-semibold text-u-text">{name}</p>
@@ -123,6 +126,7 @@ export function ActivityDetailDialog({
           candidateId={candidateId}
           executive={executive}
           documents={documents}
+          taskState={taskState}
           onPreviewDocument={(document, version) => {
             onClose();
             destinations.onPreviewDocument(document, version);
@@ -139,6 +143,7 @@ function DetailBody({
   candidateId,
   executive,
   documents,
+  taskState,
   onPreviewDocument,
 }: {
   entry: PersonTimelineEntry;
@@ -146,6 +151,7 @@ function DetailBody({
   candidateId: string;
   executive: ActivityExecutive;
   documents: readonly PersonDocument[] | undefined;
+  taskState: TaskState | undefined;
   onPreviewDocument: (document: PersonDocument, version: PersonDocumentVersion) => void;
 }) {
   const { details } = entry;
@@ -192,7 +198,7 @@ function DetailBody({
     case "TASK_REASSIGNED":
     case "TASK_CANCELLED":
     case "NEXT_ACTION_SET":
-      return <TaskDetail entry={entry} projectId={projectId} candidateId={candidateId} />;
+      return <TaskDetail entry={entry} projectId={projectId} candidateId={candidateId} state={taskState} />;
     case "CONTACT_FOUND":
       return (
         <>
@@ -569,7 +575,17 @@ function versionOf(document: PersonDocument, number: string | undefined): Person
   return document.versions.find((version) => version.versionNo === wanted) ?? null;
 }
 
-function TaskDetail({ entry, projectId, candidateId }: { entry: PersonTimelineEntry; projectId: string; candidateId: string }) {
+function TaskDetail({
+  entry,
+  projectId,
+  candidateId,
+  state,
+}: {
+  entry: PersonTimelineEntry;
+  projectId: string;
+  candidateId: string;
+  state: TaskState | undefined;
+}) {
   const tasks = useQuery({
     queryKey: CANDIDATE_TASKS_KEY(projectId, candidateId),
     queryFn: ({ signal }) => getCandidateTasks(projectId, candidateId, signal),
@@ -584,7 +600,7 @@ function TaskDetail({ entry, projectId, candidateId }: { entry: PersonTimelineEn
           ["Due", shortDateTime(task?.dueAt ?? entry.details.dueAt)],
           ["Assigned to", task?.assignee.fullName ?? entry.details.assignee ?? null],
           ["Was with", entry.details.previousAssignee ?? null],
-          ["Now", task ? TASK_STATES[task.status] ?? null : null],
+          ["Now", TASK_STATES[task?.status ?? state ?? ""] ?? null],
         ]}
       />
       {tasks.isError && <ReadFailed error={tasks.error} onRetry={() => void tasks.refetch()} />}

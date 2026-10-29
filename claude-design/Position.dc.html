@@ -2125,7 +2125,7 @@
                             <p style="flex:1;min-width:0;margin:0;font:400 12.5px/1.4 var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ t.who }}</b> {{ t.what }}</p>
                             <span style="flex:none;font:400 11px var(--mono);color:var(--text3)">{{ t.when }}</span>
                           </div>
-                          <sc-if value="{{ t.hasDetail }}"><p style="margin:0;font:400 12px/1.5 var(--sans);color:var(--text)">{{ t.detail }}</p></sc-if>
+                          <sc-if value="{{ t.hasDetail }}"><p style="margin:0 0 0 26px;font:400 12px/1.5 var(--sans);color:var(--text)">{{ t.detail }}</p></sc-if>
                         </div>
                       </div>
                     </sc-for>
@@ -3708,10 +3708,11 @@ class Component extends DCLogic {
         isContact: d.id === "contact", isOutreach: d.id === "outreach", isMeetings: d.id === "meetings", isColumns: d.id === "columns",
         isNextActions: d.id === "nextActions", isTags: d.id === "tags", isPositions: d.id === "positions", isNotes: d.id === "notes", isDocuments: d.id === "documents", isTimeline: d.id === "timeline" };
     });
-    const TL_TONE = { note: ["var(--u-accent-tint)", "var(--u-accent)", "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5"],
-      status: ["var(--u-signal-tint)", "var(--u-signal)", "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z"],
-      ai: ["var(--u-inferred-tint)", "var(--u-inferred)", "m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"],
-      neutral: ["var(--panel2)", "var(--text2)", "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"] };
+    // A kind's glyph only, grey and plain as the menus draw theirs: colour stays with what a card says.
+    const TL_ICON = { note: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5",
+      status: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
+      ai: "m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z",
+      neutral: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6" };
     const summaryLong = !!summary && summary.length > 220;
     const stepDot = (sent, next) => `width:10px;height:10px;border-radius:50%;flex:none;margin-top:4px;${sent ? "background:var(--amber)" : next ? "border:2px solid var(--amber)" : "border:1.5px solid var(--line)"}`;
     const orSteps = run ? [0, 1, 2].map((k) => {
@@ -3808,10 +3809,10 @@ class Component extends DCLogic {
       noDocs: docs.length === 0, docTray: !!s.docTray,
       noTimeline: timeline.length === 0, tlCount: `${timeline.length} ${timeline.length === 1 ? "event" : "events"}`,
       timeline: timeline.map((t) => {
-        const [tint, ink, icon] = TL_TONE[t[4]] || TL_TONE.neutral;
+        const icon = TL_ICON[t[4]] || TL_ICON.neutral;
         return { who: t[0], what: t[1], when: t[2], detail: t[3] || "", hasDetail: !!t[3], icon,
           initials: t[0].split(" ").map((w) => w[0]).slice(0, 2).join(""),
-          tileStyle: `position:absolute;left:-42px;top:10px;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:${tint};color:${ink};box-shadow:0 0 0 3px var(--panel)` };
+          tileStyle: `position:absolute;left:-42px;top:10px;display:grid;place-items:center;width:30px;height:30px;background:var(--panel);color:var(--text3)` };
       }),
       footer: `Added ${dateGB(e.added)}${e.source === "extension" ? ` · Researched ${dateGB(e.added)} · Captured from www.linkedin.com` : ""}`,
       cdSections
