@@ -36,7 +36,7 @@ public class VendorCallGuard {
         try {
             return attempt.get();
         } catch (VendorResponseFailure classified) {
-            throw new VendorException(call, classified.getKind(), classified);
+            throw new VendorException(call, classified.getKind(), classified.getVendorCode(), classified);
         } catch (RestClientException noAnswer) {
             VendorFailureKind kind = VendorFailureKind.of(noAnswer);
             if (kind == VendorFailureKind.MALFORMED_RESPONSE) {
