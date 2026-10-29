@@ -17,26 +17,22 @@ export type ActivityFamily =
   | "documents"
   | "profile";
 
-/** A palette role, so the theme decides the shade; the same roles the mockup's legend names. */
-export type ActivityTone = "note" | "email" | "meet" | "status" | "ai" | "task" | "neutral" | "danger";
-
 export interface ActivityFamilyOption {
   family: ActivityFamily;
   label: string;
-  tone: ActivityTone;
   icon: string;
 }
 
 /** The "What happened" menu, in its order: the conversation first, then the work, then the record. */
 export const ACTIVITY_FAMILIES: readonly ActivityFamilyOption[] = [
-  { family: "notes", label: "Notes", tone: "note", icon: ICONS.fileText },
-  { family: "emails", label: "Emails", tone: "email", icon: ICONS.mail },
-  { family: "meetings", label: "Meetings", tone: "meet", icon: ICONS.calendar },
-  { family: "pipeline", label: "Pipeline", tone: "status", icon: ICONS.pipeline },
-  { family: "tasks", label: "Tasks", tone: "task", icon: ICONS.checkCircle },
-  { family: "contact", label: "Contact", tone: "neutral", icon: ICONS.phoneCall },
-  { family: "documents", label: "Documents", tone: "neutral", icon: ICONS.file },
-  { family: "profile", label: "Profile & AI", tone: "ai", icon: ICONS.sparkle },
+  { family: "notes", label: "Notes", icon: ICONS.fileText },
+  { family: "emails", label: "Emails", icon: ICONS.mail },
+  { family: "meetings", label: "Meetings", icon: ICONS.calendar },
+  { family: "pipeline", label: "Pipeline", icon: ICONS.pipeline },
+  { family: "tasks", label: "Tasks", icon: ICONS.checkCircle },
+  { family: "contact", label: "Contact", icon: ICONS.phoneCall },
+  { family: "documents", label: "Documents", icon: ICONS.file },
+  { family: "profile", label: "Profile & AI", icon: ICONS.sparkle },
 ];
 
 const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
@@ -116,34 +112,6 @@ export function isMinor(entry: PersonTimelineEntry): boolean {
 /** Where the line starts this position's story: drawn as the history's first card. */
 export function isOrigin(entry: PersonTimelineEntry): boolean {
   return entry.kind === "ADDED_TO_POOL" || entry.kind === "MAPPED";
-}
-
-export function toneOf(entry: PersonTimelineEntry): ActivityTone {
-  switch (entry.kind) {
-    case "DO_NOT_CONTACT_SET":
-    case "UNMAPPED":
-    case "MEETING_CANCELLED":
-    case "NOTE_REMOVED":
-    case "DOCUMENT_REMOVED":
-    case "DOCUMENT_VERSION_REMOVED":
-    case "TASK_CANCELLED":
-      return "danger";
-    case "AI_ASSESSED":
-    case "UPDATED_FROM_CALL":
-    case "ASSESSMENT_REVIEWED":
-      return "ai";
-    case "ADDED_TO_POOL":
-    case "MAPPED":
-      return "note";
-    case "PROFILE_EDITED":
-    case "RESEARCHED":
-    case "TAGGED":
-    case "UNTAGGED":
-    case "OWNER_CHANGED":
-      return "neutral";
-  }
-  const family = ACTIVITY_FAMILIES.find((option) => option.family === familyOf(entry));
-  return family?.tone ?? "neutral";
 }
 
 export function iconOf(entry: PersonTimelineEntry): string {
@@ -411,6 +379,31 @@ export type ActivityPreview =
 /** How many changes a card lists before "+N more". */
 export const CHANGES_SHOWN = 2;
 
+export type TaskState = "open" | "done" | "cancelled";
+
+const TASK_STATE_OF: Partial<Record<PersonActivityKind, TaskState>> = {
+  TASK_CREATED: "open",
+  TASK_REOPENED: "open",
+  TASK_REASSIGNED: "open",
+  TASK_COMPLETED: "done",
+  TASK_CANCELLED: "cancelled",
+};
+
+/**
+ * Where each task stands now, read off its newest line in a history sent newest first, so the card that created a
+ * task shows it ticked once it is done. A task's lines are this position's, and the history is re-read on every task
+ * write, so the answer is as fresh as the tab.
+ */
+export function taskStatesOf(entries: readonly PersonTimelineEntry[]): Map<string, TaskState> {
+  const states = new Map<string, TaskState>();
+  for (const entry of entries) {
+    const state = TASK_STATE_OF[entry.kind];
+    const taskId = entry.details.taskId;
+    if (state && taskId && !states.has(taskId)) states.set(taskId, state);
+  }
+  return states;
+}
+
 export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
   const { details } = entry;
   switch (entry.kind) {
@@ -624,26 +617,14 @@ export function fullDateTime(isoInstant: string): string {
 }
 
 /** The card's clock: "12 min ago" within the hour, the time of day otherwise — the day is the header's. */
-export function cardTimeOf(isoInstant: string, now: Date = new Date()): { text: string; isRecent: boolean } {
+export function cardTimeOf(isoInstant: string, now: Date = new Date()): string {
   const at = new Date(isoInstant);
-  if (Number.isNaN(at.getTime())) return { text: "—", isRecent: false };
+  if (Number.isNaN(at.getTime())) return "—";
   const minutes = Math.floor((now.getTime() - at.getTime()) / 60_000);
-  if (minutes >= 0 && minutes < 1) return { text: "just now", isRecent: true };
-  if (minutes >= 1 && minutes < 60) return { text: `${minutes} min ago`, isRecent: true };
-  return { text: at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }), isRecent: false };
+  if (minutes >= 0 && minutes < 1) return "just now";
+  if (minutes >= 1 && minutes < 60) return `${minutes} min ago`;
+  return at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
-
-/** Each tone as the tile's tint and its glyph's colour: palette roles, so both themes stay legible. */
-export const TONE_CLASSES: Record<ActivityTone, string> = {
-  note: "bg-u-accent-tint text-u-accent",
-  email: "bg-u-adjacent-tint text-u-adjacent",
-  meet: "bg-u-direct-tint text-u-direct",
-  status: "bg-u-signal-tint text-u-signal",
-  ai: "bg-u-inferred-tint text-u-inferred",
-  task: "bg-u-chart-5/15 text-u-chart-5",
-  neutral: "bg-u-raised text-u-text2",
-  danger: "bg-u-offlimits-tint text-u-offlimits",
-};
 
 /** The executive the drawer is about, as the history names them when they acted themselves. */
 export type ActivityExecutive = Pick<Candidate, "id" | "fullName" | "enrichedAt">;
