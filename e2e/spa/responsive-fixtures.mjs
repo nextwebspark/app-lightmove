@@ -302,8 +302,7 @@ const REPORT = {
   },
 };
 
-// The API still counts Shortlisted for rows an older release left there; nothing files there any more.
-const TRIAGE_COUNTS = { inUniverse: 128, shortlisted: 0, declined: 61 };
+const TRIAGE_COUNTS = { inUniverse: 128, declined: 61 };
 
 // Every third one is hand-typed, and a hand-typed company has no universe id to carry — which is
 // also what decides whether its panel offers an Edit button.

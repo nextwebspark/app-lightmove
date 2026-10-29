@@ -573,7 +573,7 @@ try {
     const next = await columnValues("COMPANY");
     check("S9.1e", "a filed company no longer appears in the market", false, next.includes(names[0]) || next.includes(names[1]));
     await tick(next[0]);
-    // Shortlisted is retired as a destination, so the bar offers the two stages alone.
+    // There is no Shortlisted stage, so the bar offers the two stages alone.
     check("S9.1f", "the bar offers no Shortlisted", 0, await page.getByRole("button", { name: /^Shortlisted/ }).count());
     await page.getByRole("button", { name: /^Declined/ }).last().click();
     await page.waitForTimeout(2000);

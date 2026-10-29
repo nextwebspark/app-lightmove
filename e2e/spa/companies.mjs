@@ -264,12 +264,12 @@ try {
     const want = sortedJoin([CEDAR, DHOW]);
     check("C1.5", "Declined lists exactly its own companies", want, await until(async () => sortedJoin(await companyNames()), want));
   });
-  // Shortlisted is retired as a page: an old link lands on In universe and the sidebar names no such stage.
-  await step("C1.5b", "the retired Shortlisted page's address lands on In universe", async () => {
+  // Shortlisted was removed: its old address is an unknown stage, which lands on In universe.
+  await step("C1.5b", "the removed Shortlisted page's address lands on In universe", async () => {
     await page.goto(stageUrl("shortlisted"));
     await page.waitForURL(/\/companies\/universe/, { timeout: 15000 });
     await page.waitForSelector('[role="table"]', { timeout: 25000 });
-    check("C1.5b", "the retired Shortlisted page's address lands on In universe", true, page.url().includes("/companies/universe"));
+    check("C1.5b", "the removed Shortlisted page's address lands on In universe", true, page.url().includes("/companies/universe"));
   });
 
   await step("C1.6", "the sidebar's two counts are the API's, and it offers no Shortlisted", async () => {
@@ -397,7 +397,7 @@ try {
            JOIN app_lm_project_candidate c ON c.triage_company_id = t.id WHERE t.id = '${BEACON_ID}'`));
   });
   await step("C6.2", "the line's Back to universe moves a declined company with nobody back onto In universe", async () => {
-    check("C6.2a", "…and no line offers the retired Shortlist", 0, await page.getByRole("button", { name: /^Shortlist: / }).count());
+    check("C6.2a", "…and no line offers a Shortlist", 0, await page.getByRole("button", { name: /^Shortlist: / }).count());
     await page.getByRole("button", { name: `Back to universe: ${DHOW}` }).first().click();
     const gone = await until(async () => (await companyNames()).includes(DHOW), false);
     await openStage("universe");

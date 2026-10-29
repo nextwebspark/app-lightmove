@@ -87,11 +87,11 @@ check_status N17.1.11 "a hand-typed company's facts can be edited" 200
 check N17.1.12 "…and an omitted field is a cleared one" "$ALPHA Group|" "$(json '.companyName')|$(json '.companyCity // empty')"
 put_json "$TRIAGE/$ALPHA_ID" "$(jq -nc --arg n "$BETA" '{companyName:$n}')" -H "$LEAD_AUTH"
 check_code N17.1.13 "renaming onto a name the mandate already holds" 409 TRIAGE_COMPANY_ALREADY_HELD
-# Shortlisted is retired as a destination: every door refuses it, while reads still answer it (N17.3).
-capture "$LEAD_AUTH" "Retired Stage $RUN_TAG" '.status = "shortlisted"'
-check_code N17.1.14 "a company typed in at the retired Shortlisted stage" 400 VALIDATION_FAILED
-check N17.1.15 "…refused on its stage, nothing filed" "status|0" \
-  "$(json '.fieldErrors | keys | join(",")')|$(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '$P' AND company_name = 'Retired Stage $RUN_TAG'")"
+# Shortlisted was removed: it is no stage at all, so every door and every read refuses it as unknown.
+capture "$LEAD_AUTH" "Removed Stage $RUN_TAG" '.status = "shortlisted"'
+check_code N17.1.14 "a company typed in at Shortlisted, no such stage" 400 VALIDATION_FAILED
+check N17.1.15 "…and nothing is filed" "0" \
+  "$(sql "SELECT count(*) FROM app_lm_project_triage_company WHERE project_id = '$P' AND company_name = 'Removed Stage $RUN_TAG'")"
 ALPHA="$ALPHA Group"
 
 section "N17.2  taking companies from the market"
@@ -109,9 +109,9 @@ check_code N17.2.5 "a selection filed at an unknown stage" 400 VALIDATION_FAILED
 post_json "$TRIAGE/bulk" '{"apolloAccountIds":[]}' -H "$LEAD_AUTH"
 check_code N17.2.6 "an empty selection" 400 VALIDATION_FAILED
 post_json "$TRIAGE/bulk" '{"apolloAccountIds":["e2e-ghost-1"],"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.2.13 "a selection filed at the retired Shortlisted stage" 400 VALIDATION_FAILED
+check_code N17.2.13 "a selection filed at Shortlisted, no such stage" 400 VALIDATION_FAILED
 post_json "$TRIAGE" '{"apolloAccountId":"e2e-ghost-1","status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.2.14 "one company taken at the retired Shortlisted stage" 400 VALIDATION_FAILED
+check_code N17.2.14 "one company taken at Shortlisted, no such stage" 400 VALIDATION_FAILED
 
 MARKET_IDS=$(sql "SELECT apollo_account_id FROM app_lm_apollo_companies ORDER BY apollo_account_id LIMIT 4")
 if [ "$(printf '%s\n' "$MARKET_IDS" | grep -c .)" -lt 4 ]; then
@@ -175,18 +175,13 @@ get "$TRIAGE?sort=vibes" -H "$LEAD_AUTH"
 check_code N17.3.13 "sorting by an unknown field" 400 VALIDATION_FAILED
 
 patch_json "$TRIAGE/$ALPHA_ID" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.3.14 "moving a company to the retired Shortlisted stage" 400 VALIDATION_FAILED
+check_code N17.3.14 "moving a company to Shortlisted, no such stage" 400 VALIDATION_FAILED
 check N17.3.15 "…leaves it where it was" "DECLINED" "$(sql "SELECT status FROM app_lm_project_triage_company WHERE id = '$ALPHA_ID'")"
 
-# No write files at Shortlisted any more, but a row an older release left there stays and is still read.
-capture "$LEAD_AUTH" "Legacy Shortlist $RUN_TAG"
-LEGACY_ID=$(json '.id')
-sql_run "UPDATE app_lm_project_triage_company SET status = 'SHORTLISTED' WHERE id = '$LEGACY_ID'"
 get "$TRIAGE?status=shortlisted" -H "$LEAD_AUTH"
-check N17.3.16 "a company left at Shortlisted is still listed there, and counted" "$LEGACY_ID|1" \
-  "$(json '[.companies[].id] | join(",")')|$(json '.counts.shortlisted')"
-patch_json "$TRIAGE/$LEGACY_ID" '{"status":"inUniverse"}' -H "$LEAD_AUTH"
-check N17.3.17 "…and moves back to In universe" "200 inUniverse" "$LAST_STATUS $(json '.status')"
+check_code N17.3.16 "listing Shortlisted, no such stage" 400 VALIDATION_FAILED
+get "$TRIAGE?status=inUniverse" -H "$LEAD_AUTH"
+check N17.3.17 "the badges count the two stages and nothing else" "declined,inUniverse" "$(json '.counts | keys | join(",")')"
 
 section "N17.4  executives"
 
@@ -251,7 +246,7 @@ check_code N17.4.26 "a status that is not on the line" 400 VALIDATION_FAILED
 patch_json "$PEOPLE/$LAYLA" '{"status":"engaged"}' -H "$RESEARCHER_AUTH"
 check N17.4.27 "a researcher moves it too — WORK_EXECUTE" "200 engaged" "$LAST_STATUS $(json '.status')"
 put_json "$PEOPLE/$LAYLA/triage-status" '{"status":"shortlisted"}' -H "$LEAD_AUTH"
-check_code N17.4.28 "one executive moved to the retired Shortlisted stage" 400 VALIDATION_FAILED
+check_code N17.4.28 "one executive moved to Shortlisted, no such stage" 400 VALIDATION_FAILED
 check N17.4.29 "…stays where their company is" "DECLINED" "$(sql "SELECT triage_status FROM app_lm_project_candidate WHERE id = '$LAYLA'")"
 
 section "N17.5  the contact ledger"
