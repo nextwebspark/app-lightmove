@@ -11,6 +11,7 @@ public record AuthSettings(
         LockoutSettings lockout,
         RateLimitSettings rateLimit,
         ExtensionSettings extension,
+        MfaSettings mfa,
 
         /** Short by design: revocation is via the refresh token. */
         @DefaultValue("15m") Duration accessTokenTtl,
@@ -39,5 +40,6 @@ public record AuthSettings(
     public AuthSettings {
         oauth = oauth == null ? new OAuthQuirkSettings(List.of(), List.of(), List.of()) : oauth;
         extension = extension == null ? ExtensionSettings.defaults() : extension;
+        mfa = mfa == null ? MfaSettings.defaults() : mfa;
     }
 }

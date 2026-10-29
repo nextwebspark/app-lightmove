@@ -30,6 +30,13 @@ public enum AuthEventType implements AuditEventType {
     PASSWORD_RESET_REQUESTED,
     PASSWORD_RESET_COMPLETED,
 
+    MFA_ENABLED,
+    MFA_DISABLED,
+    /** A wrong code after a right password; the real reason is in metadata, as for {@link #LOGIN_FAILED}. */
+    MFA_CHALLENGE_FAILED,
+    MFA_RECOVERY_CODE_USED,
+    MFA_RECOVERY_CODES_REGENERATED,
+
     OAUTH_LOGIN_SUCCEEDED,
     OAUTH_ACCOUNT_LINKED,
 

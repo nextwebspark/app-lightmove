@@ -4,14 +4,13 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
-import app.lightmove.api.core.email.service.EmailSender;
-import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.constant.PrivacyPolicy;
 import app.lightmove.api.core.security.constant.UserStatus;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.SignInOutcome;
 import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
@@ -46,16 +45,16 @@ public class AuthenticationService {
     private final EmailAddressValidator emailValidator;
     private final RateLimitGuard rateLimit;
     private final AuditService audit;
-    private final EmailSender emailSender;
-    private final EmailTemplates templates;
+    private final LoginLockout lockout;
+    private final SignInCompletion signIn;
     private final AuthSettings config;
 
     public AuthenticationService(UserRepository users, UserIdentityRepository identities,
                                  WorkspaceSelection selection, PasswordPolicy passwords,
                                  TokenService tokens, VerificationService verification,
                                  EmailAddressValidator emailValidator, RateLimitGuard rateLimit,
-                                 AuditService audit, EmailSender emailSender,
-                                 EmailTemplates templates, LightMoveProperties properties) {
+                                 AuditService audit, LoginLockout lockout, SignInCompletion signIn,
+                                 LightMoveProperties properties) {
         this.users = users;
         this.identities = identities;
         this.selection = selection;
@@ -65,8 +64,8 @@ public class AuthenticationService {
         this.emailValidator = emailValidator;
         this.rateLimit = rateLimit;
         this.audit = audit;
-        this.emailSender = emailSender;
-        this.templates = templates;
+        this.lockout = lockout;
+        this.signIn = signIn;
         this.config = properties.auth();
     }
 
@@ -165,7 +164,7 @@ public class AuthenticationService {
      * back with the thrown exception and account lockout silently does not exist.
      */
     @Transactional(noRollbackFor = ApiException.class)
-    public AuthenticatedSession login(String rawEmail, String password, HttpServletRequest request) {
+    public SignInOutcome login(String rawEmail, String password, HttpServletRequest request) {
         String email = EmailAddressValidator.normalise(rawEmail);
         rateLimit.checkLogin(email, request);
 
@@ -192,30 +191,18 @@ public class AuthenticationService {
         }
 
         if (!passwords.matches(password, user.getPasswordHash())) {
-            user.recordFailedLogin(now, config.lockout().maxFailedAttempts(), config.lockout().duration());
-
-            audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId()).from(request)
-                    .reason(user.hasPassword() ? "bad_password" : "no_local_password")
-                    .detail("failedAttempts", user.getFailedLoginAttempts())
-                    .record();
-
-            if (user.isLocked(now)) {
-                log.warn("Account {} locked after {} failed attempts", user.getId(), user.getFailedLoginAttempts());
-                audit.event(AuthEventType.ACCOUNT_LOCKED).failed().actor(user.getId()).from(request)
-                        .detail("until", String.valueOf(user.getLockedUntil())).record();
-
-                // Here, not on every later refusal: one mail per lock window, not one per guess.
-                emailSender.send(templates.buildAccountLockedEmail(
-                        user.getEmail(), user.getFullName(), String.valueOf(user.getLockedUntil())));
-            }
-
+            lockout.recordFailure(user, now, audit.event(AuthEventType.LOGIN_FAILED).failed().actor(user.getId())
+                    .from(request).reason(user.hasPassword() ? "bad_password" : "no_local_password"), request);
             throw ApiException.of(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        user.recordSuccessfulLogin(now);
-        audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
-
-        return tokens.issue(user, selection.signIn(user), request);
+        // A challenge leaves the failed-attempt count as it is: only the right code clears it (MfaChallengeService).
+        SignInOutcome outcome = signIn.complete(user, request);
+        if (outcome instanceof AuthenticatedSession) {
+            user.recordSuccessfulLogin(now);
+            audit.event(AuthEventType.LOGIN_SUCCEEDED).actor(user.getId()).from(request).record();
+        }
+        return outcome;
     }
 
     /** A refusal ahead of the password check: it pays the BCrypt cost it skips, records why, and says nothing. */

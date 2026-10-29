@@ -76,6 +76,13 @@ public class ActiveSessionService {
         return ended;
     }
 
+    /** A change to how the caller signs in: every session but the one they made it from ends, for {@code reason}. */
+    @Transactional
+    public void endOtherSessions(UUID userId, String presentedRefreshToken, RevokeReason reason) {
+        refreshTokens.revokeAllForUserExceptFamily(
+                userId, currentFamilyId(userId, presentedRefreshToken), reason, Instant.now());
+    }
+
     private List<ActiveSessionResponse> liveSessions(UUID userId, UUID currentFamilyId) {
         return refreshTokens.findByUserIdAndRevokedAtIsNullAndExpiresAtAfter(userId, Instant.now()).stream()
                 .map(token -> describe(token, currentFamilyId))

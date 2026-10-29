@@ -99,6 +99,10 @@ lightmove:
     rate-limit:
       enabled: false
 
+    # On, as in npm run dev: the suite proves the challenge, and the keyset below lets the secret be stored.
+    mfa:
+      enabled: true
+
     # Strength 4, not the shipped 12: a hash costs ~1ms instead of ~250ms, and nearly every test signs
     # up and logs in. Nothing asserts on the cost — PasswordPolicy derives its decoy hash from the
     # setting, so the timing equalisation holds at whatever strength runs.

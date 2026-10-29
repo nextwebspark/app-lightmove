@@ -11,6 +11,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.constant.TokenPurpose;
 import app.lightmove.api.core.security.constant.UserStatus;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.model.SignInOutcome;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
 import app.lightmove.api.core.security.model.VerificationToken;
@@ -20,7 +21,6 @@ import app.lightmove.api.core.security.repository.VerificationTokenRepository;
 import app.lightmove.api.core.security.token.RevokeReason;
 import app.lightmove.api.core.security.token.TokenService;
 import app.lightmove.api.core.security.token.Tokens;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -47,7 +47,7 @@ public class PasswordResetService {
     private final TokenService tokens;
     private final OAuthGrantService oauthGrants;
     private final AuthenticationService authentication;
-    private final WorkspaceSelection selection;
+    private final SignInCompletion signIn;
     private final EmailSender emailSender;
     private final EmailTemplates templates;
     private final AuditService audit;
@@ -70,11 +70,13 @@ public class PasswordResetService {
     }
 
     /**
-     * Sets the new password and signs the user in. Every failure is thrown before the token is consumed,
-     * so a rejected attempt leaves the link redeemable — no {@code noRollbackFor} needed, unlike login.
+     * Sets the new password and signs the user in — or, for a person with a second factor, asks for the code: the
+     * link proves the mailbox, and the factor exists so that the mailbox alone is not enough. Every failure is thrown
+     * before the token is consumed, so a rejected attempt leaves the link redeemable — no {@code noRollbackFor}
+     * needed, unlike login.
      */
     @Transactional
-    public AuthenticatedSession reset(String plaintextToken, String newPassword, HttpServletRequest request) {
+    public SignInOutcome reset(String plaintextToken, String newPassword, HttpServletRequest request) {
         Instant now = Instant.now();
 
         VerificationToken token = verificationTokens.findByTokenHash(Tokens.hash(plaintextToken))
@@ -119,9 +121,6 @@ public class PasswordResetService {
             user.changePassword(passwords.hash(newPassword));
         }
 
-        // A reset is the lockout recovery path, and it issues a session: it is a login.
-        user.recordSuccessfulLogin(now);
-
         boolean verifiedByReset = !user.isEmailVerified();
         if (verifiedByReset) {
             user.markEmailVerified(now);
@@ -139,8 +138,13 @@ public class PasswordResetService {
                 .detail("emailVerifiedByReset", String.valueOf(verifiedByReset))
                 .record();
 
-        WorkspaceMember membership = selection.signIn(user);
-        return tokens.issue(user, membership, request);
+        // A reset is the lockout recovery path when it issues a session: it is a login. Before a code it is not,
+        // or every reset link would buy five more guesses at the code.
+        SignInOutcome outcome = signIn.complete(user, request);
+        if (outcome instanceof AuthenticatedSession) {
+            user.recordSuccessfulLogin(now);
+        }
+        return outcome;
     }
 
     private void sendResetEmail(User user, HttpServletRequest request) {

@@ -12,5 +12,5 @@ public record AuthenticatedSession(
         TokenPair tokens,
         User user,
         WorkspaceMember membership
-) {
+) implements SignInOutcome {
 }

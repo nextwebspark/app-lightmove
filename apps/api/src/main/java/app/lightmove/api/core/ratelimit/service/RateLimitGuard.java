@@ -7,6 +7,7 @@ import app.lightmove.api.core.config.RateLimitSettings;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.security.service.ClientIpResolver;
+import app.lightmove.api.core.security.token.Tokens;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Duration;
 import java.util.Locale;
@@ -47,6 +48,20 @@ public class RateLimitGuard {
     /** The request only: a budget on redeeming would let an attacker lock a victim out of their own reset. */
     public void checkPasswordResetRequest(String email, HttpServletRequest request) {
         checkRateLimit("password-reset", email, request, config.passwordResetRequestsPerHour(), Duration.ofHours(1));
+    }
+
+    /**
+     * Keyed on the challenge rather than an address: the request carries no email. The lockout counter is the real
+     * brake on guessing a code; this spares the database a flood of them.
+     */
+    public void checkMfaVerify(String challengeToken, HttpServletRequest request) {
+        String challengeKey = challengeToken == null ? "" : Tokens.hash(challengeToken);
+        checkRateLimit("mfa-verify", challengeKey, request, config.mfaVerifyAttemptsPerMinute(), Duration.ofMinutes(1));
+    }
+
+    /** Each change asks for the current password, which does not feed the lockout counter: this is its brake. */
+    public void checkMfaChange(String email, HttpServletRequest request) {
+        checkRateLimit("mfa-change", email, request, config.mfaChangeAttemptsPerHour(), Duration.ofHours(1));
     }
 
     /** The only brake on guessing the current password, which deliberately does not feed the lockout counter. */
