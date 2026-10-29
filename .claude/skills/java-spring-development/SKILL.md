@@ -307,7 +307,7 @@ saved beside it, the reads over `app_lm_apollo_companies`, and the whole vocabul
 expressed in — `EmployeeBand`, `RevenueBand`, the sector taxonomy, the market segments, the facet
 counts, the sort allowlist. A band is a way of asking the market a question, not a property of any one
 mandate, so none of it belongs to a project. `triagecompany` is the *mapping* side and holds one
-thing: the project↔company row and its stage (`IN_UNIVERSE` / `SHORTLISTED` / `DECLINED`), stored as a
+thing: the project↔company row and its stage (`IN_UNIVERSE` / `DECLINED`), stored as a
 write-time snapshot rather than a foreign key because the Apollo pipeline reloads its table wholesale.
 `candidate` is the *people* side: a workspace `Person` per human (V91) — the profile a consultant works
 from, background, package, contact ledger and research — and one `Candidate` row per mandate that maps
@@ -387,8 +387,8 @@ method plus the records it returns — never another feature's internals:
   event: a whole mandate leaving as a file is not the same act as reading a page of it, and
   `WORK_VIEW` means a client representative can do it.
 
-- `report` reads through the same two seams as `talentmap` (`listAllOfStage` for the universe and
-  the shortlist, `listAllOfProject` for every executive), `PositionService.compensationOf` for the brief's band
+- `report` reads through the same two seams as `talentmap` (`listAllOfStage` for the universe,
+  `listAllOfProject` for every executive), `PositionService.compensationOf` for the brief's band
   (never `get`, which drafts and saves a brief — a read-only client seat can open the report),
   and `project`'s repository for the mandate's dates. Every figure is aggregated at read time; there
   is no report table. It states what the rows carry and nothing more — no inferred gender, no

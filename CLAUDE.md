@@ -21,9 +21,9 @@ has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
 searches saved against it, and the two Companies pages (In universe / Declined) where a
-mandate triages what it took from it. **Shortlisted is retired** as a page and as a destination: no door offers it
-and every write refuses it (`VALIDATION_FAILED`), while a row already there stays, unlisted (no migration; the CHECK,
-the reads and the public API/MCP vocabulary keep the value), and `/companies/shortlisted` lands on In universe. A company reaches those pages four ways — out of the market
+mandate triages what it took from it. There is no Shortlisted stage: V160 deleted
+the companies and unmapped the executives that held it and narrowed both CHECKs to the two stages, so a request naming
+it is an unknown value (`VALIDATION_FAILED`); the pipeline *status* "Shortlisted" is unrelated. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
@@ -449,7 +449,7 @@ frequency, competency panel, …) lives in `common/constant` for exactly that re
 is the market side** — the saved filter, the saved searches, the reads over the Apollo universe, and
 every band/facet/taxonomy the search is expressed in. A *strategy company* is a row of the market that
 belongs to nobody. **`triagecompany` is the mapping side** — one project↔company row per decision,
-carrying a triage stage (in universe / shortlisted / declined) and a write-time snapshot. A *triage
+carrying a triage stage (in universe / declined) and a write-time snapshot. A *triage
 company* is a decision. Searching goes in `strategy` however company-shaped its name; `triagecompany`
 holds only what a mandate *did* about a company. **`candidate` is the people side** — a workspace
 `Person` per human, and one `Candidate` row per mandate that maps them, belonging to the *project* and
@@ -1300,6 +1300,8 @@ V147 adds `app_lm_outreach_message_attachment` — an own email's files in order
 bucket's `storage_key`, `source` `UPLOAD | PERSON_DOCUMENT` and the copied version's id, SET NULL); no bytes in the database.
 V150 gives `app_lm_project_candidate` `triage_status` (`IN_UNIVERSE | SHORTLISTED | DECLINED`, backfilled from each
 row's company): the Companies stage the executive is listed at, their own.
+V160 removes the Shortlisted stage: it deletes every company at `SHORTLISTED` and unmaps every executive at it (an
+`UNMAPPED` line each, the person kept), then narrows both stage CHECKs to `IN_UNIVERSE | DECLINED`.
 V151 adds `app_lm_meeting_recording` — one Notetaker bot per row: the call snapshotted (meeting id kept bare, never a
 foreign key, since a calendar re-read replaces its rows), Recall's bot id (unique), status, Recall's last code and
 sub-code, the transcript as jsonb and the note it became; one live row per call by partial unique index.
