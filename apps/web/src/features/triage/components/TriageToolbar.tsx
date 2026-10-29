@@ -1,199 +1,172 @@
-import type { ColumnVisibilityState } from "@tanstack/react-table";
-import { useMemo } from "react";
+import type { ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { cn } from "../../../lib/cn";
-import type { CustomColumn } from "../../customcolumns/api/types";
 import type { CompaniesView } from "../../talentmap/lib/useTalentMapPreferences";
-import {
-  createTriageCompanyColumns,
-  defaultTriageColumnVisibility,
-} from "../lib/triageCompanyColumns";
+import { AdvancedMenu, type AdvancedMenuSection } from "./AdvancedMenu";
 
 const TOOLBAR_BUTTON =
-  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-[6px] border border-u-border-strong bg-u-surface " +
-  "px-3 py-2 font-sans text-[13px] font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text";
+  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-u-border-strong bg-u-surface " +
+  "px-3 py-2 font-sans text-body font-medium text-u-text2 transition hover:border-u-text3 hover:text-u-text " +
+  "aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:border-u-border-strong aria-disabled:hover:text-u-text2";
 
-/** The two readings of the screen, in the order they were built. */
-const VIEW_OPTIONS = [
-  { value: "table", label: "Table", icon: <Icon d={ICONS.table} size={13} /> },
-  { value: "map", label: "Map", icon: <Icon d={ICONS.globe} size={13} /> },
-] as const;
+const VIEW_OPTIONS = {
+  table: { value: "table", label: "Table", icon: <Icon d={ICONS.table} size={13} /> },
+  map: { value: "map", label: "Map", icon: <Icon d={ICONS.globe} size={13} /> },
+  pipeline: { value: "pipeline", label: "Pipeline", icon: <Icon d={ICONS.pipeline} size={13} /> },
+} as const;
+
+/** A primary action the current view cannot take: still drawn where it always is, greyed, saying where it can. */
+export interface UnavailableAction {
+  reason: string;
+}
 
 /**
- * The Companies grid's toolbar — the same bar Strategy carries, holding the two controls that mean
- * the same thing on both screens (search, Columns) and the one that only makes sense here.
+ * The Companies stage toolbar (`Position.dc.html`): one search box whatever the view, the Table | Map |
+ * Pipeline control where more than one view is offered, the three primary actions — which keep their
+ * places in every view, greyed where the view cannot take them — and Advanced ▾ for everything else.
  *
- * <p>The two "Add" buttons are those. Strategy's equivalent takes a company out of the market; there
- * is no market behind either of these, which is the point — they are how a company the export does not
- * carry, and an executive no export has ever carried, get into a mandate at all.
- *
- * <p>"Add executive" here maps someone with no company selected, so the row lands unmapped: the
- * executive a researcher met at a company this mandate never triaged. Adding someone <i>at</i> a
- * company is that company's own row action, where the company is already known.
- *
- * <p>The Table | Map control appears only when the caller offers it — the universe page, on a
- * deployment with a Mapbox account. In Map view the column controls hide, because there are no
- * columns, and the search box narrows the panel and the pins instead of the grid.
+ * <p>"Add executive" maps someone with no company selected, so the row lands unmapped: the executive a
+ * researcher met at a company this mandate never triaged. Adding someone <i>at</i> a company is that
+ * company's own row action.
  */
 export function TriageToolbar({
-  query,
-  onQuery,
-  columnVisibility,
-  onColumnVisibilityChange,
-  customColumns,
-  onResetLayout,
-  onAddCompany,
-  onAddExecutive,
-  onImport,
-  onExport,
-  exporting,
-  onManageColumns,
-  canWrite,
-  canImport,
-  findExecutives,
-  view = "table",
+  search,
+  onSearch,
+  searchPlaceholder,
+  views,
+  view,
   onViewChange,
+  canWrite,
+  findExecutives,
+  onAddExecutive,
+  onAddCompany,
+  addCompanyUnavailable,
+  advanced,
+  advancedDot,
 }: {
-  query: string;
-  onQuery: (query: string) => void;
-  columnVisibility: ColumnVisibilityState;
-  onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
-  /** This mandate's own extra columns — they are pickable and resettable like any built-in. */
-  customColumns: readonly CustomColumn[];
-  onResetLayout: () => void;
-  onAddCompany: () => void;
-  onAddExecutive: () => void;
-  onImport: () => void;
-  onExport: () => void;
-  /** The file is composed server-side, so the press has to say it is doing something. */
-  exporting: boolean;
-  onManageColumns: () => void;
+  search: string;
+  onSearch: (search: string) => void;
+  searchPlaceholder: string;
+  /** The views this caller may read the stage as; the control is drawn only for more than one. */
+  views: readonly CompaniesView[];
+  view: CompaniesView;
+  onViewChange: (view: CompaniesView) => void;
   /** False for a client representative, who reads these grids and writes nothing. */
   canWrite: boolean;
-  /** An imported company lands in the universe, so the other two stages do not offer the button. */
-  canImport: boolean;
   /** Find executives over the universe's companies; takes no second press while a run is in progress. */
   findExecutives?: {
     onPress: () => void;
     running: boolean;
     /** "3/5" while a run is in progress. */
     progress?: string;
+    unavailable?: UnavailableAction;
   };
-  /** How the screen is being read; the control renders only when `onViewChange` is given. */
-  view?: CompaniesView;
-  onViewChange?: (view: CompaniesView) => void;
+  onAddExecutive: () => void;
+  onAddCompany: () => void;
+  addCompanyUnavailable?: UnavailableAction;
+  advanced: AdvancedMenuSection[];
+  /** Says a setting inside Advanced is on, such as hidden columns. */
+  advancedDot?: string;
 }) {
-  // Derived from the project's own column set, so a custom column appears in the picker with the
-  // built-ins rather than being the one column on the grid nobody can hide.
-  const hideableColumns = useMemo(
-    () => hideableColumnsOf(createTriageCompanyColumns(customColumns, { staff: canWrite })),
-    [customColumns, canWrite],
-  );
-  const defaults = useMemo(() => defaultTriageColumnVisibility(customColumns), [customColumns]);
-
   return (
-    <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
-      {/* Table view narrows by the grid's own Company and Executive header filters instead — one box
-          doing the same job a few inches away would just be a second, confusing way to ask. Map view
-          has no grid headers to attach a filter to, so it keeps this one. */}
-      {view === "map" && (
-        <label className="order-last flex w-full min-w-[180px] items-center gap-2 rounded-[6px] border border-u-border-strong px-3 py-2 sm:order-none sm:w-[240px] sm:flex-none">
-          <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
-          <input
-            value={query}
-            onChange={(event) => onQuery(event.target.value)}
-            placeholder="Filter companies and executives..."
-            aria-label="Filter companies and executives"
-            className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
-          />
-        </label>
-      )}
+    <div className="flex min-h-[52px] flex-none flex-wrap items-center gap-x-3 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5">
+      <label className="flex min-w-[200px] flex-[1_1_260px] items-center gap-2 rounded-md border border-u-border-strong bg-u-surface py-[7px] pl-3 pr-2.5 sm:max-w-[380px]">
+        <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => onSearch(event.target.value)}
+          placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder}
+          className="w-full min-w-0 bg-transparent font-sans text-body text-u-text outline-none placeholder:text-u-text3 [&::-webkit-search-cancel-button]:hidden"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => onSearch("")}
+            aria-label="Clear search"
+            className="grid size-5 flex-none place-items-center rounded text-u-text3 hover:bg-u-raised hover:text-u-text"
+          >
+            <Icon d={ICONS.close} size={12} />
+          </button>
+        )}
+      </label>
 
-      {onViewChange && (
+      {views.length > 1 && (
         <SegmentedControl
           label="View"
-          options={VIEW_OPTIONS}
+          options={views.map((option) => VIEW_OPTIONS[option])}
           value={view}
           onChange={onViewChange}
         />
       )}
 
-      <div className="flex items-center gap-3 sm:ml-auto">
-        {view === "table" && (
-          <ColumnPicker
-            columns={hideableColumns}
-            visibility={columnVisibility}
-            defaults={defaults}
-            onChange={onColumnVisibilityChange}
-            onResetLayout={onResetLayout}
-          />
-        )}
-
-        {/* Outside the write gate: a client representative reads this grid, so they may take it. */}
-        <button
-          type="button"
-          onClick={onExport}
-          disabled={exporting}
-          className={`${TOOLBAR_BUTTON} disabled:opacity-50`}
-        >
-          <Icon d={ICONS.exportOut} size={14} className="flex-none" />
-          {exporting ? "Exporting…" : "Export"}
-        </button>
-
+      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         {canWrite && (
           <>
-            {view === "table" && (
-              <button type="button" onClick={onManageColumns} className={TOOLBAR_BUTTON}>
-                <Icon d={ICONS.settings} size={14} className="flex-none" />
-                Columns
-              </button>
-            )}
-            {canImport && (
-              <button type="button" onClick={onImport} className={TOOLBAR_BUTTON}>
-                <Icon d={ICONS.importInto} size={14} className="flex-none" />
-                Import
-              </button>
-            )}
             {findExecutives && (
-              <button
-                type="button"
-                onClick={findExecutives.onPress}
-                disabled={findExecutives.running}
-                aria-busy={findExecutives.running}
+              <ToolbarAction
+                icon={ICONS.sparkle}
+                pulsing={findExecutives.running}
+                unavailable={findExecutives.unavailable}
+                busy={findExecutives.running}
                 title={
                   findExecutives.running
                     ? "A run is in progress"
-                    : "Find the best-fitting executives at these companies"
+                    : "Find executives at the ticked companies, or at the first ones with nobody mapped"
                 }
-                className={cn(TOOLBAR_BUTTON, "disabled:opacity-60")}
+                onClick={findExecutives.onPress}
               >
-                <Icon
-                  d={ICONS.search}
-                  size={14}
-                  className={cn("flex-none", findExecutives.running && "animate-pulse")}
-                />
                 {findExecutives.running
                   ? `Finding executives… ${findExecutives.progress ?? ""}`.trimEnd()
                   : "Find executives"}
-              </button>
+              </ToolbarAction>
             )}
-            <button
-              type="button"
-              onClick={onAddExecutive}
-              className={TOOLBAR_BUTTON}
-            >
-              <Icon d={ICONS.userPlus} size={14} className="flex-none" />
+            <ToolbarAction icon={ICONS.userPlus} onClick={onAddExecutive}>
               Add executive
-            </button>
-            <button type="button" onClick={onAddCompany} className={TOOLBAR_BUTTON}>
-              <Icon d={ICONS.plus} size={14} className="flex-none" />
+            </ToolbarAction>
+            <ToolbarAction icon={ICONS.plus} unavailable={addCompanyUnavailable} onClick={onAddCompany}>
               Add company
-            </button>
+            </ToolbarAction>
           </>
         )}
+        <AdvancedMenu sections={advanced} dot={advancedDot} />
       </div>
     </div>
+  );
+}
+
+function ToolbarAction({
+  icon,
+  unavailable,
+  busy = false,
+  pulsing = false,
+  title,
+  onClick,
+  children,
+}: {
+  icon: string;
+  unavailable?: UnavailableAction;
+  busy?: boolean;
+  pulsing?: boolean;
+  title?: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const inert = Boolean(unavailable) || busy;
+  return (
+    <button
+      type="button"
+      // aria-disabled rather than disabled, so the greyed button still takes focus and its title is read.
+      aria-disabled={inert || undefined}
+      aria-busy={busy || undefined}
+      title={unavailable?.reason ?? title}
+      onClick={inert ? undefined : onClick}
+      className={TOOLBAR_BUTTON}
+    >
+      <Icon d={icon} size={14} className={cn("flex-none", pulsing && "animate-pulse")} />
+      {children}
+    </button>
   );
 }

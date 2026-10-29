@@ -34,7 +34,7 @@ import { MailboxCallbackPage } from "../features/outreach/pages/MailboxCallbackP
 import { OutreachPage } from "../features/outreach/pages/OutreachPage";
 import { SequenceEditorPage } from "../features/outreach/pages/SequenceEditorPage";
 import { SequencesPage } from "../features/outreach/pages/SequencesPage";
-import PipelinePage from "../features/pipeline/pages/PipelinePage";
+import PipelineRedirect from "../features/pipeline/pages/PipelineRedirect";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
@@ -142,8 +142,8 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><ProjectLayout /></RequireWorkspace>}>
         <Route path="/projects/:projectId" element={<PositionPage />} />
         <Route path="/projects/:projectId/strategy" element={<StrategyPage />} />
-        {/* The Companies section: one route pattern, three stages, each its own URL so a shortlist
-            can be sent to a colleague. An unknown stage redirects rather than rendering an empty grid
+        {/* The Companies section: one route pattern, two stages, each its own URL so a declined list
+            can be sent to a colleague. The retired Shortlisted page's address redirects with the rest. An unknown stage redirects rather than rendering an empty grid
             for something that does not exist. */}
         <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
         <Route
@@ -160,7 +160,7 @@ export function AppRoutes() {
           path="/projects/:projectId/candidates"
           element={<Navigate to="../companies/universe" replace relative="path" />}
         />
-        <Route path="/projects/:projectId/pipeline" element={<RequireStaff><PipelinePage /></RequireStaff>} />
+        <Route path="/projects/:projectId/pipeline" element={<PipelineRedirect />} />
         <Route path="/projects/:projectId/outreach" element={<RequireStaff><OutreachPage /></RequireStaff>} />
         <Route path="/projects/:projectId/outreach/sequences" element={<RequireStaff><SequencesPage /></RequireStaff>} />
         <Route

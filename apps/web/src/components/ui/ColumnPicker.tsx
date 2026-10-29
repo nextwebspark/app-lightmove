@@ -56,32 +56,58 @@ export function ColumnPicker({
       )}
     >
       {() => (
-        <div className="flex max-h-[60vh] flex-col overflow-y-auto">
-          {columns.map((column) => (
-            <FilterCheckRow
-              key={column.id}
-              label={column.label}
-              size="sm"
-              checked={isVisible(column.id)}
-              onToggle={() => onChange({ ...visibility, [column.id]: !isVisible(column.id) })}
-            />
-          ))}
-
-          <div className="mx-1 my-1.5 h-px bg-u-border" />
-
-          <button
-            type="button"
-            onClick={() => {
-              onChange(defaults);
-              onResetLayout?.();
-            }}
-            className="rounded-[5px] px-1 py-[7px] text-left font-sans text-[12px] font-medium text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-          >
-            Reset to default
-          </button>
-        </div>
+        <ColumnPickerList
+          columns={columns}
+          visibility={visibility}
+          defaults={defaults}
+          onChange={onChange}
+          onResetLayout={onResetLayout}
+        />
       )}
     </Popover>
+  );
+}
+
+/** The picker's list on its own, for a menu that carries it as one of several panels. */
+export function ColumnPickerList({
+  columns,
+  visibility,
+  defaults,
+  onChange,
+  onResetLayout,
+}: {
+  columns: HideableColumn[];
+  visibility: ColumnVisibilityState;
+  defaults: ColumnVisibilityState;
+  onChange: (visibility: ColumnVisibilityState) => void;
+  onResetLayout?: () => void;
+}) {
+  const isVisible = (id: string) => visibility[id] !== false;
+  return (
+    <div className="flex max-h-[60vh] flex-col overflow-y-auto">
+      {columns.map((column) => (
+        <FilterCheckRow
+          key={column.id}
+          label={column.label}
+          size="sm"
+          checked={isVisible(column.id)}
+          onToggle={() => onChange({ ...visibility, [column.id]: !isVisible(column.id) })}
+        />
+      ))}
+
+      <div className="mx-1 my-1.5 h-px bg-u-border" />
+
+      <button
+        type="button"
+        onClick={() => {
+          onChange(defaults);
+          onResetLayout?.();
+        }}
+        className="rounded-[5px] px-1 py-[7px] text-left font-sans text-[12px] font-medium text-u-text3 transition hover:bg-u-raised hover:text-u-text"
+      >
+        Reset to default
+      </button>
+    </div>
   );
 }
 

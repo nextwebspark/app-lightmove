@@ -24,6 +24,8 @@ import type { TriageCompaniesPage, TriageCompany } from "../api/types";
 import { stubFullscreenApi } from "../../../test/fullscreen";
 import { pickStatus } from "../../../test/pickStatus";
 import { TriageStagePage } from "./TriageStagePage";
+import * as pipelineApi from "../../pipeline/api/pipelineApi";
+import { aPipelinePage, aPipelineRow } from "../../../test/fixtures/pipelineRows";
 import * as companyNotesApi from "../api/companyNotesApi";
 import { typeInto } from "../../../test/noteEditor";
 
@@ -80,6 +82,10 @@ vi.mock("../api/companyNotesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof companyNotesApi>()),
   getCompanyNotes: vi.fn(),
   writeCompanyNote: vi.fn(),
+}));
+vi.mock("../../pipeline/api/pipelineApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../pipeline/api/pipelineApi")>()),
+  getPipeline: vi.fn(),
 }));
 vi.mock("../../talentmap/api/talentMapApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
@@ -364,6 +370,9 @@ const stageTree = (slug: string, proj: Project, search = "") => (
 
 const renderStage = (slug = "universe", proj: Project = project) => render(stageTree(slug, proj));
 
+/** Everything but the three primary actions is under Advanced ▾. */
+const openAdvanced = async () => userEvent.click(await screen.findByRole("button", { name: /^Advanced/ }));
+
 /** The strip is the nearest `role="status"` box around one of its lines. */
 const stripAround = (line: HTMLElement) => line.closest('[role="status"]') as HTMLElement;
 
@@ -389,7 +398,7 @@ const runOf = (overrides: Partial<SourcingRun> = {}): SourcingRun => ({
 });
 
 /**
- * The Companies section: three stages of a mandate's triaged universe, each its own page, rendered in
+ * The Companies section: two stages of a mandate's triaged universe, each its own page, rendered in
  * the same grid Strategy uses — plus the three writes the section added (move, remove, capture).
  */
 describe("TriageStagePage", () => {
@@ -409,6 +418,7 @@ describe("TriageStagePage", () => {
     vi.mocked(positionApi.getBriefCompensation).mockResolvedValue(BRIEF_PACKAGE);
     vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: false, publicToken: null });
     vi.mocked(talentMapApi.getTalentMap).mockResolvedValue(mapPageOf());
+    vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage([]));
     // Off unless a test turns it on: most of this suite is about the grid, not Find executives.
     vi.mocked(sourcingApi.getSourcingConfig).mockResolvedValue(SOURCING_OFF);
     vi.mocked(sourcingApi.getLatestSourcingRun).mockResolvedValue(null);
@@ -457,7 +467,7 @@ describe("TriageStagePage", () => {
       // Exact: the held toolbar button also reads "Finding executives… 1/2".
       const strip = stripAround(await screen.findByText("Finding executives"));
       expect(strip).toHaveTextContent("1/2 companies");
-      expect(screen.getByRole("button", { name: /Finding executives… 1\/2/i })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /Finding executives… 1\/2/i })).toHaveAttribute("aria-disabled", "true");
     });
 
     it("with companies ticked, runs over exactly those, caps the ticks and keeps them until the run lands", async () => {
@@ -536,12 +546,12 @@ describe("TriageStagePage", () => {
 
   it("reads the stage from the URL and asks the API for that status", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ companies: [{ ...acwa, status: "shortlisted" }], counts: { inUniverse: 0, shortlisted: 1, declined: 0 } }),
+      pageOf({ companies: [{ ...acwa, status: "declined" }], counts: { inUniverse: 0, shortlisted: 0, declined: 1 } }),
     );
-    renderStage("shortlisted");
+    renderStage("declined");
 
     expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
-    expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("shortlisted");
+    expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("declined");
   });
 
   it("the Status column's checkbox filter offers only the statuses on the grid, and ticks into the server read", async () => {
@@ -678,22 +688,22 @@ describe("TriageStagePage", () => {
   });
 
   it("moves a company through the existing PATCH rather than a stage-specific endpoint", async () => {
-    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "declined" });
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Decline: ACWA Power/i }));
 
     await waitFor(() =>
       expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
-        status: "shortlisted",
+        status: "declined",
         executiveIds: [],
       }),
     );
   });
 
   it("undoes a move by sending the company back with exactly the people it carried", async () => {
-    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
+    vi.mocked(triageApi.updateTriageCompany).mockResolvedValue({ ...acwa, status: "declined" });
     // The grid's read names a query; the move's own read of who stands with the company does not.
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.query === undefined && !scope.unmapped ? [{ ...yasmin, triageStatus: "inUniverse" }] : []),
@@ -701,16 +711,16 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: /Shortlist: ACWA Power/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Decline: ACWA Power/i }));
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith("p1", {
         triageCompanyIds: ["u1"],
         triageStatus: "inUniverse",
       }),
     );
-    expect(await screen.findByText("ACWA Power and 1 executive moved to the shortlist")).toBeInTheDocument();
+    expect(await screen.findByText("ACWA Power and 1 executive moved to declined")).toBeInTheDocument();
     expect(triageApi.updateTriageCompany).toHaveBeenCalledWith("p1", "u1", {
-      status: "shortlisted",
+      status: "declined",
       executiveIds: ["c1"],
     });
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
@@ -735,7 +745,8 @@ describe("TriageStagePage", () => {
     // Every button on a row should do something: a declined company is not offered Decline.
     expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Back to universe: ACWA Power/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Shortlist: ACWA Power/i })).toBeInTheDocument();
+    // Shortlisted is retired as a destination, from every stage.
+    expect(screen.queryByRole("button", { name: /Shortlist/i })).not.toBeInTheDocument();
   });
 
   it("marks a company as no executive found from the add form, closing it unsaved", async () => {
@@ -837,7 +848,7 @@ describe("TriageStagePage", () => {
     await userEvent.click(screen.getByRole("button", { name: /Add an executive at ACWA Power/i }));
     const form = await screen.findByRole("dialog", { name: /Add executive/i });
     await userEvent.click(within(form).getByRole("button", { name: /^No executive found$/i }));
-    const acwaMoveButton = screen.getByRole("button", { name: /Shortlist: ACWA Power/i });
+    const acwaMoveButton = screen.getByRole("button", { name: /^Decline: ACWA Power/i });
     expect(acwaMoveButton).toBeDisabled();
 
     // A write on Gulf's own row — a different id — starts and fully settles while ACWA's is still
@@ -891,10 +902,10 @@ describe("TriageStagePage", () => {
           numEmployees: 3000 },
       ],
     });
-    vi.mocked(triageApi.addMarketCompany).mockResolvedValue({ ...acwa, status: "shortlisted" });
-    renderStage("shortlisted");
+    vi.mocked(triageApi.addMarketCompany).mockResolvedValue({ ...acwa, status: "declined" });
+    renderStage("declined");
 
-    await screen.findByRole("table", { name: /Shortlisted companies/i });
+    await screen.findByRole("table", { name: /Declined companies/i });
     await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
@@ -917,7 +928,7 @@ describe("TriageStagePage", () => {
     // so the row keeps the export's figures and a Source badge that means what it says.
     await waitFor(() =>
       expect(triageApi.addMarketCompany).toHaveBeenCalledWith("p1", "a7", {
-        status: "shortlisted",
+        status: "declined",
         note: "Met their CFO",
       }),
     );
@@ -946,12 +957,12 @@ describe("TriageStagePage", () => {
 
   it("captures a hand-typed company into the stage being viewed", async () => {
     vi.mocked(triageApi.captureCompany).mockResolvedValue({
-      ...acwa, id: "u2", apolloAccountId: null, source: "manual", status: "shortlisted",
+      ...acwa, id: "u2", apolloAccountId: null, source: "manual", status: "declined",
       companyName: "Gulf Industrial",
     });
-    renderStage("shortlisted");
+    renderStage("declined");
 
-    await screen.findByRole("table", { name: /Shortlisted companies/i });
+    await screen.findByRole("table", { name: /Declined companies/i });
     await userEvent.click(screen.getByRole("button", { name: /Add company/i }));
 
     const dialog = await screen.findByRole("dialog", { name: /Add a company/i });
@@ -978,8 +989,8 @@ describe("TriageStagePage", () => {
       expect(triageApi.captureCompany).toHaveBeenCalledWith("p1", expect.objectContaining({
         companyName: "Gulf Industrial",
         source: "manual",
-        // Added while looking at the shortlist means shortlisted — not bounced to the universe.
-        status: "shortlisted",
+        // Added while looking at Declined means declined — not bounced to the universe.
+        status: "declined",
         numEmployees: 2400,
         // Picked from the market's own vocabulary, so a hand-typed company files under the names the
         // Strategy filter searches by rather than one reader's wording of them.
@@ -1080,15 +1091,15 @@ describe("TriageStagePage", () => {
     // Mirrors the server: reading is WORK_VIEW, every write is WORK_EXECUTE. Offering the buttons
     // would only ever earn a 403.
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: /Shortlist: ACWA Power/i })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument(),
     );
     expect(screen.queryByRole("button", { name: /Add company/i })).not.toBeInTheDocument();
   });
 
   it("exports the stage on screen, narrowed by whatever the search box holds", async () => {
-    renderStage("shortlisted");
+    renderStage("declined");
 
-    const grid = await screen.findByRole("table", { name: /Shortlisted companies/i });
+    const grid = await screen.findByRole("table", { name: /Declined companies/i });
     await screen.findByText("ACWA Power");
     await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Filter by company name" }), "acwa");
@@ -1096,15 +1107,19 @@ describe("TriageStagePage", () => {
     // come after the grid itself has caught up.
     await waitFor(() =>
       expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.at(-1)?.[4]).toBe("acwa"));
-    await userEvent.click(screen.getByRole("button", { name: /^Export$/i }));
+    await userEvent.type(screen.getByRole("searchbox", { name: /^Search companies/ }), "finance");
+    await waitFor(() =>
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.at(-1)?.[7]).toBe("finance"));
+    await openAdvanced();
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Export CSV/ }));
 
     // The stage and the search travel; the page the grid happens to be showing does not, because the
     // file is the whole stage rather than one page of it.
     await waitFor(() =>
       expect(exportApi.saveCompaniesCsv).toHaveBeenCalledWith(
-        "p1", "shortlisted",
-        { query: "acwa", executiveQuery: "", executiveStatuses: [] },
-        ["Acme Corp", "CFO", "Shortlisted"]),
+        "p1", "declined",
+        { search: "finance", query: "acwa", executiveQuery: "", executiveStatuses: [] },
+        ["Acme Corp", "CFO", "Declined"]),
     );
   });
 
@@ -1114,8 +1129,10 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    // WORK_VIEW on the server, so the button is outside the write gate the other four sit behind.
-    expect(screen.getByRole("button", { name: /^Export$/i })).toBeInTheDocument();
+    // WORK_VIEW on the server, so the item is outside the write gate the others sit behind.
+    await openAdvanced();
+    expect(screen.getByRole("menuitem", { name: /^Export CSV/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Import/ })).not.toBeInTheDocument();
   });
 
   it("says so rather than throwing when the export is refused", async () => {
@@ -1125,7 +1142,8 @@ describe("TriageStagePage", () => {
     renderStage();
 
     await screen.findByText("ACWA Power");
-    await userEvent.click(screen.getByRole("button", { name: /^Export$/i }));
+    await openAdvanced();
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Export CSV/ }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
   });
@@ -1233,9 +1251,9 @@ describe("TriageStagePage", () => {
       );
     }
     // #903: a line's buttons used to be its company's, so declining one person declined everyone there.
-    expect(screen.getByRole("button", { name: "Shortlist: Yasmin El-Sayed" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Shortlist: Omar Haddad" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Shortlist: ACWA Power/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Decline: Yasmin El-Sayed/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Decline: Omar Haddad/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Remove ACWA Power from this mandate/i })).not.toBeInTheDocument();
   });
 
@@ -1284,7 +1302,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"], query: "", triageStatus: "inUniverse" },
+        { triageCompanyIds: ["u1"], query: "", search: "", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );
@@ -1377,7 +1395,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { unmapped: true, query: "Wei", triageStatus: "inUniverse" },
+        { unmapped: true, query: "Wei", search: "", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );
@@ -1426,7 +1444,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"], query: "Alok", triageStatus: "inUniverse" },
+        { triageCompanyIds: ["u1"], query: "Alok", search: "", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );
@@ -1478,7 +1496,7 @@ describe("TriageStagePage", () => {
 
     await screen.findByText("Wei Ling Tan");
     // No company to act on, so the line's moves and removal are the person's own.
-    expect(screen.getByRole("button", { name: "Shortlist: Wei Ling Tan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Decline: Wei Ling Tan/ })).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: /Remove Wei Ling Tan from this mandate/i }),
     );
@@ -1523,7 +1541,7 @@ describe("TriageStagePage", () => {
     await waitFor(() =>
       expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
         "p1",
-        { triageCompanyIds: ["u1"], query: "", triageStatus: "inUniverse" },
+        { triageCompanyIds: ["u1"], query: "", search: "", triageStatus: "inUniverse" },
         expect.anything(),
       ),
     );
@@ -1704,29 +1722,37 @@ describe("TriageStagePage", () => {
     expect(within(grid).queryByText("Lebanese")).not.toBeInTheDocument();
   });
 
-  it("offers Import and Columns to a colleague and to no client representative", async () => {
+  it("offers Import and Columns to a colleague under Advanced", async () => {
     renderStage();
-    expect(await screen.findByRole("button", { name: /^Import$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Columns$/i })).toBeInTheDocument();
+    await screen.findByText("ACWA Power");
+    await openAdvanced();
+    expect(screen.getByRole("menuitem", { name: /^Import spreadsheet/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^Manage custom columns/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^Show \/ hide columns/ })).toBeInTheDocument();
   });
 
   it("offers Import only on the universe, where an imported company lands", async () => {
-    // The importer captures at `inUniverse` and an update never moves a stage, so the button on
-    // Shortlisted or Declined would write rows onto a page the user is not looking at.
-    renderStage("shortlisted");
+    // The importer captures at `inUniverse` and an update never moves a stage, so the item on
+    // Declined would write rows onto a page the user is not looking at.
+    renderStage("declined");
+    await screen.findByText("ACWA Power");
+    await openAdvanced();
 
-    expect(await screen.findByRole("button", { name: /^Columns$/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Import$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /^Manage custom columns/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /^Import/ })).not.toBeInTheDocument();
   });
 
-  it("keeps Import and Columns away from a client representative", async () => {
+  it("keeps Import and Manage columns away from a client representative, who may still hide columns", async () => {
     const authApi = await import("../../auth/api/authApi");
     vi.mocked(authApi.me).mockResolvedValue(representative);
     renderStage();
 
     expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Import$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Columns$/i })).not.toBeInTheDocument();
+    await openAdvanced();
+    expect(screen.queryByRole("menuitem", { name: /^Import/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /^Manage custom columns/ })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("menuitem", { name: /^Show \/ hide columns/ }));
+    expect(screen.getByRole("button", { name: /Reset to default/ })).toBeInTheDocument();
   });
 
   it("edits a mandate's own column as a section of its own, over the stored profile", async () => {
@@ -1767,7 +1793,7 @@ describe("TriageStagePage", () => {
       expect(await screen.findByRole("radiogroup", { name: "View" })).toBeInTheDocument();
       unmount();
 
-      renderStage("shortlisted");
+      renderStage("declined");
       await screen.findByText("ACWA Power");
       expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
     });
@@ -1775,7 +1801,8 @@ describe("TriageStagePage", () => {
     it("keeps the grid when the deployment has no map", async () => {
       renderStage();
       await screen.findByText("ACWA Power");
-      expect(screen.queryByRole("radiogroup", { name: "View" })).not.toBeInTheDocument();
+      expect(await screen.findByRole("radio", { name: "Pipeline" })).toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: "Map" })).not.toBeInTheDocument();
       expect(talentMapApi.getTalentMap).not.toHaveBeenCalled();
     });
 
@@ -1784,7 +1811,7 @@ describe("TriageStagePage", () => {
       const { unmount } = renderStage();
 
       await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
-      await waitFor(() => expect(talentMapApi.getTalentMap).toHaveBeenCalledWith("p1", "inUniverse", expect.anything()));
+      await waitFor(() => expect(talentMapApi.getTalentMap).toHaveBeenCalledWith("p1", "inUniverse", "", expect.anything()));
       const tree = await screen.findByRole("tree", { name: "Mapping" });
       expect(within(tree).getByRole("treeitem", { name: /Saudi Arabia/ })).toBeInTheDocument();
       // The grid's own reads stop while the globe is showing — the map reads the stage itself.
@@ -1830,6 +1857,96 @@ describe("TriageStagePage", () => {
       expect(await screen.findByRole("dialog", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
     });
   });
+  describe("one toolbar for every view", () => {
+    const mapEnabled = { enabled: true, publicToken: "pk.test" };
+
+    it("sends the retired Shortlisted address to In universe", async () => {
+      renderStage("shortlisted");
+
+      expect(await screen.findByRole("table", { name: /In universe companies/i })).toBeInTheDocument();
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("inUniverse");
+    });
+
+    it("reads In universe as its executives' pipeline, searched the same way, with only what the board can use", async () => {
+      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(
+        aPipelinePage([aPipelineRow({ candidateId: "c7", fullName: "Rania Khoury", status: "contacted" })]),
+      );
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Pipeline" }));
+      expect(await screen.findByText("Rania Khoury")).toBeInTheDocument();
+      expect(screen.queryByRole("table", { name: /In universe companies/i })).not.toBeInTheDocument();
+
+      await userEvent.type(screen.getByRole("searchbox", { name: /^Search executives/ }), "treasury");
+      await waitFor(() =>
+        expect(pipelineApi.getPipeline).toHaveBeenLastCalledWith(
+          "p1", { q: "treasury", pipelineStage: "" }, expect.anything()),
+      );
+
+      // The board has no companies to add to or tick: both stay in place, greyed, saying where they work.
+      expect(screen.getByRole("button", { name: "Add company" })).toHaveAttribute("aria-disabled", "true");
+      expect(screen.getByRole("button", { name: "Add company" })).toHaveAttribute("title", "Add companies from Table or Map");
+      expect(screen.getByRole("button", { name: "Add executive" })).not.toHaveAttribute("aria-disabled");
+
+      await openAdvanced();
+      expect(screen.getByRole("menuitemcheckbox", { name: /^Inactive column/ })).toHaveAttribute("aria-checked", "true");
+      expect(screen.queryByRole("menuitem", { name: /Show \/ hide columns/ })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("menuitemcheckbox", { name: /^Inactive column/ }));
+      expect(screen.getByRole("menuitemcheckbox", { name: /^Inactive column/ })).toHaveAttribute("aria-checked", "false");
+    });
+
+    it("opens the pipeline a notification links to, on the executive's drawer", async () => {
+      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage([]));
+      render(stageTree("universe", project, "?view=pipeline&candidate=c1"));
+
+      expect(await screen.findByRole("radio", { name: "Pipeline" })).toHaveAttribute("aria-checked", "true");
+      await waitFor(() => expect(pipelineApi.getPipeline).toHaveBeenCalled());
+    });
+
+    it("never offers a client seat the pipeline, whatever the link asks", async () => {
+      const authApi = await import("../../auth/api/authApi");
+      vi.mocked(authApi.me).mockResolvedValue(representative);
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      render(stageTree("universe", project, "?view=pipeline"));
+
+      expect(await screen.findByRole("table", { name: /In universe companies/i })).toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: "Pipeline" })).not.toBeInTheDocument();
+      expect(screen.getByRole("searchbox", { name: "Search companies and executives…" })).toBeInTheDocument();
+      expect(pipelineApi.getPipeline).not.toHaveBeenCalled();
+    });
+
+    it("searches the map on the server, and offers the map's own layers under Advanced", async () => {
+      vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue(mapEnabled);
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Map" }));
+      await userEvent.type(screen.getByRole("searchbox", { name: /^Search companies/ }), "acwa");
+      await waitFor(() =>
+        expect(talentMapApi.getTalentMap).toHaveBeenLastCalledWith("p1", "inUniverse", "acwa", expect.anything()),
+      );
+
+      await openAdvanced();
+      expect(screen.getByRole("menuitemcheckbox", { name: /^Executives on the map/ })).toBeInTheDocument();
+      expect(screen.getByRole("menuitemcheckbox", { name: /^Mapping panel/ })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: /Add to sequence/ })).not.toBeInTheDocument();
+    });
+
+    it("sends the toolbar's search with the grid's own read and its people reads", async () => {
+      renderStage();
+      await screen.findByText("ACWA Power");
+
+      await userEvent.type(screen.getByRole("searchbox", { name: /^Search companies/ }), "risk");
+      await waitFor(() =>
+        expect(candidatesApi.getCandidates).toHaveBeenCalledWith(
+          "p1",
+          { triageCompanyIds: ["u1"], query: "", search: "risk", triageStatus: "inUniverse" },
+          expect.anything(),
+        ),
+      );
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.at(-1)?.[7]).toBe("risk");
+    });
+  });
+
   it("polls for landed research only while the stream is down", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -1880,7 +1997,7 @@ describe("TriageStagePage — full screen", () => {
 
   afterEach(() => fullscreenApi.restore());
 
-  it.each(["universe", "shortlisted", "declined"])("is offered on %s", async (slug) => {
+  it.each(["universe", "declined"])("is offered on %s", async (slug) => {
     renderStage(slug);
 
     expect(await screen.findByRole("button", { name: "Full screen", pressed: false }))

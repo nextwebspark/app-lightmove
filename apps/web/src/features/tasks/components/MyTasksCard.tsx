@@ -21,6 +21,7 @@ import { firstNameOf } from "../lib/team";
 import { useTasksChanged } from "../lib/useTasksChanged";
 import { NextActionModal, type NextActionTarget } from "./NextActionModal";
 import { AutoPill, DuePill } from "./TaskBits";
+import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
 
 type Counts = MyTasksResponse["counts"];
 
@@ -337,10 +338,10 @@ function TaskRow({
   const kind = taskKindOf(task.kind);
   const personName = task.personName ?? "Someone";
   const assigneeName = task.assignee.fullName ?? "Someone";
-  const pipeline = `/projects/${task.projectId}/pipeline`;
+  const pipeline = positionPipelinePath(task.projectId);
   // An executive since unmapped from the position is still the workspace's person: open their record there.
   const executiveHref = task.candidateId
-    ? `${pipeline}?candidate=${task.candidateId}`
+    ? positionPipelinePath(task.projectId, { candidate: task.candidateId })
     : `/candidates?person=${encodeURIComponent(task.personId)}`;
 
   const checkbox = (

@@ -20,12 +20,14 @@ workspace, `wsId`, moved by `POST /auth/switch-workspace` or, audited, by a web 
 has ended), the projects/clients
 screens, a project's Team & access tab, the client registry with representative invites and their
 scoped read-only project access, and **Strategy → Companies**: a filter over the company universe, the
-searches saved against it, and the three Companies pages (In universe / Shortlisted / Declined) where a
-mandate triages what it took from it. A company reaches those pages four ways — out of the market
+searches saved against it, and the two Companies pages (In universe / Declined) where a
+mandate triages what it took from it. **Shortlisted is retired** as a page and as a destination: no door offers it
+and every write refuses it (`VALIDATION_FAILED`), while a row already there stays, unlisted (no migration; the CHECK,
+the reads and the public API/MCP vocabulary keep the value), and `/companies/shortlisted` lands on In universe. A company reaches those pages four ways — out of the market
 (Strategy's per-row add, or the Companies screen's own picker over the same universe, both `POST
 /triage` with an id the server resolves), typed in by hand, captured by the browser plugin
 (`POST /triage/capture`), or **imported from a spreadsheet**. Strategy's rows also carry a tick box:
-a selection raises a floating bar over the grid whose three buttons file every ticked company at one
+a selection raises a floating bar over the grid whose two buttons file every ticked company at one
 stage in one request (`POST /triage/bulk`), so a mandate can decline forty companies without first
 taking them into the universe.
 **A company's notes are a feed (V143)**, the person's notes' shape for a company of one mandate: authored, timed,
@@ -42,7 +44,7 @@ Deleting one drops the project↔company row only — and its notes: the Apollo 
 that sits the **people half**: an executive mapped for a mandate, optionally against one of its triaged
 companies, added by hand from the Companies grid — where a row is a *person at a company*, so a company
 with three of them is three lines and one with none keeps its "Add executive" slot. **Each executive holds a stage
-of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own Shortlist /
+of their own** (V150, #903): their company's when filed or remapped, then wherever their line's own
 Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) — a line's buttons and trash act on its
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
 (its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
@@ -170,15 +172,27 @@ nothing itself — it builds the same requests the Companies drawer posts and ha
 already lives. **An imported row is never resolved against the market and never researched** — a file
 states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
 affords are exactly the two it cannot.
-A stage also leaves as a file: **Export** on the Companies toolbar downloads the whole stage —
-every row, not the page on screen, narrowed by whichever of the grid's three header filters are in
-force, rows as well as companies, so the file is what the screen was showing — carrying every
+A stage also leaves as a file: **Export** (under the toolbar's Advanced ▾) downloads the whole stage —
+every row, not the page on screen, narrowed by the toolbar's search and whichever of the grid's three header filters
+are in force, rows as well as companies, so the file is what the screen was showing — carrying every
 column the grid draws and every custom column the mandate added, with the two Links icons spelled
 out as Website and Company LinkedIn. It is `WORK_VIEW`, the gate that reads the grid, so a client
 representative may take the mandate they can already read; unlike every other read it records an
 audit event, because a mandate leaving as a file is not the same act as reading a page of it. Past
 `lightmove.export.*` it refuses rather than truncating.
-The In-universe page also reads as a **map**: a Table | Map toggle on its toolbar (offered only
+**The Companies toolbar** (`Position.dc.html`) is one search box in every view, the view control, the three
+primary actions — Find executives, Add executive, Add company, which keep their places in every view and are greyed
+(`aria-disabled`, saying where they work) where the view cannot take them, as both companies' actions are on the
+Pipeline — and **Advanced ▾** (`AdvancedMenu`) for the rest, by view: show/hide and manage columns on the table, the
+map's layers, the board's Inactive column and pipeline stages, Add to sequence where something can be ticked, Import
+and Export. The search is matched by the server, the same rule in every read (`search` on the triage list, its
+people reads, the export and the talent map, the pipeline's `q`): a company by name, place or industry, an executive
+by name, title, place or employer, and — only for a `WORK_EXECUTE` holder, decided server-side — the company's and
+the person's live notes readable from this position and the person's tags; a matching company keeps all its people.
+In universe reads as **Table | Map | Pipeline** (`?view=`, remembered per mandate): **Pipeline** is the executives'
+board by pipeline stage — the retired CRM Pipeline page, board only, its executives those listed In universe, staff
+only (`WORK_EXECUTE`); `/projects/{id}/pipeline` and its `?candidate=` links land there (`positionPipelinePath`).
+The In-universe page also reads as a **map**: the Map view (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
 per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
@@ -234,7 +248,7 @@ the free count: the search asks exactly the question it is cached under, since t
 workspace, and people at declined companies — the whole stage, by name or LinkedIn slug — are left off
 the page as it is read, so declining someone never turns a paid page into a new question. A person already mapped
 comes back, and is billed, because ContactOut cannot exclude one — the grid marks them "In mandate".
-The selection bar and the person panel file the ticked people at **In universe, Shortlisted or
+The selection bar and the person panel file the ticked people at **In universe or
 Declined** — the stage lands on their employer, filed by `captureFromResearch` as `PEOPLE_SEARCH` and
 matched to the market where it can be, while an employer already held keeps its stage — from the
 cache, never the vendor (`addResearched`, `PEOPLE_SEARCH`, `enriched_by = CONTACTOUT`, no AI
@@ -577,8 +591,8 @@ Manager names and the `deploy.yml` switches (`GOOGLE_MAIL_ENABLED`, `MICROSOFT_M
 `RECALL_ENABLED`, each off until its secrets exist) — and the five admin guides beside it are what the
 `*_GUIDE_URL` settings link Settings → Integrations to once published.
 Sequences (V100, #623) are a position's, `WORK_EXECUTE`: up to three emails (V39's owned list), and
-**Add to sequence** — from In universe / Shortlisted (the ticked companies' executives) or the executive
-drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
+**Add to sequence** — from In universe (the ticked companies' executives, or the ticked executives on its
+Pipeline) or the executive drawer — chooses, reviews and starts. Choose shows who is skipped and why (no email, do not contact, out
 of the running, already in a live sequence); the openers and Start decide the same rules again
 (`RecipientEligibility`), so nobody skipped is sent to the model, charged for or enrolled. Each person's first email is rendered and **frozen on their enrollment** with their own opener,
 so an edit reaches nobody else; Start creates `SCHEDULED` rows and sends nothing. The

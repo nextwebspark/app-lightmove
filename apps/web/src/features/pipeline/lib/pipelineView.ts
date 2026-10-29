@@ -1,4 +1,3 @@
-import { moveItem } from "../../../lib/moveItem";
 import type { CandidatePipelineStage } from "../../candidates/api/types";
 import type { PipelineCatalog, PipelineStatus } from "../../workspace/api/types";
 import type { PipelineRankMove, PipelineRow } from "../api/types";
@@ -11,32 +10,6 @@ export function shortDate(moment: Date | string): string {
 export function daysInStage(statusChangedAt: string, now: Date = new Date()): number {
   const elapsed = now.getTime() - new Date(statusChangedAt).getTime();
   return Math.max(0, Math.floor(elapsed / 86_400_000));
-}
-
-/**
- * A drag of one row onto another: the new order and the two rows it now sits between. A row moves only
- * among its own stage's rows, since a stage is changed by a status and never by a drag in the list.
- */
-export function rankMoveOf(
-  rows: readonly PipelineRow[],
-  movedId: string,
-  targetId: string,
-): { rows: PipelineRow[]; move: PipelineRankMove } | null {
-  const moved = rows.find((row) => row.candidateId === movedId);
-  const target = rows.find((row) => row.candidateId === targetId);
-  if (!moved || !target || moved === target || moved.pipelineStage.key !== target.pipelineStage.key) return null;
-  const from = rows.indexOf(moved);
-  const to = rows.indexOf(target);
-  const reordered = moveItem(rows, from, to);
-  const sameStage = reordered.filter((row) => row.pipelineStage.key === moved.pipelineStage.key);
-  const at = sameStage.indexOf(moved);
-  return {
-    rows: reordered,
-    move: {
-      afterCandidateId: sameStage[at - 1]?.candidateId ?? null,
-      beforeCandidateId: sameStage[at + 1]?.candidateId ?? null,
-    },
-  };
 }
 
 /** Where a dropped card goes: its stage, the status it is given (null keeps its own), and the card it lands before. */

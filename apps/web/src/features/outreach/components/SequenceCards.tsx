@@ -31,7 +31,7 @@ export function SequenceCards({ projectId }: { projectId: string }) {
       <EmptyState
         icon={<Icon d={ICONS.outreach} size={22} />}
         title="No sequences on this position yet"
-        body="Write one, then add people to it from In universe, Shortlisted or a conversation."
+        body="Write one, then add people to it from In universe, its pipeline or a conversation."
       >
         <Link to={newSequencePath} className={buttonClassName("primary", "px-3.5 py-2 text-body")}>
           Write your first sequence

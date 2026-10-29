@@ -5,10 +5,9 @@ import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
 import { formatNumber } from "../../../lib/format";
 import type { TriageCompanyStatus } from "../../triage/api/types";
-import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
+import { stageByStatus, TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import { companyKey, type AssistantProposal, type ProposalOutcome, type ProposedCompany } from "../api/types";
 
-const STAGE_BY_STATUS = new Map(TRIAGE_STAGES.map((stage) => [stage.status, stage]));
 
 const ACCEPT_LABELS: Record<TriageCompanyStatus, string> = {
   inUniverse: "Universe",
@@ -65,7 +64,7 @@ export function AssistantProposalCard({
         {proposal.companies.map((company) => {
           const key = companyKey(company);
           const on = ticked.includes(key);
-          const held = company.stage ? STAGE_BY_STATUS.get(company.stage) : undefined;
+          const held = company.stage ? stageByStatus(company.stage) : undefined;
           return (
             <li
               key={key}

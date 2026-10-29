@@ -10,7 +10,6 @@ import type { TalentMapPage } from "../api/types";
 import { countOf, toFeatureCollection } from "../lib/talentMapFeatures";
 import {
   buildTree,
-  filterTree,
   nodesOf,
   pathTo,
   UNLOCATED_KEY,
@@ -32,8 +31,8 @@ const TalentMapGlobe = lazy(() => import("./TalentMapGlobe"));
  * existing drawers on demand — opened from a row or a pin exactly as the grid opens them.
  *
  * <p>Selection and hover live here and are handed to both halves, so a row and its pin are one
- * thing touched two ways. The tree is built from the page once and narrowed by the toolbar's search
- * on every keystroke; the globe draws whatever the narrowed tree holds.
+ * thing touched two ways. The tree is built from the page, which the server has already narrowed by the
+ * toolbar's search; the globe draws whatever the tree holds.
  */
 export function TalentMapView({
   projectId,
@@ -68,7 +67,7 @@ export function TalentMapView({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
 
   const tree = useMemo(() => (page ? buildTree(page) : null), [page]);
-  const visible = useMemo(() => (tree ? filterTree(tree, query) : null), [tree, query]);
+  const visible = tree;
   const features = useMemo(
     () =>
       visible

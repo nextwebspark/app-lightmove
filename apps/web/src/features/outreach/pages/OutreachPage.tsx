@@ -23,6 +23,7 @@ import { mailboxStateOf, type MailboxState } from "../lib/mailboxState";
 import { refreshOutreachActivity } from "../lib/outreachRefresh";
 import { useMailbox } from "../lib/useMailbox";
 import { useMailboxConnect, type MailboxConnect } from "../lib/useMailboxConnect";
+import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
 
 const VIEWS: readonly ConversationView[] = ["all", "needs", "scheduled", "sent"];
 const SEARCH_DELAY_MS = 250;
@@ -284,7 +285,7 @@ function NobodyOpen({
           <Link to={`/projects/${projectId}/companies/universe`} className={buttonClassName("secondary")}>
             In universe
           </Link>
-          <Link to={`/projects/${projectId}/pipeline`} className={buttonClassName("secondary")}>
+          <Link to={positionPipelinePath(projectId)} className={buttonClassName("secondary")}>
             Pipeline
           </Link>
         </div>

@@ -8,7 +8,7 @@ The words Uncava uses, and what they mean.
 | **Brief** | What the role is, why it exists, what it pays, and what candidates are scored against. |
 | **Strategy** | Where you search the market for target companies. |
 | **In universe** | The companies a position has taken from the market to map. |
-| **Shortlisted** / **Declined** | Where a company goes once you've decided about it. Declined companies stay on record, so they're never suggested again. |
+| **Declined** | Where a company goes once you've ruled it out. Declined companies stay on record, so they're never suggested again. |
 | **Executive** | A person mapped at a company on a position. |
 | **Candidate** | The same person on the workspace's Candidates page, across every position that maps them. |
 | **Sequence** | Up to three emails sent from your own mailbox. A reply stops it. |
