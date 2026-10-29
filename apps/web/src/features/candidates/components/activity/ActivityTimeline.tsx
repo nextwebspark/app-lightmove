@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
+import { cn } from "../../../../lib/cn";
 import { LinesSkeleton } from "../../../../components/ui/Skeleton";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as personCrmApi from "../../api/personCrmApi";
@@ -10,9 +11,9 @@ import {
   familiesOf,
   familyOf,
   foldRuns,
-  isMinor,
   peopleOf,
   shortDate,
+  taskStatesOf,
   type ActivityPerson,
   actorNameOf,
   actorRoleOf,
@@ -21,7 +22,7 @@ import {
 import { groupByDay } from "../../lib/timelineGroups";
 import { ActivityDetailDialog, type ActivityDestinations } from "./ActivityDetailDialog";
 import { ActivityFilterMenu, type FilterMenuOption } from "./ActivityFilterMenu";
-import { ActivityCard, ActivityFold, ActivityRow } from "./ActivityItems";
+import { ActivityCard, ActivityFold } from "./ActivityItems";
 import { ActorFace, KindTile } from "./ActivityVisuals";
 
 /**
@@ -84,7 +85,7 @@ export function ActivityTimeline({
   const familyOptions: FilterMenuOption[] = familiesOf(entries).map((option) => ({
     key: option.family,
     label: option.label,
-    visual: <KindTile tone={option.tone} icon={option.icon} size="dot" />,
+    visual: <KindTile icon={option.icon} size="dot" />,
     count: entries.filter((entry) => byActor(entry) && familyOf(entry) === option.family).length,
   }));
   const people = peopleOf(entries);
@@ -106,7 +107,8 @@ export function ActivityTimeline({
       else next.add(key);
       return next;
     });
-  const itemProps = { executive, projectId, now, onOpen: setOpened, notes: notesById };
+  const taskStates = taskStatesOf(entries);
+  const itemProps = { executive, projectId, now, onOpen: setOpened, notes: notesById, taskStates };
 
   return (
     <div data-activity-root className="flex flex-col">
@@ -176,8 +178,6 @@ export function ActivityTimeline({
                       onToggle={() => toggleFold(item.key)}
                       {...itemProps}
                     />
-                  ) : isMinor(item.entry) ? (
-                    <ActivityRow key={item.entry.id} entry={item.entry} {...itemProps} />
                   ) : (
                     <ActivityCard key={item.entry.id} entry={item.entry} {...itemProps} />
                   ),
@@ -204,6 +204,7 @@ export function ActivityTimeline({
           executive={executive}
           documents={documents}
           destinations={destinations}
+          taskState={opened.details.taskId ? taskStates.get(opened.details.taskId) : undefined}
         />
       )}
     </div>
@@ -252,9 +253,18 @@ function PeopleSummary({
         : `${chosen.length} people`;
   return (
     <>
-      <span className="flex flex-none">
+      <span className="flex flex-none items-center">
         {faces.map((person, index) => (
-          <span key={person.key} className={index > 0 ? "-ms-0.5 rounded-full ring-2 ring-u-surface" : "rounded-full ring-2 ring-u-surface"}>
+          // A flex box, not an inline span: an inline wrapper takes the text line's height and baseline, so its ring
+          // drew round a box taller than the face and the photo sat low and clipped.
+          <span
+            key={person.key}
+            className={cn(
+              "flex rounded-full ring-2",
+              chosen.length > 0 ? "ring-u-accent-tint" : "ring-u-surface",
+              index > 0 && "-ms-1.5",
+            )}
+          >
             <ActorFace actor={person.actor} executive={executive} projectId={projectId} size="xs" />
           </span>
         ))}

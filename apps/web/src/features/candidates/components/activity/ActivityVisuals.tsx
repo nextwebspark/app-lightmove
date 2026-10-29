@@ -2,30 +2,19 @@ import { Icon } from "../../../../components/layout/Icon";
 import { Avatar } from "../../../../components/ui/Avatar";
 import { AppIcon } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
-import { TONE_CLASSES, type ActivityActor, type ActivityExecutive, type ActivityTone } from "../../lib/activityPresentation";
+import type { ActivityActor, ActivityExecutive } from "../../lib/activityPresentation";
 import { CandidateAvatar } from "../CandidateAvatar";
 
 
-/** A kind's glyph on its tint: the spine's tile on a card, a dot on a slim row, the head of a dialog. */
-export function KindTile({
-  tone,
-  icon,
-  size,
-  className,
-}: {
-  tone: ActivityTone;
-  icon: string;
-  size: "dot" | "tile" | "head";
-  className?: string;
-}) {
-  const box = size === "dot" ? "size-[22px] rounded-full" : size === "tile" ? "size-[30px] rounded-lg" : "size-9 rounded-xl";
+/** A kind's glyph, grey and plain as the app's menus draw theirs: on the spine, in a fold, in a menu, at a dialog's head. */
+export function KindTile({ icon, size, className }: { icon: string; size: "dot" | "tile" | "head"; className?: string }) {
+  const box = size === "dot" ? "size-[22px]" : size === "tile" ? "size-[30px]" : "size-9";
   return (
-    <span className={cn("grid flex-none place-items-center", box, TONE_CLASSES[tone], className)} aria-hidden="true">
-      <Icon d={icon} size={size === "dot" ? 12 : size === "tile" ? 15 : 18} />
+    <span className={cn("grid flex-none place-items-center text-u-text3", box, className)} aria-hidden="true">
+      <Icon d={icon} size={size === "dot" ? 14 : size === "tile" ? 16 : 20} />
     </span>
   );
 }
-
 
 /** Whoever did it, as a face: a colleague's picture or initials, the executive's photo, or Uncava's own mark. */
 export function ActorFace({

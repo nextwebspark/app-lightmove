@@ -605,6 +605,48 @@ describe("ActivityTimeline", () => {
     expect(await screen.findByRole("dialog", { name: "Updated the record" })).toBeInTheDocument();
   });
 
+  describe("a task's card shows where the task stands now", () => {
+    const created = (taskId: string) =>
+      line(1, "TASK_CREATED", { occurredAt: "2026-10-26T09:00:00Z", details: { taskId, title: "Debrief Fatima", assignee: "Dana Aboud" } });
+    const card = async () => screen.findByRole("button", { name: /created a task/ });
+
+    it("ticks the box and strikes the title once the task is done", async () => {
+      history(line(2, "TASK_COMPLETED", { details: { taskId: "t1", title: "Debrief Fatima" } }), created("t1"));
+      renderTimeline();
+      const task = await card();
+      expect(within(task).getByRole("img", { name: "Done" })).toBeInTheDocument();
+      expect(within(task).getByText("Debrief Fatima")).toHaveClass("line-through");
+      expect(within(task).getByText("Done · Assigned to Dana Aboud")).toBeInTheDocument();
+    });
+
+    it("leaves the box empty while the task is open, and again once it is reopened", async () => {
+      history(
+        line(3, "TASK_REOPENED", { details: { taskId: "t1", title: "Debrief Fatima" } }),
+        line(2, "TASK_COMPLETED", { details: { taskId: "t1", title: "Debrief Fatima" } }),
+        created("t1"),
+      );
+      renderTimeline();
+      const task = await card();
+      expect(within(task).getByRole("img", { name: "Open" })).toBeInTheDocument();
+      expect(within(task).getByText("Debrief Fatima")).not.toHaveClass("line-through");
+      expect(within(task).getByText("Assigned to Dana Aboud")).toBeInTheDocument();
+    });
+
+    it("strikes a cancelled task without ticking it", async () => {
+      history(line(2, "TASK_CANCELLED", { details: { taskId: "t1", title: "Debrief Fatima" } }), created("t1"));
+      renderTimeline();
+      const task = await card();
+      expect(within(task).getByRole("img", { name: "Cancelled" })).toBeInTheDocument();
+      expect(within(task).getByText("Debrief Fatima")).toHaveClass("line-through");
+    });
+
+    it("reads a task by its own lines only, never another task's", async () => {
+      history(line(2, "TASK_COMPLETED", { details: { taskId: "t2", title: "Something else" } }), created("t1"));
+      renderTimeline();
+      expect(within(await card()).getByRole("img", { name: "Open" })).toBeInTheDocument();
+    });
+  });
+
   describe("the detail dialog", () => {
     const open = async (name: RegExp) => {
       await userEvent.click(await screen.findByRole("button", { name }));
@@ -802,6 +844,18 @@ describe("ActivityTimeline", () => {
       expect(await within(dialog).findByText("Done")).toBeInTheDocument();
       await userEvent.click(within(dialog).getByRole("button", { name: /Open task/ }));
       expect(destinations.onOpenTask).toHaveBeenCalledWith("t1");
+    });
+
+    it("says a task is done from its history when the task list no longer carries it", async () => {
+      vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [], done: [], doneCount: 4 });
+      history(
+        line(2, "TASK_COMPLETED", { details: { taskId: "t1", title: "Prepare call questions" } }),
+        line(1, "TASK_CREATED", { occurredAt: "2026-10-26T09:00:00Z", details: { taskId: "t1", title: "Prepare call questions" } }),
+      );
+      renderTimeline();
+      const dialog = await open(/created a task/);
+      await vi.waitFor(() => expect(tasksApi.getCandidateTasks).toHaveBeenCalled());
+      expect(await within(dialog).findByText("Done")).toBeInTheDocument();
     });
 
     it("never quotes a contact, only what was found", async () => {
