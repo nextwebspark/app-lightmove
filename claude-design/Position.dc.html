@@ -134,13 +134,13 @@
             </sc-if>
             <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
               <sc-if value="{{ canFind }}" hint-placeholder-val="{{ true }}">
-                <button onClick="{{ findExecutives }}" title="{{ findTitle }}" style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
+                <button onClick="{{ findExecutives }}" title="{{ findTitle }}" aria-disabled="{{ findDisabled }}" style="{{ findBtnStyle }}" style-hover="{{ findBtnHover }}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.sparkle }}"></path></svg>Find executives</button>
               </sc-if>
               <sc-if value="{{ canWrite }}" hint-placeholder-val="{{ true }}">
                 <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.userPlus }}"></path></svg>Add executive</button>
-                <button style="display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:var(--text2);cursor:pointer" style-hover="border-color:var(--text3);color:var(--text)">
+                <button onClick="{{ addCompany }}" title="{{ addCoTitle }}" aria-disabled="{{ addCoDisabled }}" style="{{ addCoBtnStyle }}" style-hover="{{ addCoBtnHover }}">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style="flex:none"><path d="{{ ic.plus }}"></path></svg>Add company</button>
               </sc-if>
               <div style="position:relative">
@@ -3476,6 +3476,8 @@ class Component extends DCLogic {
     const view = this.currentView();
     const offered = this.viewsOffered();
     const VIEW_DEF = { table: ["Table", I.table], map: ["Map", I.globe], pipeline: ["Pipeline", I.pipeline] };
+    const BTN_HOVER = "border-color:var(--text3);color:var(--text)";
+    const btnStyle = (off) => `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid var(--line);background:var(--panel);padding:8px 12px;font:500 13px var(--sans);color:${off ? "var(--text3)" : "var(--text2)"};cursor:${off ? "not-allowed" : "pointer"};opacity:${off ? 0.5 : 1}`;
     const hidden = COLS.filter((c) => !c.fixed && !this.visible(c.id)).length;
     const items = this.advancedItems().map((a) => {
       const isItem = a.kind === "item";
@@ -3493,7 +3495,11 @@ class Component extends DCLogic {
       searchPlaceholder: !cw ? "Search companies and executives…" : view === "pipeline" ? "Search executives, companies, notes, tags…" : "Search companies, executives, notes, tags…",
       viewsOffered: offered.length > 1,
       viewOpts: offered.map((key) => ({ key, label: VIEW_DEF[key][0], icon: VIEW_DEF[key][1], on: String(key === view), style: segD(key === view) })),
-      canFind: cw && stageKey === "u", findTitle: "Find executives at the ticked companies, or at the first 5 with nobody mapped",
+      canFind: cw && stageKey === "u",
+      findDisabled: view === "pipeline", findBtnStyle: btnStyle(view === "pipeline"), findBtnHover: view === "pipeline" ? "" : BTN_HOVER,
+      findTitle: view === "pipeline" ? "Find executives from Table, where companies are ticked" : "Find executives at the ticked companies, or at the first 5 with nobody mapped",
+      addCoDisabled: view === "pipeline", addCoBtnStyle: btnStyle(view === "pipeline"), addCoBtnHover: view === "pipeline" ? "" : BTN_HOVER,
+      addCoTitle: view === "pipeline" ? "Add companies from Table or Map" : "Add a company to this position",
       advOpen: s.advOpen, advMenu: s.advPanel !== "columns", advColumns: s.advPanel === "columns", advItems: items,
       advBtnStyle: `display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:6px;border:1px solid ${s.advOpen ? "var(--text3)" : "var(--line)"};background:var(--panel);padding:8px 10px 8px 12px;font:500 13px var(--sans);color:${s.advOpen ? "var(--text)" : "var(--text2)"};cursor:pointer`,
       advChevStyle: `flex:none;color:var(--text3);transition:transform .15s;transform:rotate(${s.advOpen ? 180 : 0}deg)`,
@@ -4414,7 +4420,8 @@ class Component extends DCLogic {
       toggleAdv: () => set({ advOpen: !this.state.advOpen, advPanel: "menu" }),
       closeAdv: () => set({ advOpen: false, advPanel: "menu" }),
       advBack: () => set({ advPanel: "menu" }),
-      findExecutives: () => this.showToast("Find executives — opens the run dialog for the ticked companies, or the first 5 with nobody mapped"),
+      addCompany: () => { if (this.currentView() !== "pipeline") this.showToast("Opens the company drawer to add one"); },
+      findExecutives: () => this.currentView() === "pipeline" ? null : this.showToast("Find executives — opens the run dialog for the ticked companies, or the first 5 with nobody mapped"),
       advAction: (e) => {
         const key = id(e);
         const item = this.advancedItems().find((x) => x.key === key);
