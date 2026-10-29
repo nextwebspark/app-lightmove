@@ -148,14 +148,14 @@ describe("MyTasksCard", () => {
     expect(reply.getByText("Auto")).toBeInTheDocument();
     expect(reply.getByRole("link", { name: "Reply to Rania Khoury" })).toHaveAttribute(
       "href",
-      "/projects/p1/pipeline?candidate=c1",
+      "/projects/p1/companies/universe?view=pipeline&candidate=c1",
     );
     expect(reply.getByTitle("Fatima Al Mazrouei")).toBeInTheDocument();
     expect(reply.getByRole("link", { name: "Fatima Al Mazrouei" })).toHaveAttribute(
       "href",
-      "/projects/p1/pipeline?candidate=c1",
+      "/projects/p1/companies/universe?view=pipeline&candidate=c1",
     );
-    expect(reply.getByRole("link", { name: "Chief Financial Officer" })).toHaveAttribute("href", "/projects/p1/pipeline");
+    expect(reply.getByRole("link", { name: "Chief Financial Officer" })).toHaveAttribute("href", "/projects/p1/companies/universe?view=pipeline");
     expect(reply.getByText("Today · 16:00")).toHaveAttribute("data-tone", "today");
   });
 

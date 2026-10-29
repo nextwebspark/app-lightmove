@@ -64,23 +64,23 @@ describe("timeLabelOf", () => {
 describe("notificationHref", () => {
   it("opens the executive's drawer on the position's pipeline when the row is about one", () => {
     expect(notificationHref(aNotification("a", at(14, 9), { candidateId: "c1", note: null }))).toBe(
-      "/projects/p1/pipeline?candidate=c1",
+      "/projects/p1/companies/universe?view=pipeline&candidate=c1",
     );
   });
 
   it("opens the drawer on the note a row names", () => {
     expect(notificationHref(aNotification("a", at(14, 9), { candidateId: "c1" }))).toBe(
-      "/projects/p1/pipeline?candidate=c1&note=note-1",
+      "/projects/p1/companies/universe?view=pipeline&candidate=c1&note=note-1",
     );
   });
 
   it("opens the drawer on the Contact section a reply, a bounce or a booked call is about", () => {
     const about = (kind: NotificationResponse["kind"], candidateId: string | null = "c1") =>
       notificationHref(aNotification("a", at(14, 9), { kind, candidateId, note: null }));
-    expect(about("outreach_replied")).toBe("/projects/p1/pipeline?candidate=c1&section=outreach");
-    expect(about("outreach_bounced")).toBe("/projects/p1/pipeline?candidate=c1&section=contact");
-    expect(about("call_booked")).toBe("/projects/p1/pipeline?candidate=c1&section=meetings");
-    expect(about("task_overdue")).toBe("/projects/p1/pipeline?candidate=c1");
+    expect(about("outreach_replied")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1&section=outreach");
+    expect(about("outreach_bounced")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1&section=contact");
+    expect(about("call_booked")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1&section=meetings");
+    expect(about("task_overdue")).toBe("/projects/p1/companies/universe?view=pipeline&candidate=c1");
     expect(about("outreach_replied", null)).toBe("/candidates?person=pe1&tab=contact");
   });
 
@@ -90,7 +90,7 @@ describe("notificationHref", () => {
   });
 
   it("opens the position's pipeline otherwise, and My positions when there is no position", () => {
-    expect(notificationHref(aNotification("a", at(14, 9), { personId: null }))).toBe("/projects/p1/pipeline");
+    expect(notificationHref(aNotification("a", at(14, 9), { personId: null }))).toBe("/projects/p1/companies/universe?view=pipeline");
     expect(notificationHref(aNotification("a", at(14, 9), { projectId: null }))).toBe("/");
   });
 });

@@ -1,6 +1,7 @@
 import { formatInstantDate, formatInstantDateTime, formatInstantTime } from "../../../lib/format";
 import type { DrawerSection } from "../../candidates/lib/drawerTabs";
 import type { NotificationKind, NotificationResponse } from "../api/types";
+import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
 
 /** The bell's count: hidden at none, and never wider than "9+". */
 export function unreadBadgeOf(unreadCount: number): string | null {
@@ -51,17 +52,17 @@ const CONTACT_SECTION_OF: Partial<Record<NotificationKind, DrawerSection>> = {
  */
 export function notificationHref(notification: NotificationResponse): string {
   if (!notification.projectId) return "/";
-  const pipeline = `/projects/${notification.projectId}/pipeline`;
   if (!notification.candidateId) {
-    if (!notification.personId) return pipeline;
+    if (!notification.personId) return positionPipelinePath(notification.projectId);
     const person = `/candidates?person=${encodeURIComponent(notification.personId)}`;
     if (notification.note) return `${person}&tab=notes`;
     return CONTACT_SECTION_OF[notification.kind] ? `${person}&tab=contact` : person;
   }
-  const candidate = `${pipeline}?candidate=${encodeURIComponent(notification.candidateId)}`;
-  if (notification.note) return `${candidate}&note=${encodeURIComponent(notification.note.id)}`;
+  const params: Record<string, string> = { candidate: notification.candidateId };
   const section = CONTACT_SECTION_OF[notification.kind];
-  return section ? `${candidate}&section=${section}` : candidate;
+  if (notification.note) params.note = notification.note.id;
+  else if (section) params.section = section;
+  return positionPipelinePath(notification.projectId, params);
 }
 
 export type SnoozeChoice = "hour" | "tomorrow" | "week";

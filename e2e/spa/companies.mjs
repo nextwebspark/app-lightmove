@@ -4,7 +4,7 @@
 // three stage pages draw exactly their stage's rows, that a row is a person at a company (two people,
 // two lines; nobody, one line with its "Add executive" slot), that the drawers' forms reach the
 // database, that the Contact section's pencil saves a verified address the grid then lists, that a
-// custom column added from the toolbar becomes a header, that the header filters narrow the grid the
+// custom column added from the Advanced menu becomes a header, that the header filters narrow the grid the
 // way the API narrows it, and that a pure client seat reads the grid with nothing to write with.
 //
 // No AI and no paid vendor: the AI buttons and ContactOut's Find buttons are never pressed.
@@ -185,6 +185,16 @@ const sidebarCount = async (label) => {
   return match ? Number(match[1]) : null;
 };
 const toolbarButton = (name) => page.getByRole("button", { name, exact: true });
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const advancedButton = () => page.getByRole("button", { name: /^Advanced/ });
+/** Opens the toolbar's Advanced ▾ (clicking it while open would close it) and answers one of its items. */
+async function advancedItem(label) {
+  if ((await advancedButton().getAttribute("aria-expanded")) !== "true") {
+    await advancedButton().click();
+    await page.getByRole("menu", { name: "Advanced" }).waitFor({ timeout: 10000 });
+  }
+  return page.getByRole("menuitem", { name: new RegExp(`^${escapeRegExp(label)}`) });
+}
 const dialog = (name) => page.getByRole("dialog", { name });
 
 async function signIn(email) {
@@ -195,10 +205,10 @@ async function signIn(email) {
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
-/** Turns a hidden-by-default grid column on through the toolbar's column picker. */
+/** Turns a hidden-by-default grid column on through Advanced ▾'s column picker. */
 async function showColumn(label) {
   if ((await headers()).some((header) => header.split("\n")[0].trim().toLowerCase() === label.toLowerCase())) return;
-  await page.getByRole("button", { name: /^Columns\s*\d+ hidden/ }).click();
+  await (await advancedItem("Show / hide columns")).click();
   await page.getByRole("checkbox", { name: label, exact: true }).click();
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
@@ -393,9 +403,9 @@ try {
   // ---------------------------------------------------------------- C7 custom columns
   section("C7  a column of the mandate's own");
   const COLUMN = "Board Seat";
-  await step("C7.1", "Columns → Add defines a company column and the grid grows its header", async () => {
+  await step("C7.1", "Advanced → Manage custom columns → Add defines a company column and the grid grows its header", async () => {
     await openStage("universe");
-    await page.getByRole("button", { name: "Columns", exact: true }).last().click();
+    await (await advancedItem("Manage custom columns…")).click();
     const modal = dialog("Columns on this mandate");
     await modal.getByLabel("New column name").fill(COLUMN);
     await modal.getByLabel("What the new column is about").selectOption("company");
@@ -404,7 +414,7 @@ try {
     await shot("manage-columns");
     await modal.getByRole("button", { name: "Done" }).click();
     const seen = await until(async () => (await headers()).some((header) => header.split("\n")[0].trim().toLowerCase() === COLUMN.toLowerCase()), true);
-    check("C7.1", "Columns → Add defines a company column and the grid grows its header", true, seen);
+    check("C7.1", "Advanced → Manage custom columns → Add defines a company column and the grid grows its header", true, seen);
     check("C7.1b", "…stored as a company column of this project", "company|boardSeat",
       sql(`SELECT lower(target) || '|' || field_key FROM app_lm_project_custom_column WHERE project_id = '${PROJECT}' AND label = '${COLUMN}'`));
   });
@@ -460,15 +470,20 @@ try {
   });
   await step("C9.2", "no add, import, columns or row-action controls are offered to a client seat", async () => {
     const offered = [];
-    for (const name of ["Add company", "Add executive", "Import", "Columns"]) {
+    for (const name of ["Add company", "Add executive", "Find executives"]) {
       if (await page.getByRole("button", { name, exact: true }).count()) offered.push(name);
     }
     if (await page.getByRole("button", { name: /^Add an executive at/ }).count()) offered.push("Add-executive slot");
     if (await page.getByRole("button", { name: /^(Shortlist|Decline|Back to universe): / }).count()) offered.push("move actions");
     if (await page.getByRole("button", { name: /^Remove .* from this mandate$/ }).count()) offered.push("remove");
     if (await page.getByRole("combobox", { name: /^Status for / }).count()) offered.push("status select");
+    await advancedItem("Export CSV");
+    for (const item of [/^Import spreadsheet/, /^Manage custom columns/, /^Add to sequence/]) {
+      if (await page.getByRole("menuitem", { name: item }).count()) offered.push(String(item));
+    }
     check("C9.2", "no add, import, columns or row-action controls are offered to a client seat", "", offered.join(", "));
-    check("C9.2b", "…while Export is", 1, await page.getByRole("button", { name: "Export", exact: true }).count());
+    check("C9.2b", "…while Advanced still offers Export CSV", 1, await page.getByRole("menuitem", { name: /^Export CSV/ }).count());
+    await page.keyboard.press("Escape");
   });
   await step("C9.3", "the company drawer opens read-only for a client seat", async () => {
     await page.getByRole("button", { name: `Open ${ATLAS}` }).first().click();

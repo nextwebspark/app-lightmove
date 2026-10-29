@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { NotFoundPage } from "../../app/NotFoundPage";
 import { useAuth } from "../../features/auth/AuthProvider";
-import * as pipelineApi from "../../features/pipeline/api/pipelineApi";
 import * as projectsApi from "../../features/projects/api/projectsApi";
 import { canExecuteProjectWork } from "../../features/projects/lib/access";
 import type { Project } from "../../features/projects/api/types";
@@ -32,7 +31,7 @@ import { usePositionsOrigin } from "../../features/projects/lib/positionsOrigin"
  * its content, and the table pushes the page into scrolling instead. `h-full` is opt-in rather than
  * shared because it caps the wrapper — a tab that scrolls normally would have its overflow clipped.
  */
-const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy", "/pipeline"];
+const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy"];
 
 /**
  * Tabs that own the whole main area: no gutter, and no 1440px cap.
@@ -46,12 +45,12 @@ const VIEWPORT_FILLING_TABS = ["/companies/", "/strategy", "/pipeline"];
  * than the shell's surface, and a gutter around it would frame the report in a second tone. The brief
  * (the mandate's index route, matched exactly below) is full-bleed for the same reason.
  */
-const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports", "/pipeline"];
+const FULL_BLEED_TABS = ["/companies/", "/strategy", "/reports"];
 
 /**
  * The project workspace shell (Project.dc.html): breadcrumb topbar, the mandate sidebar — Position
- * and Strategy under "Position", the three triage stages under "Market mapping", Pipeline and Outreach
- * under "CRM" for staff — and the routed page.
+ * and Strategy under "Position", the three triage stages under "Market mapping" (In universe's views include
+ * the pipeline), Outreach under "CRM" for staff — and the routed page.
  * The project itself is resolved from the cached list query; a deep link waits for the load and only
  * shows the not-found screen once the id is confirmed unreadable.
  */
@@ -94,15 +93,6 @@ export function ProjectLayout() {
 
   const { user } = useAuth();
   const isStaff = project ? canExecuteProjectWork(project, user?.id, user?.workspace?.roles) : false;
-  // The same read the page opens on, so the badge and the page share one request.
-  const { data: pipeline } = useQuery({
-    queryKey: pipelineApi.PIPELINE_KEY(projectId ?? "", pipelineApi.NO_PIPELINE_QUERY),
-    queryFn: ({ signal }) => pipelineApi.getPipeline(projectId!, pipelineApi.NO_PIPELINE_QUERY, signal),
-    enabled: Boolean(projectId) && isStaff,
-  });
-  const activeInPipeline = pipeline?.stageCounts
-    .filter((stage) => stage.kind === "active")
-    .reduce((sum, stage) => sum + stage.count, 0);
 
   if (!project) {
     if (isPending) {
@@ -147,7 +137,6 @@ export function ProjectLayout() {
       items: [
         ...(isStaff
           ? [
-              { to: `${base}/pipeline`, label: "Pipeline", icon: ICONS.pipeline, count: activeInPipeline },
               { to: `${base}/outreach`, label: "Outreach", icon: ICONS.outreach },
             ]
           : []),

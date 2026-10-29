@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../candidates/api/types";
 import type { TriageCompany } from "../../triage/api/types";
 import type { MapLocation, TalentMapPage } from "../api/types";
-import { buildTree, filterTree, nodesOf, pathTo, UNLOCATED_KEY } from "./talentMapTree";
+import { buildTree, nodesOf, pathTo, UNLOCATED_KEY } from "./talentMapTree";
 
 const company = (overrides: Partial<TriageCompany>): TriageCompany => ({
   id: "u1",
@@ -183,28 +183,6 @@ describe("buildTree", () => {
 
     expect(tree.countries[0].unmapped.map((e) => e.candidate.fullName)).toEqual(["Nadia Karim"]);
     expect(tree.counts).toEqual({ countries: 1, companies: 0, executives: 1, unlocated: 1 });
-  });
-});
-
-describe("filterTree", () => {
-  it("keeps a company that matches with all its people, and a matching person with their company", () => {
-    const tree = buildTree(page);
-
-    const byCompany = filterTree(tree, "acwa");
-    expect(byCompany.countries).toHaveLength(1);
-    expect(byCompany.countries[0].companies[0].executives).toHaveLength(2);
-
-    const byPerson = filterTree(tree, "yasmin");
-    expect(byPerson.countries[0].companies.map((c) => c.company.companyName)).toEqual(["ACWA Power"]);
-    expect(byPerson.countries[0].companies[0].executives.map((e) => e.candidate.fullName)).toEqual(["Yasmin El-Sayed"]);
-    expect(byPerson.counts.companies).toBe(1);
-    expect(byPerson.counts.executives).toBe(1);
-  });
-
-  it("drops a country left with nothing, and answers the unfiltered tree for a blank search", () => {
-    const tree = buildTree(page);
-    expect(filterTree(tree, "lina").countries.map((c) => c.name)).toEqual(["Oman"]);
-    expect(filterTree(tree, "   ")).toBe(tree);
   });
 });
 

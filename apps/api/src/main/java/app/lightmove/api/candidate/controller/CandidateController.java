@@ -67,10 +67,11 @@ public class CandidateController {
                                    @RequestParam(required = false) String status,
                                    @RequestParam(required = false) String pipelineStage,
                                    @RequestParam(required = false) String triageStatus,
+                                   @RequestParam(required = false) String search,
                                    @RequestParam(required = false) Integer page,
                                    @RequestParam(required = false) Integer size) {
         CandidateListCriteria criteria = new CandidateListCriteria(triageCompanyId, unmapped, q, null, null,
-                status, pipelineStage, triageStatus, page, size);
+                status, pipelineStage, triageStatus, search, page, size);
         ProjectAudience audience = audienceOf(principal, projectId);
         CandidatesResponse found = candidates.list(principal.requireWorkspaceId(), projectId, criteria, audience);
         return audience == ProjectAudience.STAFF ? candidates.withAddedBy(principal.requireWorkspaceId(), projectId, found) : found;

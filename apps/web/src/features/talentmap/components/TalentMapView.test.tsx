@@ -128,7 +128,7 @@ function renderView(overrides: Partial<Parameters<typeof TalentMapView>[0]> = {}
       <TalentMapView
         projectId="p1"
         page={page}
-        query=""
+        searching={false}
         accessToken="pk.test"
         canWrite
         loading={false}
@@ -200,14 +200,31 @@ describe("TalentMapView", () => {
     expect(handlers.onAddExecutive).toHaveBeenCalledWith(expect.objectContaining({ id: "u1" }));
   });
 
-  it("narrows the panel and the pins together", () => {
-    renderView({ query: "emaar" });
+  it("draws what the page holds under a search, leaving the narrowing to the server", () => {
+    renderView({ searching: true, page: { ...page, companies: [page.companies[1]], totalCompanies: 1, candidates: [], totalCandidates: 0 } });
 
     const tree = screen.getByRole("tree", { name: "Mapping" });
     expect(within(tree).getByText("Emaar")).toBeInTheDocument();
     expect(within(tree).queryByText("ACWA Power")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "pin: ACWA Power" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "pin: Emaar" })).toBeInTheDocument();
+  });
+
+  it("keeps every row the server sent, whatever the search box holds", () => {
+    renderView({ searching: true });
+
+    const tree = screen.getByRole("tree", { name: "Mapping" });
+    expect(within(tree).getByText("ACWA Power")).toBeInTheDocument();
+    expect(within(tree).getByText("Emaar")).toBeInTheDocument();
+  });
+
+  it("says nothing matches when a search's page comes back empty", () => {
+    renderView({
+      searching: true,
+      page: { ...page, companies: [], totalCompanies: 0, candidates: [], totalCandidates: 0, locations: {} },
+    });
+
+    expect(screen.getByText("Nothing matches that search.")).toBeInTheDocument();
   });
 
   it("holds one tab stop for the whole tree and moves it with the arrows", async () => {

@@ -2,8 +2,11 @@ package app.lightmove.api.pairing.service;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.model.CandidateSearchMatches;
+import app.lightmove.api.candidate.service.CandidateSearchService;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
+import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.pairing.model.PairedStage;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
@@ -26,7 +29,9 @@ import org.springframework.stereotype.Service;
  * export and the public API alike: an executive rides the stage they are listed at, which is their own
  * (#903), under their company wherever that company stands; one at no company is left out under a
  * company-name search. The executive filters are applied per person, because the stage read's
- * own are company-level. Not {@code @Transactional}: the two reads open their own.
+ * own are company-level; so is the search box, which keeps a person who matches or whose company does, and one at
+ * no company only when they match — resolved once and handed to the stage read, which narrows by the same matches.
+ * Not {@code @Transactional}: the reads open their own.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +39,7 @@ public class StagePairingService {
 
     private final TriageCompanyReadService triage;
     private final CandidateService candidates;
+    private final CandidateSearchService searches;
 
     public PairedStage pair(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
                             TriageCompanyFilters filters, int maxCompanies, int maxCandidates,
@@ -45,8 +51,11 @@ public class StagePairingService {
     public PairedStage pair(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
                             TriageCompanyFilters filters, int maxCompanies, int maxCandidates,
                             ProjectAudience audience, boolean withAddedBy) {
+        SearchText search = SearchText.ofOrNull(filters.search());
+        CandidateSearchMatches searched = search == null ? null
+                : searches.matchesOf(workspaceId, projectId, status, search, audience);
         TriageCompaniesResponse stage = triage.listAllOfStage(workspaceId, projectId, status, filters, maxCompanies,
-                audience, withAddedBy);
+                audience, withAddedBy, searched == null ? null : searched.forStageRead());
         CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, maxCandidates, audience);
 
         Set<UUID> stageCompanyIds = new HashSet<>();
@@ -57,7 +66,8 @@ public class StagePairingService {
         List<CandidateResponse> unassigned = new ArrayList<>();
         List<CandidateResponse> people = new ArrayList<>();
         for (CandidateResponse person : everyone.candidates()) {
-            if (!status.value().equals(person.triageStatus()) || !matchesExecutiveFilters(person, filters)) {
+            if (!status.value().equals(person.triageStatus()) || !matchesExecutiveFilters(person, filters)
+                    || searched != null && !searched.keeps(person.id(), person.triageCompanyId())) {
                 continue;
             }
             if (person.triageCompanyId() == null) {

@@ -198,50 +198,6 @@ function countsOf(
   };
 }
 
-/**
- * The tree narrowed to what matches, by company name, person, title or city. A company stays with
- * all its people when it matches itself, and with only the matching people when it does not — the
- * reader typed a name and wants to see where that name sits.
- */
-export function filterTree(tree: MappingTree, query: string): MappingTree {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return tree;
-
-  const matchesExecutive = (executive: TreeExecutive) =>
-    [executive.candidate.fullName, executive.candidate.title, executive.candidate.locationCity]
-      .some((field) => field?.toLowerCase().includes(needle));
-  const matchesCompany = (company: TreeCompany) =>
-    [company.company.companyName, company.company.companyCity, company.company.industry]
-      .some((field) => field?.toLowerCase().includes(needle));
-
-  const narrowCompany = (company: TreeCompany): TreeCompany | null => {
-    if (matchesCompany(company)) return company;
-    const executives = company.executives.filter(matchesExecutive);
-    return executives.length ? { ...company, executives } : null;
-  };
-
-  const countries: TreeCountry[] = [];
-  for (const country of tree.countries) {
-    const companies = country.companies.map(narrowCompany).filter((c): c is TreeCompany => c !== null);
-    const unmapped = country.unmapped.filter(matchesExecutive);
-    if (!companies.length && !unmapped.length) continue;
-    countries.push({
-      ...country,
-      companies,
-      unmapped,
-      companyCount: companies.length,
-      executiveCount:
-        companies.reduce((sum, company) => sum + company.executives.length, 0) + unmapped.length,
-    });
-  }
-  const unlocated = {
-    companies: tree.unlocated.companies.map(narrowCompany).filter((c): c is TreeCompany => c !== null),
-    executives: tree.unlocated.executives.filter(matchesExecutive),
-  };
-
-  return { countries, unlocated, counts: countsOf(countries, unlocated) };
-}
-
 /** Every company and executive node the tree holds, in panel order. */
 export function nodesOf(tree: MappingTree): (TreeCompany | TreeExecutive)[] {
   const nodes: (TreeCompany | TreeExecutive)[] = [];

@@ -169,7 +169,7 @@ describe("NotificationBell", () => {
     await userEvent.click(await screen.findByRole("button", { name: /assigned you/ }));
 
     await waitFor(() => expect(notificationsApi.changeNotification).toHaveBeenCalledWith("n1", { read: true }));
-    expect(screen.getByTestId("location")).toHaveTextContent("/projects/p1/pipeline?candidate=c1");
+    expect(screen.getByTestId("location")).toHaveTextContent("/projects/p1/companies/universe?view=pipeline&candidate=c1");
     expect(screen.queryByRole("dialog", { name: "Notifications" })).not.toBeInTheDocument();
   });
 
