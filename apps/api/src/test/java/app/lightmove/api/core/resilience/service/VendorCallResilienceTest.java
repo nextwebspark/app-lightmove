@@ -201,8 +201,8 @@ class VendorCallResilienceTest {
     }
 
     @Test
-    @DisplayName("a call answered with no body still keeps the vendor's code for its refusal")
-    void aBodilessCallKeepsTheVendorsErrorCode() {
+    @DisplayName("a request that reads no answer still keeps the vendor's code for its refusal")
+    void aBodilessRequestKeepsTheVendorsErrorCode() {
         vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
                 .body("{\"error\":{\"code\":\"ErrorMessageSubmissionBlocked\",\"message\":\"Cannot send\"}}")
                 .contentType(MediaType.APPLICATION_JSON));
@@ -241,6 +241,31 @@ class VendorCallResilienceTest {
                         + "request-id 0f6c1d2e-1111-2222-3333-444455556666)")
                 .extracting(failure -> ((VendorException) failure).getVendorCode())
                 .isNull();
+    }
+
+    @Test
+    @DisplayName("an empty refusal says so, with the request id a vendor sends under its other name")
+    void anEmptyRefusalSaysSo() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(
+                withStatus(HttpStatus.LENGTH_REQUIRED).header("x-request-id", "req-42"));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (no code; empty body; x-request-id req-42)");
+    }
+
+    @Test
+    @DisplayName("a JSON refusal with no code names its known fields, and hides any other name, which may be data")
+    void aJsonRefusalNamesOnlyItsKnownFields() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"message\":\"no match\",\"Jane.Doe\":1},\"detail\":\"x\"}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (no code; JSON fields [error, detail], "
+                        + "error fields [message, ?]; application/json)")
+                .hasMessageNotContaining("Jane");
     }
 
     @Test

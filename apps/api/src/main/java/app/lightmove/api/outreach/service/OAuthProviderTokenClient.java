@@ -26,9 +26,7 @@ import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
-import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The authorization-code (RFC 6749 §4.1) and refresh-token (§6) grants at Google, Microsoft and Zoom. The secret
@@ -49,7 +47,6 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
     /** The answers that mean our app was refused, whoever's token it carried. */
     static final Set<String> APP_REFUSALS = Set.of("invalid_client", "unauthorized_client");
 
-    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     public static final Map<IntegrationProvider, String> PROVIDER_TOKEN_HOSTS = Map.of(
             IntegrationProvider.GOOGLE, "https://oauth2.googleapis.com",
@@ -155,21 +152,17 @@ public class OAuthProviderTokenClient implements ProviderTokenClient {
      * ({@link VendorErrorCodes}); whatever else the body says is never kept.
      */
     static RuntimeException refusalOrFailure(VendorCall call, ClientHttpResponse response) throws IOException {
-        byte[] bytes = response.getBody().readAllBytes();
-        String error = null;
-        try {
-            JsonNode body = JSON.readTree(bytes);
-            error = body == null ? null : textOrNull(body.get("error"));
-        } catch (JacksonException unreadable) {
-            // Not a token endpoint's answer; classified by its status below.
-        }
-        String code = VendorErrorCodes.codeOrNull(bytes);
+        JsonNode body = VendorErrorCodes.jsonOrNull(
+                response.getBody().readNBytes(VendorErrorCodes.MAX_ERROR_BODY_BYTES));
+        String error = body == null ? null : textOrNull(body.get("error"));
+        String code = VendorErrorCodes.codeOrNull(body);
+        String named = code != null ? code : error;
         if (error != null && REFUSALS.contains(error)) {
-            return new ProviderGrantRefused(code == null ? error : code);
+            return new ProviderGrantRefused(named);
         }
         // A token endpoint's 401 is always about the client: it authenticates nobody else.
         if ((error != null && APP_REFUSALS.contains(error)) || response.getStatusCode().value() == 401) {
-            return new ProviderAppUnavailable(code != null ? code : error == null ? "401" : error);
+            return new ProviderAppUnavailable(named == null ? "401" : named);
         }
         HttpStatus status = HttpStatus.resolve(response.getStatusCode().value());
         return new VendorException(call, status == null ? VendorFailureKind.BAD_REQUEST
