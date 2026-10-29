@@ -1,4 +1,5 @@
 import { request, requestBlob } from "../../../lib/apiClient";
+import { HISTORY_LIMIT, type ActivityHistory } from "./personCrmApi";
 import type {
   CandidateTag,
   CandidateTagColour,
@@ -26,8 +27,8 @@ export const POOL_PAGE_KEY = (filters: PoolFilters, page: number, size: number) 
 export const POOL_COUNT_KEY = ["candidate-pool-count"] as const;
 export const PERSON_RECORD_KEY = (personId: string) => [...POOL_KEY, "person", personId] as const;
 export const POOL_NOTES_KEY = (personId: string) => [...POOL_KEY, "notes", personId] as const;
-export const POOL_TIMELINE_KEY = (personId: string, group: TimelineGroup | null) =>
-  [...POOL_KEY, "timeline", personId, group] as const;
+/** Under the timeline prefix `personChangedKeys` refreshes, so a change to the person reaches it. */
+export const PERSON_HISTORY_KEY = (personId: string) => [...POOL_KEY, "timeline", personId, "history"] as const;
 export const ACTIVITY_FEED_KEY = (filters: ActivityFilters) => [...POOL_KEY, "activity", filters] as const;
 export const TAGS_KEY = ["candidate-tags"] as const;
 
@@ -170,17 +171,15 @@ export function pinPoolNote(personId: string, noteId: string, pinned: boolean): 
   });
 }
 
-export function getPoolTimeline(
-  personId: string,
-  group: TimelineGroup | null,
-  before: number | null,
-  signal?: AbortSignal,
-): Promise<PersonTimelinePage> {
-  const params = new URLSearchParams();
-  if (group) params.set("group", group);
-  if (before != null) params.set("before", String(before));
-  const query = params.size > 0 ? `?${params}` : "";
-  return request<PersonTimelinePage>(`/candidates/${personId}/timeline${query}`, { signal });
+/**
+ * The person's changes and each position's milestones, whole, in one read: the Candidates drawer's Activity counts and
+ * filters what it holds. Past {@link HISTORY_LIMIT} lines it says so rather than paging.
+ */
+export async function getPersonHistory(personId: string, signal?: AbortSignal): Promise<ActivityHistory> {
+  const read = await request<PersonTimelinePage>(`/candidates/${personId}/timeline?limit=${HISTORY_LIMIT}`, {
+    signal,
+  });
+  return { entries: read.entries, truncated: read.nextCursor != null };
 }
 
 export function getActivityFeed(

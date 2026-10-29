@@ -24,6 +24,9 @@ public record PersonTimelineEntryResponse(
         Map<String, String> details,
         /** The note's opening words while it exists; null once it has been removed. */
         String noteExcerpt,
+        /** When the note was last edited and by whom; null while it stands as written, or once it is removed. */
+        Instant noteEditedAt,
+        String noteEditedByName,
         /** What a profile save or a call's changes did to each field, old and new; empty for every other line. */
         List<FieldChangeResponse> changes
 ) {
@@ -31,6 +34,6 @@ public record PersonTimelineEntryResponse(
     /** The same line with no position named: a change to the person, read from a position it was not made on. */
     public PersonTimelineEntryResponse withoutPosition() {
         return new PersonTimelineEntryResponse(id, kind, occurredAt, actorUserId, actorName, actorAvatarUrl, personId,
-                personName, null, null, details, noteExcerpt, changes);
+                personName, null, null, details, noteExcerpt, noteEditedAt, noteEditedByName, changes);
     }
 }

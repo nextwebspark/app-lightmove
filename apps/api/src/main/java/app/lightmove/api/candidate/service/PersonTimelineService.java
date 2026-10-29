@@ -48,8 +48,8 @@ public class PersonTimelineService {
 
     public static final int DEFAULT_PAGE_SIZE = 20;
     public static final int MAX_PAGE_SIZE = 50;
-    /** A position's drawer reads its whole history at once to count and filter it, so its own read pages larger. */
-    public static final int POSITION_MAX_PAGE_SIZE = 500;
+    /** Both drawers read a person's whole history at once to count and filter it, so their reads page larger. */
+    public static final int TIMELINE_MAX_PAGE_SIZE = 500;
     private static final int EXCERPT_LENGTH = 140;
     private static final Set<String> DETAIL_KEYS = Set.of("door", "backgroundConfirmed", "from", "to", "vendor",
             "runId", "emails", "phones", "channel", "found", "via", "noteId", "kind", "tagId", "tag",
@@ -69,7 +69,15 @@ public class PersonTimelineService {
             PersonActivityKind.DO_NOT_CONTACT_SET, PersonActivityKind.DO_NOT_CONTACT_CLEARED,
             PersonActivityKind.DOCUMENT_ADDED, PersonActivityKind.DOCUMENT_VERSION_ADDED,
             PersonActivityKind.DOCUMENT_REMOVED, PersonActivityKind.DOCUMENT_VERSION_REMOVED);
+    /**
+     * What the Candidates page's drawer shows across every position: the person-level changes, and each position's
+     * milestones (added, removed, its stage and status). A position's notes, emails, meetings and tasks stay in that
+     * position's own drawer.
+     */
+    static final Set<PersonActivityKind> PERSON_WIDE_KINDS = personWideKinds();
     private static final Set<PersonActivityKind> NOTE_KINDS = TimelineGroup.NOTES.kinds();
+    private static final List<String> RETIRED_KIND_NAMES = PersonActivityKind.RETIRED.stream().map(Enum::name)
+            .toList();
     private static final Set<PersonActivityKind> DOCUMENT_KINDS = TimelineGroup.DOCUMENTS.kinds();
     /** Bound when a filter is open, so the parameter is never an untyped null; matches no row. */
     private static final UUID NOBODY = new UUID(0, 0);
@@ -82,14 +90,19 @@ public class PersonTimelineService {
     private final CandidateTagRepository tags;
     private final PersonDocumentRepository documents;
 
-    /** One person's whole history across every position, as the workspace's Candidates page reads it. */
+    /** One person's changes and position milestones across every position, as the Candidates page reads them. */
     @Transactional(readOnly = true)
     public PersonTimelineResponse workspaceTimelineOf(UUID workspaceId, UUID personId, String group, Long before,
                                                       Integer limit) {
         Person person = people.requireInWorkspace(personId, workspaceId);
-        int size = sizeOf(limit, MAX_PAGE_SIZE);
-        List<PersonActivity> page = activity.findPersonTimeline(workspaceId, personId, cursorOf(before),
-                TimelineGroup.kindsOf(group), Limit.of(size + 1));
+        int size = sizeOf(limit, TIMELINE_MAX_PAGE_SIZE);
+        Set<PersonActivityKind> kinds = EnumSet.copyOf(TimelineGroup.kindsOf(group));
+        kinds.retainAll(PERSON_WIDE_KINDS);
+        if (kinds.isEmpty()) {
+            return new PersonTimelineResponse(List.of(), null);
+        }
+        List<PersonActivity> page = activity.findPersonTimeline(workspaceId, personId, cursorOf(before), kinds,
+                Limit.of(size + 1));
         return pageOf(workspaceId, page, size, Map.of(person.getId(), person), NoteViewpoint.workspace(),
                 UnaryOperator.identity());
     }
@@ -103,7 +116,7 @@ public class PersonTimelineService {
     public PersonTimelineResponse positionTimelineOf(UUID workspaceId, UUID personId, UUID projectId, String group,
                                                      Long before, Integer limit) {
         Person person = people.requireInWorkspace(personId, workspaceId);
-        int size = sizeOf(limit, POSITION_MAX_PAGE_SIZE);
+        int size = sizeOf(limit, TIMELINE_MAX_PAGE_SIZE);
         List<PersonActivity> page = activity.findPositionScopedTimeline(workspaceId, personId, projectId,
                 cursorOf(before), TimelineGroup.kindsOf(group), PERSON_LEVEL_KINDS, Limit.of(size + 1));
         return pageOf(workspaceId, page, size, Map.of(person.getId(), person), NoteViewpoint.position(projectId),
@@ -148,8 +161,8 @@ public class PersonTimelineService {
             return Map.of();
         }
         Map<UUID, Person> byId = persons.stream().collect(Collectors.toMap(Person::getId, Function.identity()));
-        return entriesOf(workspaceId, activity.findLatestOfPeople(workspaceId, byId.keySet()), byId,
-                NoteViewpoint.workspace()).stream()
+        List<PersonActivity> latest = activity.findLatestOfPeople(workspaceId, byId.keySet(), RETIRED_KIND_NAMES);
+        return entriesOf(workspaceId, latest, byId, NoteViewpoint.workspace()).stream()
                 .collect(Collectors.toMap(PersonTimelineEntryResponse::personId, Function.identity()));
     }
 
@@ -164,13 +177,14 @@ public class PersonTimelineService {
 
     private List<PersonTimelineEntryResponse> entriesOf(UUID workspaceId, List<PersonActivity> shown,
                                                         Map<UUID, Person> persons, NoteViewpoint viewpoint) {
-        Map<UUID, User> named = users.findAllById(shown.stream()
-                        .flatMap(line -> Stream.of(line.getActorUserId(), idIn(line, "ownerUserId")))
-                        .filter(Objects::nonNull).distinct().toList())
-                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, PersonNote> liveNotes = notes.findReadableIn(workspaceId, shown.stream()
                         .map(PersonTimelineService::noteIdOf).filter(Objects::nonNull).distinct().toList(), viewpoint)
                 .stream().collect(Collectors.toMap(PersonNote::getId, Function.identity()));
+        Map<UUID, User> named = users.findAllById(Stream.concat(
+                        shown.stream().flatMap(line -> Stream.of(line.getActorUserId(), idIn(line, "ownerUserId"))),
+                        liveNotes.values().stream().map(PersonNote::getEditedBy))
+                        .filter(Objects::nonNull).distinct().toList())
+                .stream().collect(Collectors.toMap(User::getId, Function.identity()));
         Map<UUID, CandidateTag> liveTags = tags.findByWorkspaceIdAndIdIn(workspaceId, shown.stream()
                         .map(line -> idIn(line, "tagId")).filter(Objects::nonNull).distinct().toList())
                 .stream().collect(Collectors.toMap(CandidateTag::getId, Function.identity()));
@@ -183,22 +197,26 @@ public class PersonTimelineService {
             Person person = persons.get(line.getPersonId());
             UUID noteId = noteIdOf(line);
             PersonNote note = noteId == null ? null : liveNotes.get(noteId);
+            User noteEditor = note == null || note.getEditedBy() == null ? null : named.get(note.getEditedBy());
             return new PersonTimelineEntryResponse(line.getId(), line.getKind().name(), line.getOccurredAt(),
                     line.getActorUserId(), actor == null ? null : actor.getFullName(),
                     actor == null ? null : actor.getAvatarUrl(),
                     line.getPersonId(), person == null ? null : person.getFullName(),
-                    line.getProjectId(), line.getProjectTitle(), detailsOf(line, named, liveTags, liveDocuments),
-                    note == null ? null : excerptOf(note), changesOf(line));
+                    line.getProjectId(), line.getProjectTitle(),
+                    detailsOf(line, named, liveTags, liveDocuments, note),
+                    note == null ? null : excerptOf(note), note == null ? null : note.getEditedAt(),
+                    noteEditor == null ? null : noteEditor.getFullName(), changesOf(line));
         }).toList();
     }
 
     /**
-     * A tag reads as it is spelled today, an owner by their name today and a document by its title while
-     * it exists; the line keeps only the ids, so a removed document leaves no name behind.
+     * A tag reads as it is spelled today, an owner by their name today, a document by its title while
+     * it exists and a note by its kind today; the line keeps only the ids, so a removed document leaves no
+     * name behind.
      */
     private static Map<String, String> detailsOf(PersonActivity line, Map<UUID, User> named,
                                                  Map<UUID, CandidateTag> liveTags,
-                                                 Map<UUID, PersonDocument> liveDocuments) {
+                                                 Map<UUID, PersonDocument> liveDocuments, PersonNote liveNote) {
         Map<String, String> shown = new LinkedHashMap<>();
         line.getDetails().forEach((key, value) -> {
             if (DETAIL_KEYS.contains(key) && value != null) {
@@ -216,6 +234,9 @@ public class PersonTimelineService {
         UUID documentId = documentIdOf(line);
         if (documentId != null && liveDocuments.containsKey(documentId)) {
             shown.put("document", liveDocuments.get(documentId).getTitle());
+        }
+        if (liveNote != null) {
+            shown.put("kind", liveNote.getKind().name());
         }
         return shown;
     }
@@ -258,6 +279,13 @@ public class PersonTimelineService {
     private static String excerptOf(PersonNote note) {
         String flat = NoteText.plainTextOf(note.getBody(), note.getBodyFormat()).strip().replaceAll("\\s+", " ");
         return flat.length() <= EXCERPT_LENGTH ? flat : flat.substring(0, EXCERPT_LENGTH - 1).strip() + "…";
+    }
+
+    private static Set<PersonActivityKind> personWideKinds() {
+        Set<PersonActivityKind> kinds = EnumSet.copyOf(PERSON_LEVEL_KINDS);
+        kinds.addAll(EnumSet.of(PersonActivityKind.ADDED_TO_POOL, PersonActivityKind.MAPPED, PersonActivityKind.UNMAPPED,
+                PersonActivityKind.STATUS_CHANGED, PersonActivityKind.TRIAGE_STATUS_CHANGED));
+        return kinds;
     }
 
     private static int sizeOf(Integer limit, int most) {

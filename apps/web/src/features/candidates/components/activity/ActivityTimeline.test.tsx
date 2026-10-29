@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,10 @@ import type { Conversation, ConversationMessage } from "../../../outreach/api/co
 import * as meetingApi from "../../../outreach/api/meetingApi";
 import * as tasksApi from "../../../tasks/api/tasksApi";
 import * as personCrmApi from "../../api/personCrmApi";
+import * as poolApi from "../../api/poolApi";
 import type { PersonActivityKind, PersonDocument, PersonTimelineEntry } from "../../api/types";
+import type { ActivityExecutive, ActivityScope } from "../../lib/activityPresentation";
+import { CandidateAvatar } from "../CandidateAvatar";
 import type { ActivityDestinations } from "./ActivityDetailDialog";
 import { ActivityTimeline } from "./ActivityTimeline";
 
@@ -17,6 +20,10 @@ vi.mock("../../api/personCrmApi", async (importOriginal) => ({
   ...(await importOriginal<typeof personCrmApi>()),
   getPositionHistory: vi.fn(),
   getPersonNotes: vi.fn(),
+}));
+vi.mock("../../api/poolApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof poolApi>()),
+  getPersonHistory: vi.fn(),
 }));
 vi.mock("../../../outreach/api/conversationApi", async (importOriginal) => ({
   ...(await importOriginal<typeof conversationApi>()),
@@ -31,7 +38,12 @@ vi.mock("../../../tasks/api/tasksApi", async (importOriginal) => ({
   getCandidateTasks: vi.fn(),
 }));
 
-const EXECUTIVE = { id: "c1", fullName: "Fatima Al Mazrouei", enrichedAt: null };
+const CANDIDATE = { id: "c1", fullName: "Fatima Al Mazrouei", enrichedAt: null };
+const EXECUTIVE: ActivityExecutive = {
+  fullName: CANDIDATE.fullName,
+  face: (size, className) => <CandidateAvatar projectId="p1" candidate={CANDIDATE} size={size} className={className} />,
+};
+const ON_POSITION: ActivityScope = { kind: "position", projectId: "p1", candidateId: "c1" };
 const NOW = new Date("2026-10-28T11:20:00Z");
 
 const line = (id: number, kind: PersonActivityKind, overrides: Partial<PersonTimelineEntry> = {}): PersonTimelineEntry => ({
@@ -47,6 +59,8 @@ const line = (id: number, kind: PersonActivityKind, overrides: Partial<PersonTim
   projectTitle: "Group CFO",
   details: {},
   noteExcerpt: null,
+  noteEditedAt: null,
+  noteEditedByName: null,
   changes: [],
   ...overrides,
 });
@@ -56,12 +70,12 @@ const history = (...entries: PersonTimelineEntry[]) =>
 
 let destinations: ActivityDestinations;
 
-function renderTimeline(documents: PersonDocument[] | undefined = []) {
+function renderTimeline(documents: PersonDocument[] | undefined = [], scope: ActivityScope = ON_POSITION) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <ActivityTimeline projectId="p1" executive={EXECUTIVE} documents={documents} destinations={destinations} />
+        <ActivityTimeline scope={scope} executive={EXECUTIVE} documents={documents} destinations={destinations} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -300,6 +314,46 @@ describe("ActivityTimeline", () => {
       expect(within(card).queryByText(/- Notice is three months/)).not.toBeInTheDocument();
     });
 
+    it("marks a note edited since it was written, from the note it shows or the server's line", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+        callNote,
+        { ...callNote, id: "n2", kind: "general", body: "Prefers a listed company.", format: "plain", editedAt: null, editedByName: null },
+      ]);
+      history(
+        line(3, "NOTE_ADDED", { details: { noteId: "n1", kind: "CALL" }, noteExcerpt: "Open" }),
+        line(2, "NOTE_ADDED", { details: { noteId: "n2", kind: "GENERAL" }, noteExcerpt: "Prefers" }),
+        line(1, "NOTE_ADDED", {
+          details: { noteId: "elsewhere", kind: "MEETING" },
+          noteExcerpt: "Intro call summary",
+          noteEditedAt: "2026-10-27T11:00:00Z",
+          noteEditedByName: "Omar Khalil",
+        }),
+      );
+      renderTimeline();
+      const call = await screen.findByRole("button", { name: /^Dana Aboud logged a call, edited/ });
+      expect(within(call).getByText("Edited")).toHaveAttribute("title", expect.stringMatching(/^Edited by Omar Khalil/));
+      const meeting = screen.getByRole("button", { name: /^Dana Aboud logged a meeting, edited/ });
+      expect(within(meeting).getByText("Edited")).toBeInTheDocument();
+      const note = await screen.findByRole("button", { name: /^Dana Aboud wrote a note/ });
+      expect(within(note).queryByText("Edited")).not.toBeInTheDocument();
+    });
+
+    it("trusts the server's line when the cached note has not caught up with an edit", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([{ ...callNote, editedAt: null, editedByName: null }]);
+      history(
+        line(1, "NOTE_ADDED", {
+          details: { noteId: "n1", kind: "CALL" },
+          noteExcerpt: "Open",
+          noteEditedAt: "2026-10-27T10:00:00Z",
+          noteEditedByName: "Omar Khalil",
+        }),
+      );
+      renderTimeline();
+      const call = await screen.findByRole("button", { name: /^Dana Aboud logged a call, edited/ });
+      expect(await within(call).findByText("Notice is three months")).toBeInTheDocument();
+      expect(within(call).getByText("Edited")).toHaveAttribute("title", expect.stringMatching(/^Edited by Omar Khalil/));
+    });
+
     it("falls back to the server's opening words when the notes cannot be read, or no longer hold it", async () => {
       vi.mocked(personCrmApi.getPersonNotes).mockRejectedValue(failure(500));
       history(
@@ -429,11 +483,11 @@ describe("ActivityTimeline", () => {
       },
       {
         entry: line(1, "ADDED_TO_POOL", { details: { door: "CSV" } }),
-        card: /added them to this position/, title: "Added to this position", shows: ["Imported from a spreadsheet"],
+        card: /added them to Group CFO/, title: "Added to Group CFO", shows: ["Imported from a spreadsheet"],
       },
       {
         entry: line(1, "MAPPED", { details: { door: "EXTENSION" } }),
-        card: /added them to this position/, title: "Added to this position",
+        card: /added them to Group CFO/, title: "Added to Group CFO",
         shows: ["Captured with the plugin", /added rather than duplicated/],
       },
       {
@@ -644,6 +698,88 @@ describe("ActivityTimeline", () => {
       history(line(2, "TASK_COMPLETED", { details: { taskId: "t2", title: "Something else" } }), created("t1"));
       renderTimeline();
       expect(within(await card()).getByRole("img", { name: "Open" })).toBeInTheDocument();
+    });
+  });
+
+  describe("the person-wide timeline on the Candidates page", () => {
+    const PERSON: ActivityScope = { kind: "person", personId: "person-1" };
+    const read = (...entries: PersonTimelineEntry[]) =>
+      vi.mocked(poolApi.getPersonHistory).mockResolvedValue({ entries, truncated: false });
+    const twoPositions = () =>
+      read(
+        line(4, "STATUS_CHANGED", {
+          projectId: "p2",
+          projectTitle: "Head of Credit Risk",
+          details: { from: "identified", to: "contacted" },
+        }),
+        line(3, "TAGGED", { projectId: null, projectTitle: null, details: { tag: "Referral" } }),
+        line(2, "MAPPED", { projectId: "p2", projectTitle: "Head of Credit Risk", details: { door: "MANUAL" } }),
+        line(1, "ADDED_TO_POOL", { details: { door: "MANUAL" } }),
+      );
+
+    it("reads the person's own history, asks for no position's notes, and names each card's position", async () => {
+      twoPositions();
+      renderTimeline([], PERSON);
+
+      const status = await screen.findByRole("button", { name: /moved the status/ });
+      expect(within(status).getByText("Head of Credit Risk")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /added them to Group CFO/ })).toHaveTextContent("Group CFO");
+      expect(within(screen.getByRole("button", { name: /tagged them/ })).queryByText(/Group CFO|Head of Credit Risk/)).toBeNull();
+      expect(poolApi.getPersonHistory).toHaveBeenCalledWith("person-1", expect.anything());
+      expect(personCrmApi.getPositionHistory).not.toHaveBeenCalled();
+      expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
+      expect(screen.getByText("Start of this person's history")).toBeInTheDocument();
+    });
+
+    it("filters by position, the person's own changes being one option of their own", async () => {
+      twoPositions();
+      renderTimeline([], PERSON);
+      await userEvent.click(await screen.findByRole("button", { name: "Filter by position" }));
+      const menu = screen.getByRole("menu", { name: "Position" });
+      expect(within(menu).getByRole("menuitemcheckbox", { name: /Head of Credit Risk/ })).toHaveTextContent("2");
+      expect(within(menu).getByRole("menuitemcheckbox", { name: /About the person/ })).toHaveTextContent("1");
+
+      await userEvent.click(within(menu).getByRole("menuitemcheckbox", { name: /Head of Credit Risk/ }));
+      expect(screen.getByText("2 of 4")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /tagged them/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Filter by position" })).toHaveTextContent("Head of Credit Risk");
+
+      await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+      expect(screen.getByText("4 events")).toBeInTheDocument();
+    });
+
+    it("shows one position as a plain label, and offers no position filter on a position", async () => {
+      read(line(2, "STATUS_CHANGED", { details: { to: "engaged" } }), line(1, "ADDED_TO_POOL"));
+      renderTimeline([], PERSON);
+      expect(await screen.findByTitle("Only Group CFO so far")).toHaveTextContent("Group CFO");
+
+      vi.mocked(personCrmApi.getPositionHistory).mockResolvedValue({ entries: [line(1, "ADDED_TO_POOL")], truncated: false });
+      cleanup();
+      renderTimeline();
+      await screen.findByRole("button", { name: /added them to Group CFO/ });
+      expect(screen.queryByRole("button", { name: "Filter by position" })).not.toBeInTheDocument();
+      expect(screen.queryByTitle(/Only Group CFO so far/)).not.toBeInTheDocument();
+    });
+
+    it("opens a position's milestone on the Positions tab", async () => {
+      twoPositions();
+      renderTimeline([], PERSON);
+      await userEvent.click(await screen.findByRole("button", { name: /moved the status/ }));
+      const dialog = await screen.findByRole("dialog", { name: /Status changed to/ });
+      expect(within(dialog).getByText("Head of Credit Risk")).toBeInTheDocument();
+      await userEvent.click(within(dialog).getByRole("button", { name: /Open Positions/ }));
+      expect(destinations.onOpenTab).toHaveBeenCalledWith("positions");
+    });
+
+    it("says when the person has nothing recorded, and when the read fails", async () => {
+      read();
+      renderTimeline([], PERSON);
+      expect(await screen.findByText("Nothing recorded for this person yet.")).toBeInTheDocument();
+
+      cleanup();
+      vi.mocked(poolApi.getPersonHistory).mockRejectedValue(failure(500));
+      renderTimeline([], PERSON);
+      expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the activity.");
     });
   });
 

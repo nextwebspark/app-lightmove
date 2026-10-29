@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as apiClient from "../../../lib/apiClient";
-import { getPositionHistory, POSITION_HISTORY_LIMIT } from "./personCrmApi";
+import { getPositionHistory, HISTORY_LIMIT } from "./personCrmApi";
 
 vi.mock("../../../lib/apiClient", async (importOriginal) => ({
   ...(await importOriginal<typeof apiClient>()),
@@ -15,7 +15,7 @@ describe("getPositionHistory", () => {
     const history = await getPositionHistory("p1", "c1");
     expect(apiClient.request).toHaveBeenCalledTimes(1);
     expect(apiClient.request).toHaveBeenCalledWith(
-      `/projects/p1/candidates/c1/timeline?limit=${POSITION_HISTORY_LIMIT}`,
+      `/projects/p1/candidates/c1/timeline?limit=${HISTORY_LIMIT}`,
       expect.anything(),
     );
     expect(history).toEqual({ entries: [], truncated: false });

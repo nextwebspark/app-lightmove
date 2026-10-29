@@ -38,6 +38,8 @@ const line = (
   projectTitle: "Group CFO",
   details: {},
   noteExcerpt: null,
+  noteEditedAt: null,
+  noteEditedByName: null,
   changes: [],
   ...overrides,
 });
@@ -188,8 +190,20 @@ describe("activity presentation", () => {
   describe("previews", () => {
     it("shows a note's opening words, or that it was deleted", () => {
       expect(previewOf(line(1, "NOTE_ADDED", { noteExcerpt: "Open to a move", projectId: null })))
-        .toEqual({ type: "note", excerpt: "Open to a move", noteKind: "GENERAL", aboutThePerson: true });
+        .toEqual({ type: "note", excerpt: "Open to a move", noteKind: "GENERAL", aboutThePerson: true, edited: null });
       expect(previewOf(line(1, "NOTE_ADDED", { noteExcerpt: null }))).toMatchObject({ type: "note", excerpt: null });
+    });
+
+    it("says a note was edited since, and by whom, on its one line", () => {
+      const edited = line(1, "NOTE_ADDED", {
+        noteExcerpt: "Not interested - location",
+        noteEditedAt: "2026-10-29T16:23:00Z",
+        noteEditedByName: "Aleksandra Mizinska",
+      });
+      expect(previewOf(edited)).toMatchObject({
+        type: "note",
+        edited: { at: "2026-10-29T16:23:00Z", byName: "Aleksandra Mizinska" },
+      });
     });
 
     it("shows a status move by the labels it was written with, or the built-in label of an older line", () => {
@@ -301,7 +315,9 @@ describe("activity presentation", () => {
 
   it("names an addition with no position as one to the candidates", () => {
     expect(verbOf(line(1, "ADDED_TO_POOL", { projectId: null }))).toBe("added them to your candidates");
-    expect(verbOf(line(1, "ADDED_TO_POOL"))).toBe("added them to this position");
+    expect(verbOf(line(1, "ADDED_TO_POOL"))).toBe("added them to Group CFO");
+    expect(verbOf(line(1, "UNMAPPED"))).toBe("removed them from Group CFO");
+    expect(verbOf(line(1, "ADDED_TO_POOL", { projectTitle: null }))).toBe("added them to this position");
   });
 
   it("formats a day the same way for a header and a card", () => {
