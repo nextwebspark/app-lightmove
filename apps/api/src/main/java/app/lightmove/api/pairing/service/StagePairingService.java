@@ -30,7 +30,8 @@ import org.springframework.stereotype.Service;
  * (#903), under their company wherever that company stands; one at no company is left out under a
  * company-name search. The executive filters are applied per person, because the stage read's
  * own are company-level; so is the search box, which keeps a person who matches or whose company does, and one at
- * no company only when they match. Not {@code @Transactional}: the reads open their own.
+ * no company only when they match — resolved once and handed to the stage read, which narrows by the same matches.
+ * Not {@code @Transactional}: the reads open their own.
  */
 @Service
 @RequiredArgsConstructor
@@ -50,16 +51,16 @@ public class StagePairingService {
     public PairedStage pair(UUID workspaceId, UUID projectId, TriageCompanyStatus status,
                             TriageCompanyFilters filters, int maxCompanies, int maxCandidates,
                             ProjectAudience audience, boolean withAddedBy) {
+        SearchText search = SearchText.ofOrNull(filters.search());
+        CandidateSearchMatches searched = search == null ? null
+                : searches.matchesOf(workspaceId, projectId, status, search, audience);
         TriageCompaniesResponse stage = triage.listAllOfStage(workspaceId, projectId, status, filters, maxCompanies,
-                audience, withAddedBy);
+                audience, withAddedBy, searched == null ? null : searched.forStageRead());
         CandidatesResponse everyone = candidates.listAllOfProject(workspaceId, projectId, maxCandidates, audience);
 
         Set<UUID> stageCompanyIds = new HashSet<>();
         stage.companies().stream().map(TriageCompanyResponse::id).forEach(stageCompanyIds::add);
         boolean keepsUnassigned = blank(filters.companyName());
-        SearchText search = SearchText.ofOrNull(filters.search());
-        CandidateSearchMatches searched = search == null ? null
-                : searches.matchesOf(workspaceId, projectId, search, audience);
 
         Map<UUID, List<CandidateResponse>> byCompany = new LinkedHashMap<>();
         List<CandidateResponse> unassigned = new ArrayList<>();

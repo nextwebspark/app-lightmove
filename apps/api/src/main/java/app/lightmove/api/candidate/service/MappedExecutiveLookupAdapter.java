@@ -9,6 +9,7 @@ import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.MappedExecutiveLookup;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +32,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
 
-    private static final Set<UUID> NO_COMPANY = Set.of(new UUID(0, 0));
+    private static final Set<String> STAGE_NAMES = Arrays.stream(TriageCompanyStatus.values())
+            .map(Enum::name)
+            .collect(Collectors.toUnmodifiableSet());
 
     private final CandidateRepository candidates;
     private final ProjectRepository projects;
@@ -48,8 +51,7 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     public Set<UUID> triageCompanyIdsWithExecutivesMatching(UUID projectId, TriageCompanyStatus stage,
                                                             SearchText search, ProjectAudience audience) {
         return candidates.findSearchMatches(projectId, search.likePattern(), audience == ProjectAudience.STAFF,
-                        audience.clientVisibleOnly()).stream()
-                .filter(match -> stage.name().equals(match.getTriageStatus()))
+                        audience.clientVisibleOnly(), stage.name()).stream()
                 .map(SearchMatchedCandidate::getTriageCompanyId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -72,7 +74,9 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
 
     @Override
     public Map<TriageCompanyStatus, Long> companyCountsWithExecutivesMoved(UUID projectId, ProjectAudience audience) {
+        // A stage V160 retired, written by the previous revision while this one rolled out, is no stage to count.
         return candidates.countCompaniesWithExecutivesMovedByStage(projectId, audience.clientVisibleOnly()).stream()
+                .filter(count -> STAGE_NAMES.contains(count.getTriageStatus()))
                 .collect(Collectors.toMap(count -> TriageCompanyStatus.valueOf(count.getTriageStatus()),
                         MovedCompanyCount::getCompanies));
     }
@@ -89,15 +93,13 @@ class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
     public Page<UUID> triageCompanyIdsRankedByExecutiveStatus(UUID projectId, TriageCompanyStatus status,
             String companyName, String executiveName, List<String> executiveStatuses, Set<UUID> withinIds,
             boolean ascending, Pageable pageable, ProjectAudience audience) {
-        boolean searched = withinIds != null;
-        // A placeholder no row holds when nothing narrows: an empty IN list is not valid SQL to bind.
-        Set<UUID> within = searched ? withinIds : NO_COMPANY;
+        UUID[] within = withinIds == null ? null : withinIds.toArray(UUID[]::new);
         return executiveStatuses.isEmpty()
                 ? candidates.findTriageCompanyIdsRankedByExecutiveStatus(
-                        projectId, status.name(), companyName, executiveName, searched, within, ascending,
+                        projectId, status.name(), companyName, executiveName, within, ascending,
                         audience.clientVisibleOnly(), pageable)
                 : candidates.findTriageCompanyIdsRankedByExecutiveStatusAndExecutiveStatuses(
                         projectId, status.name(), companyName, executiveName, executiveStatuses,
-                        searched, within, ascending, audience.clientVisibleOnly(), pageable);
+                        within, ascending, audience.clientVisibleOnly(), pageable);
     }
 }

@@ -1,6 +1,33 @@
 -- Shortlisted is no longer a Companies stage: In universe and Declined are the two a position files at. What was
--- left there is discarded as the app's own removals would discard it, and both stage columns hold only the two.
+-- left there is discarded as the app's own removals would discard it.
 -- (The pipeline status of the same name, app_lm_workspace_candidate_stage, is another thing and is untouched.)
+--
+-- Expand only: both stage CHECKs still admit SHORTLISTED, because the previous revision keeps serving while this
+-- deploys and may still write it. The application no longer loads such a row (TriageCompany and Candidate carry an
+-- @SQLRestriction against it); a later migration deletes any straggler again and narrows both CHECKs.
+
+-- One audit line per position that loses anything, written before the rows go so it can count them. Nobody did it:
+-- the actor is null, as a migration's is.
+WITH removed_companies AS (
+    SELECT project_id, count(*) AS companies
+      FROM app_lm_project_triage_company
+     WHERE status = 'SHORTLISTED'
+     GROUP BY project_id
+), unmapped_executives AS (
+    SELECT project_id, count(*) AS executives
+      FROM app_lm_project_candidate
+     WHERE triage_status = 'SHORTLISTED'
+     GROUP BY project_id
+)
+INSERT INTO app_lm_audit_event (event_type, outcome, workspace_id, target_type, target_id, metadata)
+SELECT 'SHORTLISTED_STAGE_RETIRED', 'SUCCESS', pr.workspace_id, 'project', pr.id::text,
+       jsonb_build_object('migration', 'V160',
+                          'companiesRemoved', coalesce(rc.companies, 0),
+                          'executivesUnmapped', coalesce(ue.executives, 0))
+  FROM app_lm_project pr
+  LEFT JOIN removed_companies rc ON rc.project_id = pr.id
+  LEFT JOIN unmapped_executives ue ON ue.project_id = pr.id
+ WHERE rc.project_id IS NOT NULL OR ue.project_id IS NOT NULL;
 
 -- An executive listed at Shortlisted is removed from the position, as Remove from position does: the person stays
 -- with the workspace, and the line saying which position let them go is written before the mapping goes. The
@@ -20,14 +47,3 @@ DELETE FROM app_lm_project_candidate WHERE triage_status = 'SHORTLISTED';
 -- executive still mapped at it (one moved to In universe or Declined alone) keeps their mapping, unassigned under
 -- the company name snapshotted on their row.
 DELETE FROM app_lm_project_triage_company WHERE status = 'SHORTLISTED';
-
-ALTER TABLE app_lm_project_triage_company DROP CONSTRAINT app_lm_project_triage_company_status_chk;
-ALTER TABLE app_lm_project_triage_company
-    ADD CONSTRAINT app_lm_project_triage_company_status_chk CHECK (status IN ('IN_UNIVERSE', 'DECLINED'));
-
-ALTER TABLE app_lm_project_candidate DROP CONSTRAINT app_lm_project_candidate_triage_status_chk;
-ALTER TABLE app_lm_project_candidate
-    ADD CONSTRAINT app_lm_project_candidate_triage_status_chk CHECK (triage_status IN ('IN_UNIVERSE', 'DECLINED'));
-
-COMMENT ON COLUMN app_lm_project_candidate.triage_status IS
-    'The Companies stage this executive is listed under (In universe / Declined); their company''s at filing.';

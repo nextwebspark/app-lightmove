@@ -1,7 +1,6 @@
 package app.lightmove.api.triagecompany;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -22,7 +21,8 @@ import org.testcontainers.utility.DockerImageName;
 /**
  * V160: the Shortlisted stage goes with what was left at it — an executive listed there is removed from the
  * position (the person kept, an UNMAPPED line written), a company there is removed as Remove from position does,
- * and an executive moved alone off it keeps their mapping unassigned. Its own container, stopped at V130 to seed
+ * and an executive moved alone off it keeps their mapping unassigned; each position that lost anything gets one audit
+ * line counting it. The CHECKs are not narrowed yet (expand/contract across the rollout). Its own container, stopped at V130 to seed
  * mappings V131 and V150 then backfill, and at V159 to move people alone.
  */
 class ShortlistedStageMigrationTest {
@@ -31,6 +31,7 @@ class ShortlistedStageMigrationTest {
     private static final UUID WORKSPACE = UUID.fromString("00000000-0000-0000-0000-0000000016b1");
     private static final UUID CLIENT = UUID.fromString("00000000-0000-0000-0000-0000000016c1");
     private static final UUID PROJECT = UUID.fromString("00000000-0000-0000-0000-0000000016d1");
+    private static final UUID UNTOUCHED_PROJECT = UUID.fromString("00000000-0000-0000-0000-0000000016d2");
     private static final UUID KEPT = UUID.fromString("00000000-0000-0000-0000-0000000016e1");
     private static final UUID SHORT = UUID.fromString("00000000-0000-0000-0000-0000000016e2");
     private static final UUID DECLINED = UUID.fromString("00000000-0000-0000-0000-0000000016e3");
@@ -40,7 +41,7 @@ class ShortlistedStageMigrationTest {
     private static final UUID AT_DECLINED = UUID.fromString("00000000-0000-0000-0000-0000000016f4");
 
     @Test
-    @DisplayName("V160 removes what stood at Shortlisted and holds both stage columns to the two left")
+    @DisplayName("V160 removes what stood at Shortlisted, audits it per position, and leaves both CHECKs as they were")
     void discardsShortlisted() throws Exception {
         try (PostgreSQLContainer postgres = new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))) {
             postgres.start();
@@ -97,14 +98,20 @@ class ShortlistedStageMigrationTest {
                         WHERE project_id = ?""", PROJECT))
                         .containsExactly("Call back|-");
 
-                assertThatThrownBy(() -> execute(connection, """
-                        UPDATE app_lm_project_triage_company SET status = 'SHORTLISTED' WHERE id = '%s'"""
-                        .formatted(KEPT)))
-                        .hasMessageContaining("app_lm_project_triage_company_status_chk");
-                assertThatThrownBy(() -> execute(connection, """
-                        UPDATE app_lm_project_candidate SET triage_status = 'SHORTLISTED' WHERE id = '%s'"""
-                        .formatted(MOVED_OFF)))
-                        .hasMessageContaining("app_lm_project_candidate_triage_status_chk");
+                assertThat(strings(connection, """
+                        SELECT event_type || '|' || outcome || '|' || workspace_id || '|' || target_type || '|'
+                               || target_id || '|' || coalesce(actor_user_id::text, '-') || '|'
+                               || (metadata ->> 'companiesRemoved') || '|' || (metadata ->> 'executivesUnmapped')
+                        FROM app_lm_audit_event WHERE event_type = ?""", "SHORTLISTED_STAGE_RETIRED"))
+                        .as("one line for the position that lost rows, none for the one that lost nothing")
+                        .containsExactly("SHORTLISTED_STAGE_RETIRED|SUCCESS|" + WORKSPACE + "|project|" + PROJECT
+                                + "|-|1|2");
+
+                // Expand only: the previous revision, still serving while this one deploys, may write the stage.
+                execute(connection, "UPDATE app_lm_project_triage_company SET status = 'SHORTLISTED' WHERE id = '%s'"
+                        .formatted(KEPT));
+                execute(connection, "UPDATE app_lm_project_candidate SET triage_status = 'SHORTLISTED' WHERE id = '%s'"
+                        .formatted(MOVED_OFF));
             }
         }
     }
@@ -123,6 +130,13 @@ class ShortlistedStageMigrationTest {
                 INSERT INTO app_lm_project (id, workspace_id, client_id, position_title, created_by)
                 VALUES ('%s', '%s', '%s', 'Chief Financial Officer', '%s')"""
                 .formatted(PROJECT, WORKSPACE, CLIENT, USER));
+        execute(connection, """
+                INSERT INTO app_lm_project (id, workspace_id, client_id, position_title, created_by)
+                VALUES ('%s', '%s', '%s', 'Chief Operating Officer', '%s')"""
+                .formatted(UNTOUCHED_PROJECT, WORKSPACE, CLIENT, USER));
+        execute(connection, """
+                INSERT INTO app_lm_project_triage_company (project_id, source, status, company_name, added_by)
+                VALUES ('%s', 'MANUAL', 'IN_UNIVERSE', 'Untouched Co', '%s')""".formatted(UNTOUCHED_PROJECT, USER));
         company(connection, KEPT, "Gulf Industrial", "IN_UNIVERSE");
         company(connection, SHORT, "Harbour Ports", "SHORTLISTED");
         company(connection, DECLINED, "Desert Mining", "DECLINED");

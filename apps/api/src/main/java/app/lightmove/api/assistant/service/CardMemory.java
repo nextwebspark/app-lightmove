@@ -28,6 +28,13 @@ final class CardMemory {
     /** Long enough for a legal name, short enough that no name reads as a paragraph of instructions. */
     private static final int MAX_TEXT = 80;
 
+    /**
+     * A card filed or shown at Shortlisted before V160 removed that stage, and every company and executive at it:
+     * replayed as what it now is, never as a stage the mandate still has.
+     */
+    private static final String RETIRED_SHORTLISTED = "shortlisted";
+    private static final String NO_LONGER_IN_MANDATE = "no longer in the mandate";
+
     private static final Pattern CARD_BLOCK =
             Pattern.compile("(?s)<suggested_companies\\b[^>]*>.*?</suggested_companies>");
     private static final Pattern MARKUP_CHARACTERS = Pattern.compile("[<>\"\\[\\]]");
@@ -51,7 +58,9 @@ final class CardMemory {
             lines.add("(" + card.companies().size() + " companies, not listed again here)");
         }
         if (outcome != null) {
-            lines.add("Filed " + outcome.added() + " as " + stageLabel(outcome.status())
+            String filedAs = RETIRED_SHORTLISTED.equals(outcome.status()) ? ", " + NO_LONGER_IN_MANDATE
+                    : " as " + stageLabel(outcome.status());
+            lines.add("Filed " + outcome.added() + filedAs
                     + (outcome.skipped() > 0 ? " (" + outcome.skipped() + " already in the mandate)" : ""));
         }
         lines.add("</suggested_companies>");
@@ -94,8 +103,8 @@ final class CardMemory {
         if (company.operates() != null) {
             parts.add("operates " + plain(company.operates()));
         }
-        String state = company.alreadyInMandate()
-                ? "already " + stageLabel(company.stage()).toLowerCase(Locale.ROOT)
+        String state = RETIRED_SHORTLISTED.equals(company.stage()) ? NO_LONGER_IN_MANDATE
+                : company.alreadyInMandate() ? "already " + stageLabel(company.stage()).toLowerCase(Locale.ROOT)
                 : "new";
         return "[" + state + "] " + String.join(" · ", parts);
     }

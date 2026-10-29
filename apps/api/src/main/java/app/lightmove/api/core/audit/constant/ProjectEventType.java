@@ -45,6 +45,8 @@ public enum ProjectEventType implements AuditEventType {
     COMPANY_NOTE_RESTORED,
     COMPANY_NOTE_PINNED,
     TRIAGE_BULK_ADDED,
+    /** Written by V160 alone, one per position: what it removed when the Shortlisted stage went. */
+    SHORTLISTED_STAGE_RETIRED,
 
     CANDIDATE_ADDED,
     CANDIDATE_UPDATED,

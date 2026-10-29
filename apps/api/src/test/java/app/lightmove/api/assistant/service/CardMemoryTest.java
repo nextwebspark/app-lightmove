@@ -31,6 +31,19 @@ class CardMemoryTest {
     }
 
     @Test
+    @DisplayName("a card stored at the retired Shortlisted stage reads as no longer in the mandate, never In universe")
+    void replaysTheRetiredShortlistedStageAsGone() {
+        AssistantProposal card = new AssistantProposal("Top retail in UAE", List.of(
+                new ProposedCompany("a1", null, "Lulu Group", null, null, null, null, "shortlisted")), Map.of());
+
+        assertThat(CardMemory.render(card, new ProposalOutcome("shortlisted", 3, 0), true)).isEqualTo("""
+                <suggested_companies title="Top retail in UAE">
+                - [no longer in the mandate] a1 · Lulu Group
+                Filed 3, no longer in the mandate
+                </suggested_companies>""");
+    }
+
+    @Test
     @DisplayName("an older card is its title and count only, so a long chat does not replay every row")
     void summarisesAnOlderCard() {
         assertThat(CardMemory.render(CARD, null, false)).isEqualTo("""

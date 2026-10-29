@@ -20,6 +20,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.type.SqlTypes;
 
 /**
@@ -36,6 +37,9 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @Table(name = "app_lm_project_candidate")
+// V160 retired SHORTLISTED but left the CHECK admitting it while the previous revision still served: a row it wrote
+// then has no enum constant, and loading one would 500 the whole read. Kept out until the CHECK is narrowed.
+@SQLRestriction("triage_status <> 'SHORTLISTED'")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Candidate extends BaseEntity {

@@ -55,7 +55,7 @@ public class AssistantProposalService {
                 .map(AssistantThread::getProjectId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         projectAccess.requireAction(userId, workspaceId, projectId, ProjectAction.WORK_EXECUTE);
-        TriageCompanyStatus.parseOrInUniverse(request.status());
+        String stage = TriageCompanyStatus.parseOrInUniverse(request.status()).value();
 
         List<String> chosen = request.companyIds().stream().distinct().toList();
         AssistantProposal card = turn.getProposal();
@@ -78,19 +78,19 @@ public class AssistantProposalService {
         List<String> accountIds = fileable.stream().filter(key -> !card.researched().containsKey(key)).toList();
         TriageBulkAddResponse fromUniverse = accountIds.isEmpty() ? new TriageBulkAddResponse(0, 0)
                 : triage.addSelected(userId, workspaceId, projectId,
-                        new AddSelectedTriageCompaniesRequest(accountIds, request.status()),
+                        new AddSelectedTriageCompaniesRequest(accountIds, stage),
                         TriageCompanySource.ASSISTANT, httpRequest);
         long researchedAdded = fileable.stream()
                 .filter(card.researched()::containsKey)
                 .filter(slug -> triage.captureResearched(userId, workspaceId, projectId,
-                        card.researched().get(slug), TriageCompanySource.ASSISTANT, request.status(), httpRequest))
+                        card.researched().get(slug), TriageCompanySource.ASSISTANT, stage, httpRequest))
                 .count();
         int researchedChosen = fileable.size() - accountIds.size();
         TriageBulkAddResponse filed = new TriageBulkAddResponse(
                 fromUniverse.added() + (int) researchedAdded,
                 fromUniverse.skipped() + researchedChosen - (int) researchedAdded
                         + chosen.size() - fileable.size());
-        turn.recordAccepted(new ProposalOutcome(request.status(), filed.added(), filed.skipped()));
+        turn.recordAccepted(new ProposalOutcome(stage, filed.added(), filed.skipped()));
         turns.save(turn);
         return filed;
     }

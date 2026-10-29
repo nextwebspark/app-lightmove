@@ -5,7 +5,9 @@ import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.SearchMatchedCandidate;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.text.model.SearchText;
+import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -27,11 +29,18 @@ public class CandidateSearchService {
     @Transactional(readOnly = true)
     public CandidateSearchMatches matchesOf(UUID workspaceId, UUID projectId, SearchText search,
                                             ProjectAudience audience) {
-        return new CandidateSearchMatches(
-                candidates.findSearchMatches(projectId, search.likePattern(), audience == ProjectAudience.STAFF,
-                                audience.clientVisibleOnly()).stream()
-                        .map(SearchMatchedCandidate::getId)
-                        .collect(Collectors.toSet()),
-                companies.idsMatchingSearch(workspaceId, projectId, search, audience));
+        return matchesOf(workspaceId, projectId, null, search, audience);
+    }
+
+    /** {@code stage}, when not null, matches only the executives listed there; companies match at any stage. */
+    @Transactional(readOnly = true)
+    public CandidateSearchMatches matchesOf(UUID workspaceId, UUID projectId, TriageCompanyStatus stage,
+                                            SearchText search, ProjectAudience audience) {
+        List<SearchMatchedCandidate> matched = candidates.findSearchMatches(projectId, search.likePattern(),
+                audience == ProjectAudience.STAFF, audience.clientVisibleOnly(), stage == null ? null : stage.name());
+        return new CandidateSearchMatches(stage,
+                matched.stream().map(SearchMatchedCandidate::getId).collect(Collectors.toSet()),
+                matched.stream().map(SearchMatchedCandidate::getTriageCompanyId).collect(Collectors.toSet()),
+                companies.companiesMatchingSearch(workspaceId, projectId, search, audience));
     }
 }
