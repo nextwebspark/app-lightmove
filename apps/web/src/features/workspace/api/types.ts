@@ -1,5 +1,6 @@
 import type { WorkspaceCompany, WorkspaceMode } from "../../auth/api/types";
 import type { WorkspaceRole } from "../../auth/api/types";
+import type { DateFormatStyle, TimeFormatStyle } from "../../../lib/datetime";
 
 /** The workspace-management API contract, hand-mirrored like the auth module's. */
 
@@ -18,6 +19,20 @@ export interface WorkspaceDetail {
   createdAt: string;
   persona: HiringPersona;
   company: WorkspaceCompany | null;
+  dateTime: WorkspaceDateTime;
+}
+
+/** Settings → General's Date & time: each null where the admin chose nothing, beside what that reads as. */
+export interface WorkspaceDateTime {
+  timeZone: string | null;
+  dateFormat: DateFormatStyle | null;
+  timeFormat: TimeFormatStyle | null;
+  /** The country's zone, or the standard where the firm names no country we know. */
+  suggestedTimeZone: string;
+  /** The country that zone is, by name; null where it is the standard. */
+  suggestedFrom: string | null;
+  /** Active members who chose none of the three for themselves. */
+  membersFollowing: number;
 }
 
 /** How calendar events are read: pushed through Recall.ai, or read directly when a drawer opens. */

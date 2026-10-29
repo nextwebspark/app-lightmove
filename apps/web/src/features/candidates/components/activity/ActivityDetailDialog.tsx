@@ -31,6 +31,7 @@ import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
 import { noteKindLabel } from "../../lib/noteKinds";
 import { StatusPill } from "./ActivityItems";
 import { ActorFace, KindTile } from "./ActivityVisuals";
+import { formatInstantTime } from "../../../../lib/datetime";
 
 export interface ActivityDestinations {
   onShowNote: (noteId: string) => void;
@@ -454,7 +455,7 @@ function MeetingDetail({ entry, projectId, candidateId }: { entry: PersonTimelin
     <Facts
       rows={[
         ["Call", meeting.title],
-        ["When", `${shortDateTime(meeting.startsAt)} – ${new Date(meeting.endsAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`],
+        ["When", `${shortDateTime(meeting.startsAt)} – ${formatInstantTime(meeting.endsAt) ?? "—"}`],
         ["Duration", Number.isFinite(minutes) && minutes > 0 ? `${minutes} minutes` : null],
         ["Moved from", shortDateTime(entry.details.previousStartsAt)],
         ["Video", meeting.videoProvider],

@@ -1,6 +1,7 @@
 import { ICONS } from "../../../components/layout/Icon";
 import type { Candidate, FieldChange, PersonActivityKind, PersonTimelineEntry } from "../api/types";
 import { DOCUMENT_NOUNS, DOORS, NOTE_VERBS, statusLabel, triageStageLabel } from "./candidateActivity";
+import { formatFull, formatInstantTime, formatWeekdayDate, formatWeekdayDateTime } from "../../../lib/datetime";
 
 /**
  * The executive drawer's Activity tab, worked out in data: which kind of event a line is, how it is drawn, who did it
@@ -584,36 +585,19 @@ export function familiesOf(entries: readonly PersonTimelineEntry[]): ActivityFam
   return ACTIVITY_FAMILIES.filter((option) => present.has(option.family));
 }
 
-/** "Thu 30 Oct" in the viewer's zone; null for a value that is not a time. */
+/** "Thu 30 Oct" in the person's zone; null for a value that is not a time. */
 export function shortDate(isoInstant: string | null | undefined): string | null {
-  if (!isoInstant) return null;
-  const at = new Date(isoInstant);
-  if (Number.isNaN(at.getTime())) return null;
-  return at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+  return formatWeekdayDate(isoInstant);
 }
 
-/** "Thu 30 Oct, 15:00" in the viewer's zone; null for a value that is not a time. */
+/** "Thu 30 Oct, 15:00" in the person's zone; null for a value that is not a time. */
 export function shortDateTime(isoInstant: string | null | undefined): string | null {
-  const day = shortDate(isoInstant);
-  if (!day || !isoInstant) return null;
-  return `${day}, ${new Date(isoInstant).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  return formatWeekdayDateTime(isoInstant);
 }
 
-/** "Tue 27 Oct 2026, 14:20 GMT+4" — the full stamp a tooltip and a dialog give, zone and all. */
+/** "Tue, 27 Oct 2026, 14:20 GMT+4" — the full stamp a tooltip and a dialog give, zone and all. */
 export function fullDateTime(isoInstant: string): string {
-  const at = new Date(isoInstant);
-  if (Number.isNaN(at.getTime())) return "—";
-  return at
-    .toLocaleString("en-GB", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZoneName: "short",
-    })
-    .replace(",", "");
+  return formatFull(isoInstant) ?? "—";
 }
 
 /** The card's clock: "12 min ago" within the hour, the time of day otherwise — the day is the header's. */
@@ -623,7 +607,7 @@ export function cardTimeOf(isoInstant: string, now: Date = new Date()): string {
   const minutes = Math.floor((now.getTime() - at.getTime()) / 60_000);
   if (minutes >= 0 && minutes < 1) return "just now";
   if (minutes >= 1 && minutes < 60) return `${minutes} min ago`;
-  return at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return formatInstantTime(at) ?? "—";
 }
 
 /** The executive the drawer is about, as the history names them when they acted themselves. */

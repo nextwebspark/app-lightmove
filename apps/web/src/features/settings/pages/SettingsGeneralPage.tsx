@@ -14,6 +14,7 @@ import {
   type CompanyPick,
 } from "../../clients/lib/companyPick";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import { WorkspaceDateTimeCard } from "../components/WorkspaceDateTimeCard";
 import { WorkspaceModeCard } from "../components/WorkspaceModeCard";
 import { WorkspacePersonaCard } from "../components/WorkspacePersonaCard";
 
@@ -139,6 +140,14 @@ export function SettingsGeneralPage() {
           </Button>
         </div>
       </div>
+
+      {/* Keyed on what was saved, so a save or another tab's change starts the card from the stored choice. */}
+      <WorkspaceDateTimeCard
+        key={`${workspace.dateTime.timeZone}|${workspace.dateTime.dateFormat}|${workspace.dateTime.timeFormat}|${workspace.dateTime.suggestedTimeZone}`}
+        workspaceName={workspace.name}
+        memberCount={workspace.memberCount}
+        dateTime={workspace.dateTime}
+      />
 
       <WorkspaceModeCard mode={workspace.mode} />
 

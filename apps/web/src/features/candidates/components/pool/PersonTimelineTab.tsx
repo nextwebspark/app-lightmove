@@ -8,6 +8,7 @@ import { groupByDay } from "../../lib/timelineGroups";
 import { useTimelineCut } from "../PersonSections";
 import { GroupChips } from "./GroupChips";
 import { LinesSkeleton, Spinner } from "../../../../components/ui";
+import { formatFull, formatInstantTime } from "../../../../lib/datetime";
 
 /** The Timeline tab: everything done to the person, by whom and when, on every position, by day. */
 export function PersonTimelineTab({ personId }: { personId: string }) {
@@ -45,11 +46,8 @@ export function PersonTimelineTab({ personId }: { personId: string }) {
                       <span className="font-semibold text-u-text">{line.actorName}</span> {line.text}
                     </p>
                     <p className="mt-0.5 font-mono text-[11px] text-u-text3">
-                      <time dateTime={line.occurredAt} title={new Date(line.occurredAt).toLocaleString()}>
-                        {new Date(lines[index].occurredAt).toLocaleTimeString("en-GB", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                      <time dateTime={line.occurredAt} title={formatFull(line.occurredAt) ?? undefined}>
+                        {formatInstantTime(lines[index].occurredAt)}
                       </time>
                       {line.detail && ` · ${line.detail}`}
                     </p>

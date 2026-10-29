@@ -4,6 +4,7 @@
  */
 
 import type { Project } from "../api/types";
+import { dayKeyOf } from "../../../lib/datetime";
 
 /** Share of the start → delivery window a search's universe should be mapped by. `ProjectTimeline` agrees. */
 export const MAPPING_SHARE = 0.6;
@@ -19,11 +20,9 @@ function fromUtcMs(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
-/** Today on the user's own calendar — not UTC's, which is already tomorrow east of Greenwich by evening. */
+/** Today on the person's own calendar (their zone) — not UTC's, which is already tomorrow east of Greenwich by evening. */
 export function todayIso(now: Date = new Date()): string {
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+  return dayKeyOf(now);
 }
 
 export function daysBetween(fromIso: string, toIso: string): number {

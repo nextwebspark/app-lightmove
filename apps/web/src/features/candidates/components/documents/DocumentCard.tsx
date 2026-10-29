@@ -7,6 +7,7 @@ import { shortWhen } from "../../lib/candidateActivity";
 import { DOCUMENT_CATEGORIES, formatBytes } from "../../lib/documents";
 import type { PersonDocuments } from "../../lib/usePersonDocuments";
 import { CategoryPill, FileTypeBadge, VersionPill } from "./DocumentParts";
+import { formatFull, formatInstantDateTime } from "../../../../lib/datetime";
 
 const ICON_BUTTON =
   "grid flex-none place-items-center rounded-[5px] p-1.5 text-u-text3 hover:bg-u-raised hover:text-u-text disabled:opacity-40";
@@ -98,7 +99,7 @@ export function DocumentCard({
             <VersionPill versionNo={latest.versionNo} />
           </div>
           <p
-            title={new Date(latest.uploadedAt).toLocaleString()}
+            title={formatFull(latest.uploadedAt) ?? undefined}
             className="mt-1 font-mono text-[11px] text-u-text3"
           >
             {formatBytes(latest.sizeBytes)} · {latest.uploadedByName ?? "Someone"} · {shortWhen(latest.uploadedAt)}
@@ -262,7 +263,7 @@ export function DocumentCard({
                 </div>
                 <p className="font-mono text-[11px] text-u-text3">
                   {formatBytes(version.sizeBytes)} · {version.uploadedByName ?? "Someone"} ·{" "}
-                  {new Date(version.uploadedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                  {formatInstantDateTime(version.uploadedAt)}
                 </p>
               </div>
               {confirming === version.id ? (

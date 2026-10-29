@@ -11,6 +11,7 @@ import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as projectsApi from "../api/projectsApi";
 import type { Project } from "../api/types";
 import { ProjectsPage } from "./ProjectsPage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../../auth/api/authApi");
 vi.mock("../api/projectsApi", async (importOriginal) => ({
@@ -56,6 +57,7 @@ describe("ProjectsPage — pure client", () => {
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
@@ -178,6 +180,7 @@ describe("ProjectsPage — staff, an empty workspace and My tasks", () => {
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
@@ -275,6 +278,7 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],

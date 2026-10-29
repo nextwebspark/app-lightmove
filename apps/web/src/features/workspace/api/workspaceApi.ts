@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { DateFormatStyle, TimeFormatStyle } from "../../../lib/datetime";
 import type {
   CreateWorkspaceRequest,
   InviteRequest,
@@ -41,6 +42,15 @@ export function changeMode(mode: WorkspaceMode): Promise<WorkspaceDetail> {
 /** Recall shares the app's keys and each calendar's refresh token with Recall.ai; Direct keeps them here. */
 export function changeCalendarSync(calendarSync: CalendarSync): Promise<WorkspaceDetail> {
   return request<WorkspaceDetail>("/workspace/calendar-sync", { method: "PUT", body: { calendarSync } });
+}
+
+/** A null is "not chosen": the country's zone, the standard formats. */
+export function updateDateTime(choice: {
+  timeZone: string | null;
+  dateFormat: DateFormatStyle | null;
+  timeFormat: TimeFormatStyle | null;
+}): Promise<WorkspaceDetail> {
+  return request<WorkspaceDetail>("/workspace/date-time", { method: "PUT", body: choice });
 }
 
 export function deleteWorkspace(confirmName: string): Promise<void> {

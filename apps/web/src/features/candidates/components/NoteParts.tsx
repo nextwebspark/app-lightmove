@@ -13,6 +13,7 @@ import { ClampedNoteText } from "../../notes/components/ClampedNoteText";
 import { NoteReaderModal } from "../../notes/components/NoteReaderModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG } from "../../tasks/lib/mentions";
 import type { TeammateOption } from "../../tasks/lib/team";
+import { formatFull } from "../../../lib/datetime";
 
 /** Who reads a note written inside a position: that position's team, or every position's. */
 export type NoteScope = "position" | "everywhere";
@@ -186,7 +187,7 @@ export function NoteCard({
         )}
         <time
           dateTime={note.createdAt}
-          title={new Date(note.createdAt).toLocaleString()}
+          title={formatFull(note.createdAt) ?? undefined}
           className="ms-auto flex-none font-mono text-[11px] text-u-text3"
         >
           {shortWhen(note.createdAt)}
@@ -246,7 +247,7 @@ export function NoteCard({
           note.projectId === null && <span>All positions</span>
         )}
         {note.editedAt && (
-          <span title={new Date(note.editedAt).toLocaleString()}>Edited by {note.editedByName ?? "someone"}</span>
+          <span title={formatFull(note.editedAt) ?? undefined}>Edited by {note.editedByName ?? "someone"}</span>
         )}
         {actions && (
           <span className="-my-1 ms-auto flex items-center gap-0.5">

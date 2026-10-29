@@ -7,6 +7,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../AuthProvider";
 import { AcceptInvitePage } from "./AcceptInvitePage";
 import * as authApi from "../api/authApi";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../api/authApi");
 
@@ -77,6 +78,7 @@ describe("AcceptInvitePage", () => {
         emailVerified: true,
         hasPassword: true,
         timezone: "Asia/Dubai",
+        dateTime: FOLLOWING_DATE_TIME,
         locale: "en",
         platformActions: [],
         pendingInvitations: [],
@@ -161,6 +163,7 @@ describe("AcceptInvitePage", () => {
       emailVerified: true,
       hasPassword: true,
       timezone: "Asia/Dubai",
+      dateTime: FOLLOWING_DATE_TIME,
       locale: "en",
       platformActions: [],
       pendingInvitations: [],
@@ -217,6 +220,7 @@ describe("AcceptInvitePage", () => {
       emailVerified: true,
       hasPassword: true,
       timezone: "Asia/Dubai",
+      dateTime: FOLLOWING_DATE_TIME,
       locale: "en",
       platformActions: [],
       pendingInvitations: [

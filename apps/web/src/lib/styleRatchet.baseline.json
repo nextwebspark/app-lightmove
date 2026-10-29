@@ -517,7 +517,7 @@
     "arbitraryRadius": 1
   },
   "features/settings/components/ProfileForm.tsx": {
-    "important": 4,
+    "important": 3,
     "arbitraryText": 1
   },
   "features/settings/components/ProfileIdentityRow.tsx": {

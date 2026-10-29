@@ -11,6 +11,7 @@ import { usePoolLookups } from "../../lib/usePoolLookups";
 import { groupByDay } from "../../lib/timelineGroups";
 import { GroupChips } from "./GroupChips";
 import { LinesSkeleton, Spinner } from "../../../../components/ui";
+import { formatFull, formatInstantTime } from "../../../../lib/datetime";
 
 const RANGES = [
   { value: "7", label: "Last 7 days" },
@@ -129,10 +130,10 @@ export function ActivityView({ toggle, onOpen }: { toggle: ReactNode; onOpen: (p
                             </span>
                             <time
                               dateTime={entry.occurredAt}
-                              title={new Date(entry.occurredAt).toLocaleString()}
+                              title={formatFull(entry.occurredAt) ?? undefined}
                               className="flex-none font-mono text-[11px] text-u-text3"
                             >
-                              {new Date(entry.occurredAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                              {formatInstantTime(entry.occurredAt)}
                             </time>
                           </button>
                         </li>

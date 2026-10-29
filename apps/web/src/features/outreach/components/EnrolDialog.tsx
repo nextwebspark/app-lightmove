@@ -33,6 +33,7 @@ import {
 } from "../lib/sendSchedule";
 import { BOOKING_LINK_PLACEHOLDER, render, renderParts } from "../lib/sequenceTokens";
 import { useMailbox } from "../lib/useMailbox";
+import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 
 type EnrolStep = "choose" | "review" | "start";
 
@@ -53,9 +54,6 @@ interface ReviewedEmail {
 
 /** `StartSequenceRequest`'s horizon for a chosen start. */
 const START_HORIZON_DAYS = 60;
-
-/** Until the mailbox read lands; the server's own default. */
-const FALLBACK_ZONE = "Asia/Dubai";
 
 /** When the first emails go, as the Start step leaves it: a mode, and with `AT` a day and time in the sender's zone. */
 interface StartChoice {
@@ -132,7 +130,8 @@ export function EnrolDialog({
   const isOverTheCap = chosen.length > sequenceApi.MAX_PEOPLE_PER_START;
   const connection = mailbox.data?.connection ?? null;
   const canSend = connection?.status === "ACTIVE";
-  const timeZone = connection?.timeZone ?? FALLBACK_ZONE;
+  // Until the mailbox read lands: the person's own zone, which their mailbox copies.
+  const timeZone = connection?.timeZone ?? getDateTimePreferences().timeZone;
   const chosenStart =
     startChoice.mode === "AT" && startChoice.date && startChoice.time
       ? instantOf(startChoice.date, startChoice.time, timeZone)
@@ -767,7 +766,7 @@ function StartStep({
             >
               {(HALF_HOURS.includes(choice.time) ? HALF_HOURS : [...HALF_HOURS, choice.time].sort()).map((time) => (
                 <option key={time} value={time}>
-                  {time}
+                  {formatClock(time)}
                 </option>
               ))}
             </select>

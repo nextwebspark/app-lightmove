@@ -11,6 +11,7 @@ import * as workspaceApi from "../api/workspaceApi";
 import type { User } from "../../auth/api/types";
 import type { Member } from "../api/types";
 import { TeamPage } from "./TeamPage";
+import { FOLLOWING_DATE_TIME } from "../../../test/fixtures/user";
 
 vi.mock("../../auth/api/authApi");
 vi.mock("../api/workspaceApi", async (importOriginal) => ({
@@ -41,6 +42,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER")[]): User => ({
   emailVerified: true,
   hasPassword: true,
   timezone: "Asia/Dubai",
+  dateTime: FOLLOWING_DATE_TIME,
   locale: "en",
   platformActions: [],
   pendingInvitations: [],

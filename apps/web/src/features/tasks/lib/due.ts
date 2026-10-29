@@ -1,4 +1,13 @@
-/** A due moment as the modal's two inputs hold it, in the viewer's own zone: `2026-10-05` and `09:00`. */
+import {
+  dayKeyOf,
+  formatClock,
+  getDateTimePreferences,
+  instantOf,
+  shiftDay,
+  wallClockOf,
+} from "../../../lib/datetime";
+
+/** A due moment as the modal's two inputs hold it, in the person's own zone: `2026-10-05` and `09:00`. */
 export interface LocalDue {
   date: string;
   time: string;
@@ -6,9 +15,19 @@ export interface LocalDue {
 
 export type QuickDueKey = "today" | "tomorrow" | "in3" | "monday";
 
-export const QUICK_DUES: readonly { key: QuickDueKey; label: string }[] = [
-  { key: "today", label: "Today 17:00" },
-  { key: "tomorrow", label: "Tomorrow 09:00" },
+export const QUICK_DUES: readonly { key: QuickDueKey; readonly label: string }[] = [
+  {
+    key: "today",
+    get label() {
+      return `Today ${formatClock("17:00")}`;
+    },
+  },
+  {
+    key: "tomorrow",
+    get label() {
+      return `Tomorrow ${formatClock("09:00")}`;
+    },
+  },
   { key: "in3", label: "In 3 days" },
   { key: "monday", label: "Next Monday" },
 ];
@@ -16,31 +35,32 @@ export const QUICK_DUES: readonly { key: QuickDueKey; label: string }[] = [
 const MORNING = "09:00";
 const END_OF_DAY = "17:00";
 
-const pad = (value: number) => String(value).padStart(2, "0");
+const WEEKDAY_INDEX = { SUNDAY: 0, MONDAY: 1, TUESDAY: 2, WEDNESDAY: 3, THURSDAY: 4, FRIDAY: 5, SATURDAY: 6 };
 
+/** The day an instant falls on in the person's zone. */
 export function isoDateOf(moment: Date): string {
-  return `${moment.getFullYear()}-${pad(moment.getMonth() + 1)}-${pad(moment.getDate())}`;
+  return dayKeyOf(moment);
 }
 
-function daysAfter(now: Date, days: number): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+function daysAfter(now: Date, days: number): string {
+  return shiftDay(dayKeyOf(now), days);
 }
 
 export function localDueOf(isoInstant: string): LocalDue {
-  const moment = new Date(isoInstant);
-  return { date: isoDateOf(moment), time: `${pad(moment.getHours())}:${pad(moment.getMinutes())}` };
+  const { date, time } = wallClockOf(new Date(isoInstant));
+  return { date, time };
 }
 
-/** The instant the two inputs name, or null while either is blank or unreadable. */
+/** The instant the two inputs name in the person's zone, or null while either is blank or unreadable. */
 export function dueInstantOf(due: LocalDue): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(due.date) || !/^\d{2}:\d{2}$/.test(due.time)) return null;
-  const moment = new Date(`${due.date}T${due.time}:00`);
+  const moment = instantOf(due.date, due.time);
   return Number.isNaN(moment.getTime()) ? null : moment.toISOString();
 }
 
 /** A preset's due: so many days from today at 09:00, or 17:00 when it falls due the same day. */
 export function presetDueOf(offsetDays: number, now: Date = new Date()): LocalDue {
-  return { date: isoDateOf(daysAfter(now, offsetDays)), time: offsetDays === 0 ? END_OF_DAY : MORNING };
+  return { date: daysAfter(now, offsetDays), time: offsetDays === 0 ? END_OF_DAY : MORNING };
 }
 
 /** A new task's due until somebody says otherwise: tomorrow morning. */
@@ -53,11 +73,11 @@ export function quickDueOf(key: QuickDueKey, now: Date = new Date()): LocalDue {
     case "today":
       return { date: isoDateOf(now), time: END_OF_DAY };
     case "tomorrow":
-      return { date: isoDateOf(daysAfter(now, 1)), time: MORNING };
+      return { date: daysAfter(now, 1), time: MORNING };
     case "in3":
-      return { date: isoDateOf(daysAfter(now, 3)), time: MORNING };
+      return { date: daysAfter(now, 3), time: MORNING };
     case "monday":
-      return { date: isoDateOf(daysAfter(now, (8 - now.getDay()) % 7 || 7)), time: MORNING };
+      return { date: daysAfter(now, (8 - WEEKDAY_INDEX[wallClockOf(now).weekday]) % 7 || 7), time: MORNING };
   }
 }
 
@@ -68,7 +88,7 @@ export function presetDueLabel(offsetDays: number | null): string | null {
   return `+${offsetDays} day${offsetDays === 1 ? "" : "s"}`;
 }
 
-/** The viewer's own zone, which every due here is read and written in. */
+/** The person's own zone, which every due here is read and written in. */
 export function viewerTimeZone(): string {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  return getDateTimePreferences().timeZone;
 }

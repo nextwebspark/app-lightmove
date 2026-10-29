@@ -1,6 +1,7 @@
 import type { PersonTimelineEntry } from "../api/types";
 import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import { statusLabelOf } from "./pipelineStatus";
+import { dayKeyOf, formatDate, formatInstantTime, formatShortDate, formatWeekdayDateTime } from "../../../lib/datetime";
 
 /**
  * A person's history as sentences: what the actor did, and a second line of detail. Worded as the
@@ -289,12 +290,9 @@ function isBookedThroughLink(entry: PersonTimelineEntry): boolean {
   return entry.kind === "MEETING_BOOKED" && String(entry.details.viaLink) === "true";
 }
 
-/** "Thu 2 Oct, 14:00", in the viewer's zone. */
+/** "Thu 2 Oct, 14:00", in the person's zone. */
 function callTimeOf(isoInstant: string): string | null {
-  const at = new Date(isoInstant);
-  if (Number.isNaN(at.getTime())) return null;
-  const day = at.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
-  return `${day}, ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+  return formatWeekdayDateTime(isoInstant);
 }
 
 /** A reply, or a call booked through the link, is the executive's own act; a stop nobody pressed is Uncava's. */
@@ -334,14 +332,10 @@ export function lastActivityOf(entry: PersonTimelineEntry, now: Date = new Date(
 export function shortWhen(isoInstant: string, now: Date = new Date()): string {
   const at = new Date(isoInstant);
   if (Number.isNaN(at.getTime())) return "—";
-  if (at.toDateString() === now.toDateString()) {
-    return `Today ${at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
-  }
-  return at.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    ...(at.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
-  });
+  const day = dayKeyOf(at);
+  const today = dayKeyOf(now);
+  if (day === today) return `Today ${formatInstantTime(at)}`;
+  return day.slice(0, 4) === today.slice(0, 4) ? (formatShortDate(at) ?? "—") : formatDate(at);
 }
 
 function aboutOf(entry: PersonTimelineEntry, here: boolean): string {

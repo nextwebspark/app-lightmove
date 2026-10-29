@@ -1,4 +1,5 @@
-import type { User, WorkspaceSummary } from "../../features/auth/api/types";
+import type { User, UserDateTime, WorkspaceSummary } from "../../features/auth/api/types";
+import type { WorkspaceDateTime } from "../../features/workspace/api/types";
 
 /**
  * A signed-in user for tests, so a new field on `User` is added here once rather than in every
@@ -20,6 +21,23 @@ export function aWorkspace(overrides: Partial<WorkspaceSummary> = {}): Workspace
   };
 }
 
+/** A person who chose nothing of their own, in a workspace on the standard Dubai clock. */
+export const FOLLOWING_DATE_TIME: UserDateTime = {
+  effective: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
+  own: { timeZone: null, dateFormat: null, timeFormat: null },
+  workspace: { timeZone: "Asia/Dubai", dateFormat: "DD_MMM_YYYY", timeFormat: "H24" },
+};
+
+/** Settings → General's Date & time where the admin chose nothing, in a workspace with no country. */
+export const WORKSPACE_DATE_TIME: WorkspaceDateTime = {
+  timeZone: null,
+  dateFormat: null,
+  timeFormat: null,
+  suggestedTimeZone: "Asia/Dubai",
+  suggestedFrom: null,
+  membersFollowing: 1,
+};
+
 export function aUser(overrides: Partial<User> = {}): User {
   const workspace = "workspace" in overrides ? (overrides.workspace ?? null) : aWorkspace();
   return {
@@ -31,6 +49,7 @@ export function aUser(overrides: Partial<User> = {}): User {
     emailVerified: true,
     hasPassword: true,
     timezone: "Asia/Dubai",
+    dateTime: FOLLOWING_DATE_TIME,
     locale: "en",
     platformActions: [],
     pendingInvitations: [],

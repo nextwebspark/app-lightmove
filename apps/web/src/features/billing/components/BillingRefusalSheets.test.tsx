@@ -138,7 +138,7 @@ describe("BillingRefusalSheets", () => {
 
     const choose = await screen.findByRole("button", { name: "Choose a plan" });
     expect(screen.getByRole("dialog", { name: "Your trial has ended" })).toHaveTextContent(
-      "Your trial ended on 8 Oct 2026. Everything your team mapped is still here",
+      "Your trial ended on 08 Oct 2026. Everything your team mapped is still here",
     );
     await user.click(choose);
 

@@ -17,6 +17,7 @@ import {
   setAccessToken,
   switchWorkspaceSession,
 } from "../../lib/apiClient";
+import { setDateTimePreferences } from "../../lib/datetime";
 import { forgetOpenAssistant } from "../assistant/assistantStorage";
 import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
 import * as authApi from "./api/authApi";
@@ -83,6 +84,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
+
+  // Before paint: every date reads in the signed-in person's zone and formats, and `DateTimeBoundary` redraws on a move.
+  useLayoutEffect(() => setDateTimePreferences(user?.dateTime?.effective ?? null), [user]);
 
   /**
    * Server state belongs to whoever was signed in when it was fetched, so it dies with them. Otherwise

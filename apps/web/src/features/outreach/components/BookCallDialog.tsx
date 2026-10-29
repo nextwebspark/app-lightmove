@@ -25,6 +25,8 @@ import {
 } from "../lib/weekGrid";
 import { SlotPager } from "./BookCallTimes";
 import { WeekTimeGrid } from "./WeekTimeGrid";
+import { TimeInput } from "../../../components/ui/TimeInput";
+import { formatLongMonthYear, getDateTimePreferences } from "../../../lib/datetime";
 
 const LENGTHS: { value: string; label: string }[] = [
   { value: "15", label: "15 min" },
@@ -109,7 +111,7 @@ export function BookCallDialog({
     placeholderData: (previous) => previous,
   });
   const view = calendar.data;
-  const timeZone = view?.timeZone ?? "UTC";
+  const timeZone = view?.timeZone ?? getDateTimePreferences().timeZone;
   const videoLinks = videoLinksFor(view?.provider, view?.zoomOffered === true);
   const video: MeetingVideo =
     chosenVideo !== null && videoLinks.some((option) => option.value === chosenVideo)
@@ -267,26 +269,24 @@ export function BookCallDialog({
             ariaLabel="Call date"
             className="col-span-3 bg-u-bg px-2.5 py-1.5 text-note sm:w-[140px]"
           />
-          <Input
-            type="time"
-            step={300}
-            aria-label="Call starts"
+          <TimeInput
+            stepMinutes={5}
+            ariaLabel="Call starts"
             value={fields?.from ?? ""}
             invalid={refusal !== null}
-            onChange={(event) => handleFromChange(event.target.value)}
+            onChange={handleFromChange}
             className="w-full bg-u-bg px-2.5 py-1.5 text-note sm:w-[104px]"
           />
           <span aria-hidden="true" className="text-note text-u-text3">
             –
           </span>
-          <Input
-            type="time"
-            step={300}
-            aria-label="Call ends"
+          <TimeInput
+            stepMinutes={5}
+            ariaLabel="Call ends"
             value={fields?.to === "24:00" ? "00:00" : (fields?.to ?? "")}
             invalid={refusal !== null}
             disabled={fields === null}
-            onChange={(event) => handleToChange(event.target.value)}
+            onChange={handleToChange}
             className="w-full bg-u-bg px-2.5 py-1.5 text-note sm:w-[104px]"
           />
         </fieldset>
@@ -537,12 +537,7 @@ function lengthLabelOf(minutes: number): string {
 }
 
 function monthOf(isoDate: string): string {
-  const [year, month] = isoDate.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString("en-GB", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  return formatLongMonthYear(isoDate) ?? "";
 }
 
 function isPresetLength(minutes: number): boolean {

@@ -18,6 +18,7 @@ import {
   type PickEdge,
   type PickHit,
 } from "../lib/weekGrid";
+import { formatClock } from "../../../lib/datetime";
 
 /** One hour is 48px: a quarter hour is a 12px row, five minutes 4px. */
 const PIXELS_PER_MINUTE = 0.8;
@@ -192,7 +193,7 @@ export function WeekTimeGrid({
                 className="absolute end-1.5 -translate-y-1/2 font-mono text-meta text-u-text3"
                 style={{ top: hour * 60 * PIXELS_PER_MINUTE }}
               >
-                {hour === 0 ? "" : `${String(hour).padStart(2, "0")}:00`}
+                {hour === 0 ? "" : formatClock(`${String(hour).padStart(2, "0")}:00`)}
               </div>
             ))}
           </div>

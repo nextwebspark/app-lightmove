@@ -522,7 +522,7 @@ describe("PositionPage", () => {
       await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
 
       expect(await screen.findByRole("button", { name: "CFO-brief.pdf" })).toBeInTheDocument();
-      expect(screen.getByText("780 KB · added 07 Sept 2026")).toBeInTheDocument();
+      expect(screen.getByText("780 KB · added 07 Sep 2026")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Extract with AI/ })).toBeInTheDocument();
       // Attaching already read it once — the four section calls fire without a second press.
       await waitFor(() => expect(positionApi.extractDetails).toHaveBeenCalledTimes(1));

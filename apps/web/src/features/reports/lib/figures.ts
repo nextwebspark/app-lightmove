@@ -1,3 +1,5 @@
+import { formatShortDate as formatShortDateOf } from "../../../lib/datetime";
+
 /** The report's small formatting vocabulary — shared so every chapter states a figure the same way. */
 
 /** 1,100,000 in USD → "USD 1.1M"; 320,000 → "USD 320K". Whole units in; the compact figure a finding reads. */
@@ -11,9 +13,9 @@ function trim(value: number): string {
   return value.toFixed(value >= 10 ? 0 : 1).replace(/\.0$/, "");
 }
 
-/** "2026-07-21" → "21 Jul". Chart labels and findings, where the year is the mandate's own. */
+/** "2026-07-21" → "21 Jul" (or "Jul 21"). Chart labels and findings, where the year is the mandate's own. */
 export function formatShortDate(isoDate: string): string {
-  return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return formatShortDateOf(isoDate) ?? "—";
 }
 
 /** 38 → "38th", 1 → "1st", 12 → "12th". */

@@ -1,6 +1,7 @@
 import { ApiRequestError } from "../../../lib/apiClient";
 import { formatNumber } from "../../../lib/format";
 import type { Billing, BillingInterval, BillingPlanOffer, FairUseKind } from "../api/types";
+import { formatDate, formatShortDate } from "../../../lib/datetime";
 
 export type CreditTone = "warn" | "out";
 
@@ -307,19 +308,14 @@ export function formatAed(fils: number): string {
   })}`;
 }
 
-/** An instant → "1 Nov". In UTC, because the billing month is counted in UTC. */
+/** An instant → "1 Nov" in the person's date format. In UTC, because the billing month is counted in UTC. */
 export function formatResetDate(isoInstant: string): string {
-  return new Date(isoInstant).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return formatShortDate(isoInstant, { timeZone: "UTC" }) ?? "—";
 }
 
-/** An instant → "1 Nov 2026", in UTC for the same reason. */
+/** An instant → "01 Nov 2026" in the person's date format, in UTC for the same reason. */
 export function formatBillingDate(isoInstant: string): string {
-  return new Date(isoInstant).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  return formatDate(isoInstant, { timeZone: "UTC" });
 }
 
 /** A message to Uncava about billing, to the address the billing read names. */

@@ -1,6 +1,7 @@
 import { formatInstantDateTime, formatInstantTime } from "../../../lib/format";
 import { noteWordsOf } from "../../tasks/lib/linkedNote";
 import type { NotificationResponse } from "../api/types";
+import { dayKeyOf } from "../../../lib/datetime";
 
 export interface SentencePart {
   text: string;
@@ -140,8 +141,6 @@ function taskSubLine(text: string): NotificationSentence["sub"] {
 /** "at 16:00" on the day itself, otherwise the whole "15 Oct 2026, 09:00". */
 function dueClauseOf(dueAt: string | null, now: Date): string {
   if (!dueAt) return "soon";
-  const due = new Date(dueAt);
-  const sameDay =
-    due.getFullYear() === now.getFullYear() && due.getMonth() === now.getMonth() && due.getDate() === now.getDate();
+  const sameDay = dayKeyOf(new Date(dueAt)) === dayKeyOf(now);
   return sameDay ? `at ${formatInstantTime(dueAt)}` : (formatInstantDateTime(dueAt) ?? "soon");
 }
