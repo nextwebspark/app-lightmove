@@ -350,7 +350,12 @@ export type PersonActivityKind =
   | "DOCUMENT_ADDED"
   | "DOCUMENT_VERSION_ADDED"
   | "DOCUMENT_REMOVED"
-  | "DOCUMENT_VERSION_REMOVED";
+  | "DOCUMENT_VERSION_REMOVED"
+  | "TASK_CREATED"
+  | "TASK_COMPLETED"
+  | "TASK_REOPENED"
+  | "TASK_REASSIGNED"
+  | "TASK_CANCELLED";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
 export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags" | "documents";
@@ -370,6 +375,15 @@ export interface PersonTimelineEntry {
   details: Record<string, string>;
   /** The note's opening words while it exists; null once removed. */
   noteExcerpt: string | null;
+  /** A profile save's or a call's changes, each field old and new; absent or empty on every other line. */
+  changes?: FieldChange[];
+}
+
+/** One field a save changed. Both values null means only that it changed is kept (a career history edited in place). */
+export interface FieldChange {
+  field: string;
+  from: string | null;
+  to: string | null;
 }
 
 export interface PersonTimelinePage {

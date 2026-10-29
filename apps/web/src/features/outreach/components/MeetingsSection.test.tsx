@@ -12,7 +12,7 @@ import type { NotetakerRecording } from "../api/notetakerApi";
 import * as zoomApi from "../api/zoomApi";
 import { aSeededCatalog } from "../../../test/fixtures/pipelineCatalog";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
-import type { PersonMeetings } from "../api/meetingApi";
+import type { Meeting, PersonMeetings } from "../api/meetingApi";
 import { openCopilotWindow } from "../lib/copilotWindow";
 import { MeetingsSection } from "./MeetingsSection";
 
@@ -207,6 +207,52 @@ describe("MeetingsSection", () => {
     expect(screen.getByText("Coffee")).toBeInTheDocument();
     expect(screen.getAllByRole("link")).toHaveLength(1);
     expect(await screen.findByRole("button", { name: "Book a call" })).toBeInTheDocument();
+  });
+
+  it("draws a past call as a calendar row: its time and whose calendar, never a join link", async () => {
+    renderSection({ meetings: { upcoming: [], past: [{ ...MEETINGS.upcoming[0], id: "m3", title: "Debrief" }] } });
+
+    expect(await screen.findByText("Debrief")).toBeInTheDocument();
+    expect(screen.getByText(/7 Oct · \d\d:\d\d–\d\d:\d\d · Yara Haddad/)).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("shows the latest three past calls and the rest on asking", async () => {
+    renderSection({ meetings: { upcoming: [], past: pastCalls(5) } });
+
+    expect(await screen.findByText("Call 3")).toBeInTheDocument();
+    expect(screen.queryByText("Call 4")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Show 2 earlier calls" }));
+
+    expect(screen.getByText("Call 5")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.queryByText("Call 5")).toBeNull();
+  });
+
+  it("never folds away an earlier call whose changes wait for review", async () => {
+    const past = pastCalls(5);
+    renderSection({
+      meetings: { upcoming: [], past },
+      notetakerOffered: true,
+      recordings: [
+        aRecording({
+          id: "r5",
+          meetingId: "p5",
+          startsAt: past[4].startsAt,
+          title: "Call 5",
+          status: "DONE",
+          hasTranscript: true,
+          suggestionsAsked: true,
+          pendingSuggestions: 2,
+          foundSuggestions: 2,
+        }),
+      ],
+    });
+
+    expect(await screen.findByRole("button", { name: "Call options · 2 changes to review" })).toBeInTheDocument();
+    expect(screen.getByText("Call 5")).toBeInTheDocument();
+    expect(screen.queryByText("Call 4")).toBeNull();
+    expect(screen.getByRole("button", { name: "Show 1 earlier call" })).toBeInTheDocument();
   });
 
   it("says when nobody on the team has met them yet", async () => {
@@ -1118,6 +1164,16 @@ function pickTime(start: string) {
 /** A Notetaker scheduled for the start of the call in LATER. */
 function laterRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecording {
   return aRecording({ startsAt: "2099-10-07T06:00:00Z", joinAt: "2099-10-07T05:59:00Z", ...overrides });
+}
+
+function pastCalls(count: number): Meeting[] {
+  return Array.from({ length: count }, (_, index) => ({
+    ...MEETINGS.past[0],
+    id: `p${index + 1}`,
+    title: `Call ${index + 1}`,
+    startsAt: `2026-09-${String(25 - index).padStart(2, "0")}T06:00:00Z`,
+    endsAt: `2026-09-${String(25 - index).padStart(2, "0")}T06:30:00Z`,
+  }));
 }
 
 function aRecording(overrides: Partial<NotetakerRecording> = {}): NotetakerRecording {

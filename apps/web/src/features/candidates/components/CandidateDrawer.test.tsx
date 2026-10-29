@@ -30,7 +30,7 @@ vi.mock("../api/personCrmApi", async (importOriginal) => ({
   ...(await importOriginal<typeof personCrmApi>()),
   getPersonPositions: vi.fn(),
   getPersonNotes: vi.fn(),
-  getPersonTimeline: vi.fn(),
+  getPositionHistory: vi.fn(),
   writePersonNote: vi.fn(),
 }));
 
@@ -274,6 +274,27 @@ const notetakerWith = (...recordings: NotetakerRecording[]) => ({
 });
 
 /** A tab by its label; a count beside it (Notes 2) is part of its name, so the label is matched as a prefix. */
+const activityLine = (
+  id: number,
+  kind: PersonTimelineEntry["kind"],
+  overrides: Partial<PersonTimelineEntry> = {},
+): PersonTimelineEntry => ({
+  id,
+  kind,
+  occurredAt: "2026-09-30T10:00:00Z",
+  actorUserId: "u1",
+  actorName: "Alok Kumar",
+  actorAvatarUrl: null,
+  personId: "person-1",
+  personName: "Yasmin El-Sayed",
+  projectId: "p1",
+  projectTitle: "Chief Financial Officer",
+  details: {},
+  noteExcerpt: null,
+  changes: [],
+  ...overrides,
+});
+
 const openTab = async (name: string) =>
   userEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
 
@@ -309,7 +330,7 @@ describe("CandidateDrawer", () => {
     vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([]);
     vi.mocked(poolApi.getPerson).mockResolvedValue(yasminRecord);
     vi.mocked(poolApi.tagCatalog).mockResolvedValue([shortlistTag]);
-    vi.mocked(personCrmApi.getPersonTimeline).mockResolvedValue({ entries: [], nextCursor: null });
+    vi.mocked(personCrmApi.getPositionHistory).mockResolvedValue({ entries: [], truncated: false });
     vi.mocked(notetakerApi.getNotetaker).mockResolvedValue({
       offered: true,
       recordings: [],
@@ -747,39 +768,88 @@ describe("CandidateDrawer", () => {
     expect(screen.getByText("About Chief Financial Officer")).toBeInTheDocument();
   });
 
-  it("reads the timeline a page at a time, the next from the last one's cursor", async () => {
-    const line = (id: number, kind: PersonTimelineEntry["kind"]): PersonTimelineEntry => ({
-      id,
-      kind,
-      occurredAt: "2026-09-30T10:00:00Z",
-      actorUserId: "u1",
-      actorName: "Alok Kumar",
-      actorAvatarUrl: null,
-      personId: "person-1",
-      personName: "Yasmin El-Sayed",
-      projectId: "p1",
-      projectTitle: "Chief Financial Officer",
-      details: {},
-      noteExcerpt: null,
+  it("draws this position's activity as cards with who and when, and opens one read-only", async () => {
+    vi.mocked(personCrmApi.getPositionHistory).mockResolvedValue({
+      entries: [
+        activityLine(12, "STATUS_CHANGED", {
+          details: { from: "contacted", to: "engaged", fromLabel: "Contacted", toLabel: "Engaged" },
+        }),
+        activityLine(11, "ADDED_TO_POOL", { details: { door: "EXTENSION" }, occurredAt: "2026-09-08T10:00:00Z" }),
+      ],
+      truncated: false,
     });
-    vi.mocked(personCrmApi.getPersonTimeline).mockImplementation((_project, _candidate, before) =>
-      Promise.resolve(
-        before == null
-          ? { entries: [line(9, "PROFILE_EDITED")], nextCursor: 9 }
-          : { entries: [line(4, "ADDED_TO_POOL")], nextCursor: null },
-      ),
-    );
     renderDrawer({ candidate: yasmin, company: null });
 
     await openTab("Activity");
-    expect(await screen.findByText("edited the profile")).toBeInTheDocument();
-    expect(screen.queryByText("added to this position")).not.toBeInTheDocument();
+    const status = await screen.findByRole("button", { name: /^Alok Kumar moved the status/ });
+    expect(within(status).getByText("Engaged")).toBeInTheDocument();
+    expect(within(status).getByText("Contacted")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Alok Kumar added them to this position/ })).toHaveTextContent(
+      "Captured with the plugin",
+    );
+    expect(screen.getByText("Start of this position's history")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await userEvent.click(status);
+    const dialog = await screen.findByRole("dialog", { name: "Status changed to Engaged" });
+    expect(within(dialog).getByText("Moved by hand")).toBeInTheDocument();
+    expect(within(dialog).getByText(/Read-only/)).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "Status changed to Engaged" })).not.toBeInTheDocument();
+  });
 
-    expect(await screen.findByText("added to this position")).toBeInTheDocument();
-    expect(personCrmApi.getPersonTimeline).toHaveBeenLastCalledWith("p1", "c1", 9, expect.anything());
-    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+  it("opens a note card's whole note, and Open in Notes takes the drawer to it", async () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+      {
+        id: "note-1",
+        kind: "call",
+        body: "Open to a group CFO move; wants Dubai. Notice is three months.",
+        format: "plain",
+        pinned: true,
+        projectId: "p1",
+        projectTitle: "Chief Financial Officer",
+        authorUserId: "u1",
+        authorName: "Alok Kumar",
+        authorAvatarUrl: null,
+        createdAt: "2026-09-30T10:00:00Z",
+        editedAt: null,
+        editedByName: null,
+        editable: true,
+      },
+    ]);
+    vi.mocked(personCrmApi.getPositionHistory).mockResolvedValue({
+      entries: [
+        activityLine(20, "NOTE_ADDED", {
+          details: { noteId: "note-1", kind: "CALL" },
+          noteExcerpt: "Open to a group CFO move; wants Dubai.",
+        }),
+      ],
+      truncated: false,
+    });
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Activity");
+    await userEvent.click(await screen.findByRole("button", { name: /^Alok Kumar logged a call/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Call note" });
+    expect(await within(dialog).findByText(/Notice is three months/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Pinned")).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /Open in Notes/ }));
+    expect(screen.queryByRole("dialog", { name: "Call note" })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /^Notes/ })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("says why the activity could not be read, and reads it again on Try again", async () => {
+    vi.mocked(personCrmApi.getPositionHistory)
+      .mockRejectedValueOnce(new ApiRequestError({ code: "INTERNAL_ERROR", detail: "boom", status: 500, correlationId: "x" }))
+      .mockResolvedValueOnce({ entries: [activityLine(5, "PROFILE_EDITED")], truncated: false });
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Activity");
+    const failure = await screen.findByRole("alert");
+    expect(failure).toHaveTextContent("Couldn't load the activity.");
+    await userEvent.click(within(failure).getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("button", { name: /^Alok Kumar edited the profile/ })).toBeInTheDocument();
   });
 
   it("moves on to the profile it added rather than back to the grid", async () => {
@@ -1042,7 +1112,7 @@ describe("CandidateDrawer", () => {
     expect(screen.queryByText("Notes")).not.toBeInTheDocument();
     expect(screen.queryByText("Timeline")).not.toBeInTheDocument();
     expect(personCrmApi.getPersonNotes).not.toHaveBeenCalled();
-    expect(personCrmApi.getPersonTimeline).not.toHaveBeenCalled();
+    expect(personCrmApi.getPositionHistory).not.toHaveBeenCalled();
     expect(personCrmApi.getPersonPositions).not.toHaveBeenCalled();
   });
 
@@ -1246,33 +1316,6 @@ describe("CandidateDrawer", () => {
     }
   });
 
-  it("shows five timeline lines, then the rest of the page on See more", async () => {
-    vi.mocked(personCrmApi.getPersonTimeline).mockResolvedValue({
-      entries: Array.from({ length: 7 }, (_, index) => ({
-        id: 10 - index,
-        kind: "PROFILE_EDITED" as const,
-        occurredAt: `2026-09-${String(20 + index).padStart(2, "0")}T10:00:00Z`,
-        actorUserId: "u1",
-        actorName: `Researcher ${index + 1}`,
-        actorAvatarUrl: null,
-        personId: "person-1",
-        personName: "Yasmin El-Sayed",
-        projectId: "p1",
-        projectTitle: "Chief Financial Officer",
-        details: {},
-        noteExcerpt: null,
-      })),
-      nextCursor: null,
-    });
-    renderDrawer({ candidate: yasmin, company: null });
-
-    await openTab("Activity");
-    const timeline = await screen.findByRole("list", { name: "Timeline" });
-    expect(within(timeline).getAllByRole("listitem")).toHaveLength(5);
-
-    await userEvent.click(screen.getByRole("button", { name: "See more" }));
-    expect(within(timeline).getAllByRole("listitem")).toHaveLength(7);
-  });
 
   /**
    * The Contact section's two Find buttons. What matters: they exist only where a provider is

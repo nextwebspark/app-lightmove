@@ -2,10 +2,10 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
-import { formatInstantDateTime } from "../../../lib/format";
+import { countOf, formatInstantDateTime } from "../../../lib/format";
 import type { NotetakerRecording } from "../api/notetakerApi";
 import { elapsedSince } from "../lib/copilotWords";
-import { failureWordsOf } from "../lib/notetakerChip";
+import { callMarkOf, failureWordsOf } from "../lib/notetakerChip";
 import { useNotetakerActions } from "../lib/useNotetakerActions";
 
 /**
@@ -25,6 +25,7 @@ export function CallMenu({
   onOpenCopilot,
   onReschedule,
   onCancel,
+  quiet = false,
 }: {
   projectId: string;
   candidateId: string;
@@ -43,6 +44,8 @@ export function CallMenu({
   onOpenCopilot: (recordingId: string) => void;
   onReschedule?: () => void;
   onCancel?: () => void;
+  /** A past call's ⋯: no frame until hovered or open, so a list where only some calls have one stays even. */
+  quiet?: boolean;
 }) {
   const actions = useNotetakerActions(projectId, candidateId, firstName);
   const bot = recording?.status === "CANCELLED" ? null : recording;
@@ -57,7 +60,7 @@ export function CallMenu({
   );
   const hasChangeItems = Boolean(onReschedule || onCancel);
   if (!bot && !hasCallItems && !hasChangeItems) return null;
-  const mark = markOf(bot);
+  const mark = callMarkOf(bot);
 
   return (
     <Popover
@@ -67,7 +70,11 @@ export function CallMenu({
       placement="auto"
       width={240}
       hasPopup="menu"
-      triggerClassName={cn(ICON_ACTION, "hover:bg-u-raised hover:text-u-text")}
+      triggerClassName={cn(
+        ICON_ACTION,
+        "hover:bg-u-raised hover:text-u-text",
+        quiet && "border-transparent hover:border-u-border aria-expanded:border-u-border aria-expanded:bg-u-raised",
+      )}
       trigger={() => (
         <>
           <Icon d={ICONS.more} size={14} />
@@ -151,16 +158,6 @@ export function CallMenu({
   );
 }
 
-/** What puts a dot on the ⋯: a call being recorded, or one waiting on the consultant. */
-function markOf(recording: NotetakerRecording | null): { tone: "recording" | "waiting"; words: string } | null {
-  if (recording?.status === "RECORDING" && !recording.endRequested) return { tone: "recording", words: "recording" };
-  if (recording?.status === "DONE" && recording.pendingSuggestions > 0) {
-    return { tone: "waiting", words: `${countOf(recording.pendingSuggestions, "change")} to review` };
-  }
-  if (recording?.status === "FAILED" && recording.retryable) return { tone: "waiting", words: "no notes" };
-  return null;
-}
-
 /** Where the call has got to, in the words the menu opens on. */
 function CallState({ recording, changesWords }: { recording: NotetakerRecording; changesWords: string | null }) {
   switch (recording.status) {
@@ -230,10 +227,6 @@ function changesStepOf(recording: NotetakerRecording): { words: string | null; a
     words: recording.appliedSuggestions > 0 ? `${countOf(recording.appliedSuggestions, "change")} applied` : "no changes applied",
     action: "view",
   };
-}
-
-function countOf(count: number, noun: string): string {
-  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
 }
 
 function MenuHead({ icon, children }: { icon: ReactNode; children: ReactNode }) {

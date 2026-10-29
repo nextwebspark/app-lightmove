@@ -71,10 +71,10 @@ import { PrimaryCvChip } from "./documents/PrimaryCvChip";
 import {
   DoNotContactStrip,
   NotesSection,
-  TimelineFeed,
   usePositions,
   type NoteFocus,
 } from "./PersonSections";
+import { ActivityTimeline } from "./activity/ActivityTimeline";
 import { PositionsSection } from "./PersonPositions";
 import { PersonTagsSection } from "./PersonTagsSection";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
@@ -764,8 +764,19 @@ export function CandidateProfile({
                 onPreview={openPreview}
               />
             </div>
-            <div {...panelProps("activity")} className="py-4">
-              <TimelineFeed projectId={projectId} candidateId={candidate.id} />
+            <div {...panelProps("activity")} className="pb-4">
+              <ActivityTimeline
+                projectId={projectId}
+                executive={candidate}
+                documents={documents.documents.data}
+                destinations={{
+                  onShowNote: showNote,
+                  onOpenTab: chooseTab,
+                  onOpenMeetings: startCall,
+                  onOpenTask: (taskId) => openNextAction(taskId),
+                  onPreviewDocument: openPreview,
+                }}
+              />
             </div>
             <div {...panelProps("positions")}>
               <PositionsSection

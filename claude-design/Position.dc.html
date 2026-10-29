@@ -1816,8 +1816,15 @@
                   <sc-if value="{{ cd.mtHasPast }}">
                     <div style="margin:6px 0 4px;font:600 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--text3)">Past</div>
                     <sc-for list="{{ cd.mtPast }}" as="m">
-                      <div style="display:flex;align-items:baseline;gap:10px;padding:5px 0;font:400 12.5px var(--sans);color:var(--text2)"><span style="width:52px;flex:none;font:400 11.5px var(--mono);color:var(--text3)">{{ m.date }}</span><span style="min-width:0;flex:1">{{ m.title }}<span style="font:400 11.5px var(--mono);color:var(--text3)"> · {{ m.who }}</span>
-                      </span>
+                      <!-- A past call is the upcoming row, quieter: the same tile (month in --text3), title in --text2, when
+                           and whose calendar, no Join link; the latest three show, the rest behind "Show N earlier calls",
+                           and a call whose ⋯ wears a dot is never folded away. Its ⋯ is frameless until hovered or open. -->
+                      <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0">
+                        <span style="width:42px;flex:none;border-radius:7px;border:1px solid var(--line);text-align:center;padding:3px 0"><span style="display:block;font:600 9.5px var(--mono);text-transform:uppercase;color:var(--text3)">{{ m.month }}</span><span style="display:block;font:600 16px/1.2 var(--mono);color:var(--text2)">{{ m.day }}</span></span>
+                        <span style="min-width:0;flex:1">
+                          <span style="display:block;font:500 13px var(--sans);color:var(--text2)">{{ m.title }}</span>
+                          <span style="display:block;font:400 11.5px var(--mono);color:var(--text3)">{{ m.when }} · {{ m.who }}</span>
+                        </span>
                         <!-- A recorded call has a ⋯ and nothing under it; each step arrives with no press, said where the ⋯
                              opens: "Writing notes…" (also the moment End & file notes or the call's own end moves it here, to
                              Past), then "Notes filed · finding changes…", then "Notes filed · 3 changes to review" over Review 3
@@ -1828,10 +1835,11 @@
                              next item; a call with no notes says why ("Not recorded · nobody let it in"), with Try again (and
                              the dot) where only the write-up failed. -->
                         <sc-if value="{{ m.recorded }}">
-                          <button onClick="{{ openCallChanges }}" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;align-self:center;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:none;color:var(--text3);cursor:pointer">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent-solid, #4a56d6);box-shadow:0 0 0 2px var(--panel)"></span></button>
+                          <button onClick="{{ openCallChanges }}" aria-label="Call options · 3 changes to review" style="position:relative;flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:6px;border:1px solid transparent;background:none;color:var(--text3);cursor:pointer" style-hover="border-color:var(--line);color:var(--text)">⋯<span style="position:absolute;top:-4px;right:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent-solid, #4a56d6);box-shadow:0 0 0 2px var(--panel)"></span></button>
                         </sc-if>
                       </div>
                     </sc-for>
+                    <sc-if value="{{ cd.mtHasEarlier }}"><button style="margin-top:2px;padding:0;font:400 11px var(--mono);color:var(--text3);background:none;border:none;cursor:pointer" style-hover="color:var(--text)">{{ cd.mtEarlier }}</button></sc-if>
                   </sc-if>
                   <sc-if value="{{ cd.zoomReconnect }}" hint-placeholder-val="{{ false }}">
                     <div style="margin-top:10px;display:flex;align-items:center;gap:8px;border-radius:8px;border:1px solid color-mix(in srgb,var(--amber) 40%,transparent);background:var(--amber-dim);padding:7px 10px;font:400 12px var(--sans);color:var(--text2)"><span style="flex:1">Zoom needs reconnecting.</span><button onClick="{{ reconnectZoom }}" style="border-radius:6px;padding:3px 10px;font:600 12px var(--sans);background:var(--panel);border:1px solid var(--line);color:var(--text);cursor:pointer">Reconnect Zoom</button></div>
@@ -2100,17 +2108,29 @@
                 </sc-if>
 
                 <sc-if value="{{ sx.isTimeline }}">
-                  <sc-for list="{{ cd.timeline }}" as="t">
-                    <div style="display:flex;gap:10px;padding:5px 0">
-                      <span style="margin-top:6px;width:7px;height:7px;flex:none;border-radius:50%;background:var(--line)"></span>
-                      <div style="min-width:0">
-                        <p style="margin:0;font:400 12.5px/1.5 var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ t.who }}</b> {{ t.what }}</p>
-                        <p style="margin:0;font:400 11px var(--mono);color:var(--text3)">{{ t.when }}{{ t.detail }}</p>
+                  <!-- This position's history and the changes to the person; another position's work never reaches it (the server's query). -->
+                  <div style="display:flex;align-items:center;gap:6px;padding:0 0 10px;margin-bottom:4px;border-bottom:1px solid var(--line-soft)">
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);color:var(--text)">All activity <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></span>
+                    <span style="display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font:500 12.5px var(--sans);color:var(--text)">Everyone <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"></path></svg></span>
+                    <span style="margin-left:auto;font:400 11px var(--mono);color:var(--text3)">{{ cd.tlCount }}</span>
+                  </div>
+                  <div style="position:relative;display:flex;flex-direction:column;gap:8px;padding:6px 0 0 42px">
+                    <span style="position:absolute;left:15px;top:6px;bottom:6px;width:1px;background:var(--line)"></span>
+                    <sc-for list="{{ cd.timeline }}" as="t">
+                      <div style="position:relative">
+                        <span style="{{ t.tileStyle }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="{{ t.icon }}"></path></svg></span>
+                        <div style="display:flex;flex-direction:column;gap:6px;border:1px solid var(--line-soft);border-radius:12px;background:var(--bg);padding:10px 12px 11px;cursor:pointer" style-hover="border-color:var(--line)">
+                          <div style="display:flex;align-items:center;gap:8px;min-width:0">
+                            <span style="display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:50%;background:var(--u-accent-tint);color:var(--u-accent);font:600 7.5px var(--sans)">{{ t.initials }}</span>
+                            <p style="flex:1;min-width:0;margin:0;font:400 12.5px/1.4 var(--sans);color:var(--text2)"><b style="font-weight:600;color:var(--text)">{{ t.who }}</b> {{ t.what }}</p>
+                            <span style="flex:none;font:400 11px var(--mono);color:var(--text3)">{{ t.when }}</span>
+                          </div>
+                          <sc-if value="{{ t.hasDetail }}"><p style="margin:0 0 0 26px;font:400 12px/1.5 var(--sans);color:var(--text)">{{ t.detail }}</p></sc-if>
+                        </div>
                       </div>
-                    </div>
-                  </sc-for>
-                  <sc-if value="{{ cd.tlCut }}"><button onClick="{{ showMoreTimeline }}" style="margin-top:6px;padding:0;font:500 12px var(--mono);color:var(--sky);background:none;border:none;cursor:pointer" style-hover="text-decoration:underline">See more</button></sc-if>
-                  <sc-if value="{{ cd.noTimeline }}"><p style="margin:0;font:400 12px var(--mono);color:var(--text3)">Nothing recorded yet.</p></sc-if>
+                    </sc-for>
+                  </div>
+                  <sc-if value="{{ cd.noTimeline }}"><p style="margin:0;font:400 12px var(--mono);color:var(--text3)">Nothing recorded on this position yet.</p></sc-if>
                 </sc-if>
               </div>
             </sc-if>
@@ -3017,8 +3037,12 @@ const CRM = {
     notes: [["Sara Al-Mansour", "Call", "14 Sep", "Chief Financial Officer", "Spoke 14 Sep — open to a group CFO move if the remit includes the international portfolio. Follow up after Q3 close.", true],
       ["Dana Aboud", "Email", "Today 10:12", null, "Sent the group structure overview Fatima asked for; reply expected next week."],
       ["Yara Haddad", "Meeting", "22 Apr", "Head of Credit Risk", "Coffee at DIFC. Strong on treasury and funding, lighter on credit portfolio work."]],
-    timeline: [["Dana Aboud", "logged an email", "Today 10:12", ""], ["Omar Khalil", "uploaded a reference", "18 Sep 11:30", "Reference Al Rostamani Group"], ["Yousef Iman", "ran AI deep enrich", "18 Sep 16:30", "Scored 8 of 10 against this brief"], ["Sara Al-Mansour", "marked Engaged on this position", "14 Sep 11:24", "Contacted → Engaged"],
-      ["Yousef Iman", "uploaded version 3 of the CV", "12 Sep 09:40", "Fatima Al Mazrouei CV"], ["Yousef Iman", "added to this position with the plugin", "8 Sep 14:40", "Already in your candidates, so added rather than duplicated"], ["Yara Haddad", "added to the candidates from Head of Credit Risk", "14 Apr 10:12", "Added by hand"]] },
+    timeline: [["Dana Aboud", "logged an email", "Today 10:12", "Sent the group structure overview Fatima asked for; reply expected next week.", "note"],
+      ["Omar Khalil", "uploaded a reference", "18 Sep 11:30", "Reference Al Rostamani Group", "neutral"],
+      ["Yousef Iman", "had the AI assess them", "18 Sep 16:30", "Scored against this brief", "ai"],
+      ["Sara Al-Mansour", "moved the status", "14 Sep 11:24", "Contacted → Engaged", "status"],
+      ["Yousef Iman", "uploaded version 3 of the CV", "12 Sep 09:40", "Fatima Al Mazrouei CV", "neutral"],
+      ["Yousef Iman", "added them to this position", "8 Sep 14:40", "Captured with the plugin · Already in your candidates, so added rather than duplicated", "note"]] },
   e02: { tags: ["Passive"], owner: "Yara Haddad" },
   e03: { tags: ["Open to work"], owner: "Omar Khalil", last: ["Tagged Open to work", "Sara Al-Mansour · Today 09:05"] },
   e05: { tags: ["Interviewed before"], owner: "Omar Khalil", also: [["Head of Credit Risk", "notInterested", "Yousef Iman", "10 Apr 2026"]], dnc: "Asked not to be approached again for twelve months — set by Omar Khalil, 16 Sep 2026.", last: ["Marked do not contact", "Omar Khalil · 16 Sep"],
@@ -3112,7 +3136,8 @@ const OUTREACH = {
   e07: ["CFO — first approach", "Yousef Iman", "active", 1, null]
 };
 const MEETINGS = {
-  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["22 Apr", "Coffee at DIFC", "Yara Haddad", true]] },
+  e01: { upcoming: [["Oct", "8", "Wed 8 Oct · 10:00–10:30", "Confidential: Chief Financial Officer, first conversation", "Yara Haddad", "Zoom", true]], past: [["Apr", "22", "Tue 22 Apr · 09:00–09:45", "Coffee at DIFC", "Yara Haddad", true], ["Apr", "10", "Thu 10 Apr · 11:00–11:30", "Follow-up: package", "Yara Haddad"],
+    ["Mar", "27", "Thu 27 Mar · 16:00–16:30", "Reference check prep", "Yara Haddad"], ["Feb", "12", "Wed 12 Feb · 10:00–10:30", "Head of Finance: intro call", "Yara Haddad"]] },
   e06: { upcoming: [], past: [] }
 };
 // [date, summary, technical score, behavioural score, technical +/-, behavioural +/-]
@@ -3266,7 +3291,7 @@ class Component extends DCLogic {
       sort: { field: "added", dir: "desc" },
       vis: { founded: false, description: false, source: false },
       toast: null, coId: "c01", candId: "e01", removeId: "c01", contactEditing: false, compEditing: false, compForm: null,
-      cdTab: pick("cdTab", "career"), copilotLive: pick("copilotLive", false), summaryMore: false, tlAll: false, aiRunning: false, outreachStopped: {},
+      cdTab: pick("cdTab", "career"), copilotLive: pick("copilotLive", false), summaryMore: false, aiRunning: false, outreachStopped: {},
       assessView: "scores", assessScore: {}, assessOpen: {}, reportOpen: {}, reportAiOpen: {}, reportAiAction: {}, reportScopeOpen: true,
       noteComposerOpen: true, noteKind: "call", noteText: "", noteEventDate: "2026-09-30",
       noteFlash: null,
@@ -3641,7 +3666,7 @@ class Component extends DCLogic {
     const noteCard = (n, rest) => { const k = `${e.id}-n${crm.notes.indexOf(n)}`; const on = s.noteFlash === k;
       return { domId: `note-${k}`, cardStyle: `position:relative;margin-bottom:10px;border-radius:8px;padding:16px;transition:background .4s,border-color .4s,box-shadow .4s;${on ? "border:1px solid var(--u-accent);background:var(--u-accent-tint);box-shadow:0 0 0 3px var(--ring)" : rest}` }; };
     const crmShown = cw;
-    const timeline = crm.timeline || [[ADDED_BY[e.id], "added to the candidates from this position", dateGB(e.added), SOURCES[e.source].label]];
+    const timeline = crm.timeline || [[ADDED_BY[e.id], "added them to this position", dateGB(e.added), SOURCES[e.source].label, "note"]];
     const docs = CRM_DOCS[e.id] || [];
     const cvDoc = docs.find((d) => d[5]);
     const edu = EDUCATION[e.id] || [];
@@ -3683,7 +3708,11 @@ class Component extends DCLogic {
         isContact: d.id === "contact", isOutreach: d.id === "outreach", isMeetings: d.id === "meetings", isColumns: d.id === "columns",
         isNextActions: d.id === "nextActions", isTags: d.id === "tags", isPositions: d.id === "positions", isNotes: d.id === "notes", isDocuments: d.id === "documents", isTimeline: d.id === "timeline" };
     });
-    const shownTimeline = s.tlAll ? timeline : timeline.slice(0, 5);
+    // A kind's glyph only, grey and plain as the menus draw theirs: colour stays with what a card says.
+    const TL_ICON = { note: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5",
+      status: "M4 4h5v16H4zM10.5 4h5v10h-5zM17 4h3v7h-3z",
+      ai: "m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z",
+      neutral: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6" };
     const summaryLong = !!summary && summary.length > 220;
     const stepDot = (sent, next) => `width:10px;height:10px;border-radius:50%;flex:none;margin-top:4px;${sent ? "background:var(--amber)" : next ? "border:2px solid var(--amber)" : "border:1.5px solid var(--line)"}`;
     const orSteps = run ? [0, 1, 2].map((k) => {
@@ -3721,7 +3750,8 @@ class Component extends DCLogic {
       orSeq: run ? run[0] : "", orSender: run ? run[1] : "", orSteps, orLive: runState === "active",
       orBooked: runState === "booked", orReplied: runState === "replied", orRepliedAt: run ? run[4] : "",
       replyChoices: this.statusOf(e) === "contacted" ? [["engaged", "Engaged"], ["interested", "Interested"], ["notInterested", "Not interested"]].map(([value, label]) => ({ value, label })) : [],
-      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.map(([date, title, who, recorded]) => ({ date, title, who, recorded: Boolean(recorded) })),
+      mtUpcoming: meet.upcoming.map(([month, day, when, title, who, join, viaLink]) => ({ month, day, when, title, who, join, viaLink })), mtPast: meet.past.slice(0, 3).map(([month, day, when, title, who, recorded]) => ({ month, day, when, title, who, recorded: Boolean(recorded) })),
+      mtHasEarlier: meet.past.length > 3, mtEarlier: `Show ${meet.past.length - 3} earlier ${meet.past.length - 3 === 1 ? "call" : "calls"}`,
       mtHasUpcoming: meet.upcoming.length > 0, mtHasPast: meet.past.length > 0, mtEmpty: meet.upcoming.length + meet.past.length === 0,
       zoomConnected: !s.zoomBroken, zoomReconnect: !!s.zoomBroken,
       showDnc: cw && !!crm.dnc,
@@ -3777,8 +3807,13 @@ class Component extends DCLogic {
           versions: d[6].map((v, j) => ({ no: v[0], file: v[1], meta: `${v[2]} · ${v[3]}`, current: j === 0 })) };
       }),
       noDocs: docs.length === 0, docTray: !!s.docTray,
-      tlCut: !s.tlAll && timeline.length > 5, noTimeline: timeline.length === 0,
-      timeline: shownTimeline.map((t) => ({ who: t[0], what: t[1], when: t[2], detail: t[3] ? ` · ${t[3]}` : "" })),
+      noTimeline: timeline.length === 0, tlCount: `${timeline.length} ${timeline.length === 1 ? "event" : "events"}`,
+      timeline: timeline.map((t) => {
+        const icon = TL_ICON[t[4]] || TL_ICON.neutral;
+        return { who: t[0], what: t[1], when: t[2], detail: t[3] || "", hasDetail: !!t[3], icon,
+          initials: t[0].split(" ").map((w) => w[0]).slice(0, 2).join(""),
+          tileStyle: `position:absolute;left:-42px;top:10px;display:grid;place-items:center;width:30px;height:30px;background:var(--panel);color:var(--text3)` };
+      }),
       footer: `Added ${dateGB(e.added)}${e.source === "extension" ? ` · Researched ${dateGB(e.added)} · Captured from www.linkedin.com` : ""}`,
       cdSections
     };
@@ -4414,7 +4449,7 @@ class Component extends DCLogic {
         set({ pipelineChecked: next });
       },
       openCompany: (e) => set({ drawer: "company", coId: id(e) }),
-      openCandidate: (e) => set({ drawer: "candidate", candId: id(e), contactEditing: false, cdTab: "career", summaryMore: false, tlAll: false }),
+      openCandidate: (e) => set({ drawer: "candidate", candId: id(e), contactEditing: false, cdTab: "career", summaryMore: false }),
       setCdTab: (e) => set({ cdTab: id(e) }),
       setCdTabRecords: () => set({ cdTab: "notes" }),
       openNoteComposer: () => set({ cdTab: "notes", noteComposerOpen: true }),
@@ -4483,7 +4518,6 @@ class Component extends DCLogic {
       editBeforeAdding: () => this.showToast("Opening the proposal for edits before adding"),
       dismissProposal: (e) => { e.stopPropagation(); const k = id(e); const st = this.state; set({ reportAiOpen: Object.assign({}, st.reportAiOpen, { [k]: false }) }); },
       toggleSummaryMore: () => set({ summaryMore: !this.state.summaryMore }),
-      showMoreTimeline: () => set({ tlAll: true }),
       aiEnrich: () => { set({ aiRunning: true }); setTimeout(() => { this.setState({ aiRunning: false }); this.showToast("AI deep enrich finished — the assessment is under Profile"); }, 1200); },
       addToSequence: () => this.showToast("Add to sequence — chosen, reviewed and started as on the Outreach page"),
       openBookCall: () => this.showToast("Book a call — drawn in Outreach.dc.html"),
@@ -4519,7 +4553,7 @@ class Component extends DCLogic {
       toggleMapKey: (e) => { e.stopPropagation(); const k = id(e); set({ mapOpen: Object.assign({}, this.state.mapOpen, { [k]: !this.state.mapOpen[k] }) }); },
       selectMapNode: (e) => set({ mapSel: id(e) }),
       clearMapSel: () => set({ mapSel: null }),
-      openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false, cdTab: "career", summaryMore: false, tlAll: false }); },
+      openMapNode: (e) => { e.stopPropagation(); const k = id(e); if (CO[k]) set({ drawer: "company", coId: k }); else set({ drawer: "candidate", candId: k, contactEditing: false, cdTab: "career", summaryMore: false }); },
       toggleSec: (e) => { const k = id(e); set({ sec: Object.assign({}, this.state.sec, { [k]: !this.state.sec[k] }) }); },
       toggleDocHist: (e) => { const k = id(e); set({ docHist: Object.assign({}, this.state.docHist, { [k]: !this.state.docHist[k] }) }); },
       toggleDocTray: () => set({ docTray: !this.state.docTray }),

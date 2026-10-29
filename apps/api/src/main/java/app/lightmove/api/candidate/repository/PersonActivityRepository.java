@@ -24,6 +24,20 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
     List<PersonActivity> findPersonTimeline(UUID workspaceId, UUID personId, long before,
                                             Collection<PersonActivityKind> kinds, Limit limit);
 
+    /**
+     * One person's history as read from one position: that position's lines, lines about no position, and the
+     * person-level kinds whichever position they were made from. Another position's own work is never loaded.
+     */
+    @Query("""
+            select a from PersonActivity a
+            where a.workspaceId = :workspaceId and a.personId = :personId and a.id < :before and a.kind in :kinds
+              and (a.projectId = :projectId or a.projectId is null or a.kind in :personLevelKinds)
+            order by a.id desc
+            """)
+    List<PersonActivity> findPositionScopedTimeline(UUID workspaceId, UUID personId, UUID projectId, long before,
+                                                    Collection<PersonActivityKind> kinds,
+                                                    Collection<PersonActivityKind> personLevelKinds, Limit limit);
+
     @Query("""
             select a from PersonActivity a
             where a.workspaceId = :workspaceId and a.personId = :personId and a.projectId = :projectId

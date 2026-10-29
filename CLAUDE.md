@@ -96,8 +96,15 @@ null only with nothing on file — and the five sections; the weights and the to
 `ai_drafted` (an untouched earlier draft, sparkled in the tab) — never a consultant's; an edit takes a value out of
 `ai_drafted`, and **Mark reviewed & submit** adopts every AI value. It runs only when pressed — never on a filing. The executive drawer draws **Positions** (every
 mandate mapping the person, this one first), **Notes** and **Activity** for staff, through the
-position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`);
-the workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
+position's own `WORK_EXECUTE` routes (`…/candidates/{id}/positions|notes|timeline`, `PersonCrmController`).
+**A position's timeline is that position's alone** (`PersonTimelineService.positionTimelineOf`): its own lines and the
+person-level kinds (`PERSON_LEVEL_KINDS`: profile, contacts, tags, owner, do not contact, documents) wherever they were
+made, the latter named to no position; another position's notes, emails, meetings, status and tasks are filtered in
+the query and never leave the server. A profile save or a call's changes keeps each field old → new (`ProfileChanges`,
+the response's `changes`; never a contact, never the employer). The Activity tab (`components/activity`,
+`Position.dc.html`) reads it whole (`getPositionHistory`), filters by kind and by person in two menus, folds quick
+changes, and opens each line read-only (`ActivityDetailDialog`) through the reads its tab already uses.
+The workspace's routes (`/api/v1/candidates/{personId}…` and `/candidates/activity`, the feed) take
 person ids and V97's `CANDIDATE_POOL_MANAGE`, ADMIN and MEMBER and never CLIENT.
 **Documents are the person's too (V105, `docs/candidate-documents.md`)**: a CV, cover letter or
 reference is a card whose files are versions — a file sent under a name already on the person is its
@@ -1352,8 +1359,13 @@ V85 gives `app_lm_client` the same `persona` jsonb, for an **agency**: seeded fr
 industry and country, edited in the agency client drawer through `PUT /clients/{id}/persona`
 (`CLIENT_RECORD_MANAGE`, audited as a `persona` section) and never on `ProjectResponse`, which a client
 seat reads. At an agency the assistant's prompt and starters read the **mandate's client** as the hiring
-company (`HiringSideResolver` → `HiringContext`, the agency named in one line); in-house they read the
-firm, as before. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and
+company (`HiringSideResolver` → `HiringContext`, the agency named in one line). In-house the same column is
+a **business unit's persona** (#1048), edited in the unit's drawer through the same PUT: once the mandate's unit
+has recorded anything, the prompt and starters read the unit as the hiring company, each list it left empty
+(sectors, competitors, geographies), its place, and its industry while it names no sectors taken from the firm's
+(`HiringPersona.fallingBackTo`, `HiringCompanyProfile.within`), with the firm after it as the parent group —
+name, place, size, summary and notes, never its sectors or competitors; a unit with nothing recorded reads as
+the firm alone, as before. No migration: V85's column was already on every client row. That drawer is the company panel Strategy opens — `CompanyDrawerHeader` and
 `CompanyFactsSections` from the universe (`GET /companies/{apolloAccountId}`, the id on the client
 detail), or editable basics for a client typed in by hand — never the business-unit record.
 V57 adds the `PLATFORM` role scope and `app_lm_user_platform_role` — written by

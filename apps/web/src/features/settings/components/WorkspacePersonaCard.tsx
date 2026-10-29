@@ -5,11 +5,13 @@ import { messageFor } from "../../../lib/errorCodes";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import type { HiringPersona } from "../../workspace/api/types";
 import { PersonaFields } from "../../workspace/components/PersonaFields";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
 /** Settings → General's firm persona: what the firm is, kept for the assistant to tailor research to. */
 export function WorkspacePersonaCard({ persona }: { persona: HiringPersona }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const vocabulary = useWorkspaceVocabulary();
   const [draft, setDraft] = useState<HiringPersona>(persona);
 
   const save = useMutation({
@@ -27,7 +29,7 @@ export function WorkspacePersonaCard({ persona }: { persona: HiringPersona }) {
       <div className="mb-4">
         <div className="text-sm font-semibold">Firm persona</div>
         <div className="mt-0.5 font-mono text-[11.5px] text-u-text3">
-          What your firm does — Uncava's assistant uses it to tailor research to you.
+          {vocabulary.firmPersonaHint}
         </div>
       </div>
 

@@ -158,7 +158,7 @@ public class MailboxService {
             granted = gateway.redeem(started.getWorkspaceId(), started.getProvider(), code, callbackUri());
         } catch (VendorException failed) {
             log.warn("Mailbox connection for user {} failed at the mail service: {}", started.getUserId(),
-                    failed.getKind());
+                    failed.getMessage());
             throw ApiException.of(ErrorCode.MAILBOX_CONNECT_FAILED);
         }
 
@@ -212,7 +212,7 @@ public class MailboxService {
                 transactions.executeWithoutResult(status -> requireConnection(userId, workspaceId).markAccessWithdrawn());
                 throw ApiException.of(ErrorCode.MAILBOX_RECONNECT_NEEDED);
             }
-            log.warn("Test send for user {} failed at the mail service: {}", userId, failed.getKind());
+            log.warn("Test send for user {} failed at the mail service: {}", userId, failed.getMessage());
             throw ApiException.of(ErrorCode.MAILBOX_SEND_FAILED);
         }
     }

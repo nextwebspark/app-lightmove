@@ -179,7 +179,107 @@ class VendorCallResilienceTest {
         assertThatThrownBy(client::lookup)
                 .isInstanceOf(VendorException.class)
                 .hasMessageNotContaining("Jane Executive")
-                .hasMessageNotContaining("RetailCo");
+                .hasMessageNotContaining("RetailCo")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("the vendor's machine code for a refusal is kept, and its words are not")
+    void theVendorsErrorCodeIsInTheMessage() {
+        vendor.expect(once(), requestTo(LOOKUP_URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"code\":\"ErrorInvalidRecipients\","
+                        + "\"message\":\"At least one recipient isn't valid: jane@retailco.example\"}}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::lookup)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/lookup failed: BAD_REQUEST (ErrorInvalidRecipients)")
+                .hasMessageNotContaining("jane@retailco.example")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isEqualTo("ErrorInvalidRecipients");
+    }
+
+    @Test
+    @DisplayName("a request that reads no answer still keeps the vendor's code for its refusal")
+    void aBodilessRequestKeepsTheVendorsErrorCode() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"code\":\"ErrorMessageSubmissionBlocked\",\"message\":\"Cannot send\"}}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isEqualTo("ErrorMessageSubmissionBlocked");
+    }
+
+    @Test
+    @DisplayName("a token endpoint's refusal keeps its OAuth code and Entra's rule number, never the description")
+    void aTokenRefusalKeepsItsOAuthAndEntraCodes() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":\"invalid_client\",\"error_description\":\"AADSTS7000215: Invalid client secret "
+                        + "provided for jane@retailco.example\",\"error_codes\":[7000215]}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (invalid_client AADSTS7000215)")
+                .hasMessageNotContaining("jane@retailco.example");
+    }
+
+    @Test
+    @DisplayName("a refusal with no code says what came back instead, and never its words")
+    void aRefusalWithNoCodeIsDescribedByItsShape() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("<html><body>Bad Request for jane@retailco.example</body></html>")
+                .contentType(MediaType.TEXT_HTML)
+                .header("request-id", "0f6c1d2e-1111-2222-3333-444455556666"));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (no code; not JSON, 63 bytes; text/html; "
+                        + "request-id 0f6c1d2e-1111-2222-3333-444455556666)")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("an empty refusal says so, with the request id a vendor sends under its other name")
+    void anEmptyRefusalSaysSo() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(
+                withStatus(HttpStatus.LENGTH_REQUIRED).header("x-request-id", "req-42"));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (no code; empty body; x-request-id req-42)");
+    }
+
+    @Test
+    @DisplayName("a JSON refusal with no code names its known fields, and hides any other name, which may be data")
+    void aJsonRefusalNamesOnlyItsKnownFields() {
+        vendor.expect(once(), requestTo("https://vendor.example/send")).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"message\":\"no match\",\"Jane.Doe\":1},\"detail\":\"x\"}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::send)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/send failed: BAD_REQUEST (no code; JSON fields [error, detail], "
+                        + "error fields [message, ?]; application/json)")
+                .hasMessageNotContaining("Jane");
+    }
+
+    @Test
+    @DisplayName("a code field holding words rather than a code is left out")
+    void aCodeFieldHoldingWordsIsLeftOut() {
+        vendor.expect(once(), requestTo(LOOKUP_URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"code\":\"no match for Jane Executive\"}}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::lookup)
+                .isInstanceOf(VendorException.class)
+                .hasMessageNotContaining("Jane Executive")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isNull();
     }
 
     /**
@@ -217,6 +317,13 @@ class VendorCallResilienceTest {
                     .uri("/lookup")
                     .retrieve()
                     .body(Map.class));
+        }
+
+        void send() {
+            guard.call(VendorCall.of("stub", "send"), () -> client.post()
+                    .uri("/send")
+                    .retrieve()
+                    .toBodilessEntity());
         }
     }
 

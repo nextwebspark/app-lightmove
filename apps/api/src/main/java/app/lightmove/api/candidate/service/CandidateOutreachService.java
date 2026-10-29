@@ -144,9 +144,9 @@ public class CandidateOutreachService {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordEmailSent(UUID sender, UUID projectId, UUID candidateId, UUID sequenceId, String sequenceName,
-                                int stepNumber) {
+                                int stepNumber, UUID messageId) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate ->
-                recordEmailSent(candidate, sender, sequenceId, sequenceName, stepNumber));
+                recordEmailSent(candidate, sender, sequenceId, sequenceName, stepNumber, messageId));
     }
 
     /** An email the consultant wrote themselves, outside any sequence; it moves the person forward as a step does. */
@@ -160,9 +160,10 @@ public class CandidateOutreachService {
     }
 
     private void recordEmailSent(Candidate candidate, UUID sender, UUID sequenceId, String sequenceName,
-                                 int stepNumber) {
+                                 int stepNumber, UUID messageId) {
         activity.record(candidate, sender, PersonActivityKind.EMAIL_SENT, PersonActivityDetails
-                .of("sequenceId", sequenceId).and("sequence", sequenceName).and("step", stepNumber));
+                .of("sequenceId", sequenceId).and("sequence", sequenceName).and("step", stepNumber)
+                .and("messageId", messageId));
         moveForwardTo(candidate, sender, StatusAutomationTrigger.EMAIL_SENT);
     }
 
@@ -175,8 +176,9 @@ public class CandidateOutreachService {
         UUID workspaceId = projects.findById(candidate.getProjectId()).map(Project::getWorkspaceId).orElseThrow();
         Optional<CandidateStatusDefinition> target = forwardTargetOf(candidate, workspaceId, trigger);
         if (target.isPresent() && candidate.moveTo(target.get())) {
+            // The rule moved them, not the actor: the line names the rule, and the actor is whose act set it off.
             activity.record(candidate, actor, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.statusChange(was, target.get()));
+                    PersonActivityDetails.statusChange(was, target.get()).and("automation", trigger));
         }
     }
 
@@ -194,9 +196,11 @@ public class CandidateOutreachService {
      * person forward only where the reply automation is on and they are still mapped.
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void recordReplied(UUID workspaceId, UUID projectId, UUID personId, UUID sequenceId, String sequenceName) {
+    public void recordReplied(UUID workspaceId, UUID projectId, UUID personId, UUID sequenceId, String sequenceName,
+                              UUID messageId) {
         recordAboutPerson(workspaceId, projectId, personId, null, PersonActivityKind.EMAIL_REPLIED,
-                PersonActivityDetails.of("sequenceId", sequenceId).and("sequence", sequenceName));
+                PersonActivityDetails.of("sequenceId", sequenceId).and("sequence", sequenceName)
+                        .and("messageId", messageId));
         candidates.findByProjectIdAndPersonId(projectId, personId)
                 .ifPresent(candidate -> moveForwardTo(candidate, null, StatusAutomationTrigger.REPLIED));
     }

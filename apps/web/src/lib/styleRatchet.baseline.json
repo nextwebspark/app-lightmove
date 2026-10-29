@@ -134,7 +134,7 @@
   },
   "features/candidates/components/PersonSections.tsx": {
     "arbitraryRadius": 2,
-    "arbitraryText": 6
+    "arbitraryText": 3
   },
   "features/candidates/components/pool/ActivityView.tsx": {
     "arbitraryText": 4,
@@ -194,9 +194,6 @@
   },
   "features/candidates/lib/poolColumns.tsx": {
     "arbitraryText": 9
-  },
-  "features/clients/components/AgencyClientView.tsx": {
-    "arbitraryText": 1
   },
   "features/clients/components/BusinessUnitCombobox.tsx": {
     "arbitraryRadius": 1
@@ -271,7 +268,7 @@
     "arbitraryRadius": 10
   },
   "features/outreach/components/MeetingsSection.tsx": {
-    "arbitraryText": 14,
+    "arbitraryText": 11,
     "arbitraryRadius": 4
   },
   "features/outreach/components/OutreachSection.tsx": {

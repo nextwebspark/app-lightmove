@@ -39,6 +39,21 @@ class OAuthProviderTokenClientTest {
     }
 
     @Test
+    @DisplayName("a refusal names Entra's rule by number and never quotes its description")
+    void aRefusalNamesEntrasRule() throws Exception {
+        String body = "{\"error\":\"%s\",\"error_description\":\"AADSTS%d: for jane@retailco.example\","
+                + "\"error_codes\":[%d]}";
+
+        assertThat(refusalOf(HttpStatus.BAD_REQUEST, body.formatted("invalid_client", 7000215, 7000215)))
+                .isInstanceOf(ProviderAppUnavailable.class)
+                .hasMessage("invalid_client AADSTS7000215");
+        assertThat(refusalOf(HttpStatus.BAD_REQUEST, body.formatted("invalid_request", 9002313, 9002313)))
+                .isInstanceOf(VendorException.class)
+                .hasMessage("google-oauth/refresh-token failed: BAD_REQUEST (invalid_request AADSTS9002313)")
+                .hasMessageNotContaining("jane@retailco.example");
+    }
+
+    @Test
     @DisplayName("an answer reads as the access token, its lifetime and any rotated refresh token")
     void anAnswerIsRead() {
         ProviderTokenGrant token = OAuthProviderTokenClient.read(CALL, JSON.readTree("""

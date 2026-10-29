@@ -86,8 +86,9 @@ public class CandidateCallUpdates {
                 change.fields().contains(CallField.ALLOWANCES))) {
             throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
         }
+        ProfileChanges changes = ProfileChanges.before(person);
         person.recordFromCall(change);
-        line(candidate, userId, change.fields(), call);
+        line(candidate, userId, change.fields(), call, changes.after(person));
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("via", "CALL")
@@ -118,7 +119,7 @@ public class CandidateCallUpdates {
         }
         scorecard.writeSection(ScorecardReportSection.MOTIVATION, next, userId);
         scorecards.saveAndFlush(scorecard);
-        line(candidate, userId, ordered.keySet(), call);
+        line(candidate, userId, ordered.keySet(), call, List.of());
         audit.projectEvent(ProjectEventType.CANDIDATE_ASSESSMENT_SAVED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("via", "CALL")
@@ -144,23 +145,25 @@ public class CandidateCallUpdates {
                     .detail("recordingId", call.recordingId().toString())
                     .record();
         }
-        line(candidate, userId, List.of(CallField.OPEN_TO_RELOCATE), call);
+        line(candidate, userId, List.of(CallField.OPEN_TO_RELOCATE), call, List.of());
     }
 
     /** A task filed from a call writes its own task line; this one says it came from the call. */
     @Transactional
     public void recordTaskFromCall(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
                                    CallReference call) {
-        line(requireCandidate(workspaceId, projectId, candidateId), userId, List.of(CallField.TASK), call);
+        line(requireCandidate(workspaceId, projectId, candidateId), userId, List.of(CallField.TASK), call, List.of());
     }
 
-    private void line(Candidate candidate, UUID userId, Collection<CallField> fields, CallReference call) {
+    private void line(Candidate candidate, UUID userId, Collection<CallField> fields, CallReference call,
+                      List<Map<String, String>> changed) {
         String keys = fields.stream().sorted().map(CallField::value).collect(Collectors.joining(","));
         activity.record(candidate, userId, PersonActivityKind.UPDATED_FROM_CALL, PersonActivityDetails
                 .of("fields", keys)
                 .and("call", call.title())
                 .and("callAt", call.startsAt().toString())
-                .and("recordingId", call.recordingId()));
+                .and("recordingId", call.recordingId())
+                .and(ProfileChanges.DETAIL_KEY, changed.isEmpty() ? null : changed));
     }
 
     private Optional<CandidateTag> liveRelocationTag(UUID workspaceId) {
