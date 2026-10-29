@@ -1311,7 +1311,23 @@ V149 gives `app_lm_person_meeting` `zoom_meeting_id` and widens the activity kin
 `MEETING_CANCELLED`.
 V148 makes a person's time zone one clock: each user takes their latest-connected mailbox's zone (the one that sent),
 the profile's old `Etc/GMT` becomes `UTC`, and every mailbox's `time_zone` is set to its user's — kept so from then by
-the profile write, and taken by a new connection.
+the profile write, and taken by a new connection. Since V160 that clock is settled, not stored: the person's own, else
+their workspace's, else its country's (`DateTimePreferenceService`, the one place the order lives).
+V160 is **Date & time** — the workspace's time zone, date format and time format on Settings → General
+(`PUT /workspace/date-time`, `WORKSPACE_MANAGE`, audited as a `dateTime` section), each a nullable column on
+`app_lm_workspace` (null: the country's zone through `CountryTimeZones`, the standard `DD_MMM_YYYY` / `H24`), and a
+person's own choice of any of them on `app_lm_user` (`timezone` now nullable, `date_format`, `time_format`; null keeps
+the workspace's, chosen on Settings → Profile as "Workspace default" and applying in every workspace they are in). Every
+value is a fixed set: 42 zones (`data/time-zones.json`, `StandardTimeZones`; the SPA's `lib/datetime/timeZones.ts` is
+held equal to it), 5 date shapes, 2 clocks — a zone saved before the list keeps working until changed. The backfill
+moves nobody's clock: a workspace took its active members' most common zone, and a person kept theirs only where it
+differs from a workspace they are in. `/me` carries `dateTime` (`effective`, `own`, `workspace`); a mailbox's
+`time_zone` copy is read again on `TimezoneChanged` and `WorkspaceDateTimeChanged`; server text (the digest, task
+emails, billing and secret-expiry emails — billing on UTC's calendar — and the lines a call files) goes through
+`DateTimeFormats`, while exports and model input stay ISO. In the SPA every date is `lib/datetime`'s, read in the
+effective preferences that `AuthProvider` sets and `DateTimeBoundary` redraws on; `lib/dateRatchet.test.ts` refuses a
+browser date formatter anywhere else, and time pickers are `TimeInput` (labelled in the person's clock), never a native
+time input.
 V134 indexes the references V133 left bare (a task's candidate and note, a notification's candidate, task and
 note), partial where set, so unmapping someone or deleting a note never scans the notification table.
 V84 adds `app_lm_workspace.mode` (`AGENCY | COMPANY`, V34's CHECK idiom; every existing row `COMPANY`):

@@ -21,6 +21,9 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Conversation** | everything with one executive on one position on the Outreach page: emails both ways, run events, notes, meetings | thread, inbox |
 | **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
 | **Working hours** | the days and hours a consultant works, which a booking link offers times inside (Outlook's own, theirs, or the workspace's) | availability window, office hours |
+| **Time zone** / **Date format** / **Time format** | Settings → General's Date & time (the workspace's) and Settings → Profile's (a person's own) | timezone setting, locale, region |
+| **Workspace default** | a person's choice left to the workspace, the first option of each Profile select | inherit, follow, auto |
+| **Reset to standard** | putting the country's zone and the standard formats (04 Dec 2026, 24-hour) back on General | defaults, restore |
 | **Daily email limit** | the most one mailbox sends through Uncava in a day | quota |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
 | **Archive** / **Restore** | putting a position or a business unit away, hidden from every list and picker, and bringing it back; nothing is deleted | delete, close |
