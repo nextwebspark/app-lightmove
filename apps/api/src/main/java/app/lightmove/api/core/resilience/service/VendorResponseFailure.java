@@ -12,9 +12,11 @@ import lombok.Getter;
 class VendorResponseFailure extends RuntimeException {
 
     private final VendorFailureKind kind;
+    private final String vendorCode;
 
-    VendorResponseFailure(VendorFailureKind kind) {
-        super(kind.name());
+    VendorResponseFailure(VendorFailureKind kind, String vendorCode) {
+        super(vendorCode == null ? kind.name() : kind.name() + " (" + vendorCode + ")");
         this.kind = kind;
+        this.vendorCode = vendorCode;
     }
 }

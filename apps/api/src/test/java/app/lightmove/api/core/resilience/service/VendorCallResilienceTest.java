@@ -179,7 +179,39 @@ class VendorCallResilienceTest {
         assertThatThrownBy(client::lookup)
                 .isInstanceOf(VendorException.class)
                 .hasMessageNotContaining("Jane Executive")
-                .hasMessageNotContaining("RetailCo");
+                .hasMessageNotContaining("RetailCo")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isNull();
+    }
+
+    @Test
+    @DisplayName("the vendor's machine code for a refusal is kept, and its words are not")
+    void theVendorsErrorCodeIsInTheMessage() {
+        vendor.expect(once(), requestTo(LOOKUP_URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"code\":\"ErrorInvalidRecipients\","
+                        + "\"message\":\"At least one recipient isn't valid: jane@retailco.example\"}}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::lookup)
+                .isInstanceOf(VendorException.class)
+                .hasMessage("stub/lookup failed: BAD_REQUEST (ErrorInvalidRecipients)")
+                .hasMessageNotContaining("jane@retailco.example")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isEqualTo("ErrorInvalidRecipients");
+    }
+
+    @Test
+    @DisplayName("a code field holding words rather than a code is left out")
+    void aCodeFieldHoldingWordsIsLeftOut() {
+        vendor.expect(once(), requestTo(LOOKUP_URL)).andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                .body("{\"error\":{\"code\":\"no match for Jane Executive\"}}")
+                .contentType(MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(client::lookup)
+                .isInstanceOf(VendorException.class)
+                .hasMessageNotContaining("Jane Executive")
+                .extracting(failure -> ((VendorException) failure).getVendorCode())
+                .isNull();
     }
 
     /**

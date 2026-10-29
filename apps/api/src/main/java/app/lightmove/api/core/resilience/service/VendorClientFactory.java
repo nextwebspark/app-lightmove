@@ -5,11 +5,14 @@ import app.lightmove.api.core.config.ResilienceSettings;
 import app.lightmove.api.core.logging.service.CorrelationId;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.client.support.HttpRequestWrapper;
 import org.springframework.stereotype.Component;
@@ -27,6 +30,8 @@ import org.springframework.web.util.UriUtils;
  */
 @Component
 public class VendorClientFactory {
+
+    private static final int MAX_ERROR_BODY_BYTES = 16 * 1024;
 
     private final ResilienceSettings settings;
 
@@ -62,9 +67,18 @@ public class VendorClientFactory {
                     return execution.execute(withQueryToken(spec, request), body);
                 })
                 .defaultStatusHandler(HttpStatusCode::isError, (request, response) -> {
-                    throw new VendorResponseFailure(VendorFailureKind.of(response.getStatusCode()));
+                    throw new VendorResponseFailure(VendorFailureKind.of(response.getStatusCode()),
+                            VendorErrorCodes.codeOrNull(errorBodyOrNull(response)));
                 })
                 .build();
+    }
+
+    private static byte[] errorBodyOrNull(ClientHttpResponse response) {
+        try (InputStream body = response.getBody()) {
+            return body.readNBytes(MAX_ERROR_BODY_BYTES);
+        } catch (IOException unreadable) {
+            return null;
+        }
     }
 
     /**
