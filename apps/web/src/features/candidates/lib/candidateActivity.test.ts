@@ -98,9 +98,9 @@ describe("timelineLines", () => {
       detail: "In universe → Declined",
     });
     expect(
-      lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "shortlisted", withCompany: "true" } })
+      lineOf({ kind: "TRIAGE_STATUS_CHANGED", details: { from: "inUniverse", to: "declined", withCompany: "true" } })
         .detail,
-    ).toBe("In universe → Shortlisted · With their company");
+    ).toBe("In universe → Declined · With their company");
   });
 
   it("says whether the executive was shown to the client or hidden from them", () => {

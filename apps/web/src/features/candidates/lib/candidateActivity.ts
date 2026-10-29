@@ -1,5 +1,5 @@
 import type { PersonTimelineEntry } from "../api/types";
-import { stageByStatus } from "../../triage/lib/triageStages";
+import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import { statusLabelOf } from "./pipelineStatus";
 
 /**
@@ -364,6 +364,5 @@ function vendorOf(value: string | undefined): string | null {
 
 /** A Companies stage as the sub-nav names it; an unknown token as written. */
 export function triageStageLabel(status: string | undefined): string {
-  if (status === "inUniverse" || status === "shortlisted" || status === "declined") return stageByStatus(status).label;
-  return status ?? "another stage";
+  return TRIAGE_STAGES.find((stage) => stage.status === status)?.label ?? status ?? "another stage";
 }

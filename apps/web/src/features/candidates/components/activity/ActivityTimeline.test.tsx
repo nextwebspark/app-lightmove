@@ -491,8 +491,8 @@ describe("ActivityTimeline", () => {
         shows: ["Captured with the plugin", /added rather than duplicated/],
       },
       {
-        entry: line(1, "TRIAGE_STATUS_CHANGED", { details: { from: "in_universe", to: "shortlisted", withCompany: "true" } }),
-        card: /moved them to/, title: "Moved them to Shortlisted", shows: ["Yes, the company moved too"],
+        entry: line(1, "TRIAGE_STATUS_CHANGED", { details: { from: "in_universe", to: "declined", withCompany: "true" } }),
+        card: /moved them to/, title: "Moved them to Declined", shows: ["Yes, the company moved too"],
       },
       {
         entry: line(1, "UPDATED_FROM_CALL", {

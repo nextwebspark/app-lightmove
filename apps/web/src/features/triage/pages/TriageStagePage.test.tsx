@@ -324,7 +324,7 @@ const pageOf = (overrides: Partial<TriageCompaniesPage> = {}): TriageCompaniesPa
   totalCount: 1,
   page: 0,
   size: 25,
-  counts: { inUniverse: 1, shortlisted: 0, declined: 0 },
+  counts: { inUniverse: 1, declined: 0 },
   ...overrides,
 });
 
@@ -546,7 +546,7 @@ describe("TriageStagePage", () => {
 
   it("reads the stage from the URL and asks the API for that status", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ companies: [{ ...acwa, status: "declined" }], counts: { inUniverse: 0, shortlisted: 0, declined: 1 } }),
+      pageOf({ companies: [{ ...acwa, status: "declined" }], counts: { inUniverse: 0, declined: 1 } }),
     );
     renderStage("declined");
 
@@ -745,8 +745,6 @@ describe("TriageStagePage", () => {
     // Every button on a row should do something: a declined company is not offered Decline.
     expect(screen.queryByRole("button", { name: /^Decline: ACWA Power/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Back to universe: ACWA Power/i })).toBeInTheDocument();
-    // Shortlisted is retired as a destination, from every stage.
-    expect(screen.queryByRole("button", { name: /Shortlist/i })).not.toBeInTheDocument();
   });
 
   it("marks a company as no executive found from the add form, closing it unsaved", async () => {
@@ -828,7 +826,7 @@ describe("TriageStagePage", () => {
   it("keeps one row's busy state independent of another's, so a second row's write cannot re-enable it early", async () => {
     const gulf = { ...acwa, id: "u2", apolloAccountId: "a2", companyName: "Gulf Industrial" };
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ companies: [acwa, gulf], totalCount: 2, counts: { inUniverse: 2, shortlisted: 0, declined: 0 } }),
+      pageOf({ companies: [acwa, gulf], totalCount: 2, counts: { inUniverse: 2, declined: 0 } }),
     );
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [{ ...yasmin, triageCompanyId: "u2", companyName: "Gulf Industrial" }]),
@@ -1054,7 +1052,7 @@ describe("TriageStagePage", () => {
 
   it("points an empty universe at Strategy rather than showing the market", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(
-      pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, shortlisted: 0, declined: 0 } }),
+      pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, declined: 0 } }),
     );
     renderStage();
 
@@ -1453,7 +1451,7 @@ describe("TriageStagePage", () => {
   it("drops the capped-read line when the company filter leaves no companies to count it over", async () => {
     vi.mocked(triageApi.getTriageCompanies).mockImplementation(async (_project, _status, _page, _size, q) =>
       q
-        ? pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, shortlisted: 0, declined: 0 } })
+        ? pageOf({ companies: [], totalCount: 0, counts: { inUniverse: 0, declined: 0 } })
         : pageOf(),
     );
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
@@ -1859,13 +1857,6 @@ describe("TriageStagePage", () => {
   });
   describe("one toolbar for every view", () => {
     const mapEnabled = { enabled: true, publicToken: "pk.test" };
-
-    it("sends the retired Shortlisted address to In universe", async () => {
-      renderStage("shortlisted");
-
-      expect(await screen.findByRole("table", { name: /In universe companies/i })).toBeInTheDocument();
-      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls[0][1]).toBe("inUniverse");
-    });
 
     it("reads In universe as its executives' pipeline, searched the same way, with only what the board can use", async () => {
       vi.mocked(pipelineApi.getPipeline).mockResolvedValue(

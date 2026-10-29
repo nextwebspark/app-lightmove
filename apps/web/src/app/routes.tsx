@@ -143,7 +143,7 @@ export function AppRoutes() {
         <Route path="/projects/:projectId" element={<PositionPage />} />
         <Route path="/projects/:projectId/strategy" element={<StrategyPage />} />
         {/* The Companies section: one route pattern, two stages, each its own URL so a declined list
-            can be sent to a colleague. The retired Shortlisted page's address redirects with the rest. An unknown stage redirects rather than rendering an empty grid
+            can be sent to a colleague. An unknown stage redirects rather than rendering an empty grid
             for something that does not exist. */}
         <Route path="/projects/:projectId/companies/:stage" element={<TriageStagePage />} />
         <Route

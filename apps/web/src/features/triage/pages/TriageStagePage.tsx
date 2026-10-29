@@ -92,7 +92,6 @@ const DEFAULT_SORT: GridSort<TriageSortField> = { field: "added", direction: "de
 /** Where a move sends a company, in words, for the toast that confirms it. */
 const MOVE_LABELS: Record<TriageCompanyStatus, string> = {
   inUniverse: "the universe",
-  shortlisted: "the shortlist",
   declined: "declined",
 };
 

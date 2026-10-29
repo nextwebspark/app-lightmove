@@ -35,11 +35,11 @@ describe("activityLines", () => {
   it("reads stage moves in both spellings the server records", () => {
     expect(
       texts([
-        entry(3, "TRIAGE_COMPANY_MOVED", { status: "shortlisted" }),
-        entry(2, "TRIAGE_BULK_ADDED", { added: "3", status: "SHORTLISTED" }),
+        entry(3, "TRIAGE_COMPANY_MOVED", { status: "declined" }),
+        entry(2, "TRIAGE_BULK_ADDED", { added: "3", status: "DECLINED" }),
         entry(1, "TRIAGE_COMPANY_MOVED", { status: "inUniverse" }),
       ]),
-    ).toEqual(["shortlisted 4 companies", "moved a company back to the universe"]);
+    ).toEqual(["declined 4 companies", "moved a company back to the universe"]);
   });
 
   it("merges a status run only when the status matches", () => {

@@ -1183,7 +1183,6 @@ describe("StrategyPage — picking companies out of the market in bulk", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: "Select all companies on this page" }));
     expect(await screen.findByRole("region", { name: "2 companies selected" })).toBeInTheDocument();
 
-    // Shortlisted was retired: the bar offers only the two stages a company is still filed at.
     expect(screen.queryByRole("button", { name: "Shortlisted" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "In universe" }));
 

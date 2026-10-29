@@ -114,12 +114,12 @@ describe("the assistant's company card", () => {
     mount({
       proposal: {
         title: "Utilities",
-        companies: [company("a1", { stage: "inUniverse" }), company("a2", { stage: "shortlisted" })],
+        companies: [company("a1", { stage: "inUniverse" }), company("a2", { stage: "declined" })],
       },
     });
 
     expect(screen.getByText("All already in this mandate")).toBeInTheDocument();
-    expect(screen.getByText("Shortlisted")).toHaveAttribute("title", "Already in this mandate as Shortlisted");
+    expect(screen.getByText("Declined")).toHaveAttribute("title", "Already in this mandate as Declined");
     expect(screen.getByRole("button", { name: "Universe" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Decline" })).toBeDisabled();
   });

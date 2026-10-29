@@ -60,18 +60,17 @@ const companies = (verb: string) => (count: number) => `${verb} ${plural(count, 
 const executives = (verb: string) => (count: number) => `${verb} ${plural(count, "executive", "executives")}`;
 
 /** Triage stages arrive both as wire tokens (`inUniverse`) and as enum names (`IN_UNIVERSE`). */
-function triageStage(status: string | undefined): "universe" | "shortlisted" | "declined" | null {
+function triageStage(status: string | undefined): "universe" | "declined" | null {
   const folded = status?.toLowerCase().replace(/_/g, "");
   if (folded === "inuniverse") return "universe";
-  if (folded === "shortlisted" || folded === "declined") return folded;
+  if (folded === "declined") return folded;
   return null;
 }
 
-const TRIAGE_VERB = { universe: "added", shortlisted: "shortlisted", declined: "declined" } as const;
+const TRIAGE_VERB = { universe: "added", declined: "declined" } as const;
 
 const EXPORT_STAGE: Record<string, string> = {
   inUniverse: "universe",
-  shortlisted: "shortlist",
   declined: "declined list",
 };
 

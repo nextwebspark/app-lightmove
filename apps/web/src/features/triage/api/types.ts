@@ -1,7 +1,7 @@
 import type { CustomFieldValues } from "../../customcolumns/api/types";
 
 /** Where a company stands in a mandate's triage. There is no untriaged state — that has no row. */
-export type TriageCompanyStatus = "inUniverse" | "shortlisted" | "declined";
+export type TriageCompanyStatus = "inUniverse" | "declined";
 
 /**
  * Which door a company came through. Provenance the grid shows rather than bookkeeping: a headcount
@@ -53,7 +53,6 @@ export interface TriageCompany {
 /** The sidebar's badge counts for the three Companies stages. */
 export interface TriageCounts {
   inUniverse: number;
-  shortlisted: number;
   declined: number;
 }
 

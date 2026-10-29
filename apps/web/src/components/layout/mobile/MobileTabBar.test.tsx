@@ -26,7 +26,7 @@ function renderBar(path: string, props: Partial<Parameters<typeof MobileTabBar>[
 
 describe("MobileTabBar", () => {
   it("lights the tab of the screen on show, every Companies stage lighting Companies", () => {
-    renderBar("/projects/p1/companies/shortlisted");
+    renderBar("/projects/p1/companies/declined");
 
     expect(screen.getByRole("link", { name: "Companies" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Pipeline" })).not.toHaveAttribute("aria-current");

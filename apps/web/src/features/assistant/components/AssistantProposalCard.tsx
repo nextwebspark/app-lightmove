@@ -11,7 +11,6 @@ import { companyKey, type AssistantProposal, type ProposalOutcome, type Proposed
 
 const ACCEPT_LABELS: Record<TriageCompanyStatus, string> = {
   inUniverse: "Universe",
-  shortlisted: "Shortlist",
   declined: "Decline",
 };
 

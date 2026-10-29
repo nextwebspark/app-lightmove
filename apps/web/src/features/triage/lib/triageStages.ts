@@ -2,8 +2,7 @@ import { ICONS } from "../../../components/layout/Icon";
 import type { TriageCompanyStatus } from "../api/types";
 
 /**
- * The Companies pages, in the order a mandate works through them. Shortlisted was retired as a page: whatever a
- * position still holds there stays in the database, unlisted, and nothing new is filed there.
+ * The Companies pages, in the order a mandate works through them.
  *
  * <p>One list, read by the router, the sidebar and each page's own copy — so a stage cannot exist
  * in the menu and not in the routes, or be called "Declined" in one place and "Decline" in another.
@@ -48,21 +47,11 @@ export function stageBySlug(slug: string): TriageStage | undefined {
   return TRIAGE_STAGES.find((stage) => stage.slug === slug);
 }
 
-/** The retired page, kept only to name what history and an old row still say: never listed, routed or offered. */
-const RETIRED_SHORTLISTED: TriageStage = {
-  slug: "shortlisted",
-  status: "shortlisted",
-  label: "Shortlisted",
-  icon: ICONS.star,
-  emptyMessage: "",
-};
-
 /**
  * The stage a stored status belongs to. Total rather than optional: every status the API can answer
- * with has a stage, Shortlisted's retired one included, and a panel that had to handle "no such stage"
- * for a value the server just sent would be guarding against its own type.
+ * with has a row above, and a panel that had to handle "no such stage" for a value the server just
+ * sent would be guarding against its own type.
  */
 export function stageByStatus(status: TriageCompanyStatus): TriageStage {
-  if (status === RETIRED_SHORTLISTED.status) return RETIRED_SHORTLISTED;
   return TRIAGE_STAGES.find((stage) => stage.status === status) ?? TRIAGE_STAGES[0];
 }

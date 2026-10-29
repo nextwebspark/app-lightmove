@@ -7,7 +7,7 @@ export const CONSENT_SCOPES: readonly { scope: ApiKeyScope; label: string; note:
   {
     scope: "companies:read",
     label: "Companies",
-    note: "Each position's companies: in universe, shortlisted and declined.",
+    note: "Each position's companies: in universe and declined.",
     personalData: false,
   },
   {

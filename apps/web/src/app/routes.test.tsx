@@ -404,7 +404,6 @@ describe("routes — the not-found screen", () => {
     vi.mocked(workspaceApi.members).mockResolvedValue([]);
     vi.mocked(triageApi.getTriageCounts).mockResolvedValue({
       inUniverse: 0,
-      shortlisted: 0,
       declined: 0,
     });
   });

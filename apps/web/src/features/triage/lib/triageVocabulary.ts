@@ -30,15 +30,10 @@ const DECLINE_TOOLTIP = "Decline — kept as a record that this company was asse
 
 /**
  * The moves a stage offers, keyed by where the company currently is. A company is never offered the
- * stage it is already in, and never Shortlisted, which is retired as a destination; a row still held
- * there (never listed now) can only leave it.
+ * stage it is already in, so every button on a row and in the panel's footer does something.
  */
 export const MOVES: Record<TriageCompanyStatus, TriageMove[]> = {
   inUniverse: [{ status: "declined", label: "Decline", icon: ICONS.close, tooltip: DECLINE_TOOLTIP }],
-  shortlisted: [
-    { status: "inUniverse", label: "Back to universe", icon: ICONS.globe },
-    { status: "declined", label: "Decline", icon: ICONS.close, tooltip: DECLINE_TOOLTIP },
-  ],
   declined: [{ status: "inUniverse", label: "Back to universe", icon: ICONS.globe }],
 };
 
