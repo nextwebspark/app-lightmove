@@ -10,8 +10,12 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.regex.Pattern;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.http.client.support.HttpRequestWrapper;
@@ -19,6 +23,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
+import tools.jackson.databind.JsonNode;
 
 /**
  * Builds every paid-API client: timeouts on both ends, the key, the correlation id, and every non-2xx
@@ -31,7 +36,8 @@ import org.springframework.web.util.UriUtils;
 @Component
 public class VendorClientFactory {
 
-    private static final int MAX_ERROR_BODY_BYTES = 16 * 1024;
+    private static final List<String> REQUEST_ID_HEADERS = List.of("request-id", "x-request-id");
+    private static final Pattern REQUEST_ID = Pattern.compile("[A-Za-z0-9-]{1,80}");
 
     private final ResilienceSettings settings;
 
@@ -67,15 +73,42 @@ public class VendorClientFactory {
                     return execution.execute(withQueryToken(spec, request), body);
                 })
                 .defaultStatusHandler(HttpStatusCode::isError, (request, response) -> {
-                    throw new VendorResponseFailure(VendorFailureKind.of(response.getStatusCode()),
-                            VendorErrorCodes.codeOrNull(errorBodyOrNull(response)));
+                    throw failureOf(response);
                 })
                 .build();
     }
 
+    /**
+     * A refusal with no code in its body is described by its shape, content type and the vendor's request id, so a
+     * 400 that is not the vendor's own answer — a gateway's page, an empty reply — still reads as what it was.
+     */
+    private static VendorResponseFailure failureOf(ClientHttpResponse response) throws IOException {
+        VendorFailureKind kind = VendorFailureKind.of(response.getStatusCode());
+        byte[] body = errorBodyOrNull(response);
+        JsonNode json = VendorErrorCodes.jsonOrNull(body);
+        String code = VendorErrorCodes.codeOrNull(json);
+        if (code != null) {
+            return new VendorResponseFailure(kind, code, code);
+        }
+        HttpHeaders headers = response.getHeaders();
+        StringBuilder detail = new StringBuilder("no code; ").append(VendorErrorShape.of(body, json));
+        MediaType contentType = headers.getContentType();
+        if (contentType != null) {
+            detail.append("; ").append(contentType.getType()).append('/').append(contentType.getSubtype());
+        }
+        for (String requestIdHeader : REQUEST_ID_HEADERS) {
+            String requestId = headers.getFirst(requestIdHeader);
+            if (requestId != null && REQUEST_ID.matcher(requestId).matches()) {
+                detail.append("; ").append(requestIdHeader).append(' ').append(requestId);
+                break;
+            }
+        }
+        return new VendorResponseFailure(kind, null, detail.toString());
+    }
+
     private static byte[] errorBodyOrNull(ClientHttpResponse response) {
         try (InputStream body = response.getBody()) {
-            return body.readNBytes(MAX_ERROR_BODY_BYTES);
+            return body.readNBytes(VendorErrorCodes.MAX_ERROR_BODY_BYTES);
         } catch (IOException unreadable) {
             return null;
         }
