@@ -1,6 +1,8 @@
 package app.lightmove.api.core.security.service;
 
-import app.lightmove.api.common.time.service.RegionZones;
+import app.lightmove.api.common.time.constant.DateFormatStyle;
+import app.lightmove.api.common.time.constant.TimeFormatStyle;
+import app.lightmove.api.common.time.service.StandardTimeZones;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -10,6 +12,7 @@ import app.lightmove.api.core.security.model.TimezoneChanged;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -46,21 +49,31 @@ public class UserProfileService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
 
         String previousTimezone = user.getTimezone();
-        String timezone = command.timezone().trim();
-        boolean isMoved = !previousTimezone.equals(timezone);
+        String timezone = command.timezone() == null || command.timezone().isBlank() ? null : command.timezone().trim();
+        boolean isMoved = !Objects.equals(previousTimezone, timezone);
+        DateFormatStyle previousDateFormat = user.getDateFormat();
+        TimeFormatStyle previousTimeFormat = user.getTimeFormat();
         user.setFullName(command.fullName().trim());
         user.setTitle(normaliseTitle(command.title()));
-        user.setTimezone(isMoved ? requireRegionZone(timezone) : timezone);
+        user.setTimezone(isMoved ? requireOfferedZone(timezone) : timezone);
+        user.setDateFormat(command.dateFormat());
+        user.setTimeFormat(command.timeFormat());
         user.setLocale(requireSupportedLocale(command.locale()));
 
+        boolean isDateFormatMoved = previousDateFormat != user.getDateFormat();
+        boolean isTimeFormatMoved = previousTimeFormat != user.getTimeFormat();
         audit.event(AuthEventType.PROFILE_UPDATED)
                 .actor(actorId).workspace(workspaceId).from(request)
                 .detail("fullName", user.getFullName())
-                .detailIfPresent("timezoneFrom", isMoved ? previousTimezone : null)
-                .detailIfPresent("timezoneTo", isMoved ? user.getTimezone() : null)
+                .detailIfPresent("timezoneFrom", isMoved ? orWorkspace(previousTimezone) : null)
+                .detailIfPresent("timezoneTo", isMoved ? orWorkspace(user.getTimezone()) : null)
+                .detailIfPresent("dateFormatFrom", isDateFormatMoved ? orWorkspace(previousDateFormat) : null)
+                .detailIfPresent("dateFormatTo", isDateFormatMoved ? orWorkspace(user.getDateFormat()) : null)
+                .detailIfPresent("timeFormatFrom", isTimeFormatMoved ? orWorkspace(previousTimeFormat) : null)
+                .detailIfPresent("timeFormatTo", isTimeFormatMoved ? orWorkspace(user.getTimeFormat()) : null)
                 .record();
         if (isMoved) {
-            events.publishEvent(new TimezoneChanged(actorId, user.zone()));
+            events.publishEvent(new TimezoneChanged(actorId));
         }
 
         return user;
@@ -74,12 +87,18 @@ public class UserProfileService {
         return title.trim();
     }
 
+    /** What the audit line says for a choice left to the workspace. */
+    private static String orWorkspace(Object choice) {
+        return choice == null ? "workspace" : choice.toString();
+    }
+
     /**
-     * Asked of a new choice only: a zone saved before the rule (one the old check took, like {@code US/Pacific}) still
-     * saves unchanged with the rest of the profile, and still reads correctly.
+     * Asked of a new choice only: a zone saved before the fixed list (one an older check took, like {@code US/Pacific}
+     * or {@code Asia/Tashkent}) still saves unchanged with the rest of the profile, and still reads correctly. Going
+     * back to the workspace's is always allowed.
      */
-    private static String requireRegionZone(String timezone) {
-        if (!RegionZones.isRegionZone(timezone)) {
+    private static String requireOfferedZone(String timezone) {
+        if (timezone != null && !StandardTimeZones.isOffered(timezone)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "timezone",
                     "Pick a timezone from the list");
         }

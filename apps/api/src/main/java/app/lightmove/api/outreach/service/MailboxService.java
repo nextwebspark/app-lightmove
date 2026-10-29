@@ -10,7 +10,6 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.TimezoneChanged;
-import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageKind;
@@ -19,8 +18,8 @@ import app.lightmove.api.outreach.dto.ConnectedMailboxResponse;
 import app.lightmove.api.outreach.dto.MailboxResponse;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxAuthorization;
-import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnectStart;
+import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.RecallCalendarReleased;
@@ -29,6 +28,8 @@ import app.lightmove.api.outreach.repository.MailboxAuthorizationRepository;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
+import app.lightmove.api.workspace.model.WorkspaceDateTimeChanged;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +79,7 @@ public class MailboxService {
     private final MailboxTokens tokens;
     private final SecretCipher cipher;
     private final LightMoveProperties properties;
-    private final UserTimezones timezones;
+    private final DateTimePreferenceService timezones;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -105,13 +106,25 @@ public class MailboxService {
     }
 
     /**
-     * A person's clock is their profile's (V148): every mailbox they hold, one per workspace, sends and caps by it. Sends
-     * already due keep their time; the window and the cap read the new zone from the next one.
+     * A person's clock is their own choice, else their workspace's (V148, V160): every mailbox they hold, one per
+     * workspace, sends and caps by it there. Sends already due keep their time; the window and the cap read the new
+     * zone from the next one.
      */
     @EventListener
     @Transactional(propagation = Propagation.MANDATORY)
     public void onTimezoneChanged(TimezoneChanged changed) {
-        connections.findByUserId(changed.userId()).forEach(connection -> connection.changeTimeZone(changed.zone()));
+        connections.findByUserId(changed.userId()).forEach(this::followClock);
+    }
+
+    /** The workspace's zone moved: every member's mailbox there reads its owner's clock again, a follower's moving. */
+    @EventListener
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void onWorkspaceDateTimeChanged(WorkspaceDateTimeChanged changed) {
+        connections.findByWorkspaceId(changed.workspaceId()).forEach(this::followClock);
+    }
+
+    private void followClock(MailboxConnection connection) {
+        connection.changeTimeZone(timezones.zoneOf(connection.getWorkspaceId(), connection.getUserId()));
     }
 
     /** Any attempt the caller left unfinished is dropped, so only the newest consent screen can connect. */
@@ -243,7 +256,7 @@ public class MailboxService {
                 .orElseGet(() -> {
                     MailboxConnection connected = connections.save(MailboxConnection.connected(
                             started.getWorkspaceId(), started.getUserId(), granted, refreshTokenEncrypted,
-                            settings().dailyCap(), timezones.zoneOf(started.getUserId()), now));
+                            settings().dailyCap(), timezones.zoneOf(started.getWorkspaceId(), started.getUserId()), now));
                     events.publishEvent(new MailboxConnected(connected.getId()));
                     return null;
                 });

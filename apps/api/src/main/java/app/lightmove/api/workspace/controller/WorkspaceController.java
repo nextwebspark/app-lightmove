@@ -1,15 +1,20 @@
 package app.lightmove.api.workspace.controller;
 
+import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.common.time.service.CountryTimeZones;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
+import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceCalendarSyncRequest;
+import app.lightmove.api.workspace.dto.UpdateWorkspaceDateTimeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceModeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceCompanyResponse;
+import app.lightmove.api.workspace.dto.WorkspaceDateTimeResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;
@@ -85,6 +90,16 @@ public class WorkspaceController {
                 principal.userId(), principal.requireWorkspaceId(), request.calendarSync(), httpRequest));
     }
 
+    @PutMapping("/date-time")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse changeDateTime(@AuthenticationPrincipal AuthPrincipal principal,
+                                            @Valid @RequestBody UpdateWorkspaceDateTimeRequest request,
+                                            HttpServletRequest httpRequest) {
+        return toResponse(settings.changeDateTime(principal.userId(), principal.requireWorkspaceId(),
+                SuppliedText.collapseWhitespaceToNull(request.timeZone()), request.dateFormat(), request.timeFormat(),
+                httpRequest));
+    }
+
     @DeleteMapping
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -101,6 +116,14 @@ public class WorkspaceController {
                 ws.getEmailDomain(), ws.getMode(), ws.getCalendarSync(), ws.getDefaultRegion(),
                 ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
-                WorkspaceCompanyResponse.of(ws.getCompany()));
+                WorkspaceCompanyResponse.of(ws.getCompany()), dateTimeOf(detail));
+    }
+
+    private static WorkspaceDateTimeResponse dateTimeOf(WorkspaceDetail detail) {
+        Workspace ws = detail.workspace();
+        String suggestedZone = detail.suggestedDateTime().zone().getId();
+        boolean isCountrys = CountryTimeZones.zoneOf(ws.getCompanyCountry()).isPresent();
+        return new WorkspaceDateTimeResponse(ws.getTimeZone(), ws.getDateFormat(), ws.getTimeFormat(), suggestedZone,
+                isCountrys ? Countries.nameOf(ws.getCompanyCountry()) : null, detail.membersFollowingDateTime());
     }
 }

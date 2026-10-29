@@ -15,7 +15,6 @@ import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.security.service.UserTimezones;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.notetaker.constant.CallSuggestionStatus;
 import app.lightmove.api.notetaker.constant.NotetakerJoin;
@@ -33,6 +32,7 @@ import app.lightmove.api.notetaker.repository.MeetingLiveLineRepository;
 import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.outreach.model.KeptMeeting;
 import app.lightmove.api.outreach.service.KeptMeetings;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -93,7 +93,7 @@ public class NotetakerService {
     private final KeptMeetings meetings;
     private final CandidateOutreachService people;
     private final UserRepository users;
-    private final UserTimezones timezones;
+    private final DateTimePreferenceService timezones;
     private final AuditService audit;
     private final TransactionTemplate transactions;
     private final ApplicationEventPublisher events;
@@ -111,7 +111,7 @@ public class NotetakerService {
         if (!recall.isOffered() || recipient.doNotContact()) {
             return new CandidateNotetakerResponse(recall.isOffered(), rows, List.of(), List.of());
         }
-        ZoneId zone = timezones.zoneOf(userId);
+        ZoneId zone = timezones.zoneOf(workspaceId, userId);
         List<KeptMeeting> calls = meetings.ofPerson(workspaceId, recipient.personId());
         List<KeptMeeting> recordable = calls.stream()
                 .filter(meeting -> joinableOrNull(meeting.joinUrl()) != null

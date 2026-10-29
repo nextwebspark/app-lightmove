@@ -11,17 +11,18 @@ import app.lightmove.api.billing.plan.model.BillingManager;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.billing.plan.service.BillingWorkspaces;
+import app.lightmove.api.common.time.model.DateTimePreferences;
+import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.render.EmailAction;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -48,9 +49,6 @@ public class BillingNotices {
     /** How far back an ended trial is still announced, so a job missed for a day or two catches up. */
     static final Duration TRIAL_ENDED_LOOKBACK = Duration.ofDays(3);
 
-    private static final DateTimeFormatter DATE =
-            DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH).withZone(ZoneOffset.UTC);
-
     private final BillingWorkspaces workspaces;
     private final WorkspaceSubscriptionRepository subscriptions;
     private final CreditGrantRepository grants;
@@ -60,11 +58,12 @@ public class BillingNotices {
     private final BillingNoticeClaims claims;
     private final LightMoveProperties properties;
     private final Clock clock;
+    private final DateTimePreferenceService dateTimePreferences;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onThresholdCrossed(ContactCreditThresholdCrossed crossed) {
-        String resetsOn = DATE.format(crossed.resetsAt());
+        String resetsOn = dateIn(crossed.workspaceId(), crossed.resetsAt());
         EmailAction moreCredits = moreCreditsFor(crossed.workspaceId());
         String workspaceName = workspaces.nameOf(crossed.workspaceId());
         sendToManagers(crossed.workspaceId(), manager -> crossed.level() == ContactCreditLevel.OUT
@@ -110,7 +109,7 @@ public class BillingNotices {
             return false;
         }
         String workspaceName = workspaces.nameOf(grant.getWorkspaceId());
-        String expiresOn = DATE.format(grant.getExpiresAt());
+        String expiresOn = dateIn(grant.getWorkspaceId(), grant.getExpiresAt());
         sendToManagers(grant.getWorkspaceId(), manager -> templates.buildPurchasedCreditsExpiringEmail(
                 manager.email(), manager.fullName(), workspaceName, grant.getRemaining(), expiresOn, billingLink()));
         return true;
@@ -141,7 +140,7 @@ public class BillingNotices {
                 return false;
             }
             String workspaceName = workspaces.nameOf(workspaceId);
-            String endsOn = DATE.format(trial.getTrialEndsAt());
+            String endsOn = dateIn(workspaceId, trial.getTrialEndsAt());
             sendToManagers(workspaceId, manager -> kind == BillingNoticeKind.TRIAL_ENDING
                     ? templates.buildTrialEndingEmail(manager.email(), manager.fullName(), workspaceName, endsOn,
                             billingLink())
@@ -158,6 +157,13 @@ public class BillingNotices {
      * A card customer buys more in Settings → Billing, as does a trial, by choosing a plan; an invoiced one asks
      * Uncava, as the page says.
      */
+    /** In the workspace's date format, but on UTC's calendar: billing months and expiries run in UTC. */
+    private String dateIn(UUID workspaceId, Instant moment) {
+        DateTimePreferences workspace = dateTimePreferences.workspaceDefaultsOf(workspaceId);
+        return DateTimeFormats.of(new DateTimePreferences(ZoneOffset.UTC, workspace.dateFormat(),
+                workspace.timeFormat())).date(moment);
+    }
+
     private EmailAction moreCreditsFor(UUID workspaceId) {
         Optional<WorkspaceSubscription> subscription = subscriptions.findByWorkspaceId(workspaceId);
         if (gateway.isOffered() && subscription.map(WorkspaceSubscription::isAppTrial).orElse(false)) {

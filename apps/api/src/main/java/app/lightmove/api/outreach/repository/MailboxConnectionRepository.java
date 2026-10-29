@@ -19,6 +19,8 @@ public interface MailboxConnectionRepository extends JpaRepository<MailboxConnec
     /** One person's mailboxes in every workspace they belong to; only their own profile's clock reads across them. */
     List<MailboxConnection> findByUserId(UUID userId);
 
+    List<MailboxConnection> findByWorkspaceId(UUID workspaceId);
+
     /**
      * The one finder without a workspace: a mail service's webhook names a grant and nothing else, and
      * a grant is only ever handed to the person who connected it. A list, because one mailbox connected

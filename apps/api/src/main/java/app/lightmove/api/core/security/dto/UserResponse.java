@@ -21,8 +21,11 @@ public record UserResponse(
          */
         boolean hasPassword,
 
-        /** IANA zone id — the app formats dates in it. Defaults to Asia/Dubai until the user says otherwise. */
+        /** IANA zone id the app formats dates in: the user's own, else the workspace's ({@link #dateTime}'s effective). */
         String timezone,
+
+        /** The time zone and formats every date reads in, and the own and workspace choices they are settled from. */
+        UserDateTimeResponse dateTime,
 
         /** The language tag the user picked in Settings → Profile. Stored ahead of the app being translated. */
         String locale,

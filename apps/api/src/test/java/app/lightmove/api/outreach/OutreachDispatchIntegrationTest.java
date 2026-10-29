@@ -315,16 +315,16 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the window is read in the consultant's profile zone, which only a region's zone can be, and is audited")
+    @DisplayName("the window is read in the consultant's profile zone, which only a listed zone can be, and is audited")
     void theWindowIsReadInTheSendersZone() throws Exception {
-        for (String refused : List.of("Mars/Olympus", "EST", "SystemV/AST4")) {
+        for (String refused : List.of("Mars/Olympus", "EST", "SystemV/AST4", "Asia/Tashkent")) {
             as(consultant, profileIn(refused)).andExpect(status().isBadRequest());
         }
         as(consultant, profileIn("Europe/London")).andExpect(status().isOk());
         JsonNode mailbox = body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn());
         assertThat(mailbox.get("connection").get("timeZone").asText()).isEqualTo("Europe/London");
         assertThat(jdbc.queryForObject("select count(*) from app_lm_audit_event where event_type = "
-                + "'PROFILE_UPDATED' and metadata ->> 'timezoneFrom' = 'Asia/Dubai' and metadata ->> 'timezoneTo' = "
+                + "'PROFILE_UPDATED' and metadata ->> 'timezoneFrom' = 'workspace' and metadata ->> 'timezoneTo' = "
                 + "'Europe/London' and workspace_id = (select workspace_id from app_lm_project where id = ?::uuid)",
                 Integer.class, projectId)).isEqualTo(1);
 
@@ -918,6 +918,32 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         mvc.perform(get("/api/v1/outreach/mailbox/callback").param("state", state).param("code", "code-1")
                         .cookie(cookie))
                 .andExpect(status().isFound());
+    }
+
+    @Test
+    @DisplayName("a consultant following the workspace's zone sends by it when an admin moves it; one with their own does not")
+    void theWindowFollowsTheWorkspaceZoneUntilTheConsultantChoosesTheirOwn() throws Exception {
+        as(consultant, workspaceZone("Europe/London")).andExpect(status().isOk());
+        assertThat(mailboxZone()).isEqualTo("Europe/London");
+
+        as(consultant, profileIn("Asia/Dubai")).andExpect(status().isOk());
+        as(consultant, workspaceZone("Asia/Tokyo")).andExpect(status().isOk());
+        assertThat(mailboxZone()).isEqualTo("Asia/Dubai");
+
+        as(consultant, patch("/api/v1/auth/me").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"fullName\":\"Yara Haddad\",\"title\":null,\"timezone\":null,\"locale\":\"en\"}"))
+                .andExpect(status().isOk());
+        assertThat(mailboxZone()).isEqualTo("Asia/Tokyo");
+    }
+
+    private String mailboxZone() throws Exception {
+        return body(as(consultant, get("/api/v1/outreach/mailbox")).andExpect(status().isOk()).andReturn())
+                .get("connection").get("timeZone").asText();
+    }
+
+    private MockHttpServletRequestBuilder workspaceZone(String timeZone) {
+        return put("/api/v1/workspace/date-time").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"timeZone\":\"%s\"}".formatted(timeZone));
     }
 
     private MockHttpServletRequestBuilder profileIn(String timezone) {

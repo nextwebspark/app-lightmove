@@ -13,6 +13,7 @@ import app.lightmove.api.candidate.service.CandidateCallUpdates;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.common.constant.NoticePeriod;
 import app.lightmove.api.common.location.service.Countries;
+import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -36,12 +37,11 @@ import app.lightmove.api.notetaker.repository.MeetingRecordingRepository;
 import app.lightmove.api.task.dto.CreateTaskRequest;
 import app.lightmove.api.task.model.Task;
 import app.lightmove.api.task.service.TaskService;
+import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Currency;
 import java.util.EnumMap;
@@ -84,8 +84,6 @@ public class CallSuggestionService {
     private static final Set<CallSuggestionKind> PROFILE_KINDS = EnumSet.of(CallSuggestionKind.NOTICE_PERIOD,
             CallSuggestionKind.CURRENT_PACKAGE, CallSuggestionKind.LOCATION);
     private static final Duration TASK_DUE_AFTER = Duration.ofDays(1);
-    private static final DateTimeFormatter CALL_DATE = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
-            .withZone(ZoneOffset.UTC);
 
     private final MeetingRecordingRepository recordings;
     private final CandidateOutreachService people;
@@ -99,6 +97,7 @@ public class CallSuggestionService {
     private final UserRepository users;
     private final TransactionTemplate transactions;
     private final Clock clock;
+    private final DateTimePreferenceService dateTimePreferences;
 
     @Transactional(readOnly = true)
     public CallSuggestionsResponse read(UUID workspaceId, UUID projectId, UUID candidateId, UUID recordingId) {
@@ -343,11 +342,12 @@ public class CallSuggestionService {
         List<ChosenChange> taskChanges = chosen.stream()
                 .filter(each -> each.suggestion().kind() == CallSuggestionKind.TASK).toList();
         Instant now = clock.instant();
+        String callDate = DateTimeFormats.of(dateTimePreferences.workspaceDefaultsOf(workspaceId)).date(call.startsAt());
         for (ChosenChange task : taskChanges) {
             tasks.create(userId, workspaceId, projectId, candidateId,
                     new CreateTaskRequest(task.value().text(), "follow_up", userId, now.plus(TASK_DUE_AFTER),
                             "From the call: " + Objects.toString(call.title(), "recorded call") + " · "
-                                    + CALL_DATE.format(call.startsAt()), null, null),
+                                    + callDate, null, null),
                     httpRequest);
         }
         if (!taskChanges.isEmpty()) {
